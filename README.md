@@ -1,2 +1,2 @@
 # pydwd
-Python Functions for download of Weatherdata from German Weatherservice (DWD)
+Python Functions for Accessing Weatherdata from German Weatherservice (DWD)
