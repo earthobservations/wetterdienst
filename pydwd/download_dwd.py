@@ -5,9 +5,9 @@ import pydwd_functions
 
 
 """
-#####################
-### download_data ###
-#####################
+################################
+### Function 'download_data' ###
+################################
 This function is used to download the stationdata for which the link is
 provided by the 'select_dwd' function. It checks the shortened filepath (just
 the zipfile) for its parameters, creates the full filepath and downloads the
@@ -49,11 +49,12 @@ def download_data(files, folder="./dwd_data"):
                 # the parameters and the path
                 file_server = "/{}/{}/{}/{}/{}".format(
                     path, res, var, per, file)
+
                 # The local filename consists of the set of parameters (easier
                 # to analyse when looking at the filename) and the original
-                file
                 file_local = "{}_{}_{}_{}".format(
                     var, res, per, file.split("/")[-1])
+
                 # Then the local path is added to the file
                 file_local = "{}/{}/{}".format(folder,
                                                "stationdata",
