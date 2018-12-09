@@ -3,7 +3,7 @@ import os
 from .classes import FTP
 from .functions import correct_folder_path, create_dwd_folder, determine_type
 
-import credentials
+from .credentials import SERVER, PATH
 
 """
 ################################
@@ -21,8 +21,8 @@ def download_data(files, folder="./dwd_data"):
     folder = correct_folder_path(folder)
 
     # Get server information for the ftp download function
-    server = credentials.SERVER
-    path = credentials.PATH
+    server = SERVER
+    path = PATH
 
     # Check the files input for its type (should be list)
     if not isinstance(files, list):
