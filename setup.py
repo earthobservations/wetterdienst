@@ -1,11 +1,12 @@
 from setuptools import setup
+from .pydwd import __version__
 
 with open("README.md", 'r') as f:
     long_description = f.read()
 
 setup(
     name='pydwd',
-    version=0.1,
+    version=__version__,
     description='A module for accessing data from german weather service',
     license='MIT',
     long_description=long_description,
