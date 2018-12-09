@@ -1,5 +1,5 @@
 from setuptools import setup
-from .pydwd import __version__
+from pydwd import __version__
 
 with open("README.md", 'r') as f:
     long_description = f.read()
