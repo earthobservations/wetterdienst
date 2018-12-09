@@ -1,8 +1,9 @@
 import pandas as pd
 
-from .functions import check_dwd_structure, get_dwd_credentials
-from .functions import correct_folder_path, create_dwd_folder, remove_dwdfile
 from .classes import FTP
+from .functions import check_dwd_structure, correct_folder_path, create_dwd_folder, remove_dwdfile
+
+import credentials
 
 """
 ################################
@@ -18,7 +19,8 @@ def get_metaindex(var,
     check_dwd_structure(var=var, res=res, per=per)
 
     # Get server and path from dwd
-    server, path, user, password = get_dwd_credentials()
+    server = credentials.SERVER
+    path = credentials.PATH
 
     # Try downloading metadata file under given local link
     try:
