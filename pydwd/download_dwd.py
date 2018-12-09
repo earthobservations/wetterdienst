@@ -1,9 +1,9 @@
 import os
 
-from .functions import correct_folder_path, get_dwd_credentials
-from .functions import create_dwd_folder, determine_type
 from .classes import FTP
+from .functions import correct_folder_path, create_dwd_folder, determine_type
 
+import credentials
 
 """
 ################################
@@ -21,7 +21,8 @@ def download_data(files, folder="./dwd_data"):
     folder = correct_folder_path(folder)
 
     # Get server information for the ftp download function
-    server, path, user, password = get_dwd_credentials()
+    server = credentials.SERVER
+    path = credentials.PATH
 
     # Check the files input for its type (should be list)
     if not isinstance(files, list):
@@ -79,7 +80,7 @@ def download_data(files, folder="./dwd_data"):
                 # Print a statement according to the empty filename
                 print("Empty file is skipped.")
 
-        return(files_local)
+        return files_local
 
     # If anything goes wrong in between every file in the respective folder is
     # deleted. This should prevent a chunk of file from not being run
@@ -103,7 +104,7 @@ def download_data(files, folder="./dwd_data"):
 
         # In the end raise an error naming the files that couldn't be loaded.
         raise NameError(
-            "One of the files\n {} \n couldn't be downloaded. Check!".format(
+            "One of the files\n {} \n couldn't be downloaded!".format(
                 "\n".join(files)))
 
-    return(None)
+    return None
