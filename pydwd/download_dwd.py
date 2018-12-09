@@ -1,7 +1,8 @@
-from ftputil import FTPHost as FTP
 import os
 
-import pydwd_functions
+from .functions import correct_folder_path, get_dwd_credentials
+from .functions import create_dwd_folder, determine_type
+from .classes import FTP
 
 
 """
@@ -17,22 +18,21 @@ file(s) according to the set up folder.
 
 def download_data(files, folder="./dwd_data"):
     # Correct possible slashes at the end
-    folder = pydwd_functions.correct_folder_path(folder)
+    folder = correct_folder_path(folder)
 
     # Get server information for the ftp download function
-    server, path, user, password = pydwd_functions.get_dwd_credentials()
+    server, path, user, password = get_dwd_credentials()
 
     # Check the files input for its type (should be list)
     if not isinstance(files, list):
         raise NameError("The 'files' argument is not a list.")
 
     # Create folder for storing the downloaded data
-    pydwd_functions.create_dwd_folder(
-        subfolder="stationdata", folder=folder)
+    create_dwd_folder(subfolder="stationdata", folder=folder)
 
     # Determine var, res and per from first filename (needed for creating full
     # filepath)
-    var, res, per = pydwd_functions.determine_type(files[0])
+    var, res, per = determine_type(files[0])
 
     # Try to download the corresponding file to the folder
     try:
@@ -61,16 +61,26 @@ def download_data(files, folder="./dwd_data"):
                                                file_local)
                 # This final local path is stored in the list
                 files_local.append(file_local)
+
+                # Open connection with ftp server
+                ftp = FTP(server)
+
+                # Login
+                ftp.login()
+
                 # Now the download happens with the filepath to the server and
                 # the local path
-                FTP(server, user, password).download(
-                    source=file_server,
-                    target=file_local)
+                ftp.download(filepath_server=file_server,
+                             filepath_local=file_local)
+
+                # Close
+                ftp.close()
             else:
                 # Print a statement according to the empty filename
                 print("Empty file is skipped.")
 
         return(files_local)
+
     # If anything goes wrong in between every file in the respective folder is
     # deleted. This should prevent a chunk of file from not being run
     # completely and instead should throw an error.
