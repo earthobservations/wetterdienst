@@ -10,7 +10,7 @@ def correct_folder_path(folder):
     if folder[-1] == "/":
         folder = folder[:-1]
 
-    return(folder)
+    return folder
 
 
 """
@@ -28,9 +28,9 @@ def remove_dwdfile(file_type, var, res, per, folder):
     try:
         os.remove(metainfo_to_remove)
     except Exception:
-        return(None)
+        return None
 
-    return(None)
+    return None
 
 
 """
@@ -52,22 +52,7 @@ def create_dwd_folder(subfolder, folder):
         raise NameError(
             "Folder couldn't be created at {} !".format(path_to_create))
 
-    return(None)
-
-
-"""
-Return main link and path to files section from DWD
-"""
-
-
-def get_dwd_credentials():
-    server = "ftp-cdc.dwd.de"
-    path = "pub/CDC/observations_germany/climate"
-
-    user = "anonymous"
-    password = ""
-
-    return(server, path, user, password)
+    return None
 
 
 """
@@ -189,7 +174,7 @@ def determine_type(filename):
     if per is None:
         raise NameError("Timestamp couldn't be determined.")
 
-    return(var, res, per)
+    return var, res, per
 
 
 # """
@@ -272,9 +257,9 @@ def check_dwd_structure(var, res, per):
             "Combination of res='{}', var='{}' and per='{}' not available".
             format(res, var, per))
 
-    return(None)
+    return None
 
 
 def get_dwd_link(var, res, per):
     check_dwd_structure(var, res, per)
-    return("/{}/{}/{}/".format(res, var, per))
+    return "/{}/{}/{}/".format(res, var, per)
