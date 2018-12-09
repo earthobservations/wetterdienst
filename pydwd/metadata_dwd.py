@@ -1,31 +1,50 @@
 import pandas as pd
-from ftputil import FTPHost as FTP
 
-import pydwd_functions
+from .functions import check_dwd_structure, get_dwd_credentials
+from .functions import correct_folder_path, create_dwd_folder, remove_dwdfile
+from .classes import FTP
+
+"""
+################################
+### Function 'get_metaindex' ###
+################################
+"""
 
 
 def get_metaindex(var,
                   res,
                   per):
     # Check for combination of parameters
-    pydwd_functions.check_dwd_structure(var=var, res=res, per=per)
+    check_dwd_structure(var=var, res=res, per=per)
 
     # Get server and path from dwd
-    server, path, user, password = pydwd_functions.get_dwd_credentials()
+    server, path, user, password = get_dwd_credentials()
 
     # Try downloading metadata file under given local link
     try:
+        # Open connection with ftp server
+        ftp = FTP(server)
+
+        # Login
+        ftp.login()
+
         # Establish connection with server
-        files_server = FTP(server, user, password).walk(
-            "/{}/{}/{}/{}".format(path, res, var, per))
+        files_server = ftp.walk(path="{}/{}/{}/{}".format(path, res, var, per))
+
+        # Close connection with ftp server
+        ftp.close()
+
+    # If there's a problem with the connection throw an error
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
 
-    files_server = [file for root, dir, file in files_server]
+    files_server = [file
+                    for dir, filelist in files_server
+                    for file in filelist]
 
     # Select metadata filename from server
     metafile_server = [
-        file for file in files_server[0]
+        file for file in files_server
         if ".txt" in file and "beschreibung" in file.lower()]
 
     metafile_server = metafile_server[0]
@@ -35,16 +54,24 @@ def get_metaindex(var,
         path, res, var, per, metafile_server)
 
     try:
+        # Open connection with ftp server
+        ftp = FTP(server)
+
+        # Login
+        ftp.login()
+
         # Download file into folder path
-        metafile_raw = FTP(server, user, password).open(
-            metafile_server_path, mode="r").readlines()
+        metafile_raw = ftp.readlines(metafile_server_path)
+
+        # Close connection with ftp server
+        ftp.close()
 
     # If not possible raise an error
     except Exception:
         raise NameError(
             "Reading metadata file currently is not possible. Try again!")
 
-    return(metafile_raw)
+    return metafile_raw
 
 
 def fix_metadata(metafile_raw):
@@ -89,7 +116,7 @@ def fix_metadata(metafile_raw):
     metafile_df.iloc[:, 2] = pd.to_datetime(
         metafile_df.iloc[:, 2], format="%Y%m%d")
 
-    return(metafile_df)
+    return metafile_df
 
 
 def metadata_dwd(var,
@@ -98,10 +125,10 @@ def metadata_dwd(var,
                  folder="./dwd_data",
                  write_file=True):
     # Check for the combination of requested parameters
-    pydwd_functions.check_dwd_structure(var=var, res=res, per=per)
+    check_dwd_structure(var=var, res=res, per=per)
 
     # Correct folder so that it doesn't end with slash
-    folder = pydwd_functions.correct_folder_path(folder)
+    folder = correct_folder_path(folder)
 
     # Get new metadata as unformated file
     metadata_raw = get_metaindex(var=var, res=res, per=per)
@@ -111,7 +138,7 @@ def metadata_dwd(var,
 
     if write_file:
         # Check for folder and create if necessary
-        pydwd_functions.create_dwd_folder(subfolder="metadata", folder=folder)
+        create_dwd_folder(subfolder="metadata", folder=folder)
 
         # Create filename for metafile
         metafile_local = "metadata_{}_{}_{}".format(var, res, per)
@@ -123,10 +150,10 @@ def metadata_dwd(var,
                                                   ".csv")
 
         # Check for possible old files and remove them
-        pydwd_functions.remove_dwdfile(
+        remove_dwdfile(
             file_type="metadata", var=var, res=res, per=per, folder=folder)
 
         pd.DataFrame.to_csv(metainfo, metafile_local_path, header=True,
                             index=False)
 
-    return(metainfo)
+    return metainfo
