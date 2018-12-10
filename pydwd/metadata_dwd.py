@@ -22,10 +22,10 @@ def metadata_dwd(var,
     folder = _correct_folder_path(folder)
 
     # Get new metadata as unformated file
-    metadata_raw = _create_metaindex(var=var, res=res, per=per)
+    metaindex = _create_metaindex(var=var, res=res, per=per)
 
     # Format raw metadata, remove old file (and replace it with formatted)
-    metainfo = _fix_metaindex(metadata_raw)
+    metainfo = _fix_metaindex(metaindex)
 
     if write_file:
         # Check for folder and create if necessary
