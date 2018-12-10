@@ -2,8 +2,8 @@ import pandas as pd
 import zipfile
 import datetime as dt
 
-from .additionals.generic_functions import determine_type as _determine_type
-from .additionals.generic_functions import check_dwd_structure as check_dwd_structure
+from additionals.generic_functions import determine_type as _determine_type
+from additionals.generic_functions import check_dwd_structure as check_dwd_structure
 
 
 def read_dwd(files):

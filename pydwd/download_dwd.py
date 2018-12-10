@@ -1,9 +1,12 @@
 import os
 
-from .classes import FTP
-from .functions import correct_folder_path, create_dwd_folder, determine_type
+from additionals.pydwd_classes import FTP
 
-from .credentials import SERVER, PATH
+from additionals.generic_functions import correct_folder_path as _correct_folder_path
+from additionals.generic_functions import create_dwd_folder as _create_dwd_folder
+from additionals.generic_functions import determine_type as _determine_type
+
+from additionals.pydwd_credentials import SERVER, PATH
 
 """
 ################################
@@ -18,7 +21,7 @@ file(s) according to the set up folder.
 
 def download_data(files, folder="./dwd_data"):
     # Correct possible slashes at the end
-    folder = correct_folder_path(folder)
+    folder = _correct_folder_path(folder)
 
     # Get server information for the ftp download function
     server = SERVER
@@ -29,11 +32,11 @@ def download_data(files, folder="./dwd_data"):
         raise NameError("The 'files' argument is not a list.")
 
     # Create folder for storing the downloaded data
-    create_dwd_folder(subfolder="stationdata", folder=folder)
+    _create_dwd_folder(subfolder="stationdata", folder=folder)
 
     # Determine var, res and per from first filename (needed for creating full
     # filepath)
-    var, res, per = determine_type(files[0])
+    var, res, per = _determine_type(files[0])
 
     # Try to download the corresponding file to the folder
     try:
