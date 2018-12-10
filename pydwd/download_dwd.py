@@ -19,7 +19,7 @@ file(s) according to the set up folder.
 """
 
 
-def download_data(files, folder="./dwd_data"):
+def download_dwd(files, folder="./dwd_data"):
     # Correct possible slashes at the end
     folder = _correct_folder_path(folder)
 
