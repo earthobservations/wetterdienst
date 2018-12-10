@@ -2,8 +2,8 @@ import pandas as pd
 import zipfile
 import datetime as dt
 
-from additionals.generic_functions import determine_type as _determine_type
-from additionals.generic_functions import check_dwd_structure as check_dwd_structure
+from .additionals.generic_functions import determine_type as _determine_type
+from .additionals.generic_functions import check_dwd_structure as _check_dwd_structure
 
 
 def read_dwd(files):
@@ -15,7 +15,7 @@ def read_dwd(files):
     var, res, per = _determine_type(files[0].split("/")[-1])
 
     # Check for combination
-    check_dwd_structure(var=var, res=res, per=per)
+    _check_dwd_structure(var=var, res=res, per=per)
 
     # Create empty dataframe to combine several files
     data = []
