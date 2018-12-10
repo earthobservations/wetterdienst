@@ -1,7 +1,7 @@
 import pandas as pd
 
-from .classes import FTP
-from .generic_functions import check_dwd_structure
+from .pydwd_classes import FTP
+from .generic_functions import check_dwd_structure as _check_dwd_structure
 
 from .pydwd_credentials import SERVER, PATH
 
@@ -16,7 +16,7 @@ def create_metaindex(var,
                      res,
                      per):
     # Check for combination of parameters
-    check_dwd_structure(var=var, res=res, per=per)
+    _check_dwd_structure(var=var, res=res, per=per)
 
     # Get server and path from dwd
     server = SERVER
@@ -63,7 +63,7 @@ def create_metaindex(var,
         ftp.login()
 
         # Download file into folder path
-        metafile_raw = ftp.readlines(metafile_server_path)
+        metaindex = ftp.readlines(metafile_server_path)
 
         # Close connection with ftp server
         ftp.close()
@@ -73,7 +73,7 @@ def create_metaindex(var,
         raise NameError(
             "Reading metadata file currently is not possible. Try again!")
 
-    return metafile_raw
+    return metaindex
 
 
 def fix_metaindex(metaindex):
