@@ -258,8 +258,3 @@ def check_dwd_structure(var, res, per):
             format(res, var, per))
 
     return None
-
-
-def get_dwd_link(var, res, per):
-    check_dwd_structure(var, res, per)
-    return "/{}/{}/{}/".format(res, var, per)
