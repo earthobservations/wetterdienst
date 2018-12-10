@@ -1,13 +1,13 @@
 # Imports
 import pandas as pd
 
-from additionals.metadata_functions import create_metaindex as _create_metaindex
-from additionals.metadata_functions import fix_metaindex as _fix_metaindex
+from .additionals.metadata_functions import create_metaindex as _create_metaindex
+from .additionals.metadata_functions import fix_metaindex as _fix_metaindex
 
-from additionals.generic_functions import correct_folder_path as _correct_folder_path
-from additionals.generic_functions import check_dwd_structure as _check_dwd_structure
-from additionals.functions import create_dwd_folder as _create_dwd_folder
-from additionals.functions import remove_dwdfile as _remove_dwdfile
+from .additionals.generic_functions import correct_folder_path as _correct_folder_path
+from .additionals.generic_functions import check_dwd_structure as _check_dwd_structure
+from .additionals.generic_functions import create_dwd_folder as _create_dwd_folder
+from .additionals.generic_functions import remove_dwdfile as _remove_dwdfile
 
 
 def metadata_dwd(var,

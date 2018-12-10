@@ -1,12 +1,12 @@
 import os
 
-from additionals.pydwd_classes import FTP
+from .additionals.pydwd_classes import FTP
 
-from additionals.generic_functions import correct_folder_path as _correct_folder_path
-from additionals.generic_functions import create_dwd_folder as _create_dwd_folder
-from additionals.generic_functions import determine_type as _determine_type
+from .additionals.generic_functions import correct_folder_path as _correct_folder_path
+from .additionals.generic_functions import create_dwd_folder as _create_dwd_folder
+from .additionals.generic_functions import determine_type as _determine_type
 
-from additionals.pydwd_credentials import SERVER, PATH
+from .additionals.pydwd_credentials import SERVER, PATH
 
 """
 ################################
