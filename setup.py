@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from pydwd import __version__
 
 with open("README.md", 'r') as f:
@@ -12,6 +12,6 @@ setup(
     long_description=long_description,
     author='Benjamin Gutzmann',
     author_email='gutzemann@gmail.com',
-    packages=find_packages(),
+    packages=['pydwd', 'pydwd.additionals'],
     install_requires=['pandas']
 )
