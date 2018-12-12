@@ -1,9 +1,9 @@
 import pandas as pd
 
-from .additionals.select_functions import create_fileindex as _create_fileindex
+from .additionals.helpers import create_fileindex as _create_fileindex
 
-from .additionals.generic_functions import check_dwd_structure as _check_dwd_structure
-from .additionals.generic_functions import correct_folder_path as _correct_folder_path
+from .additionals.generic_functions import (check_parameters as _check_parameters,
+                                            correct_folder_path as _correct_folder_path)
 
 """
 Function for selecting datafile for given statid, var, res, per

@@ -15,7 +15,7 @@ and opens a file with 'open' and finally saves the binary there.
 
 
 class FTP(ftplib.FTP):
-
+    # Implement walk function from ftputil library (to reduce number of imports)
     def walk(self, path):
         # First list everything in the path including dirs and files
         ftp_list = list(self.mlsd(path))
@@ -51,6 +51,9 @@ class FTP(ftplib.FTP):
         # Return the list of directories and files
         return ftp_files
 
+    # Implement the readlines function from ftputil to read in data of a file
+    # (which is not zipped) directly into RAM without the need to download the
+    # corresponding file first
     def readlines(self, filepath_server):
         ftp_lines = StringIO()
         self.retrlines("RETR " + filepath_server,
@@ -61,6 +64,9 @@ class FTP(ftplib.FTP):
 
         return ftp_lines
 
+    # Implement a download function which simply takes to paths and builds a
+    # command with the server path ("RETR "...) abd opens another path on the
+    # local drive where the data is written to
     def download(self, filepath_server, filepath_local):
         with open(filepath_local, "wb") as file:
             self.retrbinary("RETR " + filepath_server, file.write)

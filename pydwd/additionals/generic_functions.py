@@ -1,8 +1,11 @@
-# Modules needed for functions
-import os
+# Import modules
+from pathlib import Path
 
 """
-Correct folder if it ends with "/"
+######################################
+### Function 'correct_folder_path' ###
+######################################
+- checks if given folder ends with "/" cuts that off
 """
 
 
@@ -18,7 +21,7 @@ Function to remove old dwd file (metadata)
 """
 
 
-def remove_dwdfile(file_type, var, res, per, folder):
+def remove_old_file(file_type, var, res, per, folder):
     folder = correct_folder_path(folder)
 
     metainfo_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
@@ -26,7 +29,7 @@ def remove_dwdfile(file_type, var, res, per, folder):
 
     # Try to remove the file
     try:
-        os.remove(metainfo_to_remove)
+        Path.unlink(metainfo_to_remove)
     except Exception:
         return None
 
@@ -38,7 +41,7 @@ Function for creating folder structure for saved stationdata
 """
 
 
-def create_dwd_folder(subfolder, folder):
+def create_folder(subfolder, folder):
 
     folder = correct_folder_path(folder)
 
@@ -46,8 +49,8 @@ def create_dwd_folder(subfolder, folder):
 
     # Try to create folder
     try:
-        if not os.path.exists(path_to_create):
-            os.makedirs(path_to_create)
+        if not Path.is_dir(path_to_create):
+            Path.mkdir(path_to_create)
     except Exception:
         raise NameError(
             "Folder couldn't be created at {} !".format(path_to_create))
@@ -61,7 +64,7 @@ Needed for downloading the file and naming it correctly and understandable
 """
 
 
-def determine_type(filename):
+def determine_parameters(filename):
     filename = filename.lower()
 
     # First check for time resolution
@@ -205,9 +208,9 @@ Differs from foldername e.g. air_temperature -> tu
 """
 
 
-def check_dwd_structure(var, res, per):
+def check_parameters(var, res, per):
 
-    dwd_structure = {
+    param_struct = {
         "1_minute":     [["precipitation"],
                          ["historical",
                           "recent",
@@ -250,9 +253,9 @@ def check_dwd_structure(var, res, per):
                           "recent"]]
     }
 
-    dwd_check = dwd_structure.get(res, [[], []])
+    check = param_struct.get(res, [[], []])
 
-    if var not in dwd_check[0] or per not in dwd_check[1]:
+    if var not in check[0] or per not in check[1]:
         raise NameError(
             "Combination of res='{}', var='{}' and per='{}' not available".
             format(res, var, per))
