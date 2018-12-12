@@ -1,4 +1,3 @@
-from .dwd_credentials import SERVER, PATH
 import pandas as pd
 
 from .generic_classes import FTP
@@ -7,6 +6,7 @@ from .generic_functions import (check_parameters as _check_parameters,
                                 create_folder as _create_folder,
                                 remove_old_file as _remove_old_file)
 
+from .dwd_credentials import SERVER, PATH
 
 """
 ################################
@@ -40,7 +40,7 @@ def create_metaindex(var,
 
     files_server = [file
                     for dir, filelist in files_server
-                    for file in filelist]
+                    for file in filelist if dir == '.']
 
     # Select metadata filename from server
     metafile_server = [
@@ -164,9 +164,12 @@ def create_fileindex(var,
         raise Exception()
 
     # Put together dirs and filenames
-    files_server = ["{}/{}".format(root, single_file)
-                    for root, dir, file in files_server
+    files_server = ["{}/{}".format(dir, single_file)
+                    for dir, file in files_server
                     for single_file in file]
+
+    files_server = [file if file[:2] == "./" else file[2:]
+                    for file in files_server]
 
     # Select zip files (which contain the measured data) from server
     filelist = [
