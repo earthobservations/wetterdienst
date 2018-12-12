@@ -17,7 +17,7 @@ def select_dwd(statid,
                folder="./dwd_data",
                create_new_filelist=False):
     # Check for the combination of requested parameters
-    _check_dwd_structure(var=var, res=res, per=per)
+    _check_parameters(var=var, res=res, per=per)
 
     folder = _correct_folder_path(folder)
 
