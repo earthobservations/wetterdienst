@@ -147,7 +147,7 @@ def create_fileindex(var,
                                               filelist_local,
                                               ".csv")
 
-    # Try downloading metadata file under given local link
+    # Try listing files under given path
     try:
         # Open connection with ftp server
         with FTP(server) as ftp:
