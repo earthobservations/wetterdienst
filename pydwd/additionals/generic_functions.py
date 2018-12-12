@@ -49,8 +49,8 @@ def create_folder(subfolder, folder):
 
     # Try to create folder
     try:
-        if not Path.is_dir(path_to_create):
-            Path.mkdir(path_to_create)
+        if not Path(path_to_create).is_dir():
+            Path(path_to_create).mkdir(parents=True)
     except Exception:
         raise NameError(
             "Folder couldn't be created at {} !".format(path_to_create))
