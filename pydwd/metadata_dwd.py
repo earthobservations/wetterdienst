@@ -1,13 +1,13 @@
 # Imports
 import pandas as pd
 
-from .additionals.metadata_functions import create_metaindex as _create_metaindex
-from .additionals.metadata_functions import fix_metaindex as _fix_metaindex
+from .additionals.helpers import (create_metaindex as _create_metaindex,
+                                  fix_metaindex as _fix_metaindex)
 
-from .additionals.generic_functions import correct_folder_path as _correct_folder_path
-from .additionals.generic_functions import check_dwd_structure as _check_dwd_structure
-from .additionals.generic_functions import create_dwd_folder as _create_dwd_folder
-from .additionals.generic_functions import remove_dwdfile as _remove_dwdfile
+from .additionals.generic_functions import (correct_folder_path as _correct_folder_path,
+                                            check_parameters as _check_parameters,
+                                            create_folder as _create_folder,
+                                            remove_old_file as _remove_old_file)
 
 
 def metadata_dwd(var,
@@ -16,7 +16,7 @@ def metadata_dwd(var,
                  folder="./dwd_data",
                  write_file=True):
     # Check for the combination of requested parameters
-    _check_dwd_structure(var=var, res=res, per=per)
+    _check_parameters(var=var, res=res, per=per)
 
     # Correct folder so that it doesn't end with slash
     folder = _correct_folder_path(folder)
@@ -29,7 +29,7 @@ def metadata_dwd(var,
 
     if write_file:
         # Check for folder and create if necessary
-        _create_dwd_folder(subfolder="metadata", folder=folder)
+        _create_folder(subfolder="metadata", folder=folder)
 
         # Create filename for metafile
         metafile_local = "metadata_{}_{}_{}".format(var, res, per)
@@ -41,7 +41,7 @@ def metadata_dwd(var,
                                                   ".csv")
 
         # Check for possible old files and remove them
-        _remove_dwdfile(
+        _remove_old_file(
             file_type="metadata", var=var, res=res, per=per, folder=folder)
 
         pd.DataFrame.to_csv(metainfo, metafile_local_path, header=True,
