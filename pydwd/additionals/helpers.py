@@ -72,7 +72,11 @@ def create_metaindex(var,
 
 def fix_metaindex(metaindex):
     # Remove first two lines of data (header plus underline ----)
+    # Also last line (if empty)
     metaindex = metaindex[2:]
+
+    if metaindex[-1] == '':
+        metaindex = metaindex[:-1]
 
     file_format = []
 
