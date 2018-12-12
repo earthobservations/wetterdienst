@@ -168,31 +168,12 @@ def create_fileindex(var,
                     for dir, file in files_server
                     for single_file in file]
 
-    files_server = [file if file[:2] == "./" else file[2:]
+    files_server = [file if file[:2] != "./" else file[2:]
                     for file in files_server]
 
     # Select zip files (which contain the measured data) from server
     filelist = [
         file for file in files_server if ".zip" in file]
-
-    # filelist = [file.replace("//", "/") for file in filelist]
-
-    # Define length of beginning filenamepath which should be removed to
-    # get a clean filename
-    path_remove_length = len("/" + path + "/" + res +
-                             "/" + var + "/" + per + "/")
-
-    # Remove the first part of the file to just get the "clean" filename
-    filelist = [file[path_remove_length:] for file in filelist]
-
-    # Seperate filenames by underscore
-    # filelist = [file.split("_") for file in filelist]
-    #
-    # # Paste together again several parts of the filenames
-    # filelist = [["_".join(file[:-4]) + "_",
-    #              file[-4],
-    #              "_" + "_".join(file[-3:])]
-    #             for file in filelist]
 
     if per == "historical":
         statid_col = -4
