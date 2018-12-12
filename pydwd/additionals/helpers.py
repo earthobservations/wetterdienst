@@ -175,7 +175,7 @@ def create_fileindex(var,
     filelist = [
         file for file in files_server if ".zip" in file]
 
-    filelist = [file.replace("//", "/") for file in filelist]
+    # filelist = [file.replace("//", "/") for file in filelist]
 
     # Define length of beginning filenamepath which should be removed to
     # get a clean filename
