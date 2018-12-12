@@ -89,7 +89,7 @@ def download_dwd(files,
     # completely and instead should throw an error.
     except Exception:
         # List files in the download folder
-        old_files = pathlib.Path.glob("{}/{}/".format(folder, "stationdata"))
+        old_files = Path.glob("{}/{}/".format(folder, "stationdata"))
         # For every file in the folder list...
         for old_file in old_files:
             # For every file in the download list...
