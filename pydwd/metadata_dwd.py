@@ -24,7 +24,7 @@ def metadata_dwd(var,
     # Get new metadata as unformated file
     metaindex = _create_metaindex(var=var, res=res, per=per)
 
-    # Format raw metadata, remove old file (and replace it with formatted)
+    # Format raw metadata
     metainfo = _fix_metaindex(metaindex)
 
     if write_file:
