@@ -127,25 +127,25 @@ def fix_metaindex(metaindex):
 """
 
 
-def add_fileexist(metainfo,
-                  var,
-                  res,
-                  per,
-                  folder,
-                  create_new_filelist):
+def add_filepresence(metainfo,
+                     var,
+                     res,
+                     per,
+                     folder,
+                     create_new_filelist):
 
     metainfo["HAS_FILE"] = False
 
     for statid in metainfo["STATID"]:
-        files = pydwd.select_dwd(statid=statid,
-                                 var=var,
-                                 res=res,
-                                 per=per,
-                                 folder=folder,
-                                 create_new_filelist=create_new_filelist
+        files = select_dwd(statid=statid,
+                           var=var,
+                           res=res,
+                           per=per,
+                           folder=folder,
+                           create_new_filelist=create_new_filelist)
 
         if len(files) > 1:
-            metainfo.iloc[metainfo["STATID"] == statid, -1]=True
+            metainfo.iloc[metainfo["STATID"] == statid, -1] = True
 
     return metainfo
 
@@ -164,16 +164,16 @@ def create_fileindex(var,
     # Check for the combination of requested parameters
     _check_parameters(var=var, res=res, per=per)
 
-    folder=_correct_folder_path(folder)
+    folder = _correct_folder_path(folder)
 
     # Check for folder and create if necessary
     _create_folder(subfolder="metadata", folder=folder)
 
     # Create filename for local metadata file containing information of date
-    filelist_local="{}_{}_{}_{}".format("filelist", var, res, per)
+    filelist_local = "{}_{}_{}_{}".format("filelist", var, res, per)
 
     # Create filename
-    filelist_local_path="{}/{}/{}{}".format(folder,
+    filelist_local_path = "{}/{}/{}{}".format(folder,
                                               "metadata",
                                               filelist_local,
                                               ".csv")
@@ -186,7 +186,7 @@ def create_fileindex(var,
             ftp.login()
 
             # Get files for set of paramters
-            files_server=ftp.walk(
+            files_server = ftp.walk(
                 "/{}/{}/{}/{}/".format(path, res, var, per))
 
     # If not possible raise an error
@@ -195,35 +195,35 @@ def create_fileindex(var,
         raise Exception()
 
     # Put together dirs and filenames
-    files_server=["{}/{}".format(dir, single_file)
+    files_server = ["{}/{}".format(dir, single_file)
                     for dir, file in files_server
                     for single_file in file]
 
-    files_server=[file if file[:2] != "./" else file[2:]
+    files_server = [file if file[:2] != "./" else file[2:]
                     for file in files_server]
 
     # Select zip files (which contain the measured data) from server
-    filelist=[
+    filelist = [
         file for file in files_server if ".zip" in file]
 
     if per == "historical":
-        statid_col=-4
+        statid_col = -4
     elif per == "recent":
-        statid_col=-2
+        statid_col = -2
     elif per == "now":
-        statid_col=-2
+        statid_col = -2
     else:
-        statid_col=None
+        statid_col = None
 
-    filelist_df=pd.DataFrame(
+    filelist_df = pd.DataFrame(
         {"FILEID": range(len(filelist)),
          "STATID": [int(file.split("_")[statid_col]) for file in filelist],
          "FILENAME": filelist}
     )
 
-    filelist_df=filelist_df.sort_values(by=["STATID"])
+    filelist_df = filelist_df.sort_values(by=["STATID"])
 
-    filelist_df["FILEID"]=range(len(filelist_df["STATID"]))
+    filelist_df["FILEID"] = range(len(filelist_df["STATID"]))
 
     # Remove old file
     _remove_old_file(file_type="filelist",
