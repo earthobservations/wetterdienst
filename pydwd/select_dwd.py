@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 from .additionals.helpers import create_fileindex as _create_fileindex
 
@@ -27,10 +28,13 @@ def select_dwd(statid,
     filelist_local_path = "{}/{}/{}{}".format(
         folder, "metadata", filelist_local, ".csv")
 
+    exist_old_file = filelist_local in Path(
+        "{}/{}".format(folder, "metadata")).glob()
+
     # Try to read in file
     try:
         # Except if a new one should be created
-        if create_new_filelist:
+        if create_new_filelist or not exist_old_file:
             raise Exception
 
         # Try to read in file
