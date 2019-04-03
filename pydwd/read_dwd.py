@@ -2,8 +2,8 @@ import pandas as pd
 import zipfile
 import datetime as dt
 
-from .additionals.generic_functions import (__determine_parameters,
-                                            __check_parameters)
+from .additionals.generic_functions import determine_parameters
+from .additionals.generic_functions import check_parameters
 
 
 def read_dwd(files):
@@ -12,10 +12,10 @@ def read_dwd(files):
         return(None)
 
     # Determine variables
-    var, res, per = __determine_parameters(files[0].split("/")[-1])
+    var, res, per = determine_parameters(files[0].split("/")[-1])
 
     # Check for combination
-    __check_parameters(var=var, res=res, per=per)
+    check_parameters(var=var, res=res, per=per)
 
     # Create empty dataframe to combine several files
     data = []

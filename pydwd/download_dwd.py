@@ -2,10 +2,10 @@ from pathlib import Path
 
 from .additionals.generic_classes import FTP
 
-from .additionals.generic_functions import (__correct_folder_path,
-                                            __create_folder,
-                                            __determine_parameters,
-                                            __check_parameters)
+from .additionals.generic_functions import correct_folder_path
+from .additionals.generic_functions import create_folder
+from .additionals.generic_functions import determine_parameters
+from .additionals.generic_functions import check_parameters
 
 from .additionals.dwd_credentials import SERVER, PATH
 
@@ -25,20 +25,21 @@ def download_dwd(files,
                  server=SERVER,
                  path=PATH):
     # Correct possible slashes at the end
-    folder = __correct_folder_path(folder)
+    folder = correct_folder_path(folder)
 
     # Check the files input for its type (should be list)
     if not isinstance(files, list):
         raise NameError("The 'files' argument is not a list.")
 
     # Create folder for storing the downloaded data
-    __create_folder(subfolder="stationdata", folder=folder)
+    create_folder(subfolder="stationdata",
+                  folder=folder)
 
     # Determine var, res and per from first filename (needed for creating full
     # filepath)
-    var, res, per = __determine_parameters(files[0])
+    var, res, per = determine_parameters(files[0])
 
-    __check_parameters(var, res, per)
+    check_parameters(var, res, per)
 
     # Try to download the corresponding file to the folder
     try:

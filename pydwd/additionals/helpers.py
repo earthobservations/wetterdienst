@@ -1,13 +1,15 @@
 import pandas as pd
 
+# from pydwd.select_dwd import select_dwd
+
 from .generic_classes import FTP
-from .generic_functions import (__check_parameters,
-                                __correct_folder_path,
-                                __create_folder,
-                                __remove_old_file)
-from pydwd.select_dwd import select_dwd
+from .generic_functions import check_parameters
+from .generic_functions import correct_folder_path
+from .generic_functions import create_folder
+from .generic_functions import remove_old_file
 
 from .dwd_credentials import SERVER, PATH
+
 
 """
 ################################
@@ -16,13 +18,15 @@ from .dwd_credentials import SERVER, PATH
 """
 
 
-def __create_metaindex(var,
-                       res,
-                       per,
-                       server=SERVER,
-                       path=PATH):
+def create_metaindex(var,
+                     res,
+                     per,
+                     server=SERVER,
+                     path=PATH):
     # Check for combination of parameters
-    __check_parameters(var=var, res=res, per=per)
+    check_parameters(var=var,
+                     res=res,
+                     per=per)
 
     # Try downloading metadata file under given local link
     try:
@@ -71,7 +75,7 @@ def __create_metaindex(var,
     return metaindex
 
 
-def __fix_metaindex(metaindex):
+def fix_metaindex(metaindex):
     # Remove first two lines of data (header plus underline ----)
     # Also last line (if empty)
     metaindex = metaindex[2:]
@@ -121,53 +125,26 @@ def __fix_metaindex(metaindex):
 
 
 """
-##############################
-### Function add_fileexist ###
-##############################
-"""
-
-
-def __add_filepresence(metainfo,
-                       var,
-                       res,
-                       per,
-                       folder,
-                       create_new_filelist):
-
-    metainfo["HAS_FILE"] = False
-
-    for statid in metainfo["STATID"]:
-        files = select_dwd(statid=statid,
-                           var=var,
-                           res=res,
-                           per=per,
-                           folder=folder,
-                           create_new_filelist=create_new_filelist)
-
-        if len(files) > 1:
-            metainfo.iloc[metainfo["STATID"] == statid, -1] = True
-
-    return metainfo
-
-
-"""
 Function to receive current files on server as list excluding description files
 """
 
 
-def __create_fileindex(var,
-                       res,
-                       per,
-                       folder="./dwd_data",
-                       server=SERVER,
-                       path=PATH):
+def create_fileindex(var,
+                     res,
+                     per,
+                     folder="./dwd_data",
+                     server=SERVER,
+                     path=PATH):
     # Check for the combination of requested parameters
-    __check_parameters(var=var, res=res, per=per)
+    check_parameters(var=var,
+                     res=res,
+                     per=per)
 
-    folder = __correct_folder_path(folder)
+    folder = correct_folder_path(folder)
 
     # Check for folder and create if necessary
-    __create_folder(subfolder="metadata", folder=folder)
+    create_folder(subfolder="metadata",
+                  folder=folder)
 
     # Create filename for local metadata file containing information of date
     filelist_local = "{}_{}_{}_{}".format("filelist", var, res, per)
@@ -226,15 +203,16 @@ def __create_fileindex(var,
     filelist_df["FILEID"] = range(len(filelist_df["STATID"]))
 
     # Remove old file
-    __remove_old_file(file_type="filelist",
-                      var=var,
-                      res=res,
-                      per=per,
-                      folder=folder)
+    remove_old_file(file_type="filelist",
+                    var=var,
+                    res=res,
+                    per=per,
+                    folder=folder)
 
     # Write new file
-    pd.DataFrame.to_csv(
-        filelist_df, filelist_local_path, header=True, index=False)
+    filelist_df.to_csv(path_or_buf=filelist_local_path,
+                       header=True,
+                       index=False)
 
     return None
 
