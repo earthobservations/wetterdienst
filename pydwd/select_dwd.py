@@ -1,10 +1,10 @@
 import pandas as pd
 from pathlib import Path
 
-from .additionals.helpers import create_fileindex as _create_fileindex
+from .additionals.helpers import __create_fileindex
 
-from .additionals.generic_functions import (check_parameters as _check_parameters,
-                                            correct_folder_path as _correct_folder_path)
+from .additionals.generic_functions import (__check_parameters,
+                                            __correct_folder_path)
 
 """
 Function for selecting datafile for given statid, var, res, per
@@ -18,9 +18,9 @@ def select_dwd(statid,
                folder="./dwd_data",
                create_new_filelist=False):
     # Check for the combination of requested parameters
-    _check_parameters(var=var, res=res, per=per)
+    __check_parameters(var=var, res=res, per=per)
 
-    folder = _correct_folder_path(folder)
+    folder = __correct_folder_path(folder)
 
     # Create name of fileslistfile
     filelist_local = "{}_{}_{}_{}".format("filelist", var, res, per)
@@ -43,8 +43,8 @@ def select_dwd(statid,
     except Exception:
         # If there was an error with reading in the fileslist get a new
         # fileslist
-        _create_fileindex(var=var, res=res, per=per,
-                          folder=folder)
+        __create_fileindex(var=var, res=res, per=per,
+                           folder=folder)
 
         # Try to read in file
         filelist = pd.read_csv(
