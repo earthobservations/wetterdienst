@@ -55,6 +55,9 @@ def read_dwd(files):
     # Put together several rows of data from different files
     data = pd.concat(data)
 
+    # Strip eventual whitespace around columnnames
+    data.columns = [column.strip() for column in data.columns]
+
     # Date column is transformed from character to datetime
     data["MESS_DATUM"] = [dt.datetime.strptime(
         str(date), "%Y%m%d") for date in data["MESS_DATUM"]]
