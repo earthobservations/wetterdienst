@@ -17,6 +17,7 @@ def select_dwd(statid,
                per,
                folder="./dwd_data",
                create_new_filelist=False):
+
     # Check for the combination of requested parameters
     check_parameters(var=var, res=res, per=per)
 
@@ -28,8 +29,8 @@ def select_dwd(statid,
     filelist_local_path = "{}/{}/{}{}".format(
         folder, "metadata", filelist_local, ".csv")
 
-    exist_old_file = filelist_local in Path(
-        "{}/{}".format(folder, "metadata")).glob()
+    exist_old_file = filelist_local_path in Path(
+        "{}/{}".format(folder, "metadata")).glob('*.csv')
 
     # Try to read in file
     try:
