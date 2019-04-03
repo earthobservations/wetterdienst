@@ -9,7 +9,7 @@ from pathlib import Path
 """
 
 
-def correct_folder_path(folder):
+def __correct_folder_path(folder):
     if folder[-1] == "/":
         folder = folder[:-1]
 
@@ -21,8 +21,8 @@ Function to remove old dwd file (metadata)
 """
 
 
-def remove_old_file(file_type, var, res, per, folder):
-    folder = correct_folder_path(folder)
+def __remove_old_file(file_type, var, res, per, folder):
+    folder = __correct_folder_path(folder)
 
     metainfo_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
         folder, "metadata", file_type, var, res, per, ".csv")
@@ -41,9 +41,9 @@ Function for creating folder structure for saved stationdata
 """
 
 
-def create_folder(subfolder, folder):
+def __create_folder(subfolder, folder):
 
-    folder = correct_folder_path(folder)
+    folder = __correct_folder_path(folder)
 
     path_to_create = "{}/{}".format(folder, subfolder)
 
@@ -64,7 +64,7 @@ Needed for downloading the file and naming it correctly and understandable
 """
 
 
-def determine_parameters(filename):
+def __determine_parameters(filename):
     filename = filename.lower()
 
     # First check for time resolution
@@ -208,7 +208,7 @@ Differs from foldername e.g. air_temperature -> tu
 """
 
 
-def check_parameters(var, res, per):
+def __check_parameters(var, res, per):
 
     param_struct = {
         "1_minute":     [["precipitation"],

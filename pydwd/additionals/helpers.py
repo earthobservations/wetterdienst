@@ -1,11 +1,11 @@
 import pandas as pd
 
 from .generic_classes import FTP
-from .generic_functions import (check_parameters as _check_parameters,
-                                correct_folder_path as _correct_folder_path,
-                                create_folder as _create_folder,
-                                remove_old_file as _remove_old_file)
-from pydwd import select_dwd
+from .generic_functions import (__check_parameters,
+                                __correct_folder_path,
+                                __create_folder,
+                                __remove_old_file)
+from pydwd.select_dwd import select_dwd
 
 from .dwd_credentials import SERVER, PATH
 
@@ -16,13 +16,13 @@ from .dwd_credentials import SERVER, PATH
 """
 
 
-def create_metaindex(var,
-                     res,
-                     per,
-                     server=SERVER,
-                     path=PATH):
+def __create_metaindex(var,
+                       res,
+                       per,
+                       server=SERVER,
+                       path=PATH):
     # Check for combination of parameters
-    _check_parameters(var=var, res=res, per=per)
+    __check_parameters(var=var, res=res, per=per)
 
     # Try downloading metadata file under given local link
     try:
@@ -71,7 +71,7 @@ def create_metaindex(var,
     return metaindex
 
 
-def fix_metaindex(metaindex):
+def __fix_metaindex(metaindex):
     # Remove first two lines of data (header plus underline ----)
     # Also last line (if empty)
     metaindex = metaindex[2:]
@@ -127,12 +127,12 @@ def fix_metaindex(metaindex):
 """
 
 
-def add_filepresence(metainfo,
-                     var,
-                     res,
-                     per,
-                     folder,
-                     create_new_filelist):
+def __add_filepresence(metainfo,
+                       var,
+                       res,
+                       per,
+                       folder,
+                       create_new_filelist):
 
     metainfo["HAS_FILE"] = False
 
@@ -155,19 +155,19 @@ Function to receive current files on server as list excluding description files
 """
 
 
-def create_fileindex(var,
-                     res,
-                     per,
-                     folder="./dwd_data",
-                     server=SERVER,
-                     path=PATH):
+def __create_fileindex(var,
+                       res,
+                       per,
+                       folder="./dwd_data",
+                       server=SERVER,
+                       path=PATH):
     # Check for the combination of requested parameters
-    _check_parameters(var=var, res=res, per=per)
+    __check_parameters(var=var, res=res, per=per)
 
-    folder = _correct_folder_path(folder)
+    folder = __correct_folder_path(folder)
 
     # Check for folder and create if necessary
-    _create_folder(subfolder="metadata", folder=folder)
+    __create_folder(subfolder="metadata", folder=folder)
 
     # Create filename for local metadata file containing information of date
     filelist_local = "{}_{}_{}_{}".format("filelist", var, res, per)
@@ -226,11 +226,11 @@ def create_fileindex(var,
     filelist_df["FILEID"] = range(len(filelist_df["STATID"]))
 
     # Remove old file
-    _remove_old_file(file_type="filelist",
-                     var=var,
-                     res=res,
-                     per=per,
-                     folder=folder)
+    __remove_old_file(file_type="filelist",
+                      var=var,
+                      res=res,
+                      per=per,
+                      folder=folder)
 
     # Write new file
     pd.DataFrame.to_csv(
