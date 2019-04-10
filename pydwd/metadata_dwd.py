@@ -35,7 +35,7 @@ def add_filepresence(metainfo,
                            folder=folder,
                            create_new_filelist=create_new_filelist)
 
-        if len(files) > 1:
+        if len(files) > 0:
             metainfo.iloc[metainfo["STATID"] == statid, -1] = True
 
     return metainfo
@@ -83,7 +83,9 @@ def metadata_dwd(var,
                       folder=folder)
 
         # Create filename for metafile
-        metafile_local = "metadata_{}_{}_{}".format(var, res, per)
+        metafile_local = "metadata_{}_{}_{}".format(var,
+                                                    res,
+                                                    per)
 
         # Create filepath with filename and including extension
         metafile_local_path = "{}/{}/{}{}".format(folder,

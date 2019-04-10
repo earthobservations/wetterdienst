@@ -24,10 +24,15 @@ def select_dwd(statid,
     folder = correct_folder_path(folder)
 
     # Create name of fileslistfile
-    filelist_local = "{}_{}_{}_{}".format("filelist", var, res, per)
+    filelist_local = "{}_{}_{}_{}".format("filelist",
+                                          var,
+                                          res,
+                                          per)
 
-    filelist_local_path = "{}/{}/{}{}".format(
-        folder, "metadata", filelist_local, ".csv")
+    filelist_local_path = "{}/{}/{}{}".format(folder,
+                                              "metadata",
+                                              filelist_local,
+                                              ".csv")
 
     exist_old_file = filelist_local_path in Path(
         "{}/{}".format(folder, "metadata")).glob('*.csv')
@@ -39,8 +44,8 @@ def select_dwd(statid,
             raise Exception
 
         # Try to read in file
-        filelist = pd.read_csv(
-            filelist_local_path)
+        filelist = pd.read_csv(filelist_local_path)
+
     except Exception:
         # If there was an error with reading in the fileslist get a new
         # fileslist
@@ -50,8 +55,7 @@ def select_dwd(statid,
                          folder=folder)
 
         # Try to read in file
-        filelist = pd.read_csv(
-            filelist_local_path)
+        filelist = pd.read_csv(filelist_local_path)
 
     files_statid_id = [id for id, statid_file in enumerate(
         filelist["STATID"]) if statid_file == statid]
