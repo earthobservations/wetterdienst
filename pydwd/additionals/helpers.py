@@ -1,4 +1,5 @@
 import pandas as pd
+from tqdm import tqdm
 
 # from pydwd.select_dwd import select_dwd
 
@@ -36,8 +37,10 @@ def create_metaindex(var,
             ftp.login()
 
             # Establish connection with server
-            files_server = ftp.walk(
-                path="{}/{}/{}/{}".format(path, res, var, per))
+            files_server = ftp.walk(path="{}/{}/{}/{}".format(path,
+                                                              res,
+                                                              var,
+                                                              per))
 
     # If there's a problem with the connection throw an error
     except Exception:
@@ -55,8 +58,11 @@ def create_metaindex(var,
     metafile_server = metafile_server[0]
 
     # Create full path of server file
-    metafile_server_path = "{}/{}/{}/{}/{}".format(
-        path, res, var, per, metafile_server)
+    metafile_server_path = "{}/{}/{}/{}/{}".format(path,
+                                                   res,
+                                                   var,
+                                                   per,
+                                                   metafile_server)
 
     try:
         # Open connection with ftp server
@@ -173,7 +179,7 @@ def create_fileindex(var,
 
     # Put together dirs and filenames
     files_server = ["{}/{}".format(dir, single_file)
-                    for dir, file in files_server
+                    for dir, file in tqdm(files_server)
                     for single_file in file]
 
     files_server = [file if file[:2] != "./" else file[2:]
