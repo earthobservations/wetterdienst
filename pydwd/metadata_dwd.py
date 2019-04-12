@@ -4,6 +4,7 @@ from .select_dwd import select_dwd
 
 from .additionals.helpers import create_metaindex
 from .additionals.helpers import fix_metaindex
+from .additionals.helpers import create_fileindex
 # from .additionals.helpers import add_filepresence
 
 from .additionals.generic_functions import correct_folder_path
@@ -25,6 +26,12 @@ def add_filepresence(metainfo,
                      folder,
                      create_new_filelist):
 
+    create_fileindex(var=var,
+                     res=res,
+                     per=per,
+                     folder=folder,
+                     create_new_filelist=create_new_filelist)
+
     metainfo["HAS_FILE"] = False
 
     for statid in metainfo["STATID"]:
@@ -33,7 +40,7 @@ def add_filepresence(metainfo,
                            res=res,
                            per=per,
                            folder=folder,
-                           create_new_filelist=create_new_filelist)
+                           create_new_filelist=False)
 
         if len(files) > 0:
             metainfo.iloc[metainfo["STATID"] == statid, -1] = True
