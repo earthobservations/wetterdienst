@@ -19,7 +19,9 @@ def select_dwd(statid,
                create_new_filelist=False):
 
     # Check for the combination of requested parameters
-    check_parameters(var=var, res=res, per=per)
+    check_parameters(var=var,
+                     res=res,
+                     per=per)
 
     folder = correct_folder_path(folder)
 
@@ -57,8 +59,9 @@ def select_dwd(statid,
         # Try to read in file
         filelist = pd.read_csv(filelist_local_path)
 
-    files_statid_id = [id for id, statid_file in enumerate(
-        filelist["STATID"]) if statid_file == statid]
+    files_statid_id = [id
+                       for id, statid_file in enumerate(filelist["STATID"])
+                       if statid_file == statid]
 
     filelist = filelist.iloc[files_statid_id, 2]
 
