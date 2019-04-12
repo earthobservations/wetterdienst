@@ -36,7 +36,7 @@ def select_dwd(statid,
                                               filelist_local,
                                               ".csv")
 
-    exist_old_file = filelist_local_path in Path(
+    exist_old_file = filelist_local in Path(
         "{}/{}".format(folder, "metadata")).glob('*.csv')
 
     # Try to read in file
