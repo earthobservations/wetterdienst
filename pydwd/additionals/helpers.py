@@ -93,23 +93,20 @@ def fix_metaindex(metaindex):
 
     for data_line in metaindex:
         # data_line = data_lines[0]
-        data_line_short = data_line.split(" ")
+        data_line_short = data_line.split()
         # data_line_fixed = [value for value in data_line_split if value != ""]
         # data_line_short = data_line_fixed[:-1]
 
         if len(data_line_short) > 8:
             data_line_return = data_line_short[:6]
 
-            value_fixed = ""
-            for value_id in range(len(data_line_short) - 8 + 1):
-                value_fixed += " " + data_line_short[(6 + value_id)]
-            value_fixed_stripped = value_fixed.strip()
-            data_line_return.append(value_fixed_stripped)
+            data_line_return.append(
+                " ".join(data_line_short[6:(6 + len(data_line_short) - 7)]).strip())
 
             data_line_return.append(data_line_short[-1])
 
         else:
-            data_line_return = data_line_short
+            data_line_return = [cell.strip() for cell in data_line_short]
 
         file_format.append(data_line_return)
 
