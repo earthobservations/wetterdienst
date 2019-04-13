@@ -43,7 +43,7 @@ def add_filepresence(metainfo,
                            create_new_filelist=False)
 
         if len(files) > 0:
-            metainfo.iloc[metainfo["STATID"] == statid, -1] = True
+            metainfo.loc[metainfo["STATID"] == statid, "HAS_FILE"] = True
 
     return metainfo
 
