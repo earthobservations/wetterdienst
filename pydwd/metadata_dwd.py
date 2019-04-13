@@ -26,11 +26,11 @@ def add_filepresence(metainfo,
                      folder,
                      create_new_filelist):
 
-    create_fileindex(var=var,
-                     res=res,
-                     per=per,
-                     folder=folder,
-                     create_new_filelist=create_new_filelist)
+    if create_new_filelist:
+        create_fileindex(var=var,
+                         res=res,
+                         per=per,
+                         folder=folder)
 
     metainfo["HAS_FILE"] = False
 
