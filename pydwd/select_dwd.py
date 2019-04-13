@@ -1,5 +1,5 @@
 import pandas as pd
-from pathlib import Path
+from pathlib import Path, WindowsPath
 
 from .additionals.helpers import create_fileindex
 
@@ -36,7 +36,7 @@ def select_dwd(statid,
                                               filelist_local,
                                               ".csv")
 
-    exist_old_file = filelist_local in Path(
+    exist_old_file = WindowsPath(filelist_local_path) in Path(
         "{}/{}".format(folder, "metadata")).glob('*.csv')
 
     # Try to read in file
