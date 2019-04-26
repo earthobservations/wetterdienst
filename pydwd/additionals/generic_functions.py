@@ -257,7 +257,7 @@ def check_parameters(var, res, per):
 
     if var not in check[0] or per not in check[1]:
         raise NameError(
-            "Combination of res='{}', var='{}' and per='{}' not available".
-            format(res, var, per))
+            "Combination of res='{}', var='{}' and per='{}' not available. Possible parameters are: \n {}.".
+            format(res, var, per, param_struct))
 
     return None
