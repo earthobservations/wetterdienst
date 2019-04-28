@@ -26,19 +26,19 @@ def read_dwd(files):
         try:
             zip_file = zipfile.ZipFile(file)
 
-            file_data = [
-                file.filename for file in zip_file.infolist()
-                if "produkt" in file.filename]
+            file_data = [file.filename
+                         for file in zip_file.infolist()
+                         if "produkt" in file.filename]
 
             file_data = file_data[0]
 
-        except Exception as e:
+        except Exception:
             # In case something goes wrong file_data is set to None to ensure
             # that there's no old csv being opened
             file_data = None
 
             print("The zipfile {} couldn't be opened.".format(file))
-            print(e)
+            # print(e)
 
         try:
             data_file = pd.read_csv(
@@ -47,10 +47,10 @@ def read_dwd(files):
                 na_values="-999")
 
             data.append(data_file)
-        except Exception as e:
+        except Exception:
             print("The data from the zipfile {} couldn't be read.".format(
                 file))
-            print(e)
+            # print(e)
 
     # Put together several rows of data from different files
     data = pd.concat(data)
@@ -59,7 +59,7 @@ def read_dwd(files):
     data.columns = [column.strip() for column in data.columns]
 
     # Date column is transformed from character to datetime
-    data["MESS_DATUM"] = [dt.datetime.strptime(
-        str(date), "%Y%m%d") for date in data["MESS_DATUM"]]
+    data["MESS_DATUM"] = [dt.datetime.strptime(str(date), "%Y%m%d")
+                          for date in data["MESS_DATUM"]]
 
     return data

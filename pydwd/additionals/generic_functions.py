@@ -21,7 +21,12 @@ Function to remove old dwd file (metadata)
 """
 
 
-def remove_old_file(file_type, var, res, per, folder):
+def remove_old_file(file_type,
+                    var,
+                    res,
+                    per,
+                    folder):
+    # Correct folder of file
     folder = correct_folder_path(folder)
 
     metainfo_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
@@ -31,7 +36,7 @@ def remove_old_file(file_type, var, res, per, folder):
     try:
         Path.unlink(metainfo_to_remove)
     except Exception:
-        return None
+        print('No file found to delete in \n{}!'.format(folder))
 
     return None
 
@@ -41,8 +46,9 @@ Function for creating folder structure for saved stationdata
 """
 
 
-def create_folder(subfolder, folder):
-
+def create_folder(subfolder,
+                  folder):
+    # Correct folder path to make it work
     folder = correct_folder_path(folder)
 
     path_to_create = "{}/{}".format(folder, subfolder)
@@ -53,7 +59,7 @@ def create_folder(subfolder, folder):
             Path(path_to_create).mkdir(parents=True)
     except Exception:
         raise NameError(
-            "Folder couldn't be created at {} !".format(path_to_create))
+            "Folder couldn't be created at \n{} !".format(path_to_create))
 
     return None
 
@@ -84,7 +90,7 @@ def determine_parameters(filename):
         res = None
 
     if res is None:
-        raise NameError("Resolution couldn't be determined.")
+        raise NameError("Resolution {} couldn't be determined.".format(res))
 
     # First determine the variable
     if res == "1_minute":
@@ -161,7 +167,7 @@ def determine_parameters(filename):
         var = None
 
     if var is None:
-        raise NameError("Variable couldn't be determined.")
+        raise NameError("Variable {} couldn't be determined.".format(var))
 
     if "_hist" in filename:
         per = "historical"
@@ -175,31 +181,9 @@ def determine_parameters(filename):
         per = None
 
     if per is None:
-        raise NameError("Timestamp couldn't be determined.")
+        raise NameError("Timestamp {} couldn't be determined.".format(per))
 
     return var, res, per
-
-
-# """
-# Function for returning elements of a list containing a pattern
-# """
-#
-#
-# def find_pattern(string, pattern):
-#     string_w_pattern = []
-#     for st in string:
-#
-#         cont_pat = False
-#         for pat in pattern:
-#
-#             if pat in st:
-#                 cont_pat = True
-#                 break
-#
-#         if cont_pat:
-#             string_w_pattern.append(st)
-#
-#     return(string_w_pattern)
 
 
 """

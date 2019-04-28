@@ -39,12 +39,17 @@ def select_dwd(statid,
     exist_old_file = WindowsPath(filelist_local_path) in Path(
         "{}/{}".format(folder, "metadata")).glob('*.csv')
 
+    # Except if a new one should be created
+    if create_new_filelist or not exist_old_file:
+        # If there was an error with reading in the fileslist get a new
+        # fileslist
+        create_fileindex(var=var,
+                         res=res,
+                         per=per,
+                         folder=folder)
+
     # Try to read in file
     try:
-        # Except if a new one should be created
-        if create_new_filelist or not exist_old_file:
-            raise Exception
-
         # Try to read in file
         filelist = pd.read_csv(filelist_local_path)
 
@@ -55,7 +60,6 @@ def select_dwd(statid,
                          res=res,
                          per=per,
                          folder=folder)
-
         # Try to read in file
         filelist = pd.read_csv(filelist_local_path)
 
