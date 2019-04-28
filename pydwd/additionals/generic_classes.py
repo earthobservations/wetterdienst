@@ -24,10 +24,10 @@ class FTP(ftplib.FTP):
         # to be '.txt' or '.zip' files)
         ftp_dirs = [dir_dict[0]
                     for dir_dict in ftp_list
-                    if ".." not in dir_dict[0] and
-                    ".txt" not in dir_dict[0] and
-                    ".zip" not in dir_dict[0] and
-                    ".pdf" not in dir_dict[0]]
+                    if ".." not in dir_dict[0]
+                    and ".txt" not in dir_dict[0]
+                    and ".zip" not in dir_dict[0]
+                    and ".pdf" not in dir_dict[0]]
 
         # Create an empty list for the listing of directiory files
         ftp_files = []
@@ -39,13 +39,16 @@ class FTP(ftplib.FTP):
                 dir_files = [dir_list[0]
                              for dir_list in list(self.mlsd(path + "/" + dir))]
 
-                dir_files = [file
-                             for file in dir_files
-                             if file not in ['.', '..']]
+                dir_files = list(
+                    filter(lambda x: x not in ['.', '..'], dir_files))
+
+                # [file
+                #  for file in dir_files
+                #  if file not in ['.', '..']]
             # If throws an error (which it does if the dir is only a filename)
             # just append a list with empty strings
             except Exception:
-                dir_files = [""]
+                dir_files = ['']
 
             # Finally append the directory and its list of files
             ftp_files.append([dir, dir_files])
