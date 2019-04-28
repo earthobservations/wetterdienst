@@ -36,7 +36,8 @@ def remove_old_file(file_type,
     try:
         Path.unlink(metainfo_to_remove)
     except Exception:
-        print('No file found to delete in \n{}!'.format(folder))
+        pass
+        # print('No file found to delete in \n{}!'.format(folder))
 
     return None
 
