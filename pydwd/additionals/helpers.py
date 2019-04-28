@@ -48,7 +48,7 @@ def create_metaindex(var,
 
     files_server = list(filter(lambda x: x[0] == '.', files_server))
 
-    files_server = files_server[1]
+    files_server = files_server[0][1]
 
     metafile_server = list(filter(
         lambda x: ".txt" in x and "beschreibung" in x.lower(), files_server))
