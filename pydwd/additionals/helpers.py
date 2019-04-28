@@ -51,9 +51,9 @@ def create_metaindex(var,
                     for file in filelist if dir == '.']
 
     # Select metadata filename from server
-    metafile_server = [
-        file for file in files_server
-        if ".txt" in file and "beschreibung" in file.lower()]
+    metafile_server = [file
+                       for file in files_server
+                       if ".txt" in file and "beschreibung" in file.lower()]
 
     metafile_server = metafile_server[0]
 
@@ -106,7 +106,8 @@ def fix_metaindex(metaindex):
             data_line_return.append(data_line_short[-1])
 
         else:
-            data_line_return = [cell.strip() for cell in data_line_short]
+            data_line_return = [cell.strip()
+                                for cell in data_line_short]
 
         file_format.append(data_line_return)
 
@@ -116,7 +117,8 @@ def fix_metaindex(metaindex):
     metafile_df.columns = header
 
     # Statid to int without leading zeros
-    metafile_df.iloc[:, 0] = [int(statid) for statid in metafile_df.iloc[:, 0]]
+    metafile_df.iloc[:, 0] = [int(statid)
+                              for statid in metafile_df.iloc[:, 0]]
 
     metafile_df.iloc[:, 1] = pd.to_datetime(
         metafile_df.iloc[:, 1], format="%Y%m%d")
@@ -171,8 +173,8 @@ def create_fileindex(var,
 
     # If not possible raise an error
     except Exception:
-        print("Download of fileslist file currently not possible. Try again!")
-        raise Exception()
+        raise NameError(
+            "Download of fileslist file currently not possible. Try again!")
 
     # Put together dirs and filenames
     files_server = ["{}/{}".format(dir, single_file)
@@ -183,8 +185,9 @@ def create_fileindex(var,
                     for file in files_server]
 
     # Select zip files (which contain the measured data) from server
-    filelist = [
-        file for file in files_server if ".zip" in file]
+    filelist = [file
+                for file in files_server
+                if ".zip" in file]
 
     if per == "historical":
         statid_col = -4
@@ -197,7 +200,8 @@ def create_fileindex(var,
 
     filelist_df = pd.DataFrame(
         {"FILEID": range(len(filelist)),
-         "STATID": [int(file.split("_")[statid_col]) for file in filelist],
+         "STATID": [int(file.split("_")[statid_col])
+                    for file in filelist],
          "FILENAME": filelist}
     )
 
