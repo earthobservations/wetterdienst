@@ -46,12 +46,12 @@ def create_metaindex(var,
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
 
-    files_server = list(filter(lambda x: x[0] == '.', files_server))
+    files_server = list(filter((lambda x: x[0] == '.'), files_server))
 
     files_server = files_server[0][1]
 
     metafile_server = list(filter(
-        lambda x: ".txt" in x and "beschreibung" in x.lower(), files_server))
+        (lambda x: ".txt" in x and "beschreibung" in x.lower()), files_server))
 
     # files_server = [file
     #                 for dir, filelist in files_server
@@ -119,8 +119,10 @@ def fix_metaindex(metaindex):
         file_format.append(data_line_return)
 
     metafile_df = pd.DataFrame(file_format)
+
     header = ["STATID", "FROM", "TO", "HEIGHT",
               "LAT", "LON", "STATNAME", "STATE"]
+
     metafile_df.columns = header
 
     # Statid to int without leading zeros
@@ -192,9 +194,7 @@ def create_fileindex(var,
                     for file in files_server]
 
     # Select zip files (which contain the measured data) from server
-    filelist = [file
-                for file in files_server
-                if ".zip" in file]
+    filelist = list(filter(lambda x: '.zip' in x, files_server))
 
     if per == "historical":
         statid_col = -4
