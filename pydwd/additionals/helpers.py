@@ -46,14 +46,21 @@ def create_metaindex(var,
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
 
-    files_server = [file
-                    for dir, filelist in files_server
-                    for file in filelist if dir == '.']
+    files_server = list(filter(lambda x: x[0] == '.', files_server))
+
+    files_server = files_server[1]
+
+    metafile_server = list(filter(
+        lambda x: ".txt" in x and "beschreibung" in x.lower(), files_server))
+
+    # files_server = [file
+    #                 for dir, filelist in files_server
+    #                 for file in filelist if dir == '.']
 
     # Select metadata filename from server
-    metafile_server = [file
-                       for file in files_server
-                       if ".txt" in file and "beschreibung" in file.lower()]
+    # metafile_server = [file
+    #                    for file in files_server
+    #                    if ".txt" in file and "beschreibung" in file.lower()]
 
     metafile_server = metafile_server[0]
 
