@@ -236,16 +236,36 @@ def create_fileindex(var,
     else:
         statid_col = None
 
-    filelist_df = pd.DataFrame(
-        {"FILEID": range(len(filelist)),
-         "STATID": [int(file.split("_")[statid_col])
-                    for file in filelist],
-         "FILENAME": filelist}
-    )
+    filelist_df = pd.DataFrame(filelist)
+
+    filelist_df \
+        .insert(1, 1, filelist_df.index)
+
+    filelist_df \
+        .insert(2,
+                2,
+                filelist_df.iloc[:, 0].str.split('_')
+                .apply(lambda x: x[statid_col]))
+
+    filelist_df = filelist_df.iloc[:, [1, 2, 0]]
+
+    filelist_df.columns = ['FILEID', 'STATID', 'FILENAME']
+
+    filelist_df.iloc[:, 1] = filelist_df.iloc[:, 1].astype(int)
 
     filelist_df = filelist_df.sort_values(by=["STATID"])
 
-    filelist_df["FILEID"] = range(len(filelist_df["STATID"]))
+    # filelist_df = pd.DataFrame(
+    #     {"FILEID": range(len(filelist)),
+    #      "STATID": [int(file.split("_")[statid_col])
+    #                 for file in filelist],
+    #      "FILENAME": filelist}
+    # )
+
+    # filelist_df = filelist_df.sort_values(by=["STATID"])
+    #
+    #
+    # filelist_df["FILEID"] = range(len(filelist_df["STATID"]))
 
     # Remove old file
     remove_old_file(file_type="filelist",
