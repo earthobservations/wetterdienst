@@ -46,7 +46,7 @@ def create_metaindex(var,
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
 
-    files_server = list(filter((lambda x: x[0] == '.'), files_server))
+    files_server = list(filter(lambda x: x[0] == '.', files_server))
 
     files_server = files_server[0][1]
 
@@ -89,53 +89,84 @@ def create_metaindex(var,
 
 
 def fix_metaindex(metaindex):
-    # Remove first two lines of data (header plus underline ----)
-    # Also last line (if empty)
+    # Convert data to pandas dataframe
+    metaindex = pd.DataFrame(metaindex)
+    # Split the data into columns by any spaces
+    metaindex = metaindex.iloc[:, 0].str.split(expand=True)
+    # Get the column names
+    column_names = list(filter(None, metaindex.iloc[0, :]))
+    # Make them upper ones
+    column_names = [name.upper() for name in column_names]
+    # Skip first two lines (header and seperating line)
     metaindex = metaindex[2:]
+    # Create dataframe with strings to fix
+    metaindex_to_fix = metaindex.iloc[:, 6:]
+    # Reduce the original dataframe by those columns
+    metaindex = metaindex.iloc[:, :6]
+    # Index is fixed by string operations (put together all except the last
+    # string which refers to state)
+    metaindex_to_fix = metaindex_to_fix \
+        .agg(lambda x: [' '.join(list(filter(None, x))[:-1]),
+                        list(filter(None, x))[-1]], 1) \
+        .apply(pd.Series)
+    # Finally put together again the original frame and the fixed data
+    metaindex = pd.concat([metaindex, metaindex_to_fix], axis=1)
+    # Overwrite the columns
+    metaindex.columns = column_names
 
-    if metaindex[-1] == '':
-        metaindex = metaindex[:-1]
+    # Fix datatypes
+    metaindex.iloc[:, 0] = metaindex.iloc[:, 0].astype(int)
+    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].astype('datetime64')
+    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].astype('datetime64')
+    metaindex.iloc[:, 3] = metaindex.iloc[:, 3].astype(int)
+    metaindex.iloc[:, 4] = metaindex.iloc[:, 4].astype(float)
+    metaindex.iloc[:, 5] = metaindex.iloc[:, 5].astype(float)
+    metaindex.iloc[:, 6] = metaindex.iloc[:, 6].astype(str)
+    metaindex.iloc[:, 7] = metaindex.iloc[:, 7].astype(str)
 
-    file_format = []
+    # metaindex.iloc[:, 1] = pd.to_datetime(
+    #     metafile_df.iloc[:, 1], format="%Y%m%d")
+    #
+    # metafile_df.iloc[:, 2] = pd.to_datetime(
+    #     metafile_df.iloc[:, 2], format="%Y%m%d")
 
-    for data_line in metaindex:
-        # data_line = data_lines[0]
-        data_line_short = data_line.split()
-        # data_line_fixed = [value for value in data_line_split if value != ""]
-        # data_line_short = data_line_fixed[:-1]
+    # if metaindex[-1] == '':
+    #     metaindex = metaindex[:-1]
+    #
+    # file_format = []
+    #
+    # for data_line in metaindex:
+    #     # data_line = data_lines[0]
+    #     data_line_short = data_line.split()
+    #     # data_line_fixed = [value for value in data_line_split if value != ""]
+    #     # data_line_short = data_line_fixed[:-1]
+    #
+    #     if len(data_line_short) > 8:
+    #         data_line_return = data_line_short[:6]
+    #
+    #         data_line_return.append(
+    #             " ".join(data_line_short[6:(6 + len(data_line_short) - 7)]).strip())
+    #
+    #         data_line_return.append(data_line_short[-1])
+    #
+    #     else:
+    #         data_line_return = [cell.strip()
+    #                             for cell in data_line_short]
+    #
+    #     file_format.append(data_line_return)
+    #
+    # metafile_df = pd.DataFrame(file_format)
+    #
+    # header = ["STATID", "FROM", "TO", "HEIGHT",
+    #           "LAT", "LON", "STATNAME", "STATE"]
+    #
+    # metafile_df.columns = header
+    #
+    # # Statid to int without leading zeros
+    # metafile_df.iloc[:, 0] = [int(statid)
+    #                           for statid in metafile_df.iloc[:, 0]]
 
-        if len(data_line_short) > 8:
-            data_line_return = data_line_short[:6]
-
-            data_line_return.append(
-                " ".join(data_line_short[6:(6 + len(data_line_short) - 7)]).strip())
-
-            data_line_return.append(data_line_short[-1])
-
-        else:
-            data_line_return = [cell.strip()
-                                for cell in data_line_short]
-
-        file_format.append(data_line_return)
-
-    metafile_df = pd.DataFrame(file_format)
-
-    header = ["STATID", "FROM", "TO", "HEIGHT",
-              "LAT", "LON", "STATNAME", "STATE"]
-
-    metafile_df.columns = header
-
-    # Statid to int without leading zeros
-    metafile_df.iloc[:, 0] = [int(statid)
-                              for statid in metafile_df.iloc[:, 0]]
-
-    metafile_df.iloc[:, 1] = pd.to_datetime(
-        metafile_df.iloc[:, 1], format="%Y%m%d")
-
-    metafile_df.iloc[:, 2] = pd.to_datetime(
-        metafile_df.iloc[:, 2], format="%Y%m%d")
-
-    return metafile_df
+    return metaindex
 
 
 """
