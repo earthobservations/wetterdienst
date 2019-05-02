@@ -34,7 +34,7 @@ def add_filepresence(metainfo,
 
     metainfo["HAS_FILE"] = False
 
-    for statid in metainfo["STATID"]:
+    for statid in metainfo["STATIONS_ID"]:
         files = select_dwd(statid=statid,
                            var=var,
                            res=res,
@@ -43,7 +43,7 @@ def add_filepresence(metainfo,
                            create_new_filelist=False)
 
         if len(files) > 0:
-            metainfo.loc[metainfo["STATID"] == statid, "HAS_FILE"] = True
+            metainfo.loc[metainfo["STATIONS_ID"] == statid, "HAS_FILE"] = True
 
     return metainfo
 
