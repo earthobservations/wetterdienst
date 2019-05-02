@@ -1,5 +1,5 @@
 # Imports
-# import pandas as pd
+import pandas as pd
 from .select_dwd import select_dwd
 
 from .additionals.helpers import create_metaindex
@@ -11,6 +11,7 @@ from .additionals.generic_functions import correct_folder_path
 from .additionals.generic_functions import check_parameters
 from .additionals.generic_functions import create_folder
 from .additionals.generic_functions import remove_old_file
+from .additionals.generic_functions import determine_statid_col
 
 """
 #################################
@@ -34,16 +35,16 @@ def add_filepresence(metainfo,
 
     metainfo["HAS_FILE"] = False
 
-    for statid in metainfo["STATIONS_ID"]:
-        files = select_dwd(statid=statid,
-                           var=var,
-                           res=res,
-                           per=per,
-                           folder=folder,
-                           create_new_filelist=False)
+    statid_col = determine_statid_col(per)
 
-        if len(files) > 0:
-            metainfo.loc[metainfo["STATIONS_ID"] == statid, "HAS_FILE"] = True
+    has_file_df = pd.DataFrame(select_dwd(
+        metainfo.STATIONS_ID, var='kl', res='daily', per='historical'))
+
+    has_file_df.iloc[:, 0] = has_file_df.iloc[:, 0].apply(
+        lambda x: x.split('_')[statid_col]).astype(int)
+
+    metainfo.loc[metainfo.loc[:, 'STATIONS_ID'].isin(
+        has_file_df.iloc[:, 0]), 'HAS_FILE'] = True
 
     return metainfo
 
