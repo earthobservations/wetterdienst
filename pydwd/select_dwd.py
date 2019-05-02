@@ -23,6 +23,12 @@ def select_dwd(statid,
                      res=res,
                      per=per)
 
+    if type(statid) not in [type(int), type(list)]:
+        raise TypeError
+
+    if type(statid) == type(int):
+        statid = [statid]
+
     folder = correct_folder_path(folder)
 
     # Create name of fileslistfile
