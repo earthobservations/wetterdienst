@@ -1,5 +1,6 @@
 import ftplib
 from io import StringIO
+from tqdm import tqdm
 
 """
 ##############################
@@ -33,7 +34,7 @@ class FTP(ftplib.FTP):
         ftp_files = []
 
         # Loop over directorys (remaining main directory '.' and additional)
-        for dir in ftp_dirs:
+        for dir in tqdm(ftp_dirs):
             # Try to list files in that directory
             try:
                 dir_files = [dir_list[0]
