@@ -184,8 +184,10 @@ def create_fileindex(var,
 
     files_server = files_server[files_server.FILENAME.str.contains('.zip')]
 
-    files_server.loc[:, 'FILELINK'] = files_server.loc[:, 'ROOT'] \
+    files_server.loc[:, 'FILENAME'] = files_server.loc[:, 'ROOT'] \
         + '/' + files_server.loc[:, 'FILENAME']
+
+    files_server = files_server.drop(['ROOT'], axis=1)
 
     if per == "historical":
         statid_col = -4
@@ -197,17 +199,19 @@ def create_fileindex(var,
         statid_col = None
 
     files_server \
-        .insert(1, 1, files_server.index)
+        .insert(loc=1,
+                column='FILEID',
+                value=files_server.index)
 
     files_server \
-        .insert(2,
-                2,
-                files_server.iloc[:, 0].str.split('_')
+        .insert(loc=2,
+                column='STATID',
+                value=files_server.iloc[:, 0].str.split('_')
                 .apply(lambda x: x[statid_col]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
-    files_server.columns = ['FILEID', 'STATID', 'FILENAME']
+    # files_server.columns = ['FILEID', 'STATID', 'FILENAME']
 
     files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
 
