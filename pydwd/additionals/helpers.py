@@ -53,15 +53,6 @@ def create_metaindex(var,
     metafile_server = list(filter(
         (lambda x: ".txt" in x and "beschreibung" in x.lower()), files_server))
 
-    # files_server = [file
-    #                 for dir, filelist in files_server
-    #                 for file in filelist if dir == '.']
-
-    # Select metadata filename from server
-    # metafile_server = [file
-    #                    for file in files_server
-    #                    if ".txt" in file and "beschreibung" in file.lower()]
-
     metafile_server = metafile_server[0]
 
     # Create full path of server file
@@ -107,8 +98,9 @@ def fix_metaindex(metaindex):
     metaindex = metaindex.iloc[:, :6]
     # Index is fixed by string operations (put together all except the last
     # string which refers to state)
-    metaindex_to_fix = metaindex_to_fix.agg((lambda x: [' '.join(list(filter(None, x))[:-1]),
-                                                        list(filter(None, x))[-1]]), 1).apply(pd.Series)
+    metaindex_to_fix = metaindex_to_fix \
+        .agg((lambda x: [' '.join(list(filter(None, x))[:-1]),
+                         list(filter(None, x))[-1]]), 1).apply(pd.Series)
     # Finally put together again the original frame and the fixed data
     metaindex = pd.concat([metaindex, metaindex_to_fix], axis=1)
     # Overwrite the columns
@@ -123,48 +115,6 @@ def fix_metaindex(metaindex):
     metaindex.iloc[:, 5] = metaindex.iloc[:, 5].astype(float)
     metaindex.iloc[:, 6] = metaindex.iloc[:, 6].astype(str)
     metaindex.iloc[:, 7] = metaindex.iloc[:, 7].astype(str)
-
-    # metaindex.iloc[:, 1] = pd.to_datetime(
-    #     metafile_df.iloc[:, 1], format="%Y%m%d")
-    #
-    # metafile_df.iloc[:, 2] = pd.to_datetime(
-    #     metafile_df.iloc[:, 2], format="%Y%m%d")
-
-    # if metaindex[-1] == '':
-    #     metaindex = metaindex[:-1]
-    #
-    # file_format = []
-    #
-    # for data_line in metaindex:
-    #     # data_line = data_lines[0]
-    #     data_line_short = data_line.split()
-    #     # data_line_fixed = [value for value in data_line_split if value != ""]
-    #     # data_line_short = data_line_fixed[:-1]
-    #
-    #     if len(data_line_short) > 8:
-    #         data_line_return = data_line_short[:6]
-    #
-    #         data_line_return.append(
-    #             " ".join(data_line_short[6:(6 + len(data_line_short) - 7)]).strip())
-    #
-    #         data_line_return.append(data_line_short[-1])
-    #
-    #     else:
-    #         data_line_return = [cell.strip()
-    #                             for cell in data_line_short]
-    #
-    #     file_format.append(data_line_return)
-    #
-    # metafile_df = pd.DataFrame(file_format)
-    #
-    # header = ["STATID", "FROM", "TO", "HEIGHT",
-    #           "LAT", "LON", "STATNAME", "STATE"]
-    #
-    # metafile_df.columns = header
-    #
-    # # Statid to int without leading zeros
-    # metafile_df.iloc[:, 0] = [int(statid)
-    #                           for statid in metafile_df.iloc[:, 0]]
 
     return metaindex
 
@@ -216,16 +166,23 @@ def create_fileindex(var,
         raise NameError(
             "Download of fileslist file currently not possible. Try again!")
 
-    # Put together dirs and filenames
-    files_server = ["{}/{}".format(dir, single_file)
-                    for dir, file in tqdm(files_server)
-                    for single_file in file]
+    files_server = pd.DataFrame(files_server)
 
-    files_server = [file if file[:2] != "./" else file[2:]
-                    for file in files_server]
+    files_server.columns = ['ROOT', 'FILENAMES']
 
-    # Select zip files (which contain the measured data) from server
-    filelist = list(filter(lambda x: '.zip' in x, files_server))
+    files_server = files_server.FILENAMES.apply(pd.Series) \
+        .merge(files_server, left_index=True, right_index=True) \
+        .drop(['FILENAMES'], axis=1) \
+        .melt(id_vars=['ROOT'], value_name="FILENAME") \
+        .drop('variable', axis=1)
+
+    files_server.loc[:, 'FILENAME'] = files_server.loc[:, 'FILENAME'].apply(
+        lambda x: x if x[:2] != "./" else x[2:])
+
+    files_server = files_server[files_server.FILENAME.str.contains('.zip')]
+
+    files_server.loc[:, 'FILELINK'] = files_server.loc[:, 'ROOT'] \
+        + '/' + files_server.loc[:, 'FILENAME']
 
     if per == "historical":
         statid_col = -4
@@ -236,36 +193,22 @@ def create_fileindex(var,
     else:
         statid_col = None
 
-    filelist_df = pd.DataFrame(filelist)
+    files_server \
+        .insert(1, 1, files_server.index)
 
-    filelist_df \
-        .insert(1, 1, filelist_df.index)
-
-    filelist_df \
+    files_server \
         .insert(2,
                 2,
-                filelist_df.iloc[:, 0].str.split('_')
+                files_server.iloc[:, 0].str.split('_')
                 .apply(lambda x: x[statid_col]))
 
-    filelist_df = filelist_df.iloc[:, [1, 2, 0]]
+    files_server = files_server.iloc[:, [1, 2, 0]]
 
-    filelist_df.columns = ['FILEID', 'STATID', 'FILENAME']
+    files_server.columns = ['FILEID', 'STATID', 'FILENAME']
 
-    filelist_df.iloc[:, 1] = filelist_df.iloc[:, 1].astype(int)
+    files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
 
-    filelist_df = filelist_df.sort_values(by=["STATID"])
-
-    # filelist_df = pd.DataFrame(
-    #     {"FILEID": range(len(filelist)),
-    #      "STATID": [int(file.split("_")[statid_col])
-    #                 for file in filelist],
-    #      "FILENAME": filelist}
-    # )
-
-    # filelist_df = filelist_df.sort_values(by=["STATID"])
-    #
-    #
-    # filelist_df["FILEID"] = range(len(filelist_df["STATID"]))
+    files_server = files_server.sort_values(by=["STATID"])
 
     # Remove old file
     remove_old_file(file_type="filelist",
@@ -275,9 +218,9 @@ def create_fileindex(var,
                     folder=folder)
 
     # Write new file
-    filelist_df.to_csv(path_or_buf=filelist_local_path,
-                       header=True,
-                       index=False)
+    files_server.to_csv(path_or_buf=filelist_local_path,
+                        header=True,
+                        index=False)
 
     return None
 
