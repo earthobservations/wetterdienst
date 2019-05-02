@@ -63,11 +63,13 @@ def select_dwd(statid,
         # Try to read in file
         filelist = pd.read_csv(filelist_local_path)
 
-    files_statid_id = [id
-                       for id, statid_file in enumerate(filelist["STATID"])
-                       if statid_file == statid]
+    # files_statid_id = [id
+    #                    for id, statid_file in enumerate(filelist["STATID"])
+    #                    if statid_file == statid]
 
-    filelist = filelist.iloc[files_statid_id, 2]
+    filelist = filelist.loc[filelist["STATID"] in statid, 'FILENAME']
+
+    # filelist = filelist.iloc[files_statid_id, 2]
 
     filelist = list(filelist)
 
