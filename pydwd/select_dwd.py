@@ -23,11 +23,8 @@ def select_dwd(statid,
                      res=res,
                      per=per)
 
-    if type(statid) not in [int, list]:
-        raise TypeError
-
-    if type(statid) == int:
-        statid = [statid]
+    if type(statid) not list:
+        statid = list(statid)
 
     folder = correct_folder_path(folder)
 
