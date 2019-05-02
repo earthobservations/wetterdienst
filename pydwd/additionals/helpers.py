@@ -105,10 +105,8 @@ def fix_metaindex(metaindex):
     metaindex = metaindex.iloc[:, :6]
     # Index is fixed by string operations (put together all except the last
     # string which refers to state)
-    metaindex_to_fix = metaindex_to_fix \
-        .agg((lambda x: [' '.join(list(filter(None, x))[:-1]),
-                         list(filter(None, x))[-1]]), 1) \
-        .apply(pd.Series)
+    metaindex_to_fix = metaindex_to_fix.agg((lambda x: [' '.join(list(filter(None, x))[:-1]),
+                                                        list(filter(None, x))[-1]]), 1).apply(pd.Series)
     # Finally put together again the original frame and the fixed data
     metaindex = pd.concat([metaindex, metaindex_to_fix], axis=1)
     # Overwrite the columns
