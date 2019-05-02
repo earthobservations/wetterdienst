@@ -1,5 +1,4 @@
 import pandas as pd
-from tqdm import tqdm
 
 # from pydwd.select_dwd import select_dwd
 
@@ -8,6 +7,7 @@ from .generic_functions import check_parameters
 from .generic_functions import correct_folder_path
 from .generic_functions import create_folder
 from .generic_functions import remove_old_file
+from .generic_functions import determine_statid_col
 
 from .dwd_credentials import SERVER, PATH
 
@@ -189,14 +189,7 @@ def create_fileindex(var,
 
     files_server = files_server.drop(['ROOT'], axis=1)
 
-    if per == "historical":
-        statid_col = -4
-    elif per == "recent":
-        statid_col = -2
-    elif per == "now":
-        statid_col = -2
-    else:
-        statid_col = None
+    statid_col = determine_statid_col(per)
 
     files_server \
         .insert(loc=1,

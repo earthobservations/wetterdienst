@@ -16,7 +16,7 @@ and opens a file with 'open' and finally saves the binary there.
 
 
 class FTP(ftplib.FTP):
-    # Implement walk function from ftputil library (to reduce number of imports)
+    # Implement walk function from ftputil library(to reduce number of imports)
     def walk(self, path):
         # First list everything in the path including dirs and files
         ftp_list = list(self.mlsd(path))

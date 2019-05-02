@@ -16,6 +16,19 @@ def correct_folder_path(folder):
     return folder
 
 
+def determine_statid_col(per):
+    if per == "historical":
+        statid_col = -4
+    elif per == "recent":
+        statid_col = -2
+    elif per == "now":
+        statid_col = -2
+    else:
+        statid_col = None
+
+    return statid_col
+
+
 """
 Function to remove old dwd file (metadata)
 """
