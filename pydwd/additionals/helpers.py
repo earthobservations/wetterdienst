@@ -99,6 +99,8 @@ def fix_metaindex(metaindex):
     column_names = [name.upper() for name in column_names]
     # Skip first two lines (header and seperating line)
     metaindex = metaindex[2:]
+    # Remove last empty row
+    metaindex = metaindex[:-1]
     # Create dataframe with strings to fix
     metaindex_to_fix = metaindex.iloc[:, 6:]
     # Reduce the original dataframe by those columns
