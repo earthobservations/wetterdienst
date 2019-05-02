@@ -176,6 +176,9 @@ def create_fileindex(var,
         .melt(id_vars=['ROOT'], value_name="FILENAME") \
         .drop('variable', axis=1)
 
+    files_server.loc[:, 'FILENAME'] = files_server.loc[:, 'FILENAME'] \
+        .astype(str)
+
     files_server.loc[:, 'FILENAME'] = files_server.loc[:, 'FILENAME'].apply(
         lambda x: x if x[:2] != "./" else x[2:])
 
