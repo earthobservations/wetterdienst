@@ -73,7 +73,7 @@ def select_dwd(statid,
     #                    for id, statid_file in enumerate(filelist["STATID"])
     #                    if statid_file == statid]
 
-    filelist = filelist.loc[filelist["STATID"] in statid, 'FILENAME']
+    filelist = filelist.loc[filelist["STATID"].isin(statid), 'FILENAME']
 
     # filelist = filelist.iloc[files_statid_id, 2]
 
