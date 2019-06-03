@@ -37,14 +37,16 @@ def add_filepresence(metainfo,
 
     statid_col = determine_statid_col(per)
 
-    has_file_df = pd.DataFrame(select_dwd(
-        metainfo.STATIONS_ID, var='kl', res='daily', per='historical'))
+    file_existence = select_dwd(
+        metainfo.STATIONS_ID, var=var, res=res, per=per)
 
-    has_file_df.iloc[:, 0] = has_file_df.iloc[:, 0].apply(
+    file_existence = pd.DataFrame(file_existence)
+
+    file_existence.iloc[:, 0] = file_existence.iloc[:, 0].apply(
         lambda x: x.split('_')[statid_col]).astype(int)
 
     metainfo.loc[metainfo.loc[:, 'STATIONS_ID'].isin(
-        has_file_df.iloc[:, 0]), 'HAS_FILE'] = True
+        file_existence.iloc[:, 0]), 'HAS_FILE'] = True
 
     return metainfo
 
