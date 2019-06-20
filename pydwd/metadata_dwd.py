@@ -56,7 +56,7 @@ def add_filepresence(metainfo,
     file_existence.iloc[:, 0] = file_existence.iloc[:, 0].apply(
         lambda x: x.split('_')[STRING_STATID_COL.get(per, None)]).astype(int)
 
-    metainfo.loc[metainfo.loc[:, 'STATIONS_ID'].isin(
+    metainfo.loc[metainfo.iloc[:, 0].isin(
         file_existence.iloc[:, 0]), 'HAS_FILE'] = True
 
     return metainfo
