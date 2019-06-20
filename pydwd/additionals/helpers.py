@@ -130,7 +130,7 @@ def fix_metaindex(metaindex):
                            if string is not None], 1) \
         .to_frame() \
         .iloc[:, 0] \
-        .agg(lambda data: [' '.join(data[:-1]), data[-1]], 1) \
+        .agg(lambda data: [' '.join(data[:-1]), data[-1]]) \
         .apply(pd.Series)
 
     # Finally put together again the original frame and the fixed data
