@@ -11,10 +11,10 @@ from .additionals.generic_functions import correct_folder_path
 from .additionals.generic_functions import check_parameters
 from .additionals.generic_functions import create_folder
 from .additionals.generic_functions import remove_old_file
-from .additionals.generic_functions import determine_statid_col
 
 from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
 from .additionals.generic_variables import METADATA_NAME, DATA_FORMAT
+from .additionals.generic_variables import STRING_STATID_COL
 """
 ###################################
 ### Function 'add_filepresence' ###
@@ -45,8 +45,6 @@ def add_filepresence(metainfo,
 
     metainfo["HAS_FILE"] = False
 
-    statid_col = determine_statid_col(per)
-
     file_existence = select_dwd(statid=metainfo.STATIONS_ID,
                                 var=var,
                                 res=res,
@@ -56,7 +54,7 @@ def add_filepresence(metainfo,
     file_existence = pd.DataFrame(file_existence)
 
     file_existence.iloc[:, 0] = file_existence.iloc[:, 0].apply(
-        lambda x: x.split('_')[statid_col]).astype(int)
+        lambda x: x.split('_')[STRING_STATID_COL.get(per, None)]).astype(int)
 
     metainfo.loc[metainfo.loc[:, 'STATIONS_ID'].isin(
         file_existence.iloc[:, 0]), 'HAS_FILE'] = True
