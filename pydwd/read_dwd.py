@@ -1,7 +1,7 @@
 import pandas as pd
 from zipfile import ZipFile
 from pathlib import Path
-from datetime.datetime import strptime
+from datetime import datetime as dt
 
 from .additionals.generic_functions import determine_parameters
 from .additionals.generic_functions import check_parameters
@@ -107,6 +107,6 @@ def read_dwd(files, keep_zip=False):
     # data["MESS_DATUM"] = [strptime(str(date), "%Y%m%d")
     #                       for date in data["MESS_DATUM"]]
     data["DATE"] = data["DATE"].apply(
-        lambda date: strptime(str(date), "%Y%m%d"), axis=0)
+        lambda date: dt.strptime(str(date), "%Y%m%d"), axis=0)
 
     return data
