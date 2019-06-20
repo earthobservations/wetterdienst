@@ -1,3 +1,7 @@
+'''
+A set of more general functions used for the organization
+'''
+
 # Import modules
 from pathlib import Path
 
@@ -10,26 +14,13 @@ from pathlib import Path
 
 
 def correct_folder_path(folder):
-    if folder[-1] == "/":
-        folder = folder[:-1]
-
-    return folder
-
-
-def determine_statid_col(per):
-    if per == "historical":
-        statid_col = -4
-    elif per == "recent":
-        statid_col = -2
-    elif per == "now":
-        statid_col = -2
-    else:
-        statid_col = None
-
-    return statid_col
+    return folder.rstrip('/')
 
 
 """
+##################################
+### Function 'remove_old_file' ###
+##################################
 Function to remove old dwd file (metadata)
 """
 
@@ -38,16 +29,15 @@ def remove_old_file(file_type,
                     var,
                     res,
                     per,
-                    folder):
-    # Correct folder of file
-    folder = correct_folder_path(folder)
-
-    metainfo_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
-        folder, "metadata", file_type, var, res, per, ".csv")
+                    fileformat,
+                    folder,
+                    subfolder):
+    file_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
+        folder, subfolder, file_type, var, res, per, fileformat)
 
     # Try to remove the file
     try:
-        Path.unlink(metainfo_to_remove)
+        Path.unlink(file_to_remove)
     except Exception:
         pass
         # print('No file found to delete in \n{}!'.format(folder))
@@ -56,15 +46,15 @@ def remove_old_file(file_type,
 
 
 """
+################################
+### Function 'create_folder' ###
+################################
 Function for creating folder structure for saved stationdata
 """
 
 
 def create_folder(subfolder,
                   folder):
-    # Correct folder path to make it work
-    folder = correct_folder_path(folder)
-
     path_to_create = "{}/{}".format(folder, subfolder)
 
     # Try to create folder
@@ -79,6 +69,9 @@ def create_folder(subfolder,
 
 
 """
+#######################################
+### Function 'determine_parameters' ###
+#######################################
 Function to determine the type of file from the bare filename
 Needed for downloading the file and naming it correctly and understandable
 """
@@ -201,12 +194,17 @@ def determine_parameters(filename):
 
 
 """
+###################################
+### Function 'check_parameters' ###
+###################################
 Function to check for element (alternative name) and if existing return it
 Differs from foldername e.g. air_temperature -> tu
 """
 
 
-def check_parameters(var, res, per):
+def check_parameters(var,
+                     res,
+                     per):
 
     param_struct = {
         "1_minute":     [["precipitation"],
@@ -254,7 +252,12 @@ def check_parameters(var, res, per):
     check = param_struct.get(res, [[], []])
 
     if var not in check[0] or per not in check[1]:
-        raise NameError("Combination of res='{}', var='{}' and per='{}' not available.\nPossible parameters are: \n {}.".format(
-            res, var, per, param_struct))
+        raise NameError(
+            '''Combination of res='{}', var='{}' and per='{}' not available.
+            Possible parameters are:
+            {}.'''.format(res,
+                          var,
+                          per,
+                          param_struct))
 
     return None
