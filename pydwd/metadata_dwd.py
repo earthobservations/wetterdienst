@@ -45,7 +45,7 @@ def add_filepresence(metainfo,
 
     metainfo["HAS_FILE"] = False
 
-    file_existence = select_dwd(statid=metainfo.iloc[:, 0],
+    file_existence = select_dwd(statid=list(metainfo.iloc[:, 0]),
                                 var=var,
                                 res=res,
                                 per=per,
