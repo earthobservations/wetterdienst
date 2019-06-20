@@ -7,7 +7,7 @@ from .additionals.generic_functions import determine_parameters
 from .additionals.generic_functions import check_parameters
 
 from .additionals.generic_variables import STATIONDATA_MATCHSTRINGS
-from .additionals.generic_variables import COLNAMES_REPL
+from .additionals.generic_variables import STATIONDATA_COLS_REPL
 
 
 """
@@ -97,7 +97,7 @@ def read_dwd(files, keep_zip=False):
                     for column_name in column_names]
 
     # Replace certain names by conform names
-    column_names = [COLNAMES_REPL.get(column_name, column_name)
+    column_names = [STATIONDATA_COLS_REPL.get(column_name, column_name)
                     for column_name in column_names]
 
     # Reassign column names to DataFrame
