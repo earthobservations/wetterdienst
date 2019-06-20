@@ -40,12 +40,10 @@ class FTP(ftplib.FTP):
                 dir_files = [dir_list[0]
                              for dir_list in list(self.mlsd(path + "/" + dir))]
 
-                dir_files = list(
-                    filter(lambda x: x not in ['.', '..'], dir_files))
+                dir_files = [dir_file
+                             for dir_file in dir_files
+                             if dir_file not in ['.', '..']]
 
-                # [file
-                #  for file in dir_files
-                #  if file not in ['.', '..']]
             # If throws an error (which it does if the dir is only a filename)
             # just append a list with empty strings
             except Exception:

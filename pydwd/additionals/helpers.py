@@ -1,33 +1,37 @@
+'''
+A set of helping functions used by the main functions
+'''
 import pandas as pd
-
-# from pydwd.select_dwd import select_dwd
+from numpy import datetime64
 
 from .generic_classes import FTP
-from .generic_functions import check_parameters
-from .generic_functions import correct_folder_path
+
 from .generic_functions import create_folder
 from .generic_functions import remove_old_file
-from .generic_functions import determine_statid_col
 
-from .dwd_credentials import SERVER, PATH
+from .generic_variables import DWD_SERVER, DWD_PATH
+from .generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .generic_variables import METADATA_MATCHSTRINGS
+from .generic_variables import FILELIST_NAME
+from .generic_variables import ARCHIVE_FORMAT, DATA_FORMAT
+from .generic_variables import METADATA_COLS_REPL
+from .generic_variables import STRING_STATID_COL
 
 
 """
-################################
-### Function 'get_metaindex' ###
-################################
+###################################
+### Function 'create_metaindex' ###
+###################################
+A helping function to create a raw index of metadata for stations of the set of
+parameters as given. This raw metadata is then used by other functions.
 """
 
 
 def create_metaindex(var,
                      res,
                      per,
-                     server=SERVER,
-                     path=PATH):
-    # Check for combination of parameters
-    check_parameters(var=var,
-                     res=res,
-                     per=per)
+                     server=DWD_SERVER,
+                     path=DWD_PATH):
 
     # Try downloading metadata file under given local link
     try:
@@ -46,12 +50,16 @@ def create_metaindex(var,
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
 
-    files_server = list(filter(lambda x: x[0] == '.', files_server))
+    files_server = [file
+                    for file in files_server
+                    if file[0] == '.']
 
     files_server = files_server[0][1]
 
-    metafile_server = list(filter(
-        (lambda x: ".txt" in x and "beschreibung" in x.lower()), files_server))
+    metafile_server = [file
+                       for file in files_server
+                       if any([matchstring in file.lower()
+                               for matchstring in METADATA_MATCHSTRINGS])]
 
     metafile_server = metafile_server[0]
 
@@ -79,28 +87,51 @@ def create_metaindex(var,
     return metaindex
 
 
+"""
+################################
+### Function 'fix_metaindex' ###
+################################
+A helping function to fix the raw index of metadata by some string operations
+so that every information is in the right column.
+"""
+
+
 def fix_metaindex(metaindex):
     # Convert data to pandas dataframe
     metaindex = pd.DataFrame(metaindex)
     # Split the data into columns by any spaces
     metaindex = metaindex.iloc[:, 0].str.split(expand=True)
+
     # Get the column names
-    column_names = list(filter(None, metaindex.iloc[0, :]))
+    column_names = metaindex.iloc[0, :]
+    # Remove Nones
+    column_names = [name
+                    for name in column_names
+                    if name is not None]
     # Make them upper ones
-    column_names = [name.upper() for name in column_names]
+    column_names = [name.upper()
+                    for name in column_names]
+    # Replace names by english aquivalent
+    column_names = [METADATA_COLS_REPL.get(name, name)
+                    for name in column_names]
+
     # Skip first two lines (header and seperating line)
-    metaindex = metaindex[2:]
-    # Remove last empty row
-    metaindex = metaindex[:-1]
+    metaindex = metaindex.iloc[2:-1, :]
     # Create dataframe with strings to fix
     metaindex_to_fix = metaindex.iloc[:, 6:]
     # Reduce the original dataframe by those columns
     metaindex = metaindex.iloc[:, :6]
+
     # Index is fixed by string operations (put together all except the last
     # string which refers to state)
     metaindex_to_fix = metaindex_to_fix \
-        .agg((lambda x: [' '.join(list(filter(None, x))[:-1]),
-                         list(filter(None, x))[-1]]), 1).apply(pd.Series)
+        .agg(lambda data: [string
+                           for string in data
+                           if string is not None], 1) \
+        .to_frame() \
+        .agg(lambda data: [' '.join(data[:-1]), data[-1]], 1) \
+        .apply(pd.Series)
+
     # Finally put together again the original frame and the fixed data
     metaindex = pd.concat([metaindex, metaindex_to_fix], axis=1)
     # Overwrite the columns
@@ -108,8 +139,8 @@ def fix_metaindex(metaindex):
 
     # Fix datatypes
     metaindex.iloc[:, 0] = metaindex.iloc[:, 0].astype(int)
-    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].astype('datetime64')
-    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].astype('datetime64')
+    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].astype(datetime64)
+    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].astype(datetime64)
     metaindex.iloc[:, 3] = metaindex.iloc[:, 3].astype(int)
     metaindex.iloc[:, 4] = metaindex.iloc[:, 4].astype(float)
     metaindex.iloc[:, 5] = metaindex.iloc[:, 5].astype(float)
@@ -120,35 +151,36 @@ def fix_metaindex(metaindex):
 
 
 """
-Function to receive current files on server as list excluding description files
+###################################
+### Function 'create_fileindex' ###
+###################################
+A function to receive current files on server as list excluding description
+files and only containing those files that have measuring data.
 """
 
 
 def create_fileindex(var,
                      res,
                      per,
-                     folder="./dwd_data",
-                     server=SERVER,
-                     path=PATH):
-    # Check for the combination of requested parameters
-    check_parameters(var=var,
-                     res=res,
-                     per=per)
-
-    folder = correct_folder_path(folder)
+                     folder=MAIN_FOLDER,
+                     server=DWD_SERVER,
+                     path=DWD_PATH):
 
     # Check for folder and create if necessary
-    create_folder(subfolder="metadata",
+    create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)
 
     # Create filename for local metadata file containing information of date
-    filelist_local = "{}_{}_{}_{}".format("filelist", var, res, per)
+    filelist_local = "{}_{}_{}_{}".format(FILELIST_NAME,
+                                          var,
+                                          res,
+                                          per)
 
     # Create filename
     filelist_local_path = "{}/{}/{}{}".format(folder,
-                                              "metadata",
+                                              SUB_FOLDER_METADATA,
                                               filelist_local,
-                                              ".csv")
+                                              DATA_FORMAT)
 
     # Try listing files under given path
     try:
@@ -159,7 +191,10 @@ def create_fileindex(var,
 
             # Get files for set of paramters
             files_server = ftp.walk(
-                "/{}/{}/{}/{}/".format(path, res, var, per))
+                "/{}/{}/{}/{}/".format(path,
+                                       res,
+                                       var,
+                                       per))
 
     # If not possible raise an error
     except Exception:
@@ -180,16 +215,15 @@ def create_fileindex(var,
         .astype(str)
 
     files_server.loc[:, 'FILENAME'] = files_server.loc[:, 'FILENAME'].apply(
-        lambda x: x if x[:2] != "./" else x[2:])
+        lambda filename: filename.lstrip('./'))
 
-    files_server = files_server[files_server.FILENAME.str.contains('.zip')]
+    files_server = files_server[files_server.FILENAME.str.contains(
+        ARCHIVE_FORMAT)]
 
     files_server.loc[:, 'FILENAME'] = files_server.loc[:, 'ROOT'] \
         + '/' + files_server.loc[:, 'FILENAME']
 
     files_server = files_server.drop(['ROOT'], axis=1)
-
-    statid_col = determine_statid_col(per)
 
     files_server \
         .insert(loc=1,
@@ -200,22 +234,22 @@ def create_fileindex(var,
         .insert(loc=2,
                 column='STATID',
                 value=files_server.iloc[:, 0].str.split('_')
-                .apply(lambda x: x[statid_col]))
+                .apply(lambda string: string[STRING_STATID_COL.get(per, None)]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
-
-    # files_server.columns = ['FILEID', 'STATID', 'FILENAME']
 
     files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
 
     files_server = files_server.sort_values(by=["STATID"])
 
     # Remove old file
-    remove_old_file(file_type="filelist",
+    remove_old_file(file_type=FILELIST_NAME,
                     var=var,
                     res=res,
                     per=per,
-                    folder=folder)
+                    fileformat=DATA_FORMAT,
+                    folder=folder,
+                    subfolder=SUB_FOLDER_METADATA)
 
     # Write new file
     files_server.to_csv(path_or_buf=filelist_local_path,
@@ -223,7 +257,3 @@ def create_fileindex(var,
                         index=False)
 
     return None
-
-
-def reduce_to_values(data):
-    pass
