@@ -58,7 +58,7 @@ def create_metaindex(var,
 
     metafile_server = [file
                        for file in files_server
-                       if any([matchstring in file.lower()
+                       if all([matchstring in file.lower()
                                for matchstring in METADATA_MATCHSTRINGS])]
 
     metafile_server = metafile_server[0]
