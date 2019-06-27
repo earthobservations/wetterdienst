@@ -1,4 +1,4 @@
-__version__ = '0.1'
+__version__ = '1.0'
 
 from .metadata_dwd import metadata_dwd
 from .select_dwd import select_dwd
