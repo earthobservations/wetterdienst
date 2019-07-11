@@ -7,12 +7,13 @@ from .additionals.generic_functions import create_folder
 from .additionals.generic_functions import determine_parameters
 from .additionals.generic_functions import check_parameters
 
-from .additionals.dwd_credentials import SERVER, PATH
+from .additionals.generic_variables import DWD_SERVER, DWD_PATH
+from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_STATIONDATA
 
 """
-################################
-### Function 'download_data' ###
-################################
+###############################
+### Function 'download_dwd' ###
+###############################
 This function is used to download the stationdata for which the link is
 provided by the 'select_dwd' function. It checks the shortened filepath (just
 the zipfile) for its parameters, creates the full filepath and downloads the
@@ -21,25 +22,27 @@ file(s) according to the set up folder.
 
 
 def download_dwd(files,
-                 folder="./dwd_data",
-                 server=SERVER,
-                 path=PATH):
-    # Correct possible slashes at the end
-    folder = correct_folder_path(folder)
-
-    # Check the files input for its type (should be list)
-    if not isinstance(files, list):
-        raise NameError("The 'files' argument is not a list.")
-
-    # Create folder for storing the downloaded data
-    create_folder(subfolder="stationdata",
-                  folder=folder)
+                 folder=MAIN_FOLDER,
+                 server=DWD_SERVER,
+                 path=DWD_PATH):
+    # Check the parameter input for its type
+    assert isinstance(files, list)
+    assert isinstance(folder, str)
+    assert isinstance(server, str)
+    assert isinstance(path, str)
 
     # Determine var, res and per from first filename (needed for creating full
     # filepath)
     var, res, per = determine_parameters(files[0])
 
     check_parameters(var, res, per)
+
+    # Correct possible slashes at the end
+    folder = correct_folder_path(folder)
+
+    # Create folder for storing the downloaded data
+    create_folder(subfolder=SUB_FOLDER_STATIONDATA,
+                  folder=folder)
 
     # Try to download the corresponding file to the folder
     try:
@@ -54,8 +57,11 @@ def download_dwd(files,
             if len(file) > 0:
                 # The filepath to the server is created with the filename,
                 # the parameters and the path
-                file_server = "/{}/{}/{}/{}/{}".format(
-                    path, res, var, per, file)
+                file_server = "/{}/{}/{}/{}/{}".format(path,
+                                                       res,
+                                                       var,
+                                                       per,
+                                                       file)
 
                 # The local filename consists of the set of parameters (easier
                 # to analyse when looking at the filename) and the original
@@ -64,7 +70,7 @@ def download_dwd(files,
 
                 # Then the local path is added to the file
                 file_local = "{}/{}/{}".format(folder,
-                                               "stationdata",
+                                               SUB_FOLDER_STATIONDATA,
                                                file_local)
                 # This final local path is stored in the list
                 files_local.append(file_local)
@@ -90,7 +96,8 @@ def download_dwd(files,
     # completely and instead should throw an error.
     except Exception:
         # List files in the download folder
-        old_files = Path.glob("{}/{}/".format(folder, "stationdata"))
+        old_files = Path.glob("{}/{}/".format(folder,
+                                              SUB_FOLDER_STATIONDATA))
         # For every file in the folder list...
         for old_file in old_files:
             # For every file in the download list...
@@ -99,7 +106,7 @@ def download_dwd(files,
                 if file in old_file:
                     # Remove the corresponding file.
                     Path.unlink("{}/{}/{}".format(folder,
-                                                  "stationdata",
+                                                  SUB_FOLDER_STATIONDATA,
                                                   old_file))
                 # If any file is removed it returns to checking the file from
                 # download folder.

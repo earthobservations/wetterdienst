@@ -1,3 +1,7 @@
+'''
+A set of more general functions used for the organization
+'''
+
 # Import modules
 from pathlib import Path
 
@@ -10,41 +14,47 @@ from pathlib import Path
 
 
 def correct_folder_path(folder):
-    if folder[-1] == "/":
-        folder = folder[:-1]
-
-    return folder
+    return folder.rstrip('/')
 
 
 """
+##################################
+### Function 'remove_old_file' ###
+##################################
 Function to remove old dwd file (metadata)
 """
 
 
-def remove_old_file(file_type, var, res, per, folder):
-    folder = correct_folder_path(folder)
-
-    metainfo_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
-        folder, "metadata", file_type, var, res, per, ".csv")
+def remove_old_file(file_type,
+                    var,
+                    res,
+                    per,
+                    fileformat,
+                    folder,
+                    subfolder):
+    file_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
+        folder, subfolder, file_type, var, res, per, fileformat)
 
     # Try to remove the file
     try:
-        Path.unlink(metainfo_to_remove)
+        Path.unlink(file_to_remove)
     except Exception:
-        return None
+        pass
+        # print('No file found to delete in \n{}!'.format(folder))
 
     return None
 
 
 """
+################################
+### Function 'create_folder' ###
+################################
 Function for creating folder structure for saved stationdata
 """
 
 
-def create_folder(subfolder, folder):
-
-    folder = correct_folder_path(folder)
-
+def create_folder(subfolder,
+                  folder):
     path_to_create = "{}/{}".format(folder, subfolder)
 
     # Try to create folder
@@ -53,12 +63,15 @@ def create_folder(subfolder, folder):
             Path(path_to_create).mkdir(parents=True)
     except Exception:
         raise NameError(
-            "Folder couldn't be created at {} !".format(path_to_create))
+            "Folder couldn't be created at \n{} !".format(path_to_create))
 
     return None
 
 
 """
+#######################################
+### Function 'determine_parameters' ###
+#######################################
 Function to determine the type of file from the bare filename
 Needed for downloading the file and naming it correctly and understandable
 """
@@ -84,7 +97,7 @@ def determine_parameters(filename):
         res = None
 
     if res is None:
-        raise NameError("Resolution couldn't be determined.")
+        raise NameError("Resolution {} couldn't be determined.".format(res))
 
     # First determine the variable
     if res == "1_minute":
@@ -161,7 +174,7 @@ def determine_parameters(filename):
         var = None
 
     if var is None:
-        raise NameError("Variable couldn't be determined.")
+        raise NameError("Variable {} couldn't be determined.".format(var))
 
     if "_hist" in filename:
         per = "historical"
@@ -175,40 +188,23 @@ def determine_parameters(filename):
         per = None
 
     if per is None:
-        raise NameError("Timestamp couldn't be determined.")
+        raise NameError("Timestamp {} couldn't be determined.".format(per))
 
     return var, res, per
 
 
-# """
-# Function for returning elements of a list containing a pattern
-# """
-#
-#
-# def find_pattern(string, pattern):
-#     string_w_pattern = []
-#     for st in string:
-#
-#         cont_pat = False
-#         for pat in pattern:
-#
-#             if pat in st:
-#                 cont_pat = True
-#                 break
-#
-#         if cont_pat:
-#             string_w_pattern.append(st)
-#
-#     return(string_w_pattern)
-
-
 """
+###################################
+### Function 'check_parameters' ###
+###################################
 Function to check for element (alternative name) and if existing return it
 Differs from foldername e.g. air_temperature -> tu
 """
 
 
-def check_parameters(var, res, per):
+def check_parameters(var,
+                     res,
+                     per):
 
     param_struct = {
         "1_minute":     [["precipitation"],
@@ -257,7 +253,11 @@ def check_parameters(var, res, per):
 
     if var not in check[0] or per not in check[1]:
         raise NameError(
-            "Combination of res='{}', var='{}' and per='{}' not available".
-            format(res, var, per))
+            '''Combination of res='{}', var='{}' and per='{}' not available.
+            Possible parameters are:
+            {}.'''.format(res,
+                          var,
+                          per,
+                          param_struct))
 
     return None
