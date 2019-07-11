@@ -20,7 +20,7 @@ annual        | kl                    |   KL/KL                           |   hi
 daily         | kl                    |   KL/KL                           |   hist (= historical) |   tageswerte + abbrv. + statid + startdate + enddate + period
               | more_precip           |   RR/RR                           |   akt (= recent)      |   tageswerte + abbrv. + statid + period
               | soil_temperature      |   EB/EB                           |                       |
-              | solar                 |   ST/ST                           |   row                 |   tageswerte + abbrv. + statid + period
+              | solar                 |   ST/ST                           |   now                 |   tageswerte + abbrv. + statid + period
               | water_equiv           |   Wa/Wa                           |                       |
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 hourly        | air_temperature       |   TU/TU                           |   hist (= historical) |   stundenwerte + abbrv. + statid + startdate + enddate + period
