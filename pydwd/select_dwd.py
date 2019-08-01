@@ -7,6 +7,8 @@ from .additionals.generic_functions import check_parameters
 from .additionals.generic_functions import correct_folder_path
 
 from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .additionals.generic_variables import FILELIST_NAME, DATA_FORMAT
+from .additionals.generic_variables import STATION_ID_NAME, FILENAME_NAME
 
 """
 #############################
@@ -40,16 +42,14 @@ def select_dwd(statid,
     folder = correct_folder_path(folder)
 
     # Create name of fileslistfile
-    filelist_local = '{}_{}_{}_{}'.format('filelist',
-                                          var,
-                                          res,
-                                          per)
+    filelist_local = f'{FILELIST_NAME}_{var}_{res}_{per}'
 
     # Create filepath to filelist in folder
-    filelist_local_path = '{}/{}/{}{}'.format(folder,
-                                              SUB_FOLDER_METADATA,
-                                              filelist_local,
-                                              '.csv')
+    filelist_local_path = Path(folder,
+                               SUB_FOLDER_METADATA,
+                               filelist_local)
+
+    filelist_local_path = f"{filelist_local_path}{DATA_FORMAT}"
 
     # Check if there's an old filelist
     exist_old_file = Path(filelist_local_path).is_file()
@@ -67,7 +67,8 @@ def select_dwd(statid,
     filelist = pd.read_csv(filelist_local_path)
 
     # Return filenames for filtered statids
-    filelist = filelist.loc[filelist["STATID"].isin(statid), 'FILENAME']
+    filelist = filelist.loc[filelist[STATION_ID_NAME].isin(
+        statid), FILENAME_NAME]
 
     # Convert to simple list
     filelist = list(filelist)

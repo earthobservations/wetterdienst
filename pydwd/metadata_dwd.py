@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from .select_dwd import select_dwd
 
-from .additionals.helpers import create_metaindex
+from .additionals.helpers import create_metaindex, create_metaindex2
 from .additionals.helpers import fix_metaindex
 from .additionals.helpers import create_fileindex
 
@@ -15,6 +15,8 @@ from .additionals.generic_functions import remove_old_file
 from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
 from .additionals.generic_variables import METADATA_NAME, DATA_FORMAT
 from .additionals.generic_variables import STRING_STATID_COL
+from .additionals.generic_variables import HAS_FILE_NAME
+
 """
 ###################################
 ### Function 'add_filepresence' ###
@@ -43,7 +45,7 @@ def add_filepresence(metainfo,
                          per=per,
                          folder=folder)
 
-    metainfo["HAS_FILE"] = False
+    metainfo[HAS_FILE_NAME] = False
 
     file_existence = select_dwd(statid=list(metainfo.iloc[:, 0]),
                                 var=var,
@@ -57,7 +59,7 @@ def add_filepresence(metainfo,
         lambda x: x.split('_')[STRING_STATID_COL.get(per, None)]).astype(int)
 
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        file_existence.iloc[:, 0]), 'HAS_FILE'] = True
+        file_existence.iloc[:, 0]), HAS_FILE_NAME] = True
 
     return metainfo
 
@@ -93,29 +95,37 @@ def metadata_dwd(var,
     # Correct folder so that it doesn't end with slash
     folder = correct_folder_path(folder)
 
+    # Check for folder and create if necessary
+    create_folder(subfolder=SUB_FOLDER_METADATA,
+                  folder=folder)
+
+    old_file = f"{METADATA_NAME}_{var}_{res}_{per}{DATA_FORMAT}"
+
     # Create old file path
-    old_file_path = '{}/{}/{}_{}_{}_{}{}'.format(folder,
-                                                 SUB_FOLDER_METADATA,
-                                                 METADATA_NAME,
-                                                 var,
-                                                 res,
-                                                 per,
-                                                 DATA_FORMAT)
+    old_file_path = Path(folder,
+                         SUB_FOLDER_METADATA,
+                         old_file)
 
     # Check for old file existance
     old_file_exists = Path(old_file_path).is_file()
 
-    # If there's an old filelist and no new one should be created read in old
+    # If there's an old file and no new one should be created read in old
     if old_file_exists and not create_new_filelist:
         metainfo = pd.read_csv(filepath_or_buffer=old_file_path)
     else:
-        # Get new metadata as unformated file
-        metaindex = create_metaindex(var=var,
-                                     res=res,
-                                     per=per)
+        if res != "1_minute":
+            # Get new metadata as unformated file
+            metaindex = create_metaindex(var=var,
+                                         res=res,
+                                         per=per)
 
-        # Format raw metadata
-        metainfo = fix_metaindex(metaindex)
+            # Format raw metadata
+            metainfo = fix_metaindex(metaindex)
+        else:
+            metainfo = create_metaindex2(var=var,
+                                         res=res,
+                                         per=per,
+                                         folder=folder)
 
         # Add info if file is available on ftp server
         metainfo = add_filepresence(metainfo=metainfo,
@@ -126,22 +136,16 @@ def metadata_dwd(var,
                                     create_new_filelist=create_new_filelist)
 
     # If a file should be written
-    if write_file:
-        # Check for folder and create if necessary
-        create_folder(subfolder=SUB_FOLDER_METADATA,
-                      folder=folder)
-
+    if write_file and not old_file_exists and not create_new_filelist:
         # Create filename for metafile
-        metafile_local = "{}_{}_{}_{}".format(METADATA_NAME,
-                                              var,
-                                              res,
-                                              per)
+        metafile_local = f"{METADATA_NAME}_{var}_{res}_{per}"
 
         # Create filepath with filename and including extension
-        metafile_local_path = "{}/{}/{}{}".format(folder,
-                                                  SUB_FOLDER_METADATA,
-                                                  metafile_local,
-                                                  DATA_FORMAT)
+        metafile_local_path = Path(folder,
+                                   SUB_FOLDER_METADATA,
+                                   metafile_local)
+
+        metafile_local_path = f'{metafile_local_path}{DATA_FORMAT}'
 
         # Check for possible old files and remove them
         remove_old_file(file_type=METADATA_NAME,
