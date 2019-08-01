@@ -22,14 +22,12 @@ file(s) according to the set up folder.
 
 
 def download_dwd(files,
-                 folder=MAIN_FOLDER,
-                 server=DWD_SERVER,
-                 path=DWD_PATH):
+                 folder=MAIN_FOLDER):
     # Check the parameter input for its type
     assert isinstance(files, list)
     assert isinstance(folder, str)
-    assert isinstance(server, str)
-    assert isinstance(path, str)
+    # assert isinstance(server, str)
+    # assert isinstance(path, str)
 
     # Determine var, res and per from first filename (needed for creating full
     # filepath)
@@ -57,26 +55,28 @@ def download_dwd(files,
             if len(file) > 0:
                 # The filepath to the server is created with the filename,
                 # the parameters and the path
-                file_server = "/{}/{}/{}/{}/{}".format(path,
-                                                       res,
-                                                       var,
-                                                       per,
-                                                       file)
+                file_server = Path('/',
+                                   DWD_PATH,
+                                   res,
+                                   var,
+                                   per,
+                                   file)
 
                 # The local filename consists of the set of parameters (easier
-                # to analyse when looking at the filename) and the original
-                file_local = "{}_{}_{}_{}".format(
-                    var, res, per, file.split("/")[-1])
+                # to analyse when looking at the filename) and the original filename
+                filename = file.split('/')[-1]
+                file_local = f'{var}_{res}_{per}_{filename}'
 
                 # Then the local path is added to the file
-                file_local = "{}/{}/{}".format(folder,
-                                               SUB_FOLDER_STATIONDATA,
-                                               file_local)
+                file_local = Path(folder,
+                                  SUB_FOLDER_STATIONDATA,
+                                  file_local)
+
                 # This final local path is stored in the list
                 files_local.append(file_local)
 
                 # Open connection with ftp server
-                with FTP(server) as ftp:
+                with FTP(DWD_SERVER) as ftp:
                     # Login
                     ftp.login()
 
@@ -96,8 +96,10 @@ def download_dwd(files,
     # completely and instead should throw an error.
     except Exception:
         # List files in the download folder
-        old_files = Path.glob("{}/{}/".format(folder,
-                                              SUB_FOLDER_STATIONDATA))
+        old_files = Path.glob(Path(folder, SUB_FOLDER_STATIONDATA))
+
+        # f"{folder}/{SUB_FOLDER_STATIONDATA}/"
+
         # For every file in the folder list...
         for old_file in old_files:
             # For every file in the download list...
@@ -105,16 +107,17 @@ def download_dwd(files,
                 # If the file of the download list is in the folder list
                 if file in old_file:
                     # Remove the corresponding file.
-                    Path.unlink("{}/{}/{}".format(folder,
-                                                  SUB_FOLDER_STATIONDATA,
-                                                  old_file))
+                    Path.unlink(Path(folder,
+                                     SUB_FOLDER_STATIONDATA,
+                                     old_file))
                 # If any file is removed it returns to checking the file from
                 # download folder.
                 break
 
+        filenames_joined = '\n'.join(files)
+
         # In the end raise an error naming the files that couldn't be loaded.
         raise NameError(
-            "One of the files\n {} \n couldn't be downloaded!".format(
-                "\n".join(files)))
+            f"One of the files\n {filenames_joined} \n couldn't be downloaded!")
 
     return None

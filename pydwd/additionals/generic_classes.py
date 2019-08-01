@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import ftplib
 from io import StringIO
 from tqdm import tqdm
@@ -16,6 +18,22 @@ and opens a file with 'open' and finally saves the binary there.
 
 
 class FTP(ftplib.FTP):
+    def list_files(self, path):
+        server_files = []
+
+        path_files = self.nlst(path)
+
+        path_dirs = [path_files.pop(id)
+                     for id, file in enumerate(path_files)
+                     if "." not in file]
+
+        for dir in path_dirs:
+            server_files.extend(self.list_files(dir))
+
+        server_files.extend(path_files)
+
+        return server_files
+
     # Implement walk function from ftputil library(to reduce number of imports)
     def walk(self, path):
         # First list everything in the path including dirs and files
@@ -38,7 +56,7 @@ class FTP(ftplib.FTP):
             # Try to list files in that directory
             try:
                 dir_files = [dir_list[0]
-                             for dir_list in list(self.mlsd(path + "/" + dir))]
+                             for dir_list in list(self.mlsd(Path(path, dir)))]  # path + "/" + dir
 
                 dir_files = [dir_file
                              for dir_file in dir_files
@@ -60,17 +78,20 @@ class FTP(ftplib.FTP):
     # corresponding file first
     def readlines(self, filepath_server):
         ftp_lines = StringIO()
-        self.retrlines("RETR " + filepath_server,
-                       lambda line: ftp_lines.write(line + '\n'))
-        ftp_lines = ftp_lines.getvalue()
+        self.retrlines(f"RETR {filepath_server}",
+                       (lambda line: ftp_lines.write(line + "\n")))
 
-        ftp_lines = ftp_lines.split("\n")
+        ftp_text = ftp_lines.getvalue()
 
-        return ftp_lines
+        ftp_lines.close()
+
+        ftp_text = ftp_text.split("\n")
+
+        return ftp_text
 
     # Implement a download function which simply takes to paths and builds a
     # command with the server path ("RETR "...) abd opens another path on the
     # local drive where the data is written to
     def download(self, filepath_server, filepath_local):
         with open(filepath_local, "wb") as file:
-            self.retrbinary("RETR " + filepath_server, file.write)
+            self.retrbinary(f"RETR {filepath_server}", file.write)

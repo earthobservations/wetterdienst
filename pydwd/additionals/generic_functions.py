@@ -32,12 +32,16 @@ def remove_old_file(file_type,
                     fileformat,
                     folder,
                     subfolder):
-    file_to_remove = "{}/{}/{}_{}_{}_{}{}".format(
-        folder, subfolder, file_type, var, res, per, fileformat)
+
+    file_to_remove = f"{file_type}_{var}_{res}_{per}{fileformat}"
+
+    filepath_to_remove = Path(folder,
+                              subfolder,
+                              file_to_remove)
 
     # Try to remove the file
     try:
-        Path.unlink(file_to_remove)
+        Path.unlink(filepath_to_remove)
     except Exception:
         pass
         # print('No file found to delete in \n{}!'.format(folder))
@@ -55,15 +59,18 @@ Function for creating folder structure for saved stationdata
 
 def create_folder(subfolder,
                   folder):
-    path_to_create = "{}/{}".format(folder, subfolder)
+
+    path_to_create = Path(folder,
+                          subfolder)
+
+    # path_to_create = "{}/{}".format(folder, subfolder)
 
     # Try to create folder
     try:
         if not Path(path_to_create).is_dir():
             Path(path_to_create).mkdir(parents=True)
     except Exception:
-        raise NameError(
-            "Folder couldn't be created at \n{} !".format(path_to_create))
+        raise NameError(f"Folder couldn't be created at \n{path_to_create} !")
 
     return None
 
@@ -97,7 +104,7 @@ def determine_parameters(filename):
         res = None
 
     if res is None:
-        raise NameError("Resolution {} couldn't be determined.".format(res))
+        raise NameError(f"Resolution {res} couldn't be determined.")
 
     # First determine the variable
     if res == "1_minute":
@@ -174,7 +181,7 @@ def determine_parameters(filename):
         var = None
 
     if var is None:
-        raise NameError("Variable {} couldn't be determined.".format(var))
+        raise NameError(f"Variable {var} couldn't be determined.")
 
     if "_hist" in filename:
         per = "historical"
@@ -188,7 +195,7 @@ def determine_parameters(filename):
         per = None
 
     if per is None:
-        raise NameError("Timestamp {} couldn't be determined.".format(per))
+        raise NameError(f"Timestamp {per} couldn't be determined.")
 
     return var, res, per
 
@@ -253,11 +260,8 @@ def check_parameters(var,
 
     if var not in check[0] or per not in check[1]:
         raise NameError(
-            '''Combination of res='{}', var='{}' and per='{}' not available.
+            f'''Combination of res='{res}', var='{var}' and per='{per}' not available.
             Possible parameters are:
-            {}.'''.format(res,
-                          var,
-                          per,
-                          param_struct))
+            {param_struct}.''')
 
     return None

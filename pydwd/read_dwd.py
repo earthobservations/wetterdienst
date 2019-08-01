@@ -8,7 +8,7 @@ from .additionals.generic_functions import check_parameters
 
 from .additionals.generic_variables import STATIONDATA_MATCHSTRINGS
 from .additionals.generic_variables import STATIONDATA_COLS_REPL
-
+from .additionals.generic_variables import DATE_NAME
 
 """
 ###########################
@@ -22,12 +22,13 @@ removed afterwards.
 """
 
 
-def read_dwd(files, keep_zip=False):
+def read_dwd(files,
+             keep_zip=False):
     # Test for types of input parameters
     assert isinstance(files, list)
     assert isinstance(keep_zip, bool)
 
-    # Check for files
+    # Check for files and if empty return empty DataFrame
     if not files:
         return pd.DataFrame()
 
@@ -58,26 +59,26 @@ def read_dwd(files, keep_zip=False):
                 # Filter file with 'produkt' in filename
                 file_data = [zip_file_file
                              for zip_file_file in zip_file_files
-                             if all([matchstring in zip_file_file
+                             if all([matchstring in zip_file_file.lower()
                                      for matchstring in STATIONDATA_MATCHSTRINGS])]
 
                 # List to filename
-                file_data = file_data[0]
+                file_data = file_data.pop(0)
 
-                # Read data into a dataframe
-                data_file = pd.read_csv(
-                    filepath_or_buffer=zip_file.open(file_data),
-                    sep=";",
-                    na_values="-999")
+                with zip_file.open(file_data) as file_opened:
+                    # Read data into a dataframe
+                    data_file = pd.read_csv(filepath_or_buffer=file_opened,
+                                            sep=";",
+                                            na_values="-999")
 
             # Append dataframe to list of all data read
             data.append(data_file)
 
         except Exception:
             # In case something goes wrong there's a print
-            print('''The zipfile
-                  {}
-                  couldn't be opened/read and will be removed.'''.format(file))
+            print(f'''The zipfile
+                  {file}
+                  couldn't be opened/read and will be removed.''')
             # Data will be removed
             Path(file).unlink()
 
@@ -103,10 +104,8 @@ def read_dwd(files, keep_zip=False):
     # Reassign column names to DataFrame
     data.columns = column_names
 
-    # Date column is transformed from character to datetime
-    # data["MESS_DATUM"] = [strptime(str(date), "%Y%m%d")
-    #                       for date in data["MESS_DATUM"]]
-    data["DATE"] = data["DATE"].apply(
+    # String to date
+    data[DATE_NAME] = data[DATE_NAME].apply(
         lambda date: dt.strptime(str(date), "%Y%m%d"), axis=0)
 
     return data
