@@ -1,305 +1,401 @@
-""" A set of helping functions used by the main functions """
-import re
-import urllib
-import zipfile
-from typing import List, Tuple
-from io import TextIOWrapper, BytesIO
-from pathlib import Path, PurePosixPath
+'''
+A set of helping functions used by the main functions
+'''
+import os
+from pathlib import Path
 import pandas as pd
-from multiprocessing import Pool
-import ftplib
+from zipfile import ZipFile
+from io import TextIOWrapper
+from tqdm import tqdm
 
-from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
-from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
-from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
-    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
-    STATID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
-from python_dwd.download.download_services import create_remote_file_name
-from python_dwd.download.ftp_handling import FTP
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import remove_old_file, create_folder
-from python_dwd.additionals.functions import find_all_matchstrings_in_string
+from .generic_classes import FTP
+
+from .generic_functions import create_folder
+from .generic_functions import remove_old_file
+
+from .generic_variables import DWD_SERVER, DWD_PATH
+from .generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .generic_variables import METADATA_1MIN_COLUMNS
+from .generic_variables import METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, METADATA_1MIN_PAR_MATCHSTRINGS
+from .generic_variables import FILELIST_NAME
+from .generic_variables import ARCHIVE_FORMAT, DATA_FORMAT
+from .generic_variables import METADATA_COLS_REPL
+from .generic_variables import STRING_STATID_COL
+from .generic_variables import FILENAME_NAME, FILEID_NAME, STATION_ID_NAME
+from .generic_variables import FTP_METADATA_NAME
 
 
-def create_metaindex(parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType) -> pd.DataFrame:
-    """ The function is used to create a simple metadata DataFrame parsed from the text files that are located in each
-    data section of the station data directory of the weather service.
+"""
+###################################
+### Function 'create_metaindex' ###
+###################################
+A helping function to create a raw index of metadata for stations of the set of
+parameters as given. This raw metadata is then used by other functions.
+"""
 
-    Args:
-        parameter: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
-    Return:
-        DataFrame with parsed columns of the corresponding text file. Columns are translated into English and data is
-        not yet complete as file existence is not checked.
 
-    """
-    server_path = PurePosixPath(DWD_PATH,
-                                time_resolution.value,
-                                parameter.value,
-                                period_type.value)
+def create_metaindex(var,
+                     res,
+                     per):
 
+    server_path = Path(DWD_PATH,
+                       res,
+                       var,
+                       per)
+
+    server_path = f"{server_path}{os.sep}"
+
+    server_path = server_path.replace('\\', '/')
+
+    # Try downloading metadata file under given local link
     try:
+        # Open connection with ftp server
         with FTP(DWD_SERVER) as ftp:
+            # Login
             ftp.login()
-            files_server = ftp.list_files(remote_path=str(server_path), also_subfolders=False)
 
-    except ftplib.all_errors as e:
-        raise ftplib.all_errors("Error: couldn't retrieve filelist from server.\n"
-                                f"{str(e)}")
+            # Establish connection with server
+            files_server = ftp.list_files(path=server_path)
 
-    metafile_server = [file for file in files_server
-                       if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
+    # If there's a problem with the connection throw an error
+    except Exception:
+        raise NameError("Couldn't retrieve filelist from server")
 
-    metafile_server = create_remote_file_name(metafile_server.lstrip(DWD_PATH))
+    metafile_server = [file
+                       for file in files_server
+                       if all([matchstring in file.lower()
+                               for matchstring in METADATA_MATCHSTRINGS])]
+
+    metafile_server = metafile_server.pop(0)
+
+    print(metafile_server)
 
     try:
-        with urllib.request.urlopen(metafile_server) as request:
-            file = BytesIO(request.read())
+        # Open connection with ftp server
+        with FTP(DWD_SERVER) as ftp:
+            # Login
+            ftp.login()
 
-    except urllib.error.URLError as e:
-        raise urllib.error.URLError("Error: reading metadata file failed.\n"
-                                    f"{str(e)}")
+            # Download file into folder path
+            metaindex = ftp.readlines(metafile_server)
 
-    metaindex = pd.read_fwf(filepath_or_buffer=file,
-                            colspecs=METADATA_FIXED_COLUMN_WIDTH,
-                            skiprows=[1],
-                            dtype=str,
-                            encoding="ISO-8859-1")
+    # If not possible raise an error
+    except Exception:
+        raise NameError(
+            "Reading metadata file currently is not possible. Try again!")
 
-    # Fix column names, as header is not aligned to fixed column widths
-    metaindex.columns = "".join(
-        [column for column in metaindex.columns if "unnamed" not in column.lower()]).split(" ")
-
-    metaindex = metaindex.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-
-    return metaindex.astype(METADATA_DTYPE_MAPPING)
+    return metaindex
 
 
-def metaindex_for_1minute_data(parameter: Parameter,
-                               time_resolution: TimeResolution) -> pd.DataFrame:
-    """
-    A helping function to create a raw index of metadata for stations of the set of
-    parameters as given. This raw metadata is then used by other functions. This
-    second/alternative function must be used for high resolution data, where the
-    metadata is not available as file but instead saved in external files per each
-    station.
-    - especially for precipitation/1_minute/historical!
+"""
+################################
+### Function 'fix_metaindex' ###
+################################
+A helping function to fix the raw index of metadata by some string operations
+so that every information is in the right column.
+"""
 
-    """
 
-    assert time_resolution == TimeResolution.MINUTE_1, \
-        "Wrong TimeResolution, only 1 minute is valid "
+def fix_metaindex(metaindex):
+    # Convert data to pandas dataframe
+    metaindex = pd.DataFrame(metaindex)
+    # Split the data into columns by any spaces
+    metaindex = metaindex.iloc[:, 0].str.split(expand=True)
 
-    metadata_path = PurePosixPath(DWD_PATH,
-                                  time_resolution.value,
-                                  parameter.value,
-                                  FTP_METADATA_NAME)
+    # Get the column names
+    column_names = metaindex.iloc[0, :]
+
+    # Remove Nones
+    column_names = [name
+                    for name in column_names
+                    if name is not None]
+
+    # Make them upper ones
+    column_names = [name.upper()
+                    for name in column_names]
+
+    # Replace names by english aquivalent
+    column_names = [METADATA_COLS_REPL.get(name, name)
+                    for name in column_names]
+
+    # Skip first two lines (header and seperating line)
+    metaindex = metaindex.iloc[2:-1, :]
+
+    # Create dataframe with strings to fix
+    metaindex_to_fix = metaindex.iloc[:, 6:]
+
+    # Reduce the original dataframe by those columns
+    metaindex = metaindex.iloc[:, :6]
+
+    # Index is fixed by string operations (put together all except the last
+    # string which refers to state)
+    metaindex_to_fix = metaindex_to_fix \
+        .agg(lambda data: [string
+                           for string in data
+                           if string is not None], 1) \
+        .to_frame() \
+        .iloc[:, 0] \
+        .agg(lambda data: [' '.join(data[:-1]), data[-1]]) \
+        .apply(pd.Series)
+
+    # Finally put together again the original frame and the fixed data
+    metaindex = pd.concat([metaindex, metaindex_to_fix], axis=1)
+
+    # Overwrite the columns
+    metaindex.columns = column_names
+
+    # Fix datatypes
+    metaindex.iloc[:, 0] = metaindex.iloc[:, 0].apply(int)
+    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(int)
+    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(str)
+    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(pd.to_datetime)
+    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(int)
+    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(str)
+    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(pd.to_datetime)
+    metaindex.iloc[:, 3] = metaindex.iloc[:, 3].apply(int)
+    metaindex.iloc[:, 4] = metaindex.iloc[:, 4].apply(float)
+    metaindex.iloc[:, 5] = metaindex.iloc[:, 5].apply(float)
+    metaindex.iloc[:, 6] = metaindex.iloc[:, 6].apply(str)
+    metaindex.iloc[:, 7] = metaindex.iloc[:, 7].apply(str)
+
+    return metaindex
+
+
+"""
+####################################
+### Function 'create_metaindex2' ###
+####################################
+A helping function to create a raw index of metadata for stations of the set of
+parameters as given. This raw metadata is then used by other functions. This 
+second/alternative function must be used for high resolution data, where the 
+metadata is not available as file but instead saved in external files per each 
+station.
+- especially for precipitation/1_minute/historical!
+"""
+
+
+def create_metaindex2(var,
+                      res,
+                      per,
+                      folder):
+
+    metadata_path = Path(DWD_PATH,
+                         res,
+                         var,
+                         FTP_METADATA_NAME)
+
+    metadata_path = str(metadata_path).replace("\\", "/")
 
     with FTP(DWD_SERVER) as ftp:
         ftp.login()
 
-        metadata_filepaths = ftp.list_files(remote_path=str(metadata_path), also_subfolders=False)
+        metadata_server = ftp.nlst(metadata_path)
 
-    metadata_filepaths = [create_remote_file_name(file.lstrip(DWD_PATH)) for file in metadata_filepaths]
+    metadata_server = [metadata_file.replace("\\", "/")
+                       for metadata_file in metadata_server]
 
-    statids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
+    metadata_local = [str(Path(folder,
+                               SUB_FOLDER_METADATA,
+                               metadata_file.split("/")[-1])).replace("\\", "/")
+                      for metadata_file in metadata_server]
 
-    metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
+    metadata_df = pd.DataFrame(None,
+                               columns=METADATA_1MIN_COLUMNS)
 
-    metadata_files = Pool().map(download_metadata_file_for_1minute_data, metadata_filepaths)
+    for metafile_server, metafile_local in tqdm(zip(metadata_server, metadata_local), total=len(metadata_server)):
+        with FTP(DWD_SERVER) as ftp:
+            ftp.login()
 
-    metadata_dfs = Pool().map(combine_geo_and_par_file_to_metadata_df, zip(metadata_files, statids))
+            ftp.download(metafile_server,
+                         metafile_local)
 
-    metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
+        with ZipFile(metafile_local) as zip_file:
+            # List of fileitems in zipfile
+            zip_file_files = zip_file.infolist()
 
-    metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
+            # List of filenames of fileitems
+            zip_file_files = [zip_file_file.filename
+                              for zip_file_file in zip_file_files]
 
-    return metaindex_df.sort_values(DWDColumns.STATION_ID.value).reset_index(drop=True)
+            # Filter file with 'produkt' in filename
+            file_geo = [zip_file_file
+                        for zip_file_file in zip_file_files
+                        if all([matchstring in zip_file_file.lower()
+                                for matchstring in METADATA_1MIN_GEO_MATCHSTRINGS])]
+
+            # List to filename
+            file_geo = file_geo.pop(0)
+
+            file_par = [zip_file_file
+                        for zip_file_file in zip_file_files
+                        if all([matchstring in zip_file_file.lower()
+                                for matchstring in METADATA_1MIN_PAR_MATCHSTRINGS])]
+
+            # List to filename
+            file_par = file_par.pop(0)
+
+            # Read data into a dataframe
+            with zip_file.open(file_geo) as file_opened:
+                try:
+                    geo_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
+                                           sep=";",
+                                           na_values="-999")
+                except UnicodeDecodeError:
+                    geo_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
+                                           sep=";",
+                                           na_values="-999",
+                                           engine="python")
+
+            with zip_file.open(file_par) as file_opened:
+                try:
+                    par_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
+                                           sep=";",
+                                           na_values="-999")
+
+                except UnicodeDecodeError:
+                    par_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
+                                           sep=";",
+                                           na_values="-999",
+                                           engine="python")
+
+        Path(metafile_local).unlink()
+
+        geo_file.columns = [METADATA_COLS_REPL.get(name.strip().upper())
+                            for name in geo_file.columns]
+
+        par_file.columns = [METADATA_COLS_REPL.get(name.strip().upper())
+                            for name in par_file.columns]
+
+        # List for DataFrame return
+        geo_file = geo_file.iloc[[-1], :]
+
+        par_file = par_file.loc[:, ["FROM_DATE", "TO_DATE"]].dropna()
+
+        geo_file["FROM_DATE"] = par_file["FROM_DATE"].min()
+        geo_file["TO_DATE"] = par_file["TO_DATE"].max()
+
+        geo_file = geo_file.loc[:, METADATA_1MIN_COLUMNS]
+
+        metadata_df = metadata_df.append(geo_file,
+                                         ignore_index=True)
+
+    metadata_df = metadata_df.reset_index(drop=True)
+
+    # Fix datatypes
+    metadata_df.iloc[:, 0] = metadata_df.iloc[:, 0].apply(int)
+    metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(int)
+    metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(str)
+    metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(pd.to_datetime)
+    metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(int)
+    metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(str)
+    metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(pd.to_datetime)
+    metadata_df.iloc[:, 3] = metadata_df.iloc[:, 3].apply(int)
+    metadata_df.iloc[:, 4] = metadata_df.iloc[:, 4].apply(float)
+    metadata_df.iloc[:, 5] = metadata_df.iloc[:, 5].apply(float)
+    metadata_df.iloc[:, 6] = metadata_df.iloc[:, 6].apply(str)
+
+    metadata_df = metadata_df.sort_values("STATION_ID").reset_index(drop=True)
+
+    return metadata_df
 
 
-def download_metadata_file_for_1minute_data(metadatafile: str) -> BytesIO:
-    """ A function that simply opens a filepath with help of the urllib library and then writes the content to a BytesIO
-    object and returns this object. For this case as it opens lots of requests (there are approx 1000 different files
-    to open for 1minute data), it will do the same at most three times for one file to assure success reading the file.
-
-    Args:
-        metadatafile (str) - the file that shall be downloaded and returned as bytes.
-
-    Return:
-        A BytesIO object to which the opened file was written beforehand.
-
-    """
-    for _ in range(TRIES_TO_DOWNLOAD_FILE):
-        try:
-            with urllib.request.urlopen(metadatafile) as url_request:
-                file = BytesIO(url_request.read())
-            break
-        except urllib.error.URLError:
-            continue
-
-    return file
+"""
+###################################
+### Function 'create_fileindex' ###
+###################################
+A function to receive current files on server as list excluding description
+files and only containing those files that have measuring data.
+"""
 
 
-def combine_geo_and_par_file_to_metadata_df(metadata_file_and_statid: Tuple[BytesIO, str]) -> pd.DataFrame:
-    """ A function that analysis the given file (bytes) and extracts both the geography and the parameter file of
-    a 1minute metadata zip and combines both files in a predefined way to catch the relevant information and create a
-    similar file to those that can usually be found already prepared for other parameter combinations.
+def create_fileindex(var,
+                     res,
+                     per,
+                     folder=MAIN_FOLDER):
 
-    Args:
-        metadata_file_and_statid (BytesIO, str) - the file that holds the information and the statid of that file.
-
-    Return:
-        A pandas DataFrame with the combined data for one respective station.
-
-    """
-    metadata_file, statid = metadata_file_and_statid
-
-    metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{statid}.txt"
-    metadata_par_filename = f"{METADATA_1MIN_PAR_PREFIX}{statid}.txt"
-
-    with zipfile.ZipFile(metadata_file) as zip_file:
-        with zip_file.open(metadata_geo_filename) as file_opened:
-            metadata_geo_df = parse_zipped_data_into_df(file_opened)
-
-        with zip_file.open(metadata_par_filename) as file_opened:
-            metadata_par_df = parse_zipped_data_into_df(file_opened)
-
-    metadata_geo_df = metadata_geo_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-    metadata_par_df = metadata_par_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-
-    metadata_geo_df = metadata_geo_df.iloc[[-1], :]
-    metadata_par_df = metadata_par_df.loc[:, [DWDColumns.FROM_DATE.value, DWDColumns.TO_DATE.value]].dropna()
-
-    metadata_geo_df[DWDColumns.FROM_DATE.value] = metadata_par_df[DWDColumns.FROM_DATE.value].min()
-    metadata_geo_df[DWDColumns.TO_DATE.value] = metadata_par_df[DWDColumns.TO_DATE.value].max()
-
-    return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
-
-
-def parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
-    """ A wrapper for read_csv of pandas library that has set the typically used parameters in the found data of the
-    german weather service.
-
-    Args:
-        file_opened (open) - the file that will be read
-
-    Return:
-        A pandas DataFrame with the read data.
-
-    """
-    file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
-                       sep=STATIONDATA_SEP,
-                       na_values=NA_STRING,
-                       dtype=str)
-
-    return file
-
-
-def create_fileindex(parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType,
-                     folder: str = MAIN_FOLDER) -> None:
-    """
-        A function to receive current files on server as list excluding description
-        files and only containing those files that have measuring data.
-
-    """
     # Check for folder and create if necessary
     create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)
 
+    # Create filename for local metadata file containing information of date
+    filelist_local = f"{FILELIST_NAME}_{var}_{res}_{per}"
+
+    # Create filename with dataformat
+    filelist_local_with_format = f"{filelist_local}{DATA_FORMAT}"
+
+    # Create filename
     filelist_local_path = Path(folder,
                                SUB_FOLDER_METADATA,
-                               f"{FILELIST_NAME}_{parameter.value}_"
-                               f"{time_resolution.value}_"
-                               f"{period_type.value}{DATA_FORMAT}")
+                               filelist_local_with_format)
 
-    server_path = PurePosixPath(DWD_PATH,
-                                time_resolution.value,
-                                parameter.value,
-                                period_type.value)
+    filelist_local_path = str(filelist_local_path).replace('\\', '/')
 
+    server_path = Path(DWD_PATH,
+                       res,
+                       var,
+                       per)
+
+    server_path = f"{server_path}{os.sep}"
+
+    server_path = server_path.replace('\\', '/')
+
+    # Try listing files under given path
     try:
+        # Open connection with ftp server
         with FTP(DWD_SERVER) as ftp:
+            # Login
             ftp.login()
-            files_server = ftp.list_files(remote_path=str(server_path),
-                                          also_subfolders=True)
 
-    except ftplib.all_errors as e:
-        raise ftplib.all_errors("Error: creating a filelist currently not possible.\n"
-                                f"{str(e)}")
+            # Get files for set of paramters
+            files_server = ftp.list_files(path=server_path)
 
-    files_server = pd.DataFrame(files_server,
-                                columns=[DWDColumns.FILENAME.value],
-                                dtype='str')
+    # If not possible raise an error
+    except Exception:
+        raise NameError(
+            "Download of fileslist file currently not possible. Try again!")
 
-    files_server.loc[:, DWDColumns.FILENAME.value] = files_server.loc[:, DWDColumns.FILENAME.value].apply(
+    files_server = pd.DataFrame(files_server)
+
+    files_server.columns = [FILENAME_NAME]
+
+    files_server.loc[:, FILENAME_NAME] = files_server.loc[:, FILENAME_NAME] \
+        .apply(str)
+
+    files_server.loc[:, FILENAME_NAME] = files_server.loc[:, FILENAME_NAME].apply(
         lambda filename: filename.lstrip(DWD_PATH + '/'))
 
     files_server = files_server[files_server.FILENAME.str.contains(
         ARCHIVE_FORMAT)]
 
-    files_server.loc[:, DWDColumns.FILEID.value] = files_server.index
-    
-    file_names = files_server.iloc[:, 0].str.split("/").apply(
-        lambda string: string[-1])
+    files_server \
+        .insert(loc=1,
+                column=FILEID_NAME,
+                value=files_server.index)
 
-    files_server.loc[:, DWDColumns.STATION_ID.value] = file_names.apply(lambda x: re.findall(STATID_REGEX, x).pop(0))
+    files_server \
+        .insert(loc=2,
+                column=STATION_ID_NAME,
+                value=files_server.iloc[:, 0].str.split('_')
+                .apply(lambda string: string[STRING_STATID_COL.get(per, None)]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
-    files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
+    files_server.iloc[:, 1] = files_server.iloc[:, 1].apply(int)
 
-    files_server = files_server.sort_values(by=[DWDColumns.STATION_ID.value])
+    files_server = files_server.sort_values(by=[STATION_ID_NAME])
 
+    # Remove old file
     remove_old_file(file_type=FILELIST_NAME,
-                    parameter=parameter,
-                    time_resolution=time_resolution,
-                    period_type=period_type,
-                    file_postfix=DATA_FORMAT,
+                    var=var,
+                    res=res,
+                    per=per,
+                    fileformat=DATA_FORMAT,
                     folder=folder,
                     subfolder=SUB_FOLDER_METADATA)
 
+    # Write new file
     files_server.to_csv(path_or_buf=filelist_local_path,
                         header=True,
                         index=False)
 
-
-def check_file_exist(file_path: Path) -> bool:
-    """ checks if the file behind the path exists """
-    return Path(file_path).is_file()
-
-
-def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
-    """
-    A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
-    want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
-    stored .h5 file. This is required as we want to store the data in this file with the same format which is a string,
-    thus after reading data back in the dtypes have to be matched.
-    
-    Args:
-        columns: the column names of the DataFrame whose data should be converted
-    Return:
-         a dictionary with column names and dtypes for each of them
-    """
-    stationdata_dtype_mapping = dict()
-
-    """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
-
-    for column in columns:
-        if column == DWDColumns.STATION_ID.value:
-            stationdata_dtype_mapping[column] = int
-        elif column == DWDColumns.DATE.value:
-            stationdata_dtype_mapping[column] = "datetime64"
-        elif column == DWDColumns.EOR.value:
-            stationdata_dtype_mapping[column] = str
-        else:
-            stationdata_dtype_mapping[column] = float
-
-    return stationdata_dtype_mapping
+    return None

@@ -1,17 +1,17 @@
 from setuptools import setup
-from pydwd import __version__
+from python_dwd import __version__
 
 with open("README.md", 'r') as f:
     long_description = f.read()
 
 setup(
-    name='pydwd',
+    name='python_dwd',
     version=__version__,
     description='A module for accessing data from german weather service',
     license='MIT',
     long_description=long_description,
     author='Benjamin Gutzmann',
     author_email='gutzemann@gmail.com',
-    packages=['pydwd', 'pydwd.additionals'],
+    packages=['python_dwd', 'python_dwd.additionals'],
     install_requires=['pandas']
 )

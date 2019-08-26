@@ -1,185 +1,187 @@
-""" Meta data handling """
-from pathlib import Path
-
+# Imports
 import pandas as pd
+from pathlib import Path
+from .select_dwd import select_dwd
 
-from python_dwd.additionals.functions import check_parameters
-from python_dwd.additionals.helpers import create_fileindex, check_file_exist
-from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
-from python_dwd.constants.access_credentials import MAIN_FOLDER, \
-    SUB_FOLDER_METADATA
-from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.file_list_creation import \
-    create_file_list_for_dwd_server
-from python_dwd.file_path_handling.path_handling import remove_old_file, create_folder
+from .additionals.helpers import create_metaindex, create_metaindex2
+from .additionals.helpers import fix_metaindex
+from .additionals.helpers import create_fileindex
+
+from .additionals.generic_functions import correct_folder_path
+from .additionals.generic_functions import check_parameters
+from .additionals.generic_functions import create_folder
+from .additionals.generic_functions import remove_old_file
+
+from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .additionals.generic_variables import METADATA_NAME, DATA_FORMAT
+from .additionals.generic_variables import STRING_STATID_COL
+from .additionals.generic_variables import HAS_FILE_NAME
+
+"""
+###################################
+### Function 'add_filepresence' ###
+###################################
+"""
 
 
-def add_filepresence(metainfo: pd.DataFrame,
-                     parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType,
-                     folder: str,
-                     create_new_filelist: bool) -> pd.DataFrame:
-    """
-    updates the metainfo
+def add_filepresence(metainfo,
+                     var,
+                     res,
+                     per,
+                     folder,
+                     create_new_filelist):
 
-    Args:
-        metainfo: meta info about the weather data
-        parameter: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
-        folder: local folder to store meta info file
-        create_new_filelist: if true: a new file_list for metadata will
-         be created
+    # Check for the combination of requested parameters
+    check_parameters(var=var,
+                     res=res,
+                     per=per)
 
-    Returns:
-        updated meta info
-    """
-    if not isinstance(metainfo, pd.DataFrame):
-        raise TypeError("Error: metainfo is not of type pandas.DataFrame.")
+    # Correct folder so that it doesn't end with slash
+    folder = correct_folder_path(folder)
 
     if create_new_filelist:
-        create_fileindex(parameter=parameter,
-                         time_resolution=time_resolution,
-                         period_type=period_type,
+        create_fileindex(var=var,
+                         res=res,
+                         per=per,
                          folder=folder)
 
-    metainfo[DWDColumns.HAS_FILE.value] = False
+    metainfo[HAS_FILE_NAME] = False
 
-    filelist = create_file_list_for_dwd_server(
-        station_ids=metainfo.iloc[:, 0].to_list(),
-        parameter=parameter,
-        time_resolution=time_resolution,
-        period_type=period_type,
-        folder=folder)
+    file_existence = select_dwd(statid=list(metainfo.iloc[:, 0]),
+                                var=var,
+                                res=res,
+                                per=per,
+                                folder=folder)
+
+    file_existence = pd.DataFrame(file_existence)
+
+    file_existence.iloc[:, 0] = file_existence.iloc[:, 0].apply(
+        lambda x: x.split('_')[STRING_STATID_COL.get(per, None)]).astype(int)
 
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        filelist[DWDColumns.STATION_ID.value]), DWDColumns.HAS_FILE.value] = True
+        file_existence.iloc[:, 0]), HAS_FILE_NAME] = True
 
     return metainfo
 
 
-def metadata_for_dwd_data(parameter: Parameter,
-                          time_resolution: TimeResolution,
-                          period_type: PeriodType,
-                          folder: str = MAIN_FOLDER,
-                          write_file: bool = True,
-                          create_new_filelist: bool = False) -> pd.DataFrame:
-    """
-    A main function to retrieve metadata for a set of parameters that creates a
-        corresponding csv.
-
-    STATE information is added to metadata for cases where there's no such named
-    column (e.g. STATE) in the dataframe.
-    For this purpose we use daily precipitation data. That has two reasons:
-     - daily precipitation data has a STATE information combined with a city
-     - daily precipitation data is the most common data served by the DWD
+"""
+###############################
+### Function 'metadata_dwd' ###
+###############################
+A main function to retrieve metadata for a set of parameters that creates a
+corresponding csv.
+"""
 
 
-    Args:
-        parameter: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
-        folder: local file system folder where files should be stored
-        write_file: writes the meta data file to the local file system
-        create_new_filelist: if true: a new file_list for metadata will
-         be created
+def metadata_dwd(var,
+                 res,
+                 per,
+                 folder=MAIN_FOLDER,
+                 write_file=True,
+                 create_new_filelist=False):
+    # Check types of function parameters
+    assert isinstance(var, str)
+    assert isinstance(res, str)
+    assert isinstance(per, str)
+    assert isinstance(folder, str)
+    assert isinstance(write_file, bool)
+    assert isinstance(create_new_filelist, bool)
 
-    Returns:
+    # Check for the combination of requested parameters
+    check_parameters(var=var,
+                     res=res,
+                     per=per)
 
-    """
+    # Correct folder so that it doesn't end with slash
+    folder = correct_folder_path(folder)
 
-    if not isinstance(parameter, Parameter):
-        raise TypeError("Error: 'parameter' is not of type Parameter(Enum).")
-    if not isinstance(time_resolution, TimeResolution):
-        raise TypeError("Error: 'time_resolution' is not of type TimeResolution(Enum).")
-    if not isinstance(period_type, PeriodType):
-        raise TypeError("Error: 'period_type' is not of type PeriodType(Enum).")
-    if not isinstance(folder, str):
-        raise TypeError("Error: 'folder' is not a string.")
-    if not isinstance(write_file, bool):
-        raise TypeError("Error: 'write_file' is not a bool.")
-    if not isinstance(create_new_filelist, bool):
-        raise TypeError("Error: 'create_new_filelist' is not a bool.")
+    # Check for folder and create if necessary
+    create_folder(subfolder=SUB_FOLDER_METADATA,
+                  folder=folder)
 
-    check_parameters(parameter=parameter,
-                     time_resolution=time_resolution,
-                     period_type=period_type)
+    old_file = f"{METADATA_NAME}_{var}_{res}_{per}{DATA_FORMAT}"
 
-    file_path = create_metainfo_fpath(folder,
-                                      parameter,
-                                      period_type,
-                                      time_resolution)
+    # Create old file path
+    old_file_path = Path(folder,
+                         SUB_FOLDER_METADATA,
+                         old_file)
 
-    if check_file_exist(file_path) and not create_new_filelist:
-        metainfo = pd.read_csv(filepath_or_buffer=file_path)
+    # Check for old file existance
+    old_file_exists = Path(old_file_path).is_file()
+
+    # If there's an old file and no new one should be created read in old
+    if old_file_exists and not create_new_filelist:
+        metainfo = pd.read_csv(filepath_or_buffer=old_file_path)
+
+        # Here we can return, as we don't want to remove the file without further knowledge
+        # Also we don't need to write a file that's already on the drive
         return metainfo
 
-    if time_resolution == TimeResolution.MINUTE_1:
-        metainfo = metaindex_for_1minute_data(parameter=parameter,
-                                              time_resolution=time_resolution)
+    if res != "1_minute":
+        # Get new metadata as unformated file
+        metaindex = create_metaindex(var=var,
+                                     res=res,
+                                     per=per)
+
+        # Format raw metadata
+        metainfo = fix_metaindex(metaindex)
     else:
-        metainfo = create_metaindex(parameter=parameter,
-                                    time_resolution=time_resolution,
-                                    period_type=period_type)
+        metainfo = create_metaindex2(var=var,
+                                     res=res,
+                                     per=per,
+                                     folder=folder)
 
-    if all(pd.isnull(metainfo[DWDColumns.STATE.value])):
-        # @todo avoid calling function in function -> we have to build a function around to manage missing data
-        mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
-                                    TimeResolution.DAILY,
-                                    PeriodType.HISTORICAL,
-                                    folder=folder,
-                                    write_file=False,
-                                    create_new_filelist=False)
+    # We want to add the STATE information for our metadata for cases where
+    # we don't request daily precipitation data. That has two reasons:
+    # - daily precipitation data has a STATE information combined with a city
+    # - daily precipitation data is the most common data served by the DWD
+    # First we check if the data has a column with name STATE
+    if "STATE" not in metainfo.columns:
+        # If the column is not available we need this information to be added
+        # (recursive call)
+        mdp = metadata_dwd("more_precip",
+                           "daily",
+                           "historical",
+                           folder=folder,
+                           write_file=False,
+                           create_new_filelist=False)
 
-        stateinfo = pd.merge(metainfo[DWDColumns.STATION_ID],
-                             mdp.loc[:, [DWDColumns.STATION_ID.value, DWDColumns.STATE.value]],
-                             how="left")
+        # Join state of daily precipitation data on this dataframe
+        metainfo = metainfo.merge(
+            mdp.loc[:, ["STATIONNAME", "STATE"]], on="STATIONNAME").reset_index(drop=True)
 
-        metainfo[DWDColumns.STATE.value] = stateinfo[DWDColumns.STATE.value]
-
-        # for station, state in mdp.loc[:, [DWDColumns.STATIONNAME.value, DWDColumns.STATE.value]]:
-        #     metainfo.loc[metainfo[DWDColumns.STATIONNAME.value] == station, DWDColumns.STATE.value] = state
-
+    # Add info if file is available on ftp server
     metainfo = add_filepresence(metainfo=metainfo,
-                                parameter=parameter,
-                                time_resolution=time_resolution,
-                                period_type=period_type,
+                                var=var,
+                                res=res,
+                                per=per,
                                 folder=folder,
                                 create_new_filelist=create_new_filelist)
 
-    if write_file and not check_file_exist(file_path) and not \
-            create_new_filelist:
+    # If a file should be written
+    if write_file and not old_file_exists and not create_new_filelist:
+        # Create filename for metafile
+        metafile_local = f"{METADATA_NAME}_{var}_{res}_{per}"
+
+        # Create filepath with filename and including extension
+        metafile_local_path = Path(folder,
+                                   SUB_FOLDER_METADATA,
+                                   metafile_local)
+
+        metafile_local_path = f'{metafile_local_path}{DATA_FORMAT}'
+
+        # Check for possible old files and remove them
         remove_old_file(file_type=METADATA_NAME,
-                        file_postfix=DATA_FORMAT,
-                        parameter=parameter,
-                        time_resolution=time_resolution,
-                        period_type=period_type,
+                        fileformat=DATA_FORMAT,
+                        var=var,
+                        res=res,
+                        per=per,
                         folder=folder,
                         subfolder=SUB_FOLDER_METADATA)
 
-        metainfo.to_csv(path_or_buf=file_path,
+        # Write file to csv
+        metainfo.to_csv(path_or_buf=metafile_local_path,
                         header=True,
                         index=False)
 
     return metainfo
-
-
-def create_metainfo_fpath(folder: str,
-                          parameter: Parameter,
-                          period_type: PeriodType,
-                          time_resolution: TimeResolution) -> Path:
-    """ checks if the file behind the path exists """
-    # folder = correct_folder_path(folder)
-
-    create_folder(subfolder=SUB_FOLDER_METADATA,
-                  folder=folder)
-    return Path(folder,
-                SUB_FOLDER_METADATA,
-                f"{METADATA_NAME}_{parameter.value}_"
-                f"{time_resolution.value}_{period_type.value}"
-                f"{DATA_FORMAT}")
