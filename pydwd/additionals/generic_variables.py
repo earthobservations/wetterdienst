@@ -1,5 +1,20 @@
 '''
 A set of variables used to access the data and setup the environment
+---------------------------------------------------------------------
+In the following lines we have defined several keys to 
+- how we access
+- how we name it (files, columns in dataframes, etc.)
+- how we rename it (german to english)
+- what strings to look for when searching for files like metadata/
+stationdata
+- what fileendings we expect
+- and others
+This helps us to maintain this library - firstly for ourselves to
+change certain things in a way we want it e.g. to name columns 
+differently and to prepare for future changes where one expected name
+may have altered through updated filestructures on the ftp server.
+Therefor we want to keep our functions free of those hard-coded names
+and instead use our variables as they are defined in this file.
 '''
 
 # DWD credentials needed to access the ftp server
@@ -48,15 +63,18 @@ DATA_FORMAT = '.csv'
 # Ceveral other names appearing inside created files
 FILENAME_NAME = "FILENAME"
 STATION_ID_NAME = "STATION_ID"
+STATIONNAME_NAME = "STATIONNAME"
 DATE_NAME = "DATE"
 HAS_FILE_NAME = "HAS_FILE"
 FILEID_NAME = "FILEID"
 
 # Column names that should be replaced if found in DataFrame
-STATIONDATA_COLS_REPL = {'STATIONS_ID': 'STATION_ID',
-                         'MESS_DATUM': 'DATE'}
+# For stationdata
+STATIONDATA_COLS_REPL = {'STATIONS_ID': STATION_ID_NAME,
+                         'MESS_DATUM': DATE_NAME}
 
-METADATA_COLS_REPL = {'STATIONS_ID': 'STATION_ID',
+# For metadata
+METADATA_COLS_REPL = {'STATIONS_ID': STATION_ID_NAME,
                       'VON_DATUM': 'FROM_DATE',
                       'BIS_DATUM': 'TO_DATE',
                       'STATIONSHOEHE': 'STATIONHEIGHT',
@@ -64,7 +82,7 @@ METADATA_COLS_REPL = {'STATIONS_ID': 'STATION_ID',
                       "GEOGR.BREITE": "LAT",
                       'GEOLAENGE': 'LON',
                       "GEOGR.LAENGE": "LON",
-                      'STATIONSNAME': 'STATIONNAME',
+                      'STATIONSNAME': STATIONNAME_NAME,
                       'BUNDESLAND': 'STATE'}
 
 # Position/number of parts of filenames depending on filetype
