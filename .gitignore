@@ -1,4 +1,2 @@
 *.code-workspace
 __pycache__/
-dwd_data/
-.idea/

@@ -112,28 +112,51 @@ def metadata_dwd(var,
     # If there's an old file and no new one should be created read in old
     if old_file_exists and not create_new_filelist:
         metainfo = pd.read_csv(filepath_or_buffer=old_file_path)
+
+        # Here we can return, as we don't want to remove the file without further knowledge
+        # Also we don't need to write a file that's already on the drive
+        return metainfo
+
+    if res != "1_minute":
+        # Get new metadata as unformated file
+        metaindex = create_metaindex(var=var,
+                                     res=res,
+                                     per=per)
+
+        # Format raw metadata
+        metainfo = fix_metaindex(metaindex)
     else:
-        if res != "1_minute":
-            # Get new metadata as unformated file
-            metaindex = create_metaindex(var=var,
-                                         res=res,
-                                         per=per)
+        metainfo = create_metaindex2(var=var,
+                                     res=res,
+                                     per=per,
+                                     folder=folder)
 
-            # Format raw metadata
-            metainfo = fix_metaindex(metaindex)
-        else:
-            metainfo = create_metaindex2(var=var,
-                                         res=res,
-                                         per=per,
-                                         folder=folder)
+    # We want to add the STATE information for our metadata for cases where
+    # we don't request daily precipitation data. That has two reasons:
+    # - daily precipitation data has a STATE information combined with a city
+    # - daily precipitation data is the most common data served by the DWD
+    # First we check if the data has a column with name STATE
+    if "STATE" not in metainfo.columns:
+        # If the column is not available we need this information to be added
+        # (recursive call)
+        mdp = metadata_dwd("more_precip",
+                           "daily",
+                           "historical",
+                           folder=folder,
+                           write_file=False,
+                           create_new_filelist=False)
 
-        # Add info if file is available on ftp server
-        metainfo = add_filepresence(metainfo=metainfo,
-                                    var=var,
-                                    res=res,
-                                    per=per,
-                                    folder=folder,
-                                    create_new_filelist=create_new_filelist)
+        # Join state of daily precipitation data on this dataframe
+        metainfo = metainfo.merge(
+            mdp.loc[:, ["STATIONNAME", "STATE"]], on="STATIONNAME").reset_index(drop=True)
+
+    # Add info if file is available on ftp server
+    metainfo = add_filepresence(metainfo=metainfo,
+                                var=var,
+                                res=res,
+                                per=per,
+                                folder=folder,
+                                create_new_filelist=create_new_filelist)
 
     # If a file should be written
     if write_file and not old_file_exists and not create_new_filelist:
