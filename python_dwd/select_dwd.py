@@ -3,12 +3,12 @@ from pathlib import Path
 
 from .additionals.helpers import create_fileindex
 
-from .additionals.generic_functions import check_parameters
-from .additionals.generic_functions import correct_folder_path
+from .additionals.functions import check_parameters
+from .additionals.functions import correct_folder_path
 
-from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
-from .additionals.generic_variables import FILELIST_NAME, DATA_FORMAT
-from .additionals.generic_variables import STATION_ID_NAME, FILENAME_NAME
+from .additionals.variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .additionals.variables import FILELIST_NAME, DATA_FORMAT
+from .additionals.variables import STATION_ID_NAME, FILENAME_NAME
 
 """
 #############################

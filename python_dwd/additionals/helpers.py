@@ -8,21 +8,23 @@ from zipfile import ZipFile
 from io import TextIOWrapper
 from tqdm import tqdm
 
-from .generic_classes import FTP
+from .classes import FTP
 
-from .generic_functions import create_folder
-from .generic_functions import remove_old_file
+from .functions import create_folder
+from .functions import remove_old_file
 
-from .generic_variables import DWD_SERVER, DWD_PATH
-from .generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
-from .generic_variables import METADATA_1MIN_COLUMNS
-from .generic_variables import METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, METADATA_1MIN_PAR_MATCHSTRINGS
-from .generic_variables import FILELIST_NAME
-from .generic_variables import ARCHIVE_FORMAT, DATA_FORMAT
-from .generic_variables import METADATA_COLS_REPL
-from .generic_variables import STRING_STATID_COL
-from .generic_variables import FILENAME_NAME, FILEID_NAME, STATION_ID_NAME
-from .generic_variables import FTP_METADATA_NAME
+from .variables import DWD_SERVER, DWD_PATH
+from .variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .variables import METADATA_1MIN_COLUMNS
+from .variables import METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS
+from .variables import METADATA_1MIN_PAR_MATCHSTRINGS
+from .variables import FILELIST_NAME
+from .variables import ARCHIVE_FORMAT, DATA_FORMAT
+from .variables import COLS_REPL
+from .variables import STRING_STATID_COL
+from .variables import FILENAME_NAME, FILEID_NAME, STATION_ID_NAME
+from .variables import FTP_METADATA_NAME
+from .variables import FROM_DATE_NAME, TO_DATE_NAME
 
 
 """
@@ -67,8 +69,6 @@ def create_metaindex(var,
                                for matchstring in METADATA_MATCHSTRINGS])]
 
     metafile_server = metafile_server.pop(0)
-
-    print(metafile_server)
 
     try:
         # Open connection with ftp server
@@ -115,7 +115,7 @@ def fix_metaindex(metaindex):
                     for name in column_names]
 
     # Replace names by english aquivalent
-    column_names = [METADATA_COLS_REPL.get(name, name)
+    column_names = [COLS_REPL.get(name, name)
                     for name in column_names]
 
     # Skip first two lines (header and seperating line)
@@ -258,21 +258,32 @@ def create_metaindex2(var,
                                            na_values="-999",
                                            engine="python")
 
+        # Remove file
         Path(metafile_local).unlink()
 
-        geo_file.columns = [METADATA_COLS_REPL.get(name.strip().upper())
+        # Clean names
+        geo_file.columns = [name.strip().upper()
                             for name in geo_file.columns]
 
-        par_file.columns = [METADATA_COLS_REPL.get(name.strip().upper())
+        # Replace them
+        geo_file.columns = [COLS_REPL.get(name, name)
+                            for name in geo_file.columns]
+
+        # Clean names
+        par_file.columns = [name.strip().upper()
+                            for name in par_file.columns]
+
+        # Replace them
+        par_file.columns = [COLS_REPL.get(name, name)
                             for name in par_file.columns]
 
         # List for DataFrame return
         geo_file = geo_file.iloc[[-1], :]
 
-        par_file = par_file.loc[:, ["FROM_DATE", "TO_DATE"]].dropna()
+        par_file = par_file.loc[:, [FROM_DATE_NAME, TO_DATE_NAME]].dropna()
 
-        geo_file["FROM_DATE"] = par_file["FROM_DATE"].min()
-        geo_file["TO_DATE"] = par_file["TO_DATE"].max()
+        geo_file[FROM_DATE_NAME] = par_file[FROM_DATE_NAME].min()
+        geo_file[TO_DATE_NAME] = par_file[TO_DATE_NAME].max()
 
         geo_file = geo_file.loc[:, METADATA_1MIN_COLUMNS]
 
@@ -294,7 +305,8 @@ def create_metaindex2(var,
     metadata_df.iloc[:, 5] = metadata_df.iloc[:, 5].apply(float)
     metadata_df.iloc[:, 6] = metadata_df.iloc[:, 6].apply(str)
 
-    metadata_df = metadata_df.sort_values("STATION_ID").reset_index(drop=True)
+    metadata_df = metadata_df.sort_values(
+        STATION_ID_NAME).reset_index(drop=True)
 
     return metadata_df
 

@@ -7,15 +7,16 @@ from .additionals.helpers import create_metaindex, create_metaindex2
 from .additionals.helpers import fix_metaindex
 from .additionals.helpers import create_fileindex
 
-from .additionals.generic_functions import correct_folder_path
-from .additionals.generic_functions import check_parameters
-from .additionals.generic_functions import create_folder
-from .additionals.generic_functions import remove_old_file
+from .additionals.functions import correct_folder_path
+from .additionals.functions import check_parameters
+from .additionals.functions import create_folder
+from .additionals.functions import remove_old_file
 
-from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_METADATA
-from .additionals.generic_variables import METADATA_NAME, DATA_FORMAT
-from .additionals.generic_variables import STRING_STATID_COL
-from .additionals.generic_variables import HAS_FILE_NAME
+from .additionals.variables import MAIN_FOLDER, SUB_FOLDER_METADATA
+from .additionals.variables import METADATA_NAME, DATA_FORMAT
+from .additionals.variables import STRING_STATID_COL
+from .additionals.variables import HAS_FILE_NAME
+from .additionals.variables import STATIONNAME_NAME, STATE_NAME
 
 """
 ###################################
@@ -136,7 +137,7 @@ def metadata_dwd(var,
     # - daily precipitation data has a STATE information combined with a city
     # - daily precipitation data is the most common data served by the DWD
     # First we check if the data has a column with name STATE
-    if "STATE" not in metainfo.columns:
+    if STATE_NAME not in metainfo.columns:
         # If the column is not available we need this information to be added
         # (recursive call)
         mdp = metadata_dwd("more_precip",
@@ -148,7 +149,7 @@ def metadata_dwd(var,
 
         # Join state of daily precipitation data on this dataframe
         metainfo = metainfo.merge(
-            mdp.loc[:, ["STATIONNAME", "STATE"]], on="STATIONNAME").reset_index(drop=True)
+            mdp.loc[:, [STATIONNAME_NAME, STATE_NAME]], on=STATIONNAME_NAME).reset_index(drop=True)
 
     # Add info if file is available on ftp server
     metainfo = add_filepresence(metainfo=metainfo,
