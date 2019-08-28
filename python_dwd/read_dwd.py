@@ -3,12 +3,12 @@ from zipfile import ZipFile
 from pathlib import Path
 from datetime import datetime as dt
 
-from .additionals.generic_functions import determine_parameters
-from .additionals.generic_functions import check_parameters
+from .additionals.functions import determine_parameters
+from .additionals.functions import check_parameters
 
-from .additionals.generic_variables import STATIONDATA_MATCHSTRINGS
-from .additionals.generic_variables import STATIONDATA_COLS_REPL
-from .additionals.generic_variables import DATE_NAME
+from .additionals.variables import STATIONDATA_MATCHSTRINGS
+from .additionals.variables import COLS_REPL
+from .additionals.variables import DATE_NAME
 
 """
 ###########################
@@ -94,11 +94,11 @@ def read_dwd(files,
     column_names = data.columns
 
     # Strip empty chars from before and after column names
-    column_names = [column_name.strip()
+    column_names = [column_name.upper().strip()
                     for column_name in column_names]
 
     # Replace certain names by conform names
-    column_names = [STATIONDATA_COLS_REPL.get(column_name, column_name)
+    column_names = [COLS_REPL.get(column_name, column_name)
                     for column_name in column_names]
 
     # Reassign column names to DataFrame
@@ -106,6 +106,6 @@ def read_dwd(files,
 
     # String to date
     data[DATE_NAME] = data[DATE_NAME].apply(
-        lambda date: dt.strptime(str(date), "%Y%m%d"), axis=0)
+        lambda date: dt.strptime(str(date), "%Y%m%d"))
 
     return data

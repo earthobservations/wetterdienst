@@ -1,14 +1,14 @@
 from pathlib import Path
 
-from .additionals.generic_classes import FTP
+from .additionals.classes import FTP
 
-from .additionals.generic_functions import correct_folder_path
-from .additionals.generic_functions import create_folder
-from .additionals.generic_functions import determine_parameters
-from .additionals.generic_functions import check_parameters
+from .additionals.functions import correct_folder_path
+from .additionals.functions import create_folder
+from .additionals.functions import determine_parameters
+from .additionals.functions import check_parameters
 
-from .additionals.generic_variables import DWD_SERVER, DWD_PATH
-from .additionals.generic_variables import MAIN_FOLDER, SUB_FOLDER_STATIONDATA
+from .additionals.variables import DWD_SERVER, DWD_PATH
+from .additionals.variables import MAIN_FOLDER, SUB_FOLDER_STATIONDATA
 
 """
 ###############################
@@ -57,10 +57,11 @@ def download_dwd(files,
                 # the parameters and the path
                 file_server = Path('/',
                                    DWD_PATH,
-                                   res,
-                                   var,
-                                   per,
                                    file)
+
+                file_server = str(file_server)
+
+                file_server = fr"{file_server}".replace("\\", "/")
 
                 # The local filename consists of the set of parameters (easier
                 # to analyse when looking at the filename) and the original filename
@@ -71,6 +72,8 @@ def download_dwd(files,
                 file_local = Path(folder,
                                   SUB_FOLDER_STATIONDATA,
                                   file_local)
+
+                file_local = str(file_local).replace("\\", "/")
 
                 # This final local path is stored in the list
                 files_local.append(file_local)

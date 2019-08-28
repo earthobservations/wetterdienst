@@ -7,11 +7,11 @@ with open("README.md", 'r') as f:
 setup(
     name='python_dwd',
     version=__version__,
-    description='A module for accessing data from german weather service',
+    description='A module for accessing data of the german weather service',
     license='MIT',
     long_description=long_description,
     author='Benjamin Gutzmann',
     author_email='gutzemann@gmail.com',
-    packages=['python_dwd', 'python_dwd.additionals'],
-    install_requires=['pandas']
+    packages=['python_dwd'],  # , 'python_dwd.additionals'
+    install_requires=['pandas', 'tqdm', 'pathlib', 'zipfile']
 )
