@@ -1,6 +1,6 @@
 # Folder structure of dwd ftp server ###
 
-[LINK TO DWD]('ftp://opendata.dwd.de/climate_environment/CDC/observations_germany/climate')
+[LINK TO DWD](ftp://opendata.dwd.de/climate_environment/CDC/observations_germany/climate)
 
 | Timescale | Variable | Abbrevation | Period | Filename |
 | --- | --- | --- | --- | --- |
