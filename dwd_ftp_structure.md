@@ -1,4 +1,4 @@
-## Folder structure of dwd ftp server ###
+# Folder structure of dwd ftp server ###
 
 [LINK TO DWD]('ftp://opendata.dwd.de/climate_environment/CDC/observations_germany/climate')
 
