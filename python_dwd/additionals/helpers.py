@@ -13,27 +13,13 @@ from .classes import FTP
 from .functions import create_folder
 from .functions import remove_old_file
 
-from .variables import DWD_SERVER, DWD_PATH
-from .variables import MAIN_FOLDER, SUB_FOLDER_METADATA
-from .variables import METADATA_1MIN_COLUMNS
-from .variables import METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS
-from .variables import METADATA_1MIN_PAR_MATCHSTRINGS
-from .variables import FILELIST_NAME
-from .variables import ARCHIVE_FORMAT, DATA_FORMAT
-from .variables import COLS_REPL
+from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
+    METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, ARCHIVE_FORMAT, DATA_FORMAT
 from .variables import STRING_STATID_COL
-from .variables import FILENAME_NAME, FILEID_NAME, STATION_ID_NAME
-from .variables import FTP_METADATA_NAME
-from .variables import FROM_DATE_NAME, TO_DATE_NAME
+from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
+    GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
 
-
-"""
-###################################
-### Function 'create_metaindex' ###
-###################################
-A helping function to create a raw index of metadata for stations of the set of
-parameters as given. This raw metadata is then used by other functions.
-"""
 
 
 def create_metaindex(var,
@@ -115,7 +101,7 @@ def fix_metaindex(metaindex):
                     for name in column_names]
 
     # Replace names by english aquivalent
-    column_names = [COLS_REPL.get(name, name)
+    column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name, name)
                     for name in column_names]
 
     # Skip first two lines (header and seperating line)
@@ -266,7 +252,7 @@ def create_metaindex2(var,
                             for name in geo_file.columns]
 
         # Replace them
-        geo_file.columns = [COLS_REPL.get(name, name)
+        geo_file.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name, name)
                             for name in geo_file.columns]
 
         # Clean names
@@ -274,7 +260,7 @@ def create_metaindex2(var,
                             for name in par_file.columns]
 
         # Replace them
-        par_file.columns = [COLS_REPL.get(name, name)
+        par_file.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name, name)
                             for name in par_file.columns]
 
         # List for DataFrame return

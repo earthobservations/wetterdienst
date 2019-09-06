@@ -1,29 +1,31 @@
-import pandas as pd
-from zipfile import ZipFile
-from pathlib import Path
 from datetime import datetime as dt
+from pathlib import Path
+from zipfile import ZipFile
 
-from .additionals.functions import determine_parameters
+import pandas as pd
+
+from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 from .additionals.functions import check_parameters
-
-from .additionals.variables import STATIONDATA_MATCHSTRINGS
-from .additionals.variables import COLS_REPL
-from .additionals.variables import DATE_NAME
-
-"""
-###########################
-### Function 'read_dwd' ###
-###########################
-This function is used to read the stationdata for which the local zip link is
-provided by the 'download_dwd' function. It checks the zipfile from the link
-for its parameters, opens every zipfile in the list of files and reads in the
-containing product file, and if there's an error or it's wanted the zipfile is
-removed afterwards.
-"""
+from .additionals.functions import determine_parameters
 
 
 def read_dwd(files,
              keep_zip=False):
+    """
+    This function is used to read the stationdata for which the local zip link is
+    provided by the 'download_dwd' function. It checks the zipfile from the link
+    for its parameters, opens every zipfile in the list of files and reads in the
+    containing product file, and if there's an error or it's wanted the zipfile is
+    removed afterwards.
+
+    Args:
+        files:
+        keep_zip:
+
+    Returns:
+
+    """
     # Test for types of input parameters
     assert isinstance(files, list)
     assert isinstance(keep_zip, bool)
@@ -39,7 +41,7 @@ def read_dwd(files,
     var, res, per = determine_parameters(first_filename)
 
     # Check for combination
-    check_parameters(var=var, res=res, per=per)
+    check_parameters(parameter=var, time_resolution=res, period_type=per)
 
     # Create empty dataframe to combine several files
     data = []
@@ -98,7 +100,7 @@ def read_dwd(files,
                     for column_name in column_names]
 
     # Replace certain names by conform names
-    column_names = [COLS_REPL.get(column_name, column_name)
+    column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(column_name, column_name)
                     for column_name in column_names]
 
     # Reassign column names to DataFrame
