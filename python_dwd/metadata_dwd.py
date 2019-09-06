@@ -12,11 +12,10 @@ from .additionals.functions import check_parameters
 from .additionals.functions import create_folder
 from .additionals.functions import remove_old_file
 
-from .additionals.variables import MAIN_FOLDER, SUB_FOLDER_METADATA
-from .additionals.variables import METADATA_NAME, DATA_FORMAT
+from python_dwd.constants.ftp_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
 from .additionals.variables import STRING_STATID_COL
-from .additionals.variables import HAS_FILE_NAME
-from .additionals.variables import STATIONNAME_NAME, STATE_NAME
+from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, STATE_NAME, HAS_FILE_NAME
 
 """
 ###################################
@@ -33,9 +32,9 @@ def add_filepresence(metainfo,
                      create_new_filelist):
 
     # Check for the combination of requested parameters
-    check_parameters(var=var,
-                     res=res,
-                     per=per)
+    check_parameters(parameter=var,
+                     time_resolution=res,
+                     period_type=per)
 
     # Correct folder so that it doesn't end with slash
     folder = correct_folder_path(folder)
@@ -89,9 +88,9 @@ def metadata_dwd(var,
     assert isinstance(create_new_filelist, bool)
 
     # Check for the combination of requested parameters
-    check_parameters(var=var,
-                     res=res,
-                     per=per)
+    check_parameters(parameter=var,
+                     time_resolution=res,
+                     period_type=per)
 
     # Correct folder so that it doesn't end with slash
     folder = correct_folder_path(folder)

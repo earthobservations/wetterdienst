@@ -1,23 +1,13 @@
-import pandas as pd
 from pathlib import Path
 
-from .additionals.helpers import create_fileindex
+import pandas as pd
 
+from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FILENAME_NAME
+from python_dwd.constants.ftp_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
 from .additionals.functions import check_parameters
 from .additionals.functions import correct_folder_path
-
-from .additionals.variables import MAIN_FOLDER, SUB_FOLDER_METADATA
-from .additionals.variables import FILELIST_NAME, DATA_FORMAT
-from .additionals.variables import STATION_ID_NAME, FILENAME_NAME
-
-"""
-#############################
-### Function 'select_dwd' ###
-#############################
-Function for selecting datafiles (links to archives) for given
-statid, var, res, per under consideration of a created list of files that are
-available online.
-"""
+from .additionals.helpers import create_fileindex
 
 
 def select_dwd(statid,
@@ -26,6 +16,22 @@ def select_dwd(statid,
                per,
                folder=MAIN_FOLDER,
                create_new_filelist=False):
+    """
+    Function for selecting datafiles (links to archives) for given
+    statid, var, res, per under consideration of a created list of files that are
+    available online.
+
+    Args:
+        statid:
+        var:
+        res:
+        per:
+        folder:
+        create_new_filelist:
+
+    Returns:
+
+    """
     # Check type of function parameters
     assert isinstance(statid, list)
     assert isinstance(var, str)
@@ -35,9 +41,9 @@ def select_dwd(statid,
     assert isinstance(create_new_filelist, bool)
 
     # Check for the combination of requested parameters
-    check_parameters(var=var,
-                     res=res,
-                     per=per)
+    check_parameters(parameter=var,
+                     time_resolution=res,
+                     period_type=per)
 
     folder = correct_folder_path(folder)
 
