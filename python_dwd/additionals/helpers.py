@@ -1,35 +1,40 @@
-'''
-A set of helping functions used by the main functions
-'''
+""" A set of helping functions used by the main functions """
 import os
-from pathlib import Path
-import pandas as pd
-from zipfile import ZipFile
 from io import TextIOWrapper
+from pathlib import Path
+from zipfile import ZipFile
+
+import pandas as pd
 from tqdm import tqdm
 
-from .classes import FTP
-
-from .functions import create_folder
-from .functions import remove_old_file
-
+from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
+    GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
 from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, ARCHIVE_FORMAT, DATA_FORMAT
+from .classes import FTP
+from .functions import create_folder
+from .functions import remove_old_file
 from .variables import STRING_STATID_COL
-from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
 
 
+def create_metaindex(parameter: str,
+                     time_resolution: str,
+                     period_type: str):
+    """
 
-def create_metaindex(var,
-                     res,
-                     per):
+    Args:
+        parameter:
+        time_resolution:
+        period_type:
 
+    Returns:
+
+    """
     server_path = Path(DWD_PATH,
-                       res,
-                       var,
-                       per)
+                       time_resolution,
+                       parameter,
+                       period_type)
 
     server_path = f"{server_path}{os.sep}"
 
@@ -73,16 +78,12 @@ def create_metaindex(var,
     return metaindex
 
 
-"""
-################################
-### Function 'fix_metaindex' ###
-################################
-A helping function to fix the raw index of metadata by some string operations
-so that every information is in the right column.
-"""
-
-
 def fix_metaindex(metaindex):
+    """
+        A helping function to fix the raw index of metadata by some string operations
+        so that every information is in the right column.
+
+    """
     # Convert data to pandas dataframe
     metaindex = pd.DataFrame(metaindex)
     # Split the data into columns by any spaces
@@ -116,11 +117,11 @@ def fix_metaindex(metaindex):
     # Index is fixed by string operations (put together all except the last
     # string which refers to state)
     metaindex_to_fix = metaindex_to_fix \
-        .agg(lambda data: [string
-                           for string in data
-                           if string is not None], 1) \
-        .to_frame() \
-        .iloc[:, 0] \
+                           .agg(lambda data: [string
+                                              for string in data
+                                              if string is not None], 1) \
+                           .to_frame() \
+                           .iloc[:, 0] \
         .agg(lambda data: [' '.join(data[:-1]), data[-1]]) \
         .apply(pd.Series)
 
@@ -164,7 +165,6 @@ def create_metaindex2(var,
                       res,
                       per,
                       folder):
-
     metadata_path = Path(DWD_PATH,
                          res,
                          var,
@@ -297,26 +297,21 @@ def create_metaindex2(var,
     return metadata_df
 
 
-"""
-###################################
-### Function 'create_fileindex' ###
-###################################
-A function to receive current files on server as list excluding description
-files and only containing those files that have measuring data.
-"""
+def create_fileindex(parameter: str,
+                     time_resolution: str,
+                     period_type: str,
+                     folder: str = MAIN_FOLDER):
+    """
+        A function to receive current files on server as list excluding description
+        files and only containing those files that have measuring data.
 
-
-def create_fileindex(var,
-                     res,
-                     per,
-                     folder=MAIN_FOLDER):
-
+    """
     # Check for folder and create if necessary
     create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)
 
     # Create filename for local metadata file containing information of date
-    filelist_local = f"{FILELIST_NAME}_{var}_{res}_{per}"
+    filelist_local = f"{FILELIST_NAME}_{parameter}_{time_resolution}_{period_type}"
 
     # Create filename with dataformat
     filelist_local_with_format = f"{filelist_local}{DATA_FORMAT}"
@@ -329,9 +324,9 @@ def create_fileindex(var,
     filelist_local_path = str(filelist_local_path).replace('\\', '/')
 
     server_path = Path(DWD_PATH,
-                       res,
-                       var,
-                       per)
+                       time_resolution,
+                       parameter,
+                       period_type)
 
     server_path = f"{server_path}{os.sep}"
 
@@ -374,7 +369,7 @@ def create_fileindex(var,
         .insert(loc=2,
                 column=STATION_ID_NAME,
                 value=files_server.iloc[:, 0].str.split('_')
-                .apply(lambda string: string[STRING_STATID_COL.get(per, None)]))
+                .apply(lambda string: string[STRING_STATID_COL.get(period_type, None)]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
@@ -384,9 +379,9 @@ def create_fileindex(var,
 
     # Remove old file
     remove_old_file(file_type=FILELIST_NAME,
-                    var=var,
-                    res=res,
-                    per=per,
+                    parameter=parameter,
+                    time_resolution=time_resolution,
+                    period_type=period_type,
                     fileformat=DATA_FORMAT,
                     folder=folder,
                     subfolder=SUB_FOLDER_METADATA)

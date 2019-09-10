@@ -1,5 +1,7 @@
+""" function to read data from dwd server """
 from datetime import datetime as dt
 from pathlib import Path
+from typing import List
 from zipfile import ZipFile
 
 import pandas as pd
@@ -10,8 +12,8 @@ from .additionals.functions import check_parameters
 from .additionals.functions import determine_parameters
 
 
-def read_dwd(files,
-             keep_zip=False):
+def read_dwd_data(files: List[str],
+                  keep_zip=False) -> pd.DataFrame:
     """
     This function is used to read the stationdata for which the local zip link is
     provided by the 'download_dwd' function. It checks the zipfile from the link
@@ -24,6 +26,7 @@ def read_dwd(files,
         keep_zip:
 
     Returns:
+        DataFrame with requested data
 
     """
     # Test for types of input parameters
@@ -38,10 +41,10 @@ def read_dwd(files,
     first_filename = files[0].split("/")[-1]
 
     # Determine variables (by first filename)
-    var, res, per = determine_parameters(first_filename)
+    parameter, time_resolution, period_type = determine_parameters(first_filename)
 
     # Check for combination
-    check_parameters(parameter=var, time_resolution=res, period_type=per)
+    check_parameters(parameter, time_resolution, period_type)
 
     # Create empty dataframe to combine several files
     data = []

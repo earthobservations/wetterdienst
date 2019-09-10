@@ -4,15 +4,10 @@ from pathlib import Path
 from python_dwd.constants.ftp_credentials import SUB_FOLDER_STATIONDATA, DWD_PATH
 
 
-def create_local_file_name(file: str, folder):
+def create_local_file_name(file: str, folder: str) -> str:
     """
     The local filename consists of the set of parameters (easier
     to analyse when looking at the filename) and the original filename
-    Args:
-        file:
-        folder:
-
-    Returns:
 
     """
     filename = file.split('/')[-1]
@@ -21,12 +16,10 @@ def create_local_file_name(file: str, folder):
     file_local = Path(folder,
                       SUB_FOLDER_STATIONDATA,
                       file_local)
-    file_local = str(file_local).replace("\\", "/")
-    # This final local path is stored in the list
-    return file_local
+    return str(file_local).replace("\\", "/")
 
 
-def create_remote_file_name(file: str):
+def create_remote_file_name(file: str) -> str:
     """
     The filepath to the server is created with the filename,
      the parameters and the path
@@ -39,6 +32,4 @@ def create_remote_file_name(file: str):
     file_server = Path('/',
                        DWD_PATH,
                        file)
-    file_server = str(file_server)
-    file_server = fr"{file_server}".replace("\\", "/")
-    return file_server
+    return f"{file_server}".replace("\\", "/")
