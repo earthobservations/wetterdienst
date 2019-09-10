@@ -1,6 +1,7 @@
-from pathlib import Path
 import ftplib
 from io import StringIO
+from pathlib import Path
+
 from tqdm import tqdm
 
 """

@@ -2,17 +2,16 @@ from pathlib import Path
 from typing import List
 
 from python_dwd.additionals.classes import FTP
-from python_dwd.download.download_services import create_local_file_name, create_remote_file_name
-from python_dwd.download.ftp_handling import ftp_file_download
+from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.functions import create_folder
 from python_dwd.additionals.functions import determine_parameters
-from python_dwd.additionals.functions import check_parameters
-
 from python_dwd.constants.ftp_credentials import DWD_SERVER, MAIN_FOLDER, SUB_FOLDER_STATIONDATA
+from python_dwd.download.download_services import create_local_file_name, create_remote_file_name
+from python_dwd.download.ftp_handling import ftp_file_download
 
 
-def download_dwd(files: List[str],
-                 folder=MAIN_FOLDER):
+def download_dwd_data(files: List[str],
+                      folder=MAIN_FOLDER):
     """
     This function downloads the stationdata for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
@@ -24,6 +23,7 @@ def download_dwd(files: List[str],
         folder:
 
     Returns:
+        stores data on local file system
 
     """
     assert isinstance(files, list)

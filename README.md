@@ -33,20 +33,20 @@ Third those variables are also available in different tenses, which are:
 
 The toolset consists of four functions which are:
 
-- metadata_dwd
-- select_dwd
-- download_dwd
-- read_dwd
+- metadata_for_dwd_data
+- create_file_list_for_dwd_server
+- download_dwd_data
+- read_dwd_data
 
 All those functions have one same argument which is **folder**. It can be used to define in which folder relative to the working path all the files shall be stored. Otherwise a standard folder ('dwd_data') is used. The argument is entered as a **string**.
 
-**metadata_dwd** is used to discover what data for a set of parameters (**var**, **res**, **per**) is available, specificly which stations can be found for the requested variable, resolution and period. Also it can be defined by **write_file**, if the resulting **DataFrame** should be written as **csv** to the given folder. **write_file** is a boolean value. Furthermore with **create_new_filelist**, by default set to **False**, the function can be forced to retrieve a new list of files from the ftp server, which is usually avoided if there's already a file existing in the explicit folder.
+**metadata_for_dwd_data** is used to discover what data for a set of parameters (**var**, **res**, **per**) is available, specificly which stations can be found for the requested variable, resolution and period. Also it can be defined by **write_file**, if the resulting **DataFrame** should be written as **csv** to the given folder. **write_file** is a boolean value. Furthermore with **create_new_filelist**, by default set to **False**, the function can be forced to retrieve a new list of files from the ftp server, which is usually avoided if there's already a file existing in the explicit folder.
 
-**select_dwd** is used with the help of the **information of the metadata** to retrieve filelinks to files that represent a **set of parameters** in combination with the requested **statid**. Here also **create_new_filelist** can be set to **True**, if the user is sure that the **file to a certain statid** is available but somehow the old **filelist** doesn't contain a corresponding information.
+**create_file_list_for_dwd_server** is used with the help of the **information of the metadata** to retrieve filelinks to files that represent a **set of parameters** in combination with the requested **statid**. Here also **create_new_filelist** can be set to **True**, if the user is sure that the **file to a certain statid** is available but somehow the old **filelist** doesn't contain a corresponding information.
 
-**download_dwd** is used with the created filelinks of select_dwd to **download and store** the data in the given folder. Therefor it connects with the ftp and writes the corresponding file to the harddisk as defined. Furthermore it returns the local filelink or to be clear the link where the file is saved on the harddrive.
+**download_dwd_data** is used with the created filelinks of select_dwd to **download and store** the data in the given folder. Therefor it connects with the ftp and writes the corresponding file to the harddisk as defined. Furthermore it returns the local filelink or to be clear the link where the file is saved on the harddrive.
 
-**read_dwd** is used to get the data into the Python environment in shape of a pandas DataFrame. Therefor it opens the downloaded zipfile, reads its content and selects the file with the data (something like "produkt..."). Then the selected file is read and returned in shape of a DataFrame, ready to be analyzed!
+**read_dwd_data** is used to get the data into the Python environment in shape of a pandas DataFrame. Therefor it opens the downloaded zipfile, reads its content and selects the file with the data (something like "produkt..."). Then the selected file is read and returned in shape of a DataFrame, ready to be analyzed!
 
 ## 4. Listing server files
 
