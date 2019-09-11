@@ -19,9 +19,6 @@ and opens a file with 'open' and finally saves the binary there.
 
 class FTP(ftplib.FTP):
 
-    def __init__(self):
-        self.login()
-
     def list_files(self, path):
         server_files = []
 

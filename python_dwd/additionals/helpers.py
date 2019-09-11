@@ -24,9 +24,9 @@ def create_metaindex(parameter: str,
     """
 
     Args:
-        parameter:
-        time_resolution:
-        period_type:
+        parameter: observation measure
+        time_resolution: frequency/granularity of measurement interval
+        period_type: recent or historical files
 
     Returns:
 
@@ -38,16 +38,11 @@ def create_metaindex(parameter: str,
 
     server_path = f"{server_path}{os.sep}"
 
-    server_path = server_path.replace('\\', '/')
-
     # Try downloading metadata file under given local link
     try:
         # Open connection with ftp server
         with FTP(DWD_SERVER) as ftp:
-            # Login
             ftp.login()
-
-            # Establish connection with server
             files_server = ftp.list_files(path=server_path)
 
     # If there's a problem with the connection throw an error
@@ -64,10 +59,7 @@ def create_metaindex(parameter: str,
     try:
         # Open connection with ftp server
         with FTP(DWD_SERVER) as ftp:
-            # Login
             ftp.login()
-
-            # Download file into folder path
             metaindex = ftp.readlines(metafile_server)
 
     # If not possible raise an error

@@ -4,14 +4,18 @@ from pathlib import Path
 from python_dwd.constants.ftp_credentials import SUB_FOLDER_STATIONDATA, DWD_PATH
 
 
-def create_local_file_name(file: str, folder: str) -> str:
+def create_local_file_name(file: str,
+                           folder: str,
+                           parameter: str,
+                           time_resolution: str,
+                           period_type: str) -> str:
     """
     The local filename consists of the set of parameters (easier
     to analyse when looking at the filename) and the original filename
 
     """
     filename = file.split('/')[-1]
-    file_local = f"{var}_{res}_{per}_{filename}"
+    file_local = f"{parameter}_{time_resolution}_{period_type}_{filename}"
     # Then the local path is added to the file
     file_local = Path(folder,
                       SUB_FOLDER_STATIONDATA,

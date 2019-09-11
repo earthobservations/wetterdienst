@@ -31,9 +31,9 @@ def download_dwd_data(files: List[str],
 
     # Determine var, res and per from first filename (needed for creating full
     # filepath)
-    var, res, per = determine_parameters(files[0])
+    parameter, time_resolution, period_type = determine_parameters(files[0])
 
-    check_parameters(var, res, per)
+    check_parameters(parameter, time_resolution, period_type)
 
     # Create folder for storing the downloaded data
     create_folder(subfolder=SUB_FOLDER_STATIONDATA,
@@ -52,10 +52,15 @@ def download_dwd_data(files: List[str],
             if len(file) > 0:
 
                 file_server = create_remote_file_name(file)
-                file_local = create_local_file_name(file, folder)
+                file_local = create_local_file_name(file,
+                                                    folder,
+                                                    parameter,
+                                                    time_resolution,
+                                                    period_type)
                 files_local.append(file_local)
                 # Open connection with ftp server
                 with FTP(DWD_SERVER) as ftp:
+                    ftp.login()
                     ftp_file_download(ftp, file_server, file_local)
 
             else:
