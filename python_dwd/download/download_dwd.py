@@ -1,13 +1,12 @@
 from pathlib import Path
 from typing import List
 
-from python_dwd.additionals.classes import FTP
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.functions import create_folder
 from python_dwd.additionals.functions import determine_parameters
 from python_dwd.constants.ftp_credentials import DWD_SERVER, MAIN_FOLDER, SUB_FOLDER_STATIONDATA
 from python_dwd.download.download_services import create_local_file_name, create_remote_file_name
-from python_dwd.download.ftp_handling import ftp_file_download
+from python_dwd.download.ftp_handling import ftp_file_download, FTP
 
 
 def download_dwd_data(files: List[str],
@@ -38,7 +37,6 @@ def download_dwd_data(files: List[str],
     # Create folder for storing the downloaded data
     create_folder(subfolder=SUB_FOLDER_STATIONDATA,
                   folder=folder)
-
     # Try to download the corresponding file to the folder
     try:
         # Create an empty list in which the local filepaths are stored
@@ -61,7 +59,9 @@ def download_dwd_data(files: List[str],
                 # Open connection with ftp server
                 with FTP(DWD_SERVER) as ftp:
                     ftp.login()
-                    ftp_file_download(ftp, file_server, file_local)
+                    ftp_file_download(ftp,
+                                      Path(file_server),
+                                      Path(file_local))
 
             else:
                 # Print a statement according to the empty filename
