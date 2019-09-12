@@ -1,39 +1,40 @@
-'''
+"""
 A set of more general functions used for the organization
-'''
-
-# Import modules
+"""
 from pathlib import Path
+from typing import Tuple
 
-"""
-######################################
-### Function 'correct_folder_path' ###
-######################################
-- checks if given folder ends with "/" cuts that off
-"""
+from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 
 
-def correct_folder_path(folder):
+def correct_folder_path(folder: str) -> str:
+    """ checks if given folder ends with "/" cuts that off """
     return folder.rstrip('/')
 
 
-"""
-##################################
-### Function 'remove_old_file' ###
-##################################
-Function to remove old dwd file (metadata)
-"""
-
-
 def remove_old_file(file_type,
-                    var,
-                    res,
-                    per,
+                    parameter,
+                    time_resolution,
+                    period_type,
                     fileformat,
                     folder,
                     subfolder):
+    """
+        Function to remove old dwd file (metadata)
+    Args:
+        file_type:
+        parameter: observation measure
+        time_resolution: frequency/granularity of measurement interval
+        period_type: recent or historical files
+        fileformat:
+        folder:
+        subfolder:
 
-    file_to_remove = f"{file_type}_{var}_{res}_{per}{fileformat}"
+    Returns:
+        Deleted file on local filesystem
+
+    """
+    file_to_remove = f"{file_type}_{parameter}_{time_resolution}_{period_type}{fileformat}"
 
     filepath_to_remove = Path(folder,
                               subfolder,
@@ -49,21 +50,14 @@ def remove_old_file(file_type,
     return None
 
 
-"""
-################################
-### Function 'create_folder' ###
-################################
-Function for creating folder structure for saved stationdata
-"""
-
-
-def create_folder(subfolder,
-                  folder):
-
+def create_folder(subfolder: str,
+                  folder: str):
+    """
+    Function for creating folder structure for saved stationdata
+    """
+    folder = correct_folder_path(folder)
     path_to_create = Path(folder,
                           subfolder)
-
-    # path_to_create = "{}/{}".format(folder, subfolder)
 
     # Try to create folder
     try:
@@ -75,193 +69,149 @@ def create_folder(subfolder,
     return None
 
 
-"""
-#######################################
-### Function 'determine_parameters' ###
-#######################################
-Function to determine the type of file from the bare filename
-Needed for downloading the file and naming it correctly and understandable
-"""
+def determine_parameters(filename: str) -> Tuple[str, str, str]:
+    """
+    Function to determine the type of file from the bare filename
+    Needed for downloading the file and naming it correctly and understandable
 
+    Args:
+        filename: str containing all parameter information
 
-def determine_parameters(filename):
+    Returns:
+        parameter: observation measure
+        time_resolution: frequency/granularity of measurement interval
+        period_type: recent or historical files
+
+    """
     filename = filename.lower()
 
     # First check for time resolution
     if "1minutenwerte_" in filename:
-        res = "1_minute"
+        time_resolution = "1_minute"
     elif "10minutenwerte_" in filename:
-        res = "10_minutes"
+        time_resolution = "10_minutes"
     elif "stundenwerte_" in filename:
-        res = "hourly"
+        time_resolution = "hourly"
     elif "tageswerte_" in filename:
-        res = "daily"
+        time_resolution = "daily"
     elif "monatswerte_" in filename:
-        res = "monthly"
+        time_resolution = "monthly"
     elif "jahreswerte_" in filename:
-        res = "annual"
+        time_resolution = "annual"
     else:
-        res = None
+        time_resolution = None
 
-    if res is None:
-        raise NameError(f"Resolution {res} couldn't be determined.")
+    if time_resolution is None:
+        raise NameError(f"Resolution {time_resolution} couldn't be determined.")
 
     # First determine the variable
-    if res == "1_minute":
+    if time_resolution == "1_minute":
         if "_nieder_" in filename:
-            var = "precipitation"
+            parameter = "precipitation"
         else:
-            var = None
-    elif res == "10_minutes":
+            parameter = None
+    elif time_resolution == "10_minutes":
         if "_tu_" in filename:
-            var = "air_temperature"
+            parameter = "air_temperature"
         elif "_tx_" in filename or "_extrema_temp_" in filename:
-            var = "extreme_temperature"
+            parameter = "extreme_temperature"
         elif "_fx_" in filename or "_extrema_wind_" in filename:
-            var = "extreme_wind"
+            parameter = "extreme_wind"
         elif "_rr_" in filename or "_nieder_" in filename:
-            var = "precipitation"
+            parameter = "precipitation"
         elif "_solar_" in filename:
-            var = "solar"
+            parameter = "solar"
         elif "_ff_" in filename or "_wind_" in filename:
-            var = "wind"
+            parameter = "wind"
         else:
-            var = None
-    elif res == "hourly":
+            parameter = None
+    elif time_resolution == "hourly":
         if "_tu_" in filename:
-            var = "air_temperature"
+            parameter = "air_temperature"
         elif "_cs_" in filename:
-            var = "cloud_type"
+            parameter = "cloud_type"
         elif "_n_" in filename:
-            var = "cloudiness"
+            parameter = "cloudiness"
         elif "_rr_" in filename:
-            var = "precipitation"
+            parameter = "precipitation"
         elif "_p0_" in filename:
-            var = "pressure"
+            parameter = "pressure"
         elif "_eb_" in filename:
-            var = "soil_temperature"
+            parameter = "soil_temperature"
         elif "_st_" in filename:
-            var = "solar"
+            parameter = "solar"
         elif "_sd_" in filename:
-            var = "sun"
+            parameter = "sun"
         elif "_vv_" in filename:
-            var = "visibility"
+            parameter = "visibility"
         elif "_ff_" in filename:
-            var = "wind"
+            parameter = "wind"
         else:
-            var = None
-    elif res == "daily":
+            parameter = None
+    elif time_resolution == "daily":
         if "_kl_" in filename:
-            var = "kl"
+            parameter = "kl"
         elif "_rr_" in filename:
-            var = "more_precip"
+            parameter = "more_precip"
         elif "_eb_" in filename:
-            var = "soil_temperature"
+            parameter = "soil_temperature"
         elif "_st_" in filename:
-            var = "solar"
+            parameter = "solar"
         elif "_wa_" in filename:
-            var = "water_equiv"
+            parameter = "water_equiv"
         else:
-            var = None
-    elif res == "monthly":
+            parameter = None
+    elif time_resolution == "monthly":
         if "_kl_" in filename:
-            var = "kl"
+            parameter = "kl"
         elif "_rr_" in filename:
-            var = "more_precip"
+            parameter = "more_precip"
         else:
-            var = None
-    elif res == "annual":
+            parameter = None
+    elif time_resolution == "annual":
         if "_kl_" in filename:
-            var = "kl"
+            parameter = "kl"
         elif "_rr_" in filename:
-            var = "more_precip"
+            parameter = "more_precip"
         else:
-            var = None
+            parameter = None
     else:
-        var = None
+        parameter = None
 
-    if var is None:
-        raise NameError(f"Variable {var} couldn't be determined.")
+    if parameter is None:
+        raise NameError(f"Variable {parameter} couldn't be determined.")
 
     if "_hist" in filename:
-        per = "historical"
+        period_type = "historical"
     elif "_akt" in filename:
-        per = "recent"
+        period_type = "recent"
     elif "_now" in filename:
-        per = "now"
+        period_type = "now"
     elif "_row" in filename:
-        per = ""
+        period_type = ""
     else:
-        per = None
+        period_type = None
 
-    if per is None:
-        raise NameError(f"Timestamp {per} couldn't be determined.")
+    if period_type is None:
+        raise NameError(f"Timestamp {period_type} couldn't be determined.")
 
-    return var, res, per
-
-
-"""
-###################################
-### Function 'check_parameters' ###
-###################################
-Function to check for element (alternative name) and if existing return it
-Differs from foldername e.g. air_temperature -> tu
-"""
+    return parameter, time_resolution, period_type
 
 
-def check_parameters(var,
-                     res,
-                     per):
+def check_parameters(parameter: str,
+                     time_resolution: str,
+                     period_type: str):
+    """
+    Function to check for element (alternative name) and if existing return it
+    Differs from foldername e.g. air_temperature -> tu
 
-    param_struct = {
-        "1_minute":     [["precipitation"],
-                         ["historical",
-                          "recent",
-                          "now"]],
-        "10_minutes":   [["air_temperature",
-                          "extreme_temperature",
-                          "extreme_wind",
-                          "precipitation",
-                          "solar",
-                          "wind"],
-                         ["historical",
-                          "recent",
-                          "now"]],
-        "hourly":       [["air_temperature",
-                          "cloud_type",
-                          "cloudiness",
-                          "precipitation",
-                          "pressure",
-                          "soil_temperature",
-                          "solar",
-                          "sun",
-                          "visibility",
-                          "wind"],
-                         ["historical",
-                          "recent"]],
-        "daily":        [["kl",
-                          "more_precip",
-                          "soil_temperature",
-                          "solar",
-                          "water_equiv"],
-                         ["historical",
-                          "recent"]],
-        "monthly":      [["kl",
-                          "more_precip"],
-                         ["historical",
-                          "recent"]],
-        "annual":       [["kl",
-                          "more_precip"],
-                         ["historical",
-                          "recent"]]
-    }
+    """
+    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, [[], []])
 
-    check = param_struct.get(res, [[], []])
-
-    if var not in check[0] or per not in check[1]:
+    if parameter not in check[0] or period_type not in check[1]:
         raise NameError(
-            f'''Combination of res='{res}', var='{var}' and per='{per}' not available.
-            Possible parameters are:
-            {param_struct}.''')
+            f"Combination of time_resolution={time_resolution},parameter={parameter} "
+            f"and period_type={period_type} not available.Possible parameters are: "
+            f"{TIME_RESOLUTION_PARAMETER_MAPPING}.")
 
     return None

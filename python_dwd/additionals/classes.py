@@ -1,6 +1,7 @@
-from pathlib import Path
 import ftplib
 from io import StringIO
+from pathlib import Path
+
 from tqdm import tqdm
 
 """
@@ -17,6 +18,7 @@ and opens a file with 'open' and finally saves the binary there.
 
 
 class FTP(ftplib.FTP):
+
     def list_files(self, path):
         server_files = []
 
@@ -91,6 +93,8 @@ class FTP(ftplib.FTP):
     # Implement a download function which simply takes to paths and builds a
     # command with the server path ("RETR "...) abd opens another path on the
     # local drive where the data is written to
-    def download(self, filepath_server, filepath_local):
-        with open(filepath_local, "wb") as file:
-            self.retrbinary(f"RETR {filepath_server}", file.write)
+    def download(self,
+                 remote_file_path: Path,
+                 local_file_path: Path):
+        with open(local_file_path, "wb") as file:
+            self.retrbinary(f"RETR {remote_file_path}", file.write)
