@@ -36,7 +36,7 @@ The toolset consists of four functions which are:
 - metadata_for_dwd_data
 - create_file_list_for_dwd_server
 - download_dwd_data
-- read_dwd_data
+- parse_dwd_data
 
 All those functions have one same argument which is **folder**. It can be used to define in which folder relative to the working path all the files shall be stored. Otherwise a standard folder ('dwd_data') is used. The argument is entered as a **string**.
 
@@ -46,7 +46,7 @@ All those functions have one same argument which is **folder**. It can be used t
 
 **download_dwd_data** is used with the created filelinks of select_dwd to **download and store** the data in the given folder. Therefor it connects with the ftp and writes the corresponding file to the harddisk as defined. Furthermore it returns the local filelink or to be clear the link where the file is saved on the harddrive.
 
-**read_dwd_data** is used to get the data into the Python environment in shape of a pandas DataFrame. Therefor it opens the downloaded zipfile, reads its content and selects the file with the data (something like "produkt..."). Then the selected file is read and returned in shape of a DataFrame, ready to be analyzed!
+**parse_dwd_data** is used to get the data into the Python environment in shape of a pandas DataFrame. Therefor it opens the downloaded zipfile, reads its content and selects the file with the data (something like "produkt..."). Then the selected file is read and returned in shape of a DataFrame, ready to be analyzed!
 
 ## 4. Listing server files
 

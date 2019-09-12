@@ -8,12 +8,13 @@ import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.functions import determine_parameters
-from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from python_dwd.constants.column_name_mapping import DATE_NAME,\
+    GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 
 
-def read_dwd_data(files: List[str],
-                  keep_zip: bool = False) -> pd.DataFrame:
+def parse_dwd_data(local_files: List[Path],
+                   keep_zip: bool = False) -> pd.DataFrame:
     """
     This function is used to read the stationdata for which the local zip link is
     provided by the 'download_dwd' function. It checks the zipfile from the link
@@ -22,7 +23,7 @@ def read_dwd_data(files: List[str],
     removed afterwards.
 
     Args:
-        files: list of local stored files that should be read
+        local_files: list of local stored files that should be read
         keep_zip: If true: The raw zip file will not be deleted, Default is: False.
 
     Returns:
@@ -30,27 +31,21 @@ def read_dwd_data(files: List[str],
 
     """
     # Test for types of input parameters
-    assert isinstance(files, list)
+    assert isinstance(local_files, list)
     assert isinstance(keep_zip, bool)
 
     # Check for files and if empty return empty DataFrame
-    if not files:
+    if not local_files:
         return pd.DataFrame()
 
-    # Get first filename
-    first_filename = files[0].split("/")[-1]
+    first_filename = str(local_files[0]).split("/")[-1]
 
-    # Determine variables (by first filename)
     parameter, time_resolution, period_type = determine_parameters(first_filename)
-
-    # Check for combination
     check_parameters(parameter, time_resolution, period_type)
 
-    # Create empty dataframe to combine several files
     data = []
 
-    # Read in every single datafile
-    for file in files:
+    for file in local_files:
         # Try doing everything without know of the existance of file
         try:
             with ZipFile(file) as zip_file:
