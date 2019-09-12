@@ -11,8 +11,8 @@ from python_dwd.enumerations.parameter_enumeration import Parameter
 
 
 def correct_folder_path(folder: str) -> str:
-    """ checks if given folder ends with "/" cuts that off """
-    return folder.rstrip('/')
+    """ checks if given folder ends with "/" or "\" cuts that off """
+    return folder.rstrip('/').rstrip("\\")
 
 
 def remove_old_file(file_type: str,

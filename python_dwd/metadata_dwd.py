@@ -129,7 +129,7 @@ def metadata_for_dwd_data(parameter: Parameter,
         # Also we don't need to write a file that's already on the drive
         return metainfo
 
-    if time_resolution != "1_minute":
+    if time_resolution.value != "1_minute":
         # Get new metadata as unformated file
         metaindex = create_metaindex(parameter=parameter,
                                      time_resolution=time_resolution,
