@@ -6,14 +6,14 @@ from zipfile import ZipFile
 
 import pandas as pd
 
+from python_dwd.additionals.functions import check_parameters
+from python_dwd.additionals.functions import determine_parameters
 from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
-from .additionals.functions import check_parameters
-from .additionals.functions import determine_parameters
 
 
 def read_dwd_data(files: List[str],
-                  keep_zip=False) -> pd.DataFrame:
+                  keep_zip: bool = False) -> pd.DataFrame:
     """
     This function is used to read the stationdata for which the local zip link is
     provided by the 'download_dwd' function. It checks the zipfile from the link
@@ -22,8 +22,8 @@ def read_dwd_data(files: List[str],
     removed afterwards.
 
     Args:
-        files:
-        keep_zip:
+        files: list of local stored files that should be read
+        keep_zip: If true: The raw zip file will not be deleted, Default is: False.
 
     Returns:
         DataFrame with requested data

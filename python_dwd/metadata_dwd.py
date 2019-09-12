@@ -3,24 +3,27 @@ from pathlib import Path
 
 import pandas as pd
 
+from python_dwd.additionals.functions import check_parameters
+from python_dwd.additionals.functions import correct_folder_path
+from python_dwd.additionals.functions import create_folder
+from python_dwd.additionals.functions import remove_old_file
+from python_dwd.additionals.helpers import create_fileindex
+from python_dwd.additionals.helpers import create_metaindex, create_metaindex2
+from python_dwd.additionals.helpers import fix_metaindex
+from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, STATE_NAME, HAS_FILE_NAME
 from python_dwd.constants.ftp_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
-from .additionals.functions import check_parameters
-from .additionals.functions import correct_folder_path
-from .additionals.functions import create_folder
-from .additionals.functions import remove_old_file
-from .additionals.helpers import create_fileindex
-from .additionals.helpers import create_metaindex, create_metaindex2
-from .additionals.helpers import fix_metaindex
-from .additionals.variables import STRING_STATID_COL
-from .select_dwd import create_file_list_for_dwd_server
+from python_dwd.enumerations.parameter_enumeration import Parameter
+from python_dwd.enumerations.period_type_enumeration import PeriodType
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.select_dwd import create_file_list_for_dwd_server
 
 
 def add_filepresence(metainfo: str,
-                     parameter: str,
-                     time_resolution: str,
-                     period_type: str,
+                     parameter: Parameter,
+                     time_resolution: TimeResolution,
+                     period_type: PeriodType,
                      folder: str,
                      create_new_filelist: bool):
     """
@@ -67,9 +70,9 @@ def add_filepresence(metainfo: str,
     return metainfo
 
 
-def metadata_for_dwd_data(parameter: str,
-                          time_resolution: str,
-                          period_type: str,
+def metadata_for_dwd_data(parameter: Parameter,
+                          time_resolution: TimeResolution,
+                          period_type: PeriodType,
                           folder: str = MAIN_FOLDER,
                           write_file: bool = True,
                           create_new_filelist: bool = False):
@@ -88,9 +91,9 @@ def metadata_for_dwd_data(parameter: str,
 
     """
     # Check types of function parameters
-    assert isinstance(parameter, str)
-    assert isinstance(time_resolution, str)
-    assert isinstance(period_type, str)
+    assert isinstance(parameter, Parameter)
+    assert isinstance(time_resolution, TimeResolution)
+    assert isinstance(period_type, PeriodType)
     assert isinstance(folder, str)
     assert isinstance(write_file, bool)
     assert isinstance(create_new_filelist, bool)
@@ -107,7 +110,8 @@ def metadata_for_dwd_data(parameter: str,
     create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)
 
-    old_file = f"{METADATA_NAME}_{parameter}_{time_resolution}_{period_type}{DATA_FORMAT}"
+    old_file = f"{METADATA_NAME}_{parameter.value}_" \
+               f"{time_resolution.value}_{period_type.value}{DATA_FORMAT}"
 
     # Create old file path
     old_file_path = Path(folder,
@@ -134,9 +138,8 @@ def metadata_for_dwd_data(parameter: str,
         # Format raw metadata
         metainfo = fix_metaindex(metaindex)
     else:
-        metainfo = create_metaindex2(var=parameter,
-                                     res=time_resolution,
-                                     per=period_type,
+        metainfo = create_metaindex2(parameter=parameter,
+                                     time_resolution=time_resolution,
                                      folder=folder)
 
     # We want to add the STATE information for our metadata for cases where
@@ -147,9 +150,9 @@ def metadata_for_dwd_data(parameter: str,
     if STATE_NAME not in metainfo.columns:
         # If the column is not available we need this information to be added
         # (recursive call)
-        mdp = metadata_for_dwd_data("more_precip",
-                                    "daily",
-                                    "historical",
+        mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
+                                    TimeResolution.DAILY,
+                                    PeriodType.HISTORICAL,
                                     folder=folder,
                                     write_file=False,
                                     create_new_filelist=False)
@@ -169,7 +172,8 @@ def metadata_for_dwd_data(parameter: str,
     # If a file should be written
     if write_file and not old_file_exists and not create_new_filelist:
         # Create filename for metafile
-        metafile_local = f"{METADATA_NAME}_{parameter}_{time_resolution}_{period_type}"
+        metafile_local = f"{METADATA_NAME}_{parameter.value}_" \
+                         f"{time_resolution.value}_{period_type.value}"
 
         # Create filepath with filename and including extension
         metafile_local_path = Path(folder,
@@ -180,7 +184,7 @@ def metadata_for_dwd_data(parameter: str,
 
         # Check for possible old files and remove them
         remove_old_file(file_type=METADATA_NAME,
-                        fileformat=DATA_FORMAT,
+                        file_postfix=DATA_FORMAT,
                         parameter=parameter,
                         time_resolution=time_resolution,
                         period_type=period_type,

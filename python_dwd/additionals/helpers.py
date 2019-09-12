@@ -7,20 +7,23 @@ from zipfile import ZipFile
 import pandas as pd
 from tqdm import tqdm
 
+from python_dwd.download.ftp_handling import FTP
+from python_dwd.additionals.functions import create_folder
+from python_dwd.additionals.functions import remove_old_file
+from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
 from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, ARCHIVE_FORMAT, DATA_FORMAT
-from .classes import FTP
-from .functions import create_folder
-from .functions import remove_old_file
-from .variables import STRING_STATID_COL
+from python_dwd.enumerations.parameter_enumeration import Parameter
+from python_dwd.enumerations.period_type_enumeration import PeriodType
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def create_metaindex(parameter: str,
-                     time_resolution: str,
-                     period_type: str):
+def create_metaindex(parameter: Parameter,
+                     time_resolution: TimeResolution,
+                     period_type: PeriodType):
     """
 
     Args:
@@ -28,13 +31,11 @@ def create_metaindex(parameter: str,
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
 
-    Returns:
-
     """
     server_path = Path(DWD_PATH,
-                       time_resolution,
-                       parameter,
-                       period_type)
+                       time_resolution.value,
+                       parameter.value,
+                       period_type.value)
 
     server_path = f"{server_path}{os.sep}"
 
@@ -140,26 +141,21 @@ def fix_metaindex(metaindex):
     return metaindex
 
 
-"""
-####################################
-### Function 'create_metaindex2' ###
-####################################
-A helping function to create a raw index of metadata for stations of the set of
-parameters as given. This raw metadata is then used by other functions. This 
-second/alternative function must be used for high resolution data, where the 
-metadata is not available as file but instead saved in external files per each 
-station.
-- especially for precipitation/1_minute/historical!
-"""
-
-
-def create_metaindex2(var,
-                      res,
-                      per,
+def create_metaindex2(parameter: Parameter,
+                      time_resolution: TimeResolution,
                       folder):
+    """
+    A helping function to create a raw index of metadata for stations of the set of
+    parameters as given. This raw metadata is then used by other functions. This
+    second/alternative function must be used for high resolution data, where the
+    metadata is not available as file but instead saved in external files per each
+    station.
+    - especially for precipitation/1_minute/historical!
+
+    """
     metadata_path = Path(DWD_PATH,
-                         res,
-                         var,
+                         time_resolution.value,
+                         parameter.value,
                          FTP_METADATA_NAME)
 
     metadata_path = str(metadata_path).replace("\\", "/")
@@ -289,9 +285,9 @@ def create_metaindex2(var,
     return metadata_df
 
 
-def create_fileindex(parameter: str,
-                     time_resolution: str,
-                     period_type: str,
+def create_fileindex(parameter: Parameter,
+                     time_resolution: TimeResolution,
+                     period_type: PeriodType,
                      folder: str = MAIN_FOLDER):
     """
         A function to receive current files on server as list excluding description
@@ -303,7 +299,8 @@ def create_fileindex(parameter: str,
                   folder=folder)
 
     # Create filename for local metadata file containing information of date
-    filelist_local = f"{FILELIST_NAME}_{parameter}_{time_resolution}_{period_type}"
+    filelist_local = f"{FILELIST_NAME}_{parameter.value}_" \
+                     f"{time_resolution.value}_{period_type.value}"
 
     # Create filename with dataformat
     filelist_local_with_format = f"{filelist_local}{DATA_FORMAT}"
@@ -316,9 +313,9 @@ def create_fileindex(parameter: str,
     filelist_local_path = str(filelist_local_path).replace('\\', '/')
 
     server_path = Path(DWD_PATH,
-                       time_resolution,
-                       parameter,
-                       period_type)
+                       time_resolution.value,
+                       parameter.value,
+                       period_type.value)
 
     server_path = f"{server_path}{os.sep}"
 
@@ -374,7 +371,7 @@ def create_fileindex(parameter: str,
                     parameter=parameter,
                     time_resolution=time_resolution,
                     period_type=period_type,
-                    fileformat=DATA_FORMAT,
+                    file_postfix=DATA_FORMAT,
                     folder=folder,
                     subfolder=SUB_FOLDER_METADATA)
 
