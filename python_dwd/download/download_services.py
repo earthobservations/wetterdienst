@@ -1,5 +1,5 @@
 """ helping functions for downloading german weather service data """
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Union
 
 from python_dwd.constants.ftp_credentials import SUB_FOLDER_STATIONDATA, DWD_PATH
@@ -28,7 +28,7 @@ def create_remote_file_name(file: str) -> str:
         complete Path to the required data
 
     """
-    file_server = Path('/',
-                       DWD_PATH,
-                       file)
-    return f"{file_server}".replace("\\", "/")
+    file_server = PurePosixPath('/',
+                                DWD_PATH,
+                                file)
+    return str(file_server)

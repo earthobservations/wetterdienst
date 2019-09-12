@@ -121,8 +121,8 @@ def metadata_for_dwd_data(parameter: Parameter,
     if time_resolution.value != "1_minute":
         # Get new metadata as pandas DataFrame
         metaindex = create_metaindex(parameter=parameter,
-                                    time_resolution=time_resolution,
-                                    period_type=period_type)
+                                     time_resolution=time_resolution,
+                                     period_type=period_type)
 
     else:
         metaindex = create_metaindex2(parameter=parameter,
