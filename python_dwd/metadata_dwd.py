@@ -121,7 +121,8 @@ def metadata_for_dwd_data(parameter: Parameter,
         metainfo = pd.read_csv(filepath_or_buffer=file_path)
         return metainfo
 
-    if time_resolution != "1_minute":
+    if time_resolution.value != "1_minute":
+        # Get new metadata as unformated file
         metaindex = create_metaindex(parameter=parameter,
                                      time_resolution=time_resolution,
                                      period_type=period_type)
