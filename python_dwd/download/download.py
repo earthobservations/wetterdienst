@@ -45,8 +45,7 @@ def _download_dwd_data(download_specification: Tuple[Union[str, Path],
         stores data on local file system
 
     """
-    folder = download_specification[1]
-    remote_file = download_specification[0]
+    remote_file, folder = download_specification
 
     create_folder(subfolder=SUB_FOLDER_STATIONDATA,
                   folder=folder)
