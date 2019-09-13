@@ -10,6 +10,7 @@ from python_dwd.file_path_handling.path_handling import correct_folder_path, \
     remove_old_file, create_folder
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import create_metaindex, create_metaindex2
+from python_dwd.additionals.helpers import fix_metaindex
 from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, \
     STATE_NAME, HAS_FILE_NAME
@@ -21,7 +22,7 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def add_filepresence(metaindex: pd.DataFrame,
+def add_filepresence(metainfo: pd.DataFrame,
                      parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType,
@@ -31,7 +32,7 @@ def add_filepresence(metaindex: pd.DataFrame,
     updates the metainfo
 
     Args:
-        metaindex: metadata information about the weather data
+        metainfo: meta info about the weather data
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -40,7 +41,7 @@ def add_filepresence(metaindex: pd.DataFrame,
          be created
 
     Returns:
-        updated metaindex
+        updated meta info
     """
     folder = correct_folder_path(folder)
 
@@ -50,23 +51,25 @@ def add_filepresence(metaindex: pd.DataFrame,
                          period_type=period_type,
                          folder=folder)
 
-    metaindex[HAS_FILE_NAME] = False
+    metainfo[HAS_FILE_NAME] = False
 
-    file_existence = create_file_list_for_dwd_server(statid=list(metaindex.iloc[:, 0]),
-                                                     parameter=parameter,
-                                                     time_resolution=time_resolution,
-                                                     period_type=period_type,
-                                                     folder=folder)
+    file_existence = create_file_list_for_dwd_server(
+        statid=list(metainfo.iloc[:, 0]),
+        parameter=parameter,
+        time_resolution=time_resolution,
+        period_type=period_type,
+        folder=folder)
 
     file_existence = pd.DataFrame(file_existence)
 
     file_existence.iloc[:, 0] = file_existence.iloc[:, 0].apply(
-        lambda x: x.split('_')[STRING_STATID_COL.get(period_type, None)]).astype(int)
+        lambda x: x.split('_')[
+            STRING_STATID_COL.get(period_type, None)]).astype(int)
 
-    metaindex.loc[metaindex.iloc[:, 0].isin(
+    metainfo.loc[metainfo.iloc[:, 0].isin(
         file_existence.iloc[:, 0]), HAS_FILE_NAME] = True
 
-    return metaindex
+    return metainfo
 
 
 def metadata_for_dwd_data(parameter: Parameter,
@@ -119,17 +122,18 @@ def metadata_for_dwd_data(parameter: Parameter,
         return metainfo
 
     if time_resolution.value != "1_minute":
-        # Get new metadata as pandas DataFrame
+        # Get new metadata as unformated file
         metaindex = create_metaindex(parameter=parameter,
-                                    time_resolution=time_resolution,
-                                    period_type=period_type)
+                                     time_resolution=time_resolution,
+                                     period_type=period_type)
 
+        metainfo = fix_metaindex(metaindex)
     else:
-        metaindex = create_metaindex2(parameter=parameter,
+        metainfo = create_metaindex2(parameter=parameter,
                                      time_resolution=time_resolution,
                                      folder=folder)
 
-    if STATE_NAME not in metaindex.columns:
+    if STATE_NAME not in metainfo.columns:
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
                                     PeriodType.HISTORICAL,
@@ -137,10 +141,11 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     write_file=False,
                                     create_new_filelist=False)
 
-        metaindex = metaindex.merge(
-            mdp.loc[:, [STATIONNAME_NAME, STATE_NAME]], on=STATIONNAME_NAME).reset_index(drop=True)
+        metainfo = metainfo.merge(
+            mdp.loc[:, [STATIONNAME_NAME, STATE_NAME]],
+            on=STATIONNAME_NAME).reset_index(drop=True)
 
-    metainfo = add_filepresence(metaindex=metaindex,
+    metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,
                                 time_resolution=time_resolution,
                                 period_type=period_type,

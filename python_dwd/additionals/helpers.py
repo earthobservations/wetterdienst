@@ -1,7 +1,7 @@
 """ A set of helping functions used by the main functions """
 import os
 from io import TextIOWrapper
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from zipfile import ZipFile
 
 import pandas as pd
@@ -32,12 +32,13 @@ def create_metaindex(parameter: Parameter,
         period_type: recent or historical files
 
     """
-    server_path = Path(DWD_PATH,
-                       time_resolution.value,
-                       parameter.value,
-                       period_type.value)
+    server_path = PurePosixPath(DWD_PATH,
+                                time_resolution.value,
+                                parameter.value,
+                                period_type.value)
 
-    server_path = f"{server_path}{os.sep}"
+    # Type conversion to string is needed as ftplib doesn't work with Path objects
+    server_path = str(server_path)
 
     # Try downloading metadata file under given local link
     try:
@@ -117,24 +118,21 @@ def create_metaindex2(parameter: Parameter,
     - especially for precipitation/1_minute/historical!
 
     """
-    metadata_path = Path(DWD_PATH,
-                         time_resolution.value,
-                         parameter.value,
-                         FTP_METADATA_NAME)
+    metadata_path = PurePosixPath(DWD_PATH,
+                                  time_resolution.value,
+                                  parameter.value,
+                                  FTP_METADATA_NAME)
 
-    metadata_path = str(metadata_path).replace("\\", "/")
+    metadata_path = str(metadata_path)
 
     with FTP(DWD_SERVER) as ftp:
         ftp.login()
 
         metadata_server = ftp.nlst(metadata_path)
 
-    metadata_server = [metadata_file.replace("\\", "/")
-                       for metadata_file in metadata_server]
-
     metadata_local = [str(Path(folder,
                                SUB_FOLDER_METADATA,
-                               metadata_file.split("/")[-1])).replace("\\", "/")
+                               metadata_file.split("/")[-1]))
                       for metadata_file in metadata_server]
 
     metadata_df = pd.DataFrame(None,
