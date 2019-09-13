@@ -97,7 +97,7 @@ def create_metaindex(parameter: Parameter,
     metaindex.iloc[:, 0] = metaindex.iloc[:, 0].apply(int)
     metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(pd.to_datetime)
     metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(pd.to_datetime)
-    metaindex.iloc[:, 3] = metaindex.iloc[:, 3].apply(int)
+    metaindex.iloc[:, 3] = metaindex.iloc[:, 3].apply(float)
     metaindex.iloc[:, 4] = metaindex.iloc[:, 4].apply(float)
     metaindex.iloc[:, 5] = metaindex.iloc[:, 5].apply(float)
     metaindex.iloc[:, 6] = metaindex.iloc[:, 6].apply(str)
@@ -234,13 +234,9 @@ def create_metaindex2(parameter: Parameter,
 
     # Fix datatypes
     metadata_df.iloc[:, 0] = metadata_df.iloc[:, 0].apply(int)
-    # metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(int)
-    # metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(str)
     metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(pd.to_datetime)
-    # metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(int)
-    # metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(str)
     metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(pd.to_datetime)
-    metadata_df.iloc[:, 3] = metadata_df.iloc[:, 3].apply(int)
+    metadata_df.iloc[:, 3] = metadata_df.iloc[:, 3].apply(float)
     metadata_df.iloc[:, 4] = metadata_df.iloc[:, 4].apply(float)
     metadata_df.iloc[:, 5] = metadata_df.iloc[:, 5].apply(float)
     metadata_df.iloc[:, 6] = metadata_df.iloc[:, 6].apply(str)
