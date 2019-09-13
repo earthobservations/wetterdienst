@@ -1,6 +1,6 @@
 """ helping functions for ftp connection """
 import ftplib
-from io import StringIO
+from io import StringIO, BytesIO
 from pathlib import Path
 
 from tqdm import tqdm
@@ -86,6 +86,14 @@ class FTP(ftplib.FTP):
         ftp_text = ftp_text.split("\n")
 
         return ftp_text
+
+    def read_file_to_byte(self, filepath_server):
+        file = BytesIO()
+
+        self.retrbinary(f"RETR {filepath_server}", file.write)
+
+        return file
+
 
     # Implement a download function which simply takes to paths and builds a
     # command with the server path ("RETR "...) abd opens another path on the
