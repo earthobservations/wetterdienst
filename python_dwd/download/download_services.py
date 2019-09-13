@@ -1,30 +1,20 @@
 """ helping functions for downloading german weather service data """
 from pathlib import Path
+from typing import Union
 
 from python_dwd.constants.ftp_credentials import SUB_FOLDER_STATIONDATA, DWD_PATH
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
 
 
-def create_local_file_name(file: str,
-                           folder: str,
-                           parameter: Parameter,
-                           time_resolution: TimeResolution,
-                           period_type: PeriodType) -> str:
+def create_local_file_name(remote_file_path: Union[str, Path],
+                           local_folder: Union[str, Path]) -> Path:
     """
     The local filename consists of the set of parameters (easier
     to analyse when looking at the filename) and the original filename
 
     """
-    filename = file.split('/')[-1]
-    file_local = f"{parameter.value}_{time_resolution.value}_" \
-                 f"{period_type.value}_{filename}"
-    # Then the local path is added to the file
-    file_local = Path(folder,
-                      SUB_FOLDER_STATIONDATA,
-                      file_local)
-    return str(file_local).replace("\\", "/")
+    return Path(local_folder,
+                SUB_FOLDER_STATIONDATA,
+                str(remote_file_path).split('/')[-1])
 
 
 def create_remote_file_name(file: str) -> str:
@@ -32,9 +22,10 @@ def create_remote_file_name(file: str) -> str:
     The filepath to the server is created with the filename,
      the parameters and the path
     Args:
-        file:
+        file: data file name on server
 
     Returns:
+        complete Path to the required data
 
     """
     file_server = Path('/',

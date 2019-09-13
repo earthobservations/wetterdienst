@@ -8,8 +8,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from python_dwd.download.ftp_handling import FTP
-from python_dwd.additionals.functions import create_folder
-from python_dwd.additionals.functions import remove_old_file
+from python_dwd.file_path_handling.path_handling import remove_old_file, \
+    create_folder
 from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
@@ -381,3 +381,8 @@ def create_fileindex(parameter: Parameter,
                         index=False)
 
     return None
+
+
+def check_file_exist(file_path: Path) -> bool:
+    """ checks if the file behind the path exists """
+    return Path(file_path).is_file()

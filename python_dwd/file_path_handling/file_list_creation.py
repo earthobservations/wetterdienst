@@ -5,7 +5,7 @@ from typing import List
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
-from python_dwd.additionals.functions import correct_folder_path
+from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FILENAME_NAME
 from python_dwd.constants.ftp_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
@@ -23,7 +23,8 @@ def create_file_list_for_dwd_server(statid: List[int],
                                     create_new_filelist=False) -> List[str]:
     """
     Function for selecting datafiles (links to archives) for given
-    statid, parameter, time_resolution and period_type under consideration of a created list of files that are
+    statid, parameter, time_resolution and period_type under consideration of a
+    created list of files that are
     available online.
 
     Args:
