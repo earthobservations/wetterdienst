@@ -8,7 +8,7 @@ import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.functions import determine_parameters
-from python_dwd.constants.column_name_mapping import DATE_NAME,\
+from python_dwd.constants.column_name_mapping import DATE_NAME, \
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 
