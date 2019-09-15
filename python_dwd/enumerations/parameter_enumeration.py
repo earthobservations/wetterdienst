@@ -7,7 +7,7 @@ class Parameter(Enum):
         enumeration for different parameter/variables
         measured by dwd weather stations
     """
-    TEMPERATURE_SOIL = "historical"
+    TEMPERATURE_SOIL = "soil_temperature"
     TEMPERATURE_AIR = "air_temperature"
     PRECIPITATION = "precipitation"
     TEMPERATURE_EXTREME = "extreme_temperature"
