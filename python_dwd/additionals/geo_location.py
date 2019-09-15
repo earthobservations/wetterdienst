@@ -8,7 +8,8 @@ from python_dwd.additionals.functions import check_parameters
 from python_dwd.data_models.coordinates import Coordinates
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.enumerations.time_resolution_enumeration import \
+    TimeResolution
 from python_dwd.metadata_dwd import metadata_for_dwd_data
 
 KM_EARTH_RADIUS = 6371
@@ -18,12 +19,15 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
                         longitudes: Union[List[float], np.array],
                         parameter: Parameter,
                         time_resolution: TimeResolution,
-                        period_type: PeriodType) -> Tuple[List[int], List[float]]:
+                        period_type: PeriodType) -> \
+        Tuple[List[int], List[float]]:
     """
     Provides a list of weather station ids for the requested data
     Args:
-        latitudes: latitudes of locations to search for nearest weather station
-        longitudes: longitudes of locations to search for nearest weather station
+        latitudes: latitudes of locations to search for nearest
+            weather station
+        longitudes: longitudes of locations to search for nearest
+            weather station
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -51,7 +55,8 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
         metadata.LON.values,
         coords)
 
-    return metadata.loc[indices_nearest_neighbours, 'STATION_ID'].tolist(), (distances * KM_EARTH_RADIUS).tolist()
+    return metadata.loc[indices_nearest_neighbours, 'STATION_ID'].tolist(),\
+           (distances * KM_EARTH_RADIUS).tolist()
 
 
 def derive_nearest_neighbours(latitudes_stations: np.array,
