@@ -10,7 +10,6 @@ from python_dwd.file_path_handling.path_handling import correct_folder_path, \
     remove_old_file, create_folder
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import create_metaindex, create_metaindex2
-from python_dwd.additionals.helpers import fix_metaindex
 from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, \
     STATE_NAME, HAS_FILE_NAME
@@ -82,8 +81,8 @@ def metadata_for_dwd_data(parameter: Parameter,
     A main function to retrieve metadata for a set of parameters that creates a
         corresponding csv.
 
-    STATE information is added to metadata for cases where
-    we don't request daily precipitation data. That has two reasons:
+    STATE information is added to metadata for cases where there's no such named column (e.g. STATE) in the dataframe.
+    For this purpose we use daily precipitation data. That has two reasons:
      - daily precipitation data has a STATE information combined with a city
      - daily precipitation data is the most common data served by the DWD
 
@@ -121,13 +120,12 @@ def metadata_for_dwd_data(parameter: Parameter,
         metainfo = pd.read_csv(filepath_or_buffer=file_path)
         return metainfo
 
-    if time_resolution.value != "1_minute":
+    if time_resolution != TimeResolution.MINUTE_1:
         # Get new metadata as unformated file
         metaindex = create_metaindex(parameter=parameter,
                                      time_resolution=time_resolution,
                                      period_type=period_type)
 
-        metainfo = fix_metaindex(metaindex)
     else:
         metainfo = create_metaindex2(parameter=parameter,
                                      time_resolution=time_resolution,

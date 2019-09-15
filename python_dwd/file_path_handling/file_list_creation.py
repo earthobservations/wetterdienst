@@ -65,11 +65,7 @@ def create_file_list_for_dwd_server(statid: List[int],
 
     filelist_local_path = f"{filelist_local_path}{DATA_FORMAT}"
 
-    # Check if there's an old filelist
-    exist_old_file = Path(filelist_local_path).is_file()
-
-    # Except if a new one should be created
-    if create_new_filelist or not exist_old_file:
+    if create_new_filelist or not Path(filelist_local_path).is_file():
         # If there was an error with reading in the fileslist get a new
         # fileslist
         create_fileindex(parameter=parameter,
@@ -77,11 +73,7 @@ def create_file_list_for_dwd_server(statid: List[int],
                          period_type=period_type,
                          folder=folder)
 
-    # Read in filelist
     filelist = pd.read_csv(filelist_local_path)
 
-    # Return filenames for filtered statids
-    filelist = filelist.loc[filelist[STATION_ID_NAME].isin(
-        statid), FILENAME_NAME]
-
-    return list(filelist)
+    return filelist.loc[filelist[STATION_ID_NAME].isin(
+        statid), FILENAME_NAME].tolist()
