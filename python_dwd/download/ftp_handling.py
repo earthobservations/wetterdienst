@@ -87,10 +87,12 @@ class FTP(ftplib.FTP):
 
         return ftp_text
 
-    def read_file_to_byte(self, filepath_server):
+    def read_file_to_bytes(self, filepath_server):
         file = BytesIO()
 
         self.retrbinary(f"RETR {filepath_server}", file.write)
+
+        file.seek(0)
 
         return file
 

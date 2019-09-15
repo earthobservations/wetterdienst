@@ -63,7 +63,7 @@ def create_metaindex(parameter: Parameter,
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
 
-            file = ftp.read_file_to_byte(metafile_server)
+            file = ftp.read_file_to_bytes(metafile_server)
 
     # If not possible raise an error
     except Exception:

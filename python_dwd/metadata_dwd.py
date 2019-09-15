@@ -122,7 +122,7 @@ def metadata_for_dwd_data(parameter: Parameter,
 
     if time_resolution != TimeResolution.MINUTE_1:
         # Get new metadata as unformated file
-        metaindex = create_metaindex(parameter=parameter,
+        metainfo = create_metaindex(parameter=parameter,
                                      time_resolution=time_resolution,
                                      period_type=period_type)
 
