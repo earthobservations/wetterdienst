@@ -2,14 +2,10 @@
 from pathlib import Path
 
 import pandas as pd
-from python_dwd.file_path_handling.file_list_creation import \
-    create_file_list_for_dwd_server
 
 from python_dwd.additionals.functions import check_parameters
-from python_dwd.file_path_handling.path_handling import correct_folder_path, \
-    remove_old_file, create_folder
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
-from python_dwd.additionals.helpers import create_metaindex, create_metaindex2
+from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
 from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, \
     STATE_NAME, HAS_FILE_NAME
@@ -19,6 +15,10 @@ from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.file_path_handling.file_list_creation import \
+    create_file_list_for_dwd_server
+from python_dwd.file_path_handling.path_handling import correct_folder_path, \
+    remove_old_file, create_folder
 
 
 def add_filepresence(metainfo: pd.DataFrame,
@@ -81,7 +81,8 @@ def metadata_for_dwd_data(parameter: Parameter,
     A main function to retrieve metadata for a set of parameters that creates a
         corresponding csv.
 
-    STATE information is added to metadata for cases where there's no such named column (e.g. STATE) in the dataframe.
+    STATE information is added to metadata for cases where there's no such named
+    column (e.g. STATE) in the dataframe.
     For this purpose we use daily precipitation data. That has two reasons:
      - daily precipitation data has a STATE information combined with a city
      - daily precipitation data is the most common data served by the DWD
@@ -99,7 +100,6 @@ def metadata_for_dwd_data(parameter: Parameter,
     Returns:
 
     """
-    # Check types of function parameters
     assert isinstance(parameter, Parameter)
     assert isinstance(time_resolution, TimeResolution)
     assert isinstance(period_type, PeriodType)
@@ -121,15 +121,15 @@ def metadata_for_dwd_data(parameter: Parameter,
         return metainfo
 
     if time_resolution != TimeResolution.MINUTE_1:
-        # Get new metadata as unformated file
-        metaindex = create_metaindex(parameter=parameter,
-                                     time_resolution=time_resolution,
-                                     period_type=period_type)
+        metainfo = create_metaindex(parameter=parameter,
+                                    time_resolution=time_resolution,
+                                    period_type=period_type)
+
 
     else:
-        metainfo = create_metaindex2(parameter=parameter,
-                                     time_resolution=time_resolution,
-                                     folder=folder)
+        metainfo = metaindex_for_1minute_data(parameter=parameter,
+                                              time_resolution=time_resolution,
+                                              folder=folder)
 
     if STATE_NAME not in metainfo.columns:
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
@@ -160,7 +160,6 @@ def metadata_for_dwd_data(parameter: Parameter,
                         folder=folder,
                         subfolder=SUB_FOLDER_METADATA)
 
-        # Write file to csv
         metainfo.to_csv(path_or_buf=file_path,
                         header=True,
                         index=False)

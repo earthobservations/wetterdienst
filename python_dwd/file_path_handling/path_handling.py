@@ -27,20 +27,16 @@ def remove_old_file(file_type: str,
         Deleted file on local filesystem
 
     """
-    file_to_remove = f"{file_type}_{parameter.value}_" \
-                     f"{time_resolution.value}_" \
-                     f"{period_type.value}{file_postfix}"
-
     filepath_to_remove = Path(folder,
                               subfolder,
-                              file_to_remove)
+                              f"{file_type}_{parameter.value}_"
+                              f"{time_resolution.value}_"
+                              f"{period_type.value}{file_postfix}")
 
-    # Try to remove the file
     try:
         Path.unlink(filepath_to_remove)
     except Exception:
         pass
-        # print('No file found to delete in \n{}!'.format(folder))
 
     return None
 
@@ -50,11 +46,9 @@ def create_folder(subfolder: str,
     """
     Function for creating folder structure for saved stationdata
     """
-    folder = correct_folder_path(folder)
-    path_to_create = Path(folder,
+    path_to_create = Path(correct_folder_path(folder),
                           subfolder)
 
-    # Try to create folder
     try:
         if not Path(path_to_create).is_dir():
             Path(path_to_create).mkdir(parents=True)
