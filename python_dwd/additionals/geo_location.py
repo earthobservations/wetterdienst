@@ -63,7 +63,7 @@ def derive_nearest_neighbours(latitudes_stations: np.array,
                               longitudes_stations: np.array,
                               coordinates: Coordinates):
     """
-    uses a k-d tree algorhtym to obtain the nearest
+    uses a k-d tree algorithm to obtain the nearest
     neighbours to coordinate pairs
 
     """
