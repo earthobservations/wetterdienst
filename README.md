@@ -31,12 +31,13 @@ Third those variables are also available in different tenses, which are:
 
 ## 3. Functionality of the toolset
 
-The toolset consists of four functions which are:
+The toolset provides different functions which are:
 
 - metadata_for_dwd_data
 - create_file_list_for_dwd_server
 - download_dwd_data
 - parse_dwd_data
+- get_nearest_station
 
 All those functions have one same argument which is **folder**. It can be used to define in which folder relative to the working path all the files shall be stored. Otherwise a standard folder ('dwd_data') is used. The argument is entered as a **string**.
 
@@ -48,6 +49,8 @@ All those functions have one same argument which is **folder**. It can be used t
 
 **parse_dwd_data** is used to get the data into the Python environment in shape of a pandas DataFrame. Therefor it opens the downloaded zipfile, reads its content and selects the file with the data (something like "produkt..."). Then the selected file is read and returned in shape of a DataFrame, ready to be analyzed!
 
+**get_nearest_station** calculates the nearest weather station based on the coordinates for the requested data. It returns a list of station ids that can be used to download the data 
+ 
 ## 4. Listing server files
 
 The server is constantly updated to add new values. This happens in a way that existing station data is appended by newly measured data approxamitly once a year somewhere after new year. This occasion requires the toolset to retrieve a new **filelist**, which has to beinitiated by the user when getting an error about this. For this purpose a function is scanning the server folder for a given parameter set if requested.
