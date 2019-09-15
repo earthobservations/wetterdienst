@@ -15,7 +15,7 @@ from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
 from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
-    METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, ARCHIVE_FORMAT, DATA_FORMAT
+    METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, ARCHIVE_FORMAT, DATA_FORMAT, METADATA_COLSPECS
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -23,7 +23,7 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 def create_metaindex(parameter: Parameter,
                      time_resolution: TimeResolution,
-                     period_type: PeriodType):
+                     period_type: PeriodType) -> pd.DataFrame:
     """
 
     Args:
@@ -62,78 +62,42 @@ def create_metaindex(parameter: Parameter,
         # Open connection with ftp server
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
-            metaindex = ftp.readlines(metafile_server)
+
+            file = ftp.read_file_to_byte(metafile_server)
 
     # If not possible raise an error
     except Exception:
         raise NameError(
             "Reading metadata file currently is not possible. Try again!")
 
-    return metaindex
+    metaindex = pd.read_fwf(filepath_or_buffer=file,
+                            colspecs=METADATA_COLSPECS,
+                            skiprows=[1],
+                            dtype=str)
 
+    # Extract column names from metaindex except from those containing "unnamed"
+    # Column names contain the tag "unnamed" if the header space between the corresponding width from colspecs has only
+    # empty characters and thus doesn't hold a part of the original column names
+    # Example:
+    # Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland
+    # 00001 19370101 19860630            478     47.8413    8.8493 Aach                                Baden-Württemberg
+    metaindex_colnames = [colname for colname in metaindex.columns if "unnamed" not in colname.lower()]
+    # Paste together the columnnames (they have empty characters in between)
+    metaindex_colnames_string = "".join(metaindex_colnames)
+    # Split them by those empty characters
+    metaindex_colnames_fixed = metaindex_colnames_string.split(" ")
 
-def fix_metaindex(metaindex):
-    """
-        A helping function to fix the raw index of metadata by some string operations
-        so that every information is in the right column.
+    # Replace names by english and upper equivalent
+    metaindex_colnames_translated = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name.upper(), name.upper())
+                                     for name in metaindex_colnames_fixed]
 
-    """
-    # Convert data to pandas dataframe
-    metaindex = pd.DataFrame(metaindex)
-    # Split the data into columns by any spaces
-    metaindex = metaindex.iloc[:, 0].str.split(expand=True)
-
-    # Get the column names
-    column_names = metaindex.iloc[0, :]
-
-    # Remove Nones
-    column_names = [name
-                    for name in column_names
-                    if name is not None]
-
-    # Make them upper ones
-    column_names = [name.upper()
-                    for name in column_names]
-
-    # Replace names by english aquivalent
-    column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name, name)
-                    for name in column_names]
-
-    # Skip first two lines (header and seperating line)
-    metaindex = metaindex.iloc[2:-1, :]
-
-    # Create dataframe with strings to fix
-    metaindex_to_fix = metaindex.iloc[:, 6:]
-
-    # Reduce the original dataframe by those columns
-    metaindex = metaindex.iloc[:, :6]
-
-    # Index is fixed by string operations (put together all except the last
-    # string which refers to state)
-    metaindex_to_fix = metaindex_to_fix \
-                           .agg(lambda data: [string
-                                              for string in data
-                                              if string is not None], 1) \
-                           .to_frame() \
-                           .iloc[:, 0] \
-        .agg(lambda data: [' '.join(data[:-1]), data[-1]]) \
-        .apply(pd.Series)
-
-    # Finally put together again the original frame and the fixed data
-    metaindex = pd.concat([metaindex, metaindex_to_fix], axis=1)
-
-    # Overwrite the columns
-    metaindex.columns = column_names
+    metaindex.columns = metaindex_colnames_translated
 
     # Fix datatypes
     metaindex.iloc[:, 0] = metaindex.iloc[:, 0].apply(int)
-    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(int)
-    metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(str)
     metaindex.iloc[:, 1] = metaindex.iloc[:, 1].apply(pd.to_datetime)
-    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(int)
-    metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(str)
     metaindex.iloc[:, 2] = metaindex.iloc[:, 2].apply(pd.to_datetime)
-    metaindex.iloc[:, 3] = metaindex.iloc[:, 3].apply(int)
+    metaindex.iloc[:, 3] = metaindex.iloc[:, 3].apply(float)
     metaindex.iloc[:, 4] = metaindex.iloc[:, 4].apply(float)
     metaindex.iloc[:, 5] = metaindex.iloc[:, 5].apply(float)
     metaindex.iloc[:, 6] = metaindex.iloc[:, 6].apply(str)
@@ -211,24 +175,28 @@ def create_metaindex2(parameter: Parameter,
                 try:
                     geo_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                                            sep=";",
-                                           na_values="-999")
+                                           na_values="-999",
+                                           dtype=str)
                 except UnicodeDecodeError:
                     geo_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                                            sep=";",
                                            na_values="-999",
-                                           engine="python")
+                                           engine="python",
+                                           dtype=str)
 
             with zip_file.open(file_par) as file_opened:
                 try:
                     par_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                                            sep=";",
-                                           na_values="-999")
+                                           na_values="-999",
+                                           dtype=str)
 
                 except UnicodeDecodeError:
                     par_file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                                            sep=";",
                                            na_values="-999",
-                                           engine="python")
+                                           engine="python",
+                                           dtype=str)
 
         # Remove file
         Path(metafile_local).unlink()
@@ -266,13 +234,9 @@ def create_metaindex2(parameter: Parameter,
 
     # Fix datatypes
     metadata_df.iloc[:, 0] = metadata_df.iloc[:, 0].apply(int)
-    metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(int)
-    metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(str)
     metadata_df.iloc[:, 1] = metadata_df.iloc[:, 1].apply(pd.to_datetime)
-    metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(int)
-    metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(str)
     metadata_df.iloc[:, 2] = metadata_df.iloc[:, 2].apply(pd.to_datetime)
-    metadata_df.iloc[:, 3] = metadata_df.iloc[:, 3].apply(int)
+    metadata_df.iloc[:, 3] = metadata_df.iloc[:, 3].apply(float)
     metadata_df.iloc[:, 4] = metadata_df.iloc[:, 4].apply(float)
     metadata_df.iloc[:, 5] = metadata_df.iloc[:, 5].apply(float)
     metadata_df.iloc[:, 6] = metadata_df.iloc[:, 6].apply(str)
