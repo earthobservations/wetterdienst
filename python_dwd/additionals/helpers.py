@@ -5,6 +5,7 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZipFile
 
 import pandas as pd
+from numpy import datetime64
 from tqdm import tqdm
 
 from python_dwd.additionals.variables import STRING_STATID_COL
@@ -77,8 +78,8 @@ def create_metaindex(parameter: Parameter,
 
     columns = metaindex.columns
     META_INDEX_DTYPES = {columns[0]: int,
-                         columns[1]: pd.to_datetime,
-                         columns[2]: pd.to_datetime,
+                         columns[1]: datetime64,
+                         columns[2]: datetime64,
                          columns[3]: float,
                          columns[4]: float,
                          columns[5]: float,
@@ -185,8 +186,8 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     columns = metadata_df.columns
     META_INDEX_DTYPES = {columns[0]: int,
-                         columns[1]: pd.to_datetime,
-                         columns[2]: pd.to_datetime,
+                         columns[1]: datetime64,
+                         columns[2]: datetime64,
                          columns[3]: float,
                          columns[4]: float,
                          columns[5]: float,
