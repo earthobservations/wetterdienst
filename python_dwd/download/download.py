@@ -20,6 +20,7 @@ def download_dwd_data(remote_files: List[str],
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
     assert isinstance(remote_files, list)
+    assert all(isinstance(file, str) for file in remote_files)
 
     if parallel_download:
         return Pool().map(_download_dwd_data, remote_files)

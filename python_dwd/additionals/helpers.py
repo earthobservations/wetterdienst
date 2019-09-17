@@ -8,7 +8,6 @@ import pandas as pd
 from numpy import datetime64
 from tqdm import tqdm
 
-from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, \
     FROM_DATE_NAME, TO_DATE_NAME, \
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
@@ -17,7 +16,7 @@ from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, \
 from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, \
     METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
-    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH
+    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STRING_STATID_COL
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -269,7 +268,7 @@ def create_fileindex(parameter: Parameter,
         .insert(loc=2,
                 column=STATION_ID_NAME,
                 value=files_server.iloc[:, 0].str.split('_')
-                .apply(lambda string: string[STRING_STATID_COL.get(period_type, None)]))
+                .apply(lambda string: string[STRING_STATID_COL]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 

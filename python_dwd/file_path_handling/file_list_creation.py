@@ -20,7 +20,7 @@ def create_file_list_for_dwd_server(statid: List[int],
                                     time_resolution: TimeResolution,
                                     period_type: PeriodType,
                                     folder: str = MAIN_FOLDER,
-                                    create_new_filelist=False) -> List[str]:
+                                    create_new_filelist=False) -> pd.DataFrame:
     """
     Function for selecting datafiles (links to archives) for given
     statid, parameter, time_resolution and period_type under consideration of a
@@ -66,14 +66,15 @@ def create_file_list_for_dwd_server(statid: List[int],
     filelist_local_path = f"{filelist_local_path}{DATA_FORMAT}"
 
     if create_new_filelist or not Path(filelist_local_path).is_file():
-        # If there was an error with reading in the fileslist get a new
-        # fileslist
         create_fileindex(parameter=parameter,
                          time_resolution=time_resolution,
                          period_type=period_type,
                          folder=folder)
 
-    filelist = pd.read_csv(filelist_local_path)
+    filelist = pd.read_csv(filepath_or_buffer=filelist_local_path,
+                           sep=",",
+                           dtype={"FILEID": int,
+                                  "STATION_ID": int,
+                                  "FILENAME": str})
 
-    return filelist.loc[filelist[STATION_ID_NAME].isin(
-        statid), FILENAME_NAME].tolist()
+    return filelist.loc[filelist[STATION_ID_NAME].isin(statid), :]

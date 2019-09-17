@@ -6,7 +6,6 @@ import pandas as pd
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
-from python_dwd.additionals.variables import STRING_STATID_COL
 from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, \
     STATE_NAME, HAS_FILE_NAME
 from python_dwd.constants.ftp_credentials import MAIN_FOLDER, \
@@ -52,21 +51,15 @@ def add_filepresence(metainfo: pd.DataFrame,
 
     metainfo[HAS_FILE_NAME] = False
 
-    file_existence = create_file_list_for_dwd_server(
+    filelist = create_file_list_for_dwd_server(
         statid=list(metainfo.iloc[:, 0]),
         parameter=parameter,
         time_resolution=time_resolution,
         period_type=period_type,
         folder=folder)
 
-    file_existence = pd.DataFrame(file_existence)
-
-    file_existence.iloc[:, 0] = file_existence.iloc[:, 0].apply(
-        lambda x: x.split('_')[
-            STRING_STATID_COL.get(period_type, None)]).astype(int)
-
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        file_existence.iloc[:, 0]), HAS_FILE_NAME] = True
+        filelist["STATION_ID"]), HAS_FILE_NAME] = True
 
     return metainfo
 
@@ -76,7 +69,7 @@ def metadata_for_dwd_data(parameter: Parameter,
                           period_type: PeriodType,
                           folder: str = MAIN_FOLDER,
                           write_file: bool = True,
-                          create_new_filelist: bool = False):
+                          create_new_filelist: bool = False) -> pd.DataFrame:
     """
     A main function to retrieve metadata for a set of parameters that creates a
         corresponding csv.

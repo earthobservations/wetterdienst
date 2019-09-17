@@ -24,8 +24,8 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     removed afterwards.
 
     Args:
-        local_files: list of local stored files that should be read
-        keep_zip: If true: The raw zip file will not be deleted, Default is: False.
+        files_in_bytes: list of local stored files that should be read
+        write_file: If true: The raw zip file will not be deleted, Default is: False.
 
     Returns:
         DataFrame with requested data
@@ -76,10 +76,12 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     data.columns = column_names
 
     # String to date
-    data[DATE_NAME] = data[DATE_NAME].apply(
-        lambda date: dt.strptime(str(date), "%Y%m%d"))
+    data[DATE_NAME] = pd.to_datetime(data[DATE_NAME])
+    # data[DATE_NAME] = data[DATE_NAME].apply(
+    #     lambda date: dt.strptime(str(date), "%Y%m%d"))
 
     if write_file:
+        # Todo function to write pasred file to a .csv or .ncdf4
         pass
 
     return data
