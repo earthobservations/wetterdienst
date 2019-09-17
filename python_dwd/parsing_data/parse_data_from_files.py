@@ -76,7 +76,7 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     data.columns = column_names
 
     # String to date
-    data[DATE_NAME] = pd.to_datetime(data[DATE_NAME])
+    data[DATE_NAME] = pd.to_datetime(data[DATE_NAME], format="%Y%m%d")
     # data[DATE_NAME] = data[DATE_NAME].apply(
     #     lambda date: dt.strptime(str(date), "%Y%m%d"))
 

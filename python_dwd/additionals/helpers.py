@@ -46,7 +46,8 @@ def create_metaindex(parameter: Parameter,
     try:
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
-            files_server = ftp.list_files(path=str(server_path))
+            files_server = ftp.list_files(remote_path=str(server_path),
+                                          also_subfolders=False)
 
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
@@ -59,7 +60,7 @@ def create_metaindex(parameter: Parameter,
     try:
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
-            file = ftp.read_file_to_bytes(metafile_server)
+            file = ftp.read_file_to_bytes(remote_file_path=metafile_server)
 
     except Exception:
         raise NameError(
@@ -91,7 +92,7 @@ def create_metaindex(parameter: Parameter,
 
 def metaindex_for_1minute_data(parameter: Parameter,
                                time_resolution: TimeResolution,
-                               folder):
+                               folder) -> pd.DataFrame:
     """
     A helping function to create a raw index of metadata for stations of the set of
     parameters as given. This raw metadata is then used by other functions. This
@@ -110,12 +111,11 @@ def metaindex_for_1minute_data(parameter: Parameter,
                                   parameter.value,
                                   FTP_METADATA_NAME)
 
-    metadata_path = str(metadata_path)
-
     with FTP(DWD_SERVER) as ftp:
         ftp.login()
 
-        metadata_server = ftp.nlst(metadata_path)
+        metadata_server = ftp.list_files(remote_path=str(metadata_path),
+                                         also_subfolders=False)
 
     metadata_local = [str(Path(folder,
                                SUB_FOLDER_METADATA,
@@ -125,7 +125,8 @@ def metaindex_for_1minute_data(parameter: Parameter,
     metadata_df = pd.DataFrame(None,
                                columns=METADATA_1MIN_COLUMNS)
 
-    for metafile_server, metafile_local in tqdm(zip(metadata_server, metadata_local), total=len(metadata_server)):
+    for metafile_server, metafile_local in tqdm(zip(metadata_server, metadata_local),
+                                                total=len(metadata_server)):
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
 
@@ -199,7 +200,8 @@ def metaindex_for_1minute_data(parameter: Parameter,
     return metadata_df
 
 
-def parse_zipped_data_into_df(file_opened, engine: str = 'c'):
+def parse_zipped_data_into_df(file_opened,
+                              engine: str = 'c') -> pd.DataFrame:
     """ uses opened zip data to parse into df"""
     file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                        sep=";",
@@ -212,7 +214,7 @@ def parse_zipped_data_into_df(file_opened, engine: str = 'c'):
 def create_fileindex(parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType,
-                     folder: str = MAIN_FOLDER):
+                     folder: str = MAIN_FOLDER) -> None:
     """
         A function to receive current files on server as list excluding description
         files and only containing those files that have measuring data.
@@ -240,7 +242,8 @@ def create_fileindex(parameter: Parameter,
     try:
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
-            files_server = ftp.list_files(path=server_path)
+            files_server = ftp.list_files(remote_path=server_path,
+                                          also_subfolders=True)
 
     except Exception:
         raise NameError(
@@ -267,8 +270,9 @@ def create_fileindex(parameter: Parameter,
     files_server \
         .insert(loc=2,
                 column=STATION_ID_NAME,
-                value=files_server.iloc[:, 0].str.split('_')
-                .apply(lambda string: string[STRING_STATID_COL]))
+                value=files_server.iloc[:, 0].str.split("/")
+        .apply(lambda string: string[-1]).str.split("_")
+        .apply(lambda string: string[STRING_STATID_COL]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
@@ -287,8 +291,6 @@ def create_fileindex(parameter: Parameter,
     files_server.to_csv(path_or_buf=filelist_local_path,
                         header=True,
                         index=False)
-
-    return None
 
 
 def check_file_exist(file_path: Path) -> bool:

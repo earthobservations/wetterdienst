@@ -5,6 +5,7 @@ import zipfile
 from io import BytesIO
 from typing import List, Union
 from multiprocessing import Pool
+import pandas as pd
 
 from python_dwd.file_path_handling.path_handling import create_folder
 from python_dwd.constants.ftp_credentials import DWD_SERVER, MAIN_FOLDER,\
@@ -15,12 +16,12 @@ from python_dwd.download.download_services import create_local_file_name,\
 from python_dwd.download.ftp_handling import ftp_file_download, FTP
 
 
-def download_dwd_data(remote_files: List[str],
+def download_dwd_data(remote_files: pd.DataFrame,
                       parallel_download: bool = False) -> List[BytesIO]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
+    assert isinstance(remote_files, pd.DataFrame)
 
-    assert isinstance(remote_files, list)
-    assert all(isinstance(file, str) for file in remote_files)
+    remote_files = remote_files["FILENAME"].to_list()
 
     if parallel_download:
         return Pool().map(_download_dwd_data, remote_files)
