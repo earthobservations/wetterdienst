@@ -1,6 +1,7 @@
 """ download scripts """
 from pathlib import Path
-import urllib
+from urllib.request import urlopen
+from urllib.error import URLError
 import zipfile
 from io import BytesIO
 from typing import List, Union
@@ -21,6 +22,7 @@ def download_dwd_data(remote_files: pd.DataFrame,
                       parallel_download: bool = False) -> List[BytesIO]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
     assert isinstance(remote_files, pd.DataFrame)
+    assert isinstance(parallel_download, bool)
 
     remote_files = remote_files["FILENAME"].to_list()
 
@@ -45,14 +47,15 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
         stores data on local file system
 
     """
+    assert isinstance(remote_file, str)
 
     file_server = create_remote_file_name(remote_file)
 
     try:
-        with urllib.request.urlopen(file_server) as url_request:
+        with urlopen(file_server) as url_request:
             zip_file = BytesIO(url_request.read())
-    except urllib.error.URLError as e:
-        raise urllib.error.URLError(f"Error: the stationdata {file_server} couldn't be reached.\n"
+    except URLError as e:
+        raise URLError(f"Error: the stationdata {file_server} couldn't be reached.\n"
                                     f"{str(e)}")
 
     try:
