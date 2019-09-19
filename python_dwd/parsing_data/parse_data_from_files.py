@@ -11,7 +11,7 @@ from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.functions import determine_parameters
 from python_dwd.constants.column_name_mapping import DATE_NAME, \
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
+from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS, DATA_FORMAT
 
 
 def parse_dwd_data(files_in_bytes: List[BytesIO],
@@ -76,12 +76,13 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     data.columns = column_names
 
     # String to date
-    data[DATE_NAME] = pd.to_datetime(data[DATE_NAME], format="%Y%m%d")
+    data[DATE_NAME] = pd.to_datetime(arg=data[DATE_NAME],
+                                     format=DATA_FORMAT)
     # data[DATE_NAME] = data[DATE_NAME].apply(
     #     lambda date: dt.strptime(str(date), "%Y%m%d"))
 
     if write_file:
-        # Todo function to write pasred file to a .csv or .ncdf4
+        # Todo function to write parsed file to a .csv or .ncdf4
         pass
 
     return data
