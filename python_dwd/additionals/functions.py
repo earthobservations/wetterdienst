@@ -141,6 +141,7 @@ def retrieve_parameter_from_filename(filename: str,
             parameter = None
     else:
         parameter = None
+
     return parameter
 
 
@@ -164,6 +165,7 @@ def retrieve_time_resolution_from_filename(filename: str) -> Union[TimeResolutio
         time_resolution = TimeResolution.ANNUAL
     else:
         time_resolution = None
+
     return time_resolution
 
 
@@ -178,12 +180,9 @@ def check_parameters(parameter: Parameter,
     check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, [[], []])
 
     if parameter not in check[0] or period_type not in check[1]:
-        raise TypeError(
-            f"Combination of time_resolution={time_resolution.value},parameter={parameter.value} "
-            f"and period_type={period_type.value} not available.Possible parameters are: "
-            f"{TIME_RESOLUTION_PARAMETER_MAPPING}.")
+        return False
 
-    return None
+    return True
 
 
 def find_all_matchstrings_in_string(string: str,
