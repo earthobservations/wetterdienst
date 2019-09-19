@@ -1,6 +1,7 @@
 """ download scripts """
 from pathlib import Path
-import urllib
+from urllib.request import urlopen
+from urllib.error import URLError
 import zipfile
 from io import BytesIO
 from typing import List, Union
@@ -20,6 +21,7 @@ def download_dwd_data(remote_files: pd.DataFrame,
                       parallel_download: bool = False) -> List[BytesIO]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
     assert isinstance(remote_files, pd.DataFrame)
+    assert isinstance(parallel_download, bool)
 
     remote_files = remote_files["FILENAME"].to_list()
 
@@ -47,11 +49,12 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
         stores data on local file system
 
     """
+    assert isinstance(remote_file, str)
 
     file_server = create_remote_file_name(remote_file)
 
     try:
-        request = urllib.request.urlopen(file_server)
+        request = urlopen(file_server)
 
         zip_file = zipfile.ZipFile(BytesIO(request.read()))
 
@@ -62,7 +65,7 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
 
         return BytesIO(zip_file.open(produkt).read())
 
-    except urllib.error.URLError as e:
+    except URLError as e:
         print(f"The file\n {file_server} \n couldn't be reached."
               f"Error: {str(e)}")
 
