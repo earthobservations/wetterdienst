@@ -148,9 +148,9 @@ class FuzzyExtractor:
 
 class DWDRequest:
     def __init__(self,
-                 station_id: List[Union[int, str]],
-                 parameter: Parameter,
-                 period_type: PeriodType,
+                 station_id: List[int],
+                 parameter: Union[str, Parameter],
+                 period_type: Union[str, PeriodType],
                  time_resolution: Union[None, str, list, TimeResolution] = None,
                  start_date: Union[None, str, Timestamp] = None,
                  end_date: Union[None, str, Timestamp] = None):
