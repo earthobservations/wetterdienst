@@ -41,6 +41,7 @@ def create_file_list_for_dwd_server(statid: List[int],
     """
     # Check type of function parameters
     assert isinstance(statid, list)
+    statid = [int(s) for s in statid]
     assert isinstance(parameter, Parameter)
     assert isinstance(time_resolution, TimeResolution)
     assert isinstance(period_type, PeriodType)
