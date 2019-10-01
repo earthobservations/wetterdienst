@@ -196,7 +196,6 @@ class DWDRequest:
         self.start_date = start_date
         self.end_date = end_date
 
-        print(self.time_resolution)
 
         for time_res in self.time_resolution:
             if not check_parameters(parameter=self.parameter,
