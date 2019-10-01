@@ -7,7 +7,6 @@ from python_dwd.additionals.functions import check_parameters
 
 
 class DWDRequest:
-
     def __init__(self,
                  station_id: List[Union[int, str]],
                  parameter: Parameter,
@@ -15,28 +14,35 @@ class DWDRequest:
                  time_resolution: Optional[TimeResolution] = None,
                  start_date: Optional[Union[str, Timestamp]] = None,
                  end_date: Optional[Union[str, Timestamp]] = None):
-        assert isinstance(station_id, list)
-        station_id = [int(s) for s in station_id]
-        assert isinstance(parameter, Parameter)
-        assert isinstance(period_type, PeriodType)
-        assert time_resolution is None or (start_date is None and end_date is None), \
-            "Define either a time_resolution or both the start_ and end_date and leave the other one empty!"
+        if not isinstance(station_id, list):
+            raise TypeError("Error: station_id is not of type list")
+        try:
+            station_id = [int(s) for s in station_id]
+        except ValueError as e:
+            raise ValueError(f"Error: one or more statid(s) couldn't be converted to integers. {str(e)}")
+        if not isinstance(parameter, Parameter):
+            raise TypeError("Error: parameter is not an instance of the Parameter enumeration.")
+        if not isinstance(period_type, PeriodType):
+            raise TypeError("Error: period_type is not an instance of the PeriodType enumeration.")
+        if not (time_resolution or (start_date and end_date)):
+            raise ValueError(
+                "Define either a time_resolution or both the start_ and end_date and leave the other one empty!")
         if time_resolution:
-            assert isinstance(time_resolution, TimeResolution)
-
-            assert check_parameters(parameter=parameter,
+            if not isinstance(time_resolution, TimeResolution):
+                raise TypeError("Error: time_resolution is not an instance of the TimeResolution enumeration.")
+            if not check_parameters(parameter=parameter,
                                     time_resolution=time_resolution,
-                                    period_type=period_type), \
-                "parameter, time_resolution and period_type do not present a possible combination"
-
+                                    period_type=period_type):
+                raise ValueError(
+                    "Error: parameter, time_resolution and period_type do not present a possible combination")
         if start_date and end_date:
-            if not isinstance(start_date, Timestamp):
-                start_date = Timestamp(start_date)
+            try:
+                start_date, end_date = Timestamp(start_date), Timestamp(end_date)
+            except ValueError as e:
+                raise ValueError(f"Error: start_date/end_date couldn't be parsed to Timestamp. {str(e)}")
 
-            if not isinstance(end_date, Timestamp):
-                end_date = Timestamp(end_date)
-
-            assert start_date <= end_date, "end_date must at least be start_date or later!"
+            if not start_date <= end_date:
+                raise ValueError("Error: end_date must at least be start_date or later!")
 
         self.station_id = station_id
         self.parameter = parameter
@@ -53,5 +59,6 @@ class DWDRequest:
 if __name__ == "__main__":
     dwdrequest = DWDRequest(station_id=[1048],
                             parameter=Parameter.CLIMATE_SUMMARY,
-                            period_type=PeriodType.NOW,
-                            time_resolution=TimeResolution.DAILY)
+                            period_type=PeriodType.HISTORICAL,
+                            start_date="1991-01-01",
+                            end_date="1981-01-01")
