@@ -6,7 +6,7 @@ from python_dwd.enumerations.parameter_enumeration import Parameter
 
 
 def test_check_parameters():
-    assert check_parameters(Parameter.PRECIPITATION, TimeResolution.MINUTE_10, PeriodType.HISTORICAL) is None
+    assert check_parameters(Parameter.PRECIPITATION, TimeResolution.MINUTE_10, PeriodType.HISTORICAL)
 
 
 def test_retrieve_time_resolution_from_filename():
