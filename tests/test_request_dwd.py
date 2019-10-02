@@ -17,3 +17,27 @@ def test_station_id():
                    parameter=Parameter.CLIMATE_SUMMARY,
                    period_type=PeriodType.HISTORICAL,
                    time_resolution=TimeResolution.DAILY)
+
+
+def test_parameter_enumerations():
+    with pytest.raises(ValueError):
+        DWDRequest(station_id=[1048],
+                   parameter=Parameter.CLIMATE_SUMMARY,
+                   period_type=PeriodType.NOW,
+                   time_resolution=TimeResolution.DAILY)
+
+
+def test_time_input():
+    with pytest.raises(ValueError):
+        DWDRequest(station_id=[1048],
+                   parameter=Parameter.CLIMATE_SUMMARY,
+                   period_type=PeriodType.HISTORICAL,
+                   time_resolution=TimeResolution.DAILY,
+                   start_date="1971-01-01")
+
+    with pytest.raises(ValueError):
+        DWDRequest(station_id=[1048],
+                   parameter=Parameter.CLIMATE_SUMMARY,
+                   period_type=PeriodType.HISTORICAL,
+                   start_date="1971-01-01",
+                   end_date="1951-01-01")
