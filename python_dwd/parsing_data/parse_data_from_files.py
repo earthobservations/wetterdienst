@@ -35,14 +35,8 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     assert isinstance(files_in_bytes, list)
     assert isinstance(write_file, bool)
 
-    # Check for files and if empty return empty DataFrame
     if not files_in_bytes:
         return pd.DataFrame()
-
-    # first_filename = str(local_files[0]).split("/")[-1]
-    #
-    # parameter, time_resolution, period_type = determine_parameters(first_filename)
-    # check_parameters(parameter, time_resolution, period_type)
 
     data = []
 
@@ -58,28 +52,20 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
             print(f"The file could be parsed to a dataframe."
                   f"Error: {str(e)}")
 
-    # Put together list of files to a DataFrame
     data = pd.concat(data)
 
-    # Extract column names
     column_names = data.columns
 
-    # Strip empty chars from before and after column names
     column_names = [column_name.upper().strip()
                     for column_name in column_names]
 
-    # Replace certain names by conform names
     column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(column_name, column_name)
                     for column_name in column_names]
 
-    # Reassign column names to DataFrame
     data.columns = column_names
 
-    # String to date
-    data[DATE_NAME] = pd.to_datetime(arg=data[DATE_NAME],
-                                     format=DATA_FORMAT)
-    # data[DATE_NAME] = data[DATE_NAME].apply(
-    #     lambda date: dt.strptime(str(date), "%Y%m%d"))
+    data[DATE_NAME] = pd.to_datetime(data[DATE_NAME],
+                                     DATA_FORMAT)
 
     if write_file:
         # Todo function to write parsed file to a .csv or .ncdf4

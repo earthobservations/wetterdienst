@@ -130,8 +130,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
 
-            ftp.download(metafile_server,
-                         metafile_local)
+            metafile_local = ftp.read_file_to_bytes(metafile_server)
 
         with ZipFile(metafile_local) as zip_file:
             zip_file_files = zip_file.infolist()
@@ -163,7 +162,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
                     par_file = parse_zipped_data_into_df(file_opened,
                                                          engine='python')
 
-        Path(metafile_local).unlink()
+        # Path(metafile_local).unlink()
 
         geo_file.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
             name.strip().upper(), name.strip().upper())
@@ -206,7 +205,7 @@ def parse_zipped_data_into_df(file_opened,
     file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                        sep=";",
                        na_values="-999",
-                       enginbe=engine,
+                       engine=engine,
                        dtype=str)
     return file
 
@@ -230,14 +229,14 @@ def create_fileindex(parameter: Parameter,
                                f"{time_resolution.value}_"
                                f"{period_type.value}{DATA_FORMAT}")
 
-    filelist_local_path = str(filelist_local_path).replace('\\', '/')
+    filelist_local_path = str(filelist_local_path)
 
-    server_path = Path(DWD_PATH,
-                       time_resolution.value,
-                       parameter.value,
-                       period_type.value)
+    server_path = PurePosixPath(DWD_PATH,
+                                time_resolution.value,
+                                parameter.value,
+                                period_type.value)
 
-    server_path = f"{server_path}{os.sep}".replace('\\', '/')
+    server_path = f"{server_path}"
 
     try:
         with FTP(DWD_SERVER) as ftp:
@@ -249,9 +248,7 @@ def create_fileindex(parameter: Parameter,
         raise NameError(
             "Download of fileslist file currently not possible. Try again!")
 
-    files_server = pd.DataFrame(files_server)
-
-    files_server.columns = [FILENAME_NAME]
+    files_server = pd.DataFrame(files_server, columns=[FILENAME_NAME])
 
     files_server.loc[:, FILENAME_NAME] = files_server.loc[:, FILENAME_NAME] \
         .apply(str)
@@ -262,17 +259,23 @@ def create_fileindex(parameter: Parameter,
     files_server = files_server[files_server.FILENAME.str.contains(
         ARCHIVE_FORMAT)]
 
-    files_server \
-        .insert(loc=1,
-                column=FILEID_NAME,
-                value=files_server.index)
+    files_server[FILEID_NAME] = files_server.index
 
-    files_server \
-        .insert(loc=2,
-                column=STATION_ID_NAME,
-                value=files_server.iloc[:, 0].str.split("/")
-        .apply(lambda string: string[-1]).str.split("_")
-        .apply(lambda string: string[STRING_STATID_COL]))
+    files_server[STATION_ID_NAME] = files_server.iloc[:, 0].str.split("/")\
+        .apply(lambda string: string[-1]).str.split("_")\
+        .apply(lambda string: string[STRING_STATID_COL])
+
+    # files_server \
+    #     .insert(loc=1,
+    #             column=FILEID_NAME,
+    #             value=files_server.index)
+    #
+    # files_server \
+    #     .insert(loc=2,
+    #             column=STATION_ID_NAME,
+    #             value=files_server.iloc[:, 0].str.split("/")
+    #     .apply(lambda string: string[-1]).str.split("_")
+    #     .apply(lambda string: string[STRING_STATID_COL]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
