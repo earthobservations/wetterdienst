@@ -14,6 +14,7 @@ from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 from python_dwd.download.download_services import create_local_file_name,\
     create_remote_file_name
 from python_dwd.download.ftp_handling import ftp_file_download, FTP
+from python_dwd.additionals.functions import find_all_matchstrings_in_string
 
 
 def download_dwd_data(remote_files: pd.DataFrame,
@@ -27,9 +28,6 @@ def download_dwd_data(remote_files: pd.DataFrame,
         return Pool().map(_download_dwd_data, remote_files)
     else:
         return [_download_dwd_data(remote_file) for remote_file in remote_files]
-
-    # return [create_local_file_name(remote_file, folder) for
-    #         remote_file in remote_files]
 
 
 def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
@@ -56,9 +54,8 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
         zip_file = zipfile.ZipFile(BytesIO(request.read()))
 
         produkt = [file_in_zip.filename
-                   for file_in_zip in zip_file.filelist
-                   if all([matchstring in file_in_zip.filename
-                           for matchstring in STATIONDATA_MATCHSTRINGS])][0]
+                   for file_in_zip in zip_file.namelist()
+                   if find_all_matchstrings_in_string(file_in_zip, STATIONDATA_MATCHSTRINGS)][0]
 
         return BytesIO(zip_file.open(produkt).read())
 

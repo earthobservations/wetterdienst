@@ -1,7 +1,7 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -184,3 +184,9 @@ def check_parameters(parameter: Parameter,
             f"{TIME_RESOLUTION_PARAMETER_MAPPING}.")
 
     return None
+
+
+def find_all_matchstrings_in_string(string: str,
+                                    matchstrings: List[str]):
+    """ check if string has all matchstrings in it """
+    return all([matchstring in string for matchstring in matchstrings])

@@ -1,12 +1,15 @@
 """ A set of helping functions used by the main functions """
+import urllib
+import zipfile
+from typing import List
 import os
-from io import TextIOWrapper
+from io import TextIOWrapper, BytesIO
 from pathlib import Path, PurePosixPath
 from zipfile import ZipFile
-
 import pandas as pd
 from numpy import datetime64
 from tqdm import tqdm
+from multiprocessing import Pool
 
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, \
     FROM_DATE_NAME, TO_DATE_NAME, \
@@ -17,12 +20,15 @@ from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, \
     METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
     ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STRING_STATID_COL
+from python_dwd.constants.variables import TRIES_TO_DOWNLOAD_FILE
+from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.file_path_handling.path_handling import remove_old_file, \
     create_folder
+from python_dwd.additionals.functions import find_all_matchstrings_in_string
 
 
 def create_metaindex(parameter: Parameter,
@@ -46,21 +52,19 @@ def create_metaindex(parameter: Parameter,
     try:
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
-            files_server = ftp.list_files(remote_path=str(server_path),
-                                          also_subfolders=False)
+            files_server = ftp.list_files(remote_path=str(server_path), also_subfolders=False)
 
     except Exception:
         raise NameError("Couldn't retrieve filelist from server")
 
-    metafile_server = [file
-                       for file in files_server
-                       if all([matchstring in file.lower()
-                               for matchstring in METADATA_MATCHSTRINGS])].pop(0)
+    metafile_server = [file for file in files_server
+                       if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
+
+    metafile_server = create_remote_file_name(metafile_server.lstrip(DWD_PATH))
 
     try:
-        with FTP(DWD_SERVER) as ftp:
-            ftp.login()
-            file = ftp.read_file_to_bytes(remote_file_path=metafile_server)
+        with urllib.request.urlopen(metafile_server) as request:
+            file = BytesIO(request.read())
 
     except Exception:
         raise NameError(
@@ -114,76 +118,19 @@ def metaindex_for_1minute_data(parameter: Parameter,
     with FTP(DWD_SERVER) as ftp:
         ftp.login()
 
-        metadata_server = ftp.list_files(remote_path=str(metadata_path),
-                                         also_subfolders=False)
+        metadata_filepaths = ftp.list_files(remote_path=str(metadata_path), also_subfolders=False)
 
-    metadata_local = [str(Path(folder,
-                               SUB_FOLDER_METADATA,
-                               metadata_file.split("/")[-1]))
-                      for metadata_file in metadata_server]
+    metadata_filepaths = [create_remote_file_name(file.lstrip(DWD_PATH)) for file in metadata_filepaths]
 
-    metadata_df = pd.DataFrame(None,
-                               columns=METADATA_1MIN_COLUMNS)
+    metaindex_df = pd.DataFrame(None, columns=METADATA_1MIN_COLUMNS)
 
-    for metafile_server, metafile_local in tqdm(zip(metadata_server, metadata_local),
-                                                total=len(metadata_server)):
-        with FTP(DWD_SERVER) as ftp:
-            ftp.login()
+    metadata_files = Pool().map(download_metadata_file_for_1minute_data, metadata_filepaths)
 
-            metafile_local = ftp.read_file_to_bytes(metafile_server)
+    metadata_dfs = Pool().map(combine_geo_and_par_file_to_metadata_df, metadata_files)
 
-        with ZipFile(metafile_local) as zip_file:
-            zip_file_files = zip_file.infolist()
+    metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
 
-            zip_file_files = [zip_file_file.filename
-                              for zip_file_file in zip_file_files]
-
-            file_geo = [zip_file_file
-                        for zip_file_file in zip_file_files
-                        if all([matchstring in zip_file_file.lower()
-                                for matchstring in METADATA_1MIN_GEO_MATCHSTRINGS])].pop(0)
-
-            file_par = [zip_file_file
-                        for zip_file_file in zip_file_files
-                        if all([matchstring in zip_file_file.lower()
-                                for matchstring in METADATA_1MIN_PAR_MATCHSTRINGS])].pop(0)
-
-            with zip_file.open(file_geo) as file_opened:
-                try:
-                    geo_file = parse_zipped_data_into_df(file_opened)
-                except UnicodeDecodeError:
-                    geo_file = parse_zipped_data_into_df(file_opened,
-                                                         engine='python')
-
-            with zip_file.open(file_par) as file_opened:
-                try:
-                    par_file = parse_zipped_data_into_df(file_opened)
-                except UnicodeDecodeError:
-                    par_file = parse_zipped_data_into_df(file_opened,
-                                                         engine='python')
-
-        # Path(metafile_local).unlink()
-
-        geo_file.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
-            name.strip().upper(), name.strip().upper())
-            for name in geo_file.columns]
-
-        par_file.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
-            name.strip().upper(), name.strip().upper())
-            for name in par_file.columns]
-
-        geo_file = geo_file.iloc[[-1], :]
-        par_file = par_file.loc[:, [FROM_DATE_NAME, TO_DATE_NAME]].dropna()
-
-        geo_file[FROM_DATE_NAME] = par_file[FROM_DATE_NAME].min()
-        geo_file[TO_DATE_NAME] = par_file[TO_DATE_NAME].max()
-
-        geo_file = geo_file.loc[:, METADATA_1MIN_COLUMNS]
-
-        metadata_df = metadata_df.append(geo_file,
-                                         ignore_index=True)
-
-    columns = metadata_df.columns
+    columns = metaindex_df.columns
     META_INDEX_DTYPES = {columns[0]: int,
                          columns[1]: datetime64,
                          columns[2]: datetime64,
@@ -191,12 +138,61 @@ def metaindex_for_1minute_data(parameter: Parameter,
                          columns[4]: float,
                          columns[5]: float,
                          columns[6]: str}
-    metadata_df = metadata_df.astype(META_INDEX_DTYPES)
+    metaindex_df = metaindex_df.astype(META_INDEX_DTYPES)
 
-    metadata_df = metadata_df.sort_values(
+    metaindex_df = metaindex_df.sort_values(
         STATION_ID_NAME).reset_index(drop=True)
 
-    return metadata_df
+    return metaindex_df
+
+
+def download_metadata_file_for_1minute_data(metadatafile):
+    for _ in range(TRIES_TO_DOWNLOAD_FILE):
+        try:
+            with urllib.request.urlopen(metadatafile) as request:
+                file = BytesIO(request.read())
+            break
+        except urllib.error.URLError:
+            continue
+
+    return file
+
+
+def combine_geo_and_par_file_to_metadata_df(metadata_file):
+    with zipfile.ZipFile(metadata_file) as zip_file:
+        files_in_zipfile = zip_file.namelist()
+
+        files_of_geo_and_par = {}
+        dfs_of_geo_and_par = {}
+
+        for file in files_in_zipfile:
+            if find_all_matchstrings_in_string(file.lower(), METADATA_1MIN_GEO_MATCHSTRINGS):
+                files_of_geo_and_par["geo_file"] = file
+            elif find_all_matchstrings_in_string(file.lower(), METADATA_1MIN_PAR_MATCHSTRINGS):
+                files_of_geo_and_par["par_file"] = file
+
+        for filetype, file in files_of_geo_and_par.items():
+            with zip_file.open(file) as file_opened:
+                try:
+                    df = parse_zipped_data_into_df(file_opened)
+                except UnicodeDecodeError:
+                    df = parse_zipped_data_into_df(file_opened,
+                                                   engine='python')
+
+            df.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
+                name.strip().upper(), name.strip().upper())
+                for name in df.columns]
+
+            dfs_of_geo_and_par[filetype] = df
+
+    dfs_of_geo_and_par["geo_file"] = dfs_of_geo_and_par["geo_file"].iloc[[-1], :]
+
+    dfs_of_geo_and_par["par_file"] = dfs_of_geo_and_par["par_file"].loc[:, [FROM_DATE_NAME, TO_DATE_NAME]].dropna()
+
+    dfs_of_geo_and_par["geo_file"][FROM_DATE_NAME] = dfs_of_geo_and_par["par_file"][FROM_DATE_NAME].min()
+    dfs_of_geo_and_par["geo_file"][TO_DATE_NAME] = dfs_of_geo_and_par["par_file"][TO_DATE_NAME].max()
+
+    return dfs_of_geo_and_par["geo_file"].loc[:, METADATA_1MIN_COLUMNS]
 
 
 def parse_zipped_data_into_df(file_opened,
@@ -236,7 +232,7 @@ def create_fileindex(parameter: Parameter,
                                 parameter.value,
                                 period_type.value)
 
-    server_path = f"{server_path}"
+    server_path = str(server_path)
 
     try:
         with FTP(DWD_SERVER) as ftp:
@@ -264,18 +260,6 @@ def create_fileindex(parameter: Parameter,
     files_server[STATION_ID_NAME] = files_server.iloc[:, 0].str.split("/")\
         .apply(lambda string: string[-1]).str.split("_")\
         .apply(lambda string: string[STRING_STATID_COL])
-
-    # files_server \
-    #     .insert(loc=1,
-    #             column=FILEID_NAME,
-    #             value=files_server.index)
-    #
-    # files_server \
-    #     .insert(loc=2,
-    #             column=STATION_ID_NAME,
-    #             value=files_server.iloc[:, 0].str.split("/")
-    #     .apply(lambda string: string[-1]).str.split("_")
-    #     .apply(lambda string: string[STRING_STATID_COL]))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
