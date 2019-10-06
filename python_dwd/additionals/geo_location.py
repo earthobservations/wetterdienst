@@ -56,7 +56,7 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
         coords)
 
     return metadata.loc[indices_nearest_neighbours, 'STATION_ID'].tolist(),\
-           (distances * KM_EARTH_RADIUS).tolist()
+        (distances * KM_EARTH_RADIUS).tolist()
 
 
 def derive_nearest_neighbours(latitudes_stations: np.array,

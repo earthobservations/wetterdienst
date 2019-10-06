@@ -178,7 +178,7 @@ def check_parameters(parameter: Parameter,
     check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, [[], []])
 
     if parameter not in check[0] or period_type not in check[1]:
-        raise NameError(
+        raise TypeError(
             f"Combination of time_resolution={time_resolution.value},parameter={parameter.value} "
             f"and period_type={period_type.value} not available.Possible parameters are: "
             f"{TIME_RESOLUTION_PARAMETER_MAPPING}.")

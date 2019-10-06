@@ -10,6 +10,7 @@ import pandas as pd
 from numpy import datetime64
 from tqdm import tqdm
 from multiprocessing import Pool
+import ftplib
 
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, \
     FROM_DATE_NAME, TO_DATE_NAME, \
@@ -54,8 +55,9 @@ def create_metaindex(parameter: Parameter,
             ftp.login()
             files_server = ftp.list_files(remote_path=str(server_path), also_subfolders=False)
 
-    except Exception:
-        raise NameError("Couldn't retrieve filelist from server")
+    except ftplib.all_errors as e:
+        raise ftplib.all_errors("Error: couldn't retrieve filelist from server.\n"
+                                f"{str(e)}")
 
     metafile_server = [file for file in files_server
                        if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
@@ -66,9 +68,9 @@ def create_metaindex(parameter: Parameter,
         with urllib.request.urlopen(metafile_server) as request:
             file = BytesIO(request.read())
 
-    except Exception:
-        raise NameError(
-            "Reading metadata file currently is not possible. Try again!")
+    except urllib.error.URLError as e:
+        raise urllib.error.URLError("Error: reading metadata file failed.\n"
+                                    f"{str(e)}")
 
     metaindex = pd.read_fwf(filepath_or_buffer=file,
                             colspecs=METADATA_FIXED_COLUMN_WIDTH,
@@ -95,8 +97,7 @@ def create_metaindex(parameter: Parameter,
 
 
 def metaindex_for_1minute_data(parameter: Parameter,
-                               time_resolution: TimeResolution,
-                               folder) -> pd.DataFrame:
+                               time_resolution: TimeResolution) -> pd.DataFrame:
     """
     A helping function to create a raw index of metadata for stations of the set of
     parameters as given. This raw metadata is then used by other functions. This
@@ -149,8 +150,8 @@ def metaindex_for_1minute_data(parameter: Parameter,
 def download_metadata_file_for_1minute_data(metadatafile):
     for _ in range(TRIES_TO_DOWNLOAD_FILE):
         try:
-            with urllib.request.urlopen(metadatafile) as request:
-                file = BytesIO(request.read())
+            with urllib.request.urlopen(metadatafile) as url_request:
+                file = BytesIO(url_request.read())
             break
         except urllib.error.URLError:
             continue
@@ -225,24 +226,20 @@ def create_fileindex(parameter: Parameter,
                                f"{time_resolution.value}_"
                                f"{period_type.value}{DATA_FORMAT}")
 
-    filelist_local_path = str(filelist_local_path)
-
     server_path = PurePosixPath(DWD_PATH,
                                 time_resolution.value,
                                 parameter.value,
                                 period_type.value)
 
-    server_path = str(server_path)
-
     try:
         with FTP(DWD_SERVER) as ftp:
             ftp.login()
-            files_server = ftp.list_files(remote_path=server_path,
+            files_server = ftp.list_files(remote_path=str(server_path),
                                           also_subfolders=True)
 
-    except Exception:
-        raise NameError(
-            "Download of fileslist file currently not possible. Try again!")
+    except ftplib.all_errors as e:
+        raise ftplib.all_errors("Error: creating a filelist currently not possible.\n"
+                                f"{str(e)}")
 
     files_server = pd.DataFrame(files_server, columns=[FILENAME_NAME])
 
@@ -275,7 +272,7 @@ def create_fileindex(parameter: Parameter,
                     folder=folder,
                     subfolder=SUB_FOLDER_METADATA)
 
-    files_server.to_csv(path_or_buf=filelist_local_path,
+    files_server.to_csv(path_or_buf=str(filelist_local_path),
                         header=True,
                         index=False)
 

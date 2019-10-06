@@ -49,20 +49,20 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     file_server = create_remote_file_name(remote_file)
 
     try:
-        request = urllib.request.urlopen(file_server)
-
-        zip_file = zipfile.ZipFile(BytesIO(request.read()))
-
-        produkt = [file_in_zip.filename
-                   for file_in_zip in zip_file.namelist()
-                   if find_all_matchstrings_in_string(file_in_zip, STATIONDATA_MATCHSTRINGS)][0]
-
-        return BytesIO(zip_file.open(produkt).read())
-
+        with urllib.request.urlopen(file_server) as url_request:
+            zip_file = BytesIO(url_request.read())
     except urllib.error.URLError as e:
-        print(f"The file\n {file_server} \n couldn't be reached."
-              f"Error: {str(e)}")
+        raise urllib.error.URLError(f"Error: the stationdata {file_server} couldn't be reached.\n"
+                                    f"{str(e)}")
 
+    try:
+        with zipfile.ZipFile(zip_file) as zip_file_opened:
+            produkt_file = [file_in_zip
+                            for file_in_zip in zip_file_opened.namelist()
+                            if find_all_matchstrings_in_string(file_in_zip, STATIONDATA_MATCHSTRINGS)][0]
+        file = BytesIO(zip_file_opened.open(produkt_file).read())
     except zipfile.BadZipFile as e:
-        print(f"The zipfile seems to be corrupted."
-              f"Error: {str(e)}")
+        raise zipfile.BadZipFile(f"Error: The zipfile seems to be corrupted.\n"
+                                 f"{str(e)}")
+
+    return file

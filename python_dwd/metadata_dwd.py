@@ -41,6 +41,9 @@ def add_filepresence(metainfo: pd.DataFrame,
     Returns:
         updated meta info
     """
+    if not isinstance(metainfo, pd.DataFrame):
+        raise TypeError("Error: metainfo is not of type pandas.DataFrame.")
+
     folder = correct_folder_path(folder)
 
     if create_new_filelist:
@@ -93,12 +96,19 @@ def metadata_for_dwd_data(parameter: Parameter,
     Returns:
 
     """
-    assert isinstance(parameter, Parameter)
-    assert isinstance(time_resolution, TimeResolution)
-    assert isinstance(period_type, PeriodType)
-    assert isinstance(folder, str)
-    assert isinstance(write_file, bool)
-    assert isinstance(create_new_filelist, bool)
+
+    if not isinstance(parameter, Parameter):
+        raise TypeError()
+    if not isinstance(time_resolution, TimeResolution):
+        raise TypeError()
+    if not isinstance(period_type, PeriodType):
+        raise TypeError()
+    if not isinstance(folder, str):
+        raise TypeError()
+    if not isinstance(write_file, bool):
+        raise TypeError()
+    if not isinstance(create_new_filelist, bool):
+        raise TypeError()
 
     check_parameters(parameter=parameter,
                      time_resolution=time_resolution,
@@ -121,8 +131,7 @@ def metadata_for_dwd_data(parameter: Parameter,
 
     else:
         metainfo = metaindex_for_1minute_data(parameter=parameter,
-                                              time_resolution=time_resolution,
-                                              folder=folder)
+                                              time_resolution=time_resolution)
 
     if STATE_NAME not in metainfo.columns:
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
