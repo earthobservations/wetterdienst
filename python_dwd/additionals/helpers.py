@@ -7,17 +7,18 @@ from io import TextIOWrapper, BytesIO
 from pathlib import Path, PurePosixPath
 from zipfile import ZipFile
 import pandas as pd
+import numpy as np
 from numpy import datetime64
 from tqdm import tqdm
 from multiprocessing import Pool
 import ftplib
 
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, \
-    FROM_DATE_NAME, TO_DATE_NAME, \
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_NAME
+    FROM_DATE_NAME, TO_DATE_NAME,  GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
+    FILENAME_NAME, FILEID_NAME, METADATA_DTYPE_MAPPING
 from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, \
     MAIN_FOLDER, SUB_FOLDER_METADATA
-from python_dwd.constants.metadata import METADATA_1MIN_COLUMNS, \
+from python_dwd.constants.metadata import METADATA_COLUMNS, \
     METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
     ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STRING_STATID_COL
@@ -35,14 +36,16 @@ from python_dwd.additionals.functions import find_all_matchstrings_in_string
 def create_metaindex(parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType) -> pd.DataFrame:
-    """
-    @todo: please specify what this function does
+    """ The function is used to create a simple metadata DataFrame parsed from the text files that are located in each
+    data section of the station data directory of the weather service.
+
     Args:
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
     Return:
-
+        DataFrame with parsed columns of the corresponding text file. Columns are translated into English and data is
+        not yet complete as file existence is not checked.
 
     """
     server_path = PurePosixPath(DWD_PATH,
@@ -82,18 +85,7 @@ def create_metaindex(parameter: Parameter,
     metaindex.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name.upper(), name.upper())
                          for name in metaindex_colnames_fixed]
 
-    columns = metaindex.columns
-    META_INDEX_DTYPES = {columns[0]: int,
-                         columns[1]: datetime64,
-                         columns[2]: datetime64,
-                         columns[3]: float,
-                         columns[4]: float,
-                         columns[5]: float,
-                         columns[6]: str,
-                         columns[7]: str}
-    metaindex = metaindex.astype(META_INDEX_DTYPES)
-
-    return metaindex
+    return metaindex.astype(METADATA_DTYPE_MAPPING)
 
 
 def metaindex_for_1minute_data(parameter: Parameter,
@@ -123,7 +115,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metadata_filepaths = [create_remote_file_name(file.lstrip(DWD_PATH)) for file in metadata_filepaths]
 
-    metaindex_df = pd.DataFrame(None, columns=METADATA_1MIN_COLUMNS)
+    metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
     metadata_files = Pool().map(download_metadata_file_for_1minute_data, metadata_filepaths)
 
@@ -131,23 +123,25 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
 
-    columns = metaindex_df.columns
-    META_INDEX_DTYPES = {columns[0]: int,
-                         columns[1]: datetime64,
-                         columns[2]: datetime64,
-                         columns[3]: float,
-                         columns[4]: float,
-                         columns[5]: float,
-                         columns[6]: str}
-    metaindex_df = metaindex_df.astype(META_INDEX_DTYPES)
+    metaindex_df.loc[:,"STATE"] = np.nan
 
-    metaindex_df = metaindex_df.sort_values(
-        STATION_ID_NAME).reset_index(drop=True)
+    metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
 
-    return metaindex_df
+    return metaindex_df.sort_values(STATION_ID_NAME).reset_index(drop=True)
 
 
-def download_metadata_file_for_1minute_data(metadatafile):
+def download_metadata_file_for_1minute_data(metadatafile: str) -> BytesIO:
+    """ A function that simply opens a filepath with help of the urllib library and then writes the content to a BytesIO
+    object and returns this object. For this case as it opens lots of requests (there are approx 1000 different files
+    to open for 1minute data), it will do the same at most three times for one file to assure success reading the file.
+
+    Args:
+        metadatafile (str) - the file that shall be downloaded and returned as bytes.
+
+    Return:
+        A BytesIO object to which the opened file was written beforehand.
+
+    """
     for _ in range(TRIES_TO_DOWNLOAD_FILE):
         try:
             with urllib.request.urlopen(metadatafile) as url_request:
@@ -159,7 +153,18 @@ def download_metadata_file_for_1minute_data(metadatafile):
     return file
 
 
-def combine_geo_and_par_file_to_metadata_df(metadata_file):
+def combine_geo_and_par_file_to_metadata_df(metadata_file: BytesIO) -> pd.DataFrame:
+    """ A function that analysis the given file (bytes) and extracts both the geography and the parameter file of
+    a 1minute metadata zip and combines both files in a predefined way to catch the relevant information and create a
+    similar file to those that can usually be found already prepared for other parameter combinations.
+
+    Args:
+        metadata_file (str) - the file that holds the information.
+
+    Return:
+        A pandas DataFrame with the combined data for one respective station.
+
+    """
     with zipfile.ZipFile(metadata_file) as zip_file:
         files_in_zipfile = zip_file.namelist()
 
@@ -193,12 +198,23 @@ def combine_geo_and_par_file_to_metadata_df(metadata_file):
     dfs_of_geo_and_par["geo_file"][FROM_DATE_NAME] = dfs_of_geo_and_par["par_file"][FROM_DATE_NAME].min()
     dfs_of_geo_and_par["geo_file"][TO_DATE_NAME] = dfs_of_geo_and_par["par_file"][TO_DATE_NAME].max()
 
-    return dfs_of_geo_and_par["geo_file"].loc[:, METADATA_1MIN_COLUMNS]
+    return dfs_of_geo_and_par["geo_file"].loc[:, METADATA_COLUMNS]
 
 
-def parse_zipped_data_into_df(file_opened,
+def parse_zipped_data_into_df(file_opened: open,
                               engine: str = 'c') -> pd.DataFrame:
-    """ uses opened zip data to parse into df"""
+    """ A wrapper for read_csv of pandas library that has set the typically used parameters in the found data of the
+    german weather service.
+
+    Args:
+        file_opened (open) - the file that will be read
+        engine (str) - the parameter for read_csv engine, which is set here because the function is used with both
+        engines as sometimes it fails and thus it can be tried to get a success with the other engine
+
+    Return:
+        A pandas DataFrame with the read data.
+
+    """
     file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
                        sep=";",
                        na_values="-999",

@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
@@ -98,17 +99,17 @@ def metadata_for_dwd_data(parameter: Parameter,
     """
 
     if not isinstance(parameter, Parameter):
-        raise TypeError()
+        raise TypeError("Error: 'parameter' is not of type Parameter(Enum).")
     if not isinstance(time_resolution, TimeResolution):
-        raise TypeError()
+        raise TypeError("Error: 'time_resolution' is not of type TimeResolution(Enum).")
     if not isinstance(period_type, PeriodType):
-        raise TypeError()
+        raise TypeError("Error: 'period_type' is not of type PeriodType(Enum).")
     if not isinstance(folder, str):
-        raise TypeError()
+        raise TypeError("Error: 'folder' is not a string.")
     if not isinstance(write_file, bool):
-        raise TypeError()
+        raise TypeError("Error: 'write_file' is not a bool.")
     if not isinstance(create_new_filelist, bool):
-        raise TypeError()
+        raise TypeError("Error: 'create_new_filelist' is not a bool.")
 
     check_parameters(parameter=parameter,
                      time_resolution=time_resolution,
@@ -128,12 +129,11 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     time_resolution=time_resolution,
                                     period_type=period_type)
 
-
     else:
         metainfo = metaindex_for_1minute_data(parameter=parameter,
                                               time_resolution=time_resolution)
 
-    if STATE_NAME not in metainfo.columns:
+    if all(np.isnan(metainfo[STATE_NAME])):
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
                                     PeriodType.HISTORICAL,
@@ -141,9 +141,8 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     write_file=False,
                                     create_new_filelist=False)
 
-        metainfo = metainfo.merge(
-            mdp.loc[:, [STATIONNAME_NAME, STATE_NAME]],
-            on=STATIONNAME_NAME).reset_index(drop=True)
+        for station, state in mdp.loc[:,[STATIONNAME_NAME, STATE_NAME]]:
+            metainfo.loc[metainfo[STATIONNAME_NAME] == station, STATE_NAME] = state
 
     metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,

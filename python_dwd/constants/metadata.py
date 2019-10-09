@@ -1,11 +1,16 @@
 """ metdata constants """
-METADATA_1MIN_COLUMNS = ["STATION_ID",
-                         "FROM_DATE",
-                         "TO_DATE",
-                         "STATIONHEIGHT",
-                         "LAT",
-                         "LON",
-                         "STATIONNAME"]
+from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
+    STATIONHEIGHT_NAME, LAT_NAME, LON_NAME, STATIONNAME_NAME, STATE_NAME
+
+METADATA_COLUMNS = [STATION_ID_NAME,
+                    FROM_DATE_NAME,
+                    TO_DATE_NAME,
+                    STATIONHEIGHT_NAME,
+                    LAT_NAME,
+                    LON_NAME,
+                    STATIONNAME_NAME,
+                    STATE_NAME]
+
 METADATA_MATCHSTRINGS = ['beschreibung', '.txt']
 METADATA_1MIN_GEO_MATCHSTRINGS = ["metadaten", "geographie", "txt"]
 METADATA_1MIN_PAR_MATCHSTRINGS = ["metadaten", "parameter", "txt"]
