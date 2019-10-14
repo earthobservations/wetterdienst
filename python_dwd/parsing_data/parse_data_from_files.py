@@ -1,17 +1,12 @@
 """ function to read data from dwd server """
-from datetime import datetime as dt
-from pathlib import Path
 from typing import List
-from zipfile import ZipFile
 from io import BytesIO
 
 import pandas as pd
 
-from python_dwd.additionals.functions import check_parameters
-from python_dwd.additionals.functions import determine_parameters
 from python_dwd.constants.column_name_mapping import DATE_NAME, \
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS, DATA_FORMAT
+from python_dwd.constants.metadata import DATA_FORMAT, NA_STRING, STATIONDATA_SEP
 
 
 def parse_dwd_data(files_in_bytes: List[BytesIO],
@@ -43,8 +38,8 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     for file in files_in_bytes:
         try:
             data_file = pd.read_csv(filepath_or_buffer=file,
-                                    sep=";",
-                                    na_values="-999")
+                                    sep=STATIONDATA_SEP,
+                                    na_values=NA_STRING)
 
             data.append(data_file)
 
