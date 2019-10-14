@@ -1,36 +1,36 @@
 """ download scripts """
 from pathlib import Path
-from typing import List, Union, Tuple
+import urllib
+import zipfile
+from io import BytesIO
+from typing import List, Union
 from multiprocessing import Pool
+import pandas as pd
 
 from python_dwd.file_path_handling.path_handling import create_folder
 from python_dwd.constants.ftp_credentials import DWD_SERVER, MAIN_FOLDER,\
     SUB_FOLDER_STATIONDATA
+from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 from python_dwd.download.download_services import create_local_file_name,\
     create_remote_file_name
 from python_dwd.download.ftp_handling import ftp_file_download, FTP
+from python_dwd.additionals.functions import find_all_matchstrings_in_string
 
 
-def download_dwd_data(remote_files: List[str],
-                      folder: str = MAIN_FOLDER,
-                      parallel_download: bool = False) -> List[Path]:
+def download_dwd_data(remote_files: pd.DataFrame,
+                      parallel_download: bool = False) -> List[BytesIO]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
+    assert isinstance(remote_files, pd.DataFrame)
 
-    assert isinstance(remote_files, list)
+    remote_files = remote_files["FILENAME"].to_list()
 
     if parallel_download:
-        combined_data = [(file, folder) for file in remote_files]
-        Pool().map(_download_dwd_data, combined_data)
+        return Pool().map(_download_dwd_data, remote_files)
     else:
-        for remote_file in remote_files:
-            _download_dwd_data((remote_file, folder))
-
-    return [create_local_file_name(remote_file, folder) for
-            remote_file in remote_files]
+        return [_download_dwd_data(remote_file) for remote_file in remote_files]
 
 
-def _download_dwd_data(download_specification: Tuple[Union[str, Path],
-                                                     Union[str, Path]]):
+def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     """
     This function downloads the stationdata for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
@@ -45,23 +45,24 @@ def _download_dwd_data(download_specification: Tuple[Union[str, Path],
         stores data on local file system
 
     """
-    remote_file, folder = download_specification
-
-    create_folder(subfolder=SUB_FOLDER_STATIONDATA,
-                  folder=folder)
 
     file_server = create_remote_file_name(remote_file)
-    file_local = create_local_file_name(remote_file, folder)
 
     try:
-        # Open connection with ftp server
-        with FTP(DWD_SERVER) as ftp:
-            ftp.login()
-            ftp_file_download(ftp,
-                              Path(file_server),
-                              Path(file_local))
+        with urllib.request.urlopen(file_server) as url_request:
+            zip_file = BytesIO(url_request.read())
+    except urllib.error.URLError as e:
+        raise urllib.error.URLError(f"Error: the stationdata {file_server} couldn't be reached.\n"
+                                    f"{str(e)}")
 
-    except Exception:
-        # In the end raise an error naming the files that couldn't be loaded.
-        raise NameError(
-            f"The file\n {file_local} \n couldn't be downloaded!")
+    try:
+        with zipfile.ZipFile(zip_file) as zip_file_opened:
+            produkt_file = [file_in_zip
+                            for file_in_zip in zip_file_opened.namelist()
+                            if find_all_matchstrings_in_string(file_in_zip, STATIONDATA_MATCHSTRINGS)][0]
+        file = BytesIO(zip_file_opened.open(produkt_file).read())
+    except zipfile.BadZipFile as e:
+        raise zipfile.BadZipFile(f"Error: The zipfile seems to be corrupted.\n"
+                                 f"{str(e)}")
+
+    return file

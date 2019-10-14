@@ -1,4 +1,6 @@
 """ mapping from german column names to english column names"""
+from numpy import datetime64
+
 ORIG_STATION_ID_NAME = "STATIONS_ID"
 ORIG_DATE_NAME = "MESS_DATUM"
 ORIG_FROM_DATE_NAME = "VON_DATUM"
@@ -32,6 +34,16 @@ GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {ORIG_STATION_ID_NAME: STATION_ID_NAME,
                                      ORIG_LON_ALT_NAME: LON_NAME,
                                      ORIG_STATIONNAME_NAME: STATIONNAME_NAME,
                                      ORIG_STATE_NAME: STATE_NAME}
+
+METADATA_DTYPE_MAPPING = {STATION_ID_NAME: int,
+                          FROM_DATE_NAME: datetime64,
+                          TO_DATE_NAME: datetime64,
+                          STATIONHEIGHT_NAME: float,
+                          LAT_NAME: float,
+                          LON_NAME: float,
+                          STATIONNAME_NAME: str,
+                          STATE_NAME: str}
+
 FILENAME_NAME = "FILENAME"
 HAS_FILE_NAME = "HAS_FILE"
 FILEID_NAME = "FILEID"

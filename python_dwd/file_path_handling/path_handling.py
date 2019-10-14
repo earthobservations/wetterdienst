@@ -18,7 +18,7 @@ def remove_old_file(file_type: str,
                     period_type: PeriodType,
                     file_postfix: str,
                     folder: str,
-                    subfolder: str):
+                    subfolder: str) -> None:
     """
     Function to remove old dwd file (metadata)
 

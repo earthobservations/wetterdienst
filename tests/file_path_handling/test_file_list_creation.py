@@ -9,4 +9,4 @@ def test_create_file_list_for_dwd_server():
                                                        parameter=Parameter.CLIMATE_SUMMARY,
                                                        time_resolution=TimeResolution.DAILY,
                                                        period_type=PeriodType.RECENT)
-    assert remote_file_path == ['daily/kl/recent/tageswerte_KL_01048_akt.zip']
+    assert remote_file_path["FILENAME"].to_list() == ['daily/kl/recent/tageswerte_KL_01048_akt.zip']
