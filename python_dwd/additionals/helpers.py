@@ -204,8 +204,6 @@ def parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
 
     Args:
         file_opened (open) - the file that will be read
-        engine (str) - the parameter for read_csv engine, which is set here because the function is used with both
-        engines as sometimes it fails and thus it can be tried to get a success with the other engine
 
     Return:
         A pandas DataFrame with the read data.
