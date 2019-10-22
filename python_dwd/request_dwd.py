@@ -6,6 +6,18 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.additionals.functions import check_parameters
 
 
+class FuzzyExtractor:
+    def __init__(self,
+                 parameter_name: str,
+                 parameter_value: Union[List[Union[int, str]], str, int]):
+        if not isinstance(parameter_name, str):
+            raise TypeError(f"Error: parameter_name {str(parameter_name)} should be of type str but instead "
+                            f"is of type {type(parameter_name)}.")
+        if not isinstance(parameter_value, (list, str, int)):
+            raise TypeError(f"Error: parameter_name {str(parameter_name)} should be of type str but instead "
+                            f"is of type {type(parameter_name)}.")
+
+
 class DWDRequest:
     def __init__(self,
                  station_id: List[Union[int, str]],
@@ -50,11 +62,6 @@ class DWDRequest:
         self.time_resolution = time_resolution
         self.start_date = start_date
         self.end_date = end_date
-
-
-    # Todo: request could be used to define already what kind of data exists. This could be kind of a callback
-    # by other functions
-
 
 if __name__ == "__main__":
     dwdrequest = DWDRequest(station_id=[1048],
