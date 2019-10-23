@@ -14,8 +14,59 @@ class FuzzyExtractor:
             raise TypeError(f"Error: parameter_name {str(parameter_name)} should be of type str but instead "
                             f"is of type {type(parameter_name)}.")
         if not isinstance(parameter_value, (list, str, int)):
-            raise TypeError(f"Error: parameter_name {str(parameter_name)} should be of type str but instead "
+            raise TypeError(f"Error: parameter_name {parameter_name} should be of type str but instead "
                             f"is of type {type(parameter_name)}.")
+        if isinstance(parameter_value, list):
+            if not parameter_value:
+                raise ValueError(f"Error: parameter {parameter_name} is of type list but holds no data.")
+            try:
+                parameter_value = [int(par_val) for par_val in parameter_value]
+            except ValueError:
+                raise ValueError(f"Error: one or more values of parameter {parameter_name} could not be converted to "
+                                 f"integers.")
+
+        assert parameter_name in ["station_id", "parameter", "period_type",
+                                  "time_resolution", "start_date", "end_date"], \
+            "Error: Unknown parameter can not be parsed."
+
+        self.parameter_name = parameter_name
+        self.parameter_value = parameter_value
+
+    def extract_parameter_from_value(self):
+        if self.parameter_name == "station_id":
+            return self.extract_station_id(self.parameter_value)
+        if self.parameter_name == "parameter":
+            return self.extract_parameter(self.parameter_value)
+        if self.parameter_name == "period_type":
+            return self.extract_period_type(self.parameter_value)
+        if self.parameter_name == "time_resolution":
+            return self.extract_time_resolution(self.parameter_value)
+        if self.parameter_name in ["start_date", "end_date"]:
+            return self.extract_date(self.parameter_value)
+
+    @staticmethod
+    def extract_station_id(parameter_value):
+        pass
+
+    @staticmethod
+    def extract_parameter(parameter_value):
+        pass
+
+    @staticmethod
+    def extract_period_type(parameter_value):
+        pass
+
+    @staticmethod
+    def extract_time_resolution(parameter_value):
+        pass
+
+    @staticmethod
+    def extract_date(parameter_value):
+        pass
+
+    @staticmethod
+    def clean_string(string):
+        return string.strip().lower().replace("_", "")
 
 
 class DWDRequest:
@@ -62,6 +113,7 @@ class DWDRequest:
         self.time_resolution = time_resolution
         self.start_date = start_date
         self.end_date = end_date
+
 
 if __name__ == "__main__":
     dwdrequest = DWDRequest(station_id=[1048],
