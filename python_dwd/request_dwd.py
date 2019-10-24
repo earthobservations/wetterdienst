@@ -1,4 +1,4 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Callable
 from pandas import Timestamp
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -6,7 +6,60 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.additionals.functions import check_parameters
 
 
+def extract_numbers_from_string(string: str,
+                                number_type: str,
+                                decimal: str) -> Union[List[Union[float, int]], None]:
+    """
+
+    Args:
+        string (str) : the string from which the number should be extracted
+        number_type (int, float) : the type that should be casted on the number
+        decimal (str) - the type of decimal that is used (either "," or ".")
+
+    Returns:
+        list of numbers - the extracted numbers in a list
+
+    """
+
+    if not isinstance(string, str):
+        raise TypeError(f"Error: 'string' expected to be str, instead is {type(string)}.")
+    if number_type not in ["float", "int"]:
+        raise TypeError(f"Error: 'number_type' should be one of float/int, not {str(number_type)}")
+    if decimal not in [".", ",", ""]:
+        ValueError(f"Error: 'decimal' neither ',', '', nor '.', instead is {str(decimal)}.")
+
+    # Keep decimal in string/remove others
+    digits_string = "".join([s if s.isdigit() or s == decimal else " " for s in string]).strip()
+
+    # Any number needs at least one digit. Decimals at the edge are removed (e.g. "1234." -> "1234")
+    possible_numbers = [string.strip(decimal) for string in digits_string.split(" ")
+                        if len(string) > 0 and any([s.isdigit() for s in string])]
+
+    # numbers = []
+    #
+    # for number in possible_numbers:
+    #     try:
+    #         if number_type == "float":
+    #             numbers.append(float(number))
+    #         else:
+    #             numbers.append(int(number))
+    #     except ValueError:
+    #
+
+    return [float(number) if number_type == "float" else int(number) for number in possible_numbers]
+
+
 class FuzzyExtractor:
+    """ The FuzzyExtractor is used to get parameter values in a shape that our functions can work with. It mainly works
+    with a pair of parameter name and corresponding values, where the parameter name defines which kind of result we
+    to receive and the parameter value which is tried to reshape to this expectation so that the following functions
+    won't show problems with the parameters.
+
+    Args:
+        parameter_name (str) - the parameter name which is used to identify the objective of the extraction
+        parameter_value (list, str, int) - the value itself which has to be remodeled to get the expected shape
+
+    """
     def __init__(self,
                  parameter_name: str,
                  parameter_value: Union[List[Union[int, str]], str, int]):
@@ -33,21 +86,36 @@ class FuzzyExtractor:
         self.parameter_value = parameter_value
 
     def extract_parameter_from_value(self):
-        clean_parameter_value = self.clean_string(self.parameter_value)
+        if isinstance(self.parameter_value, str):
+            cleaned_parameter_value = self.clean_string(self.parameter_value)
+        else:
+            cleaned_parameter_value = self.parameter_value
         if self.parameter_name == "station_id":
-            return self.extract_station_id(self.parameter_value)
+            return self.extract_station_id(cleaned_parameter_value)
         if self.parameter_name == "parameter":
-            return self.extract_parameter(self.parameter_value)
+            return self.extract_parameter(cleaned_parameter_value)
         if self.parameter_name == "period_type":
-            return self.extract_period_type(self.parameter_value)
+            return self.extract_period_type(cleaned_parameter_value)
         if self.parameter_name == "time_resolution":
-            return self.extract_time_resolution(self.parameter_value)
+            return self.extract_time_resolution(cleaned_parameter_value)
         if self.parameter_name in ["start_date", "end_date"]:
-            return self.extract_date(self.parameter_value)
+            return self.extract_date(cleaned_parameter_value)
 
     @staticmethod
     def extract_station_id(parameter_value):
-        pass
+        # Input is expected to be list
+        station_id = []
+
+        for par_val in parameter_value:
+            extracted_station_ids = extract_numbers_from_string(string=par_val, number_type="int", decimal="")
+
+            if len(extracted_station_ids) > 1:
+                raise ValueError(f"Error: the string {par_val} holds more then one number. This is not supported as"
+                                 "it's unclear which number to take as station id.")
+
+            station_id.append(extracted_station_ids)
+
+        return station_id
 
     @staticmethod
     def extract_parameter(parameter_value):
