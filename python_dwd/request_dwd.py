@@ -33,6 +33,7 @@ class FuzzyExtractor:
         self.parameter_value = parameter_value
 
     def extract_parameter_from_value(self):
+        clean_parameter_value = self.clean_string(self.parameter_value)
         if self.parameter_name == "station_id":
             return self.extract_station_id(self.parameter_value)
         if self.parameter_name == "parameter":
