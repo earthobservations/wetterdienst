@@ -1,9 +1,21 @@
 from typing import List, Union, Optional, Callable
 from pandas import Timestamp
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.enumerations.parameter_enumeration import Parameter, PARAMETER_WORDLISTS
+from python_dwd.enumerations.period_type_enumeration import PeriodType, PERIODTYPE_WORDLISTS
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution, TIMERESOLUTION_WORDLISTS
 from python_dwd.additionals.functions import check_parameters
+
+STRING_TO_ENUMERATION_MAPPING = {
+    "parameter": Parameter,
+    "period_type": PeriodType,
+    "time_resolution": TimeResolution
+}
+
+STRING_TO_WORDLIST_MAPPING = {
+    "parameter": PARAMETER_WORDLISTS,
+    "period_type": PERIODTYPE_WORDLISTS,
+    "time_resolution": TIMERESOLUTION_WORDLISTS
+}
 
 
 def extract_numbers_from_string(string: str,
@@ -26,7 +38,7 @@ def extract_numbers_from_string(string: str,
     if number_type not in ["float", "int"]:
         raise TypeError(f"Error: 'number_type' should be one of float/int, not {str(number_type)}")
     if decimal not in [".", ",", ""]:
-        ValueError(f"Error: 'decimal' neither ',', '', nor '.', instead is {str(decimal)}.")
+        raise ValueError(f"Error: 'decimal' neither ',', '', nor '.', instead is {str(decimal)}.")
 
     # Keep decimal in string/remove others
     digits_string = "".join([s if s.isdigit() or s == decimal else " " for s in string]).strip()
@@ -66,17 +78,19 @@ class FuzzyExtractor:
         if not isinstance(parameter_name, str):
             raise TypeError(f"Error: parameter_name {str(parameter_name)} should be of type str but instead "
                             f"is of type {type(parameter_name)}.")
+
         if not isinstance(parameter_value, (list, str, int)):
             raise TypeError(f"Error: parameter_name {parameter_name} should be of type str but instead "
                             f"is of type {type(parameter_name)}.")
+
         if isinstance(parameter_value, list):
             if not parameter_value:
                 raise ValueError(f"Error: parameter {parameter_name} is of type list but holds no data.")
-            try:
-                parameter_value = [int(par_val) for par_val in parameter_value]
-            except ValueError:
-                raise ValueError(f"Error: one or more values of parameter {parameter_name} could not be converted to "
-                                 f"integers.")
+            # try:
+            #     parameter_value = [int(par_val) for par_val in parameter_value]
+            # except ValueError:
+            #     raise ValueError(f"Error: one or more values of parameter {parameter_name} could not be converted to "
+            #                      f"integers.")
 
         assert parameter_name in ["station_id", "parameter", "period_type",
                                   "time_resolution", "start_date", "end_date"], \
@@ -85,24 +99,45 @@ class FuzzyExtractor:
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value
 
+        # self.extract_parameter_from_value()
+
     def extract_parameter_from_value(self):
-        if isinstance(self.parameter_value, str):
-            cleaned_parameter_value = self.clean_string(self.parameter_value)
-        else:
-            cleaned_parameter_value = self.parameter_value
+        parameter_value = self.parameter_value
+
         if self.parameter_name == "station_id":
-            return self.extract_station_id(cleaned_parameter_value)
-        if self.parameter_name == "parameter":
-            return self.extract_parameter(cleaned_parameter_value)
-        if self.parameter_name == "period_type":
-            return self.extract_period_type(cleaned_parameter_value)
-        if self.parameter_name == "time_resolution":
-            return self.extract_time_resolution(cleaned_parameter_value)
+            return self.extract_station_id(parameter_value)
+
+        if self.parameter_name in ["parameter", "period_type", "time_resolution"]:
+            parameter_value = self.clean_string(parameter_value)
+
+            for par in STRING_TO_ENUMERATION_MAPPING[self.parameter_name]:
+
+                wordlist = STRING_TO_WORDLIST_MAPPING[self.parameter_name][par]
+
+                cond1 = len(wordlist) == len(parameter_value)
+
+                cond2 = self.find_any_one_word_from_wordlist(parameter_value, wordlist)
+
+                if cond1 and cond2:
+                    return par
+
         if self.parameter_name in ["start_date", "end_date"]:
-            return self.extract_date(cleaned_parameter_value)
+            return Timestamp(parameter_value)
+
+        # if self.parameter_name == "parameter":
+        #     return self.extract_parameter(cleaned_parameter_value)
+        # if self.parameter_name == "period_type":
+        #     return self.extract_period_type(cleaned_parameter_value)
+        # if self.parameter_name == "time_resolution":
+        #     return self.extract_time_resolution(cleaned_parameter_value)
+        # if self.parameter_name in ["start_date", "end_date"]:
+        #     return self.extract_date(cleaned_parameter_value)
 
     @staticmethod
     def extract_station_id(parameter_value):
+        if all([isinstance(par_val, int) for par_val in parameter_value]):
+            return parameter_value
+
         # Input is expected to be list
         station_id = []
 
@@ -113,7 +148,7 @@ class FuzzyExtractor:
                 raise ValueError(f"Error: the string {par_val} holds more then one number. This is not supported as"
                                  "it's unclear which number to take as station id.")
 
-            station_id.append(extracted_station_ids)
+            station_id.extend(extracted_station_ids)
 
         return station_id
 
@@ -125,9 +160,17 @@ class FuzzyExtractor:
     def extract_period_type(parameter_value):
         pass
 
-    @staticmethod
-    def extract_time_resolution(parameter_value):
-        pass
+    # @staticmethod
+    # def extract_time_resolution(parameter_value):
+    #     for time_res in TimeResolution:
+    #         wordlist = TIMERESOLUTION_WORDLISTS[time_res]
+    #
+    #         cond1 = len(wordlist) == len(parameter_value)
+    #
+    #         cond2 = self.find_an
+    #
+    #         if cond1 and cond2:
+    #             return time_res
 
     @staticmethod
     def extract_date(parameter_value):
@@ -135,7 +178,13 @@ class FuzzyExtractor:
 
     @staticmethod
     def clean_string(string):
-        return string.strip().lower().replace("_", "")
+        return string.strip().lower().split("_")
+
+    @staticmethod
+    def find_any_one_word_from_wordlist(string_list, word_list):
+        return all([any([any([(word in string) if not word.isdigit() else word == string
+                        for word in wl]) for string in string_list])
+                   for wl in word_list])
 
 
 class DWDRequest:
