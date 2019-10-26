@@ -46,13 +46,8 @@ def test_fuzzy_extractor():
     assert str(FuzzyExtractor("start_date", "19710101").extract_parameter_from_value().date()) == "1971-01-01"
 
 
-def test_dwd_request():
-    assert DWDRequest(station_id="1", parameter="cl", period_type="hist", time_resolution="daily") \
-           == [[1], Parameter.CLIMATE_SUMMARY, PeriodType.HISTORICAL, [TimeResolution.DAILY], None, None]
-
-
 def test_station_id():
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         DWDRequest(station_id="test",
                    parameter=Parameter.CLIMATE_SUMMARY,
                    period_type=PeriodType.HISTORICAL,
@@ -68,21 +63,22 @@ def test_station_id():
 def test_parameter_enumerations():
     with pytest.raises(ValueError):
         DWDRequest(station_id=[1048],
-                   parameter="cl",
-                   period_type="now",
-                   time_resolution="daily")
+                   parameter=Parameter.CLIMATE_SUMMARY,
+                   period_type=PeriodType.NOW,
+                   time_resolution=TimeResolution.DAILY)
 
 
 def test_time_input():
     with pytest.raises(ValueError):
         DWDRequest(station_id=[1048],
-                   parameter="cl",
-                   period_type="hist",
+                   parameter=Parameter.CLIMATE_SUMMARY,
+                   period_type=PeriodType.HISTORICAL,
+                   # time_resolution=TimeResolution.DAILY,
                    start_date="1971-01-01")
 
     with pytest.raises(ValueError):
         DWDRequest(station_id=[1048],
-                   parameter="kl",
-                   period_type="hist",
+                   parameter=Parameter.CLIMATE_SUMMARY,
+                   period_type=PeriodType.HISTORICAL,
                    start_date="1971-01-01",
                    end_date="1951-01-01")
