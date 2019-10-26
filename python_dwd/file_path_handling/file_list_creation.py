@@ -78,4 +78,4 @@ def create_file_list_for_dwd_server(statid: List[int],
                                   "STATION_ID": int,
                                   "FILENAME": str})
 
-    return filelist.loc[filelist[STATION_ID_NAME].isin(statid), :]
+    return filelist.loc[filelist[STATION_ID_NAME].isin(statid), FILENAME_NAME].tolist()

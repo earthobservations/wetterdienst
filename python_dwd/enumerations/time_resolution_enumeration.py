@@ -13,3 +13,13 @@ class TimeResolution(Enum):
     DAILY = "daily"
     MONTHLY = "monthly"
     ANNUAL = "annual"
+
+
+TIMERESOLUTION_WORDLISTS = {
+    TimeResolution.MINUTE_1: [["1"], ["min"]],
+    TimeResolution.MINUTE_10: [["10"], ["min"]],
+    TimeResolution.HOURLY: [["hour", "stünd"]],
+    TimeResolution.DAILY: [["day", "tag", "daily", "täg"]],
+    TimeResolution.MONTHLY: [["month", "monat"]],
+    TimeResolution.ANNUAL: [["year", "jahr", "annual", "jähr"]]
+}
