@@ -47,17 +47,6 @@ def extract_numbers_from_string(string: str,
     possible_numbers = [string.strip(decimal) for string in digits_string.split(" ")
                         if len(string) > 0 and any([s.isdigit() for s in string])]
 
-    # numbers = []
-    #
-    # for number in possible_numbers:
-    #     try:
-    #         if number_type == "float":
-    #             numbers.append(float(number))
-    #         else:
-    #             numbers.append(int(number))
-    #     except ValueError:
-    #
-
     return [float(number) if number_type == "float" else int(number) for number in possible_numbers]
 
 
@@ -80,7 +69,7 @@ class FuzzyExtractor:
                             f"is of type {type(parameter_name)}.")
 
         if not isinstance(parameter_value, (list, str, int)):
-            raise TypeError(f"Error: parameter_name {parameter_name} should be of type str but instead "
+            raise TypeError(f"Error: parameter_name {parameter_name} should be of type str/list/int but instead "
                             f"is of type {type(parameter_name)}.")
 
         if isinstance(parameter_value, list):
@@ -124,19 +113,13 @@ class FuzzyExtractor:
         if self.parameter_name in ["start_date", "end_date"]:
             return Timestamp(parameter_value)
 
-        # if self.parameter_name == "parameter":
-        #     return self.extract_parameter(cleaned_parameter_value)
-        # if self.parameter_name == "period_type":
-        #     return self.extract_period_type(cleaned_parameter_value)
-        # if self.parameter_name == "time_resolution":
-        #     return self.extract_time_resolution(cleaned_parameter_value)
-        # if self.parameter_name in ["start_date", "end_date"]:
-        #     return self.extract_date(cleaned_parameter_value)
-
     @staticmethod
     def extract_station_id(parameter_value):
         if all([isinstance(par_val, int) for par_val in parameter_value]):
             return parameter_value
+
+        if all([isinstance(par_val, float) for par_val in parameter_value]):
+            return [int(par_val) for par_val in parameter_value]
 
         # Input is expected to be list
         station_id = []
@@ -144,37 +127,13 @@ class FuzzyExtractor:
         for par_val in parameter_value:
             extracted_station_ids = extract_numbers_from_string(string=par_val, number_type="int", decimal="")
 
-            if len(extracted_station_ids) > 1:
-                raise ValueError(f"Error: the string {par_val} holds more then one number. This is not supported as"
-                                 "it's unclear which number to take as station id.")
+            if len(extracted_station_ids) == 0 or len(extracted_station_ids) > 1:
+                raise ValueError(f"Error: the string {par_val} holds zero or more then one number. This is not "
+                                 f"supported as it's unclear which number to take as station id.")
 
             station_id.extend(extracted_station_ids)
 
         return station_id
-
-    @staticmethod
-    def extract_parameter(parameter_value):
-        pass
-
-    @staticmethod
-    def extract_period_type(parameter_value):
-        pass
-
-    # @staticmethod
-    # def extract_time_resolution(parameter_value):
-    #     for time_res in TimeResolution:
-    #         wordlist = TIMERESOLUTION_WORDLISTS[time_res]
-    #
-    #         cond1 = len(wordlist) == len(parameter_value)
-    #
-    #         cond2 = self.find_an
-    #
-    #         if cond1 and cond2:
-    #             return time_res
-
-    @staticmethod
-    def extract_date(parameter_value):
-        pass
 
     @staticmethod
     def clean_string(string):
@@ -192,45 +151,68 @@ class DWDRequest:
                  station_id: List[Union[int, str]],
                  parameter: Parameter,
                  period_type: PeriodType,
-                 time_resolution: Optional[TimeResolution] = None,
-                 start_date: Optional[Union[str, Timestamp]] = None,
-                 end_date: Optional[Union[str, Timestamp]] = None):
+                 time_resolution: Union[None, str, list, TimeResolution] = None,
+                 start_date: Union[None, str, Timestamp] = None,
+                 end_date: Union[None, str, Timestamp] = None):
         if not isinstance(station_id, list):
-            raise TypeError("Error: station_id is not of type list")
-        try:
-            station_id = [int(s) for s in station_id]
-        except ValueError as e:
-            raise ValueError(f"Error: one or more statid(s) couldn't be converted to integers. {str(e)}")
-        if not isinstance(parameter, Parameter):
-            raise TypeError("Error: parameter is not an instance of the Parameter enumeration.")
-        if not isinstance(period_type, PeriodType):
-            raise TypeError("Error: period_type is not an instance of the PeriodType enumeration.")
+            try:
+                station_id = [station_id]
+            except ValueError:
+                raise TypeError("Error: station_id is not of type list")
+
+        if not isinstance(parameter, (str, Parameter)):
+            raise TypeError("Error: parameter is not an instance of str or the Parameter enumeration.")
+
+        if not isinstance(period_type, (str, PeriodType)):
+            raise TypeError("Error: period_type is not an instance of str or the PeriodType enumeration.")
+
         if not (time_resolution or (start_date and end_date)):
             raise ValueError(
                 "Define either a time_resolution or both the start_ and end_date and leave the other one empty!")
         if time_resolution:
-            if not isinstance(time_resolution, TimeResolution):
-                raise TypeError("Error: time_resolution is not an instance of the TimeResolution enumeration.")
-            if not check_parameters(parameter=parameter,
-                                    time_resolution=time_resolution,
-                                    period_type=period_type):
-                raise ValueError(
-                    "Error: parameter, time_resolution and period_type do not present a possible combination")
+            if not isinstance(time_resolution, (str, TimeResolution)):
+                raise TypeError("Error: time_resolution is not an instance of str or the TimeResolution enumeration.")
+
+            if not isinstance(time_resolution, list):
+                try:
+                    time_resolution = [time_resolution]
+                except ValueError:
+                    raise TypeError("Error: time_resolution can't be converted to a list.")
+
         if start_date and end_date:
-            try:
-                start_date, end_date = Timestamp(start_date), Timestamp(end_date)
-            except ValueError as e:
-                raise ValueError(f"Error: start_date/end_date couldn't be parsed to Timestamp. {str(e)}")
+            start_date = FuzzyExtractor("start_date", start_date).extract_parameter_from_value()
+            end_date = FuzzyExtractor("end_date", end_date).extract_parameter_from_value()
 
             if not start_date <= end_date:
                 raise ValueError("Error: end_date must at least be start_date or later!")
 
-        self.station_id = station_id
-        self.parameter = parameter
-        self.period_type = period_type
+            time_resolution = [*TimeResolution]
+
+        for i, time_res in enumerate(time_resolution):
+            if not check_parameters(parameter=parameter,
+                                    time_resolution=time_res,
+                                    period_type=period_type):
+                time_resolution.pop(i)
+                print(f"Combination of: parameter {parameter}, time_resolution {time_resolution}, "
+                      f"period_type {period_type} not available and removed.")
+
+        if not time_resolution:
+            raise ValueError("Error: no combination for parameter, time_resolution and period_type could be found.")
+
+        self.station_id = FuzzyExtractor("station_id", station_id).extract_parameter_from_value()
+        self.parameter = FuzzyExtractor("parameter", parameter).extract_parameter_from_value()
+        self.period_type = FuzzyExtractor("period_type", period_type).extract_parameter_from_value()
         self.time_resolution = time_resolution
         self.start_date = start_date
         self.end_date = end_date
+
+    def __eq__(self, other):
+        return [self.station_id,
+                self.parameter,
+                self.period_type,
+                self.time_resolution,
+                self.start_date,
+                self.end_date] == other
 
 
 if __name__ == "__main__":
