@@ -8,7 +8,7 @@ from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
 from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, \
-    STATE_NAME, HAS_FILE_NAME
+    STATE_NAME, HAS_FILE_NAME, STATION_ID_NAME
 from python_dwd.constants.ftp_credentials import MAIN_FOLDER, \
     SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
@@ -63,7 +63,7 @@ def add_filepresence(metainfo: pd.DataFrame,
         folder=folder)
 
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        filelist["STATION_ID"]), HAS_FILE_NAME] = True
+        filelist[STATION_ID_NAME]), HAS_FILE_NAME] = True
 
     return metainfo
 
