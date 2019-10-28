@@ -188,23 +188,26 @@ class DWDRequest:
 
             time_resolution = [*TimeResolution]
 
-        for i, time_res in enumerate(time_resolution):
-            if not check_parameters(parameter=parameter,
-                                    time_resolution=time_res,
-                                    period_type=period_type):
-                time_resolution.pop(i)
-                print(f"Combination of: parameter {parameter}, time_resolution {time_resolution}, "
-                      f"period_type {period_type} not available and removed.")
-
-        if not time_resolution:
-            raise ValueError("Error: no combination for parameter, time_resolution and period_type could be found.")
-
         self.station_id = FuzzyExtractor("station_id", station_id).extract_parameter_from_value()
         self.parameter = FuzzyExtractor("parameter", parameter).extract_parameter_from_value()
         self.period_type = FuzzyExtractor("period_type", period_type).extract_parameter_from_value()
-        self.time_resolution = time_resolution
+        self.time_resolution = [FuzzyExtractor("time_resolution", time_res).extract_parameter_from_value()
+                                for time_res in time_resolution]
         self.start_date = start_date
         self.end_date = end_date
+
+        print(self.time_resolution)
+
+        for time_res in self.time_resolution:
+            if not check_parameters(parameter=self.parameter,
+                                    time_resolution=time_res,
+                                    period_type=self.period_type):
+                self.time_resolution.remove(time_res)
+                print(f"Combination of: parameter {self.parameter.value}, time_resolution {time_res.value}, "
+                      f"period_type {self.period_type.value} not available and removed.")
+
+        if not self.time_resolution:
+            raise ValueError("Error: no combination for parameter, time_resolution and period_type could be found.")
 
     def __eq__(self, other):
         return [self.station_id,
@@ -214,10 +217,10 @@ class DWDRequest:
                 self.start_date,
                 self.end_date] == other
 
-
-if __name__ == "__main__":
-    dwdrequest = DWDRequest(station_id=[1048],
-                            parameter=Parameter.CLIMATE_SUMMARY,
-                            period_type=PeriodType.HISTORICAL,
-                            start_date="1991-01-01",
-                            end_date="1981-01-01")
+    def __str__(self):
+        return ", ".join([self.station_id.value,
+                         self.parameter.value,
+                         self.period_type.value,
+                         "& ".join(self.time_resolution),
+                         self.start_date.value,
+                         self.end_date.value])
