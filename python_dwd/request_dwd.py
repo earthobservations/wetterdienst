@@ -1,4 +1,4 @@
-from typing import List, Union, Optional, Callable
+from typing import List, Union
 from pandas import Timestamp
 from python_dwd.enumerations.parameter_enumeration import Parameter, PARAMETER_WORDLISTS
 from python_dwd.enumerations.period_type_enumeration import PeriodType, PERIODTYPE_WORDLISTS
@@ -218,8 +218,8 @@ class DWDRequest:
 
     def __str__(self):
         return ", ".join([self.station_id.value,
-                         self.parameter.value,
-                         self.period_type.value,
-                         "& ".join(self.time_resolution),
-                         self.start_date.value,
-                         self.end_date.value])
+                          self.parameter.value,
+                          self.period_type.value,
+                          "& ".join(self.time_resolution),
+                          self.start_date.value,
+                          self.end_date.value])
