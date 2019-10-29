@@ -1,59 +1,31 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Callable
 from pandas import Timestamp
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.enumerations.parameter_enumeration import Parameter, PARAMETER_WORDLISTS
+from python_dwd.enumerations.period_type_enumeration import PeriodType, PERIODTYPE_WORDLISTS
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution, TIMERESOLUTION_WORDLISTS
 from python_dwd.additionals.functions import check_parameters
 
-
-PARAMETER_WORDLISTS = {
-    Parameter.TEMPERATURE_SOIL:     [["soil", "boden", "ground"], ["temp"]],
-    Parameter.TEMPERATURE_AIR:      [["air", "luft"], ["temp"]],
-    Parameter.PRECIPITATION:        [["prec", "nied"]],
-    Parameter.TEMPERATURE_EXTREME:  [["extr"], ["temp"]],
-    Parameter.WIND_EXTREME:         [["extr"], ["wind"]],
-    Parameter.SOLAR:                [["sol"]],
-    Parameter.WIND:                 [["wind"]],
-    Parameter.CLOUD_TYPE:           [["cloud", "wolke"], ["typ"]],
-    Parameter.CLOUDINESS:           [["cloud", "bewölkung", "bewölkung"]],
-    Parameter.SUNSHINE_DURATION:    [["sun", "sonne"]],
-    Parameter.VISBILITY:            [["vis", "sicht"]],
-    Parameter.WATER_EQUIVALENT:     [["wat", "was"], ["eq"]],
-    Parameter.PRECIPITATION_MORE:   [["more", "mehr"], ["prec", "nied"]],
-    Parameter.PRESSURE:             [["press", "druck"]],
-    Parameter.CLIMATE_SUMMARY:      [["kl", "cl"]]
+STRING_TO_ENUMERATION_MAPPING = {
+    "parameter": Parameter,
+    "period_type": PeriodType,
+    "time_resolution": TimeResolution
 }
 
-TIMERESOLUTION_WORDLISTS = {
-    TimeResolution.MINUTE_1:    [["1"], ["min"]],
-    TimeResolution.MINUTE_10:   [["10"], ["min"]],
-    TimeResolution.HOURLY:      [["hour", "stünd"]],
-    TimeResolution.DAILY:       [["day", "tag", "daily", "täg"]],
-    TimeResolution.MONTHLY:     [["month", "monat"]],
-    TimeResolution.ANNUAL:      [["year", "jahr", "annual", "jähr"]]
+STRING_TO_WORDLIST_MAPPING = {
+    "parameter": PARAMETER_WORDLISTS,
+    "period_type": PERIODTYPE_WORDLISTS,
+    "time_resolution": TIMERESOLUTION_WORDLISTS
 }
-
-PERIODTYPE_WORDLISTS = {
-    PeriodType.HISTORICAL:  [["hist"]],
-    PeriodType.RECENT:      [["rec", "akt"]],
-    PeriodType.NOW:         [["now", "jetzt"]]
-}
-
-
-def clean_string(string):
-    return string.strip().lower()
 
 
 def extract_numbers_from_string(string: str,
-                                decimal: str) -> Optional[List[float]]:
-    """ Function to extract a number from a string. Therefor the function is using the internal
-    str.isdigit() function. The function allows multiple numbers to be extracted. Especially
-    the decimal is important for the detection as multiple signs (".", ",") could be troubling
-    the function. Numbers are returned as floats and further transformations have to be done
-    outside the function.
+                                number_type: str,
+                                decimal: str) -> Union[List[Union[float, int]], None]:
+    """
 
     Args:
         string (str) : the string from which the number should be extracted
+        number_type (int, float) : the type that should be casted on the number
         decimal (str) - the type of decimal that is used (either "," or ".")
 
     Returns:
@@ -63,6 +35,8 @@ def extract_numbers_from_string(string: str,
 
     if not isinstance(string, str):
         raise TypeError(f"Error: 'string' expected to be str, instead is {type(string)}.")
+    if number_type not in ["float", "int"]:
+        raise TypeError(f"Error: 'number_type' should be one of float/int, not {str(number_type)}")
     if decimal not in [".", ",", ""]:
         raise ValueError(f"Error: 'decimal' neither ',', '', nor '.', instead is {str(decimal)}.")
 
@@ -73,60 +47,110 @@ def extract_numbers_from_string(string: str,
     possible_numbers = [string.strip(decimal) for string in digits_string.split(" ")
                         if len(string) > 0 and any([s.isdigit() for s in string])]
 
-    return [float(number) for number in possible_numbers]
+    return [float(number) if number_type == "float" else int(number) for number in possible_numbers]
 
 
-def find_any_one_word_from_wordlist(string_list, word_list):
-    return all([any([any([(word in string) if not word.isdigit() else word == string
-                    for word in wl]) for string in string_list])
-               for wl in word_list])
+class FuzzyExtractor:
+    """ The FuzzyExtractor is used to get parameter values in a shape that our functions can work with. It mainly works
+    with a pair of parameter name and corresponding values, where the parameter name defines which kind of result we
+    to receive and the parameter value which is tried to reshape to this expectation so that the following functions
+    won't show problems with the parameters.
 
+    Args:
+        parameter_name (str) - the parameter name which is used to identify the objective of the extraction
+        parameter_value (list, str, int) - the value itself which has to be remodeled to get the expected shape
 
-def extract_parameter_from_value(string, parameter_to_wordlist_mapping):
-    string_splitted = string.split("_")
+    """
+    def __init__(self,
+                 parameter_name: str,
+                 parameter_value: Union[List[Union[int, str]], str, int]):
+        if not isinstance(parameter_name, str):
+            raise TypeError(f"Error: parameter_name {str(parameter_name)} should be of type str but instead "
+                            f"is of type {type(parameter_name)}.")
 
-    for parameter, wordlist in parameter_to_wordlist_mapping:
-        cond1 = len(wordlist) == len(string)
+        if not isinstance(parameter_value, (list, str, int)):
+            raise TypeError(f"Error: parameter_name {parameter_name} should be of type str/list/int but instead "
+                            f"is of type {type(parameter_name)}.")
 
-        cond2 = find_any_one_word_from_wordlist(string_splitted, wordlist)
+        if isinstance(parameter_value, list):
+            if not parameter_value:
+                raise ValueError(f"Error: parameter {parameter_name} is of type list but holds no data.")
+            # try:
+            #     parameter_value = [int(par_val) for par_val in parameter_value]
+            # except ValueError:
+            #     raise ValueError(f"Error: one or more values of parameter {parameter_name} could not be converted to "
+            #                      f"integers.")
 
-        if cond1 and cond2:
-            return parameter
+        assert parameter_name in ["station_id", "parameter", "period_type",
+                                  "time_resolution", "start_date", "end_date"], \
+            "Error: Unknown parameter can not be parsed."
 
+        self.parameter_name = parameter_name
+        self.parameter_value = parameter_value
 
-def parse_date(string):
-    try:
-        return Timestamp(string)
-    except:
-        pass
+        # self.extract_parameter_from_value()
 
+    def extract_parameter_from_value(self):
+        parameter_value = self.parameter_value
 
-def extract_station_id(parameter_value):
-    if all([isinstance(par_val, int) for par_val in parameter_value]):
-        return parameter_value
+        if self.parameter_name == "station_id":
+            return self.extract_station_id(parameter_value)
 
-    if all([isinstance(par_val, float) for par_val in parameter_value]):
-        return [int(par_val) for par_val in parameter_value]
+        if self.parameter_name in ["parameter", "period_type", "time_resolution"]:
+            parameter_value = self.clean_string(parameter_value)
 
-    station_id = []  # Input is expected to be list
+            for par in STRING_TO_ENUMERATION_MAPPING[self.parameter_name]:
 
-    for par_val in parameter_value:
-        extracted_station_ids = extract_numbers_from_string(string=par_val, decimal="")
+                wordlist = STRING_TO_WORDLIST_MAPPING[self.parameter_name][par]
 
-        if len(extracted_station_ids) == 0 or len(extracted_station_ids) > 1:
-            raise ValueError(f"Error: the string {par_val} holds zero or more then one number. This is not "
-                             f"supported as it's unclear which number to take as station id.")
+                cond1 = len(wordlist) == len(parameter_value)
 
-        station_id.extend(extracted_station_ids)
+                cond2 = self.find_any_one_word_from_wordlist(parameter_value, wordlist)
 
-    return station_id
+                if cond1 and cond2:
+                    return par
+
+        if self.parameter_name in ["start_date", "end_date"]:
+            return Timestamp(parameter_value)
+
+    @staticmethod
+    def extract_station_id(parameter_value):
+        if all([isinstance(par_val, int) for par_val in parameter_value]):
+            return parameter_value
+
+        if all([isinstance(par_val, float) for par_val in parameter_value]):
+            return [int(par_val) for par_val in parameter_value]
+
+        # Input is expected to be list
+        station_id = []
+
+        for par_val in parameter_value:
+            extracted_station_ids = extract_numbers_from_string(string=par_val, number_type="int", decimal="")
+
+            if len(extracted_station_ids) == 0 or len(extracted_station_ids) > 1:
+                raise ValueError(f"Error: the string {par_val} holds zero or more then one number. This is not "
+                                 f"supported as it's unclear which number to take as station id.")
+
+            station_id.extend(extracted_station_ids)
+
+        return station_id
+
+    @staticmethod
+    def clean_string(string):
+        return string.strip().lower().split("_")
+
+    @staticmethod
+    def find_any_one_word_from_wordlist(string_list, word_list):
+        return all([any([any([(word in string) if not word.isdigit() else word == string
+                        for word in wl]) for string in string_list])
+                   for wl in word_list])
 
 
 class ClimateRequest:
     def __init__(self,
-                 station_id: List[int],
-                 parameter: Union[str, Parameter],
-                 period_type: Union[str, PeriodType],
+                 station_id: List[Union[int, str]],
+                 parameter: Parameter,
+                 period_type: PeriodType,
                  time_resolution: Union[None, str, list, TimeResolution] = None,
                  start_date: Union[None, str, Timestamp] = None,
                  end_date: Union[None, str, Timestamp] = None):
@@ -172,6 +196,8 @@ class ClimateRequest:
         self.start_date = start_date
         self.end_date = end_date
 
+        print(self.time_resolution)
+
         for time_res in self.time_resolution:
             if not check_parameters(parameter=self.parameter,
                                     time_resolution=time_res,
@@ -193,8 +219,8 @@ class ClimateRequest:
 
     def __str__(self):
         return ", ".join([self.station_id.value,
-                          self.parameter.value,
-                          self.period_type.value,
-                          "& ".join(self.time_resolution),
-                          self.start_date.value,
-                          self.end_date.value])
+                         self.parameter.value,
+                         self.period_type.value,
+                         "& ".join(self.time_resolution),
+                         self.start_date.value,
+                         self.end_date.value])
