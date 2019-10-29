@@ -146,7 +146,7 @@ class FuzzyExtractor:
                    for wl in word_list])
 
 
-class DWDRequest:
+class ClimateRequest:
     def __init__(self,
                  station_id: List[Union[int, str]],
                  parameter: Parameter,
