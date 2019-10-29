@@ -21,8 +21,8 @@ from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, \
 from python_dwd.constants.metadata import METADATA_COLUMNS, \
     METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
-    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STRING_STATID_COL
-from python_dwd.constants.variables import TRIES_TO_DOWNLOAD_FILE
+    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STRING_STATID_COL, \
+    STATE_NAME, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -123,7 +123,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
 
-    metaindex_df.loc[:,"STATE"] = np.nan
+    metaindex_df.loc[:, STATE_NAME] = np.nan
 
     metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
 
@@ -179,11 +179,8 @@ def combine_geo_and_par_file_to_metadata_df(metadata_file: BytesIO) -> pd.DataFr
 
         for filetype, file in files_of_geo_and_par.items():
             with zip_file.open(file) as file_opened:
-                try:
-                    df = parse_zipped_data_into_df(file_opened)
-                except UnicodeDecodeError:
-                    df = parse_zipped_data_into_df(file_opened,
-                                                   engine='python')
+
+                df = parse_zipped_data_into_df(file_opened)
 
             df.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
                 name.strip().upper(), name.strip().upper())
@@ -201,25 +198,22 @@ def combine_geo_and_par_file_to_metadata_df(metadata_file: BytesIO) -> pd.DataFr
     return dfs_of_geo_and_par["geo_file"].loc[:, METADATA_COLUMNS]
 
 
-def parse_zipped_data_into_df(file_opened: open,
-                              engine: str = 'c') -> pd.DataFrame:
+def parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
     """ A wrapper for read_csv of pandas library that has set the typically used parameters in the found data of the
     german weather service.
 
     Args:
         file_opened (open) - the file that will be read
-        engine (str) - the parameter for read_csv engine, which is set here because the function is used with both
-        engines as sometimes it fails and thus it can be tried to get a success with the other engine
 
     Return:
         A pandas DataFrame with the read data.
 
     """
     file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
-                       sep=";",
-                       na_values="-999",
-                       engine=engine,
+                       sep=STATIONDATA_SEP,
+                       na_values=NA_STRING,
                        dtype=str)
+
     return file
 
 

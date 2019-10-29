@@ -133,7 +133,7 @@ def metadata_for_dwd_data(parameter: Parameter,
         metainfo = metaindex_for_1minute_data(parameter=parameter,
                                               time_resolution=time_resolution)
 
-    if all(np.isnan(metainfo[STATE_NAME])):
+    if all(pd.isnull(metainfo[STATE_NAME])):
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
                                     PeriodType.HISTORICAL,
