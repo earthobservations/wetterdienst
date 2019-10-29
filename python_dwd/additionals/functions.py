@@ -171,7 +171,7 @@ def retrieve_time_resolution_from_filename(filename: str) -> Union[TimeResolutio
 
 def check_parameters(parameter: Parameter,
                      time_resolution: TimeResolution,
-                     period_type: PeriodType):
+                     period_type: PeriodType) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
