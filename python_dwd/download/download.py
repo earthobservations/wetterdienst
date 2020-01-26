@@ -18,9 +18,13 @@ from python_dwd.additionals.functions import find_all_matchstrings_in_string
 
 
 def download_dwd_data(remote_files: pd.DataFrame,
-                      parallel_download: bool = False) -> List[BytesIO]:
+                      parallel_download: bool = False,
+                      write_file: bool = True,
+                      folder: str = ".") -> List[BytesIO]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
     assert isinstance(remote_files, pd.DataFrame)
+    if write_file:
+        assert write_file and folder, "Error: folder for writing files not defined!"
 
     remote_files = remote_files["FILENAME"].to_list()
 
@@ -30,7 +34,9 @@ def download_dwd_data(remote_files: pd.DataFrame,
         return [_download_dwd_data(remote_file) for remote_file in remote_files]
 
 
-def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
+def _download_dwd_data(remote_file: Union[str, Path],
+                       write_file: bool,
+                       folder: str) -> BytesIO:
     """
     This function downloads the stationdata for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
@@ -38,13 +44,17 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     file(s) according to the set up folder.
 
     Args:
-        download_specification: contains path to file that should be downloaded
+        remote_file: contains path to file that should be downloaded
             and the path to the folder to store the files
 
     Returns:
         stores data on local file system
 
     """
+
+    # @todo check for existing folder
+    # @todo if folder exists grab file from there
+    # @todo criteria for that is the date that the file was changed according to dwd (date is listed)
 
     file_server = create_remote_file_name(remote_file)
 
@@ -64,5 +74,9 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     except zipfile.BadZipFile as e:
         raise zipfile.BadZipFile(f"Error: The zipfile seems to be corrupted.\n"
                                  f"{str(e)}")
+
+    if write_file:
+        # Todo function to write parsed file to a .csv or .ncdf4
+        pass
 
     return file

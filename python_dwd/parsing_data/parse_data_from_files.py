@@ -62,8 +62,4 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
     data[DATE_NAME] = pd.to_datetime(data[DATE_NAME],
                                      DATA_FORMAT)
 
-    if write_file:
-        # Todo function to write parsed file to a .csv or .ncdf4
-        pass
-
     return data

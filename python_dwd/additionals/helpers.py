@@ -226,6 +226,11 @@ def create_fileindex(parameter: Parameter,
         files and only containing those files that have measuring data.
 
     """
+
+    # @todo add function that grabs the date that is written on the dwd server where it mentions when data was changed
+    # @todo this is needed in order to check if the station has newer data online and the old data should not be used
+    # anymore and rather replaced by the online/newer version
+
     # Check for folder and create if necessary
     create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)
