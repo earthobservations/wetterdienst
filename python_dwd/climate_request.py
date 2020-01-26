@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 from pandas import Timestamp
 from python_dwd.enumerations.parameter_enumeration import Parameter, PARAMETER_WORDLISTS
 from python_dwd.enumerations.period_type_enumeration import PeriodType, PERIODTYPE_WORDLISTS
@@ -19,13 +19,15 @@ STRING_TO_WORDLIST_MAPPING = {
 
 
 def extract_numbers_from_string(string: str,
-                                number_type: str,
-                                decimal: str) -> Union[List[Union[float, int]], None]:
-    """
+                                decimal: str) -> Optional[List[float]]:
+    """ Function to extract a number from a string. Therefor the function is using the internal
+    str.isdigit() function. The function allows multiple numbers to be extracted. Especially
+    the decimal is important for the detection as multiple signs (".", ",") could be troubling
+    the function. Numbers are returned as floats and further transformations have to be done
+    outside the function.
 
     Args:
         string (str) : the string from which the number should be extracted
-        number_type (int, float) : the type that should be casted on the number
         decimal (str) - the type of decimal that is used (either "," or ".")
 
     Returns:
@@ -35,8 +37,6 @@ def extract_numbers_from_string(string: str,
 
     if not isinstance(string, str):
         raise TypeError(f"Error: 'string' expected to be str, instead is {type(string)}.")
-    if number_type not in ["float", "int"]:
-        raise TypeError(f"Error: 'number_type' should be one of float/int, not {str(number_type)}")
     if decimal not in [".", ",", ""]:
         raise ValueError(f"Error: 'decimal' neither ',', '', nor '.', instead is {str(decimal)}.")
 
@@ -47,7 +47,7 @@ def extract_numbers_from_string(string: str,
     possible_numbers = [string.strip(decimal) for string in digits_string.split(" ")
                         if len(string) > 0 and any([s.isdigit() for s in string])]
 
-    return [float(number) if number_type == "float" else int(number) for number in possible_numbers]
+    return [float(number) for number in possible_numbers]
 
 
 class FuzzyExtractor:
@@ -121,11 +121,10 @@ class FuzzyExtractor:
         if all([isinstance(par_val, float) for par_val in parameter_value]):
             return [int(par_val) for par_val in parameter_value]
 
-        # Input is expected to be list
-        station_id = []
+        station_id = []  # Input is expected to be list
 
         for par_val in parameter_value:
-            extracted_station_ids = extract_numbers_from_string(string=par_val, number_type="int", decimal="")
+            extracted_station_ids = extract_numbers_from_string(string=par_val, decimal="")
 
             if len(extracted_station_ids) == 0 or len(extracted_station_ids) > 1:
                 raise ValueError(f"Error: the string {par_val} holds zero or more then one number. This is not "
@@ -195,7 +194,6 @@ class ClimateRequest:
                                 for time_res in time_resolution]
         self.start_date = start_date
         self.end_date = end_date
-
 
         for time_res in self.time_resolution:
             if not check_parameters(parameter=self.parameter,
