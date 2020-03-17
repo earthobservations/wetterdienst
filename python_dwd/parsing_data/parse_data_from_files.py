@@ -1,16 +1,19 @@
 """ function to read data from dwd server """
-from typing import List
+from typing import List, Tuple
 from io import BytesIO
 
 import pandas as pd
 
-from python_dwd.constants.column_name_mapping import DATE_NAME, \
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from python_dwd.additionals.functions import retrieve_parameter_from_filename, retrieve_period_type_from_filename, \
+    retrieve_time_resolution_from_filename
+from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import DATA_FORMAT, NA_STRING, STATIONDATA_SEP
 
 
-def parse_dwd_data(files_in_bytes: List[BytesIO],
-                   write_file: bool = False) -> pd.DataFrame:
+def parse_dwd_data(files_in_bytes: List[Tuple[str, BytesIO]] = None,
+                   write_file: bool = False,
+                   prefer_local: bool = False,
+                   **kwargs) -> pd.DataFrame:
     """
     This function is used to read the stationdata for which the local zip link is
     provided by the 'download_dwd' function. It checks the zipfile from the link
@@ -26,12 +29,18 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
         DataFrame with requested data
 
     """
-    # Test for types of input parameters
-    assert isinstance(files_in_bytes, list)
-    assert isinstance(write_file, bool)
+    # For cases with interaction of a local file
+    if write_file or prefer_local:
+        try:
+            sample_file = files_in_bytes[0][0]
 
-    if not files_in_bytes:
-        return pd.DataFrame()
+            time_res = retrieve_time_resolution_from_filename(sample_file)
+            parameter = retrieve_parameter_from_filename(sample_file, time_resolution=time_res)
+            period = retrieve_period_type_from_filename(sample_file)
+        except (IndexError, TypeError):
+            pass
+        finally:
+            pass
 
     data = []
 
@@ -61,5 +70,8 @@ def parse_dwd_data(files_in_bytes: List[BytesIO],
 
     data[DATE_NAME] = pd.to_datetime(data[DATE_NAME],
                                      DATA_FORMAT)
+
+    if write_file and not loaded_locallly:
+        pass
 
     return data
