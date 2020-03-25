@@ -1,3 +1,4 @@
+xarray
 pandas
 numpy
 tqdm
