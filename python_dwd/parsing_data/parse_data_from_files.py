@@ -27,9 +27,9 @@ def parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]] = None,
     removed afterwards.
 
     :param files_in_bytes: list of local stored files that should be read
-    :param write_file: If true: The raw zip file will not be deleted, Default is: False.
-    :param prefer_local:
-    :param folder:
+    :param write_file: If true, the raw zip file will not be deleted, default is false.
+    :param prefer_local: bool to define if preferably data is loaded from local file
+    :param folder: the folder where data either should be written to or loaded from
     :returns: DataFrame with requested data
 
     """

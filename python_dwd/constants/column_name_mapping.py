@@ -45,12 +45,6 @@ METADATA_DTYPE_MAPPING = {STATION_ID_NAME: int,
                           STATIONNAME_NAME: str,
                           STATE_NAME: str}
 
-STATIONDATA_DTYPE_MAPPING = {
-    STATION_ID_NAME:    int,
-    DATE_NAME:          "datetime64",
-    EOR_NAME:           str
-}
-
 FILENAME_NAME = "FILENAME"
 HAS_FILE_NAME = "HAS_FILE"
 FILEID_NAME = "FILEID"
