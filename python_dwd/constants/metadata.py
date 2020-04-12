@@ -17,11 +17,12 @@ METADATA_1MIN_PAR_MATCHSTRINGS = ["metadaten", "parameter", "txt"]
 STATIONDATA_MATCHSTRINGS = ['produkt']
 FILELIST_NAME = 'filelist'
 METADATA_NAME = 'metadata'
+STATIONDATA_NAME = "stationdata"
 DWDDATA_NAME = "DWD_DATA"
 FTP_METADATA_NAME = "meta_data"
 ARCHIVE_FORMAT = '.zip'
 DATA_FORMAT = '.csv'
-STATION_DATA_NC = "stationdata.nc"
+H5_FORMAT = ".h5"
 DATE_FORMAT = "%Y%m%d"
 STRING_STATID_COL = 2
 STATID_REGEX = r"(?<!\d)\d{5}(?!\d)"
@@ -30,4 +31,4 @@ METADATA_FIXED_COLUMN_WIDTH = [(0, 5), (5, 14), (14, 23), (23, 38),
 NA_STRING = "-999"
 STATIONDATA_SEP = ";"
 
-
+TRIES_TO_DOWNLOAD_FILE = 3

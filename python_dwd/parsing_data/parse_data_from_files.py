@@ -3,17 +3,20 @@ from pathlib import Path
 from typing import List, Tuple, Union, Optional
 import re
 from io import BytesIO
-import xarray
 import pandas as pd
 
 from python_dwd.additionals.functions import retrieve_parameter_from_filename, retrieve_period_type_from_filename, \
     retrieve_time_resolution_from_filename
-from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from python_dwd.constants.metadata import DATA_FORMAT, NA_STRING, STATIONDATA_SEP, STATID_REGEX, STATION_DATA_NC
+from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
+from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
+    STATIONDATA_DTYPE_MAPPING, STATION_ID_NAME
+from python_dwd.constants.metadata import DATA_FORMAT, NA_STRING, STATIONDATA_SEP, STATID_REGEX, H5_FORMAT, \
+    STATIONDATA_NAME
 from python_dwd.constants.access_credentials import MAIN_FOLDER
+from python_dwd.file_path_handling.path_handling import create_folder
 
 
-def parse_dwd_data(files_in_bytes: Optional[Union[List[Tuple[str, BytesIO]], str]] = None,
+def parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]] = None,
                    write_file: bool = False,
                    prefer_local: bool = False,
                    folder: str = MAIN_FOLDER,
@@ -45,61 +48,74 @@ def parse_dwd_data(files_in_bytes: Optional[Union[List[Tuple[str, BytesIO]], str
             period = retrieve_period_type_from_filename(sample_file)
         except (IndexError, TypeError):
             try:
-                statid, parameter, time_res, period = kwargs["request"]
+                statid = kwargs["statid"]
+                parameter = kwargs["parameter"]
+                time_res = kwargs["time_resolution"]
+                period = kwargs["period_type"]
             except (KeyError, ValueError):
-                raise ValueError(f"Error: Could neither parse parameters from filename nor from 'request' argument.")
-        finally:
-            files_in_bytes = None
+                raise ValueError(f"Error: Could neither parse parameters from filename nor from kwargs (statid, "
+                                 f"parameter, time_res, period).")
 
-        request_string = f"{statid}/{parameter.value}/{time_res.value}/{period.value}"
+        # print(statid, parameter, time_res, period)
+
+        request_string = f"{statid[0]}/{parameter.value}/{time_res.value}/{period.value}"
 
     # If prefered locally try now to read from this data
     if prefer_local:
         try:
-            # Try read data and reshape and set loaded_locally
-            with xarray.open_dataset(Path(folder, STATION_DATA_NC)) as ds:
-                data = ds.sel(space=re).to_dataframe()
+            data = pd.read_hdf(Path(folder, STATIONDATA_NAME, f"{STATIONDATA_NAME}{H5_FORMAT}"), key=request_string)
 
-            data = data[request_string].unstack()
-        except:
-            # If not working simply print continue with following path
-            pass
+            data = data.astype(create_stationdata_dtype_mapping(data.columns))
 
-    data = []
-    for file in files_in_bytes:
-        try:
-            data_file = pd.read_csv(filepath_or_buffer=file,
-                                    sep=STATIONDATA_SEP,
-                                    na_values=NA_STRING)
+            loaded_locally = True
+        except (FileNotFoundError, OSError):
+            print(f"Error: There seems to be no file "
+                  f"{Path(folder, STATIONDATA_NAME, f'{STATIONDATA_NAME}{H5_FORMAT}')}. Data will be loaded freshly.")
+        except KeyError:
+            print(f"Error: The requested data for {request_string} does not yet exist in local store. Data will be "
+                  f"loaded freshly.")
 
-            data.append(data_file)
+    if not loaded_locally:
+        data = []
+        for filename, file_in_bytes in files_in_bytes:
+            try:
+                data_file = pd.read_csv(
+                    filepath_or_buffer=file_in_bytes,
+                    sep=STATIONDATA_SEP,
+                    na_values=NA_STRING,
+                    dtype="str"  # dtypes are mapped manually to ensure expected dtypes
+                )
 
-        except pd.errors.ParserError as e:
-            print(f"The file could be parsed to a dataframe."
-                  f"Error: {str(e)}")
+                data.append(data_file)
+            except pd.errors.ParserError as e:
+                print(f"Error: The file for {filename} could not be parsed to a DataFrame and will be skipped. \n"
+                      f"Message: {str(e)}")
 
-    data = pd.concat(data)
+        data = pd.concat(data)
 
-    column_names = data.columns
+        column_names = data.columns
 
-    column_names = [column_name.upper().strip()
-                    for column_name in column_names]
+        column_names = [column_name.upper().strip()
+                        for column_name in column_names]
 
-    column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(column_name, column_name)
-                    for column_name in column_names]
+        column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(column_name, column_name)
+                        for column_name in column_names]
 
-    data.columns = column_names
+        data.columns = column_names
 
-    data[DATE_NAME] = pd.to_datetime(data[DATE_NAME],
-                                     DATA_FORMAT)
+        data = data.astype(create_stationdata_dtype_mapping(data.columns))
+
+        # data[DATE_NAME] = pd.to_datetime(data[DATE_NAME],
+        #                                  DATA_FORMAT)
 
     if write_file and not loaded_locally:
-        ds = xarray.Dataset({request_string: data})
-
         try:
-            ds.to_netcdf(Path(folder, STATION_DATA_NC), mode="a")
+            create_folder(STATIONDATA_NAME, folder)
+
+            data.to_hdf(Path(folder, STATIONDATA_NAME) / f"{STATIONDATA_NAME}{H5_FORMAT}", key=request_string)
         except FileNotFoundError:
-            print(f"Error: Path {str(Path(folder, STATION_DATA_NC))} not found. Data for "
-                  f"{statid}/{parameter.value}/{time_res.value}/{period.value} could not be written.")
+            print(f"Error: File for station data could not be created at "
+                  f"{str(Path(folder, STATIONDATA_NAME, f'{STATIONDATA_NAME}{H5_FORMAT}'))}. "
+                  f"Data for {request_string} could not be written.")
 
     return data

@@ -14,9 +14,9 @@ from multiprocessing import Pool
 import ftplib
 
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, \
-    FROM_DATE_NAME, TO_DATE_NAME,  GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
-    FILENAME_NAME, FILEID_NAME, METADATA_DTYPE_MAPPING
-from python_dwd.constants.ftp_credentials import DWD_SERVER, DWD_PATH, \
+    FROM_DATE_NAME, TO_DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
+    FILENAME_NAME, FILEID_NAME, METADATA_DTYPE_MAPPING, DATE_NAME, EOR_NAME
+from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, \
     MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_COLUMNS, \
     METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
@@ -226,11 +226,6 @@ def create_fileindex(parameter: Parameter,
         files and only containing those files that have measuring data.
 
     """
-
-    # @todo add function that grabs the date that is written on the dwd server where it mentions when data was changed
-    # @todo this is needed in order to check if the station has newer data online and the old data should not be used
-    # anymore and rather replaced by the online/newer version
-
     # Check for folder and create if necessary
     create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)
@@ -295,3 +290,33 @@ def create_fileindex(parameter: Parameter,
 def check_file_exist(file_path: Path) -> bool:
     """ checks if the file behind the path exists """
     return Path(file_path).is_file()
+
+
+def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
+    """
+    A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
+    want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
+    stored .h5 file. This is required as we want to store the data in this file with the same format which is a string,
+    thus after reading data back in the dtypes have to be matched.
+
+    :param columns: the column names of the DataFrame whose data should be converted
+    :return: a dictionary with column names and dtypes for each of them
+    """
+    stationdata_dtype_mapping = dict()
+
+    """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
+
+    for column in columns:
+        if column not in stationdata_dtype_mapping:
+            if column == STATION_ID_NAME:
+                stationdata_dtype_mapping[column] = int
+            elif column == DATE_NAME:
+                stationdata_dtype_mapping[column] = "datetime64"
+            # elif "QN" in column:
+            #     stationdata_dtype_mapping[column] = int
+            elif column == EOR_NAME:
+                stationdata_dtype_mapping[column] = str
+            else:
+                stationdata_dtype_mapping[column] = float
+
+    return stationdata_dtype_mapping

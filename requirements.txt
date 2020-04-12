@@ -1,5 +1,5 @@
-xarray
 pandas
+tables
 numpy
 tqdm
 scipy

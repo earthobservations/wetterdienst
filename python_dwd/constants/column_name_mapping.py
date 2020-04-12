@@ -22,6 +22,7 @@ LAT_NAME = "LAT"
 LON_NAME = "LON"
 STATIONNAME_NAME = "STATIONNAME"
 STATE_NAME = "STATE"
+EOR_NAME = "EOR"
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {ORIG_STATION_ID_NAME: STATION_ID_NAME,
                                      ORIG_DATE_NAME: DATE_NAME,
@@ -43,6 +44,12 @@ METADATA_DTYPE_MAPPING = {STATION_ID_NAME: int,
                           LON_NAME: float,
                           STATIONNAME_NAME: str,
                           STATE_NAME: str}
+
+STATIONDATA_DTYPE_MAPPING = {
+    STATION_ID_NAME:    int,
+    DATE_NAME:          "datetime64",
+    EOR_NAME:           str
+}
 
 FILENAME_NAME = "FILENAME"
 HAS_FILE_NAME = "HAS_FILE"

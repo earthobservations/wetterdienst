@@ -1,14 +1,13 @@
 """ file list creation for requested files """
 from pathlib import Path
 from typing import List
-
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FILENAME_NAME
-from python_dwd.constants.ftp_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.access_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType

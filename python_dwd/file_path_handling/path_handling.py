@@ -35,7 +35,7 @@ def remove_old_file(file_type: str,
 
     try:
         Path.unlink(filepath_to_remove)
-    except Exception:
+    except FileNotFoundError:
         pass
 
     return None
@@ -50,9 +50,8 @@ def create_folder(subfolder: str,
                           subfolder)
 
     try:
-        if not Path(path_to_create).is_dir():
-            Path(path_to_create).mkdir(parents=True)
-    except Exception:
-        raise NameError(f"Folder couldn't be created at \n{path_to_create} !")
+        Path(path_to_create).mkdir(parents=True)
+    except FileExistsError:
+        print(f"Error: Folder at {path_to_create} already exists.")
 
     return None

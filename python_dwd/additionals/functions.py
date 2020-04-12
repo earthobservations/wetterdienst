@@ -69,6 +69,8 @@ def retrieve_parameter_from_filename(filename: str,
     defines the requested Parameter by checking the filename
 
     """
+    filename = filename.lower()
+
     if time_resolution == TimeResolution.MINUTE_1:
         if "_nieder_" in filename:
             parameter = Parameter.PRECIPITATION
