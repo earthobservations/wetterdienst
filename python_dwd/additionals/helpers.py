@@ -307,16 +307,15 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
     """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in columns:
-        if column not in stationdata_dtype_mapping:
-            if column == STATION_ID_NAME:
-                stationdata_dtype_mapping[column] = int
-            elif column == DATE_NAME:
-                stationdata_dtype_mapping[column] = "datetime64"
-            # elif "QN" in column:
-            #     stationdata_dtype_mapping[column] = int
-            elif column == EOR_NAME:
-                stationdata_dtype_mapping[column] = str
-            else:
-                stationdata_dtype_mapping[column] = float
+        if column == STATION_ID_NAME:
+            stationdata_dtype_mapping[column] = int
+        elif column == DATE_NAME:
+            stationdata_dtype_mapping[column] = "datetime64"
+        # elif "QN" in column:
+        #     stationdata_dtype_mapping[column] = int
+        elif column == EOR_NAME:
+            stationdata_dtype_mapping[column] = str
+        else:
+            stationdata_dtype_mapping[column] = float
 
     return stationdata_dtype_mapping
