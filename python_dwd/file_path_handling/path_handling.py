@@ -46,7 +46,7 @@ def create_folder(subfolder: str,
     """
     Function for creating folder structure for saved stationdata
     """
-    path_to_create = Path(correct_folder_path(folder),
+    path_to_create = Path(correct_folder_path(str(folder)),
                           subfolder)
 
     try:

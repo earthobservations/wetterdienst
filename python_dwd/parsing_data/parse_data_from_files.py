@@ -1,6 +1,6 @@
 """ function to read data from dwd server """
 from pathlib import Path
-from typing import List, Tuple, Union, Optional
+from typing import List, Tuple, Optional
 import re
 from io import BytesIO
 import pandas as pd
@@ -8,10 +8,8 @@ import pandas as pd
 from python_dwd.additionals.functions import retrieve_parameter_from_filename, retrieve_period_type_from_filename, \
     retrieve_time_resolution_from_filename
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
-from python_dwd.constants.column_name_mapping import DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
-    STATIONDATA_DTYPE_MAPPING, STATION_ID_NAME
-from python_dwd.constants.metadata import DATA_FORMAT, NA_STRING, STATIONDATA_SEP, STATID_REGEX, H5_FORMAT, \
-    STATIONDATA_NAME
+from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from python_dwd.constants.metadata import NA_STRING, STATIONDATA_SEP, STATID_REGEX, H5_FORMAT, STATIONDATA_NAME
 from python_dwd.constants.access_credentials import MAIN_FOLDER
 from python_dwd.file_path_handling.path_handling import create_folder
 
@@ -104,9 +102,6 @@ def parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]] = None,
         data.columns = column_names
 
         data = data.astype(create_stationdata_dtype_mapping(data.columns))
-
-        # data[DATE_NAME] = pd.to_datetime(data[DATE_NAME],
-        #                                  DATA_FORMAT)
 
     if write_file and not loaded_locally:
         try:
