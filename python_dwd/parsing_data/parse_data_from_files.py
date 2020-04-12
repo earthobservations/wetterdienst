@@ -63,14 +63,14 @@ def parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]] = None,
     # If prefered locally try now to read from this data
     if prefer_local:
         try:
-            data = pd.read_hdf(Path(folder, STATIONDATA_NAME, f"{STATIONDATA_NAME}{H5_FORMAT}"), key=request_string)
+            data = pd.read_hdf(Path(folder, STATIONDATA_NAME) / f"{STATIONDATA_NAME}{H5_FORMAT}", key=request_string)
 
             data = data.astype(create_stationdata_dtype_mapping(data.columns))
 
             loaded_locally = True
         except (FileNotFoundError, OSError):
             print(f"Error: There seems to be no file "
-                  f"{Path(folder, STATIONDATA_NAME, f'{STATIONDATA_NAME}{H5_FORMAT}')}. Data will be loaded freshly.")
+                  f"{Path(folder, STATIONDATA_NAME) / f'{STATIONDATA_NAME}{H5_FORMAT}'}. Data will be loaded freshly.")
         except KeyError:
             print(f"Error: The requested data for {request_string} does not yet exist in local store. Data will be "
                   f"loaded freshly.")
