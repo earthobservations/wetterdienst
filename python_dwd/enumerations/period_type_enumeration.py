@@ -8,9 +8,3 @@ class PeriodType(Enum):
     RECENT = "recent"
     NOW = "now"
     ROW = ""
-
-PERIODTYPE_WORDLISTS = {
-    PeriodType.HISTORICAL: [["hist"]],
-    PeriodType.RECENT: [["rec", "akt"]],
-    PeriodType.NOW: [["now", "jetzt"]]
-}
