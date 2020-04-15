@@ -189,3 +189,18 @@ def find_all_matchstrings_in_string(string: str,
                                     matchstrings: List[str]):
     """ check if string has all matchstrings in it """
     return all([matchstring in string for matchstring in matchstrings])
+
+
+def cast_to_list(iterable_):
+    """
+    A function that either converts an existing iterable to a list or simply puts the item into a list to make an
+    iterable that includes this item.
+    :param iterable_:
+    :return:
+    """
+    try:
+        iterable_ = list(iterable_)
+    except TypeError:
+        iterable_ = [iterable_]
+
+    return iterable_
