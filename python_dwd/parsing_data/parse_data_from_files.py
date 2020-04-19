@@ -95,13 +95,17 @@ def _parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]],
                     prefer_local: bool,
                     folder: str,
                     write_file: bool,
-                    request_string: str):
+                    request_string: str) -> pd.DataFrame:
     """
-    Writing the data is not supposed to happen here
-    :param files_in_bytes:
-    :param prefer_local:
-    :param folder:
-    :return:
+    A wrapping function that only handles data for one station id. The files passed to it are thus related to this id.
+    This is important for storing the data locally as the DataFrame that is stored should obviously only handle one
+    station at a time.
+
+    :param files_in_bytes: the files belonging to one station
+    :param prefer_local: if it should preferably be loaded from a local file
+    :param folder: the folder where the local file is stored
+    :return: the dataframe with data from that station, acn be empty if no data is provided or local file is not found
+    or has no data in it
     """
     loaded_locally = False
     data = None
