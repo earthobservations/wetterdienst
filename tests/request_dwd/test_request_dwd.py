@@ -1,88 +1,79 @@
 import pytest
-from python_dwd.request_dwd import DWDRequest, extract_numbers_from_string, FuzzyExtractor
+from python_dwd.dwd_station_request import DWDStationRequest, parse_parameter_from_value, \
+    find_any_one_word_from_wordlist, parse_station_id_to_list_of_integers, PARAMETER_WORDLIST_MAPPING,\
+    PERIODTYPE_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, StartDateEndDateError
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def test_extract_numbers_from_string():
-    with pytest.raises(TypeError):
-        extract_numbers_from_string(string=1, number_type="float", decimal=".")
+def test_parse_parameter_from_value():
+    assert parse_parameter_from_value("cl", PARAMETER_WORDLIST_MAPPING) == Parameter.CLIMATE_SUMMARY
+    assert parse_parameter_from_value("sonne_dauer", PARAMETER_WORDLIST_MAPPING) == Parameter.SUNSHINE_DURATION
 
-    with pytest.raises(TypeError):
-        extract_numbers_from_string(string="abc", number_type="str", decimal=".")
+    assert parse_parameter_from_value("rec", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.RECENT
+    assert parse_parameter_from_value("jetzt", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.NOW
 
-    with pytest.raises(ValueError):
-        extract_numbers_from_string(string="1234", number_type="int", decimal=";")
-
-    with pytest.raises(ValueError):
-        extract_numbers_from_string(string="1234.5", number_type="int", decimal=".")
-
-    assert extract_numbers_from_string(string="abc", number_type="float", decimal=".") == []
-
-    assert extract_numbers_from_string(string=" B 123 CDE 45", number_type="int", decimal="") == [123, 45]
-
-    assert extract_numbers_from_string(string=".123.", number_type="int", decimal=".") == [123]
-
-    assert extract_numbers_from_string(string=".123.", number_type="float", decimal=".") == [123.0]
+    assert parse_parameter_from_value("daily", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.DAILY
+    assert parse_parameter_from_value("monat", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.MONTHLY
 
 
-def test_fuzzy_extractor():
-    with pytest.raises(TypeError):
-        FuzzyExtractor("station_id", int)
+def test_find_any_one_word_from_wordlist():
+    assert not find_any_one_word_from_wordlist(["letters"], [["letters"], ["else"]])
+    assert find_any_one_word_from_wordlist(["letters"], [["letters"], ["letters"]])
 
-    with pytest.raises(AssertionError):
-        FuzzyExtractor("unknownparameter", "1_minute")
-
-    with pytest.raises(ValueError):
-        FuzzyExtractor("station_id", ["AB1CD2"]).extract_parameter_from_value()
-
-    assert FuzzyExtractor("station_id", ["S1", "S2", "S3"]).extract_parameter_from_value() == [1, 2, 3]
-
-    assert FuzzyExtractor("time_resolution", "1_minute").extract_parameter_from_value() == TimeResolution.MINUTE_1
-
-    assert FuzzyExtractor("time_resolution", "10_minute").extract_parameter_from_value() == TimeResolution.MINUTE_10
-
-    assert str(FuzzyExtractor("start_date", "19710101").extract_parameter_from_value().date()) == "1971-01-01"
+    assert find_any_one_word_from_wordlist(["a_unique", "b_unique"], [["some", "thing", "a"], ["some", "thing", "b"]])
 
 
-def test_dwd_request():
-    assert DWDRequest(station_id="1", parameter="cl", period_type="hist", time_resolution="daily") \
-           == [[1], Parameter.CLIMATE_SUMMARY, PeriodType.HISTORICAL, [TimeResolution.DAILY], None, None]
+def test_parse_station_id_to_list_of_integers():
+    # @todo
+    assert True
+
+
+def test_dwd_station_request():
+    assert DWDStationRequest(station_id=[1], time_resolution="daily", parameter="cl", period_type="hist") \
+           == [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
+
+    assert DWDStationRequest(station_id=[1],
+                             parameter=Parameter.CLIMATE_SUMMARY,
+                             period_type=PeriodType.HISTORICAL,
+                             time_resolution=TimeResolution.DAILY) == \
+           [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
 
 
 def test_station_id():
     with pytest.raises(ValueError):
-        DWDRequest(station_id="test",
-                   parameter=Parameter.CLIMATE_SUMMARY,
-                   period_type=PeriodType.HISTORICAL,
-                   time_resolution=TimeResolution.DAILY)
-
-    with pytest.raises(ValueError):
-        DWDRequest(station_id=["test"],
-                   parameter=Parameter.CLIMATE_SUMMARY,
-                   period_type=PeriodType.HISTORICAL,
-                   time_resolution=TimeResolution.DAILY)
+        DWDStationRequest(station_id="test",
+                          parameter=Parameter.CLIMATE_SUMMARY,
+                          period_type=PeriodType.HISTORICAL,
+                          time_resolution=TimeResolution.DAILY)
 
 
 def test_parameter_enumerations():
     with pytest.raises(ValueError):
-        DWDRequest(station_id=[1048],
-                   parameter="cl",
-                   period_type="now",
-                   time_resolution="daily")
+        DWDStationRequest(station_id=[1],
+                          parameter="cl",
+                          period_type="now",
+                          time_resolution="daily")
 
 
 def test_time_input():
     with pytest.raises(ValueError):
-        DWDRequest(station_id=[1048],
-                   parameter="cl",
-                   period_type="hist",
-                   start_date="1971-01-01")
+        DWDStationRequest(station_id=[1],
+                          parameter=Parameter.CLIMATE_SUMMARY,
+                          time_resolution=TimeResolution.DAILY,
+                          start_date="1971-01-01")
 
-    with pytest.raises(ValueError):
-        DWDRequest(station_id=[1048],
-                   parameter="kl",
-                   period_type="hist",
-                   start_date="1971-01-01",
-                   end_date="1951-01-01")
+        with pytest.raises(ValueError):
+            DWDStationRequest(station_id=[1],
+                              parameter=Parameter.CLIMATE_SUMMARY,
+                              time_resolution=TimeResolution.DAILY,
+                              period_type=PeriodType.HISTORICAL,
+                              start_date="1971-01-01")
+
+    with pytest.raises(StartDateEndDateError):
+        DWDStationRequest(station_id=[1],
+                          parameter=Parameter.CLIMATE_SUMMARY,
+                          time_resolution=TimeResolution.DAILY,
+                          start_date="1971-01-01",
+                          end_date="1951-01-01")

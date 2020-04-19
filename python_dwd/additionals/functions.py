@@ -199,8 +199,11 @@ def cast_to_list(iterable_):
     :return:
     """
     try:
-        iterable_ = list(iterable_)
-    except TypeError:
-        iterable_ = [iterable_]
+        iterable_ = iterable_.split()
+    except (AttributeError, SyntaxError):
+        try:
+            iterable_ = list(iterable_)
+        except TypeError:
+            iterable_ = [iterable_]
 
     return iterable_
