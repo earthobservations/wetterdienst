@@ -1,28 +1,30 @@
 import pytest
-from python_dwd.dwd_station_request import DWDStationRequest, parse_parameter_from_value, \
-    find_any_one_word_from_wordlist, parse_station_id_to_list_of_integers, PARAMETER_WORDLIST_MAPPING,\
-    PERIODTYPE_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, StartDateEndDateError
+from python_dwd.dwd_station_request import DWDStationRequest, _parse_parameter_from_value, \
+    _find_any_one_word_from_wordlist
+from python_dwd.constants.parameter_mapping import PARAMETER_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, \
+    PERIODTYPE_WORDLIST_MAPPING
+from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
 def test_parse_parameter_from_value():
-    assert parse_parameter_from_value("cl", PARAMETER_WORDLIST_MAPPING) == Parameter.CLIMATE_SUMMARY
-    assert parse_parameter_from_value("sonne_dauer", PARAMETER_WORDLIST_MAPPING) == Parameter.SUNSHINE_DURATION
+    assert _parse_parameter_from_value("cl", PARAMETER_WORDLIST_MAPPING) == Parameter.CLIMATE_SUMMARY
+    assert _parse_parameter_from_value("sonne_dauer", PARAMETER_WORDLIST_MAPPING) == Parameter.SUNSHINE_DURATION
 
-    assert parse_parameter_from_value("rec", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.RECENT
-    assert parse_parameter_from_value("jetzt", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.NOW
+    assert _parse_parameter_from_value("rec", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.RECENT
+    assert _parse_parameter_from_value("jetzt", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.NOW
 
-    assert parse_parameter_from_value("daily", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.DAILY
-    assert parse_parameter_from_value("monat", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.MONTHLY
+    assert _parse_parameter_from_value("daily", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.DAILY
+    assert _parse_parameter_from_value("monat", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.MONTHLY
 
 
 def test_find_any_one_word_from_wordlist():
-    assert not find_any_one_word_from_wordlist(["letters"], [["letters"], ["else"]])
-    assert find_any_one_word_from_wordlist(["letters"], [["letters"], ["letters"]])
+    assert not _find_any_one_word_from_wordlist(["letters"], [["letters"], ["else"]])
+    assert _find_any_one_word_from_wordlist(["letters"], [["letters"], ["letters"]])
 
-    assert find_any_one_word_from_wordlist(["a_unique", "b_unique"], [["some", "thing", "a"], ["some", "thing", "b"]])
+    assert _find_any_one_word_from_wordlist(["a_unique", "b_unique"], [["some", "thing", "a"], ["some", "thing", "b"]])
 
 
 def test_parse_station_id_to_list_of_integers():

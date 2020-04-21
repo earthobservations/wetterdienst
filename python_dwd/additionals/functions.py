@@ -171,21 +171,17 @@ def retrieve_time_resolution_from_filename(filename: str) -> Union[TimeResolutio
 
 def check_parameters(parameter: Parameter,
                      time_resolution: TimeResolution,
-                     period_type: PeriodType):
+                     period_type: PeriodType) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
-
     """
     check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, [[], []])
 
     if parameter not in check[0] or period_type not in check[1]:
-        raise TypeError(
-            f"Combination of time_resolution={time_resolution.value},parameter={parameter.value} "
-            f"and period_type={period_type.value} not available.Possible parameters are: "
-            f"{TIME_RESOLUTION_PARAMETER_MAPPING}.")
+        return False
 
-    return None
+    return True
 
 
 def find_all_matchstrings_in_string(string: str,
@@ -198,12 +194,17 @@ def cast_to_list(iterable_):
     """
     A function that either converts an existing iterable to a list or simply puts the item into a list to make an
     iterable that includes this item.
-    :param iterable_:
-    :return:
+    Args:
+        iterable_:
+    Return:
+        ?
     """
     try:
-        iterable_ = list(iterable_)
-    except TypeError:
-        iterable_ = [iterable_]
+        iterable_ = iterable_.split()
+    except (AttributeError, SyntaxError):
+        try:
+            iterable_ = list(iterable_)
+        except TypeError:
+            iterable_ = [iterable_]
 
     return iterable_
