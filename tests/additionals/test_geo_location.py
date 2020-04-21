@@ -42,4 +42,4 @@ def test_derive_nearest_neighbours():
                                          np.array([0.00182907, 0.00227919]))
 
     np.testing.assert_array_almost_equal(indices_nearest_neighbours,
-                                         np.array([371, 618]))
+                                         np.array([432, 655]))

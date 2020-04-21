@@ -2,26 +2,22 @@
 import urllib
 import zipfile
 from typing import List
-import os
 from io import TextIOWrapper, BytesIO
 from pathlib import Path, PurePosixPath
-from zipfile import ZipFile
 import pandas as pd
 import numpy as np
-from numpy import datetime64
-from tqdm import tqdm
 from multiprocessing import Pool
 import ftplib
 
-from python_dwd.constants.column_name_mapping import STATION_ID_NAME, \
+from python_dwd.constants.column_name_mapping import STATION_ID_COLUMN_NAME, \
     FROM_DATE_NAME, TO_DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
-    FILENAME_NAME, FILEID_NAME, METADATA_DTYPE_MAPPING, DATE_NAME, EOR_NAME
+    FILENAME_NAME, FILEID_COLUMN_NAME, METADATA_DTYPE_MAPPING, DATE_NAME, EOR_NAME
 from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, \
     MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_COLUMNS, \
     METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
     METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
-    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STRING_STATID_COL, \
+    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, \
     STATE_NAME, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
@@ -78,7 +74,8 @@ def create_metaindex(parameter: Parameter,
     metaindex = pd.read_fwf(filepath_or_buffer=file,
                             colspecs=METADATA_FIXED_COLUMN_WIDTH,
                             skiprows=[1],
-                            dtype=str)
+                            dtype=str,
+                            encoding="ISO-8859-1")
 
     metaindex_colnames = [colname for colname in metaindex.columns if "unnamed" not in colname.lower()]
     metaindex_colnames_fixed = "".join(metaindex_colnames).split(" ")
@@ -127,7 +124,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
 
-    return metaindex_df.sort_values(STATION_ID_NAME).reset_index(drop=True)
+    return metaindex_df.sort_values(STATION_ID_COLUMN_NAME).reset_index(drop=True)
 
 
 def download_metadata_file_for_1minute_data(metadatafile: str) -> BytesIO:
@@ -179,7 +176,6 @@ def combine_geo_and_par_file_to_metadata_df(metadata_file: BytesIO) -> pd.DataFr
 
         for filetype, file in files_of_geo_and_par.items():
             with zip_file.open(file) as file_opened:
-
                 df = parse_zipped_data_into_df(file_opened)
 
             df.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
@@ -251,10 +247,9 @@ def create_fileindex(parameter: Parameter,
         raise ftplib.all_errors("Error: creating a filelist currently not possible.\n"
                                 f"{str(e)}")
 
-    files_server = pd.DataFrame(files_server, columns=[FILENAME_NAME])
-
-    files_server.loc[:, FILENAME_NAME] = files_server.loc[:, FILENAME_NAME] \
-        .apply(str)
+    files_server = pd.DataFrame(files_server,
+                                columns=[FILENAME_NAME],
+                                dtype='str')
 
     files_server.loc[:, FILENAME_NAME] = files_server.loc[:, FILENAME_NAME].apply(
         lambda filename: filename.lstrip(DWD_PATH + '/'))
@@ -262,17 +257,19 @@ def create_fileindex(parameter: Parameter,
     files_server = files_server[files_server.FILENAME.str.contains(
         ARCHIVE_FORMAT)]
 
-    files_server[FILEID_NAME] = files_server.index
+    files_server[FILEID_COLUMN_NAME] = files_server.index
+    
+    file_names = files_server.iloc[:, 0].str.split("/").apply(
+        lambda string: string[-1]).str.split("_")
 
-    files_server[STATION_ID_NAME] = files_server.iloc[:, 0].str.split("/")\
-        .apply(lambda string: string[-1]).str.split("_")\
-        .apply(lambda string: string[STRING_STATID_COL])
+    files_server[STATION_ID_COLUMN_NAME] = file_names.apply(
+        lambda string: string[_station_id_index_from_seperated_file_name_list(file_names[0])]).astype(int)
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
-    files_server.iloc[:, 1] = files_server.iloc[:, 1].apply(int)
+    files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
 
-    files_server = files_server.sort_values(by=[STATION_ID_NAME])
+    files_server = files_server.sort_values(by=[STATION_ID_COLUMN_NAME])
 
     remove_old_file(file_type=FILELIST_NAME,
                     parameter=parameter,
@@ -287,6 +284,16 @@ def create_fileindex(parameter: Parameter,
                         index=False)
 
 
+def _station_id_index_from_seperated_file_name_list(seperated_file_name: List[str]) -> int:
+    """ checks out the position of the station_id in seperated file name"""
+    for idx, name in enumerate(seperated_file_name):
+        try:
+            _ = int(name)
+            return idx
+        except ValueError:
+            continue
+
+
 def check_file_exist(file_path: Path) -> bool:
     """ checks if the file behind the path exists """
     return Path(file_path).is_file()
@@ -298,21 +305,21 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
     want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
     stored .h5 file. This is required as we want to store the data in this file with the same format which is a string,
     thus after reading data back in the dtypes have to be matched.
-
-    :param columns: the column names of the DataFrame whose data should be converted
-    :return: a dictionary with column names and dtypes for each of them
+    
+    Args:
+        columns: the column names of the DataFrame whose data should be converted
+    Return:
+         a dictionary with column names and dtypes for each of them
     """
     stationdata_dtype_mapping = dict()
 
     """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in columns:
-        if column == STATION_ID_NAME:
+        if column == STATION_ID_COLUMN_NAME:
             stationdata_dtype_mapping[column] = int
         elif column == DATE_NAME:
             stationdata_dtype_mapping[column] = "datetime64"
-        # elif "QN" in column:
-        #     stationdata_dtype_mapping[column] = int
         elif column == EOR_NAME:
             stationdata_dtype_mapping[column] = str
         else:

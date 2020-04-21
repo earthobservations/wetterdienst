@@ -52,6 +52,6 @@ def create_folder(subfolder: str,
     try:
         Path(path_to_create).mkdir(parents=True)
     except FileExistsError:
-        print(f"Error: Folder at {path_to_create} already exists.")
+        print(f"Info: Folder at {path_to_create} already exists.")
 
     return None

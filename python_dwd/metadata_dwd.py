@@ -2,7 +2,6 @@
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
 
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
@@ -124,16 +123,16 @@ def metadata_for_dwd_data(parameter: Parameter,
         metainfo = pd.read_csv(filepath_or_buffer=file_path)
         return metainfo
 
-    if time_resolution != TimeResolution.MINUTE_1:
+    if time_resolution == TimeResolution.MINUTE_1:
+        metainfo = metaindex_for_1minute_data(parameter=parameter,
+                                              time_resolution=time_resolution)
+    else:
         metainfo = create_metaindex(parameter=parameter,
                                     time_resolution=time_resolution,
                                     period_type=period_type)
 
-    else:
-        metainfo = metaindex_for_1minute_data(parameter=parameter,
-                                              time_resolution=time_resolution)
-
     if all(pd.isnull(metainfo[STATE_NAME])):
+        # @todo avoid calling function in function -> we have to build a function around to manage missing data
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
                                     PeriodType.HISTORICAL,
@@ -141,7 +140,7 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     write_file=False,
                                     create_new_filelist=False)
 
-        for station, state in mdp.loc[:,[STATIONNAME_NAME, STATE_NAME]]:
+        for station, state in mdp.loc[:, [STATIONNAME_NAME, STATE_NAME]]:
             metainfo.loc[metainfo[STATIONNAME_NAME] == station, STATE_NAME] = state
 
     metainfo = add_filepresence(metainfo=metainfo,

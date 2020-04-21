@@ -6,7 +6,7 @@ import pandas as pd
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
-from python_dwd.constants.column_name_mapping import STATION_ID_NAME, FILENAME_NAME
+from python_dwd.constants.column_name_mapping import STATION_ID_COLUMN_NAME, FILENAME_NAME
 from python_dwd.constants.access_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -76,4 +76,4 @@ def create_file_list_for_dwd_server(statid: List[int],
                                   "STATION_ID": int,
                                   "FILENAME": str})
 
-    return filelist.loc[filelist[STATION_ID_NAME].isin(statid), :]
+    return filelist.loc[filelist[STATION_ID_COLUMN_NAME].isin(statid), :]
