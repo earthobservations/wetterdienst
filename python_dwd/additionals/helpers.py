@@ -314,22 +314,3 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
             stationdata_dtype_mapping[column] = float
 
     return stationdata_dtype_mapping
-
-
-if __name__ == "__main__":
-    from datetime import datetime
-
-    from python_dwd.enumerations.parameter_enumeration import Parameter
-    from python_dwd.enumerations.period_type_enumeration import PeriodType
-    from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-
-    start = datetime.now()
-
-    metaindex_hist = metaindex_for_1minute_data(parameter=Parameter.PRECIPITATION,
-                               time_resolution=TimeResolution.MINUTE_1)
-    end = datetime.now()
-
-    print(end - start)
-
-    metaindex_hist.to_csv("metaindex_hist.csv")
-
