@@ -5,8 +5,8 @@ from typing import Union
 from python_dwd.constants.access_credentials import SUB_FOLDER_STATIONDATA, DWD_SERVER, DWD_PATH, FTP_EXPRESSION
 
 
-def create_local_file_name(remote_file_path: Union[str, Path],
-                           local_folder: Union[str, Path]) -> Path:
+def create_local_file_name(remote_file_path: Union[Path, str],
+                           local_folder: Union[Path, str]) -> Path:
     """
     The local filename consists of the set of parameters (easier
     to analyse when looking at the filename) and the original filename

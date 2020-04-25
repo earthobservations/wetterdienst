@@ -61,15 +61,15 @@ class FTP(ftplib.FTP):
         return file
 
     def download(self,
-                 remote_file_path: Path,
-                 local_file_path: Path):
+                 remote_file_path: Union[Path, str],
+                 local_file_path: Union[Path, str]):
         with open(local_file_path, "wb") as file:
             self.retrbinary(f"RETR {remote_file_path}", file.write)
 
 
 def ftp_file_download(ftp_connection: FTP,
-                      remote_file_path: Path,
-                      local_file_path: Path):
+                      remote_file_path: Union[Path, str],
+                      local_file_path: Union[Path, str]):
     """
 
     Args:

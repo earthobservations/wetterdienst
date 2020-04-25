@@ -9,7 +9,7 @@ class Coordinates:
         """
         Args:
             latitudes: latitudes in degree
-            intput_values: longitudes in degree
+            longitudes: longitudes in degree
 
         """
 

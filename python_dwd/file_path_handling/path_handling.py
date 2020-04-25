@@ -34,7 +34,7 @@ def remove_old_file(file_type: str,
                               f"{period_type.value}{file_postfix}")
 
     try:
-        Path.unlink(filepath_to_remove)
+        filepath_to_remove.unlink()
     except FileNotFoundError:
         pass
 
@@ -42,16 +42,12 @@ def remove_old_file(file_type: str,
 
 
 def create_folder(subfolder: str,
-                  folder: str):
+                  folder: str) -> None:
     """
     Function for creating folder structure for saved stationdata
     """
-    path_to_create = Path(correct_folder_path(str(folder)),
-                          subfolder)
+    path_to_create = Path(folder, subfolder)
 
-    try:
-        Path(path_to_create).mkdir(parents=True)
-    except FileExistsError:
-        print(f"Info: Folder at {path_to_create} already exists.")
+    Path(path_to_create).mkdir(parents=True, exist_ok=True)
 
     return None

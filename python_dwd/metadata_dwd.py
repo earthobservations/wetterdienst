@@ -6,8 +6,7 @@ import pandas as pd
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
-from python_dwd.constants.column_name_mapping import STATIONNAME_NAME, \
-    STATE_NAME, HAS_FILE_NAME
+from python_dwd.enumerations.column_names_enumeration import DWDColumns
 from python_dwd.constants.access_credentials import MAIN_FOLDER, \
     SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
@@ -16,8 +15,7 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.file_path_handling.file_list_creation import \
     create_file_list_for_dwd_server
-from python_dwd.file_path_handling.path_handling import correct_folder_path, \
-    remove_old_file, create_folder
+from python_dwd.file_path_handling.path_handling import remove_old_file, create_folder
 
 
 def add_filepresence(metainfo: pd.DataFrame,
@@ -44,25 +42,23 @@ def add_filepresence(metainfo: pd.DataFrame,
     if not isinstance(metainfo, pd.DataFrame):
         raise TypeError("Error: metainfo is not of type pandas.DataFrame.")
 
-    folder = correct_folder_path(folder)
-
     if create_new_filelist:
         create_fileindex(parameter=parameter,
                          time_resolution=time_resolution,
                          period_type=period_type,
                          folder=folder)
 
-    metainfo[HAS_FILE_NAME] = False
+    metainfo[DWDColumns.HAS_FILE.value] = False
 
     filelist = create_file_list_for_dwd_server(
-        statid=list(metainfo.iloc[:, 0]),
+        station_ids=metainfo.iloc[:, 0].to_list(),
         parameter=parameter,
         time_resolution=time_resolution,
         period_type=period_type,
         folder=folder)
 
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        filelist["STATION_ID"]), HAS_FILE_NAME] = True
+        filelist[DWDColumns.STATION_ID.value]), DWDColumns.HAS_FILE.value] = True
 
     return metainfo
 
@@ -131,7 +127,7 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     time_resolution=time_resolution,
                                     period_type=period_type)
 
-    if all(pd.isnull(metainfo[STATE_NAME])):
+    if all(pd.isnull(metainfo[DWDColumns.STATE.value])):
         # @todo avoid calling function in function -> we have to build a function around to manage missing data
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
@@ -140,8 +136,14 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     write_file=False,
                                     create_new_filelist=False)
 
-        for station, state in mdp.loc[:, [STATIONNAME_NAME, STATE_NAME]]:
-            metainfo.loc[metainfo[STATIONNAME_NAME] == station, STATE_NAME] = state
+        stateinfo = pd.merge(metainfo[DWDColumns.STATION_ID],
+                             mdp.loc[:, [DWDColumns.STATION_ID.value, DWDColumns.STATE.value]],
+                             how="left")
+
+        metainfo[DWDColumns.STATE.value] = stateinfo[DWDColumns.STATE.value]
+
+        # for station, state in mdp.loc[:, [DWDColumns.STATIONNAME.value, DWDColumns.STATE.value]]:
+        #     metainfo.loc[metainfo[DWDColumns.STATIONNAME.value] == station, DWDColumns.STATE.value] = state
 
     metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,
@@ -172,7 +174,7 @@ def create_metainfo_fpath(folder: str,
                           period_type: PeriodType,
                           time_resolution: TimeResolution) -> Path:
     """ checks if the file behind the path exists """
-    folder = correct_folder_path(folder)
+    # folder = correct_folder_path(folder)
 
     create_folder(subfolder=SUB_FOLDER_METADATA,
                   folder=folder)

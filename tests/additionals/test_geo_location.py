@@ -11,6 +11,7 @@ import os
 
 fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 
+
 @patch(
     'python_dwd.metadata_dwd.metadata_for_dwd_data',
     MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON"))

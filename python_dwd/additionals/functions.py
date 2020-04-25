@@ -1,7 +1,7 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, Union, List
+from typing import Tuple, List, Optional
 
 from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -45,11 +45,13 @@ def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, Peri
     return parameter, time_resolution, period_type
 
 
-def retrieve_period_type_from_filename(filename: str) -> Union[PeriodType, None]:
+def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
     """
     defines the period type of storages on dwd server
 
     """
+    filename = filename.lower()
+
     if "_hist" in filename:
         period_type = PeriodType.HISTORICAL
     elif "_akt" in filename:
@@ -64,12 +66,14 @@ def retrieve_period_type_from_filename(filename: str) -> Union[PeriodType, None]
 
 
 def retrieve_parameter_from_filename(filename: str,
-                                     time_resolution: TimeResolution) -> Union[Parameter, None]:
+                                     time_resolution: TimeResolution) -> Optional[Parameter]:
     """
     defines the requested Parameter by checking the filename
 
     """
     filename = filename.lower()
+
+    assert time_resolution in TimeResolution, f"Error: {time_resolution} not in TimeResolution"
 
     if time_resolution == TimeResolution.MINUTE_1:
         if "_nieder_" in filename:
@@ -79,15 +83,23 @@ def retrieve_parameter_from_filename(filename: str,
     elif time_resolution == TimeResolution.MINUTE_10:
         if "_tu_" in filename:
             parameter = Parameter.TEMPERATURE_AIR
-        elif "_tx_" in filename or "_extrema_temp_" in filename:
+        elif "_tx_" in filename:
             parameter = Parameter.TEMPERATURE_EXTREME
-        elif "_fx_" in filename or "_extrema_wind_" in filename:
+        elif "_extrema_temp_" in filename:
+            parameter = Parameter.TEMPERATURE_EXTREME
+        elif "_fx_" in filename:
             parameter = Parameter.WIND_EXTREME
-        elif "_rr_" in filename or "_nieder_" in filename:
+        elif "_extrema_wind_" in filename:
+            parameter = Parameter.WIND_EXTREME
+        elif "_rr_" in filename:
+            parameter = Parameter.PRECIPITATION
+        elif "_nieder_" in filename:
             parameter = Parameter.PRECIPITATION
         elif "_solar_" in filename:
             parameter = Parameter.SOLAR
-        elif "_ff_" in filename or "_wind_" in filename:
+        elif "_ff_" in filename:
+            parameter = Parameter.WIND
+        elif "_wind_" in filename:
             parameter = Parameter.WIND
         else:
             parameter = None
@@ -143,15 +155,18 @@ def retrieve_parameter_from_filename(filename: str,
             parameter = None
     else:
         parameter = None
+
     return parameter
 
 
-def retrieve_time_resolution_from_filename(filename: str) -> Union[TimeResolution, None]:
+def retrieve_time_resolution_from_filename(filename: str) -> Optional[TimeResolution]:
     """
     defines the requested time_resolution/granularity of observations
     by checking the filename
 
     """
+    filename = filename.lower()
+
     if "1minutenwerte_" in filename:
         time_resolution = TimeResolution.MINUTE_1
     elif "10minutenwerte_" in filename:

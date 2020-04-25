@@ -6,15 +6,15 @@ import pandas as pd
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
-from python_dwd.constants.column_name_mapping import STATION_ID_COLUMN_NAME, FILENAME_NAME
 from python_dwd.constants.access_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
+from python_dwd.enumerations.column_names_enumeration import DWDColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def create_file_list_for_dwd_server(statid: List[int],
+def create_file_list_for_dwd_server(station_ids: List[int],
                                     parameter: Parameter,
                                     time_resolution: TimeResolution,
                                     period_type: PeriodType,
@@ -22,12 +22,12 @@ def create_file_list_for_dwd_server(statid: List[int],
                                     create_new_filelist=False) -> pd.DataFrame:
     """
     Function for selecting datafiles (links to archives) for given
-    statid, parameter, time_resolution and period_type under consideration of a
+    station_ids, parameter, time_resolution and period_type under consideration of a
     created list of files that are
     available online.
 
     Args:
-        statid: id for the weather station to ask for data
+        station_ids: id(s) for the weather station to ask for data
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -39,8 +39,8 @@ def create_file_list_for_dwd_server(statid: List[int],
 
     """
     # Check type of function parameters
-    assert isinstance(statid, list)
-    statid = [int(s) for s in statid]
+    assert isinstance(station_ids, list)
+    station_ids = [int(statid) for statid in station_ids]
     assert isinstance(parameter, Parameter)
     assert isinstance(time_resolution, TimeResolution)
     assert isinstance(period_type, PeriodType)
@@ -73,8 +73,8 @@ def create_file_list_for_dwd_server(statid: List[int],
 
     filelist = pd.read_csv(filepath_or_buffer=filelist_local_path,
                            sep=",",
-                           dtype={"FILEID": int,
-                                  "STATION_ID": int,
-                                  "FILENAME": str})
+                           dtype={DWDColumns.FILEID.value: int,
+                                  DWDColumns.STATION_ID.value: int,
+                                  DWDColumns.FILENAME.value: str})
 
-    return filelist.loc[filelist[STATION_ID_COLUMN_NAME].isin(statid), :]
+    return filelist.loc[filelist[DWDColumns.STATION_ID.value].isin(station_ids), :]
