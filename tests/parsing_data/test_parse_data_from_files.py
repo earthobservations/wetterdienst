@@ -1,7 +1,6 @@
 from io import StringIO
 from shutil import rmtree
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 import pandas as pd
 
 from python_dwd import parse_dwd_data
@@ -13,10 +12,7 @@ file = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
 file_in_bytes = StringIO()
 file.to_csv(file_in_bytes, sep=";", )
 
-# @patch(
-#     'pandas.read_csv',
-#     MagicMock(return_value=file_in_bytes)
-# )
+
 def test_parse_dwd_data():
     filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
 

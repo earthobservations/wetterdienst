@@ -6,16 +6,15 @@ from typing import List, Tuple
 from io import TextIOWrapper, BytesIO
 from pathlib import Path, PurePosixPath
 import pandas as pd
-import numpy as np
 from multiprocessing import Pool
 import ftplib
 
-from python_dwd.constants.column_name_mapping import STATION_ID_COLUMN_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_COLUMN_NAME, METADATA_DTYPE_MAPPING, DATE_NAME, EOR_NAME
+from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
 from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
     ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
     STATID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
+from python_dwd.enumerations.column_names_enumeration import DWDColumns
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -73,10 +72,13 @@ def create_metaindex(parameter: Parameter,
                             dtype=str,
                             encoding="ISO-8859-1")
 
-    metaindex_colnames = [colname for colname in metaindex.columns if "unnamed" not in colname.lower()]
-    metaindex_colnames_fixed = "".join(metaindex_colnames).split(" ")
-    metaindex.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(name.upper(), name.upper())
-                         for name in metaindex_colnames_fixed]
+    # Fix column names, as header is not aligned to fixed column widths
+    metaindex.columns = "".join(
+        [column for column in metaindex.columns if "unnamed" not in column.lower()]).split(" ")
+
+    metaindex = metaindex.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+
+    print(metaindex.columns)
 
     return metaindex.astype(METADATA_DTYPE_MAPPING)
 
@@ -120,7 +122,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
 
-    return metaindex_df.sort_values(STATION_ID_COLUMN_NAME).reset_index(drop=True)
+    return metaindex_df.sort_values(DWDColumns.STATION_ID.value).reset_index(drop=True)
 
 
 def download_metadata_file_for_1minute_data(metadatafile: str) -> BytesIO:
@@ -174,10 +176,10 @@ def combine_geo_and_par_file_to_metadata_df(metadata_file_and_statid: Tuple[Byte
     metadata_par_df = metadata_par_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
-    metadata_par_df = metadata_par_df.loc[:, [FROM_DATE_NAME, TO_DATE_NAME]].dropna()
+    metadata_par_df = metadata_par_df.loc[:, [DWDColumns.FROM_DATE.value, DWDColumns.TO_DATE.value]].dropna()
 
-    metadata_geo_df[FROM_DATE_NAME] = metadata_par_df[FROM_DATE_NAME].min()
-    metadata_geo_df[TO_DATE_NAME] = metadata_par_df[TO_DATE_NAME].max()
+    metadata_geo_df[DWDColumns.FROM_DATE.value] = metadata_par_df[DWDColumns.FROM_DATE.value].min()
+    metadata_geo_df[DWDColumns.TO_DATE.value] = metadata_par_df[DWDColumns.TO_DATE.value].max()
 
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
@@ -236,28 +238,27 @@ def create_fileindex(parameter: Parameter,
                                 f"{str(e)}")
 
     files_server = pd.DataFrame(files_server,
-                                columns=[FILENAME_NAME],
+                                columns=[DWDColumns.FILENAME.value],
                                 dtype='str')
 
-    files_server.loc[:, FILENAME_NAME] = files_server.loc[:, FILENAME_NAME].apply(
+    files_server.loc[:, DWDColumns.FILENAME.value] = files_server.loc[:, DWDColumns.FILENAME.value].apply(
         lambda filename: filename.lstrip(DWD_PATH + '/'))
 
     files_server = files_server[files_server.FILENAME.str.contains(
         ARCHIVE_FORMAT)]
 
-    files_server[FILEID_COLUMN_NAME] = files_server.index
+    files_server.loc[:, DWDColumns.FILEID.value] = files_server.index
     
     file_names = files_server.iloc[:, 0].str.split("/").apply(
-        lambda string: string[-1]).str.split("_")
+        lambda string: string[-1])
 
-    files_server[STATION_ID_COLUMN_NAME] = file_names.apply(
-        lambda string: string[_station_id_index_from_seperated_file_name_list(file_names[0])]).astype(int)
+    files_server.loc[:, DWDColumns.STATION_ID.value] = file_names.apply(lambda x: re.findall(STATID_REGEX, x).pop(0))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
     files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
 
-    files_server = files_server.sort_values(by=[STATION_ID_COLUMN_NAME])
+    files_server = files_server.sort_values(by=[DWDColumns.STATION_ID.value])
 
     remove_old_file(file_type=FILELIST_NAME,
                     parameter=parameter,
@@ -267,19 +268,9 @@ def create_fileindex(parameter: Parameter,
                     folder=folder,
                     subfolder=SUB_FOLDER_METADATA)
 
-    files_server.to_csv(path_or_buf=str(filelist_local_path),
+    files_server.to_csv(path_or_buf=filelist_local_path,
                         header=True,
                         index=False)
-
-
-def _station_id_index_from_seperated_file_name_list(seperated_file_name: List[str]) -> int:
-    """ checks out the position of the station_id in seperated file name"""
-    for idx, name in enumerate(seperated_file_name):
-        try:
-            _ = int(name)
-            return idx
-        except ValueError:
-            continue
 
 
 def check_file_exist(file_path: Path) -> bool:
@@ -304,11 +295,11 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
     """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in columns:
-        if column == STATION_ID_COLUMN_NAME:
+        if column == DWDColumns.STATION_ID.value:
             stationdata_dtype_mapping[column] = int
-        elif column == DATE_NAME:
+        elif column == DWDColumns.DATE.value:
             stationdata_dtype_mapping[column] = "datetime64"
-        elif column == EOR_NAME:
+        elif column == DWDColumns.EOR.value:
             stationdata_dtype_mapping[column] = str
         else:
             stationdata_dtype_mapping[column] = float

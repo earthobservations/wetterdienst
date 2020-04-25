@@ -27,12 +27,15 @@ def parse_dwd_data(filenames_and_files: Optional[Union[List[str], List[Tuple[str
     containing product file, and if there's an error or it's wanted the zipfile is
     removed afterwards.
 
-    :param filenames_and_files: list of local stored files that should be read
-    :param write_file: If true, the raw zip file will not be deleted, default is false.
-    :param prefer_local: bool to define if preferably data is loaded from local file
-    :param folder: the folder where data either should be written to or loaded from
-    :returns: DataFrame with requested data
+    Args:
+        filenames_and_files: list of local stored files that should be read
+        write_file: if true, the raw zip file will not be deleted, default is false.
+        prefer_local: define if preferably data is loaded from local file
+        folder: the folder where data either should be written to or loaded from
+        **kwargs: used for alternative input, as a set of station ids, parameter, timeresolution, periodtype
 
+    Returns:
+        pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
     """
     # Unpack values
     try:
@@ -56,28 +59,27 @@ def parse_dwd_data(filenames_and_files: Optional[Union[List[str], List[Tuple[str
     try:
         sample_file = filenames[0]
 
-        statid = [str(int(re.findall(STATID_REGEX, filename).pop(0)))
-                  for filename in filenames]
+        station_ids = [str(int(re.findall(STATID_REGEX, filename).pop(0))) for filename in filenames]
 
         time_res = retrieve_time_resolution_from_filename(sample_file)
         parameter = retrieve_parameter_from_filename(sample_file, time_resolution=time_res)
         period = retrieve_period_type_from_filename(sample_file)
     except (IndexError, TypeError):
         try:
-            statid = cast_to_list(kwargs["statid"])
+            station_ids = cast_to_list(kwargs["station_ids"])
 
             time_res = kwargs["time_resolution"]
             parameter = kwargs["parameter"]
             period = kwargs["period_type"]
         except (KeyError, ValueError):
-            raise ValueError(f"Error: Could neither parse parameters from filename nor from kwargs (statid, "
+            raise ValueError(f"Error: Could neither parse parameters from filename nor from kwargs (station_ids, "
                              f"parameter, time_resolution, period_type).")
     finally:
-        statid = cast_to_list(statid)
+        station_ids = cast_to_list(station_ids)
 
     data = []
-    for statid, group in groupby(zip_longest(statid, filenames, files), key=lambda x: x[0]):
-        request_string = f"{statid[0]}/{parameter.value}/{time_res.value}/{period.value}"
+    for statid, group in groupby(zip_longest(station_ids, filenames, files), key=lambda x: x[0]):
+        request_string = f"{parameter.value}/{time_res.value}/{period.value}/{statid}"
 
         data.append(
             _parse_dwd_data(group, prefer_local, folder, write_file, request_string)
@@ -148,15 +150,7 @@ def _parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]],
         except ValueError:
             return pd.DataFrame()
 
-        column_names = data.columns
-
-        column_names = [column_name.upper().strip()
-                        for column_name in column_names]
-
-        column_names = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(column_name, column_name)
-                        for column_name in column_names]
-
-        data.columns = column_names
+        data = data.rename(columns=str.upper).rename(columns=str.strip).rename(GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
         data = data.astype(create_stationdata_dtype_mapping(data.columns))
 

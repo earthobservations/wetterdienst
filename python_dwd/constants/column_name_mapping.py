@@ -1,50 +1,28 @@
 """ mapping from german column names to english column names"""
 from numpy import datetime64
+from python_dwd.enumerations.column_names_enumeration import DWDOrigColumns, DWDColumns
 
-ORIG_STATION_ID_NAME = "STATIONS_ID"
-ORIG_DATE_NAME = "MESS_DATUM"
-ORIG_FROM_DATE_NAME = "VON_DATUM"
-ORIG_TO_DATE_NAME = "BIS_DATUM"
-ORIG_STATIONHEIGHT_NAME = "STATIONSHOEHE"
-ORIG_LAT_NAME = "GEOBREITE"
-ORIG_LAT_ALT_NAME = "GEOGR.BREITE"
-ORIG_LON_NAME = "GEOLAENGE"
-ORIG_LON_ALT_NAME = "GEOGR.LAENGE"
-ORIG_STATIONNAME_NAME = "STATIONSNAME"
-ORIG_STATE_NAME = "BUNDESLAND"
+GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
+    DWDOrigColumns.STATION_ID.value:                DWDColumns.STATION_ID.value,
+    DWDOrigColumns.DATE.value:                      DWDColumns.DATE.value,
+    DWDOrigColumns.FROM_DATE.value:                 DWDColumns.FROM_DATE.value,
+    DWDOrigColumns.TO_DATE.value:                   DWDColumns.TO_DATE.value,
+    DWDOrigColumns.STATIONHEIGHT.value:             DWDColumns.STATIONHEIGHT.value,
+    DWDOrigColumns.LATITUDE.value:                  DWDColumns.LATITUDE.value,
+    DWDOrigColumns.LATITUDE_ALTERNATIVE.value:      DWDColumns.LATITUDE.value,
+    DWDOrigColumns.LONGITUDE.value:                 DWDColumns.LONGITUDE.value,
+    DWDOrigColumns.LONGITUDE_ALTERNATIVE.value:     DWDColumns.LONGITUDE.value,
+    DWDOrigColumns.STATIONNAME.value:               DWDColumns.STATIONNAME.value,
+    DWDOrigColumns.STATE.value:                     DWDColumns.STATE.value
+}
 
-STATION_ID_COLUMN_NAME = "STATION_ID"
-DATE_NAME = "DATE"
-FROM_DATE_NAME = "FROM_DATE"
-TO_DATE_NAME = "TO_DATE"
-STATIONHEIGHT_NAME = "STATIONHEIGHT"
-LAT_NAME = "LAT"
-LON_NAME = "LON"
-STATIONNAME_NAME = "STATIONNAME"
-STATE_NAME = "STATE"
-EOR_NAME = "EOR"
-
-GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {ORIG_STATION_ID_NAME: STATION_ID_COLUMN_NAME,
-                                     ORIG_DATE_NAME: DATE_NAME,
-                                     ORIG_FROM_DATE_NAME: FROM_DATE_NAME,
-                                     ORIG_TO_DATE_NAME: TO_DATE_NAME,
-                                     ORIG_STATIONHEIGHT_NAME: STATIONHEIGHT_NAME,
-                                     ORIG_LAT_NAME: LAT_NAME,
-                                     ORIG_LAT_ALT_NAME: LAT_NAME,
-                                     ORIG_LON_NAME: LON_NAME,
-                                     ORIG_LON_ALT_NAME: LON_NAME,
-                                     ORIG_STATIONNAME_NAME: STATIONNAME_NAME,
-                                     ORIG_STATE_NAME: STATE_NAME}
-
-METADATA_DTYPE_MAPPING = {STATION_ID_COLUMN_NAME: int,
-                          FROM_DATE_NAME: datetime64,
-                          TO_DATE_NAME: datetime64,
-                          STATIONHEIGHT_NAME: float,
-                          LAT_NAME: float,
-                          LON_NAME: float,
-                          STATIONNAME_NAME: str,
-                          STATE_NAME: str}
-
-FILENAME_NAME = "FILENAME"
-HAS_FILE_NAME = "HAS_FILE"
-FILEID_COLUMN_NAME = "FILEID"
+METADATA_DTYPE_MAPPING = {
+    DWDColumns.STATION_ID.value:        int,
+    DWDColumns.FROM_DATE.value:         datetime64,
+    DWDColumns.TO_DATE.value:           datetime64,
+    DWDColumns.STATIONHEIGHT.value:     float,
+    DWDColumns.LATITUDE.value:          float,
+    DWDColumns.LONGITUDE.value:         float,
+    DWDColumns.STATIONNAME.value:       str,
+    DWDColumns.STATE.value:             str
+}

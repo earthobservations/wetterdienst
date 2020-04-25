@@ -1,16 +1,15 @@
 """ caclualtes the nearest weather station to a requested location"""
 from typing import List, Union, Tuple
-
 import numpy as np
 from scipy.spatial import cKDTree
 
+from python_dwd.metadata_dwd import metadata_for_dwd_data
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.data_models.coordinates import Coordinates
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import \
     TimeResolution
-from python_dwd.metadata_dwd import metadata_for_dwd_data
 
 KM_EARTH_RADIUS = 6371
 
@@ -61,11 +60,18 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
 
 def derive_nearest_neighbours(latitudes_stations: np.array,
                               longitudes_stations: np.array,
-                              coordinates: Coordinates):
+                              coordinates: Coordinates) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     """
-    uses a k-d tree algorithm to obtain the nearest
+    A function that uses a k-d tree algorithm to obtain the nearest
     neighbours to coordinate pairs
 
+    Args:
+        latitudes_stations (np.array): latitude values of stations being compared to the coordinates
+        longitudes_stations (np.array): longitude values of stations being compared to the coordinates
+        coordinates (Coordinates): the coordinates for which the nearest neighbour is searched
+
+    Returns:
+        Tuple of distances and ranks of nearest to most distant stations
     """
     points = np.c_[np.radians(latitudes_stations),
                    np.radians(longitudes_stations)]
