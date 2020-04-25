@@ -1,7 +1,8 @@
 """ A set of helping functions used by the main functions """
+import re
 import urllib
 import zipfile
-from typing import List
+from typing import List, Tuple
 from io import TextIOWrapper, BytesIO
 from pathlib import Path, PurePosixPath
 import pandas as pd
@@ -9,23 +10,18 @@ import numpy as np
 from multiprocessing import Pool
 import ftplib
 
-from python_dwd.constants.column_name_mapping import STATION_ID_COLUMN_NAME, \
-    FROM_DATE_NAME, TO_DATE_NAME, GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
-    FILENAME_NAME, FILEID_COLUMN_NAME, METADATA_DTYPE_MAPPING, DATE_NAME, EOR_NAME
-from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, \
-    MAIN_FOLDER, SUB_FOLDER_METADATA
-from python_dwd.constants.metadata import METADATA_COLUMNS, \
-    METADATA_MATCHSTRINGS, METADATA_1MIN_GEO_MATCHSTRINGS, \
-    METADATA_1MIN_PAR_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
-    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, \
-    STATE_NAME, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE
+from python_dwd.constants.column_name_mapping import STATION_ID_COLUMN_NAME, FROM_DATE_NAME, TO_DATE_NAME, \
+    GERMAN_TO_ENGLISH_COLUMNS_MAPPING, FILENAME_NAME, FILEID_COLUMN_NAME, METADATA_DTYPE_MAPPING, DATE_NAME, EOR_NAME
+from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
+    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
+    STATID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import remove_old_file, \
-    create_folder
+from python_dwd.file_path_handling.path_handling import remove_old_file, create_folder
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
 
 
@@ -112,15 +108,15 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metadata_filepaths = [create_remote_file_name(file.lstrip(DWD_PATH)) for file in metadata_filepaths]
 
+    statids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
+
     metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
     metadata_files = Pool().map(download_metadata_file_for_1minute_data, metadata_filepaths)
 
-    metadata_dfs = Pool().map(combine_geo_and_par_file_to_metadata_df, metadata_files)
+    metadata_dfs = Pool().map(combine_geo_and_par_file_to_metadata_df, zip(metadata_files, statids))
 
     metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
-
-    metaindex_df.loc[:, STATE_NAME] = np.nan
 
     metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
 
@@ -150,48 +146,40 @@ def download_metadata_file_for_1minute_data(metadatafile: str) -> BytesIO:
     return file
 
 
-def combine_geo_and_par_file_to_metadata_df(metadata_file: BytesIO) -> pd.DataFrame:
+def combine_geo_and_par_file_to_metadata_df(metadata_file_and_statid: Tuple[BytesIO, str]) -> pd.DataFrame:
     """ A function that analysis the given file (bytes) and extracts both the geography and the parameter file of
     a 1minute metadata zip and combines both files in a predefined way to catch the relevant information and create a
     similar file to those that can usually be found already prepared for other parameter combinations.
 
     Args:
-        metadata_file (str) - the file that holds the information.
+        metadata_file_and_statid (BytesIO, str) - the file that holds the information and the statid of that file.
 
     Return:
         A pandas DataFrame with the combined data for one respective station.
 
     """
+    metadata_file, statid = metadata_file_and_statid
+
+    metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{statid}.txt"
+    metadata_par_filename = f"{METADATA_1MIN_PAR_PREFIX}{statid}.txt"
+
     with zipfile.ZipFile(metadata_file) as zip_file:
-        files_in_zipfile = zip_file.namelist()
+        with zip_file.open(metadata_geo_filename) as file_opened:
+            metadata_geo_df = parse_zipped_data_into_df(file_opened)
 
-        files_of_geo_and_par = {}
-        dfs_of_geo_and_par = {}
+        with zip_file.open(metadata_par_filename) as file_opened:
+            metadata_par_df = parse_zipped_data_into_df(file_opened)
 
-        for file in files_in_zipfile:
-            if find_all_matchstrings_in_string(file.lower(), METADATA_1MIN_GEO_MATCHSTRINGS):
-                files_of_geo_and_par["geo_file"] = file
-            elif find_all_matchstrings_in_string(file.lower(), METADATA_1MIN_PAR_MATCHSTRINGS):
-                files_of_geo_and_par["par_file"] = file
+    metadata_geo_df = metadata_geo_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    metadata_par_df = metadata_par_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-        for filetype, file in files_of_geo_and_par.items():
-            with zip_file.open(file) as file_opened:
-                df = parse_zipped_data_into_df(file_opened)
+    metadata_geo_df = metadata_geo_df.iloc[[-1], :]
+    metadata_par_df = metadata_par_df.loc[:, [FROM_DATE_NAME, TO_DATE_NAME]].dropna()
 
-            df.columns = [GERMAN_TO_ENGLISH_COLUMNS_MAPPING.get(
-                name.strip().upper(), name.strip().upper())
-                for name in df.columns]
+    metadata_geo_df[FROM_DATE_NAME] = metadata_par_df[FROM_DATE_NAME].min()
+    metadata_geo_df[TO_DATE_NAME] = metadata_par_df[TO_DATE_NAME].max()
 
-            dfs_of_geo_and_par[filetype] = df
-
-    dfs_of_geo_and_par["geo_file"] = dfs_of_geo_and_par["geo_file"].iloc[[-1], :]
-
-    dfs_of_geo_and_par["par_file"] = dfs_of_geo_and_par["par_file"].loc[:, [FROM_DATE_NAME, TO_DATE_NAME]].dropna()
-
-    dfs_of_geo_and_par["geo_file"][FROM_DATE_NAME] = dfs_of_geo_and_par["par_file"][FROM_DATE_NAME].min()
-    dfs_of_geo_and_par["geo_file"][TO_DATE_NAME] = dfs_of_geo_and_par["par_file"][TO_DATE_NAME].max()
-
-    return dfs_of_geo_and_par["geo_file"].loc[:, METADATA_COLUMNS]
+    return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
 
 def parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
@@ -326,3 +314,22 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
             stationdata_dtype_mapping[column] = float
 
     return stationdata_dtype_mapping
+
+
+if __name__ == "__main__":
+    from datetime import datetime
+
+    from python_dwd.enumerations.parameter_enumeration import Parameter
+    from python_dwd.enumerations.period_type_enumeration import PeriodType
+    from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+
+    start = datetime.now()
+
+    metaindex_hist = metaindex_for_1minute_data(parameter=Parameter.PRECIPITATION,
+                               time_resolution=TimeResolution.MINUTE_1)
+    end = datetime.now()
+
+    print(end - start)
+
+    metaindex_hist.to_csv("metaindex_hist.csv")
+
