@@ -12,8 +12,8 @@ METADATA_COLUMNS = [STATION_ID_COLUMN_NAME,
                     STATE_NAME]
 
 METADATA_MATCHSTRINGS = ['beschreibung', '.txt']
-METADATA_1MIN_GEO_MATCHSTRINGS = ["metadaten", "geographie", "txt"]
-METADATA_1MIN_PAR_MATCHSTRINGS = ["metadaten", "parameter", "txt"]
+METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"
+METADATA_1MIN_PAR_PREFIX = "Metadaten_Parameter_"
 STATIONDATA_MATCHSTRINGS = ['produkt']
 FILELIST_NAME = 'filelist'
 METADATA_NAME = 'metadata'
