@@ -78,8 +78,6 @@ def create_metaindex(parameter: Parameter,
 
     metaindex = metaindex.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    print(metaindex.columns)
-
     return metaindex.astype(METADATA_DTYPE_MAPPING)
 
 
