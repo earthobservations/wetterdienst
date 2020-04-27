@@ -13,6 +13,8 @@ def test_retrieve_time_resolution_from_filename():
     assert retrieve_time_resolution_from_filename('10minutenwerte_2019.csv') == TimeResolution.MINUTE_10
     assert retrieve_time_resolution_from_filename('1minutenwerte_2019.csv') == TimeResolution.MINUTE_1
     assert retrieve_time_resolution_from_filename('tageswerte__2019.csv') == TimeResolution.DAILY
+    assert retrieve_time_resolution_from_filename('tageswerte2019.csv') == None
+    
 
 
 def test_retrieve_parameter_from_filename():

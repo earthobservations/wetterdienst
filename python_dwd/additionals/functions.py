@@ -8,6 +8,60 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.parameter_enumeration import Parameter
 
+FILE_2_PARAMETER = {
+    TimeResolution.MINUTE_1:
+        {'nieder': Parameter.PRECIPITATION},
+    TimeResolution.MINUTE_10:
+        {'nieder': Parameter.PRECIPITATION,
+         'tu': Parameter.TEMPERATURE_AIR,
+         'extrema_temp': Parameter.TEMPERATURE_EXTREME,
+         'tx': Parameter.TEMPERATURE_EXTREME,
+         'fx': Parameter.WIND_EXTREME,
+         'rr': Parameter.PRECIPITATION,
+         'extrema_wind': Parameter.WIND_EXTREME,
+         'solar': Parameter.SOLAR,
+         'ff': Parameter.WIND,
+         'wind': Parameter.WIND},
+    TimeResolution.HOURLY:
+        {'tu': Parameter.TEMPERATURE_AIR,
+         'cs': Parameter.CLOUD_TYPE,
+         'n': Parameter.CLOUDINESS,
+         'p0': Parameter.PRESSURE,
+         'eb': Parameter.TEMPERATURE_SOIL,
+         'st': Parameter.SOLAR,
+         'vv': Parameter.VISBILITY,
+         'sd': Parameter.SUNSHINE_DURATION,
+         'rr': Parameter.PRECIPITATION},
+    TimeResolution.DAILY:
+        {'kl': Parameter.CLIMATE_SUMMARY,
+         'rr': Parameter.PRECIPITATION,
+         'eb': Parameter.TEMPERATURE_SOIL,
+         'wa': Parameter.WATER_EQUIVALENT,
+         'st': Parameter.SOLAR},
+    TimeResolution.MONTHLY:
+        {'kl': Parameter.CLIMATE_SUMMARY,
+         'rr': Parameter.PRECIPITATION},
+    TimeResolution.ANNUAL:
+        {'kl': Parameter.CLIMATE_SUMMARY,
+         'rr': Parameter.PRECIPITATION}
+}
+
+FILE_2_TIME_RESOLUTION = {
+    '1minutenwerte': TimeResolution.MINUTE_1,
+    '10minutenwerte': TimeResolution.MINUTE_10,
+    'stundenwerte': TimeResolution.HOURLY,
+    'tageswerte': TimeResolution.DAILY,
+    'monatswerte': TimeResolution.MONTHLY,
+    'jahreswerte': TimeResolution.ANNUAL,
+}
+
+FILE_2_PERIOD = {
+    'hist': PeriodType.HISTORICAL,
+    'now': PeriodType.NOW,
+    'akt': PeriodType.RECENT,
+    'row': PeriodType.ROW
+}
+
 
 def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, PeriodType]:
     """
@@ -74,86 +128,11 @@ def retrieve_parameter_from_filename(filename: str,
     filename = filename.lower()
 
     assert time_resolution in TimeResolution, f"Error: {time_resolution} not in TimeResolution"
-
-    if time_resolution == TimeResolution.MINUTE_1:
-        if "_nieder_" in filename:
-            parameter = Parameter.PRECIPITATION
-        else:
-            parameter = None
-    elif time_resolution == TimeResolution.MINUTE_10:
-        if "_tu_" in filename:
-            parameter = Parameter.TEMPERATURE_AIR
-        elif "_tx_" in filename:
-            parameter = Parameter.TEMPERATURE_EXTREME
-        elif "_extrema_temp_" in filename:
-            parameter = Parameter.TEMPERATURE_EXTREME
-        elif "_fx_" in filename:
-            parameter = Parameter.WIND_EXTREME
-        elif "_extrema_wind_" in filename:
-            parameter = Parameter.WIND_EXTREME
-        elif "_rr_" in filename:
-            parameter = Parameter.PRECIPITATION
-        elif "_nieder_" in filename:
-            parameter = Parameter.PRECIPITATION
-        elif "_solar_" in filename:
-            parameter = Parameter.SOLAR
-        elif "_ff_" in filename:
-            parameter = Parameter.WIND
-        elif "_wind_" in filename:
-            parameter = Parameter.WIND
-        else:
-            parameter = None
-    elif time_resolution == TimeResolution.HOURLY:
-        if "_tu_" in filename:
-            parameter = Parameter.TEMPERATURE_AIR
-        elif "_cs_" in filename:
-            parameter = Parameter.CLOUD_TYPE
-        elif "_n_" in filename:
-            parameter = Parameter.CLOUDINESS
-        elif "_rr_" in filename:
-            parameter = Parameter.PRECIPITATION
-        elif "_p0_" in filename:
-            parameter = Parameter.PRESSURE
-        elif "_eb_" in filename:
-            parameter = Parameter.TEMPERATURE_SOIL
-        elif "_st_" in filename:
-            parameter = Parameter.SOLAR
-        elif "_sd_" in filename:
-            parameter = Parameter.SUNSHINE_DURATION
-        elif "_vv_" in filename:
-            parameter = Parameter.VISBILITY
-        elif "_ff_" in filename:
-            parameter = Parameter.WIND
-        else:
-            parameter = None
-    elif time_resolution == TimeResolution.DAILY:
-        if "_kl_" in filename:
-            parameter = Parameter.CLIMATE_SUMMARY
-        elif "_rr_" in filename:
-            parameter = Parameter.PRECIPITATION_MORE
-        elif "_eb_" in filename:
-            parameter = Parameter.TEMPERATURE_SOIL
-        elif "_st_" in filename:
-            parameter = Parameter.SOLAR
-        elif "_wa_" in filename:
-            parameter = Parameter.WATER_EQUIVALENT
-        else:
-            parameter = None
-    elif time_resolution == TimeResolution.MONTHLY:
-        if "_kl_" in filename:
-            parameter = Parameter.CLIMATE_SUMMARY
-        elif "_rr_" in filename:
-            parameter = Parameter.PRECIPITATION_MORE
-        else:
-            parameter = None
-    elif time_resolution == TimeResolution.ANNUAL:
-        if "_kl_" in filename:
-            parameter = Parameter.CLIMATE_SUMMARY
-        elif "_rr_" in filename:
-            parameter = Parameter.PRECIPITATION_MORE
-        else:
-            parameter = None
-    else:
+    try:
+        parameter = \
+            FILE_2_PARAMETER[time_resolution][
+                list(set(FILE_2_PARAMETER[time_resolution].keys()) & set(filename.split('_')))[0]]
+    except IndexError:
         parameter = None
 
     return parameter
@@ -167,19 +146,10 @@ def retrieve_time_resolution_from_filename(filename: str) -> Optional[TimeResolu
     """
     filename = filename.lower()
 
-    if "1minutenwerte_" in filename:
-        time_resolution = TimeResolution.MINUTE_1
-    elif "10minutenwerte_" in filename:
-        time_resolution = TimeResolution.MINUTE_10
-    elif "stundenwerte_" in filename:
-        time_resolution = TimeResolution.HOURLY
-    elif "tageswerte_" in filename:
-        time_resolution = TimeResolution.DAILY
-    elif "monatswerte_" in filename:
-        time_resolution = TimeResolution.MONTHLY
-    elif "jahreswerte_" in filename:
-        time_resolution = TimeResolution.ANNUAL
-    else:
+    try:
+        time_resolution = \
+            FILE_2_TIME_RESOLUTION[list(set(FILE_2_TIME_RESOLUTION.keys()) & set(filename.split('_')))[0]]
+    except IndexError:
         time_resolution = None
     return time_resolution
 
