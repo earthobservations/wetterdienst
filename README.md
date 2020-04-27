@@ -76,3 +76,13 @@ To use python_dwd in a Docker container, you just have to build the image from t
 ```
     docker build -t "python_dwd" .
 ```
+
+To run the tests in the given environment, just call 
+
+```
+    docker run -ti -v $(pwd):/app python_dwd:latest pytest tests/
+```
+from the main directory. To work in an iPython shell you just have to change the command `pytest tests/` to `ipython`.
+Soon there will be a `fire` based command line script. 
+ 
+

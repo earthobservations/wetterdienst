@@ -10,3 +10,4 @@ ipython-genutils==0.2.0
 matplotlib==3.0.3
 pytest==5.4.1
 mock==0.7.2
+fire==0.3.1
