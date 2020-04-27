@@ -51,6 +51,39 @@ All those functions have one same argument which is **folder**. It can be used t
 
 **get_nearest_station** calculates the nearest weather station based on the coordinates for the requested data. It returns a list of station ids that can be used to download the data 
  
+### Basic usage:
+
+To retrieve observation data:
+``` 
+import python_dwd
+from python_dwd.enumerations.period_type_enumeration import PeriodType
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.enumerations.parameter_enumeration import Parameter
+
+# define requested data
+remote_file_path = python_dwd.create_file_list_for_dwd_server(station_ids=[1048],
+                                                              parameter=Parameter.CLIMATE_SUMMARY,
+                                                              time_resolution=TimeResolution.DAILY,
+                                                              period_type=PeriodType.HISTORICAL) 
+# download data with generated remote file path
+station_download = python_dwd.download_dwd_data(remote_file_path)
+# parsing the data into a dataframe 
+station_data = python_dwd.parse_dwd_data(station_download)
+```
+To retrieve meta data of a product: 
+```
+import python_dwd
+from python_dwd.enumerations.period_type_enumeration import PeriodType
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.enumerations.parameter_enumeration import Parameter
+
+metadata = python_dwd.metadata_for_dwd_data(parameter=Parameter.PRECIPITATION_MORE,
+                                            time_resolution=TimeResolution.DAILY,
+                                            period_type=PeriodType.HISTORICAL)
+
+```
+
+
 ## 4. Listing server files
 
 The server is constantly updated to add new values. This happens in a way that existing station data is appended by newly measured data approxamitly once a year somewhere after new year. This occasion requires the toolset to retrieve a new **filelist**, which has to beinitiated by the user when getting an error about this. For this purpose a function is scanning the server folder for a given parameter set if requested.
@@ -74,5 +107,14 @@ ____
 To use python_dwd in a Docker container, you just have to build the image from this project
 
 ```
-    docker build -t "python_dwd" .
+docker build -t "python_dwd" .
 ```
+
+To run the tests in the given environment, just call 
+
+```
+docker run -ti -v $(pwd):/app python_dwd:latest pytest tests/
+```
+from the main directory. To work in an iPython shell you just have to change the command `pytest tests/` to `ipython`.
+Soon there will be a `fire` based command line script. 
+ 
