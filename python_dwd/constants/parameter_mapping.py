@@ -5,7 +5,7 @@ from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
-TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, List[list]] = {
+TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, List[List[Parameter], List[PeriodType]]] = {
     TimeResolution.MINUTE_1: [[Parameter.PRECIPITATION],
                               [PeriodType.HISTORICAL,
                                PeriodType.RECENT,
@@ -38,7 +38,8 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, List[list]] = {
                             Parameter.SOLAR,
                             Parameter.WATER_EQUIVALENT],
                            [PeriodType.HISTORICAL,
-                            PeriodType.RECENT]],
+                            PeriodType.RECENT,
+                            ]],
     TimeResolution.MONTHLY: [[Parameter.CLIMATE_SUMMARY,
                               Parameter.PRECIPITATION_MORE],
                              [PeriodType.HISTORICAL,

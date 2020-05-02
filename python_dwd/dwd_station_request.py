@@ -2,9 +2,6 @@ from typing import List, Union, Optional, Dict, Generator
 import pandas as pd
 from pandas import Timestamp
 
-from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
-from python_dwd.download.download import download_dwd_data
-from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 from python_dwd.additionals.time_handling import parse_date
 from python_dwd.constants.parameter_mapping import PARAMETER_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, \
     PERIODTYPE_WORDLIST_MAPPING
@@ -13,9 +10,6 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.additionals.functions import check_parameters, cast_to_list
 from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
-
-from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
 
 
 class DWDStationRequest:
@@ -38,7 +32,6 @@ class DWDStationRequest:
             raise ValueError("List of station id's contains none integer values or is at least not given as a list")
         
         self.station_id = [int(s) for s in cast_to_list(station_id)]
-
         self.parameter = parameter if isinstance(parameter, Parameter) \
             else _parse_parameter_from_value(parameter, PARAMETER_WORDLIST_MAPPING)
 
@@ -87,6 +80,34 @@ class DWDStationRequest:
                           "& ".join([period_type.value for period_type in self.period_type]),
                           self.start_date.value,
                           self.end_date.value])
+
+    def collect_data(
+            self,
+            return_type: Optional[pd.DataFrame]
+    ) -> Union[Generator[pd.DataFrame, None, None], pd.DataFrame]:
+        """
+        Function to collect data for a defined request. The type of data that is returned can be defined with
+        return_type. This can be useful if expected amount of data load is small enough and it can be summarized into
+        one object. This function is a wrapper around _collect_data which does the actual collecting work.
+
+        Args:
+            return_type: the request return type, if defined it will be tried to return the collected data as casted to
+            that type instead
+
+        Returns:
+            pandas.DataFrame with the loaded data, either from a Generator or directly as DataFrame
+        """
+        pass
+
+    def _collect_data(self) -> Generator[pd.DataFrame, None, None]:
+        """
+        Function to collect the data, which will be returned station wise as by defined station ids. For every station
+        id the generator will hold one pandas.DataFrame.
+
+        Returns:
+            pandas.DataFrame as generator
+        """
+        pass
 
 
 def _find_any_one_word_from_wordlist(string_list: List[str],
