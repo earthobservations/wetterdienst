@@ -1,9 +1,11 @@
 """ time resolution to parameter mapping """
+from typing import Dict, List
+
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
-TIME_RESOLUTION_PARAMETER_MAPPING = {
+TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, List[List[Parameter], List[PeriodType]]] = {
     TimeResolution.MINUTE_1: [[Parameter.PRECIPITATION],
                               [PeriodType.HISTORICAL,
                                PeriodType.RECENT,
@@ -49,7 +51,7 @@ TIME_RESOLUTION_PARAMETER_MAPPING = {
                              PeriodType.RECENT,
                              ]]
 }
-PARAMETER_WORDLIST_MAPPING = {
+PARAMETER_WORDLIST_MAPPING: Dict[Parameter, List[List[str]]] = {
     Parameter.TEMPERATURE_SOIL:     [["soil", "boden", "ground"], ["temp"]],
     Parameter.TEMPERATURE_AIR:      [["air", "luft"], ["temp"]],
     Parameter.PRECIPITATION:        [["prec", "nied"]],
@@ -66,7 +68,7 @@ PARAMETER_WORDLIST_MAPPING = {
     Parameter.PRESSURE:             [["press", "druck"]],
     Parameter.CLIMATE_SUMMARY:      [["kl", "cl"]]
 }
-TIMERESOLUTION_WORDLIST_MAPPING = {
+TIMERESOLUTION_WORDLIST_MAPPING: Dict[TimeResolution, List[List[str]]] = {
     TimeResolution.MINUTE_1:    [["1", "one", "ein"], ["min"]],
     TimeResolution.MINUTE_10:   [["10", "ten", "zehn"], ["min"]],
     TimeResolution.HOURLY:      [["hour", "stünd"]],
@@ -74,7 +76,7 @@ TIMERESOLUTION_WORDLIST_MAPPING = {
     TimeResolution.MONTHLY:     [["month", "monat"]],
     TimeResolution.ANNUAL:      [["year", "jahr", "annual", "jähr"]]
 }
-PERIODTYPE_WORDLIST_MAPPING = {
+PERIODTYPE_WORDLIST_MAPPING: Dict[PeriodType, List[List[str]]] = {
     PeriodType.HISTORICAL:  [["hist"]],
     PeriodType.RECENT:      [["rec", "akt"]],
     PeriodType.NOW:         [["now", "jetzt", "real-time"]]

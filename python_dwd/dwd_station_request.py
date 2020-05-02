@@ -1,4 +1,5 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict, Generator
+import pandas as pd
 from pandas import Timestamp
 
 from python_dwd.additionals.time_handling import parse_date
@@ -16,12 +17,12 @@ class DWDStationRequest:
     The DWDStationRequest class represents a request for station data as provided by the DWD service
     """
     def __init__(self,
-                 station_id: List[int],
+                 station_id: Union[str, int, List[Union[int, str]]],
                  parameter: Union[str, Parameter],
                  time_resolution: Union[str, TimeResolution],
                  period_type: Union[None, str, list, PeriodType] = None,
                  start_date: Union[None, str, Timestamp] = None,
-                 end_date: Union[None, str, Timestamp] = None):
+                 end_date: Union[None, str, Timestamp] = None) -> None:
 
         if not (period_type or (start_date and end_date)):
             raise ValueError("Define either a 'time_resolution' or both the 'start_date' and 'end_date' and "
@@ -30,7 +31,7 @@ class DWDStationRequest:
         if not all(isinstance(x, int) for x in station_id):
             raise ValueError("List of station id's contains none integer values or is at least not given as a list")
         
-        self.station_id = station_id
+        self.station_id = [int(s) for s in cast_to_list(station_id)]
         self.parameter = parameter if isinstance(parameter, Parameter) \
             else _parse_parameter_from_value(parameter, PARAMETER_WORDLIST_MAPPING)
 
@@ -55,7 +56,8 @@ class DWDStationRequest:
             if not check_parameters(parameter=self.parameter,
                                     time_resolution=self.time_resolution,
                                     period_type=period_type):
-                print(f"Combination of: parameter {self.parameter.value}, time_resolution {self.time_resolution.value}, "
+                print(f"Combination of: parameter {self.parameter.value}, "
+                      f"time_resolution {self.time_resolution.value}, "
                       f"period_type {period_type} not available and removed.")
                 self.period_type.remove(period_type)
 
@@ -79,18 +81,44 @@ class DWDStationRequest:
                           self.start_date.value,
                           self.end_date.value])
 
+    def collect_data(
+            self,
+            return_type: Optional[pd.DataFrame]
+    ) -> Union[Generator[pd.DataFrame, None, None], pd.DataFrame]:
+        """
+        Function to collect data for a defined request. The type of data that is returned can be defined with
+        return_type. This can be useful if expected amount of data load is small enough and it can be summarized into
+        one object. This function is a wrapper around _collect_data which does the actual collecting work.
 
-def _strip_and_lower_string(string):
-    return string.strip().lower()
+        Args:
+            return_type: the request return type, if defined it will be tried to return the collected data as casted to
+            that type instead
+
+        Returns:
+            pandas.DataFrame with the loaded data, either from a Generator or directly as DataFrame
+        """
+        pass
+
+    def _collect_data(self) -> Generator[pd.DataFrame, None, None]:
+        """
+        Function to collect the data, which will be returned station wise as by defined station ids. For every station
+        id the generator will hold one pandas.DataFrame.
+
+        Returns:
+            pandas.DataFrame as generator
+        """
+        pass
 
 
 def _find_any_one_word_from_wordlist(string_list: List[str],
                                      word_list: List[List[str]]) -> bool:
     """
+    Function that tries to match a list of strings with a list of words by trying to find any word of each given list of
+    words in one of the strings given by string_list.
 
     Args:
-        string_list: 
-        word_list: 
+        string_list: list of strings
+        word_list: list one or more list of words
 
     Returns:
         boolean if any of the strings in string list are in the word_list 
@@ -115,25 +143,26 @@ def _find_any_one_word_from_wordlist(string_list: List[str],
 
 def _parse_parameter_from_value(
         string: str,
-        parameter_to_wordlist_mapping: dict
+        parameter_to_wordlist_mapping: Dict[Union[TimeResolution, PeriodType, Parameter], List[List[str]]]
 ) -> Optional[Union[TimeResolution, PeriodType, Parameter]]:
     """
+    Function to parse a parameter from a given string based on a list of parameter enumerations and corresponding list
+    of words.
 
     Args:
-        string: 
-        parameter_to_wordlist_mapping: 
+        string: string containing the circa name of the parameter
+        parameter_to_wordlist_mapping: mapping of parameter and list of words
 
     Returns:
-
+        None or one of the found enumerations
     """
-    string_splitted = string.split("_")
+    string_split = string.split("_")
 
     for parameter, wordlist in parameter_to_wordlist_mapping.items():
-        cond1 = len(wordlist) == len(string_splitted)
-        cond2 = _find_any_one_word_from_wordlist(string_splitted, wordlist)
+        cond1 = len(wordlist) == len(string_split)
+        cond2 = _find_any_one_word_from_wordlist(string_split, wordlist)
 
         if cond1 and cond2:
             return parameter
 
     return None
-
