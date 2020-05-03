@@ -10,7 +10,7 @@ from multiprocessing import Pool
 import ftplib
 
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
-from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
     ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
     STATID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
@@ -204,18 +204,18 @@ def parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
 def create_fileindex(parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType,
-                     folder: str = MAIN_FOLDER) -> None:
+                     folder: str = DWD_FOLDER_MAIN) -> None:
     """
         A function to receive current files on server as list excluding description
         files and only containing those files that have measuring data.
 
     """
     # Check for folder and create if necessary
-    create_folder(subfolder=SUB_FOLDER_METADATA,
+    create_folder(subfolder=DWD_FOLDER_METADATA,
                   folder=folder)
 
     filelist_local_path = Path(folder,
-                               SUB_FOLDER_METADATA,
+                               DWD_FOLDER_METADATA,
                                f"{FILELIST_NAME}_{parameter.value}_"
                                f"{time_resolution.value}_"
                                f"{period_type.value}{DATA_FORMAT}")
@@ -264,7 +264,7 @@ def create_fileindex(parameter: Parameter,
                     period_type=period_type,
                     file_postfix=DATA_FORMAT,
                     folder=folder,
-                    subfolder=SUB_FOLDER_METADATA)
+                    subfolder=DWD_FOLDER_METADATA)
 
     files_server.to_csv(path_or_buf=filelist_local_path,
                         header=True,

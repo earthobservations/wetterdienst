@@ -7,8 +7,8 @@ from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
 from python_dwd.enumerations.column_names_enumeration import DWDColumns
-from python_dwd.constants.access_credentials import MAIN_FOLDER, \
-    SUB_FOLDER_METADATA
+from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, \
+    DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -66,7 +66,7 @@ def add_filepresence(metainfo: pd.DataFrame,
 def metadata_for_dwd_data(parameter: Parameter,
                           time_resolution: TimeResolution,
                           period_type: PeriodType,
-                          folder: str = MAIN_FOLDER,
+                          folder: str = DWD_FOLDER_MAIN,
                           write_file: bool = True,
                           create_new_filelist: bool = False) -> pd.DataFrame:
     """
@@ -160,7 +160,7 @@ def metadata_for_dwd_data(parameter: Parameter,
                         time_resolution=time_resolution,
                         period_type=period_type,
                         folder=folder,
-                        subfolder=SUB_FOLDER_METADATA)
+                        subfolder=DWD_FOLDER_METADATA)
 
         metainfo.to_csv(path_or_buf=file_path,
                         header=True,
@@ -176,10 +176,10 @@ def create_metainfo_fpath(folder: str,
     """ checks if the file behind the path exists """
     # folder = correct_folder_path(folder)
 
-    create_folder(subfolder=SUB_FOLDER_METADATA,
+    create_folder(subfolder=DWD_FOLDER_METADATA,
                   folder=folder)
     return Path(folder,
-                SUB_FOLDER_METADATA,
+                DWD_FOLDER_METADATA,
                 f"{METADATA_NAME}_{parameter.value}_"
                 f"{time_resolution.value}_{period_type.value}"
                 f"{DATA_FORMAT}")
