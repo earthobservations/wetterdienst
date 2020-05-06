@@ -21,13 +21,13 @@ def download_dwd_data(remote_files: pd.DataFrame,
     if parallel_download:
         return list(
             zip(
-                remote_files,
+                [remote_file.split("/")[-1] for remote_file in remote_files],
                 Pool().map(_download_dwd_data, remote_files)
             )
         )
     else:
         return [
-            (remote_file, _download_dwd_data(remote_file))
+            (remote_file.split("/")[-1], _download_dwd_data(remote_file))
             for remote_file in remote_files
         ]
 

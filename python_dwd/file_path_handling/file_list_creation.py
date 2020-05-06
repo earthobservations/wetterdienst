@@ -6,7 +6,7 @@ import pandas as pd
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
-from python_dwd.constants.access_credentials import MAIN_FOLDER, SUB_FOLDER_METADATA
+from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
 from python_dwd.enumerations.column_names_enumeration import DWDColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -18,7 +18,7 @@ def create_file_list_for_dwd_server(station_ids: List[int],
                                     parameter: Parameter,
                                     time_resolution: TimeResolution,
                                     period_type: PeriodType,
-                                    folder: str = MAIN_FOLDER,
+                                    folder: str = DWD_FOLDER_MAIN,
                                     create_new_filelist=False) -> pd.DataFrame:
     """
     Function for selecting datafiles (links to archives) for given
@@ -60,7 +60,7 @@ def create_file_list_for_dwd_server(station_ids: List[int],
 
     # Create filepath to filelist in folder
     filelist_local_path = Path(folder,
-                               SUB_FOLDER_METADATA,
+                               DWD_FOLDER_METADATA,
                                filelist_local)
 
     filelist_local_path = f"{filelist_local_path}{DATA_FORMAT}"
