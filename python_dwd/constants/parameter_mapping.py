@@ -1,11 +1,11 @@
 """ time resolution to parameter mapping """
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
-TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, List[List[Parameter], List[PeriodType]]] = {
+TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, List[List[Union[Parameter, PeriodType]]]] = {
     TimeResolution.MINUTE_1: [[Parameter.PRECIPITATION],
                               [PeriodType.HISTORICAL,
                                PeriodType.RECENT,
