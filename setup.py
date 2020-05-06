@@ -14,6 +14,5 @@ setup(
     author='Benjamin Gutzmann',
     author_email='gutzemann@gmail.com',
     packages=['python_dwd'],  # , 'python_dwd.additionals'
-    install_requires=['pandas', 'pathlib',
-                      'zipfile', 'scipy', 'numpy']
+    install_requires=['pandas', 'tqdm', 'pathlib', 'zipfile']
 )

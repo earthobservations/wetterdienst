@@ -1,69 +1,75 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, List, Optional
+from pathlib import Path
+from typing import Tuple
 
 from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
-
-FILE_2_PARAMETER = {
-    TimeResolution.MINUTE_1:
-        {'nieder': Parameter.PRECIPITATION},
-    TimeResolution.MINUTE_10:
-        {'nieder': Parameter.PRECIPITATION,
-         'tu': Parameter.TEMPERATURE_AIR,
-         'extrema_temp': Parameter.TEMPERATURE_EXTREME,
-         'tx': Parameter.TEMPERATURE_EXTREME,
-         'fx': Parameter.WIND_EXTREME,
-         'rr': Parameter.PRECIPITATION,
-         'extrema_wind': Parameter.WIND_EXTREME,
-         'solar': Parameter.SOLAR,
-         'ff': Parameter.WIND,
-         'wind': Parameter.WIND},
-    TimeResolution.HOURLY:
-        {'tu': Parameter.TEMPERATURE_AIR,
-         'cs': Parameter.CLOUD_TYPE,
-         'n': Parameter.CLOUDINESS,
-         'p0': Parameter.PRESSURE,
-         'eb': Parameter.TEMPERATURE_SOIL,
-         'st': Parameter.SOLAR,
-         'vv': Parameter.VISBILITY,
-         'sd': Parameter.SUNSHINE_DURATION,
-         'rr': Parameter.PRECIPITATION},
-    TimeResolution.DAILY:
-        {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION,
-         'eb': Parameter.TEMPERATURE_SOIL,
-         'wa': Parameter.WATER_EQUIVALENT,
-         'st': Parameter.SOLAR},
-    TimeResolution.MONTHLY:
-        {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION},
-    TimeResolution.ANNUAL:
-        {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION}
-}
-
-FILE_2_TIME_RESOLUTION = {
-    '1minutenwerte': TimeResolution.MINUTE_1,
-    '10minutenwerte': TimeResolution.MINUTE_10,
-    'stundenwerte': TimeResolution.HOURLY,
-    'tageswerte': TimeResolution.DAILY,
-    'monatswerte': TimeResolution.MONTHLY,
-    'jahreswerte': TimeResolution.ANNUAL,
-}
-
-FILE_2_PERIOD = {
-    'hist': PeriodType.HISTORICAL,
-    'now': PeriodType.NOW,
-    'akt': PeriodType.RECENT,
-    'row': PeriodType.ROW
-}
 
 
-def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, PeriodType]:
+def correct_folder_path(folder: str) -> str:
+    """ checks if given folder ends with "/" cuts that off """
+    return folder.rstrip('/')
+
+
+def remove_old_file(file_type,
+                    parameter,
+                    time_resolution,
+                    period_type,
+                    fileformat,
+                    folder,
+                    subfolder):
+    """
+        Function to remove old dwd file (metadata)
+    Args:
+        file_type:
+        parameter: observation measure
+        time_resolution: frequency/granularity of measurement interval
+        period_type: recent or historical files
+        fileformat:
+        folder:
+        subfolder:
+
+    Returns:
+        Deleted file on local filesystem
+
+    """
+    file_to_remove = f"{file_type}_{parameter}_{time_resolution}_{period_type}{fileformat}"
+
+    filepath_to_remove = Path(folder,
+                              subfolder,
+                              file_to_remove)
+
+    # Try to remove the file
+    try:
+        Path.unlink(filepath_to_remove)
+    except Exception:
+        pass
+        # print('No file found to delete in \n{}!'.format(folder))
+
+    return None
+
+
+def create_folder(subfolder: str,
+                  folder: str):
+    """
+    Function for creating folder structure for saved stationdata
+    """
+    folder = correct_folder_path(folder)
+    path_to_create = Path(folder,
+                          subfolder)
+
+    # Try to create folder
+    try:
+        if not Path(path_to_create).is_dir():
+            Path(path_to_create).mkdir(parents=True)
+    except Exception:
+        raise NameError(f"Folder couldn't be created at \n{path_to_create} !")
+
+    return None
+
+
+def determine_parameters(filename: str) -> Tuple[str, str, str]:
     """
     Function to determine the type of file from the bare filename
     Needed for downloading the file and naming it correctly and understandable
@@ -80,18 +86,111 @@ def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, Peri
     filename = filename.lower()
 
     # First check for time resolution
-    time_resolution = retrieve_time_resolution_from_filename(filename)
+    if "1minutenwerte_" in filename:
+        time_resolution = "1_minute"
+    elif "10minutenwerte_" in filename:
+        time_resolution = "10_minutes"
+    elif "stundenwerte_" in filename:
+        time_resolution = "hourly"
+    elif "tageswerte_" in filename:
+        time_resolution = "daily"
+    elif "monatswerte_" in filename:
+        time_resolution = "monthly"
+    elif "jahreswerte_" in filename:
+        time_resolution = "annual"
+    else:
+        time_resolution = None
 
     if time_resolution is None:
         raise NameError(f"Resolution {time_resolution} couldn't be determined.")
 
     # First determine the variable
-    parameter = retrieve_parameter_from_filename(filename, time_resolution)
+    if time_resolution == "1_minute":
+        if "_nieder_" in filename:
+            parameter = "precipitation"
+        else:
+            parameter = None
+    elif time_resolution == "10_minutes":
+        if "_tu_" in filename:
+            parameter = "air_temperature"
+        elif "_tx_" in filename or "_extrema_temp_" in filename:
+            parameter = "extreme_temperature"
+        elif "_fx_" in filename or "_extrema_wind_" in filename:
+            parameter = "extreme_wind"
+        elif "_rr_" in filename or "_nieder_" in filename:
+            parameter = "precipitation"
+        elif "_solar_" in filename:
+            parameter = "solar"
+        elif "_ff_" in filename or "_wind_" in filename:
+            parameter = "wind"
+        else:
+            parameter = None
+    elif time_resolution == "hourly":
+        if "_tu_" in filename:
+            parameter = "air_temperature"
+        elif "_cs_" in filename:
+            parameter = "cloud_type"
+        elif "_n_" in filename:
+            parameter = "cloudiness"
+        elif "_rr_" in filename:
+            parameter = "precipitation"
+        elif "_p0_" in filename:
+            parameter = "pressure"
+        elif "_eb_" in filename:
+            parameter = "soil_temperature"
+        elif "_st_" in filename:
+            parameter = "solar"
+        elif "_sd_" in filename:
+            parameter = "sun"
+        elif "_vv_" in filename:
+            parameter = "visibility"
+        elif "_ff_" in filename:
+            parameter = "wind"
+        else:
+            parameter = None
+    elif time_resolution == "daily":
+        if "_kl_" in filename:
+            parameter = "kl"
+        elif "_rr_" in filename:
+            parameter = "more_precip"
+        elif "_eb_" in filename:
+            parameter = "soil_temperature"
+        elif "_st_" in filename:
+            parameter = "solar"
+        elif "_wa_" in filename:
+            parameter = "water_equiv"
+        else:
+            parameter = None
+    elif time_resolution == "monthly":
+        if "_kl_" in filename:
+            parameter = "kl"
+        elif "_rr_" in filename:
+            parameter = "more_precip"
+        else:
+            parameter = None
+    elif time_resolution == "annual":
+        if "_kl_" in filename:
+            parameter = "kl"
+        elif "_rr_" in filename:
+            parameter = "more_precip"
+        else:
+            parameter = None
+    else:
+        parameter = None
 
     if parameter is None:
         raise NameError(f"Variable {parameter} couldn't be determined.")
 
-    period_type = retrieve_period_type_from_filename(filename)
+    if "_hist" in filename:
+        period_type = "historical"
+    elif "_akt" in filename:
+        period_type = "recent"
+    elif "_now" in filename:
+        period_type = "now"
+    elif "_row" in filename:
+        period_type = ""
+    else:
+        period_type = None
 
     if period_type is None:
         raise NameError(f"Timestamp {period_type} couldn't be determined.")
@@ -99,97 +198,20 @@ def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, Peri
     return parameter, time_resolution, period_type
 
 
-def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
-    """
-    defines the period type of storages on dwd server
-
-    """
-    filename = filename.lower()
-
-    if "_hist" in filename:
-        period_type = PeriodType.HISTORICAL
-    elif "_akt" in filename:
-        period_type = PeriodType.RECENT
-    elif "_now" in filename:
-        period_type = PeriodType.NOW
-    elif "_row" in filename:
-        period_type = PeriodType.ROW
-    else:
-        period_type = None
-    return period_type
-
-
-def retrieve_parameter_from_filename(filename: str,
-                                     time_resolution: TimeResolution) -> Optional[Parameter]:
-    """
-    defines the requested Parameter by checking the filename
-
-    """
-    filename = filename.lower()
-
-    assert time_resolution in TimeResolution, f"Error: {time_resolution} not in TimeResolution"
-    try:
-        parameter = \
-            FILE_2_PARAMETER[time_resolution][
-                list(set(FILE_2_PARAMETER[time_resolution].keys()) & set(filename.split('_')))[0]]
-    except IndexError:
-        parameter = None
-
-    return parameter
-
-
-def retrieve_time_resolution_from_filename(filename: str) -> Optional[TimeResolution]:
-    """
-    defines the requested time_resolution/granularity of observations
-    by checking the filename
-
-    """
-    filename = filename.lower()
-
-    try:
-        time_resolution = \
-            FILE_2_TIME_RESOLUTION[list(set(FILE_2_TIME_RESOLUTION.keys()) & set(filename.split('_')))[0]]
-    except IndexError:
-        time_resolution = None
-    return time_resolution
-
-
-def check_parameters(parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType) -> bool:
+def check_parameters(parameter: str,
+                     time_resolution: str,
+                     period_type: str):
     """
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
+
     """
     check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, [[], []])
 
     if parameter not in check[0] or period_type not in check[1]:
-        return False
+        raise NameError(
+            f"Combination of time_resolution={time_resolution},parameter={parameter} "
+            f"and period_type={period_type} not available.Possible parameters are: "
+            f"{TIME_RESOLUTION_PARAMETER_MAPPING}.")
 
-    return True
-
-
-def find_all_matchstrings_in_string(string: str,
-                                    matchstrings: List[str]):
-    """ check if string has all matchstrings in it """
-    return all([matchstring in string for matchstring in matchstrings])
-
-
-def cast_to_list(iterable_):
-    """
-    A function that either converts an existing iterable to a list or simply puts the item into a list to make an
-    iterable that includes this item.
-    Args:
-        iterable_:
-    Return:
-        ?
-    """
-    try:
-        iterable_ = iterable_.split()
-    except (AttributeError, SyntaxError):
-        try:
-            iterable_ = list(iterable_)
-        except TypeError:
-            iterable_ = [iterable_]
-
-    return iterable_
+    return None
