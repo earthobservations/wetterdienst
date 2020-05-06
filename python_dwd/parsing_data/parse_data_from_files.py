@@ -11,14 +11,14 @@ from python_dwd.additionals.functions import retrieve_parameter_from_filename, r
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import NA_STRING, STATIONDATA_SEP, STATID_REGEX, H5_FORMAT, STATIONDATA_NAME
-from python_dwd.constants.access_credentials import MAIN_FOLDER
+from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
 from python_dwd.file_path_handling.path_handling import create_folder
 
 
 def parse_dwd_data(filenames_and_files: Optional[Union[List[str], List[Tuple[str, BytesIO]]]] = None,
                    write_file: bool = False,
                    prefer_local: bool = False,
-                   folder: str = MAIN_FOLDER,
+                   folder: str = DWD_FOLDER_MAIN,
                    **kwargs) -> pd.DataFrame:
     """
     This function is used to read the stationdata for which the local zip link is
