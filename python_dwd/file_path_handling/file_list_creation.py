@@ -1,9 +1,9 @@
 """ file list creation for requested files """
 from pathlib import Path
-from typing import List
+from typing import List, Union
 import pandas as pd
 
-from python_dwd.additionals.functions import check_parameters
+from python_dwd.additionals.functions import check_parameters, cast_to_list
 from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
@@ -14,7 +14,7 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def create_file_list_for_dwd_server(station_ids: List[int],
+def create_file_list_for_dwd_server(station_ids: Union[str, int, List[int]],
                                     parameter: Parameter,
                                     time_resolution: TimeResolution,
                                     period_type: PeriodType,
@@ -38,21 +38,12 @@ def create_file_list_for_dwd_server(station_ids: List[int],
         List of path's to file
 
     """
-    # Check type of function parameters
-    assert isinstance(station_ids, list)
-    station_ids = [int(statid) for statid in station_ids]
-    assert isinstance(parameter, Parameter)
-    assert isinstance(time_resolution, TimeResolution)
-    assert isinstance(period_type, PeriodType)
-    assert isinstance(folder, str)
-    assert isinstance(create_new_filelist, bool)
+    station_ids = [int(station_id) for station_id in cast_to_list(station_ids)]
 
     # Check for the combination of requested parameters
     check_parameters(parameter=parameter,
                      time_resolution=time_resolution,
                      period_type=period_type)
-
-    folder = correct_folder_path(folder)
 
     # Create name of fileslistfile
     filelist_local = f'{FILELIST_NAME}_{parameter.value}_' \

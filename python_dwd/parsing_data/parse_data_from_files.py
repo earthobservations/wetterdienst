@@ -66,7 +66,7 @@ def parse_dwd_data(filenames_and_files: Optional[Union[List[str], List[Tuple[str
         period = retrieve_period_type_from_filename(sample_file)
     except (IndexError, TypeError):
         try:
-            station_ids = cast_to_list(kwargs["station_ids"])
+            station_ids = kwargs["station_ids"]
 
             time_res = kwargs["time_resolution"]
             parameter = kwargs["parameter"]
@@ -74,12 +74,12 @@ def parse_dwd_data(filenames_and_files: Optional[Union[List[str], List[Tuple[str
         except (KeyError, ValueError):
             raise ValueError(f"Error: Could neither parse parameters from filename nor from kwargs (station_ids, "
                              f"parameter, time_resolution, period_type).")
-    finally:
-        station_ids = cast_to_list(station_ids)
+
+    station_ids = [int(station_id) for station_id in cast_to_list(station_ids)]
 
     data = []
-    for statid, group in groupby(zip_longest(station_ids, filenames, files), key=lambda x: x[0]):
-        request_string = f"{parameter.value}/{time_res.value}/{period.value}/{statid}"
+    for station_id, group in groupby(zip_longest(station_ids, filenames, files), key=lambda x: x[0]):
+        request_string = f"{parameter.value}/{time_res.value}/{period.value}/{station_id}"
 
         data.append(
             _parse_dwd_data(group, prefer_local, folder, write_file, request_string)
@@ -129,7 +129,7 @@ def _parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]],
 
     if not loaded_locally:
         data = []
-        for _statid, filename, file_in_bytes in files_in_bytes:
+        for _station_id, filename, file_in_bytes in files_in_bytes:
             try:
                 data_file = pd.read_csv(
                     filepath_or_buffer=file_in_bytes,

@@ -23,7 +23,7 @@ class DWDStationRequest:
     The DWDStationRequest class represents a request for station data as provided by the DWD service
     """
     def __init__(self,
-                 station_id: Union[str, int, List[Union[int, str]]],
+                 station_ids: Union[str, int, List[Union[int, str]]],
                  parameter: Union[str, Parameter],
                  time_resolution: Union[str, TimeResolution],
                  period_type: Union[None, str, list, PeriodType] = None,
@@ -34,10 +34,10 @@ class DWDStationRequest:
             raise ValueError("Define either a 'time_resolution' or both the 'start_date' and 'end_date' and "
                              "leave the other one empty!")
 
-        if not all(isinstance(x, int) for x in station_id):
-            raise ValueError("List of station id's contains none integer values or is at least not given as a list")
-        
-        self.station_id = [int(s) for s in cast_to_list(station_id)]
+        try:
+            self.station_id = [int(s) for s in cast_to_list(station_ids)]
+        except ValueError:
+            raise ValueError("List of station id's can not be parsed to integers.")
 
         self.parameter = parameter if isinstance(parameter, Parameter) \
             else _parse_parameter_from_value(parameter, PARAMETER_WORDLIST_MAPPING)
@@ -57,7 +57,7 @@ class DWDStationRequest:
             self.period_type = [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW]
 
             if not self.start_date <= self.end_date:
-                raise StartDateEndDateError
+                raise StartDateEndDateError("Error: 'start_date' must be smaller or equal to 'end_date'.")
 
         for period_type in self.period_type.copy():
             if not check_parameters(parameter=self.parameter,
@@ -70,7 +70,7 @@ class DWDStationRequest:
 
         # Use the clean up of self.period_type to identify if there's any data with those parameters
         if not self.period_type:
-            raise ValueError("Error: no combination for parameter, time_resolution and period_type could be found.")
+            raise ValueError("No combination for parameter, time_resolution and period_type could be found.")
 
     def __eq__(self, other):
         return [self.station_id,
@@ -88,14 +88,12 @@ class DWDStationRequest:
                           self.start_date.value,
                           self.end_date.value])
 
-    def collect_data(
-            self,
-            return_type: str = "generator",
-            prefer_local: bool = False,
-            write_file: bool = False,
-            folder: str = DWD_FOLDER_MAIN,
-            create_new_filelist: bool = False
-    ) -> Union[Generator[pd.DataFrame, None, None], pd.DataFrame]:
+    def collect_data(self,
+                     return_type: str = "generator",
+                     prefer_local: bool = False,
+                     write_file: bool = False,
+                     folder: str = DWD_FOLDER_MAIN,
+                     create_new_filelist: bool = False) -> Union[Generator[pd.DataFrame, None, None], pd.DataFrame]:
         """
         Function to collect data for a defined request. The type of data that is returned can be defined with
         return_type. This can be useful if expected amount of data load is small enough and it can be summarized into
@@ -112,7 +110,8 @@ class DWDStationRequest:
         Returns:
             pandas.DataFrame with the loaded data, either from a Generator or directly as DataFrame
         """
-        assert return_type in ["generator", "dataframe"], "return_type has to be one of 'generator', 'dataframe'"
+        if return_type not in ["generator", "dataframe"]:
+            raise ValueError("The return_type has to be one of 'generator', 'dataframe'")
 
         if return_type == "generator":
             yield from self._collect_data(prefer_local, write_file, folder, create_new_filelist)
@@ -133,18 +132,24 @@ class DWDStationRequest:
         Returns:
             pandas.DataFrame as generator
         """
-        for statid in self.station_id:
+        for station_id in self.station_id:
             data = pd.DataFrame()
 
             for period_type in self.period_type:
                 remote_files = create_file_list_for_dwd_server(
-                    station_ids=cast_to_list(statid),
+                    station_ids=station_id,
                     parameter=self.parameter,
                     time_resolution=self.time_resolution,
                     period_type=period_type,
                     folder=folder,
                     create_new_filelist=create_new_filelist
                 )
+
+                # Skip from here if no files for the requested id exist
+                if remote_files.empty:
+                    print(f"No data exists for {station_id}, {self.parameter.value}, {self.time_resolution.value}, "
+                          f"{period_type.value}")
+                    continue
 
                 filenames_and_files = download_dwd_data(
                     remote_files=remote_files,
@@ -164,8 +169,11 @@ class DWDStationRequest:
 
                 data = data.append(period_df)
 
+            if data.empty:
+                continue
+
             if self.start_date:
-                data = data[data[DWDColumns.DATE] >= self.start_date & data[DWDColumns.DATE] <= self.end_date]
+                data = data[(data[DWDColumns.DATE] >= self.start_date) & (data[DWDColumns.DATE] <= self.end_date)]
 
             yield data
 
