@@ -23,7 +23,7 @@ class DWDStationRequest:
     The DWDStationRequest class represents a request for station data as provided by the DWD service
     """
     def __init__(self,
-                 station_id: Union[str, int, List[Union[int, str]]],
+                 station_ids: Union[str, int, List[Union[int, str]]],
                  parameter: Union[str, Parameter],
                  time_resolution: Union[str, TimeResolution],
                  period_type: Union[None, str, list, PeriodType] = None,
@@ -35,7 +35,7 @@ class DWDStationRequest:
                              "leave the other one empty!")
 
         try:
-            self.station_id = [int(s) for s in cast_to_list(station_id)]
+            self.station_id = [int(s) for s in cast_to_list(station_ids)]
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
@@ -111,13 +111,14 @@ class DWDStationRequest:
             pandas.DataFrame with the loaded data, either from a Generator or directly as DataFrame
         """
         if return_type not in ["generator", "dataframe"]:
-            raise ValueError("return_type has to be one of 'generator', 'dataframe'")
+            raise ValueError("The return_type has to be one of 'generator', 'dataframe'")
 
         if return_type == "generator":
-            return self._collect_data(prefer_local, write_file, folder, create_new_filelist)
+            yield from self._collect_data(prefer_local, write_file, folder, create_new_filelist)
         else:
-            return pd.concat(
-                list(self._collect_data(prefer_local, write_file, folder, create_new_filelist))).reset_index(drop=True)
+            data = pd.concat(list(self._collect_data(prefer_local, write_file, folder, create_new_filelist)))
+
+            return data.reset_index(drop=True)
 
     def _collect_data(self,
                       prefer_local: bool = False,
@@ -132,11 +133,11 @@ class DWDStationRequest:
             pandas.DataFrame as generator
         """
         for station_id in self.station_id:
-            df_of_station_id = pd.DataFrame()
+            data = pd.DataFrame()
 
             for period_type in self.period_type:
                 remote_files = create_file_list_for_dwd_server(
-                    station_id=station_id,
+                    station_ids=station_id,
                     parameter=self.parameter,
                     time_resolution=self.time_resolution,
                     period_type=period_type,
@@ -146,8 +147,8 @@ class DWDStationRequest:
 
                 # Skip from here if no files for the requested id exist
                 if remote_files.empty:
-                    print(f"No data exists for station_id {station_id}, {self.parameter.value}, "
-                          f"{self.time_resolution.value}, {period_type.value}")
+                    print(f"No data exists for {station_id}, {self.parameter.value}, {self.time_resolution.value}, "
+                          f"{period_type.value}")
                     continue
 
                 filenames_and_files = download_dwd_data(
@@ -162,25 +163,19 @@ class DWDStationRequest:
                     folder=folder
                 )
 
-                # Filter out values which already are in the dataframe
-                try:
-                    period_df = period_df[
-                        ~period_df[DWDColumns.DATE.value].isin(df_of_station_id[DWDColumns.DATE.value])]
-                except KeyError:
-                    pass
+                # Filter out dates that are already found in the previous period types
+                if DWDColumns.DATE in data:
+                    period_df = period_df[period_df[DWDColumns.DATE].isin(data[DWDColumns.DATE])]
 
-                df_of_station_id = df_of_station_id.append(period_df)
+                data = data.append(period_df)
 
-            # Filter for dates range if start_date and end_date are defined
-            if self.start_date:
-                df_of_station_id = df_of_station_id[(df_of_station_id[DWDColumns.DATE.value] >= self.start_date) &
-                                                    (df_of_station_id[DWDColumns.DATE.value] <= self.end_date)]
-
-            # Empty dataframe should be skipped
-            if df_of_station_id.empty:
+            if data.empty:
                 continue
 
-            yield df_of_station_id
+            if self.start_date:
+                data = data[(data[DWDColumns.DATE] >= self.start_date) & (data[DWDColumns.DATE] <= self.end_date)]
+
+            yield data
 
 
 def _find_any_one_word_from_wordlist(string_list: List[str],
