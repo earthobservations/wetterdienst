@@ -111,14 +111,17 @@ class DWDStationRequest:
             pandas.DataFrame with the loaded data, either from a Generator or directly as DataFrame
         """
         if return_type not in ["generator", "dataframe"]:
-            raise ValueError("The return_type has to be one of 'generator', 'dataframe'")
+            raise ValueError("return_type has to be one of 'generator', 'dataframe'")
+
+        raise ValueError
 
         if return_type == "generator":
             yield from self._collect_data(prefer_local, write_file, folder, create_new_filelist)
         else:
-            data = pd.concat(list(self._collect_data(prefer_local, write_file, folder, create_new_filelist)))
-
-            return data.reset_index(drop=True)
+            return list(self._collect_data(prefer_local, write_file, folder, create_new_filelist))
+            # data = pd.concat(list(self._collect_data(prefer_local, write_file, folder, create_new_filelist)))
+            #
+            # return data.reset_index(drop=True)
 
     def _collect_data(self,
                       prefer_local: bool = False,
@@ -133,7 +136,7 @@ class DWDStationRequest:
             pandas.DataFrame as generator
         """
         for station_id in self.station_id:
-            data = pd.DataFrame()
+            data_of_station_id = pd.DataFrame()
 
             for period_type in self.period_type:
                 remote_files = create_file_list_for_dwd_server(
@@ -156,7 +159,7 @@ class DWDStationRequest:
                     parallel_download=True
                 )
 
-                period_df = parse_dwd_data(
+                period_data_of_station_id = parse_dwd_data(
                     filenames_and_files=filenames_and_files,
                     write_file=write_file,
                     prefer_local=prefer_local,
@@ -164,18 +167,21 @@ class DWDStationRequest:
                 )
 
                 # Filter out dates that are already found in the previous period types
-                if DWDColumns.DATE in data:
-                    period_df = period_df[period_df[DWDColumns.DATE].isin(data[DWDColumns.DATE])]
+                # if DWDColumns.DATE in data_of_station_id:
 
-                data = data.append(period_df)
+                period_data_of_station_id = period_data_of_station_id[
+                    period_data_of_station_id[DWDColumns.DATE.value].isin(data_of_station_id[DWDColumns.DATE.value])]
 
-            if data.empty:
+                data_of_station_id = data_of_station_id.append(period_data_of_station_id)
+
+            if data_of_station_id.empty:
                 continue
 
             if self.start_date:
-                data = data[(data[DWDColumns.DATE] >= self.start_date) & (data[DWDColumns.DATE] <= self.end_date)]
+                data_of_station_id = data_of_station_id[(data_of_station_id[DWDColumns.DATE.value] >= self.start_date) &
+                                                        (data_of_station_id[DWDColumns.DATE.value] <= self.end_date)]
 
-            yield data
+            yield data_of_station_id
 
 
 def _find_any_one_word_from_wordlist(string_list: List[str],
@@ -234,3 +240,11 @@ def _parse_parameter_from_value(
             return parameter
 
     return None
+
+
+if __name__ == "__main__":
+    dwdstationrequest = DWDStationRequest(1048, "climate", "daily", start_date="2019-12-24", end_date="2019-12-31")
+
+    data = dwdstationrequest.collect_data(return_type="dataframe")
+
+    print(data)
