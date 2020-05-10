@@ -39,10 +39,7 @@ def create_metaindex(parameter: Parameter,
         not yet complete as file existence is not checked.
 
     """
-    server_path = PurePosixPath(DWD_PATH,
-                                time_resolution.value,
-                                parameter.value,
-                                period_type.value)
+    server_path = PurePosixPath(DWD_PATH, time_resolution.value, parameter.value, period_type.value)
 
     try:
         with FTP(DWD_SERVER) as ftp:
@@ -96,10 +93,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
     assert time_resolution == TimeResolution.MINUTE_1, \
         "Wrong TimeResolution, only 1 minute is valid "
 
-    metadata_path = PurePosixPath(DWD_PATH,
-                                  time_resolution.value,
-                                  parameter.value,
-                                  FTP_METADATA_NAME)
+    metadata_path = PurePosixPath(DWD_PATH, time_resolution.value, parameter.value, FTP_METADATA_NAME)
 
     with FTP(DWD_SERVER) as ftp:
         ftp.login()

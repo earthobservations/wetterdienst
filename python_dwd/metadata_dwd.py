@@ -51,7 +51,7 @@ def add_filepresence(metainfo: pd.DataFrame,
     metainfo[DWDColumns.HAS_FILE.value] = False
 
     filelist = create_file_list_for_dwd_server(
-        station_ids=metainfo.iloc[:, 0].to_list(),
+        station_id=metainfo.iloc[:, 0].to_list(),
         parameter=parameter,
         time_resolution=time_resolution,
         period_type=period_type,
@@ -92,28 +92,9 @@ def metadata_for_dwd_data(parameter: Parameter,
     Returns:
 
     """
+    check_parameters(parameter, time_resolution, period_type)
 
-    if not isinstance(parameter, Parameter):
-        raise TypeError("Error: 'parameter' is not of type Parameter(Enum).")
-    if not isinstance(time_resolution, TimeResolution):
-        raise TypeError("Error: 'time_resolution' is not of type TimeResolution(Enum).")
-    if not isinstance(period_type, PeriodType):
-        raise TypeError("Error: 'period_type' is not of type PeriodType(Enum).")
-    if not isinstance(folder, str):
-        raise TypeError("Error: 'folder' is not a string.")
-    if not isinstance(write_file, bool):
-        raise TypeError("Error: 'write_file' is not a bool.")
-    if not isinstance(create_new_filelist, bool):
-        raise TypeError("Error: 'create_new_filelist' is not a bool.")
-
-    check_parameters(parameter=parameter,
-                     time_resolution=time_resolution,
-                     period_type=period_type)
-
-    file_path = create_metainfo_fpath(folder,
-                                      parameter,
-                                      period_type,
-                                      time_resolution)
+    file_path = create_metainfo_fpath(folder, parameter, period_type, time_resolution)
 
     if check_file_exist(file_path) and not create_new_filelist:
         metainfo = pd.read_csv(filepath_or_buffer=file_path)
@@ -136,14 +117,11 @@ def metadata_for_dwd_data(parameter: Parameter,
                                     write_file=False,
                                     create_new_filelist=False)
 
-        stateinfo = pd.merge(metainfo[DWDColumns.STATION_ID],
+        stateinfo = pd.merge(metainfo[DWDColumns.STATION_ID.value],
                              mdp.loc[:, [DWDColumns.STATION_ID.value, DWDColumns.STATE.value]],
                              how="left")
 
         metainfo[DWDColumns.STATE.value] = stateinfo[DWDColumns.STATE.value]
-
-        # for station, state in mdp.loc[:, [DWDColumns.STATIONNAME.value, DWDColumns.STATE.value]]:
-        #     metainfo.loc[metainfo[DWDColumns.STATIONNAME.value] == station, DWDColumns.STATE.value] = state
 
     metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,

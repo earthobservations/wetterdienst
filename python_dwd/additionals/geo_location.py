@@ -18,8 +18,7 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
                         longitudes: Union[List[float], np.array],
                         parameter: Parameter,
                         time_resolution: TimeResolution,
-                        period_type: PeriodType) -> \
-        Tuple[List[int], List[float]]:
+                        period_type: PeriodType) -> Tuple[List[int], List[float]]:
     """
     Provides a list of weather station ids for the requested data
     Args:
@@ -52,7 +51,8 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
     distances, indices_nearest_neighbours = derive_nearest_neighbours(
         metadata.LAT.values,
         metadata.LON.values,
-        coords)
+        coords
+    )
 
     return metadata.loc[indices_nearest_neighbours, 'STATION_ID'].tolist(),\
         (distances * KM_EARTH_RADIUS).tolist()

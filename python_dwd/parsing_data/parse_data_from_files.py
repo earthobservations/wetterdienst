@@ -66,7 +66,7 @@ def parse_dwd_data(filenames_and_files: Optional[Union[List[str], List[Tuple[str
         period = retrieve_period_type_from_filename(sample_file)
     except (IndexError, TypeError):
         try:
-            station_ids = kwargs["station_ids"]
+            station_ids = kwargs["station_id"]
 
             time_res = kwargs["time_resolution"]
             parameter = kwargs["parameter"]
@@ -150,7 +150,8 @@ def _parse_dwd_data(files_in_bytes: Optional[List[Tuple[str, BytesIO]]],
         except ValueError:
             return pd.DataFrame()
 
-        data = data.rename(columns=str.upper).rename(columns=str.strip).rename(GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+        data = data.rename(columns=str.upper).rename(columns=str.strip).\
+            rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
         data = data.astype(create_stationdata_dtype_mapping(data.columns))
 
