@@ -1,14 +1,14 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 
 from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.parameter_enumeration import Parameter
 
-FILE_2_PARAMETER = {
+FILE_2_PARAMETER: Dict[TimeResolution, Dict[str, Parameter]] = {
     TimeResolution.MINUTE_1:
         {'nieder': Parameter.PRECIPITATION},
     TimeResolution.MINUTE_10:
@@ -46,7 +46,7 @@ FILE_2_PARAMETER = {
          'rr': Parameter.PRECIPITATION}
 }
 
-FILE_2_TIME_RESOLUTION = {
+FILE_2_TIME_RESOLUTION: Dict[str, TimeResolution] = {
     '1minutenwerte': TimeResolution.MINUTE_1,
     '10minutenwerte': TimeResolution.MINUTE_10,
     'stundenwerte': TimeResolution.HOURLY,
@@ -55,7 +55,7 @@ FILE_2_TIME_RESOLUTION = {
     'jahreswerte': TimeResolution.ANNUAL,
 }
 
-FILE_2_PERIOD = {
+FILE_2_PERIOD: Dict[str, PeriodType] = {
     'hist': PeriodType.HISTORICAL,
     'now': PeriodType.NOW,
     'akt': PeriodType.RECENT,
@@ -106,16 +106,26 @@ def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
     """
     filename = filename.lower()
 
-    if "_hist" in filename:
-        period_type = PeriodType.HISTORICAL
-    elif "_akt" in filename:
-        period_type = PeriodType.RECENT
-    elif "_now" in filename:
-        period_type = PeriodType.NOW
-    elif "_row" in filename:
-        period_type = PeriodType.ROW
-    else:
+    # if "_hist" in filename:
+    #     period_type = PeriodType.HISTORICAL
+    # elif "_akt" in filename:
+    #     period_type = PeriodType.RECENT
+    # elif "_now" in filename:
+    #     period_type = PeriodType.NOW
+    # elif "_row" in filename:
+    #     period_type = PeriodType.ROW
+    # else:
+    #     period_type = None
+
+    try:
+        # period type is connected to the file extension e.g. ".csv" that's why we have to replace the "." by a "_" to
+        # apply the same functionality of getting the period type by using set
+        period_type = \
+            FILE_2_PERIOD[
+                list(set(FILE_2_PERIOD.keys()) & set(filename.replace(".", "_").split('_')))[0]]
+    except IndexError:
         period_type = None
+
     return period_type
 
 
@@ -127,7 +137,8 @@ def retrieve_parameter_from_filename(filename: str,
     """
     filename = filename.lower()
 
-    assert time_resolution in TimeResolution, f"Error: {time_resolution} not in TimeResolution"
+    if time_resolution not in TimeResolution:
+        raise ValueError(f"Error: {time_resolution} not in TimeResolution")
     try:
         parameter = \
             FILE_2_PARAMETER[time_resolution][
@@ -170,19 +181,19 @@ def check_parameters(parameter: Parameter,
 
 
 def find_all_matchstrings_in_string(string: str,
-                                    matchstrings: List[str]):
+                                    matchstrings: List[str]) -> bool:
     """ check if string has all matchstrings in it """
     return all([matchstring in string for matchstring in matchstrings])
 
 
-def cast_to_list(iterable_):
+def cast_to_list(iterable_) -> list:
     """
     A function that either converts an existing iterable to a list or simply puts the item into a list to make an
     iterable that includes this item.
     Args:
         iterable_:
     Return:
-        ?
+        list of iterable_
     """
     try:
         iterable_ = iterable_.split()
