@@ -12,7 +12,7 @@ The functions we created derive the data laying on the server, present the exist
 
 ## 2. Types of data
 
-First there is a large set of variables available online. Those can be seen in the 'dwd_ftp_structure' textfile.
+First there is a large set of variables [available online](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/). Those can be seen in the 'dwd_ftp_structure' textfile.
 
 Second those variables are available in different time scales. Those are:
 
