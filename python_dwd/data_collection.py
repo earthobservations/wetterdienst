@@ -71,6 +71,8 @@ def collect_dwd_data(station_ids: List[int],
         remote_files = create_file_list_for_dwd_server(
             [station_id], parameter, time_resolution, period_type, folder, create_new_filelist)
 
+        print(remote_files)
+
         filenames_and_files = download_dwd_data(remote_files, parallel_download)
 
         station_data = parse_dwd_data(filenames_and_files)
