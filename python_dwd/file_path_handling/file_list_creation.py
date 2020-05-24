@@ -1,9 +1,9 @@
 """ file list creation for requested files """
 from pathlib import Path
-from typing import List, Union
+from typing import List
 import pandas as pd
 
-from python_dwd.additionals.functions import check_parameters, cast_to_list
+from python_dwd.additionals.functions import check_parameters
 from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
@@ -14,7 +14,7 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def create_file_list_for_dwd_server(station_id: Union[str, int, List[int]],
+def create_file_list_for_dwd_server(station_ids: List[int],
                                     parameter: Parameter,
                                     time_resolution: TimeResolution,
                                     period_type: PeriodType,
@@ -27,7 +27,7 @@ def create_file_list_for_dwd_server(station_id: Union[str, int, List[int]],
     available online.
 
     Args:
-        station_id: id(s) for the weather station to ask for data
+        station_ids: id(s) for the weather station to ask for data
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -38,30 +38,35 @@ def create_file_list_for_dwd_server(station_id: Union[str, int, List[int]],
         List of path's to file
 
     """
-    # Ensure integers
-    station_id = [int(s) for s in cast_to_list(station_id)]
+    # Check type of function parameters
+    station_ids = [int(statid) for statid in station_ids]
 
     # Check for the combination of requested parameters
-    check_parameters(parameter=parameter, time_resolution=time_resolution, period_type=period_type)
+    check_parameters(parameter=parameter,
+                     time_resolution=time_resolution,
+                     period_type=period_type)
 
-    # Create name of fileslist file
+    # Create name of fileslistfile
     filelist_local = f'{FILELIST_NAME}_{parameter.value}_' \
-                     f'{time_resolution.value}_{period_type.value}{DATA_FORMAT}'
+                     f'{time_resolution.value}_{period_type.value}'
 
     # Create filepath to filelist in folder
-    filelist_local_path = Path(folder, DWD_FOLDER_METADATA, filelist_local)
+    filelist_local_path = Path(folder,
+                               DWD_FOLDER_METADATA,
+                               filelist_local)
+
+    filelist_local_path = f"{filelist_local_path}{DATA_FORMAT}"
 
     if create_new_filelist or not Path(filelist_local_path).is_file():
-        create_fileindex(parameter, time_resolution, period_type, folder)
+        create_fileindex(parameter=parameter,
+                         time_resolution=time_resolution,
+                         period_type=period_type,
+                         folder=folder)
 
-    filelist = pd.read_csv(
-        filepath_or_buffer=filelist_local_path,
-        sep=",",
-        dtype={
-            DWDColumns.FILEID.value: int,
-            DWDColumns.STATION_ID.value: int,
-            DWDColumns.FILENAME.value: str
-        }
-    )
+    filelist = pd.read_csv(filepath_or_buffer=filelist_local_path,
+                           sep=",",
+                           dtype={DWDColumns.FILEID.value: int,
+                                  DWDColumns.STATION_ID.value: int,
+                                  DWDColumns.FILENAME.value: str})
 
-    return filelist.loc[filelist[DWDColumns.STATION_ID.value].isin(station_id), :]
+    return filelist.loc[filelist[DWDColumns.STATION_ID.value].isin(station_ids), :]

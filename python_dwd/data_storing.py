@@ -1,6 +1,6 @@
 """ Data storing/restoring methods"""
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 import pandas as pd
 
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
@@ -80,11 +80,10 @@ def restore_dwd_data(station_id: int,
         f"{STATIONDATA_NAME}{H5_FORMAT}"
 
     try:
-        station_data = pd.DataFrame(
-            pd.read_hdf(
-                path_or_buf=local_filepath,
-                key=request_string
-            )
+        # typing required as pandas.read_hdf returns an object by typing
+        station_data: Union[object, pd.DataFrame] = pd.read_hdf(
+            path_or_buf=local_filepath,
+            key=request_string
         )
     except FileNotFoundError:
         print(f"Error: There seems to be no file at {str(local_filepath)}. "
@@ -99,7 +98,7 @@ def restore_dwd_data(station_id: int,
     return True, station_data.astype(create_stationdata_dtype_mapping(station_data.columns))
 
 
-def _build_local_store_key(station_id: int,
+def _build_local_store_key(station_id: Union[str, int],
                            parameter: Parameter,
                            time_resolution: TimeResolution,
                            period_type: PeriodType) -> str:
@@ -116,6 +115,6 @@ def _build_local_store_key(station_id: int,
         a string building a key that is used to identify the request
     """
     request_string = f"{parameter.value}/{time_resolution.value}/" \
-                     f"{period_type.value}/{station_id}"
+                     f"{period_type.value}/station_id_{int(station_id)}"
 
     return request_string
