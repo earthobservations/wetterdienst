@@ -1,6 +1,5 @@
 """ Meta data handling """
 from pathlib import Path
-
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters

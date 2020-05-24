@@ -7,21 +7,17 @@ from python_dwd import parse_dwd_data
 
 fixtures_dir = Path(__file__, "../..").resolve().absolute() / "fixtures"
 
-file = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
-
-file_in_bytes = StringIO()
-file.to_csv(file_in_bytes, sep=";", )
-
 
 def test_parse_dwd_data():
     filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
 
+    file = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
+    file_in_bytes = StringIO()
+    file.to_csv(file_in_bytes, sep=";")
     file_in_bytes.seek(0)
-    stationdata_online = parse_dwd_data(
-        filenames_and_files=[(filename, file_in_bytes)],
-        write_file=True,
-        folder=Path(__file__).parent.absolute() / "dwd_data"
-    )
+
+    station_data = parse_dwd_data(
+        filenames_and_files=[(filename, file_in_bytes)])
 
     stationdata_local = parse_dwd_data(
         filenames_and_files=[(filename, file_in_bytes)],
