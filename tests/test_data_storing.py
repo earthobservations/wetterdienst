@@ -3,6 +3,7 @@ from io import StringIO
 from pathlib import Path
 import pandas as pd
 import mock
+from shutil import rmtree
 
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -10,6 +11,10 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 
 from python_dwd.data_storing import store_dwd_data, restore_dwd_data, _build_local_store_key
+
+# Create folder for storage test
+test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
+test_folder.mkdir(parents=True, exist_ok=True)
 
 fixtures_dir = Path(__file__, "../").resolve().absolute() / "fixtures"
 
@@ -71,14 +76,29 @@ def test_build_local_store_key():
     "pandas.read_hdf",
     mock.MagicMock(return_value=file)
 )
-def test_restore_dwd_data():
+def test_store_dwd_data():
     """ Tests for restore_dwd_data """
+    store_dwd_data(
+        station_data=file,
+        station_id=station_id,
+        parameter=parameter,
+        time_resolution=time_resolution,
+        period_type=period_type,
+        folder=test_folder
+    )
+
     success, station_data = restore_dwd_data(
         station_id=station_id,
         parameter=parameter,
         time_resolution=time_resolution,
         period_type=period_type,
-        folder=""
+        folder=test_folder
     )
 
     assert success and station_data.equals(file)
+
+    # Remove storage folder
+    rmtree(test_folder)
+
+    # Have to place an assert afterwards to ensure that above function is executed
+    assert True

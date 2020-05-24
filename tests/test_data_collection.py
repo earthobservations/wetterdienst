@@ -12,6 +12,9 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.data_collection import collect_dwd_data
 
+# Create folder for storage test
+test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
+test_folder.mkdir(parents=True, exist_ok=True)
 
 fixtures_dir = Path(__file__, "../").resolve().absolute() / "fixtures"
 
@@ -45,11 +48,6 @@ csv_file.seek(0)
 )
 def test_collect_dwd_data():
     """ Test for data collection """
-
-    # Create folder for storage test
-    test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
-    test_folder.mkdir(parents=True, exist_ok=True)
-
     """
     1. Scenario
     This scenario makes sure we take fresh data and write it to the given folder, thus we can run
