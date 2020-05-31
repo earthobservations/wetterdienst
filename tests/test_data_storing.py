@@ -87,7 +87,7 @@ def test_store_dwd_data():
         folder=test_folder
     )
 
-    success, station_data = restore_dwd_data(
+    station_data = restore_dwd_data(
         station_id=station_id,
         parameter=parameter,
         time_resolution=time_resolution,
@@ -95,7 +95,7 @@ def test_store_dwd_data():
         folder=test_folder
     )
 
-    assert success and station_data.equals(file)
+    assert station_data.equals(file)
 
     # Remove storage folder
     rmtree(test_folder)

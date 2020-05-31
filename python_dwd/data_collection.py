@@ -9,7 +9,7 @@ from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
 from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
-from python_dwd.data_storing import restore_dwd_data, store_dwd_data
+from python_dwd.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
 
 
 def collect_dwd_data(station_ids: List[int],
@@ -45,20 +45,26 @@ def collect_dwd_data(station_ids: List[int],
     # List for collected pandas DataFrames per each station id
     data = []
     for station_id in set(station_ids):
+        request_string = _build_local_store_key(
+            station_id, parameter, time_resolution, period_type)
+
         if prefer_local:
             # Try restoring data
-            loaded_locally, station_data = restore_dwd_data(
+            station_data = restore_dwd_data(
                 station_id, parameter, time_resolution, period_type, folder)
 
             # When successful append data and continue with next iteration
-            if loaded_locally:
+            if not station_data.empty:
+                print(f"Data for {request_string} restored from local.")
+
                 data.append(station_data)
+
                 continue
+
+        print(f"Data for {request_string} tried to gather from internet.")
 
         remote_files = create_file_list_for_dwd_server(
             station_ids, parameter, time_resolution, period_type, folder, create_new_filelist)
-
-        print(remote_files)
 
         filenames_and_files = download_dwd_data(remote_files, parallel_download)
 
@@ -70,11 +76,4 @@ def collect_dwd_data(station_ids: List[int],
 
         data.append(station_data)
 
-    try:
-        data = pd.concat(data).reset_index(drop=True)
-    except ValueError:
-        print(f"An error occurred while concatenating the data. An"
-              f"empty DataFrame will be returned.")
-        data = pd.DataFrame()
-
-    return data
+    return pd.concat(data, axis=1, ignore_index=True)

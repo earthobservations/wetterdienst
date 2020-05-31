@@ -1,13 +1,12 @@
 """ Data storing/restoring methods"""
-from pathlib import Path
 from typing import Tuple, Union
 import pandas as pd
 
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
-from python_dwd.constants.metadata import STATIONDATA_NAME, H5_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.file_path_handling.path_handling import build_local_filepath_for_station_data
 
 
 def store_dwd_data(station_data: pd.DataFrame,
@@ -33,15 +32,13 @@ def store_dwd_data(station_data: pd.DataFrame,
     """
     # Make sure that there is data that can be stored
     if station_data.empty:
-        print("There is no data in 'station_data' that can be stored.")
-
         return
 
     request_string = _build_local_store_key(
         station_id, parameter, time_resolution, period_type)
 
-    local_filepath = Path(folder, STATIONDATA_NAME).absolute() / \
-        f"{STATIONDATA_NAME}{H5_FORMAT}"
+    local_filepath = build_local_filepath_for_station_data(folder)
+
     local_filepath.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -50,15 +47,15 @@ def store_dwd_data(station_data: pd.DataFrame,
             key=request_string
         )
     except FileNotFoundError:
-        print(f"Error: File for station data could not be created at {str(local_filepath)}. "
-              f"Data for {request_string} could not be written.")
+        # We can pass here as we make sure above that the path is created
+        pass
 
 
 def restore_dwd_data(station_id: int,
                      parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType,
-                     folder: str) -> Tuple[bool, pd.DataFrame]:
+                     folder: str) -> pd.DataFrame:
     """
     Function to restore data from a local hdf file based on the place (folder) where
     the file is stored and parameters that define the request in particular.
@@ -71,13 +68,13 @@ def restore_dwd_data(station_id: int,
         folder: folder where the hdf file should be found as string
 
     Returns:
-        Tuple, first is boolean if data could be restored, second is the DataFrame
-        holding the data
+        a DataFrame holding the data or an empty DataFrame depending on if data
+        could be restored
     """
-    request_string = _build_local_store_key(station_id, parameter, time_resolution, period_type)
+    request_string = _build_local_store_key(
+        station_id, parameter, time_resolution, period_type)
 
-    local_filepath = Path(folder, STATIONDATA_NAME).absolute() / \
-        f"{STATIONDATA_NAME}{H5_FORMAT}"
+    local_filepath = build_local_filepath_for_station_data(folder)
 
     try:
         # typing required as pandas.read_hdf returns an object by typing
@@ -85,17 +82,11 @@ def restore_dwd_data(station_id: int,
             path_or_buf=local_filepath,
             key=request_string
         )
-    except FileNotFoundError:
-        print(f"Error: There seems to be no file at {str(local_filepath)}. "
-              f"Data will be loaded freshly.")
-        return False, pd.DataFrame()
-    except KeyError:
-        print(f"Error: The requested data for {request_string} does not yet "
-              f"exist in local store at {str(local_filepath)}. "
-              f"Data will be loaded freshly.")
-        return False, pd.DataFrame()
-
-    return True, station_data.astype(create_stationdata_dtype_mapping(station_data.columns))
+    except (FileNotFoundError, KeyError):
+        return pd.DataFrame()
+    else:
+        return station_data.astype(
+            create_stationdata_dtype_mapping(station_data.columns))
 
 
 def _build_local_store_key(station_id: Union[str, int],
