@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from python_dwd.constants.metadata import STATIONDATA_NAME, H5_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -51,3 +52,19 @@ def create_folder(subfolder: str,
     Path(path_to_create).mkdir(parents=True, exist_ok=True)
 
     return None
+
+
+def build_local_filepath_for_station_data(folder: str) -> Path:
+    """
+    Function to create the local filepath for the station data that is being stored
+    in a file if requested.
+    Args:
+        folder: the given folder where the data should be stored
+
+    Returns:
+        a Path build upon the folder
+    """
+    local_filepath = Path(folder, STATIONDATA_NAME).absolute() / \
+        f"{STATIONDATA_NAME}{H5_FORMAT}"
+
+    return local_filepath

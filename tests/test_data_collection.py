@@ -91,11 +91,11 @@ def test_collect_dwd_data():
 
 @patch(
     "python_dwd.data_collection.restore_dwd_data",
-    mock.MagicMock(return_value=(False, pd.DataFrame()))
+    mock.MagicMock(return_value=pd.DataFrame())
 )
 @patch(
     "python_dwd.data_collection.create_file_list_for_dwd_server",
-    mock.MagicMock(return_value=pd.DataFrame(None, columns=[DWDColumns.FILENAME.value]))
+    mock.MagicMock(return_value=pd.DataFrame(columns=[DWDColumns.FILENAME.value]))
 )
 def test_collect_dwd_data_empty():
     """ Test for data collection with no available data """
