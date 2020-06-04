@@ -1,5 +1,6 @@
 """ Data storing/restoring methods"""
-from typing import Tuple, Union
+from pathlib import Path
+from typing import Union
 import pandas as pd
 
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
@@ -37,18 +38,14 @@ def store_dwd_data(station_data: pd.DataFrame,
     request_string = _build_local_store_key(
         station_id, parameter, time_resolution, period_type)
 
-    local_filepath = build_local_filepath_for_station_data(folder)
+    local_filepath: Union[Path, str] = build_local_filepath_for_station_data(folder)
 
     local_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        station_data.to_hdf(
-            path_or_buf=local_filepath,
-            key=request_string
-        )
-    except FileNotFoundError:
-        # We can pass here as we make sure above that the path is created
-        pass
+    station_data.to_hdf(
+        path_or_buf=local_filepath,
+        key=request_string
+    )
 
 
 def restore_dwd_data(station_id: int,

@@ -61,7 +61,7 @@ def collect_dwd_data(station_ids: List[int],
 
                 continue
 
-        print(f"Data for {request_string} tried to gather from internet.")
+        print(f"Data for {request_string} will be collected from internet.")
 
         remote_files = create_file_list_for_dwd_server(
             station_ids, parameter, time_resolution, period_type, folder, create_new_filelist)
