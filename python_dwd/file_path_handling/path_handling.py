@@ -1,6 +1,6 @@
 """ functions to handle paths and file names"""
-
 from pathlib import Path
+from typing import Union
 
 from python_dwd.constants.metadata import STATIONDATA_NAME, H5_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -54,7 +54,7 @@ def create_folder(subfolder: str,
     return None
 
 
-def build_local_filepath_for_station_data(folder: str) -> Path:
+def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str, Path]:
     """
     Function to create the local filepath for the station data that is being stored
     in a file if requested.

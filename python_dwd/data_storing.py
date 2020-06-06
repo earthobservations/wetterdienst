@@ -15,7 +15,7 @@ def store_dwd_data(station_data: pd.DataFrame,
                    parameter: Parameter,
                    time_resolution: TimeResolution,
                    period_type: PeriodType,
-                   folder: str) -> None:
+                   folder: Union[str, Path]) -> None:
     """
     Function to store data in a local file hdf file. The function takes a pandas
     DataFrame plus additionally the request parameters to identify data within the
@@ -38,7 +38,7 @@ def store_dwd_data(station_data: pd.DataFrame,
     request_string = _build_local_store_key(
         station_id, parameter, time_resolution, period_type)
 
-    local_filepath: Union[Path, str] = build_local_filepath_for_station_data(folder)
+    local_filepath = build_local_filepath_for_station_data(folder)
 
     local_filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +52,7 @@ def restore_dwd_data(station_id: int,
                      parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType,
-                     folder: str) -> pd.DataFrame:
+                     folder: Union[str, Path]) -> pd.DataFrame:
     """
     Function to restore data from a local hdf file based on the place (folder) where
     the file is stored and parameters that define the request in particular.
@@ -75,15 +75,18 @@ def restore_dwd_data(station_id: int,
 
     try:
         # typing required as pandas.read_hdf returns an object by typing
-        station_data: Union[object, pd.DataFrame] = pd.read_hdf(
+        station_data = pd.read_hdf(
             path_or_buf=local_filepath,
             key=request_string
         )
     except (FileNotFoundError, KeyError):
         return pd.DataFrame()
-    else:
-        return station_data.astype(
-            create_stationdata_dtype_mapping(station_data.columns))
+
+    # Cast to pandas DataFrame
+    station_data_df = pd.DataFrame(station_data)
+
+    return station_data_df.astype(
+        create_stationdata_dtype_mapping(station_data_df.columns))
 
 
 def _build_local_store_key(station_id: Union[str, int],
