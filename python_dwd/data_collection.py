@@ -1,5 +1,6 @@
 """ Data collection pipeline """
-from typing import List
+from pathlib import Path
+from typing import List, Union
 import pandas as pd
 
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -16,7 +17,7 @@ def collect_dwd_data(station_ids: List[int],
                      parameter: Parameter,
                      time_resolution: TimeResolution,
                      period_type: PeriodType,
-                     folder: str = DWD_FOLDER_MAIN,
+                     folder: Union[str, Path] = DWD_FOLDER_MAIN,
                      prefer_local: bool = False,
                      parallel_download: bool = False,
                      write_file: bool = False,
