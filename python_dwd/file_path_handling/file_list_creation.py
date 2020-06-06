@@ -39,20 +39,12 @@ def create_file_list_for_dwd_server(station_ids: List[int],
 
     """
     # Check type of function parameters
-    assert isinstance(station_ids, list)
     station_ids = [int(statid) for statid in station_ids]
-    assert isinstance(parameter, Parameter)
-    assert isinstance(time_resolution, TimeResolution)
-    assert isinstance(period_type, PeriodType)
-    assert isinstance(folder, str)
-    assert isinstance(create_new_filelist, bool)
 
     # Check for the combination of requested parameters
     check_parameters(parameter=parameter,
                      time_resolution=time_resolution,
                      period_type=period_type)
-
-    folder = correct_folder_path(folder)
 
     # Create name of fileslistfile
     filelist_local = f'{FILELIST_NAME}_{parameter.value}_' \

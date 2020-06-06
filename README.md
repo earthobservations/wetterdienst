@@ -38,6 +38,9 @@ The toolset provides different functions which are:
 - download_dwd_data
 - parse_dwd_data
 - get_nearest_station
+- collect_dwd_data
+- restore_dwd_data
+- store_dwd_data
 
 All those functions have one same argument which is **folder**. It can be used to define in which folder relative to the working path all the files shall be stored. Otherwise a standard folder ('dwd_data') is used. The argument is entered as a **string**.
 
@@ -69,6 +72,17 @@ remote_file_path = python_dwd.create_file_list_for_dwd_server(station_ids=[1048]
 station_download = python_dwd.download_dwd_data(remote_file_path)
 # parsing the data into a dataframe 
 station_data = python_dwd.parse_dwd_data(station_download)
+```
+or alternatively:
+```
+# Combines the above functions with possible storing/restoring options
+station_data = collect_dwd_data(
+    station_ids=[1048],
+    parameter=Parameter.CLIMATE_SUMMARY,
+    time_resolution=TimeResolution.DAILY,
+    period_type=PeriodType.HISTORICAL,
+    ...
+)
 ```
 To retrieve meta data of a product: 
 ```

@@ -1,6 +1,5 @@
 """ Meta data handling """
 from pathlib import Path
-
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
@@ -141,9 +140,6 @@ def metadata_for_dwd_data(parameter: Parameter,
                              how="left")
 
         metainfo[DWDColumns.STATE.value] = stateinfo[DWDColumns.STATE.value]
-
-        # for station, state in mdp.loc[:, [DWDColumns.STATIONNAME.value, DWDColumns.STATE.value]]:
-        #     metainfo.loc[metainfo[DWDColumns.STATIONNAME.value] == station, DWDColumns.STATE.value] = state
 
     metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,
