@@ -16,9 +16,10 @@ KM_EARTH_RADIUS = 6371
 
 def get_nearest_station(latitudes: Union[List[float], np.array],
                         longitudes: Union[List[float], np.array],
-                        parameter: Parameter,
-                        time_resolution: TimeResolution,
-                        period_type: PeriodType) -> \
+                        parameter: Union[Parameter, str],
+                        time_resolution: Union[TimeResolution, str],
+                        period_type: Union[PeriodType, str],
+                        num_stations_nearby: int = 1) -> \
         Tuple[List[int], List[float]]:
     """
     Provides a list of weather station ids for the requested data
@@ -30,12 +31,17 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
+        num_stations_nearby: Number of stations that should be nearby 
 
     Returns:
         list of stations ids for the given locations/coordinate pairs and
         a list of distances in kilometer to the weather station
 
     """
+    parameter = Parameter(parameter)
+    time_resolution = TimeResolution(time_resolution)
+    period_type = PeriodType(period_type)
+
     if not isinstance(latitudes, list):
         latitudes = np.array(latitudes)
     if not isinstance(longitudes, list):
@@ -49,18 +55,21 @@ def get_nearest_station(latitudes: Union[List[float], np.array],
                                      time_resolution,
                                      period_type)
 
-    distances, indices_nearest_neighbours = derive_nearest_neighbours(
+    distances, indices_nearest_neighbours = _derive_nearest_neighbours(
         metadata.LAT.values,
         metadata.LON.values,
-        coords)
-
+        coords,
+        num_stations_nearby)
+    if np.max(indices_nearest_neighbours.shape) > 1:
+        indices_nearest_neighbours = indices_nearest_neighbours[0]
     return metadata.loc[indices_nearest_neighbours, 'STATION_ID'].tolist(),\
         (distances * KM_EARTH_RADIUS).tolist()
 
 
-def derive_nearest_neighbours(latitudes_stations: np.array,
-                              longitudes_stations: np.array,
-                              coordinates: Coordinates) -> Tuple[Union[float, np.ndarray], np.ndarray]:
+def _derive_nearest_neighbours(latitudes_stations: np.array,
+                               longitudes_stations: np.array,
+                               coordinates: Coordinates,
+                               num_stations_nearby: int = 1) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     """
     A function that uses a k-d tree algorithm to obtain the nearest
     neighbours to coordinate pairs
@@ -69,6 +78,7 @@ def derive_nearest_neighbours(latitudes_stations: np.array,
         latitudes_stations (np.array): latitude values of stations being compared to the coordinates
         longitudes_stations (np.array): longitude values of stations being compared to the coordinates
         coordinates (Coordinates): the coordinates for which the nearest neighbour is searched
+        num_stations_nearby: Number of stations that should be nearby 
 
     Returns:
         Tuple of distances and ranks of nearest to most distant stations
@@ -77,4 +87,5 @@ def derive_nearest_neighbours(latitudes_stations: np.array,
                    np.radians(longitudes_stations)]
     distance_tree = cKDTree(points)
     return distance_tree.query(
-        coordinates.get_coordinates_in_radians())
+        coordinates.get_coordinates_in_radians(),
+        k=num_stations_nearby)

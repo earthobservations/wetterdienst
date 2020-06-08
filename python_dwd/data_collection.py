@@ -14,9 +14,9 @@ from python_dwd.data_storing import restore_dwd_data, store_dwd_data, _build_loc
 
 
 def collect_dwd_data(station_ids: List[int],
-                     parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType,
+                     parameter: Union[Parameter, str],
+                     time_resolution: Union[TimeResolution, str],
+                     period_type: Union[PeriodType, str],
                      folder: Union[str, Path] = DWD_FOLDER_MAIN,
                      prefer_local: bool = False,
                      parallel_download: bool = False,
@@ -43,6 +43,10 @@ def collect_dwd_data(station_ids: List[int],
     Returns:
         a pandas DataFrame with all the data given by the station ids
     """
+    parameter = Parameter(parameter)
+    time_resolution = TimeResolution(time_resolution)
+    period_type = PeriodType(period_type)
+
     # List for collected pandas DataFrames per each station id
     data = []
     for station_id in set(station_ids):

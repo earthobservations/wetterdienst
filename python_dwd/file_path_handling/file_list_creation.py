@@ -1,10 +1,9 @@
 """ file list creation for requested files """
 from pathlib import Path
-from typing import List
+from typing import List, Union
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
-from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
@@ -15,9 +14,9 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 
 def create_file_list_for_dwd_server(station_ids: List[int],
-                                    parameter: Parameter,
-                                    time_resolution: TimeResolution,
-                                    period_type: PeriodType,
+                                    parameter: Union[Parameter, str],
+                                    time_resolution: Union[TimeResolution, str],
+                                    period_type: Union[PeriodType, str],
                                     folder: str = DWD_FOLDER_MAIN,
                                     create_new_filelist=False) -> pd.DataFrame:
     """
@@ -38,6 +37,10 @@ def create_file_list_for_dwd_server(station_ids: List[int],
         List of path's to file
 
     """
+    parameter = Parameter(parameter)
+    time_resolution = TimeResolution(time_resolution)
+    period_type = PeriodType(period_type)
+
     # Check type of function parameters
     station_ids = [int(statid) for statid in station_ids]
 
