@@ -1,28 +1,46 @@
 """ mapping from german column names to english column names"""
 from numpy import datetime64
-from python_dwd.enumerations.column_names_enumeration import DWDOrigColumns, DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDOrigColumns, DWDMetaColumns, DWDDataColumns
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
-    DWDOrigColumns.STATION_ID.value:                DWDColumns.STATION_ID.value,
-    DWDOrigColumns.DATE.value:                      DWDColumns.DATE.value,
-    DWDOrigColumns.FROM_DATE.value:                 DWDColumns.FROM_DATE.value,
-    DWDOrigColumns.TO_DATE.value:                   DWDColumns.TO_DATE.value,
-    DWDOrigColumns.STATIONHEIGHT.value:             DWDColumns.STATIONHEIGHT.value,
-    DWDOrigColumns.LATITUDE.value:                  DWDColumns.LATITUDE.value,
-    DWDOrigColumns.LATITUDE_ALTERNATIVE.value:      DWDColumns.LATITUDE.value,
-    DWDOrigColumns.LONGITUDE.value:                 DWDColumns.LONGITUDE.value,
-    DWDOrigColumns.LONGITUDE_ALTERNATIVE.value:     DWDColumns.LONGITUDE.value,
-    DWDOrigColumns.STATIONNAME.value:               DWDColumns.STATIONNAME.value,
-    DWDOrigColumns.STATE.value:                     DWDColumns.STATE.value
+    DWDOrigColumns.STATION_ID.value:                DWDMetaColumns.STATION_ID.value,
+    DWDOrigColumns.DATE.value:                      DWDMetaColumns.DATE.value,
+    DWDOrigColumns.FROM_DATE.value:                 DWDMetaColumns.FROM_DATE.value,
+    DWDOrigColumns.TO_DATE.value:                   DWDMetaColumns.TO_DATE.value,
+    DWDOrigColumns.STATIONHEIGHT.value:             DWDMetaColumns.STATIONHEIGHT.value,
+    DWDOrigColumns.LATITUDE.value:                  DWDMetaColumns.LATITUDE.value,
+    DWDOrigColumns.LATITUDE_ALTERNATIVE.value:      DWDMetaColumns.LATITUDE.value,
+    DWDOrigColumns.LONGITUDE.value:                 DWDMetaColumns.LONGITUDE.value,
+    DWDOrigColumns.LONGITUDE_ALTERNATIVE.value:     DWDMetaColumns.LONGITUDE.value,
+    DWDOrigColumns.STATIONNAME.value:               DWDMetaColumns.STATIONNAME.value,
+    DWDOrigColumns.STATE.value:                     DWDMetaColumns.STATE.value,
+}
+
+GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED = {
+    # Daily climate summary
+    DWDOrigColumns.FX.value: DWDDataColumns.FX.value,
+    DWDOrigColumns.FM.value: DWDDataColumns.FM.value,
+    DWDOrigColumns.RSK.value: DWDDataColumns.RSK.value,
+    DWDOrigColumns.RSKF.value: DWDDataColumns.RSKF.value,
+    DWDOrigColumns.SDK.value: DWDDataColumns.SDK.value,
+    DWDOrigColumns.SHK_TAG.value: DWDDataColumns.SHK_TAG.value,
+    DWDOrigColumns.NM.value: DWDDataColumns.NM.value,
+    DWDOrigColumns.VPM.value: DWDDataColumns.VPM.value,
+    DWDOrigColumns.PM.value: DWDDataColumns.PM.value,
+    DWDOrigColumns.TMK.value: DWDDataColumns.TMK.value,
+    DWDOrigColumns.UPM.value: DWDDataColumns.UPM.value,
+    DWDOrigColumns.TXK.value: DWDDataColumns.TXK.value,
+    DWDOrigColumns.TNK.value: DWDDataColumns.TNK.value,
+    DWDOrigColumns.TGK.value: DWDDataColumns.TGK.value,
 }
 
 METADATA_DTYPE_MAPPING = {
-    DWDColumns.STATION_ID.value:        int,
-    DWDColumns.FROM_DATE.value:         datetime64,
-    DWDColumns.TO_DATE.value:           datetime64,
-    DWDColumns.STATIONHEIGHT.value:     float,
-    DWDColumns.LATITUDE.value:          float,
-    DWDColumns.LONGITUDE.value:         float,
-    DWDColumns.STATIONNAME.value:       str,
-    DWDColumns.STATE.value:             str
+    DWDMetaColumns.STATION_ID.value:        int,
+    DWDMetaColumns.FROM_DATE.value:         datetime64,
+    DWDMetaColumns.TO_DATE.value:           datetime64,
+    DWDMetaColumns.STATIONHEIGHT.value:     float,
+    DWDMetaColumns.LATITUDE.value:          float,
+    DWDMetaColumns.LONGITUDE.value:         float,
+    DWDMetaColumns.STATIONNAME.value:       str,
+    DWDMetaColumns.STATE.value:             str
 }

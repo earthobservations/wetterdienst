@@ -1,12 +1,13 @@
 """ Tests for data_collection """
 import mock
+import pytest
 from mock import patch
 from pathlib import Path
 import pandas as pd
 from io import StringIO
 from shutil import rmtree
 
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -40,7 +41,7 @@ csv_file.seek(0)
 
 @patch(
     "python_dwd.data_collection.create_file_list_for_dwd_server",
-    mock.MagicMock(return_value=pd.DataFrame({DWDColumns.FILENAME.value: [filename]}))
+    mock.MagicMock(return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]}))
 )
 @patch(
     "python_dwd.data_collection.download_dwd_data",
@@ -95,7 +96,7 @@ def test_collect_dwd_data():
 )
 @patch(
     "python_dwd.data_collection.create_file_list_for_dwd_server",
-    mock.MagicMock(return_value=pd.DataFrame(columns=[DWDColumns.FILENAME.value]))
+    mock.MagicMock(return_value=pd.DataFrame(columns=[DWDMetaColumns.FILENAME.value]))
 )
 def test_collect_dwd_data_empty():
     """ Test for data collection with no available data """
@@ -115,3 +116,70 @@ def test_collect_dwd_data_empty():
         write_file=False,
         create_new_filelist=create_new_filelist
     ).empty
+
+
+@pytest.mark.remote
+def test_fetch_and_parse_dwd_data_vanilla_columns():
+    """ Test for data collection with real data """
+
+    data = collect_dwd_data(
+        station_ids=[1048],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.RECENT
+    )
+
+    assert list(data.columns.values) == [
+        'STATION_ID',
+        'DATE',
+        'QN_3',
+        'FX',
+        'FM',
+        'QN_4',
+        'RSK',
+        'RSKF',
+        'SDK',
+        'SHK_TAG',
+        'NM',
+        'VPM',
+        'PM',
+        'TMK',
+        'UPM',
+        'TXK',
+        'TNK',
+        'TGK',
+    ]
+
+
+@pytest.mark.remote
+def test_fetch_and_parse_dwd_data_humanized_columns():
+    """ Test for data collection with real data and humanized column names """
+
+    data = collect_dwd_data(
+        station_ids=[1048],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.RECENT,
+        humanize_column_names=True
+    )
+
+    assert list(data.columns.values) == [
+        'STATION_ID',
+        'DATE',
+        'QN_3',
+        'WIND_GUST_MAX',
+        'WIND_VELOCITY',
+        'QN_4',
+        'PRECIPITATION_HEIGHT',
+        'PRECIPITATION_FORM',
+        'SUNSHINE_DURATION',
+        'SNOW_DEPTH',
+        'CLOUD_COVER',
+        'VAPOR_PRESSURE',
+        'PRESSURE',
+        'TEMPERATURE',
+        'HUMIDITY',
+        'TEMPERATURE_MAX_200',
+        'TEMPERATURE_MIN_200',
+        'TEMPERATURE_MIN_005',
+    ]

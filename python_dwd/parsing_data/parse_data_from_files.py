@@ -66,6 +66,19 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO]) -> pd.DataFrame:
         log.warning(f"The file representing {filename} is None and is skipped.")
         return pd.DataFrame()
 
-    data = data.rename(columns=str.upper).rename(GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    # Column names contain spaces, so strip them away.
+    data = data.rename(columns=str.strip)
 
-    return data.astype(create_stationdata_dtype_mapping(data.columns))
+    # Make column names uppercase.
+    data = data.rename(columns=str.upper)
+
+    # End of record (EOR) has no value, so drop it right away.
+    data = data.drop(columns='EOR', errors='ignore')
+
+    # Assign meaningful column names (baseline).
+    data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+
+    # Coerce the data types appropriately.
+    data = data.astype(create_stationdata_dtype_mapping(data.columns))
+
+    return data

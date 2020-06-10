@@ -1,14 +1,14 @@
 """ metdata constants """
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 
-METADATA_COLUMNS = [DWDColumns.STATION_ID.value,
-                    DWDColumns.FROM_DATE.value,
-                    DWDColumns.TO_DATE.value,
-                    DWDColumns.STATIONHEIGHT.value,
-                    DWDColumns.LATITUDE.value,
-                    DWDColumns.LONGITUDE.value,
-                    DWDColumns.STATIONNAME.value,
-                    DWDColumns.STATE.value]
+METADATA_COLUMNS = [DWDMetaColumns.STATION_ID.value,
+                    DWDMetaColumns.FROM_DATE.value,
+                    DWDMetaColumns.TO_DATE.value,
+                    DWDMetaColumns.STATIONHEIGHT.value,
+                    DWDMetaColumns.LATITUDE.value,
+                    DWDMetaColumns.LONGITUDE.value,
+                    DWDMetaColumns.STATIONNAME.value,
+                    DWDMetaColumns.STATE.value]
 
 METADATA_MATCHSTRINGS = ['beschreibung', '.txt']
 METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"

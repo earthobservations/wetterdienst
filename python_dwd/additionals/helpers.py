@@ -14,7 +14,7 @@ from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, DWD_FO
 from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
     ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
     STATID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -120,7 +120,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
 
-    return metaindex_df.sort_values(DWDColumns.STATION_ID.value).reset_index(drop=True)
+    return metaindex_df.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(drop=True)
 
 
 def download_metadata_file_for_1minute_data(metadatafile: str) -> BytesIO:
@@ -174,10 +174,10 @@ def combine_geo_and_par_file_to_metadata_df(metadata_file_and_statid: Tuple[Byte
     metadata_par_df = metadata_par_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
-    metadata_par_df = metadata_par_df.loc[:, [DWDColumns.FROM_DATE.value, DWDColumns.TO_DATE.value]].dropna()
+    metadata_par_df = metadata_par_df.loc[:, [DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value]].dropna()
 
-    metadata_geo_df[DWDColumns.FROM_DATE.value] = metadata_par_df[DWDColumns.FROM_DATE.value].min()
-    metadata_geo_df[DWDColumns.TO_DATE.value] = metadata_par_df[DWDColumns.TO_DATE.value].max()
+    metadata_geo_df[DWDMetaColumns.FROM_DATE.value] = metadata_par_df[DWDMetaColumns.FROM_DATE.value].min()
+    metadata_geo_df[DWDMetaColumns.TO_DATE.value] = metadata_par_df[DWDMetaColumns.TO_DATE.value].max()
 
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
@@ -236,27 +236,27 @@ def create_fileindex(parameter: Parameter,
                                 f"{str(e)}")
 
     files_server = pd.DataFrame(files_server,
-                                columns=[DWDColumns.FILENAME.value],
+                                columns=[DWDMetaColumns.FILENAME.value],
                                 dtype='str')
 
-    files_server.loc[:, DWDColumns.FILENAME.value] = files_server.loc[:, DWDColumns.FILENAME.value].apply(
+    files_server.loc[:, DWDMetaColumns.FILENAME.value] = files_server.loc[:, DWDMetaColumns.FILENAME.value].apply(
         lambda filename: filename.replace(DWD_PATH + '/', ''))
 
     files_server = files_server[files_server.FILENAME.str.contains(
         ARCHIVE_FORMAT)]
 
-    files_server.loc[:, DWDColumns.FILEID.value] = files_server.index
+    files_server.loc[:, DWDMetaColumns.FILEID.value] = files_server.index
     
     file_names = files_server.iloc[:, 0].str.split("/").apply(
         lambda string: string[-1])
 
-    files_server.loc[:, DWDColumns.STATION_ID.value] = file_names.apply(lambda x: re.findall(STATID_REGEX, x).pop(0))
+    files_server.loc[:, DWDMetaColumns.STATION_ID.value] = file_names.apply(lambda x: re.findall(STATID_REGEX, x).pop(0))
 
     files_server = files_server.iloc[:, [1, 2, 0]]
 
     files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
 
-    files_server = files_server.sort_values(by=[DWDColumns.STATION_ID.value])
+    files_server = files_server.sort_values(by=[DWDMetaColumns.STATION_ID.value])
 
     remove_old_file(file_type=FILELIST_NAME,
                     parameter=parameter,
@@ -293,11 +293,11 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
     """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in columns:
-        if column == DWDColumns.STATION_ID.value:
+        if column == DWDMetaColumns.STATION_ID.value:
             stationdata_dtype_mapping[column] = int
-        elif column == DWDColumns.DATE.value:
+        elif column == DWDMetaColumns.DATE.value:
             stationdata_dtype_mapping[column] = "datetime64"
-        elif column == DWDColumns.EOR.value:
+        elif column == DWDMetaColumns.EOR.value:
             stationdata_dtype_mapping[column] = str
         else:
             stationdata_dtype_mapping[column] = float
