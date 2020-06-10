@@ -84,4 +84,4 @@ def collect_dwd_data(station_ids: List[int],
 
         data.append(station_data)
 
-    return pd.concat(data, axis=1, ignore_index=True)
+    return pd.concat(data)
