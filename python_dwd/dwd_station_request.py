@@ -1,10 +1,9 @@
+from pathlib import Path
 from typing import List, Union, Optional, Dict, Generator
 import pandas as pd
 from pandas import Timestamp
 
-from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
-from python_dwd.download.download import download_dwd_data
-from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
+from python_dwd.data_collection import collect_dwd_data
 from python_dwd.additionals.time_handling import parse_date
 from python_dwd.constants.parameter_mapping import PARAMETER_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, \
     PERIODTYPE_WORDLIST_MAPPING
@@ -49,6 +48,10 @@ class DWDStationRequest:
             else [_parse_parameter_from_value(period_type, PERIODTYPE_WORDLIST_MAPPING)
                   for period_type in cast_to_list(period_type)]
 
+        # Additional sorting required for self.period_type to ensure that for multiple
+        # periods the data is first sourced from historical
+        self.period_type = sorted(self.period_type)
+
         self.start_date = parse_date(start_date)
         self.end_date = parse_date(end_date)
 
@@ -70,7 +73,8 @@ class DWDStationRequest:
 
         # Use the clean up of self.period_type to identify if there's any data with those parameters
         if not self.period_type:
-            raise ValueError("No combination for parameter, time_resolution and period_type could be found.")
+            raise ValueError("No combination for parameter, time_resolution "
+                             "and period_type could be found.")
 
     def __eq__(self, other):
         return [self.station_id,
@@ -89,77 +93,41 @@ class DWDStationRequest:
                           self.end_date.value])
 
     def collect_data(self,
-                     return_type: str = "generator",
                      prefer_local: bool = False,
                      write_file: bool = False,
-                     folder: str = DWD_FOLDER_MAIN,
-                     create_new_filelist: bool = False) -> Union[Generator[pd.DataFrame, None, None], pd.DataFrame]:
+                     folder: Union[str, Path] = DWD_FOLDER_MAIN,
+                     parallel_download: bool = False,
+                     create_new_filelist: bool = False) -> Generator[pd.DataFrame, None, None]:
         """
-        Function to collect data for a defined request. The type of data that is returned can be defined with
-        return_type. This can be useful if expected amount of data load is small enough and it can be summarized into
-        one object. This function is a wrapper around _collect_data which does the actual collecting work.
+        Method to collect data for a defined request. The function is build as generator in
+        order to not cloak the memory thus if the user wants the data as one pandas DataFrame
+        the generator has to be casted to a DataFrame manually via
+        pd.concat(list(request.collect_data([...])).
 
         Args:
-            return_type: the request return type, if defined it will be tried to return the collected data as casted to
-            that type instead
-            prefer_local:
-            write_file:
-            folder:
-            create_new_filelist:
+            prefer_local: definition if data should rather be taken from a local source
+            write_file: should data be written to a local file
+            folder: place where filelists (and station data) are stored
+            parallel_download: definition if data is downloaded in parallel
+            create_new_filelist: definition if the fileindex should be recreated
 
         Returns:
-            pandas.DataFrame with the loaded data, either from a Generator or directly as DataFrame
-        """
-        if return_type not in ["generator", "dataframe"]:
-            raise ValueError("return_type has to be one of 'generator', 'dataframe'")
-
-        if return_type == "generator":
-            return self._collect_data(prefer_local, write_file, folder, create_new_filelist)
-        else:
-            return pd.concat(
-                list(self._collect_data(prefer_local, write_file, folder, create_new_filelist))).reset_index(drop=True)
-
-    def _collect_data(self,
-                      prefer_local: bool = False,
-                      write_file: bool = False,
-                      folder: str = DWD_FOLDER_MAIN,
-                      create_new_filelist: bool = False) -> Generator[pd.DataFrame, None, None]:
-        """
-        Function to collect the data, which will be returned station wise as by defined station ids. For every station
-        id the generator will hold one pandas.DataFrame.
-
-        Returns:
-            pandas.DataFrame as generator
+            via a generator per station a pandas.DataFrame
         """
         for station_id in self.station_id:
             df_of_station_id = pd.DataFrame()
 
             for period_type in self.period_type:
-                remote_files = create_file_list_for_dwd_server(
-                    station_id=station_id,
+                period_df = collect_dwd_data(
+                    station_ids=[station_id],
                     parameter=self.parameter,
                     time_resolution=self.time_resolution,
                     period_type=period_type,
                     folder=folder,
-                    create_new_filelist=create_new_filelist
-                )
-
-                # Skip from here if no files for the requested id exist
-                if remote_files.empty:
-                    print(f"No data exists for station_id {station_id}, {self.parameter.value}, "
-                          f"{self.time_resolution.value}, {period_type.value}")
-                    continue
-
-                filenames_and_files = download_dwd_data(
-                    remote_files=remote_files,
-                    parallel_download=True
-                )
-
-                period_df = parse_dwd_data(
-                    filenames_and_files=filenames_and_files,
-                    write_file=write_file,
                     prefer_local=prefer_local,
-                    folder=folder
+                    parallel_download=parallel_download,
+                    write_file=write_file,
+                    create_new_filelist=create_new_filelist,
                 )
 
                 # Filter out values which already are in the dataframe
@@ -173,8 +141,10 @@ class DWDStationRequest:
 
             # Filter for dates range if start_date and end_date are defined
             if self.start_date:
-                df_of_station_id = df_of_station_id[(df_of_station_id[DWDColumns.DATE.value] >= self.start_date) &
-                                                    (df_of_station_id[DWDColumns.DATE.value] <= self.end_date)]
+                df_of_station_id = df_of_station_id[
+                    (df_of_station_id[DWDColumns.DATE.value] >= self.start_date) &
+                    (df_of_station_id[DWDColumns.DATE.value] <= self.end_date)
+                ]
 
             # Empty dataframe should be skipped
             if df_of_station_id.empty:
