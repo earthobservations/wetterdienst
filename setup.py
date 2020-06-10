@@ -15,5 +15,10 @@ setup(
     author_email='gutzemann@gmail.com',
     packages=['python_dwd'],  # , 'python_dwd.additionals'
     install_requires=['pandas', 'pathlib',
-                      'zipfile', 'scipy', 'numpy']
+                      'scipy', 'numpy'],
+    entry_points={
+        'console_scripts': [
+            'dwd = python_dwd.cli:run',
+        ]
+    },
 )
