@@ -1,5 +1,5 @@
 from python_dwd.additionals.geo_location import get_nearest_station,\
-    derive_nearest_neighbours
+    _derive_nearest_neighbours
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -17,13 +17,13 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
     MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON"))
 )
 def test_get_nearest_station():
-    nearest_indices, distances = get_nearest_station(
+    nearest_station, distances = get_nearest_station(
         [50., 51.4], [8.9, 9.3],
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT)
 
-    assert nearest_indices == [4411, 15207]
+    assert nearest_station == 4411
 
     np.testing.assert_array_almost_equal(
         np.array(distances),
@@ -35,10 +35,13 @@ def test_derive_nearest_neighbours():
 
     metadata = pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON")
 
-    distances, indices_nearest_neighbours = derive_nearest_neighbours(
+    distances, indices_nearest_neighbours = _derive_nearest_neighbours(
         metadata.LAT.values,
         metadata.LON.values,
         coords)
+
+    assert list(indices_nearest_neighbours) == [432, 655]
+
     np.testing.assert_array_almost_equal(distances,
                                          np.array([0.00182907, 0.00227919]))
 

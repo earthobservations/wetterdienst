@@ -1,7 +1,8 @@
 """ download scripts """
 from typing import List, Union, Tuple
 from pathlib import Path
-import urllib
+import urllib.request
+import urllib.error
 import zipfile
 from io import BytesIO
 from multiprocessing import Pool
