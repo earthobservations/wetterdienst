@@ -7,6 +7,7 @@ from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.exceptions import InvalidStationIdentifier
 from python_dwd.file_path_handling.path_handling import build_local_filepath_for_station_data
 
 
@@ -105,7 +106,13 @@ def _build_local_store_key(station_id: Union[str, int],
     Returns:
         a string building a key that is used to identify the request
     """
+
+    try:
+        station_id = int(station_id)
+    except ValueError:
+        raise InvalidStationIdentifier("Station identifiers must be integer values")
+
     request_string = f"{parameter.value}/{time_resolution.value}/" \
-                     f"{period_type.value}/station_id_{int(station_id)}"
+                     f"{period_type.value}/station_id_{station_id}"
 
     return request_string

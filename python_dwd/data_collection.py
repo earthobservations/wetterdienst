@@ -12,6 +12,7 @@ from python_dwd.file_path_handling.file_list_creation import create_file_list_fo
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 from python_dwd.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
+from python_dwd.exceptions import NoDataError
 
 log = logging.getLogger(__name__)
 
@@ -75,6 +76,10 @@ def collect_dwd_data(station_ids: List[int],
             [station_id], parameter, time_resolution, period_type, folder, create_new_filelist)
 
         filenames_and_files = download_dwd_data(remote_files, parallel_download)
+        if not filenames_and_files:
+            log.warning(f"No data for station {station_id} with "
+                        f"{parameter}, {time_resolution}, {period_type}")
+            continue
 
         station_data = parse_dwd_data(filenames_and_files)
 
@@ -84,4 +89,7 @@ def collect_dwd_data(station_ids: List[int],
 
         data.append(station_data)
 
-    return pd.concat(data)
+    try:
+        return pd.concat(data)
+    except ValueError:
+        raise NoDataError("Collecting data from DWD returned no results")

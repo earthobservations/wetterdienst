@@ -11,3 +11,6 @@ matplotlib==3.0.3
 pytest==5.4.3
 mock==4.0.2
 fire==0.3.1
+docopt==0.6.2
+munch==2.5.0
+dateparser==0.7.4
