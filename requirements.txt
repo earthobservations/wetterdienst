@@ -1,4 +1,4 @@
-pandas==1.0.3
+pandas==1.0.4
 tables==3.6.1
 numpy==1.18.3
 scipy==1.4.1
@@ -8,6 +8,6 @@ aiofiles==0.4.0
 ipython==7.10.1
 ipython-genutils==0.2.0
 matplotlib==3.0.3
-pytest==5.4.1
-mock==0.7.2
+pytest==5.4.3
+mock==4.0.2
 fire==0.3.1
