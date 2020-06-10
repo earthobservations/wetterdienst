@@ -1,4 +1,5 @@
 """ function to read data from dwd server """
+import logging
 from typing import List, Tuple
 from io import BytesIO
 import pandas as pd
@@ -6,6 +7,8 @@ import pandas as pd
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import NA_STRING, STATIONDATA_SEP
+
+log = logging.getLogger(__name__)
 
 
 def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]]) -> pd.DataFrame:
@@ -27,9 +30,9 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]]) -> pd.DataFra
     try:
         data = pd.concat(data).reset_index(drop=True)
     except ValueError:
-        print(f"An error occurred while concatenating the data for files "
-              f"{[filename for filename, file in filenames_and_files]}. "
-              f"An empty DataFrame will be returned.")
+        log.error(f"An error occurred while concatenating the data for files "
+                  f"{[filename for filename, file in filenames_and_files]}. "
+                  f"An empty DataFrame will be returned.")
         data = pd.DataFrame()
 
     return data
@@ -57,10 +60,10 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO]) -> pd.DataFrame:
             dtype="str"  # dtypes are mapped manually to ensure expected dtypes
         )
     except pd.errors.ParserError:
-        print(f"The file representing {filename} could not be parsed and is skipped.")
+        log.warning(f"The file representing {filename} could not be parsed and is skipped.")
         return pd.DataFrame()
     except ValueError:
-        print(f"The file representing {filename} is None and is skipped.")
+        log.warning(f"The file representing {filename} is None and is skipped.")
         return pd.DataFrame()
 
     data = data.rename(columns=str.upper).rename(GERMAN_TO_ENGLISH_COLUMNS_MAPPING)

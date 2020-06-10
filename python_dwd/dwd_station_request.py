@@ -1,3 +1,4 @@
+import logging
 from typing import List, Union, Optional, Dict, Generator
 import pandas as pd
 from pandas import Timestamp
@@ -16,6 +17,8 @@ from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDate
 
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
 from python_dwd.enumerations.column_names_enumeration import DWDColumns
+
+log = logging.getLogger(__name__)
 
 
 class DWDStationRequest:
@@ -63,9 +66,9 @@ class DWDStationRequest:
             if not check_parameters(parameter=self.parameter,
                                     time_resolution=self.time_resolution,
                                     period_type=period_type):
-                print(f"Combination of: parameter {self.parameter.value}, "
-                      f"time_resolution {self.time_resolution.value}, "
-                      f"period_type {period_type} not available and removed.")
+                log.info(f"Combination of: parameter {self.parameter.value}, "
+                         f"time_resolution {self.time_resolution.value}, "
+                         f"period_type {period_type} not available and removed.")
                 self.period_type.remove(period_type)
 
         # Use the clean up of self.period_type to identify if there's any data with those parameters
