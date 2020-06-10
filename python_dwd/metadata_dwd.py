@@ -50,7 +50,7 @@ def add_filepresence(metainfo: pd.DataFrame,
     metainfo[DWDColumns.HAS_FILE.value] = False
 
     filelist = create_file_list_for_dwd_server(
-        station_id=metainfo.iloc[:, 0].to_list(),
+        station_ids=metainfo.iloc[:, 0].to_list(),
         parameter=parameter,
         time_resolution=time_resolution,
         period_type=period_type,

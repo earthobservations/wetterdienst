@@ -4,7 +4,6 @@ from typing import List
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
-from python_dwd.file_path_handling.path_handling import correct_folder_path
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
