@@ -22,7 +22,7 @@ class DWDStationRequest:
     The DWDStationRequest class represents a request for station data as provided by the DWD service
     """
     def __init__(self,
-                 station_id: Union[str, int, List[Union[int, str]]],
+                 station_ids: Union[str, int, List[Union[int, str]]],
                  parameter: Union[str, Parameter],
                  time_resolution: Union[str, TimeResolution],
                  period_type: Union[None, str, list, PeriodType] = None,
@@ -34,7 +34,7 @@ class DWDStationRequest:
                              "leave the other one empty!")
 
         try:
-            self.station_id = [int(s) for s in cast_to_list(station_id)]
+            self.station_ids = [int(station_id) for station_id in cast_to_list(station_ids)]
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
@@ -77,7 +77,7 @@ class DWDStationRequest:
                              "and period_type could be found.")
 
     def __eq__(self, other):
-        return [self.station_id,
+        return [self.station_ids,
                 self.parameter,
                 self.time_resolution,
                 self.period_type,
@@ -85,7 +85,7 @@ class DWDStationRequest:
                 self.end_date] == other
 
     def __str__(self):
-        return ", ".join([f"station_ids {'& '.join([str(stat_id) for stat_id in self.station_id])}",
+        return ", ".join([f"station_ids {'& '.join([str(station_id) for station_id in self.station_ids])}",
                           self.parameter.value,
                           self.time_resolution.value,
                           "& ".join([period_type.value for period_type in self.period_type]),
@@ -114,7 +114,7 @@ class DWDStationRequest:
         Returns:
             via a generator per station a pandas.DataFrame
         """
-        for station_id in self.station_id:
+        for station_id in self.station_ids:
             df_of_station_id = pd.DataFrame()
 
             for period_type in self.period_type:
