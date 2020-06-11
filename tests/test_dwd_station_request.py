@@ -27,25 +27,20 @@ def test_find_any_one_word_from_wordlist():
     assert _find_any_one_word_from_wordlist(["a_unique", "b_unique"], [["some", "thing", "a"], ["some", "thing", "b"]])
 
 
-def test_parse_station_id_to_list_of_integers():
-    # @todo
-    assert True
-
-
 def test_dwd_station_request():
-    assert DWDStationRequest(station_id=[1], time_resolution="daily", parameter="cl", period_type="hist") \
+    assert DWDStationRequest(station_ids=[1], time_resolution="daily", parameter="cl", period_type="hist") \
            == [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
 
-    assert DWDStationRequest(station_id=[1],
+    assert DWDStationRequest(station_ids=[1],
                              parameter=Parameter.CLIMATE_SUMMARY,
                              period_type=PeriodType.HISTORICAL,
-                             time_resolution=TimeResolution.DAILY) == \
-           [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
+                             time_resolution=TimeResolution.DAILY) \
+        == [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
 
 
 def test_station_id():
     with pytest.raises(ValueError):
-        DWDStationRequest(station_id="test",
+        DWDStationRequest(station_ids="test",
                           parameter=Parameter.CLIMATE_SUMMARY,
                           period_type=PeriodType.HISTORICAL,
                           time_resolution=TimeResolution.DAILY)
@@ -53,7 +48,7 @@ def test_station_id():
 
 def test_parameter_enumerations():
     with pytest.raises(ValueError):
-        DWDStationRequest(station_id=[1],
+        DWDStationRequest(station_ids=[1],
                           parameter="cl",
                           period_type="now",
                           time_resolution="daily")
@@ -61,21 +56,25 @@ def test_parameter_enumerations():
 
 def test_time_input():
     with pytest.raises(ValueError):
-        DWDStationRequest(station_id=[1],
+        DWDStationRequest(station_ids=[1],
                           parameter=Parameter.CLIMATE_SUMMARY,
                           time_resolution=TimeResolution.DAILY,
                           start_date="1971-01-01")
 
         with pytest.raises(ValueError):
-            DWDStationRequest(station_id=[1],
+            DWDStationRequest(station_ids=[1],
                               parameter=Parameter.CLIMATE_SUMMARY,
                               time_resolution=TimeResolution.DAILY,
                               period_type=PeriodType.HISTORICAL,
                               start_date="1971-01-01")
 
     with pytest.raises(StartDateEndDateError):
-        DWDStationRequest(station_id=[1],
+        DWDStationRequest(station_ids=[1],
                           parameter=Parameter.CLIMATE_SUMMARY,
                           time_resolution=TimeResolution.DAILY,
                           start_date="1971-01-01",
                           end_date="1951-01-01")
+
+    def test_dwd_station_request_collect_data():
+        # @todo
+        assert True
