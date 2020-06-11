@@ -1,7 +1,8 @@
 """ download scripts """
 from typing import List, Union, Tuple
 from pathlib import Path
-import urllib
+import urllib.request
+import urllib.error
 import zipfile
 from io import BytesIO
 from multiprocessing import Pool
@@ -53,7 +54,7 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
             zip_file = BytesIO(url_request.read())
     except urllib.error.URLError:
         raise urllib.error.URLError(f"Error: the stationdata {file_server} couldn't be reached.")
-    except urllib.error.HTTPERROR:
+    except urllib.error.HTTPError:
         pass
 
     try:
