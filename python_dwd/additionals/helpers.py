@@ -240,7 +240,7 @@ def create_fileindex(parameter: Parameter,
                                 dtype='str')
 
     files_server.loc[:, DWDColumns.FILENAME.value] = files_server.loc[:, DWDColumns.FILENAME.value].apply(
-        lambda filename: filename.lstrip(DWD_PATH + '/'))
+        lambda filename: filename.replace(DWD_PATH + '/', ''))
 
     files_server = files_server[files_server.FILENAME.str.contains(
         ARCHIVE_FORMAT)]
