@@ -1,4 +1,5 @@
 """ Data collection pipeline """
+import logging
 from pathlib import Path
 from typing import List, Union
 import pandas as pd
@@ -11,6 +12,8 @@ from python_dwd.file_path_handling.file_list_creation import create_file_list_fo
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 from python_dwd.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
+
+log = logging.getLogger(__name__)
 
 
 def collect_dwd_data(station_ids: List[int],
@@ -60,13 +63,13 @@ def collect_dwd_data(station_ids: List[int],
 
             # When successful append data and continue with next iteration
             if not station_data.empty:
-                print(f"Data for {request_string} restored from local.")
+                log.info(f"Data for {request_string} restored from local.")
 
                 data.append(station_data)
 
                 continue
 
-        print(f"Data for {request_string} will be collected from internet.")
+        log.info(f"Data for {request_string} will be collected from internet.")
 
         remote_files = create_file_list_for_dwd_server(
             [station_id], parameter, time_resolution, period_type, folder, create_new_filelist)
