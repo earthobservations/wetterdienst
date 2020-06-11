@@ -38,15 +38,29 @@ class DWDStationRequest:
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
-        self.parameter = parameter if isinstance(parameter, Parameter) \
-            else _parse_parameter_from_value(parameter, PARAMETER_WORDLIST_MAPPING)
+        try:
+            self.parameter = Parameter(parameter)
+        except ValueError:
+            self.parameter = _parse_parameter_from_value(
+                parameter, PARAMETER_WORDLIST_MAPPING)
 
-        self.time_resolution = time_resolution if isinstance(time_resolution, TimeResolution) \
-            else _parse_parameter_from_value(time_resolution, TIMERESOLUTION_WORDLIST_MAPPING)
+        try:
+            self.time_resolution = TimeResolution(time_resolution)
+        except ValueError:
+            self.time_resolution = _parse_parameter_from_value(
+                time_resolution, TIMERESOLUTION_WORDLIST_MAPPING)
 
-        self.period_type = cast_to_list(period_type) if isinstance(period_type, (PeriodType, type(None))) \
-            else [_parse_parameter_from_value(period_type, PERIODTYPE_WORDLIST_MAPPING)
-                  for period_type in cast_to_list(period_type)]
+        self.period_type = []
+        for pt in cast_to_list(period_type):
+            if pt is None:
+                self.period_type.append(None)
+                continue
+
+            try:
+                self.period_type.append(PeriodType(pt))
+            except ValueError:
+                self.period_type.append(
+                    _parse_parameter_from_value(period_type, PERIODTYPE_WORDLIST_MAPPING))
 
         # Additional sorting required for self.period_type to ensure that for multiple
         # periods the data is first sourced from historical
