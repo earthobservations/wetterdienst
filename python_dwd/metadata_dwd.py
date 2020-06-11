@@ -1,5 +1,6 @@
 """ Meta data handling """
 from pathlib import Path
+from typing import Union
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
@@ -62,9 +63,9 @@ def add_filepresence(metainfo: pd.DataFrame,
     return metainfo
 
 
-def metadata_for_dwd_data(parameter: Parameter,
-                          time_resolution: TimeResolution,
-                          period_type: PeriodType,
+def metadata_for_dwd_data(parameter: Union[Parameter, str],
+                          time_resolution: Union[TimeResolution, str],
+                          period_type: Union[PeriodType, str],
                           folder: str = DWD_FOLDER_MAIN,
                           write_file: bool = True,
                           create_new_filelist: bool = False) -> pd.DataFrame:
@@ -91,19 +92,9 @@ def metadata_for_dwd_data(parameter: Parameter,
     Returns:
 
     """
-
-    if not isinstance(parameter, Parameter):
-        raise TypeError("Error: 'parameter' is not of type Parameter(Enum).")
-    if not isinstance(time_resolution, TimeResolution):
-        raise TypeError("Error: 'time_resolution' is not of type TimeResolution(Enum).")
-    if not isinstance(period_type, PeriodType):
-        raise TypeError("Error: 'period_type' is not of type PeriodType(Enum).")
-    if not isinstance(folder, str):
-        raise TypeError("Error: 'folder' is not a string.")
-    if not isinstance(write_file, bool):
-        raise TypeError("Error: 'write_file' is not a bool.")
-    if not isinstance(create_new_filelist, bool):
-        raise TypeError("Error: 'create_new_filelist' is not a bool.")
+    parameter = Parameter(parameter)
+    time_resolution = TimeResolution(time_resolution)
+    period_type = PeriodType(period_type)
 
     check_parameters(parameter=parameter,
                      time_resolution=time_resolution,
