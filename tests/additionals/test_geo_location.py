@@ -1,5 +1,5 @@
 from python_dwd.additionals.geo_location import get_nearest_station,\
-    derive_nearest_neighbours
+    _derive_nearest_neighbours
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -17,6 +17,7 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
     MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON"))
 )
 def test_get_nearest_station():
+    # @todo adjust test to work with more then one station
     nearest_indices, distances = get_nearest_station(
         [50., 51.4], [8.9, 9.3],
         Parameter.TEMPERATURE_AIR,
@@ -35,7 +36,7 @@ def test_derive_nearest_neighbours():
 
     metadata = pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON")
 
-    distances, indices_nearest_neighbours = derive_nearest_neighbours(
+    distances, indices_nearest_neighbours = _derive_nearest_neighbours(
         metadata.LAT.values,
         metadata.LON.values,
         coords)

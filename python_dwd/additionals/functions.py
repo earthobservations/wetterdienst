@@ -106,17 +106,6 @@ def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
     """
     filename = filename.lower()
 
-    # if "_hist" in filename:
-    #     period_type = PeriodType.HISTORICAL
-    # elif "_akt" in filename:
-    #     period_type = PeriodType.RECENT
-    # elif "_now" in filename:
-    #     period_type = PeriodType.NOW
-    # elif "_row" in filename:
-    #     period_type = PeriodType.ROW
-    # else:
-    #     period_type = None
-
     try:
         # period type is connected to the file extension e.g. ".csv" that's why we have to replace the "." by a "_" to
         # apply the same functionality of getting the period type by using set
