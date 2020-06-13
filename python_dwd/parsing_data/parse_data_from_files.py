@@ -5,7 +5,7 @@ import pandas as pd
 
 from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from python_dwd.constants.metadata import NA_STRING, STATIONDATA_SEP
+from python_dwd.constants.metadata import NA_STRING, STATION_DATA_SEP
 
 
 def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]]) -> pd.DataFrame:
@@ -52,7 +52,7 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO]) -> pd.DataFrame:
     try:
         data = pd.read_csv(
             filepath_or_buffer=file,
-            sep=STATIONDATA_SEP,
+            sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype="str"  # dtypes are mapped manually to ensure expected dtypes
         )

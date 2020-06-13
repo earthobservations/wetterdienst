@@ -11,9 +11,9 @@ import ftplib
 
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
 from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
-from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
-    ARCHIVE_FORMAT, DATA_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATIONDATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
-    STATID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
+from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, DWD_FILE_INDEX_NAME, FTP_METADATA_NAME, \
+    ARCHIVE_FORMAT, CSV_FORMAT, METADATA_FIXED_COLUMN_WIDTH, STATION_DATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
+    STATION_ID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
 from python_dwd.enumerations.column_names_enumeration import DWDColumns
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
@@ -108,7 +108,7 @@ def metaindex_for_1minute_data(parameter: Parameter,
 
     metadata_filepaths = [create_remote_file_name(file.lstrip(DWD_PATH)) for file in metadata_filepaths]
 
-    statids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
+    statids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_filepaths]
 
     metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
@@ -194,81 +194,11 @@ def parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
 
     """
     file = pd.read_csv(filepath_or_buffer=TextIOWrapper(file_opened),
-                       sep=STATIONDATA_SEP,
+                       sep=STATION_DATA_SEP,
                        na_values=NA_STRING,
                        dtype=str)
 
     return file
-
-
-def create_fileindex(parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType,
-                     folder: str = DWD_FOLDER_MAIN) -> None:
-    """
-        A function to receive current files on server as list excluding description
-        files and only containing those files that have measuring data.
-
-    """
-    # Check for folder and create if necessary
-    create_folder(subfolder=DWD_FOLDER_METADATA,
-                  folder=folder)
-
-    filelist_local_path = Path(folder,
-                               DWD_FOLDER_METADATA,
-                               f"{FILELIST_NAME}_{parameter.value}_"
-                               f"{time_resolution.value}_"
-                               f"{period_type.value}{DATA_FORMAT}")
-
-    server_path = PurePosixPath(DWD_PATH,
-                                time_resolution.value,
-                                parameter.value,
-                                period_type.value)
-
-    try:
-        with FTP(DWD_SERVER) as ftp:
-            ftp.login()
-            files_server = ftp.list_files(remote_path=str(server_path),
-                                          also_subfolders=True)
-
-    except ftplib.all_errors as e:
-        raise ftplib.all_errors("Error: creating a filelist currently not possible.\n"
-                                f"{str(e)}")
-
-    files_server = pd.DataFrame(files_server,
-                                columns=[DWDColumns.FILENAME.value],
-                                dtype='str')
-
-    files_server.loc[:, DWDColumns.FILENAME.value] = files_server.loc[:, DWDColumns.FILENAME.value].apply(
-        lambda filename: filename.replace(DWD_PATH + '/', ''))
-
-    files_server = files_server[files_server.FILENAME.str.contains(
-        ARCHIVE_FORMAT)]
-
-    files_server.loc[:, DWDColumns.FILEID.value] = files_server.index
-    
-    file_names = files_server.iloc[:, 0].str.split("/").apply(
-        lambda string: string[-1])
-
-    files_server.loc[:, DWDColumns.STATION_ID.value] = file_names.apply(lambda x: re.findall(STATID_REGEX, x).pop(0))
-
-    files_server = files_server.iloc[:, [1, 2, 0]]
-
-    files_server.iloc[:, 1] = files_server.iloc[:, 1].astype(int)
-
-    files_server = files_server.sort_values(by=[DWDColumns.STATION_ID.value])
-
-    remove_old_file(file_type=FILELIST_NAME,
-                    parameter=parameter,
-                    time_resolution=time_resolution,
-                    period_type=period_type,
-                    file_postfix=DATA_FORMAT,
-                    folder=folder,
-                    subfolder=DWD_FOLDER_METADATA)
-
-    files_server.to_csv(path_or_buf=filelist_local_path,
-                        header=True,
-                        index=False)
 
 
 def check_file_exist(file_path: Path) -> bool:

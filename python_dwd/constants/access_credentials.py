@@ -7,4 +7,4 @@ FTP_EXPRESSION = 'ftp://'
 
 DWD_FOLDER_MAIN = './dwd_data'
 DWD_FOLDER_METADATA = 'metadata'
-DWD_FOLDER_STATIONDATA = 'stationdata'
+DWD_FOLDER_STATION_DATA = 'station_data'
