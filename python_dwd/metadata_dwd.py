@@ -4,12 +4,12 @@ from typing import Union
 import pandas as pd
 
 from python_dwd.additionals.functions import check_parameters
-from python_dwd.additionals.helpers import create_fileindex, check_file_exist
+# from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, \
     DWD_FOLDER_METADATA
-from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
+from python_dwd.constants.metadata import DWD_METADATA_NAME, CSV_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -141,8 +141,8 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
 
     if write_file and not check_file_exist(file_path) and not \
             create_new_filelist:
-        remove_old_file(file_type=METADATA_NAME,
-                        file_postfix=DATA_FORMAT,
+        remove_old_file(file_type=DWD_METADATA_NAME,
+                        file_postfix=CSV_FORMAT,
                         parameter=parameter,
                         time_resolution=time_resolution,
                         period_type=period_type,
@@ -167,6 +167,6 @@ def create_metainfo_fpath(folder: str,
                   folder=folder)
     return Path(folder,
                 DWD_FOLDER_METADATA,
-                f"{METADATA_NAME}_{parameter.value}_"
+                f"{DWD_METADATA_NAME}_{parameter.value}_"
                 f"{time_resolution.value}_{period_type.value}"
-                f"{DATA_FORMAT}")
+                f"{CSV_FORMAT}")

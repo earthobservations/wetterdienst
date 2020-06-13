@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import Union
 
-from python_dwd.constants.metadata import STATIONDATA_NAME, H5_FORMAT
+from python_dwd.constants.metadata import DWD_STATION_DATA_NAME, H5_FORMAT
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -64,7 +64,7 @@ def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str
     Returns:
         a Path build upon the folder
     """
-    local_filepath = Path(folder, STATIONDATA_NAME).absolute() / \
-        f"{STATIONDATA_NAME}{H5_FORMAT}"
+    local_filepath = Path(folder, DWD_STATION_DATA_NAME).absolute() / \
+        f"{DWD_STATION_DATA_NAME}{H5_FORMAT}"
 
     return local_filepath
