@@ -6,7 +6,7 @@ from python_dwd.enumerations.column_names_enumeration import DWDColumns
 
 
 def test_create_file_list_for_dwd_server():
-    remote_file_path = create_file_list_for_dwd_server(station_ids=[1048],
+    remote_file_path = create_file_list_for_dwd_server(station_id=1048,
                                                        parameter=Parameter.CLIMATE_SUMMARY,
                                                        time_resolution=TimeResolution.DAILY,
                                                        period_type=PeriodType.RECENT)
