@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Union
 import pandas as pd
 
-from python_dwd.additionals.functions import check_parameters
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
 from python_dwd.enumerations.column_names_enumeration import DWDColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -35,22 +34,14 @@ def create_file_list_for_dwd_server(station_id: Union[str, int],
         List of path's to file
 
     """
+    create_file_index_for_dwd_server(folder)
+
     parameter = Parameter(parameter)
     time_resolution = TimeResolution(time_resolution)
     period_type = PeriodType(period_type)
 
-    # Check for the combination of requested parameters
-    check_parameters(parameter=parameter,
-                     time_resolution=time_resolution,
-                     period_type=period_type)
-
-    file_index_local_path = _create_file_index_path(folder)
-
-    if not file_index_local_path.is_file():
-        create_file_index_for_dwd_server(folder)
-
     file_list = pd.read_csv(
-        filepath_or_buffer=file_index_local_path,
+        filepath_or_buffer=_create_file_index_path(folder),
         sep=",",
         dtype={
             DWDColumns.FILEID.value: int,
@@ -59,4 +50,11 @@ def create_file_list_for_dwd_server(station_id: Union[str, int],
         }
     )
 
-    return file_list.loc[file_list[DWDColumns.STATION_ID.value] == station_id, :]
+    file_list_for_station_id = file_list[
+        (file_list[DWDColumns.PARAMETER.value] == parameter.value) &
+        (file_list[DWDColumns.TIME_RESOLUTION.value] == time_resolution.value) &
+        (file_list[DWDColumns.PERIOD_TYPE.value] == period_type.value) &
+        (file_list[DWDColumns.STATION_ID.value] == int(station_id))
+    ]
+
+    return file_list_for_station_id.loc[:, [DWDColumns.FILENAME.value]]
