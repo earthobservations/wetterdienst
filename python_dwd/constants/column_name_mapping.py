@@ -7,6 +7,8 @@ GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigColumns.DATE.value:                      DWDMetaColumns.DATE.value,
     DWDOrigColumns.FROM_DATE.value:                 DWDMetaColumns.FROM_DATE.value,
     DWDOrigColumns.TO_DATE.value:                   DWDMetaColumns.TO_DATE.value,
+    DWDOrigColumns.FROM_DATE_ALTERNATIVE.value:     DWDMetaColumns.FROM_DATE.value,
+    DWDOrigColumns.TO_DATE_ALTERNATIVE.value:       DWDMetaColumns.TO_DATE.value,
     DWDOrigColumns.STATIONHEIGHT.value:             DWDMetaColumns.STATIONHEIGHT.value,
     DWDOrigColumns.LATITUDE.value:                  DWDMetaColumns.LATITUDE.value,
     DWDOrigColumns.LATITUDE_ALTERNATIVE.value:      DWDMetaColumns.LATITUDE.value,

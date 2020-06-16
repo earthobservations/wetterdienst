@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 import sys
 import logging
+
 from docopt import docopt
 from dateparser import parse as parsedate
 import pandas as pd
 
 from python_dwd import __version__, metadata_for_dwd_data
+from python_dwd.additionals.time_handling import mktimerange
 from python_dwd.additionals.util import normalize_options, setup_logging, read_list
 from python_dwd.dwd_station_request import DWDStationRequest
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -60,6 +63,18 @@ def run():
 
       # The real power horse: Acquire data across historical+recent data sets
       dwd readings --station=44,1048 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
+
+      # Acquire monthly data for 2020-05
+      dwd readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
+
+      # Acquire monthly data from 2017-01 to 2019-12
+      dwd readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
+
+      # Acquire annual data for 2019
+      dwd readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2019
+
+      # Acquire annual data from 2010 to 2020
+      dwd readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
 
     """
 
@@ -116,12 +131,22 @@ def run():
                 date_from, date_to = options.date.split('/')
                 date_from = parsedate(date_from)
                 date_to = parsedate(date_to)
-                df = df[(date_from <= df['DATE']) & (df['DATE'] <= date_to)]
+                if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
+                    date_from, date_to = mktimerange(request.time_resolution, date_from, date_to)
+                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (df[DWDMetaColumns.TO_DATE.value] <= date_to)
+                else:
+                    expression = (date_from <= df[DWDMetaColumns.DATE.value]) & (df[DWDMetaColumns.DATE.value] <= date_to)
+                df = df[expression]
 
             # Filter by date.
             else:
                 date = parsedate(options.date)
-                df = df[date == df['DATE']]
+                if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
+                    date_from, date_to = mktimerange(request.time_resolution, date)
+                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (df[DWDMetaColumns.TO_DATE.value] <= date_to)
+                else:
+                    expression = (date == df[DWDMetaColumns.DATE.value])
+                df = df[expression]
 
     # Make column names lowercase.
     df = df.rename(columns=str.lower)
