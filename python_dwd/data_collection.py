@@ -1,8 +1,10 @@
 """ Data collection pipeline """
+import logging
 from pathlib import Path
 from typing import List, Union
 import pandas as pd
 
+from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -11,6 +13,8 @@ from python_dwd.file_path_handling.file_list_creation import create_file_list_fo
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 from python_dwd.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
+
+log = logging.getLogger(__name__)
 
 
 def collect_dwd_data(station_ids: List[int],
@@ -21,7 +25,8 @@ def collect_dwd_data(station_ids: List[int],
                      prefer_local: bool = False,
                      parallel_download: bool = False,
                      write_file: bool = False,
-                     create_new_filelist: bool = False) -> pd.DataFrame:
+                     create_new_filelist: bool = False,
+                     humanize_column_names: bool = False) -> pd.DataFrame:
     """
     Function that organizes the complete pipeline of data collection, either
     from the internet or from a local file. It therefor goes through every given
@@ -39,6 +44,7 @@ def collect_dwd_data(station_ids: List[int],
         parallel_download: boolean if to use parallel download when downloading files
         write_file: boolean if to write data to local storage
         create_new_filelist: boolean if to create a new filelist for the data selection
+        humanize_column_names: boolean to yield column names better for human consumption
 
     Returns:
         a pandas DataFrame with all the data given by the station ids
@@ -60,13 +66,13 @@ def collect_dwd_data(station_ids: List[int],
 
             # When successful append data and continue with next iteration
             if not station_data.empty:
-                print(f"Data for {request_string} restored from local.")
+                log.info(f"Data for {request_string} restored from local.")
 
                 data.append(station_data)
 
                 continue
 
-        print(f"Data for {request_string} will be collected from internet.")
+        log.info(f"Data for {request_string} will be collected from internet.")
 
         remote_files = create_file_list_for_dwd_server(
             [station_id], parameter, time_resolution, period_type, folder, create_new_filelist)
@@ -81,4 +87,10 @@ def collect_dwd_data(station_ids: List[int],
 
         data.append(station_data)
 
-    return pd.concat(data, axis=1, ignore_index=True)
+    data = pd.concat(data)
+
+    # Assign meaningful column names (humanized).
+    if humanize_column_names:
+        data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED)
+
+    return data

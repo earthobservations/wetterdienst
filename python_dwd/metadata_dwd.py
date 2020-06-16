@@ -6,7 +6,7 @@ import pandas as pd
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex, check_file_exist
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, \
     DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
@@ -48,7 +48,7 @@ def add_filepresence(metainfo: pd.DataFrame,
                          period_type=period_type,
                          folder=folder)
 
-    metainfo[DWDColumns.HAS_FILE.value] = False
+    metainfo[DWDMetaColumns.HAS_FILE.value] = False
 
     filelist = create_file_list_for_dwd_server(
         station_ids=metainfo.iloc[:, 0].to_list(),
@@ -58,7 +58,7 @@ def add_filepresence(metainfo: pd.DataFrame,
         folder=folder)
 
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        filelist[DWDColumns.STATION_ID.value]), DWDColumns.HAS_FILE.value] = True
+        filelist[DWDMetaColumns.STATION_ID.value]), DWDMetaColumns.HAS_FILE.value] = True
 
     return metainfo
 
@@ -117,7 +117,7 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
                                     time_resolution=time_resolution,
                                     period_type=period_type)
 
-    if all(pd.isnull(metainfo[DWDColumns.STATE.value])):
+    if all(pd.isnull(metainfo[DWDMetaColumns.STATE.value])):
         # @todo avoid calling function in function -> we have to build a function around to manage missing data
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
@@ -126,11 +126,11 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
                                     write_file=False,
                                     create_new_filelist=False)
 
-        stateinfo = pd.merge(metainfo[DWDColumns.STATION_ID],
-                             mdp.loc[:, [DWDColumns.STATION_ID.value, DWDColumns.STATE.value]],
+        stateinfo = pd.merge(metainfo[DWDMetaColumns.STATION_ID],
+                             mdp.loc[:, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.STATE.value]],
                              how="left")
 
-        metainfo[DWDColumns.STATE.value] = stateinfo[DWDColumns.STATE.value]
+        metainfo[DWDMetaColumns.STATE.value] = stateinfo[DWDMetaColumns.STATE.value]
 
     metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,

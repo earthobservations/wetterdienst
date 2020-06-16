@@ -7,7 +7,7 @@ from python_dwd.additionals.functions import check_parameters
 from python_dwd.additionals.helpers import create_fileindex
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, DWD_FOLDER_METADATA
 from python_dwd.constants.metadata import FILELIST_NAME, DATA_FORMAT
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -68,8 +68,8 @@ def create_file_list_for_dwd_server(station_ids: List[int],
 
     filelist = pd.read_csv(filepath_or_buffer=filelist_local_path,
                            sep=",",
-                           dtype={DWDColumns.FILEID.value: int,
-                                  DWDColumns.STATION_ID.value: int,
-                                  DWDColumns.FILENAME.value: str})
+                           dtype={DWDMetaColumns.FILEID.value: int,
+                                  DWDMetaColumns.STATION_ID.value: int,
+                                  DWDMetaColumns.FILENAME.value: str})
 
-    return filelist.loc[filelist[DWDColumns.STATION_ID.value].isin(station_ids), :]
+    return filelist.loc[filelist[DWDMetaColumns.STATION_ID.value].isin(station_ids), :]

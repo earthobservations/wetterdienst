@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import List, Union, Optional, Dict, Generator
 import pandas as pd
@@ -14,7 +15,9 @@ from python_dwd.additionals.functions import check_parameters, cast_to_list
 from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
 
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
+
+log = logging.getLogger(__name__)
 
 
 class DWDStationRequest:
@@ -27,7 +30,8 @@ class DWDStationRequest:
                  time_resolution: Union[str, TimeResolution],
                  period_type: Union[None, str, list, PeriodType] = None,
                  start_date: Union[None, str, Timestamp] = None,
-                 end_date: Union[None, str, Timestamp] = None) -> None:
+                 end_date: Union[None, str, Timestamp] = None,
+                 humanized_column_names: bool = False) -> None:
 
         if not (period_type or (start_date and end_date)):
             raise ValueError("Define either a 'time_resolution' or both the 'start_date' and 'end_date' and "
@@ -80,15 +84,17 @@ class DWDStationRequest:
             if not check_parameters(parameter=self.parameter,
                                     time_resolution=self.time_resolution,
                                     period_type=period_type):
-                print(f"Combination of: parameter {self.parameter.value}, "
-                      f"time_resolution {self.time_resolution.value}, "
-                      f"period_type {period_type} not available and removed.")
+                log.info(f"Combination of: parameter {self.parameter.value}, "
+                         f"time_resolution {self.time_resolution.value}, "
+                         f"period_type {period_type} not available and removed.")
                 self.period_type.remove(period_type)
 
         # Use the clean up of self.period_type to identify if there's any data with those parameters
         if not self.period_type:
             raise ValueError("No combination for parameter, time_resolution "
                              "and period_type could be found.")
+
+        self.humanized_column_names = humanized_column_names
 
     def __eq__(self, other):
         return [self.station_ids,
@@ -142,12 +148,13 @@ class DWDStationRequest:
                     parallel_download=parallel_download,
                     write_file=write_file,
                     create_new_filelist=create_new_filelist,
+                    humanize_column_names=self.humanized_column_names
                 )
 
                 # Filter out values which already are in the dataframe
                 try:
                     period_df = period_df[
-                        ~period_df[DWDColumns.DATE.value].isin(df_of_station_id[DWDColumns.DATE.value])]
+                        ~period_df[DWDMetaColumns.DATE.value].isin(df_of_station_id[DWDMetaColumns.DATE.value])]
                 except KeyError:
                     pass
 
@@ -156,9 +163,9 @@ class DWDStationRequest:
             # Filter for dates range if start_date and end_date are defined
             if self.start_date:
                 df_of_station_id = df_of_station_id[
-                    (df_of_station_id[DWDColumns.DATE.value] >= self.start_date) &
-                    (df_of_station_id[DWDColumns.DATE.value] <= self.end_date)
-                ]
+                    (df_of_station_id[DWDMetaColumns.DATE.value] >= self.start_date) &
+                    (df_of_station_id[DWDMetaColumns.DATE.value] <= self.end_date)
+                    ]
 
             # Empty dataframe should be skipped
             if df_of_station_id.empty:

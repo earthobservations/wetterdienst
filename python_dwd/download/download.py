@@ -1,7 +1,8 @@
 """ download scripts """
 from typing import List, Union, Tuple
 from pathlib import Path
-import urllib
+import urllib.request
+import urllib.error
 import zipfile
 from io import BytesIO
 from multiprocessing import Pool
@@ -10,14 +11,14 @@ import pandas as pd
 from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 
 
 def download_dwd_data(remote_files: pd.DataFrame,
                       parallel_download: bool = False) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
-    remote_files: List[str] = remote_files[DWDColumns.FILENAME.value].to_list()
+    remote_files: List[str] = remote_files[DWDMetaColumns.FILENAME.value].to_list()
 
     if parallel_download:
         return list(
@@ -53,7 +54,7 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
             zip_file = BytesIO(url_request.read())
     except urllib.error.URLError:
         raise urllib.error.URLError(f"Error: the stationdata {file_server} couldn't be reached.")
-    except urllib.error.HTTPERROR:
+    except urllib.error.HTTPError:
         pass
 
     try:

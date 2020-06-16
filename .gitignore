@@ -2,3 +2,5 @@
 __pycache__/
 dwd_data/
 .idea/
+.venv*
+*.egg-info

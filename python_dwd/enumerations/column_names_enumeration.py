@@ -24,9 +24,25 @@ class DWDOrigColumns(Enum):
     STATIONNAME = "STATIONSNAME"
     STATE = "BUNDESLAND"
 
+    # Daily climate summary
+    FX = "FX"
+    FM = "FM"
+    RSK = "RSK"
+    RSKF = "RSKF"
+    SDK = "SDK"
+    SHK_TAG = "SHK_TAG"
+    NM = "NM"
+    VPM = "VPM"
+    PM = "PM"
+    TMK = "TMK"
+    UPM = "UPM"
+    TXK = "TXK"
+    TNK = "TNK"
+    TGK = "TGK"
 
-class DWDColumns(Enum):
-    """ Overhauled column names for the library """
+
+class DWDMetaColumns(Enum):
+    """ Overhauled column names for metadata fields """
     STATION_ID = "STATION_ID"
     DATE = "DATE"
     FROM_DATE = "FROM_DATE"
@@ -41,3 +57,23 @@ class DWDColumns(Enum):
     FILENAME = "FILENAME"
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
+
+
+class DWDDataColumns(Enum):
+    """ Overhauled column names for data fields """
+
+    # Daily climate summary
+    FX = "WIND_GUST_MAX"
+    FM = "WIND_VELOCITY"
+    RSK = "PRECIPITATION_HEIGHT"
+    RSKF = "PRECIPITATION_FORM"
+    SDK = "SUNSHINE_DURATION"
+    SHK_TAG = "SNOW_DEPTH"
+    NM = "CLOUD_COVER"
+    VPM = "VAPOR_PRESSURE"
+    PM = "PRESSURE"
+    TMK = "TEMPERATURE"
+    UPM = "HUMIDITY"
+    TXK = "TEMPERATURE_MAX_200"
+    TNK = "TEMPERATURE_MIN_200"
+    TGK = "TEMPERATURE_MIN_005"
