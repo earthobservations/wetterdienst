@@ -220,10 +220,15 @@ def create_fileindex(parameter: Parameter,
                                f"{time_resolution.value}_"
                                f"{period_type.value}{DATA_FORMAT}")
 
-    server_path = PurePosixPath(DWD_PATH,
-                                time_resolution.value,
-                                parameter.value,
-                                period_type.value)
+    if parameter == Parameter.SOLAR and time_resolution in (TimeResolution.HOURLY, TimeResolution.DAILY):
+        server_path = PurePosixPath(DWD_PATH,
+                                    time_resolution.value,
+                                    parameter.value)
+    else:
+        server_path = PurePosixPath(DWD_PATH,
+                                    time_resolution.value,
+                                    parameter.value,
+                                    period_type.value)
 
     try:
         with FTP(DWD_SERVER) as ftp:
