@@ -79,7 +79,7 @@ def collect_dwd_data(station_ids: List[int],
 
         filenames_and_files = download_dwd_data(remote_files, parallel_download)
 
-        station_data = parse_dwd_data(filenames_and_files)
+        station_data = parse_dwd_data(filenames_and_files, time_resolution)
 
         if write_file:
             store_dwd_data(

@@ -4,6 +4,7 @@ from io import StringIO, BytesIO
 from pathlib import Path
 import pandas as pd
 
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 
 fixtures_dir = Path(__file__, "../..").resolve().absolute() / "fixtures"
@@ -18,6 +19,8 @@ def test_parse_dwd_data():
     file_in_bytes.seek(0)
 
     station_data = parse_dwd_data(
-        filenames_and_files=[(filename, file_in_bytes)])
+        filenames_and_files=[(filename, file_in_bytes)],
+        time_resolution=TimeResolution.DAILY
+    )
 
     station_data.equals(station_data_original)
