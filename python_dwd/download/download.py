@@ -52,10 +52,10 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     try:
         with urllib.request.urlopen(file_server) as url_request:
             zip_file = BytesIO(url_request.read())
-    except urllib.error.URLError:
-        raise urllib.error.URLError(f"Error: the stationdata {file_server} couldn't be reached.")
-    except urllib.error.HTTPError:
-        pass
+    except urllib.error.URLError as e:
+        raise e(f"Error: the stationdata {file_server} couldn't be reached.")
+    except:
+        print(file_server)
 
     try:
         with zipfile.ZipFile(zip_file) as zip_file_opened:
