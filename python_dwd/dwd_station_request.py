@@ -31,7 +31,7 @@ class DWDStationRequest:
                  period_type: Union[None, str, list, PeriodType] = None,
                  start_date: Union[None, str, Timestamp] = None,
                  end_date: Union[None, str, Timestamp] = None,
-                 humanized_column_names: bool = False) -> None:
+                 humanize_column_names: bool = False) -> None:
 
         if not (period_type or (start_date and end_date)):
             raise ValueError("Define either a 'time_resolution' or both the 'start_date' and 'end_date' and "
@@ -94,7 +94,7 @@ class DWDStationRequest:
             raise ValueError("No combination for parameter, time_resolution "
                              "and period_type could be found.")
 
-        self.humanized_column_names = humanized_column_names
+        self.humanize_column_names = humanize_column_names
 
     def __eq__(self, other):
         return [self.station_ids,
@@ -148,7 +148,7 @@ class DWDStationRequest:
                     parallel_download=parallel_download,
                     write_file=write_file,
                     create_new_filelist=create_new_filelist,
-                    humanize_column_names=self.humanized_column_names
+                    humanize_column_names=self.humanize_column_names
                 )
 
                 # Filter out values which already are in the dataframe
