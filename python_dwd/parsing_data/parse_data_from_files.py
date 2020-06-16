@@ -1,17 +1,19 @@
 """ function to read data from dwd server """
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from io import BytesIO
 import pandas as pd
 
-from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
+from python_dwd.additionals.helpers import create_stationdata_dtype_mapping, convert_datetime_hourly
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import NA_STRING, STATIONDATA_SEP
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
+from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 log = logging.getLogger(__name__)
 
 
-def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]]) -> pd.DataFrame:
+def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]], time_resolution: Union[TimeResolution, str]) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
     The filename is required to defined if and where an error happened.
@@ -23,9 +25,12 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]]) -> pd.DataFra
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
     """
+
+    time_resolution = TimeResolution(time_resolution)
+
     data = []
     for filename_and_file in filenames_and_files:
-        data.append(_parse_dwd_data(filename_and_file))
+        data.append(_parse_dwd_data(filename_and_file, time_resolution))
 
     try:
         data = pd.concat(data).reset_index(drop=True)
@@ -38,7 +43,7 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]]) -> pd.DataFra
     return data
 
 
-def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO]) -> pd.DataFrame:
+def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO], time_resolution: TimeResolution) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to it are thus related to this id.
     This is important for storing the data locally as the DataFrame that is stored should obviously only handle one
@@ -77,6 +82,10 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO]) -> pd.DataFrame:
 
     # Assign meaningful column names (baseline).
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+
+    # Properly handle timestamps from "hourly" resolution.
+    if time_resolution == TimeResolution.HOURLY:
+        data[DWDMetaColumns.DATE.value] = data[DWDMetaColumns.DATE.value].apply(convert_datetime_hourly)
 
     # Coerce the data types appropriately.
     data = data.astype(create_stationdata_dtype_mapping(data.columns))

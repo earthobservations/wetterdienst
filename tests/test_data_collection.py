@@ -119,7 +119,7 @@ def test_collect_dwd_data_empty():
 
 
 @pytest.mark.remote
-def test_fetch_and_parse_dwd_data_vanilla_columns():
+def test_collect_daily_vanilla():
     """ Test for data collection with real data """
 
     data = collect_dwd_data(
@@ -152,7 +152,7 @@ def test_fetch_and_parse_dwd_data_vanilla_columns():
 
 
 @pytest.mark.remote
-def test_fetch_and_parse_dwd_data_humanized_columns():
+def test_collect_daily_humanized():
     """ Test for data collection with real data and humanized column names """
 
     data = collect_dwd_data(
@@ -182,4 +182,24 @@ def test_fetch_and_parse_dwd_data_humanized_columns():
         'TEMPERATURE_MAX_200',
         'TEMPERATURE_MIN_200',
         'TEMPERATURE_MIN_005',
+    ]
+
+
+@pytest.mark.remote
+def test_collect_hourly_vanilla():
+    """ Test for data collection with real data """
+
+    data = collect_dwd_data(
+        station_ids=[1048],
+        parameter=Parameter.TEMPERATURE_AIR,
+        time_resolution=TimeResolution.HOURLY,
+        period_type=PeriodType.RECENT
+    )
+
+    assert list(data.columns.values) == [
+        'STATION_ID',
+        'DATE',
+        'QN_9',
+        'TT_TU',
+        'RF_TU',
     ]
