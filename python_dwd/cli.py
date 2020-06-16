@@ -92,7 +92,7 @@ def run():
             parameter=options.parameter,
             time_resolution=options.resolution,
             period_type=read_list(options.period),
-            humanized_column_names=True,
+            humanize_column_names=True,
         )
         data = request.collect_data(
             write_file=options.persist,
