@@ -18,7 +18,7 @@ def download_dwd_data(remote_files: pd.DataFrame,
                       parallel_download: bool = False) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
-    remote_files: List[str] = remote_files[DWDMetaColumns.FILENAME.value].to_list()
+    remote_files = remote_files[DWDMetaColumns.FILENAME.value].values.tolist()
 
     if parallel_download:
         return list(
