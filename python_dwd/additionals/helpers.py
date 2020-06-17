@@ -300,7 +300,7 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
     for column in columns:
         if column == DWDMetaColumns.STATION_ID.value:
             stationdata_dtype_mapping[column] = int
-        elif column == DWDMetaColumns.DATE.value:
+        elif column in (DWDMetaColumns.DATE.value, DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value):
             stationdata_dtype_mapping[column] = "datetime64"
         elif column == DWDMetaColumns.EOR.value:
             stationdata_dtype_mapping[column] = str

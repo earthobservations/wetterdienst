@@ -2,4 +2,4 @@
 
 
 class StartDateEndDateError(Exception):
-    print("Error: 'start_date' must be smaller or equal to 'end_date'.")
+    pass
