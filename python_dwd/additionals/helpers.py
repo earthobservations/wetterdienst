@@ -32,7 +32,3 @@ def create_station_data_dtype_mapping(columns: List[str]) -> dict:
             station_data_dtype_mapping[column] = float
 
     return station_data_dtype_mapping
-
-
-def convert_datetime_hourly(value):
-    return pd.to_datetime(value, format='%Y%m%d%H')

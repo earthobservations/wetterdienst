@@ -7,6 +7,8 @@ from functools import partial
 from multiprocessing import Pool
 
 from python_dwd.additionals.helpers import create_station_data_dtype_mapping, convert_datetime_hourly
+from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
+from python_dwd.additionals.time_handling import convert_datetime_hourly
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import NA_STRING, STATION_DATA_SEP
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
@@ -94,6 +96,10 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
 
     # End of record (EOR) has no value, so drop it right away.
     data = data.drop(columns=DWDMetaColumns.EOR.value, errors='ignore')
+
+    # Skip "interval in local true solar time" for hourly/solar
+    # observations, we will only import the UTC field "MESS_DATUM".
+    data = data.drop(columns='MESS_DATUM_WOZ', errors='ignore')
 
     # Assign meaningful column names (baseline).
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
