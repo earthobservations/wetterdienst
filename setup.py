@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open("README.md", 'r') as f:
     long_description = f.read()
@@ -11,7 +11,7 @@ setup(
     long_description=long_description,
     author='Benjamin Gutzmann',
     author_email='gutzemann@gmail.com',
-    packages=['python_dwd'],  # , 'python_dwd.additionals'
+    packages=find_packages(),
     install_requires=['pandas', 'pathlib',
                       'scipy', 'numpy'],
     entry_points={
