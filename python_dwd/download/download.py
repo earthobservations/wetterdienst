@@ -12,6 +12,7 @@ from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
+from python_dwd.exceptions.failed_download_exception import FailedDownload
 
 
 def download_dwd_data(remote_files: pd.DataFrame,
@@ -55,7 +56,7 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     except urllib.error.URLError as e:
         raise e(f"Error: the stationdata {file_server} couldn't be reached.")
     except:
-        print(file_server)
+        raise FailedDownload(f"Download failed for {file_server}")
 
     try:
         with zipfile.ZipFile(zip_file) as zip_file_opened:
