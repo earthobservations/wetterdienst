@@ -23,9 +23,9 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     is created for an individual set of parameters.
 
     Args:
-        parameter:
-        time_resolution:
-        period_type:
+        parameter: parameter of Parameter enumeration
+        time_resolution: time resolution of TimeResolution enumeration
+        period_type: period type of PeriodType enumeration
 
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id

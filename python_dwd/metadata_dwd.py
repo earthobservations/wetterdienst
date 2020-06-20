@@ -1,19 +1,14 @@
 """ Meta data handling """
-from pathlib import Path
 from typing import Union
 import pandas as pd
 
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
-from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN, \
-    DWD_FOLDER_METADATA
-from python_dwd.constants.metadata import DWD_METADATA_NAME, CSV_FORMAT
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.file_path_handling.file_index_creation import create_file_index_for_dwd_server, \
     reset_file_index_cache
-from python_dwd.file_path_handling.path_handling import create_folder
 
 
 def add_filepresence(metainfo: pd.DataFrame,
@@ -32,13 +27,13 @@ def add_filepresence(metainfo: pd.DataFrame,
     Returns:
         updated meta info
     """
-    metainfo[DWDColumns.HAS_FILE.value] = False
+    metainfo[DWDMetaColumns.HAS_FILE.value] = False
 
     file_index = create_file_index_for_dwd_server(
         parameter, time_resolution, period_type)
 
     metainfo.loc[metainfo.iloc[:, 0].isin(
-        file_index[DWDColumns.STATION_ID.value]), DWDColumns.HAS_FILE.value] = True
+        file_index[DWDMetaColumns.STATION_ID.value]), DWDMetaColumns.HAS_FILE.value] = True
 
     return metainfo
 
@@ -83,18 +78,18 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
                                     time_resolution=time_resolution,
                                     period_type=period_type)
 
-    if all(pd.isnull(metainfo[DWDColumns.STATE.value])):
+    if all(pd.isnull(metainfo[DWDMetaColumns.STATE.value])):
         # @todo avoid calling function in function -> we have to build a function around to manage missing data
         mdp = metadata_for_dwd_data(Parameter.PRECIPITATION_MORE,
                                     TimeResolution.DAILY,
                                     PeriodType.HISTORICAL,
                                     create_new_file_index=False)
 
-        stateinfo = pd.merge(metainfo[DWDColumns.STATION_ID],
-                             mdp.loc[:, [DWDColumns.STATION_ID.value, DWDColumns.STATE.value]],
+        stateinfo = pd.merge(metainfo[DWDMetaColumns.STATION_ID],
+                             mdp.loc[:, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.STATE.value]],
                              how="left")
 
-        metainfo[DWDColumns.STATE.value] = stateinfo[DWDColumns.STATE.value]
+        metainfo[DWDMetaColumns.STATE.value] = stateinfo[DWDMetaColumns.STATE.value]
 
     metainfo = add_filepresence(metainfo=metainfo,
                                 parameter=parameter,

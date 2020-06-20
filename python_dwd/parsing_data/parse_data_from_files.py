@@ -13,7 +13,8 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 log = logging.getLogger(__name__)
 
 
-def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]], time_resolution: Union[TimeResolution, str]) -> pd.DataFrame:
+def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
+                   time_resolution: Union[TimeResolution, str]) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
     The filename is required to defined if and where an error happened.
@@ -21,6 +22,7 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]], time_resoluti
     Args:
         filenames_and_files: list of tuples of a filename and its local stored file
         that should be read
+        time_resolution: time resolution enumeration required for correct date parsing
 
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
@@ -43,7 +45,8 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]], time_resoluti
     return data
 
 
-def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO], time_resolution: TimeResolution) -> pd.DataFrame:
+def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
+                    time_resolution: TimeResolution) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to it are thus related to this id.
     This is important for storing the data locally as the DataFrame that is stored should obviously only handle one
@@ -51,6 +54,8 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO], time_resolution: Tim
 
     Args:
         filename_and_file: the files belonging to one station
+        time_resolution: time resolution enumeration required for correct date parsing
+
     Returns:
         pandas.DataFrame with data from that station, acn be empty if no data is provided or local file is not found
     or has no data in it

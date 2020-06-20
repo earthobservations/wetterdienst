@@ -1,9 +1,8 @@
 """ file list creation for requested files """
-from pathlib import Path
 from typing import Union
 import pandas as pd
 
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -44,7 +43,7 @@ def create_file_list_for_dwd_server(station_id: Union[str, int],
         parameter, time_resolution, period_type)
 
     file_index = file_index[
-        file_index[DWDColumns.STATION_ID.value] == int(station_id)
+        file_index[DWDMetaColumns.STATION_ID.value] == int(station_id)
     ]
 
-    return file_index.loc[:, [DWDColumns.FILENAME.value]]
+    return file_index.loc[:, [DWDMetaColumns.FILENAME.value]]

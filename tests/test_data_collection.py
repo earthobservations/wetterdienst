@@ -25,7 +25,7 @@ parameter = Parameter.CLIMATE_SUMMARY
 time_resolution = TimeResolution.DAILY
 period_type = PeriodType.HISTORICAL
 parallel_download = False
-create_new_filelist = False
+create_new_file_index = False
 
 # Set filename for mock
 filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
@@ -63,7 +63,7 @@ def test_collect_dwd_data():
         prefer_local=False,
         parallel_download=parallel_download,
         write_file=True,
-        create_new_filelist=create_new_filelist
+        create_new_file_index=create_new_file_index
     ).equals(file)
 
     """
@@ -80,7 +80,7 @@ def test_collect_dwd_data():
         prefer_local=True,
         parallel_download=parallel_download,
         write_file=True,
-        create_new_filelist=create_new_filelist
+        create_new_file_index=create_new_file_index
     ).equals(file)
 
     # Remove storage folder
@@ -114,7 +114,7 @@ def test_collect_dwd_data_empty():
         prefer_local=True,
         parallel_download=parallel_download,
         write_file=False,
-        create_new_filelist=create_new_filelist
+        create_new_file_index=create_new_file_index
     ).empty
 
 
