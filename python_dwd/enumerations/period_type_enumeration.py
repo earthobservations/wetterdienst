@@ -2,7 +2,6 @@
 from enum import Enum
 import functools
 
-
 """
 Following this: https://stackoverflow.com/questions/39268052/how-to-compare-enums-in-python
 Ordering is required for the PeriodType enumeration in order for it to be sorted.
@@ -14,7 +13,6 @@ quality marks and drop overlapping values from other periods.
 
 @functools.total_ordering
 class PeriodType(Enum):
-    """ enumeration for different period types of storages on dwd server"""
     """ enumeration for different period types of storage on dwd server"""
     @property
     def _period_type_order_mapping(self):
