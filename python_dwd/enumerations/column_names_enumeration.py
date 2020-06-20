@@ -42,6 +42,10 @@ class DWDOrigColumns(Enum):
     TNK = "TNK"
     TGK = "TGK"
 
+    # 10 minutes data
+    FX_10 = "FX_10"
+    DX_10 = "DX_10"
+
 
 class DWDMetaColumns(Enum):
     """ Overhauled column names for metadata fields """
@@ -63,7 +67,7 @@ class DWDMetaColumns(Enum):
 
 class DWDDataColumns(Enum):
     """ Overhauled column names for data fields """
-
+    DATE = "DATE"
     # Daily climate summary
     FX = "WIND_GUST_MAX"
     FM = "WIND_VELOCITY"
