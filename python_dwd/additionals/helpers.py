@@ -11,8 +11,7 @@ import ftplib
 
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
 from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH
-from python_dwd.enumerations.column_names_enumeration import DWDColumns
-from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FILELIST_NAME, FTP_METADATA_NAME, \
+from python_dwd.constants.metadata import METADATA_COLUMNS, METADATA_MATCHSTRINGS, FTP_METADATA_NAME, \
     METADATA_FIXED_COLUMN_WIDTH, STATION_DATA_SEP, NA_STRING, TRIES_TO_DOWNLOAD_FILE, \
     STATION_ID_REGEX, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
