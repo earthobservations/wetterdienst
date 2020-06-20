@@ -118,7 +118,7 @@ It is also possible to use enumeration keywords. The availability table shows th
 | `VISBILITY = "visibility"`  | :x:|  :x:|:heavy_check_mark: |:x: | :x:| :x:|
 | `WATER_EQUIVALENT = "water_equiv"`  | :x:| :x: |:x: |:heavy_check_mark: |:x: | :x:|
 | `PRECIPITATION_MORE = "more_precip"  `    | :x: | :x: |:x: | :heavy_check_mark:|:heavy_check_mark: | :heavy_check_mark:|
-| `PRESSURE = "pressure"` | :x:| | :heavy_check_mark:|:x: |:x:|:x: |
+| `PRESSURE = "pressure"` | :x:|:x: | :heavy_check_mark:|:x: |:x:|:x: |
 | `CLIMATE_SUMMARY = "kl"`  |:x: | :x: |:x: | :heavy_check_mark:|:heavy_check_mark: |:heavy_check_mark: |
 
 
