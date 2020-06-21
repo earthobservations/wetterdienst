@@ -3,6 +3,7 @@
 Python Toolset For Accessing Weather Data From German Weather Service
 
 ![CI](https://github.com/earthobservations/python_dwd/workflows/CI/badge.svg?branch=master)
+[![codecov](https://codecov.io/gh/earthobservations/python_dwd/branch/master/graph/badge.svg)](https://codecov.io/gh/earthobservations/python_dwd)
 
 ## 1. Introduction
 
