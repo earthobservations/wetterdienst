@@ -15,11 +15,7 @@ def test_file_index_creation():
 
     assert not file_index.empty
 
-    assert create_file_index_for_dwd_server.cache_info().currsize == 1
-
     reset_file_index_cache()
-
-    assert create_file_index_for_dwd_server.cache_info().currsize == 0
 
     file_index2 = create_file_index_for_dwd_server(
         Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL)

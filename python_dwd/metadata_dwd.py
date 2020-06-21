@@ -1,14 +1,18 @@
 """ Meta data handling """
+from pathlib import Path
 from typing import Union
 import pandas as pd
 
 from python_dwd.additionals.helpers import metaindex_for_1minute_data, create_metaindex
+from python_dwd.constants.access_credentials import DWD_FOLDER_METADATA
+from python_dwd.constants.metadata import METADATA_NAME, DATA_FORMAT
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.file_path_handling.file_index_creation import create_file_index_for_dwd_server, \
     reset_file_index_cache
+from python_dwd.file_path_handling.path_handling import create_folder
 
 
 def add_filepresence(metainfo: pd.DataFrame,
@@ -91,3 +95,19 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
                                 period_type=period_type)
 
     return metainfo
+
+
+def create_metainfo_fpath(folder: str,
+                          parameter: Parameter,
+                          period_type: PeriodType,
+                          time_resolution: TimeResolution) -> Path:
+    """ checks if the file behind the path exists """
+    # folder = correct_folder_path(folder)
+
+    create_folder(subfolder=DWD_FOLDER_METADATA,
+                  folder=folder)
+    return Path(folder,
+                DWD_FOLDER_METADATA,
+                f"{METADATA_NAME}_{parameter.value}_"
+                f"{time_resolution.value}_{period_type.value}"
+                f"{DATA_FORMAT}")

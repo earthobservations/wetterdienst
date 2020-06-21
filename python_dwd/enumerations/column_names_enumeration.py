@@ -60,6 +60,9 @@ class DWDMetaColumns(Enum):
     STATE = "STATE"
     EOR = "EOR"
     # Extra column names
+    PARAMETER = "PARAMETER"
+    TIME_RESOLUTION = "TIME_RESOLUTION"
+    PERIOD_TYPE = "PERIOD_TYPE"
     FILENAME = "FILENAME"
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
