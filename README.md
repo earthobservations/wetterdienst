@@ -2,6 +2,8 @@
 
 Python Toolset For Accessing Weather Data From German Weather Service
 
+![CI](https://github.com/earthobservations/python_dwd/workflows/CI/badge.svg?branch=master)
+
 ## 1. Introduction
 
 python_dwd was created as an alternative to [rdwd](https://github.com/brry/rdwd), an R package that I had used recently for downloading station data from German Weather Service (Deutscher Wetterdienst or DWD). It's my first Python project which is also meant for me to learn different ways to work with the language but might also be useful for you if you are interested in working with this data.
