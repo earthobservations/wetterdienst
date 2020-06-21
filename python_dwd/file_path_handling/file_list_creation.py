@@ -1,5 +1,5 @@
 """ file list creation for requested files """
-from typing import Union
+from typing import Union, List
 import pandas as pd
 
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
@@ -10,7 +10,7 @@ from python_dwd.file_path_handling.file_index_creation import create_file_index_
     reset_file_index_cache
 
 
-def create_file_list_for_dwd_server(station_id: Union[str, int],
+def create_file_list_for_dwd_server(station_ids: List[int],
                                     parameter: Union[Parameter, str],
                                     time_resolution: Union[TimeResolution, str],
                                     period_type: Union[PeriodType, str],
@@ -21,7 +21,7 @@ def create_file_list_for_dwd_server(station_id: Union[str, int],
     created list of files that are
     available online.
     Args:
-        station_id: id for the weather station to ask for data
+        station_ids: ids for the weather station to ask for data
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -40,7 +40,6 @@ def create_file_list_for_dwd_server(station_id: Union[str, int],
         parameter, time_resolution, period_type)
 
     file_index = file_index[
-        file_index[DWDMetaColumns.STATION_ID.value] == int(station_id)
-    ]
+        file_index[DWDMetaColumns.STATION_ID.value].isin(station_ids)]
 
     return file_index.loc[:, [DWDMetaColumns.FILENAME.value]]

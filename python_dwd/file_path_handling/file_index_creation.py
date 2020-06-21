@@ -44,11 +44,6 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype='str')
 
-    # Add parameters
-    files_server[DWDMetaColumns.PARAMETER.value] = parameter.value
-    files_server[DWDMetaColumns.TIME_RESOLUTION.value] = time_resolution.value
-    files_server[DWDMetaColumns.PERIOD_TYPE.value] = period_type.value
-
     # Filter for .zip files
     files_server = files_server[files_server.FILENAME.str.endswith(
         ARCHIVE_FORMAT)]
@@ -68,17 +63,9 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     files_server = files_server.sort_values(
         by=[DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value])
 
-    selected_file_index_columns = [
-        DWDMetaColumns.PARAMETER.value,
-        DWDMetaColumns.TIME_RESOLUTION.value,
-        DWDMetaColumns.PERIOD_TYPE.value,
-        DWDMetaColumns.STATION_ID.value,
-        DWDMetaColumns.FILENAME.value
-    ]
-
-    return files_server.loc[:, selected_file_index_columns]
+    return files_server.loc[:, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value]]
 
 
-def reset_file_index_cache():
+def reset_file_index_cache() -> None:
     """ Function to reset the cached file index for all kinds of parameters """
     create_file_index_for_dwd_server.cache_clear()
