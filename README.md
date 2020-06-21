@@ -34,7 +34,7 @@ Third those variables are also available in different tenses, which are:
 The toolset provides different functions which are:
 
 - metadata_for_dwd_data
-- create_file_list_for_dwd_server
+- create_file_list_for_dwd_server (+ reset_file_index_cache)
 - download_dwd_data
 - parse_dwd_data
 - get_nearest_station
@@ -46,7 +46,9 @@ All those functions have one same argument which is **folder**. It can be used t
 
 **metadata_for_dwd_data** is used to discover what data for a set of parameters (**var**, **res**, **per**) is available, specificly which stations can be found for the requested variable, resolution and period. Also it can be defined by **write_file**, if the resulting **DataFrame** should be written as **csv** to the given folder. **write_file** is a boolean value. Furthermore with **create_new_filelist**, by default set to **False**, the function can be forced to retrieve a new list of files from the ftp server, which is usually avoided if there's already a file existing in the explicit folder.
 
-**create_file_list_for_dwd_server** is used with the help of the **information of the metadata** to retrieve filelinks to files that represent a **set of parameters** in combination with the requested **statid**. Here also **create_new_filelist** can be set to **True**, if the user is sure that the **file to a certain statid** is available but somehow the old **filelist** doesn't contain a corresponding information.
+**create_file_list_for_dwd_server** is used with the help of the **information of the metadata** to retrieve filelinks to files that represent a **set of parameters** in combination with the requested **statid**. Here also **create_new_file_index** can be set to **True**, if the user is sure that the **file to a certain station id** is available but somehow the old **file index** doesn't contain a corresponding information.
+
+**reset_file_index_cache** can be used to remove old file index in order to get the latest update of files in the remote server
 
 **download_dwd_data** is used with the created filelinks of select_dwd to **download and store** the data in the given folder. Therefor it connects with the ftp and writes the corresponding file to the harddisk as defined. Furthermore it returns the local filelink or to be clear the link where the file is saved on the harddrive.
 
