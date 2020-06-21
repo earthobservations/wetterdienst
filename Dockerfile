@@ -8,3 +8,5 @@ COPY ./requirements.txt /opt/requirements.txt
 RUN pip install -r /opt/requirements.txt
 
 WORKDIR /app
+
+ENV PYTHONPATH /app/

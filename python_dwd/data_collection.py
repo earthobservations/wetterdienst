@@ -1,7 +1,7 @@
 """ Data collection pipeline """
 import logging
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 import pandas as pd
 
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
@@ -26,7 +26,8 @@ def collect_dwd_data(station_ids: List[int],
                      parallel_download: bool = False,
                      write_file: bool = False,
                      create_new_filelist: bool = False,
-                     humanize_column_names: bool = False) -> pd.DataFrame:
+                     humanize_column_names: bool = False,
+                     run_download_only: bool = False) -> Optional[pd.DataFrame]:
     """
     Function that organizes the complete pipeline of data collection, either
     from the internet or from a local file. It therefor goes through every given
@@ -45,6 +46,7 @@ def collect_dwd_data(station_ids: List[int],
         write_file: boolean if to write data to local storage
         create_new_filelist: boolean if to create a new filelist for the data selection
         humanize_column_names: boolean to yield column names better for human consumption
+        run_download_only: boolean to run only the download and storing process
 
     Returns:
         a pandas DataFrame with all the data given by the station ids
@@ -86,7 +88,10 @@ def collect_dwd_data(station_ids: List[int],
                 station_data, station_id, parameter, time_resolution, period_type, folder)
 
         data.append(station_data)
-
+        
+    if run_download_only: 
+        return None
+    
     data = pd.concat(data)
 
     # Assign meaningful column names (humanized).
