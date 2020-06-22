@@ -3,7 +3,7 @@ from python_dwd.version import __version__
 from python_dwd.metadata_dwd import metadata_for_dwd_data
 from python_dwd.file_path_handling.file_list_creation import \
     create_file_list_for_dwd_server
-from python_dwd.file_path_handling.file_index_creation import reset_file_index_cache
+from python_dwd.indexing.file_index_creation import reset_file_index_cache
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 from python_dwd.additionals.geo_location import get_nearest_station
