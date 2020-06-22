@@ -24,7 +24,7 @@ parameter = Parameter.CLIMATE_SUMMARY
 time_resolution = TimeResolution.DAILY
 period_type = PeriodType.HISTORICAL
 parallel_download = False
-create_new_filelist = False
+create_new_file_index = False
 
 # Set filename for mock
 filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"

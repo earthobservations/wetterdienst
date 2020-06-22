@@ -13,9 +13,9 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.additionals.functions import check_parameters, cast_to_list
 from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
-
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
+from python_dwd.file_path_handling.file_index_creation import reset_file_index_cache
 
 log = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class DWDStationRequest:
                      write_file: bool = False,
                      folder: Union[str, Path] = DWD_FOLDER_MAIN,
                      parallel_download: bool = False,
-                     create_new_filelist: bool = False) -> Generator[pd.DataFrame, None, None]:
+                     create_new_file_index: bool = False) -> Generator[pd.DataFrame, None, None]:
         """
         Method to collect data for a defined request. The function is build as generator in
         order to not cloak the memory thus if the user wants the data as one pandas DataFrame
@@ -127,13 +127,16 @@ class DWDStationRequest:
         Args:
             prefer_local: definition if data should rather be taken from a local source
             write_file: should data be written to a local file
-            folder: place where filelists (and station data) are stored
+            folder: place where file lists (and station data) are stored
             parallel_download: definition if data is downloaded in parallel
-            create_new_filelist: definition if the fileindex should be recreated
+            create_new_file_index: definition if the file index should be recreated
 
         Returns:
             via a generator per station a pandas.DataFrame
         """
+        if create_new_file_index:
+            reset_file_index_cache()
+
         for station_id in self.station_ids:
             df_of_station_id = pd.DataFrame()
 
@@ -147,7 +150,7 @@ class DWDStationRequest:
                     prefer_local=prefer_local,
                     parallel_download=parallel_download,
                     write_file=write_file,
-                    create_new_filelist=create_new_filelist,
+                    create_new_file_index=False,
                     humanize_column_names=self.humanize_column_names
                 )
 

@@ -9,6 +9,7 @@ from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
+from python_dwd.file_path_handling.file_index_creation import reset_file_index_cache
 from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
@@ -25,7 +26,7 @@ def collect_dwd_data(station_ids: List[int],
                      prefer_local: bool = False,
                      parallel_download: bool = False,
                      write_file: bool = False,
-                     create_new_filelist: bool = False,
+                     create_new_file_index: bool = False,
                      humanize_column_names: bool = False,
                      run_download_only: bool = False) -> Optional[pd.DataFrame]:
     """
@@ -34,7 +35,6 @@ def collect_dwd_data(station_ids: List[int],
     station id and, given by the parameters, either tries to get data from local
     store and/or if fails tries to get data from the internet. Finally if wanted
     it will try to store the data in a hdf file.
-
     Args:
         station_ids: station ids that are trying to be loaded
         parameter: parameter as enumeration
@@ -44,16 +44,21 @@ def collect_dwd_data(station_ids: List[int],
         prefer_local: boolean for if local data should be preferred
         parallel_download: boolean if to use parallel download when downloading files
         write_file: boolean if to write data to local storage
-        create_new_filelist: boolean if to create a new filelist for the data selection
+        create_new_file_index: boolean if to create a new file index for the data selection
         humanize_column_names: boolean to yield column names better for human consumption
         run_download_only: boolean to run only the download and storing process
 
     Returns:
         a pandas DataFrame with all the data given by the station ids
     """
+    if create_new_file_index:
+        reset_file_index_cache()
+
     parameter = Parameter(parameter)
     time_resolution = TimeResolution(time_resolution)
     period_type = PeriodType(period_type)
+
+    # todo check parameters and if combination not existing, print something and return empty DataFrame
 
     # List for collected pandas DataFrames per each station id
     data = []
@@ -77,7 +82,7 @@ def collect_dwd_data(station_ids: List[int],
         log.info(f"Data for {request_string} will be collected from internet.")
 
         remote_files = create_file_list_for_dwd_server(
-            [station_id], parameter, time_resolution, period_type, folder, create_new_filelist)
+            [station_id], parameter, time_resolution, period_type)
 
         filenames_and_files = download_dwd_data(remote_files, parallel_download)
 
@@ -88,10 +93,10 @@ def collect_dwd_data(station_ids: List[int],
                 station_data, station_id, parameter, time_resolution, period_type, folder)
 
         data.append(station_data)
-        
-    if run_download_only: 
+
+    if run_download_only:
         return None
-    
+
     data = pd.concat(data)
 
     # Assign meaningful column names (humanized).
