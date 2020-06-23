@@ -43,6 +43,8 @@ The toolset provides different functions/classes which are:
     which is usually avoided as it rarely changes.
 - reset_file_index_cache:
     - reset the cached file index to get latest list of files (only required for constantly running system)
+- reset_meta_index_cache:
+    - reset the cached meta index to get latest list of files (only required for constantly running system)
 - create_file_list_for_dwd_server:
     - is used with the help of the metadata to retrieve file paths to files for a set of parameters + station id
     - here also **create_new_file_index** can be used

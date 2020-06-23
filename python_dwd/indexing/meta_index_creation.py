@@ -26,13 +26,39 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 def create_meta_index_for_dwd_data(parameter: Parameter,
                                    time_resolution: TimeResolution,
                                    period_type: PeriodType) -> pd.DataFrame:
-    """ The function is used to create a simple metadata DataFrame parsed from the text files that are located in each
-    data section of the station data directory of the weather service.
+    """
+    Wrapper function that either calls the regular meta index function for general parameters
+    or the special function for 1minute precipitation historical where meta index is
+    created in a more complex way.
 
     Args:
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
+        period_type: current, recent or historical files
+
+    Returns:
+        pandas.DataFrame with meta index for the selected set of arguments
+    """
+    cond = time_resolution == TimeResolution.MINUTE_1 and \
+        period_type == PeriodType.HISTORICAL and \
+        parameter == Parameter.PRECIPITATION
+
+    if cond:
+        return _create_meta_index_for_1minute__historical_precipitation()
+    else:
+        return _create_meta_index_for_dwd_data(parameter, time_resolution, period_type)
+
+
+def _create_meta_index_for_dwd_data(parameter: Parameter,
+                                    time_resolution: TimeResolution,
+                                    period_type: PeriodType) -> pd.DataFrame:
+    """ Function used to create meta index DataFrame parsed from the text files that are
+    located in each data section of the station data directory of the weather service.
+
+    Args:
+        parameter: observation measure
+        time_resolution: frequency/granularity of measurement interval
+        period_type: current, recent or historical files
     Return:
         DataFrame with parsed columns of the corresponding text file. Columns are translated into English and data is
         not yet complete as file existence is not checked.
@@ -86,8 +112,7 @@ def create_meta_index_for_dwd_data(parameter: Parameter,
     return metaindex.astype(METADATA_DTYPE_MAPPING)
 
 
-@functools.lru_cache(maxsize=None)
-def create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
+def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
     """
     A helping function to create a raw index of metadata for stations of the set of
     parameters as given. This raw metadata is then used by other functions. This
@@ -207,3 +232,8 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
     )
 
     return file
+
+
+def reset_meta_index_cache() -> None:
+    """ Function to reset cache of meta index """
+    create_meta_index_for_dwd_data.cache_clear()

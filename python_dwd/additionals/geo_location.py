@@ -1,9 +1,9 @@
-""" caclualtes the nearest weather station to a requested location"""
+""" calculates the nearest weather station to a requested location"""
 from typing import List, Union, Tuple
 import numpy as np
 from scipy.spatial import cKDTree
 
-from python_dwd.metadata_dwd import metadata_for_dwd_data
+from python_dwd.parse_metadata import metadata_for_dwd_data
 from python_dwd.additionals.functions import check_parameters
 from python_dwd.data_models.coordinates import Coordinates
 from python_dwd.enumerations.parameter_enumeration import Parameter

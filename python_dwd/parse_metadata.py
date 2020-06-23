@@ -8,8 +8,8 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.indexing.file_index_creation import create_file_index_for_dwd_server, \
     reset_file_index_cache
-from python_dwd.indexing.meta_index_creation import create_meta_index_for_dwd_data,\
-    create_meta_index_for_1minute__historical_precipitation
+from python_dwd.indexing.meta_index_creation import create_meta_index_for_dwd_data, \
+    reset_meta_index_cache
 
 
 def metadata_for_dwd_data(parameter: Union[Parameter, str],
@@ -46,12 +46,8 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
     time_resolution = TimeResolution(time_resolution)
     period_type = PeriodType(period_type)
 
-    if time_resolution == TimeResolution.MINUTE_1 and \
-            period_type == PeriodType.HISTORICAL and \
-            parameter == Parameter.PRECIPITATION:
-        meta_index = create_meta_index_for_1minute__historical_precipitation()
-    else:
-        meta_index = create_meta_index_for_dwd_data(parameter, time_resolution, period_type)
+    meta_index = create_meta_index_for_dwd_data(
+        parameter, time_resolution, period_type)
 
     # If no state column available, take state information from daily historical precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
@@ -73,8 +69,3 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
         file_index[DWDMetaColumns.STATION_ID.value]), DWDMetaColumns.HAS_FILE.value] = True
 
     return meta_index
-
-
-def reset_meta_index_cache() -> None:
-    create_meta_index_for_dwd_data.cache_clear()
-    create_meta_index_for_1minute__historical_precipitation.cache_clear()

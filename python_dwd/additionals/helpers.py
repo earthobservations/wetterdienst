@@ -1,15 +1,8 @@
 """ A set of helping functions used by the main functions """
 from typing import List
-from pathlib import Path
 import pandas as pd
 
-
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-
-
-def check_file_exist(file_path: Path) -> bool:
-    """ checks if the file behind the path exists """
-    return Path(file_path).is_file()
 
 
 def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
