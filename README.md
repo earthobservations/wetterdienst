@@ -2,7 +2,7 @@
 
 Python Library For Accessing Weather Data From German Weather Service
 
-![CI](https://github.com/earthobservations/python_dwd/workflows/CI/badge.svg?branch=master)
+![Tests](https://github.com/earthobservations/python_dwd/workflows/Tests/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/earthobservations/python_dwd/branch/master/graph/badge.svg)](https://codecov.io/gh/earthobservations/python_dwd)
 
 ## 1. Introduction
@@ -142,6 +142,24 @@ Also this data doesn't include the **STATE** information, which sometimes can be
 ## 7. Conclusion
 
 Feel free to use the library if you want to automate the data access and analyze the german climate. Be aware that it could happen that the server is blocking the ftp client once in a while. It could be useful though to use a try-except-block and retry to get the data. For further examples of this library check the notebook **python_dwd_example.ipynb** in the **example** folder!
+
+## 8. Getting started
+
+```
+# Acquire sources
+git clone https://github.com/earthobservations/python_dwd
+cd python_dwd
+
+# Install dependencies
+poetry install
+
+# Run tests
+poetry run pytest
+
+# Invoke comand line tool
+poetry shell
+dwd --help
+```
 
 ____
 
