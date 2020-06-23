@@ -4,3 +4,5 @@ dwd_data/
 .idea/
 .venv*
 *.egg-info
+coverage.xml
+.coverage
