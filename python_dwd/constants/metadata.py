@@ -12,12 +12,12 @@ METADATA_COLUMNS = [DWDMetaColumns.STATION_ID.value,
 
 METADATA_MATCHSTRINGS = ['beschreibung', '.txt']
 METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"
-METADATA_1MIN_PAR_PREFIX = "Metadaten_Parameter_"
+METADATA_1MIN_STA_PREFIX = "Metadaten_Stationsname_"
 STATIONDATA_MATCHSTRINGS = ['produkt']
 FILELIST_NAME = 'filelist'
-METADATA_NAME = 'metadata'
-STATIONDATA_NAME = "stationdata"
-DWDDATA_NAME = "DWD_DATA"
+DWD_FOLDER_MAIN = './dwd_data'
+DWD_FOLDER_STATION_DATA = "station_data"
+DWD_FILE_STATION_DATA = "dwd_station_data"
 FTP_METADATA_NAME = "meta_data"
 ARCHIVE_FORMAT = '.zip'
 DATA_FORMAT = '.csv'

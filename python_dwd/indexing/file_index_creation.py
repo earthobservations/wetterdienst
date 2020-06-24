@@ -1,7 +1,7 @@
 """ file index creation for available DWD station data """
 from pathlib import PurePosixPath
 import re
-from functools import lru_cache
+import functools
 import ftplib
 import pandas as pd
 
@@ -12,9 +12,10 @@ from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.file_path_handling.path_handling import build_index_path
 
 
-@lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=None)
 def create_file_index_for_dwd_server(parameter: Parameter,
                                      time_resolution: TimeResolution,
                                      period_type: PeriodType) -> pd.DataFrame:
@@ -28,8 +29,7 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    server_path = PurePosixPath(DWD_PATH) / time_resolution.value / \
-        parameter.value / period_type.value
+    server_path = build_index_path(parameter, time_resolution, period_type)
 
     # todo: replace with global requests.Session creating the index
     try:

@@ -13,9 +13,9 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.additionals.functions import check_parameters, cast_to_list
 from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
-from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
+from python_dwd.constants.metadata import DWD_FOLDER_MAIN
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.file_path_handling.file_index_creation import reset_file_index_cache
+from python_dwd.indexing.file_index_creation import reset_file_index_cache
 
 log = logging.getLogger(__name__)
 

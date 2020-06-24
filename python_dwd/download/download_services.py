@@ -2,7 +2,8 @@
 from pathlib import Path, PurePosixPath
 from typing import Union
 
-from python_dwd.constants.access_credentials import DWD_FOLDER_STATIONDATA, DWD_SERVER, DWD_PATH, HTTPS_EXPRESSION
+from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, HTTPS_EXPRESSION
+from python_dwd.constants.metadata import DWD_FOLDER_STATION_DATA
 
 
 def create_local_file_name(remote_file_path: Union[Path, str],
@@ -12,9 +13,7 @@ def create_local_file_name(remote_file_path: Union[Path, str],
     to analyse when looking at the filename) and the original filename
 
     """
-    return Path(local_folder,
-                DWD_FOLDER_STATIONDATA,
-                str(remote_file_path).split('/')[-1])
+    return Path(local_folder, DWD_FOLDER_STATION_DATA, str(remote_file_path).split('/')[-1])
 
 
 def create_remote_file_name(file: str) -> str:
@@ -28,8 +27,6 @@ def create_remote_file_name(file: str) -> str:
         complete Path to the required data
 
     """
-    file_server = PurePosixPath(DWD_SERVER,
-                                DWD_PATH,
-                                file)
+    file_server = PurePosixPath(DWD_SERVER, DWD_PATH, file)
 
     return f"{HTTPS_EXPRESSION}{file_server}"

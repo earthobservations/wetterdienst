@@ -6,7 +6,7 @@ from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.file_index_creation import create_file_index_for_dwd_server, \
+from python_dwd.indexing.file_index_creation import create_file_index_for_dwd_server, \
     reset_file_index_cache
 
 

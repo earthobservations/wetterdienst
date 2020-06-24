@@ -8,8 +8,8 @@ from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_M
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.constants.access_credentials import DWD_FOLDER_MAIN
-from python_dwd.file_path_handling.file_index_creation import reset_file_index_cache
+from python_dwd.constants.metadata import DWD_FOLDER_MAIN
+from python_dwd.indexing.file_index_creation import reset_file_index_cache
 from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
 from python_dwd.download.download import download_dwd_data
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
