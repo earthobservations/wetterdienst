@@ -1,4 +1,6 @@
 """ tests for file index creation """
+import mock
+from mock import patch
 import pytest
 from pandas import Timestamp
 
@@ -33,6 +35,10 @@ def test_meta_index_creation():
 
 
 @pytest.mark.remote
+@patch(
+    "python_dwd.download.ftp_handling.FTP.list_files",
+    mock.MagicMock(return_value=["1_minute/precipitation/meta_data/Meta_Daten_ein_min_rr_00003.zip"])
+)
 def test_meta_index_1mph_creation():
     reset_meta_index_cache()
     meta_index_1mph = create_meta_index_for_dwd_data(
