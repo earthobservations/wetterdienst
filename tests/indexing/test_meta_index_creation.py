@@ -38,6 +38,6 @@ def test_meta_index_1mph_creation():
     meta_index_1mph = create_meta_index_for_dwd_data(
         Parameter.PRECIPITATION, TimeResolution.MINUTE_1, PeriodType.HISTORICAL)
 
-    assert meta_index_1mph.loc[meta_index_1mph[DWDMetaColumns.STATION_ID.value] == 1048, :].values.tolist() == \
-        [[1048, Timestamp("19260401"), Timestamp("20200623"), 227.0,
-         51.1280, 13.7543, "Dresden-Klotzsche"]]
+    assert meta_index_1mph.loc[meta_index_1mph[DWDMetaColumns.STATION_ID.value] == 3, :].values.tolist() == \
+        [[3, Timestamp("18910101"), Timestamp("20120406"), 202.00,
+         50.7827, 6.0941, "Aachen"]]
