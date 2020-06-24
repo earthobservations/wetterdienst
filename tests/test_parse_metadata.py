@@ -25,9 +25,9 @@ def test_metadata_for_dwd_data():
 
     assert metadata.equals(metadata2)
 
-    assert metadata.loc[metadata[DWDMetaColumns.STATION_ID.value] == 1048, :].values.tolist() == \
-        [[1048, Timestamp("19340101"), Timestamp("20200622"), 227,
-         51.1280, 13.7543, "Dresden-Klotzsche", "Sachsen", True]]
+    assert metadata.loc[metadata[DWDMetaColumns.STATION_ID.value] == 1, :].values.tolist() == \
+        [[1, Timestamp("19370101"), Timestamp("19860630"), 478.0,
+         47.8413, 8.8493, "Aach", "Baden-Württemberg", True]]
 
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(IndexError):

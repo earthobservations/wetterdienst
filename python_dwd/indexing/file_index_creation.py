@@ -12,6 +12,7 @@ from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.file_path_handling.path_handling import build_index_path
 
 
 @functools.lru_cache(maxsize=None)
@@ -28,12 +29,7 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    if parameter == Parameter.SOLAR and time_resolution in (TimeResolution.HOURLY, TimeResolution.DAILY):
-        server_path = PurePosixPath(
-            DWD_PATH, time_resolution.value, parameter.value)
-    else:
-        server_path = PurePosixPath(
-            DWD_PATH, time_resolution.value, parameter.value, period_type.value)
+    server_path = build_index_path(parameter, time_resolution, period_type)
 
     # todo: replace with global requests.Session creating the index
     try:

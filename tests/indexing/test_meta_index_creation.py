@@ -10,7 +10,7 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 
 
 @pytest.mark.remote
-def test_file_index_creation():
+def test_meta_index_creation():
     reset_meta_index_cache()
 
     # Existing combination of parameters
@@ -26,11 +26,18 @@ def test_file_index_creation():
 
     assert meta_index.equals(meta_index2)
 
-    assert meta_index.loc[meta_index[DWDMetaColumns.STATION_ID.value] == 1048, :].values.tolist() == \
-        [[1048, Timestamp("19340101"), Timestamp("20200622"), 227,
-         51.1280, 13.7543, "Dresden-Klotzsche", "Sachsen"]]
-
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(IndexError):
         create_meta_index_for_dwd_data(
             Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL)
+
+
+@pytest.mark.remote
+def test_meta_index_1mph_creation():
+    reset_meta_index_cache()
+    meta_index_1mph = create_meta_index_for_dwd_data(
+        Parameter.PRECIPITATION, TimeResolution.MINUTE_1, PeriodType.HISTORICAL)
+
+    assert meta_index_1mph.loc[meta_index_1mph[DWDMetaColumns.STATION_ID.value] == 1048, :].values.tolist() == \
+        [[1048, Timestamp("19260401"), Timestamp("20200623"), 227.0,
+         51.1280, 13.7543, "Dresden-Klotzsche"]]

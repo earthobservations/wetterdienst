@@ -8,18 +8,20 @@ from typing import Tuple
 import pandas as pd
 from multiprocessing import Pool
 import functools
+import datetime as dt
 
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
 from python_dwd.constants.access_credentials import DWD_PATH, DWD_SERVER
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
 from python_dwd.constants.metadata import METADATA_MATCHSTRINGS, METADATA_FIXED_COLUMN_WIDTH, FTP_METADATA_NAME, \
-    STATID_REGEX, METADATA_COLUMNS, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_PAR_PREFIX, STATIONDATA_SEP, NA_STRING
+    STATID_REGEX, METADATA_COLUMNS, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_STA_PREFIX, STATIONDATA_SEP, NA_STRING
 from python_dwd.download.download_services import create_remote_file_name
 from python_dwd.download.ftp_handling import FTP
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from python_dwd.file_path_handling.path_handling import build_index_path
 
 
 @functools.lru_cache(maxsize=None)
@@ -64,12 +66,7 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
         not yet complete as file existence is not checked.
 
     """
-    if parameter == Parameter.SOLAR and time_resolution in (TimeResolution.HOURLY, TimeResolution.DAILY):
-        server_path = PurePosixPath(
-            DWD_PATH, time_resolution.value, parameter.value)
-    else:
-        server_path = PurePosixPath(
-            DWD_PATH, time_resolution.value, parameter.value, period_type.value)
+    server_path = build_index_path(parameter, time_resolution, period_type)
 
     try:
         with FTP(DWD_SERVER) as ftp:
@@ -192,23 +189,29 @@ def _combine_geo_and_par_file_to_metadata_df(metadata_file_and_station_id: Tuple
     metadata_file, station_id = metadata_file_and_station_id
 
     metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{station_id}.txt"
-    metadata_par_filename = f"{METADATA_1MIN_PAR_PREFIX}{station_id}.txt"
+    metadata_sta_filename = f"{METADATA_1MIN_STA_PREFIX}{station_id}.txt"
 
     with zipfile.ZipFile(metadata_file) as zip_file:
         with zip_file.open(metadata_geo_filename) as file_opened:
             metadata_geo_df = _parse_zipped_data_into_df(file_opened)
 
-        with zip_file.open(metadata_par_filename) as file_opened:
-            metadata_par_df = _parse_zipped_data_into_df(file_opened)
+        with zip_file.open(metadata_sta_filename) as file_opened:
+            metadata_sta_df = _parse_zipped_data_into_df(file_opened)
 
     metadata_geo_df = metadata_geo_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-    metadata_par_df = metadata_par_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    metadata_sta_df = metadata_sta_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
-    metadata_par_df = metadata_par_df.loc[:, [DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value]].dropna()
+    metadata_sta_df = metadata_sta_df.loc[:, [DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value]]\
 
-    metadata_geo_df[DWDMetaColumns.FROM_DATE.value] = metadata_par_df[DWDMetaColumns.FROM_DATE.value].min()
-    metadata_geo_df[DWDMetaColumns.TO_DATE.value] = metadata_par_df[DWDMetaColumns.TO_DATE.value].max()
+    if pd.isnull(metadata_sta_df[DWDMetaColumns.TO_DATE.value].iloc[-1]):
+        metadata_sta_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = (
+                dt.date.today() - dt.timedelta(days=1)).strftime(format="%Y%m%d")
+
+    metadata_sta_df = metadata_sta_df.dropna()
+
+    metadata_geo_df[DWDMetaColumns.FROM_DATE.value] = metadata_sta_df[DWDMetaColumns.FROM_DATE.value].min()
+    metadata_geo_df[DWDMetaColumns.TO_DATE.value] = metadata_sta_df[DWDMetaColumns.TO_DATE.value].max()
 
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
