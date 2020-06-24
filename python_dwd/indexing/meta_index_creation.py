@@ -231,7 +231,8 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
         filepath_or_buffer=TextIOWrapper(file_opened),
         sep=STATIONDATA_SEP,
         na_values=NA_STRING,
-        dtype=str
+        dtype=str,
+        encoding="ISO-8859-1"
     )
 
     return file
