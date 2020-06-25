@@ -3,25 +3,25 @@ import urllib
 import zipfile
 from io import BytesIO, TextIOWrapper
 from pathlib import PurePosixPath
-import ftplib
 from typing import Tuple
 import pandas as pd
 from multiprocessing import Pool
 import functools
 import datetime as dt
+import requests
 
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
-from python_dwd.constants.access_credentials import DWD_PATH, DWD_SERVER
+from python_dwd.constants.access_credentials import DWD_SERVER, DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
-from python_dwd.constants.metadata import METADATA_MATCHSTRINGS, METADATA_FIXED_COLUMN_WIDTH, FTP_METADATA_NAME, \
+from python_dwd.constants.metadata import METADATA_MATCHSTRINGS, METADATA_FIXED_COLUMN_WIDTH, META_DATA_FOLDER, \
     STATID_REGEX, METADATA_COLUMNS, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_STA_PREFIX, STATIONDATA_SEP, NA_STRING
-from python_dwd.download.download_services import create_remote_file_name
-from python_dwd.download.ftp_handling import FTP
+from python_dwd.download.download_services import download_file_from_climate_observations
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_index_path
+from python_dwd.file_path_handling.path_handling import build_path_to_parameter, \
+    list_files_of_climate_observations, build_climate_observations_path
 
 
 @functools.lru_cache(maxsize=None)
@@ -66,29 +66,21 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
         not yet complete as file existence is not checked.
 
     """
-    server_path = build_index_path(parameter, time_resolution, period_type)
+    parameter_path = build_path_to_parameter(
+        parameter, time_resolution, period_type)
+
+    files_server = list_files_of_climate_observations(
+        parameter_path, recursive=True)
+
+    metafile = [file for file in files_server
+                if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
+
+    # metafile_server = build_climate_observations_path(metafile)
 
     try:
-        with FTP(DWD_SERVER) as ftp:
-            ftp.login()
-            files_server = ftp.list_files(remote_path=str(server_path), also_subfolders=False)
-
-    except ftplib.all_errors as e:
-
-        raise e("Creating file index currently not possible.")
-
-    metafile_server = [file for file in files_server
-                       if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
-
-    metafile_server = create_remote_file_name(
-        metafile_server.replace(DWD_PATH + "/", ""))
-
-    try:
-        with urllib.request.urlopen(metafile_server) as request:
-            file = BytesIO(request.read())
-
-    except urllib.error.URLError as e:
-        raise e(f"Error: reading metadata {metafile_server} file failed.")
+        file = download_file_from_climate_observations(metafile)
+    except requests.exceptions.InvalidURL as e:
+        raise e(f"Error: reading metadata {metafile} file failed.")
 
     metaindex = pd.read_fwf(
         filepath_or_buffer=file,
@@ -119,21 +111,13 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
     - especially for precipitation/1_minute/historical!
 
     """
-    metadata_path = PurePosixPath(
-        DWD_PATH,
-        TimeResolution.MINUTE_1.value,
-        Parameter.PRECIPITATION.value,
-        FTP_METADATA_NAME
-    )
+    metadata_path = PurePosixPath(TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER)
 
-    with FTP(DWD_SERVER) as ftp:
-        ftp.login()
+    metadata_filepaths = list_files_of_climate_observations(metadata_path, recursive=False)
 
-        metadata_filepaths = ftp.list_files(remote_path=str(metadata_path), also_subfolders=False)
+    # metadata_filepaths = [build_climate_observations_path(file) for file in metadata_filepaths]
 
-    metadata_filepaths = [create_remote_file_name(file.lstrip(DWD_PATH)) for file in metadata_filepaths]
-
-    statids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
+    station_ids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
 
     metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
@@ -141,7 +125,7 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
         _download_metadata_file_for_1minute_precipitation, metadata_filepaths)
 
     metadata_dfs = Pool().map(
-        _combine_geo_and_par_file_to_metadata_df, zip(metadata_files, statids))
+        _combine_geo_and_par_file_to_metadata_df, zip(metadata_files, station_ids))
 
     metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
 
@@ -165,11 +149,9 @@ def _download_metadata_file_for_1minute_precipitation(metadatafile: str) -> Byte
 
     """
     try:
-        with urllib.request.urlopen(metadatafile) as url_request:
-            file = BytesIO(url_request.read())
-
-    except urllib.error.URLError as e:
-        raise e(f"Could not download metadata file {metadatafile}")
+        file = download_file_from_climate_observations(metadatafile)
+    except requests.exceptions.InvalidURL as e:
+        raise e(f"Error: reading metadata {metadatafile} file failed.")
 
     return file
 

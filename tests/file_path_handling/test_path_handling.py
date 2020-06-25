@@ -1,9 +1,12 @@
 from pathlib import PurePosixPath
 
+import pytest
+
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_local_filepath_for_station_data, build_index_path
+from python_dwd.file_path_handling.path_handling import build_local_filepath_for_station_data, build_path_to_parameter, \
+    build_climate_observations_path, list_files_of_climate_observations
 
 
 def test_build_local_filepath_for_station_data():
@@ -14,6 +17,18 @@ def test_build_local_filepath_for_station_data():
 
 
 def test_build_index_path():
-    path = build_index_path(Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL)
+    path = build_path_to_parameter(Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL)
     assert path == PurePosixPath(
-        "climate_environment/CDC/observations_germany/climate/daily/kl/historical")
+        "daily/kl/historical")
+
+
+def test_build_climate_observations_path():
+    assert build_climate_observations_path("abc") == \
+           "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/abc"
+
+
+@pytest.mark.remote
+def test_list_files_of_climate_observations():
+    files_server = list_files_of_climate_observations("annual/kl/recent/", recursive=False)
+
+    assert "annual/kl/recent/jahreswerte_KL_01048_akt.zip" in files_server
