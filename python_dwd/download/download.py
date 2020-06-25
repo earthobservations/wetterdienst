@@ -7,11 +7,9 @@ import zipfile
 from io import BytesIO
 from multiprocessing import Pool
 import pandas as pd
-import requests
 
 from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
-from python_dwd.download.download_services import build_climate_observations_path, \
-    download_file_from_climate_observations
+from python_dwd.download.download_services import download_file_from_climate_observations
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.exceptions.failed_download_exception import FailedDownload
@@ -50,8 +48,6 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
         stores data on local file system
 
     """
-    # file_server = build_climate_observations_path(remote_file)
-
     try:
         zip_file = download_file_from_climate_observations(remote_file)
     except urllib.error.URLError as e:

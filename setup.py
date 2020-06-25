@@ -32,7 +32,7 @@ setup(
         "dateparser",
         "fire",
         "requests",
-        "bs4"
+        "beautifulsoup4"
     ],
     entry_points={
         'console_scripts': [
