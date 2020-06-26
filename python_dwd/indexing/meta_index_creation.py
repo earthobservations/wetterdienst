@@ -1,5 +1,4 @@
 import re
-import chardet
 import zipfile
 from io import BytesIO, TextIOWrapper
 from pathlib import PurePosixPath
@@ -73,8 +72,6 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
 
     metafile = [file for file in files_server
                 if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
-
-    # metafile_server = build_climate_observations_path(metafile)
 
     try:
         file = download_file_from_climate_observations(metafile)
@@ -214,19 +211,10 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             filepath_or_buffer=TextIOWrapper(file_opened),
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
-            dtype=str
+            dtype=str,
+            engine="python"
         )
     except UnicodeDecodeError as e:
-        # https://stackoverflow.com/questions/55203298/unicodedecodeerror-tells-you-position-of-character-causing-error-how-can-i-disp
-        offending = e.object[e.start:e.end]
-        print("This file isn't encoded with", e.encoding)
-        print("Illegal bytes:", repr(offending))
-
-        # If fails try cp1252
-        file_opened.seek(0)
-
-        encoding = chardet.detect(file_opened.read())["encoding"]
-
         file_opened.seek(0)
 
         file = pd.read_csv(
@@ -234,7 +222,8 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
-            encoding=encoding
+            engine="python",
+            encoding="ISO-8859-1"
         )
 
     return file
