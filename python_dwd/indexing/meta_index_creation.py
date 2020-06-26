@@ -226,7 +226,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
-            encoding="cp1252"
+            encoding="iso-8859-1"
         )
 
     return file
