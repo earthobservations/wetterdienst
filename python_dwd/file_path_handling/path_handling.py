@@ -75,8 +75,8 @@ def list_files_of_climate_observations(path: Union[PurePosixPath, str],
 
 def build_climate_observations_path(path: Union[PurePosixPath, str]) -> str:
     """
-    A function used to create the filepath consisting of the server, the observation path and the path of a
-    subdirectory/file
+    A function used to create the filepath consisting of the server, the climate observations
+    path and the path of a subdirectory/file
 
     Args:
         path: the path of folder/file on the server

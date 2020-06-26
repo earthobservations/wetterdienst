@@ -209,13 +209,23 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
         A pandas DataFrame with the read data.
 
     """
-    file = pd.read_csv(
-        filepath_or_buffer=TextIOWrapper(file_opened),
-        sep=STATIONDATA_SEP,
-        na_values=NA_STRING,
-        dtype=str,
-        encoding="cp1252"
-    )
+    try:
+        # First try utf-8
+        file = pd.read_csv(
+            filepath_or_buffer=TextIOWrapper(file_opened),
+            sep=STATIONDATA_SEP,
+            na_values=NA_STRING,
+            dtype=str
+        )
+    except UnicodeDecodeError:
+        # If fails try cp1252
+        file = pd.read_csv(
+            filepath_or_buffer=TextIOWrapper(file_opened),
+            sep=STATIONDATA_SEP,
+            na_values=NA_STRING,
+            dtype=str,
+            encoding="cp1252"
+        )
 
     return file
 
