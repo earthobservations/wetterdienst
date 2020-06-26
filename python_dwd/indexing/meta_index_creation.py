@@ -219,6 +219,8 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
         )
     except UnicodeDecodeError:
         # If fails try cp1252
+        file_opened.seek(0)
+
         file = pd.read_csv(
             filepath_or_buffer=TextIOWrapper(file_opened),
             sep=STATIONDATA_SEP,
