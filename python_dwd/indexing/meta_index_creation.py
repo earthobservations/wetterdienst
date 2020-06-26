@@ -216,7 +216,12 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             na_values=NA_STRING,
             dtype=str
         )
-    except UnicodeDecodeError:
+    except UnicodeDecodeError as e:
+        # https://stackoverflow.com/questions/55203298/unicodedecodeerror-tells-you-position-of-character-causing-error-how-can-i-disp
+        offending = e.object[e.start:e.end]
+        print("This file isn't encoded with", e.encoding)
+        print("Illegal bytes:", repr(offending))
+
         # If fails try cp1252
         file_opened.seek(0)
 
