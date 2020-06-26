@@ -1,5 +1,5 @@
 import re
-import urllib
+import chardet
 import zipfile
 from io import BytesIO, TextIOWrapper
 from pathlib import PurePosixPath
@@ -11,7 +11,6 @@ import datetime as dt
 import requests
 
 from python_dwd.additionals.functions import find_all_matchstrings_in_string
-from python_dwd.constants.access_credentials import DWD_SERVER, DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
 from python_dwd.constants.metadata import METADATA_MATCHSTRINGS, METADATA_FIXED_COLUMN_WIDTH, META_DATA_FOLDER, \
     STATID_REGEX, METADATA_COLUMNS, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_STA_PREFIX, STATIONDATA_SEP, NA_STRING
@@ -21,7 +20,7 @@ from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.file_path_handling.path_handling import build_path_to_parameter, \
-    list_files_of_climate_observations, build_climate_observations_path
+    list_files_of_climate_observations
 
 
 @functools.lru_cache(maxsize=None)
@@ -221,12 +220,16 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
         # If fails try cp1252
         file_opened.seek(0)
 
+        encoding = chardet.detect(file_opened.read())["encoding"]
+
+        file_opened.seek(0)
+
         file = pd.read_csv(
             filepath_or_buffer=TextIOWrapper(file_opened),
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
-            encoding="iso-8859-1"
+            encoding=encoding
         )
 
     return file
