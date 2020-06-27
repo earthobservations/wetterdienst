@@ -111,8 +111,6 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     metadata_filepaths = list_files_of_climate_observations(metadata_path, recursive=False)
 
-    # metadata_filepaths = [build_climate_observations_path(file) for file in metadata_filepaths]
-
     station_ids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
 
     metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
@@ -121,7 +119,7 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
         _download_metadata_file_for_1minute_precipitation, metadata_filepaths)
 
     metadata_dfs = Pool().map(
-        _combine_geo_and_par_file_to_metadata_df, zip(metadata_files, station_ids))
+        _parse_geo_metadata, zip(metadata_files, station_ids))
 
     metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
 
@@ -181,8 +179,8 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
 
     if pd.isnull(metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1]):
-        metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = (
-                dt.date.today() - dt.timedelta(days=1)).strftime(fmt="%Y%m%d")
+        metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = pd.Timestamp(
+                dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
 
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
