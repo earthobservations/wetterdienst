@@ -199,7 +199,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
     try:
         # First try utf-8
         file = pd.read_csv(
-            filepath_or_buffer=TextIOWrapper(file_opened),
+            filepath_or_buffer=TextIOWrapper(file_opened, encoding="utf-8"),
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
@@ -210,7 +210,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
         file_opened.seek(0)
 
         file = pd.read_csv(
-            filepath_or_buffer=TextIOWrapper(file_opened),
+            filepath_or_buffer=TextIOWrapper(file_opened, encoding="ISO-8859-1"),
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
