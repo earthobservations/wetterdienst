@@ -152,10 +152,10 @@ def _download_metadata_file_for_1minute_precipitation(metadatafile: str) -> Byte
     return file
 
 
-def _combine_geo_and_par_file_to_metadata_df(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd.DataFrame:
-    """ A function that analysis the given file (bytes) and extracts both the geography and the parameter file of
-    a 1minute metadata zip and combines both files in a predefined way to catch the relevant information and create a
-    similar file to those that can usually be found already prepared for other parameter combinations.
+def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd.DataFrame:
+    """ A function that analysis the given file (bytes) and extracts geography of 1minute metadata
+    zip and catches the relevant information and create a similar file to those that can usually be
+    found already prepared for other parameter combinations.
 
     Args:
         metadata_file_and_station_id (BytesIO, str) - the file that holds the information and the statid of that file.
@@ -167,29 +167,22 @@ def _combine_geo_and_par_file_to_metadata_df(metadata_file_and_station_id: Tuple
     metadata_file, station_id = metadata_file_and_station_id
 
     metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{station_id}.txt"
-    metadata_sta_filename = f"{METADATA_1MIN_STA_PREFIX}{station_id}.txt"
 
     with zipfile.ZipFile(metadata_file) as zip_file:
         with zip_file.open(metadata_geo_filename) as file_opened:
             metadata_geo_df = _parse_zipped_data_into_df(file_opened)
 
-        with zip_file.open(metadata_sta_filename) as file_opened:
-            metadata_sta_df = _parse_zipped_data_into_df(file_opened)
+    metadata_geo_df = metadata_geo_df.rename(columns=str.upper)
 
-    metadata_geo_df = metadata_geo_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-    metadata_sta_df = metadata_sta_df.rename(columns=str.upper).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    metadata_geo_df = metadata_geo_df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+
+    metadata_geo_df[DWDMetaColumns.FROM_DATE.value] = metadata_geo_df.loc[0, DWDMetaColumns.FROM_DATE.value]
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
-    metadata_sta_df = metadata_sta_df.loc[:, [DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value]]\
 
-    if pd.isnull(metadata_sta_df[DWDMetaColumns.TO_DATE.value].iloc[-1]):
-        metadata_sta_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = (
-                dt.date.today() - dt.timedelta(days=1)).strftime(format="%Y%m%d")
-
-    metadata_sta_df = metadata_sta_df.dropna()
-
-    metadata_geo_df[DWDMetaColumns.FROM_DATE.value] = metadata_sta_df[DWDMetaColumns.FROM_DATE.value].min()
-    metadata_geo_df[DWDMetaColumns.TO_DATE.value] = metadata_sta_df[DWDMetaColumns.TO_DATE.value].max()
+    if pd.isnull(metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1]):
+        metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = (
+                dt.date.today() - dt.timedelta(days=1)).strftime(fmt="%Y%m%d")
 
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
@@ -212,9 +205,10 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
-            engine="python"
+            skipinitialspace=True,
+            encoding="utf-8"
         )
-    except UnicodeDecodeError as e:
+    except UnicodeDecodeError:
         file_opened.seek(0)
 
         file = pd.read_csv(
@@ -222,7 +216,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             sep=STATIONDATA_SEP,
             na_values=NA_STRING,
             dtype=str,
-            engine="python",
+            skipinitialspace=True,
             encoding="ISO-8859-1"
         )
 
