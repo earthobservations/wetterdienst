@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Union
 import pandas as pd
 
-from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
+from python_dwd.additionals.helpers import create_station_data_dtype_mapping
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -86,7 +86,7 @@ def restore_dwd_data(station_id: int,
     station_data_df = pd.DataFrame(station_data)
 
     return station_data_df.astype(
-        create_stationdata_dtype_mapping(station_data_df.columns))
+        create_station_data_dtype_mapping(station_data_df.columns))
 
 
 def _build_local_store_key(station_id: Union[str, int],

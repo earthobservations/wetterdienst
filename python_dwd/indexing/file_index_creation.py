@@ -4,7 +4,7 @@ import functools
 import pandas as pd
 
 from python_dwd.constants.access_credentials import DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
-from python_dwd.constants.metadata import ARCHIVE_FORMAT, STATID_REGEX
+from python_dwd.constants.metadata import ARCHIVE_FORMAT, STATION_ID_REGEX
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -47,7 +47,7 @@ def create_file_index_for_dwd_server(parameter: Parameter,
         lambda strings: strings[-1])
 
     files_server.loc[:, DWDMetaColumns.STATION_ID.value] = file_names.apply(
-        lambda x: re.findall(STATID_REGEX, x).pop(0))
+        lambda x: re.findall(STATION_ID_REGEX, x).pop(0))
 
     files_server.loc[:, DWDMetaColumns.STATION_ID.value] = files_server.loc[:, DWDMetaColumns.STATION_ID.value].\
         astype(int)

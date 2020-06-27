@@ -9,10 +9,10 @@ import functools
 import datetime as dt
 import requests
 
-from python_dwd.additionals.functions import find_all_matchstrings_in_string
-from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, METADATA_DTYPE_MAPPING
-from python_dwd.constants.metadata import METADATA_MATCHSTRINGS, METADATA_FIXED_COLUMN_WIDTH, META_DATA_FOLDER, \
-    STATID_REGEX, METADATA_COLUMNS, METADATA_1MIN_GEO_PREFIX, METADATA_1MIN_STA_PREFIX, STATIONDATA_SEP, NA_STRING
+from python_dwd.additionals.functions import find_all_match_strings_in_string
+from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
+    METADATA_DTYPE_MAPPING
+from python_dwd.constants.metadata import STATION_ID_REGEX, STATION_DATA_SEP, NA_STRING
 from python_dwd.download.download_services import download_file_from_climate_observations
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -20,6 +20,26 @@ from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.file_path_handling.path_handling import build_path_to_parameter, \
     list_files_of_climate_observations
+
+METADATA_COLUMNS = [
+    DWDMetaColumns.STATION_ID.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+    DWDMetaColumns.STATIONHEIGHT.value,
+    DWDMetaColumns.LATITUDE.value,
+    DWDMetaColumns.LONGITUDE.value,
+    DWDMetaColumns.STATIONNAME.value,
+    DWDMetaColumns.STATE.value
+]
+
+METADATA_MATCH_STRINGS = ['beschreibung', '.txt']
+
+METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"
+
+META_DATA_FOLDER = "meta_data"
+
+METADATA_FIXED_COLUMN_WIDTH = [(0, 5), (5, 14), (14, 23), (23, 38),
+                               (38, 50), (50, 60), (60, 102), (102, 200)]
 
 
 @functools.lru_cache(maxsize=None)
@@ -44,9 +64,22 @@ def create_meta_index_for_dwd_data(parameter: Parameter,
         parameter == Parameter.PRECIPITATION
 
     if cond:
-        return _create_meta_index_for_1minute__historical_precipitation()
+        meta_index = _create_meta_index_for_1minute__historical_precipitation()
     else:
-        return _create_meta_index_for_dwd_data(parameter, time_resolution, period_type)
+        meta_index = _create_meta_index_for_dwd_data(parameter, time_resolution, period_type)
+
+    # If no state column available, take state information from daily historical precipitation
+    if DWDMetaColumns.STATE.value not in meta_index:
+        mdp = create_meta_index_for_dwd_data(
+            Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL)
+
+        meta_index = pd.merge(
+            left=meta_index,
+            right=mdp.loc[:, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.STATE.value]],
+            how="left"
+        )
+
+    return meta_index
 
 
 def _create_meta_index_for_dwd_data(parameter: Parameter,
@@ -70,15 +103,15 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
     files_server = list_files_of_climate_observations(
         parameter_path, recursive=True)
 
-    metafile = [file for file in files_server
-                if find_all_matchstrings_in_string(file.lower(), METADATA_MATCHSTRINGS)].pop(0)
+    meta_file = [file for file in files_server
+                 if find_all_match_strings_in_string(file.lower(), METADATA_MATCH_STRINGS)].pop(0)
 
     try:
-        file = download_file_from_climate_observations(metafile)
+        file = download_file_from_climate_observations(meta_file)
     except requests.exceptions.InvalidURL as e:
-        raise e(f"Error: reading metadata {metafile} file failed.")
+        raise e(f"Error: reading metadata {meta_file} file failed.")
 
-    metaindex = pd.read_fwf(
+    meta_index = pd.read_fwf(
         filepath_or_buffer=file,
         colspecs=METADATA_FIXED_COLUMN_WIDTH,
         skiprows=[1],
@@ -87,14 +120,14 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
     )
 
     # Fix column names, as header is not aligned to fixed column widths
-    metaindex.columns = "".join(
-        [column for column in metaindex.columns if "unnamed" not in column.lower()]).split(" ")
+    meta_index.columns = "".join(
+        [column for column in meta_index.columns if "unnamed" not in column.lower()]).split(" ")
 
-    metaindex = metaindex.rename(columns=str.upper)
+    meta_index = meta_index.rename(columns=str.upper)
 
-    metaindex = metaindex.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    meta_index = meta_index.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    return metaindex.astype(METADATA_DTYPE_MAPPING)
+    return meta_index.astype(METADATA_DTYPE_MAPPING)
 
 
 def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
@@ -107,27 +140,28 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
     - especially for precipitation/1_minute/historical!
 
     """
-    metadata_path = PurePosixPath(TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER)
+    metadata_path = PurePosixPath(
+        TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER)
 
-    metadata_filepaths = list_files_of_climate_observations(metadata_path, recursive=False)
+    metadata_file_paths = list_files_of_climate_observations(metadata_path, recursive=False)
 
-    station_ids = [re.findall(STATID_REGEX, file).pop(0) for file in metadata_filepaths]
+    station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
 
-    metaindex_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
+    meta_index_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
     metadata_files = Pool().map(
-        _download_metadata_file_for_1minute_precipitation, metadata_filepaths)
+        _download_metadata_file_for_1minute_precipitation, metadata_file_paths)
 
     metadata_dfs = Pool().map(
         _parse_geo_metadata, zip(metadata_files, station_ids))
 
-    metaindex_df = metaindex_df.append(other=metadata_dfs, ignore_index=True)
+    meta_index_df = meta_index_df.append(other=metadata_dfs, ignore_index=True)
 
-    metaindex_df = metaindex_df.astype(METADATA_DTYPE_MAPPING)
+    meta_index_df = meta_index_df.astype(METADATA_DTYPE_MAPPING)
 
-    metaindex_df = metaindex_df.drop(labels=DWDMetaColumns.STATE.value, axis=1)
+    meta_index_df = meta_index_df.drop(labels=DWDMetaColumns.STATE.value, axis=1)
 
-    return metaindex_df.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(drop=True)
+    return meta_index_df.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(drop=True)
 
 
 def _download_metadata_file_for_1minute_precipitation(metadatafile: str) -> BytesIO:
@@ -200,7 +234,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
         # First try utf-8
         file = pd.read_csv(
             filepath_or_buffer=TextIOWrapper(file_opened, encoding="utf-8"),
-            sep=STATIONDATA_SEP,
+            sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype=str,
             skipinitialspace=True,
@@ -211,7 +245,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
 
         file = pd.read_csv(
             filepath_or_buffer=TextIOWrapper(file_opened, encoding="ISO-8859-1"),
-            sep=STATIONDATA_SEP,
+            sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype=str,
             skipinitialspace=True,

@@ -83,18 +83,18 @@ def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, Peri
     time_resolution = retrieve_time_resolution_from_filename(filename)
 
     if time_resolution is None:
-        raise NameError(f"Resolution {time_resolution} couldn't be determined.")
+        raise ValueError(f"Resolution {time_resolution} couldn't be determined.")
 
     # First determine the variable
     parameter = retrieve_parameter_from_filename(filename, time_resolution)
 
     if parameter is None:
-        raise NameError(f"Variable {parameter} couldn't be determined.")
+        raise ValueError(f"Variable {parameter} couldn't be determined.")
 
     period_type = retrieve_period_type_from_filename(filename)
 
     if period_type is None:
-        raise NameError(f"Timestamp {period_type} couldn't be determined.")
+        raise ValueError(f"Timestamp {period_type} couldn't be determined.")
 
     return parameter, time_resolution, period_type
 
@@ -127,7 +127,6 @@ def retrieve_parameter_from_filename(filename: str,
     """
     filename = filename.lower()
 
-    assert time_resolution in TimeResolution, f"Error: {time_resolution} not in TimeResolution"
     try:
         parameter = \
             FILE_2_PARAMETER[time_resolution][
@@ -169,13 +168,13 @@ def check_parameters(parameter: Parameter,
     return True
 
 
-def find_all_matchstrings_in_string(string: str,
-                                    matchstrings: List[str]):
-    """ check if string has all matchstrings in it """
-    return all([matchstring in string for matchstring in matchstrings])
+def find_all_match_strings_in_string(string: str,
+                                     match_strings: List[str]):
+    """ check if string has all match strings in it """
+    return all([match_string in string for match_string in match_strings])
 
 
-def cast_to_list(iterable_):
+def cast_to_list(iterable_) -> list:
     """
     A function that either converts an existing iterable to a list or simply puts the item into a list to make an
     iterable that includes this item.

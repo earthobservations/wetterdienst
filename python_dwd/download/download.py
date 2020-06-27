@@ -8,9 +8,9 @@ from io import BytesIO
 from multiprocessing import Pool
 import pandas as pd
 
-from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
+from python_dwd.constants.metadata import STATION_DATA_MATCH_STRINGS
 from python_dwd.download.download_services import download_file_from_climate_observations
-from python_dwd.additionals.functions import find_all_matchstrings_in_string
+from python_dwd.additionals.functions import find_all_match_strings_in_string
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.exceptions.failed_download_exception import FailedDownload
 
@@ -59,7 +59,7 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
         with zipfile.ZipFile(zip_file) as zip_file_opened:
             produkt_file = [file_in_zip
                             for file_in_zip in zip_file_opened.namelist()
-                            if find_all_matchstrings_in_string(file_in_zip, STATIONDATA_MATCHSTRINGS)].pop(0)
+                            if find_all_match_strings_in_string(file_in_zip, STATION_DATA_MATCH_STRINGS)].pop(0)
             file = BytesIO(zip_file_opened.open(produkt_file).read())
     except zipfile.BadZipFile as e:
         raise zipfile.BadZipFile(f"The zipfile seems to be corrupted.\n {str(e)}")
