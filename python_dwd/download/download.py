@@ -8,9 +8,9 @@ from io import BytesIO
 from multiprocessing import Pool
 import pandas as pd
 
-from python_dwd.constants.metadata import STATIONDATA_MATCHSTRINGS
-from python_dwd.download.download_services import create_remote_file_name
-from python_dwd.additionals.functions import find_all_matchstrings_in_string
+from python_dwd.constants.metadata import STATION_DATA_MATCH_STRINGS
+from python_dwd.download.download_services import download_file_from_climate_observations
+from python_dwd.additionals.functions import find_all_match_strings_in_string
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.exceptions.failed_download_exception import FailedDownload
 
@@ -48,21 +48,18 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
         stores data on local file system
 
     """
-    file_server = create_remote_file_name(remote_file)
-
     try:
-        with urllib.request.urlopen(file_server) as url_request:
-            zip_file = BytesIO(url_request.read())
+        zip_file = download_file_from_climate_observations(remote_file)
     except urllib.error.URLError as e:
-        raise e(f"Error: the stationdata {file_server} couldn't be reached.")
-    except:
-        raise FailedDownload(f"Download failed for {file_server}")
+        raise e(f"Error: the station data {remote_file} couldn't be reached.")
+    except Exception:
+        raise FailedDownload(f"Download failed for {remote_file}")
 
     try:
         with zipfile.ZipFile(zip_file) as zip_file_opened:
             produkt_file = [file_in_zip
                             for file_in_zip in zip_file_opened.namelist()
-                            if find_all_matchstrings_in_string(file_in_zip, STATIONDATA_MATCHSTRINGS)].pop(0)
+                            if find_all_match_strings_in_string(file_in_zip, STATION_DATA_MATCH_STRINGS)].pop(0)
             file = BytesIO(zip_file_opened.open(produkt_file).read())
     except zipfile.BadZipFile as e:
         raise zipfile.BadZipFile(f"The zipfile seems to be corrupted.\n {str(e)}")

@@ -1,32 +1,26 @@
 """ helping functions for downloading german weather service data """
-from pathlib import Path, PurePosixPath
+from io import BytesIO
+from pathlib import PurePosixPath
 from typing import Union
 
-from python_dwd.constants.access_credentials import DWD_SERVER, DWD_PATH, HTTPS_EXPRESSION
-from python_dwd.constants.metadata import DWD_FOLDER_STATION_DATA
+from python_dwd.download.https_handling import create_dwd_session
+from python_dwd.file_path_handling.path_handling import build_climate_observations_path
 
 
-def create_local_file_name(remote_file_path: Union[Path, str],
-                           local_folder: Union[Path, str]) -> Path:
+def download_file_from_climate_observations(filepath: Union[PurePosixPath, str]) -> BytesIO:
     """
-    The local filename consists of the set of parameters (easier
-    to analyse when looking at the filename) and the original filename
+    A function used to download a specified file from the server
 
-    """
-    return Path(local_folder, DWD_FOLDER_STATION_DATA, str(remote_file_path).split('/')[-1])
-
-
-def create_remote_file_name(file: str) -> str:
-    """
-    The filepath to the server is created with the filename,
-     the parameters and the path
     Args:
-        file: data file name on server
+        filepath: the path that defines the file
+        base_url: the base_url representing the part of the server which is worked with
 
     Returns:
-        complete Path to the required data
-
+        bytes of the file
     """
-    file_server = PurePosixPath(DWD_SERVER, DWD_PATH, file)
+    dwd_session = create_dwd_session()
 
-    return f"{HTTPS_EXPRESSION}{file_server}"
+    r = dwd_session.get(build_climate_observations_path(filepath))
+    r.raise_for_status()
+
+    return BytesIO(r.content)

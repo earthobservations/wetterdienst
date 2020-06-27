@@ -5,7 +5,7 @@ import pandas as pd
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 
 
-def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
+def create_station_data_dtype_mapping(columns: List[str]) -> dict:
     """
     A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
     want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
@@ -17,21 +17,21 @@ def create_stationdata_dtype_mapping(columns: List[str]) -> dict:
     Return:
          a dictionary with column names and dtypes for each of them
     """
-    stationdata_dtype_mapping = dict()
+    station_data_dtype_mapping = dict()
 
     """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in columns:
         if column == DWDMetaColumns.STATION_ID.value:
-            stationdata_dtype_mapping[column] = int
+            station_data_dtype_mapping[column] = int
         elif column in (DWDMetaColumns.DATE.value, DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value):
-            stationdata_dtype_mapping[column] = "datetime64"
+            station_data_dtype_mapping[column] = "datetime64"
         elif column == DWDMetaColumns.EOR.value:
-            stationdata_dtype_mapping[column] = str
+            station_data_dtype_mapping[column] = str
         else:
-            stationdata_dtype_mapping[column] = float
+            station_data_dtype_mapping[column] = float
 
-    return stationdata_dtype_mapping
+    return station_data_dtype_mapping
 
 
 def convert_datetime_hourly(value):

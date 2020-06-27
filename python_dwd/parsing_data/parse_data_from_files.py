@@ -4,9 +4,9 @@ from typing import List, Tuple, Union
 from io import BytesIO
 import pandas as pd
 
-from python_dwd.additionals.helpers import create_stationdata_dtype_mapping, convert_datetime_hourly
+from python_dwd.additionals.helpers import create_station_data_dtype_mapping, convert_datetime_hourly
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from python_dwd.constants.metadata import NA_STRING, STATIONDATA_SEP
+from python_dwd.constants.metadata import NA_STRING, STATION_DATA_SEP
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
@@ -64,7 +64,7 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     try:
         data = pd.read_csv(
             filepath_or_buffer=file,
-            sep=STATIONDATA_SEP,
+            sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype="str"  # dtypes are mapped manually to ensure expected dtypes
         )
@@ -92,6 +92,6 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
         data[DWDMetaColumns.DATE.value] = data[DWDMetaColumns.DATE.value].apply(convert_datetime_hourly)
 
     # Coerce the data types appropriately.
-    data = data.astype(create_stationdata_dtype_mapping(data.columns))
+    data = data.astype(create_station_data_dtype_mapping(data.columns))
 
     return data

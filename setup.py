@@ -30,7 +30,9 @@ setup(
         "docopt",
         "munch",
         "dateparser",
-        "fire"
+        "fire",
+        "requests",
+        "beautifulsoup4"
     ],
     entry_points={
         'console_scripts': [

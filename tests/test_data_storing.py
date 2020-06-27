@@ -5,7 +5,7 @@ import pandas as pd
 import mock
 from shutil import rmtree
 
-from python_dwd.additionals.helpers import create_stationdata_dtype_mapping
+from python_dwd.additionals.helpers import create_station_data_dtype_mapping
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -31,7 +31,7 @@ filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
 
 # Loading test data
 file = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
-file = file.astype(create_stationdata_dtype_mapping(file.columns))
+file = file.astype(create_station_data_dtype_mapping(file.columns))
 
 # Prepare csv for regular "downloading" test
 csv_file = StringIO()

@@ -1,18 +1,16 @@
 """ file index creation for available DWD station data """
-from pathlib import PurePosixPath
 import re
 import functools
-import ftplib
 import pandas as pd
 
-from python_dwd.constants.access_credentials import DWD_PATH, DWD_SERVER
-from python_dwd.constants.metadata import ARCHIVE_FORMAT, STATID_REGEX
-from python_dwd.download.ftp_handling import FTP
+from python_dwd.constants.access_credentials import DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
+from python_dwd.constants.metadata import ARCHIVE_FORMAT, STATION_ID_REGEX
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_index_path
+from python_dwd.file_path_handling.path_handling import build_path_to_parameter, \
+    list_files_of_climate_observations
 
 
 @functools.lru_cache(maxsize=None)
@@ -29,17 +27,11 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    server_path = build_index_path(parameter, time_resolution, period_type)
+    parameter_path = build_path_to_parameter(
+        parameter, time_resolution, period_type)
 
-    # todo: replace with global requests.Session creating the index
-    try:
-        with FTP(DWD_SERVER) as ftp:
-            ftp.login()
-            files_server = ftp.list_files(
-                remote_path=str(server_path), also_subfolders=True)
-
-    except ftplib.all_errors as e:
-        raise e("Creating file index currently not possible.")
+    files_server = list_files_of_climate_observations(
+        parameter_path, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype='str')
@@ -49,13 +41,13 @@ def create_file_index_for_dwd_server(parameter: Parameter,
         ARCHIVE_FORMAT)]
 
     files_server.loc[:, DWDMetaColumns.FILENAME.value] = files_server.loc[:, DWDMetaColumns.FILENAME.value].\
-        str.replace(DWD_PATH + '/', '')
+        str.replace(f"{DWD_CDC_PATH}/{DWD_CLIM_OBS_GERMANY_PATH}/", "")
 
     file_names = files_server.loc[:, DWDMetaColumns.FILENAME.value].str.split("/").apply(
         lambda strings: strings[-1])
 
     files_server.loc[:, DWDMetaColumns.STATION_ID.value] = file_names.apply(
-        lambda x: re.findall(STATID_REGEX, x).pop(0))
+        lambda x: re.findall(STATION_ID_REGEX, x).pop(0))
 
     files_server.loc[:, DWDMetaColumns.STATION_ID.value] = files_server.loc[:, DWDMetaColumns.STATION_ID.value].\
         astype(int)

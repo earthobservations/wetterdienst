@@ -1,4 +1,5 @@
 import pytest
+import requests
 from pandas import Timestamp
 
 from python_dwd import reset_meta_index_cache
@@ -30,6 +31,6 @@ def test_metadata_for_dwd_data():
          47.8413, 8.8493, "Aach", "Baden-Württemberg", True]]
 
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
-    with pytest.raises(IndexError):
+    with pytest.raises(requests.exceptions.HTTPError):
         metadata_for_dwd_data(
             Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL)

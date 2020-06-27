@@ -1,5 +1,6 @@
 """ tests for file index creation """
 import pytest
+import requests
 
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.indexing.file_index_creation import create_file_index_for_dwd_server, \
@@ -31,8 +32,6 @@ def test_file_index_creation():
                DWDMetaColumns.FILENAME.value
            ].values.tolist() == ["daily/kl/recent/tageswerte_KL_01048_akt.zip"]
 
-    # todo: replace with pytest.raises for wrong parameters
-    file_index_false = create_file_index_for_dwd_server(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL)
-
-    assert file_index_false.empty
+    with pytest.raises(requests.exceptions.HTTPError):
+        create_file_index_for_dwd_server(
+            Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL)

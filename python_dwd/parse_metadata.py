@@ -49,23 +49,12 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
     meta_index = create_meta_index_for_dwd_data(
         parameter, time_resolution, period_type)
 
-    # If no state column available, take state information from daily historical precipitation
-    if DWDMetaColumns.STATE.value not in meta_index:
-        mdp = create_meta_index_for_dwd_data(
-            Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL)
-
-        meta_index = pd.merge(
-            left=meta_index,
-            right=mdp.loc[:, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.STATE.value]],
-            how="left"
-        )
-
     meta_index[DWDMetaColumns.HAS_FILE.value] = False
 
     file_index = create_file_index_for_dwd_server(
         parameter, time_resolution, period_type)
 
-    meta_index.loc[meta_index.iloc[:, 0].isin(
+    meta_index.loc[meta_index.loc[:, DWDMetaColumns.STATION_ID.value].isin(
         file_index[DWDMetaColumns.STATION_ID.value]), DWDMetaColumns.HAS_FILE.value] = True
 
     return meta_index
