@@ -24,7 +24,7 @@ def collect_dwd_data(station_ids: List[int],
                      period_type: Union[PeriodType, str],
                      folder: Union[str, Path] = DWD_FOLDER_MAIN,
                      prefer_local: bool = False,
-                     parallel_download: bool = False,
+                     parallel_processing: bool = False,
                      write_file: bool = False,
                      create_new_file_index: bool = False,
                      humanize_column_names: bool = False,
@@ -42,7 +42,7 @@ def collect_dwd_data(station_ids: List[int],
         period_type: period type as enumeration
         folder: folder for local file interaction
         prefer_local: boolean for if local data should be preferred
-        parallel_download: boolean if to use parallel download when downloading files
+        parallel_processing: boolean if to use parallel download/processing
         write_file: boolean if to write data to local storage
         create_new_file_index: boolean if to create a new file index for the data selection
         humanize_column_names: boolean to yield column names better for human consumption
@@ -84,9 +84,10 @@ def collect_dwd_data(station_ids: List[int],
         remote_files = create_file_list_for_dwd_server(
             [station_id], parameter, time_resolution, period_type)
 
-        filenames_and_files = download_dwd_data(remote_files, parallel_download)
+        filenames_and_files = download_dwd_data(remote_files, parallel_processing)
 
-        station_data = parse_dwd_data(filenames_and_files, time_resolution)
+        station_data = parse_dwd_data(
+            filenames_and_files, time_resolution, parallel_processing)
 
         if write_file:
             store_dwd_data(

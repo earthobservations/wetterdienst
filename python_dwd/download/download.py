@@ -16,16 +16,18 @@ from python_dwd.exceptions.failed_download_exception import FailedDownload
 
 
 def download_dwd_data(remote_files: pd.DataFrame,
-                      parallel_download: bool = False) -> List[Tuple[str, BytesIO]]:
+                      parallel: bool = False) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
     remote_files = remote_files[DWDMetaColumns.FILENAME.value].values.tolist()
 
-    if parallel_download:
+    if parallel:
+        with Pool() as p:
+            files_in_bytes = p.map(_download_dwd_data, remote_files)
         return list(
             zip(
                 remote_files,
-                Pool().map(_download_dwd_data, remote_files)
+                files_in_bytes
             )
         )
     else:

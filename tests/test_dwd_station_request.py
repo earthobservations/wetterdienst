@@ -11,13 +11,13 @@ from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
 def test_parse_parameter_from_value():
     assert _parse_parameter_from_value("cl", PARAMETER_WORDLIST_MAPPING) == Parameter.CLIMATE_SUMMARY
-    assert _parse_parameter_from_value("sonne_dauer", PARAMETER_WORDLIST_MAPPING) == Parameter.SUNSHINE_DURATION
+    assert _parse_parameter_from_value("sun_dura", PARAMETER_WORDLIST_MAPPING) == Parameter.SUNSHINE_DURATION
 
     assert _parse_parameter_from_value("rec", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.RECENT
-    assert _parse_parameter_from_value("jetzt", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.NOW
+    assert _parse_parameter_from_value("now", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.NOW
 
     assert _parse_parameter_from_value("daily", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.DAILY
-    assert _parse_parameter_from_value("monat", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.MONTHLY
+    assert _parse_parameter_from_value("month", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.MONTHLY
 
 
 def test_find_any_one_word_from_wordlist():

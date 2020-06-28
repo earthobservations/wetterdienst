@@ -26,24 +26,38 @@ FILE_2_PARAMETER = {
         {'tu': Parameter.TEMPERATURE_AIR,
          'cs': Parameter.CLOUD_TYPE,
          'n': Parameter.CLOUDINESS,
+         "td": Parameter.DEW_POINT,
+         'rr': Parameter.PRECIPITATION,
          'p0': Parameter.PRESSURE,
          'eb': Parameter.TEMPERATURE_SOIL,
          'st': Parameter.SOLAR,
-         'vv': Parameter.VISBILITY,
-         'sd': Parameter.SUNSHINE_DURATION,
-         'rr': Parameter.PRECIPITATION},
+         "sd": Parameter.SUNSHINE_DURATION,
+         'vv': Parameter.VISIBILITY,
+         "ff": Parameter.WIND,
+         "f": Parameter.WIND_SYNOPTIC},
+    TimeResolution.SUBDAILY:
+        {'tu': Parameter.TEMPERATURE_AIR,
+         'n': Parameter.CLOUDINESS,
+         "tf": Parameter.MOISTURE,
+         'pp': Parameter.PRESSURE,
+         "ek": Parameter.SOIL,
+         "vk": Parameter.VISIBILITY,
+         "fk": Parameter.WIND},
     TimeResolution.DAILY:
         {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION,
+         'rr': Parameter.PRECIPITATION_MORE,
          'eb': Parameter.TEMPERATURE_SOIL,
+         'st': Parameter.SOLAR,
          'wa': Parameter.WATER_EQUIVALENT,
-         'st': Parameter.SOLAR},
+         "wetter": Parameter.WEATHER_PHENOMENA},
     TimeResolution.MONTHLY:
         {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION},
+         'rr': Parameter.PRECIPITATION_MORE,
+         "wetter": Parameter.WEATHER_PHENOMENA},
     TimeResolution.ANNUAL:
         {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION}
+         'rr': Parameter.PRECIPITATION_MORE,
+         "wetter": Parameter.WEATHER_PHENOMENA}
 }
 
 FILE_2_TIME_RESOLUTION = {
@@ -160,9 +174,9 @@ def check_parameters(parameter: Parameter,
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
     """
-    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, [[], []])
+    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, {}).get(parameter, [])
 
-    if parameter not in check[0] or period_type not in check[1]:
+    if period_type not in check:
         return False
 
     return True
