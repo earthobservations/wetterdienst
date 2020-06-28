@@ -51,6 +51,12 @@ def collect_dwd_data(station_ids: List[int],
     Returns:
         a pandas DataFrame with all the data given by the station ids
     """
+    # Override parallel for time resolutions with only one file per station
+    # to prevent overhead
+    if parallel_processing and time_resolution not in \
+            [TimeResolution.MINUTE_1, TimeResolution.MINUTE_10]:
+        parallel_processing = False
+
     if create_new_file_index:
         reset_file_index_cache()
 
