@@ -40,7 +40,7 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, Dict[Parameter, List[Per
         Parameter.TEMPERATURE_SOIL:
             [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.SOLAR:
-            [PeriodType.ROW],
+            [PeriodType.RECENT],
         Parameter.SUNSHINE_DURATION:
             [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.VISIBILITY:
@@ -74,7 +74,7 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, Dict[Parameter, List[Per
         Parameter.TEMPERATURE_SOIL:
             [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.SOLAR:
-            [PeriodType.ROW],
+            [PeriodType.RECENT],
         Parameter.WATER_EQUIVALENT:
             [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.WEATHER_PHENOMENA:
@@ -96,44 +96,4 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, Dict[Parameter, List[Per
         Parameter.WEATHER_PHENOMENA:
             [PeriodType.HISTORICAL, PeriodType.RECENT],
     },
-}
-PARAMETER_WORDLIST_MAPPING: Dict[Parameter, List[List[str]]] = {
-    # 1_minute
-    Parameter.PRECIPITATION: [["prec"]],
-    # 10_minutes
-    Parameter.TEMPERATURE_AIR: [["air"], ["temp"]],
-    Parameter.TEMPERATURE_EXTREME: [["extr"], ["temp"]],
-    Parameter.WIND_EXTREME: [["extr"], ["wind"]],
-    Parameter.SOLAR: [["sol"]],
-    Parameter.WIND: [["wind"]],
-    # hourly
-    Parameter.CLOUD_TYPE: [["cloud", "wolke"], ["typ"]],
-    Parameter.CLOUDINESS: [["cloud"]],
-    Parameter.DEW_POINT: [["dew", "tau"], ["point", "punkt"]],
-    Parameter.PRESSURE: [["press", "druck"]],
-    Parameter.TEMPERATURE_SOIL: [["soil", "ground"], ["temp"]],
-    Parameter.SUNSHINE_DURATION: [["sun"], ["dur"]],
-    Parameter.VISIBILITY: [["vis"]],
-    Parameter.WIND_SYNOPTIC: [["wind"], ["synop"]],
-    # subdaily
-    Parameter.MOISTURE: [["moist"]],
-    Parameter.SOIL: [["soil", "ground"]],
-    # daily
-    Parameter.CLIMATE_SUMMARY: [["cl"]],
-    Parameter.PRECIPITATION_MORE: [["more"], ["prec"]],
-    Parameter.WATER_EQUIVALENT: [["wat"], ["eq"]],
-    Parameter.WEATHER_PHENOMENA: [["weather"], ["phenom"]],
-}
-TIMERESOLUTION_WORDLIST_MAPPING: Dict[TimeResolution, List[List[str]]] = {
-    TimeResolution.MINUTE_1:    [["1", "one"], ["min"]],
-    TimeResolution.MINUTE_10:   [["10", "ten"], ["min"]],
-    TimeResolution.HOURLY:      [["hour"]],
-    TimeResolution.DAILY:       [["day", "daily"]],
-    TimeResolution.MONTHLY:     [["month"]],
-    TimeResolution.ANNUAL:      [["year", "annual"]]
-}
-PERIODTYPE_WORDLIST_MAPPING: Dict[PeriodType, List[List[str]]] = {
-    PeriodType.HISTORICAL:  [["hist"]],
-    PeriodType.RECENT:      [["rec"]],
-    PeriodType.NOW:         [["now"]]
 }

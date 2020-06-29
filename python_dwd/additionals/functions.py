@@ -73,7 +73,7 @@ FILE_2_PERIOD = {
     'hist': PeriodType.HISTORICAL,
     'now': PeriodType.NOW,
     'akt': PeriodType.RECENT,
-    'row': PeriodType.ROW
+    'row': PeriodType.RECENT  # files with row are also classified as "recent" by DWD
 }
 
 
@@ -127,7 +127,7 @@ def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
     elif "_now" in filename:
         period_type = PeriodType.NOW
     elif "_row" in filename:
-        period_type = PeriodType.ROW
+        period_type = PeriodType.RECENT  # files with row are also classified as "recent" by DWD
     else:
         period_type = None
     return period_type

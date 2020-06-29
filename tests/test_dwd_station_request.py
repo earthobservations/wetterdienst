@@ -1,30 +1,9 @@
 import pytest
-from python_dwd.dwd_station_request import DWDStationRequest, _parse_parameter_from_value, \
-    _find_any_one_word_from_wordlist
-from python_dwd.constants.parameter_mapping import PARAMETER_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, \
-    PERIODTYPE_WORDLIST_MAPPING
+from python_dwd.dwd_station_request import DWDStationRequest
 from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-
-
-def test_parse_parameter_from_value():
-    assert _parse_parameter_from_value("cl", PARAMETER_WORDLIST_MAPPING) == Parameter.CLIMATE_SUMMARY
-    assert _parse_parameter_from_value("sun_dura", PARAMETER_WORDLIST_MAPPING) == Parameter.SUNSHINE_DURATION
-
-    assert _parse_parameter_from_value("rec", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.RECENT
-    assert _parse_parameter_from_value("now", PERIODTYPE_WORDLIST_MAPPING) == PeriodType.NOW
-
-    assert _parse_parameter_from_value("daily", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.DAILY
-    assert _parse_parameter_from_value("month", TIMERESOLUTION_WORDLIST_MAPPING) == TimeResolution.MONTHLY
-
-
-def test_find_any_one_word_from_wordlist():
-    assert not _find_any_one_word_from_wordlist(["letters"], [["letters"], ["else"]])
-    assert _find_any_one_word_from_wordlist(["letters"], [["letters"], ["letters"]])
-
-    assert _find_any_one_word_from_wordlist(["a_unique", "b_unique"], [["some", "thing", "a"], ["some", "thing", "b"]])
 
 
 def test_parse_station_id_to_list_of_integers():
@@ -33,7 +12,7 @@ def test_parse_station_id_to_list_of_integers():
 
 
 def test_dwd_station_request():
-    assert DWDStationRequest(station_ids=[1], time_resolution="daily", parameter="cl", period_type="hist") \
+    assert DWDStationRequest(station_ids=[1], time_resolution="daily", parameter="kl", period_type="historical") \
            == [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
 
     assert DWDStationRequest(station_ids=[1],
@@ -54,7 +33,7 @@ def test_station_id():
 def test_parameter_enumerations():
     with pytest.raises(ValueError):
         DWDStationRequest(station_ids=[1],
-                          parameter="cl",
+                          parameter="kl",
                           period_type="now",
                           time_resolution="daily")
 

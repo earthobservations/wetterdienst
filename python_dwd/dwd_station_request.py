@@ -1,13 +1,11 @@
 import logging
 from pathlib import Path
-from typing import List, Union, Optional, Dict, Generator
+from typing import List, Union, Generator
 import pandas as pd
 from pandas import Timestamp
 
 from python_dwd import collect_dwd_data
 from python_dwd.additionals.time_handling import parse_date
-from python_dwd.constants.parameter_mapping import PARAMETER_WORDLIST_MAPPING, TIMERESOLUTION_WORDLIST_MAPPING, \
-    PERIODTYPE_WORDLIST_MAPPING
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -42,17 +40,9 @@ class DWDStationRequest:
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
-        try:
-            self.parameter = Parameter(parameter)
-        except ValueError:
-            self.parameter = _parse_parameter_from_value(
-                parameter, PARAMETER_WORDLIST_MAPPING)
+        self.parameter = Parameter(parameter)
 
-        try:
-            self.time_resolution = TimeResolution(time_resolution)
-        except ValueError:
-            self.time_resolution = _parse_parameter_from_value(
-                time_resolution, TIMERESOLUTION_WORDLIST_MAPPING)
+        self.time_resolution = TimeResolution(time_resolution)
 
         self.period_type = []
         for pt in cast_to_list(period_type):
@@ -60,11 +50,7 @@ class DWDStationRequest:
                 self.period_type.append(None)
                 continue
 
-            try:
-                self.period_type.append(PeriodType(pt))
-            except ValueError:
-                self.period_type.append(
-                    _parse_parameter_from_value(period_type, PERIODTYPE_WORDLIST_MAPPING))
+            self.period_type.append(PeriodType(pt))
 
         # Additional sorting required for self.period_type to ensure that for multiple
         # periods the data is first sourced from historical
@@ -81,9 +67,8 @@ class DWDStationRequest:
                 raise StartDateEndDateError("Error: 'start_date' must be smaller or equal to 'end_date'.")
 
         for period_type in self.period_type.copy():
-            if not check_parameters(parameter=self.parameter,
-                                    time_resolution=self.time_resolution,
-                                    period_type=period_type):
+            if not check_parameters(
+                    self.parameter, self.time_resolution, period_type):
                 log.info(f"Combination of: parameter {self.parameter.value}, "
                          f"time_resolution {self.time_resolution.value}, "
                          f"period_type {period_type} not available and removed.")
@@ -175,61 +160,3 @@ class DWDStationRequest:
                 continue
 
             yield df_of_station_id
-
-
-def _find_any_one_word_from_wordlist(string_list: List[str],
-                                     word_list: List[List[str]]) -> bool:
-    """
-    Function that tries to match a list of strings with a list of words by trying to find any word of each given list of
-    words in one of the strings given by string_list.
-
-    Args:
-        string_list: list of strings
-        word_list: list one or more list of words
-
-    Returns:
-        boolean if any of the strings in string list are in the word_list 
-    """
-    check = all(
-        [
-            any(
-                [
-                    any(
-                        [(word in string) if not word.isdigit() else word == string
-                         for word in wl]
-                    )
-                    for string in string_list
-                ]
-            )
-            for wl in word_list
-        ]
-    )
-
-    return check
-
-
-def _parse_parameter_from_value(
-        string: str,
-        parameter_to_wordlist_mapping: Dict[Union[TimeResolution, PeriodType, Parameter], List[List[str]]]
-) -> Optional[Union[TimeResolution, PeriodType, Parameter]]:
-    """
-    Function to parse a parameter from a given string based on a list of parameter enumerations and corresponding list
-    of words.
-
-    Args:
-        string: string containing the circa name of the parameter
-        parameter_to_wordlist_mapping: mapping of parameter and list of words
-
-    Returns:
-        None or one of the found enumerations
-    """
-    string_split = string.split("_")
-
-    for parameter, wordlist in parameter_to_wordlist_mapping.items():
-        cond1 = len(wordlist) == len(string_split)
-        cond2 = _find_any_one_word_from_wordlist(string_split, wordlist)
-
-        if cond1 and cond2:
-            return parameter
-
-    return None

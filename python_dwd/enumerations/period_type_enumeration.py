@@ -17,7 +17,6 @@ class PeriodType(Enum):
     HISTORICAL = "historical"
     RECENT = "recent"
     NOW = "now"
-    ROW = ""
 
     @property
     def _period_type_order_mapping(self):
@@ -26,8 +25,7 @@ class PeriodType(Enum):
         return {
             "HISTORICAL": 0,
             "RECENT": 1,
-            "NOW": 2,
-            "ROW": 3
+            "NOW": 2
         }
 
     def __lt__(self, other):
