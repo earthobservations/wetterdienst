@@ -24,7 +24,7 @@ station_ids = [1]
 parameter = Parameter.CLIMATE_SUMMARY
 time_resolution = TimeResolution.DAILY
 period_type = PeriodType.HISTORICAL
-parallel_download = False
+parallel_processing = False
 create_new_file_index = False
 
 # Set filename for mock
@@ -61,7 +61,7 @@ def test_collect_dwd_data():
         period_type=period_type,
         folder=test_folder,
         prefer_local=False,
-        parallel_download=parallel_download,
+        parallel_processing=parallel_processing,
         write_file=True,
         create_new_file_index=create_new_file_index
     ).equals(file)
@@ -78,7 +78,7 @@ def test_collect_dwd_data():
         period_type=period_type,
         folder=test_folder,
         prefer_local=True,
-        parallel_download=parallel_download,
+        parallel_processing=parallel_processing,
         write_file=True,
         create_new_file_index=create_new_file_index
     ).equals(file)
@@ -112,7 +112,7 @@ def test_collect_dwd_data_empty():
         period_type=period_type,
         folder="",
         prefer_local=True,
-        parallel_download=parallel_download,
+        parallel_processing=parallel_processing,
         write_file=False,
         create_new_file_index=create_new_file_index
     ).empty

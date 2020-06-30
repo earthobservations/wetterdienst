@@ -3,6 +3,8 @@ import logging
 from typing import List, Tuple, Union
 from io import BytesIO
 import pandas as pd
+from functools import partial
+from multiprocessing import Pool
 
 from python_dwd.additionals.helpers import create_station_data_dtype_mapping, convert_datetime_hourly
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
@@ -14,7 +16,8 @@ log = logging.getLogger(__name__)
 
 
 def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
-                   time_resolution: Union[TimeResolution, str]) -> pd.DataFrame:
+                   time_resolution: Union[TimeResolution, str],
+                   parallel: bool = False) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
     The filename is required to defined if and where an error happened.
@@ -23,6 +26,7 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
         filenames_and_files: list of tuples of a filename and its local stored file
         that should be read
         time_resolution: enumeration of time resolution used to correctly parse the date field
+        parallel: bool set for parallel processing
 
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
@@ -31,8 +35,14 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
     time_resolution = TimeResolution(time_resolution)
 
     data = []
-    for filename_and_file in filenames_and_files:
-        data.append(_parse_dwd_data(filename_and_file, time_resolution))
+
+    if parallel:
+        with Pool() as p:
+            data.extend(
+                p.map(partial(_parse_dwd_data, time_resolution=time_resolution), filenames_and_files))
+    else:
+        for filename_and_file in filenames_and_files:
+            data.append(_parse_dwd_data(filename_and_file, time_resolution))
 
     try:
         data = pd.concat(data).reset_index(drop=True)
@@ -66,7 +76,8 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
             filepath_or_buffer=file,
             sep=STATION_DATA_SEP,
             na_values=NA_STRING,
-            dtype="str"  # dtypes are mapped manually to ensure expected dtypes
+            dtype="str",
+            skipinitialspace=True
         )
     except pd.errors.ParserError:
         log.warning(f"The file representing {filename} could not be parsed and is skipped.")
@@ -82,14 +93,15 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     data = data.rename(columns=str.upper)
 
     # End of record (EOR) has no value, so drop it right away.
-    data = data.drop(columns='EOR', errors='ignore')
+    data = data.drop(columns=DWDMetaColumns.EOR.value, errors='ignore')
 
     # Assign meaningful column names (baseline).
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    # Properly handle timestamps from "hourly" resolution.
-    if time_resolution == TimeResolution.HOURLY:
-        data[DWDMetaColumns.DATE.value] = data[DWDMetaColumns.DATE.value].apply(convert_datetime_hourly)
+    # Properly handle timestamps from "hourly" resolution, subdaily also has hour in timestamp
+    if time_resolution in [TimeResolution.HOURLY, TimeResolution.SUBDAILY]:
+        data[DWDMetaColumns.DATE.value] = data[DWDMetaColumns.DATE.value].\
+            apply(convert_datetime_hourly)
 
     # Coerce the data types appropriately.
     data = data.astype(create_station_data_dtype_mapping(data.columns))
