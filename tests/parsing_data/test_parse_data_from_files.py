@@ -4,6 +4,7 @@ from io import StringIO, BytesIO
 from pathlib import Path
 import pandas as pd
 
+from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
 
@@ -20,6 +21,7 @@ def test_parse_dwd_data():
 
     station_data = parse_dwd_data(
         filenames_and_files=[(filename, file_in_bytes)],
+        parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY
     )
 

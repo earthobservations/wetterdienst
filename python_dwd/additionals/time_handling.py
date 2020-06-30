@@ -64,7 +64,7 @@ def mktimerange(time_resolution: TimeResolution,
     return date_from, date_to
 
 
-def convert_datetime_hourly(date_string: str) -> Timestamp:
+def convert_datetime_hourly(date_string: str) -> datetime:
     """
     Data from the hourly time resolution has a timestamp format
     of e.g. "2018121300". So, let's parse it using the custom

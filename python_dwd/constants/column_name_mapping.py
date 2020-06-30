@@ -16,6 +16,8 @@ GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigColumns.LONGITUDE_ALTERNATIVE.value:     DWDMetaColumns.LONGITUDE.value,
     DWDOrigColumns.STATIONNAME.value:               DWDMetaColumns.STATIONNAME.value,
     DWDOrigColumns.STATE.value:                     DWDMetaColumns.STATE.value,
+    DWDOrigColumns.END_OF_INTERVAL.value:           DWDDataColumns.END_OF_INTERVAL.value,
+    DWDOrigColumns.TRUE_LOCAL_TIME.value:           DWDDataColumns.TRUE_LOCAL_TIME.value,
 }
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED = {
