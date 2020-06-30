@@ -20,11 +20,11 @@ def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
 
     session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov")
+    session.run("pytest", "--cov=python_dwd tests/")
 
     install_with_constraints(session, "coverage[toml]", "codecov")
     session.run("coverage", "xml", "--fail-under=0")
-    session.run("codecov", *session.posargs)
+    # session.run("codecov", *session.posargs)
 
 
 def install_with_constraints(

@@ -21,5 +21,11 @@ jobs:
         pip install poetry==1.0.9
     - name: Generate coverage report
       run: nox -s coverage
-      env:
-        CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
+    - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1.0.7
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: OS,PYTHON
+          name: codecov-umbrella
+          fail_ci_if_error: true
