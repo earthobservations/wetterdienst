@@ -12,7 +12,8 @@ readme = "README.md"
 include = ["LICENSE.md", "CHANGELOG.md", "CODE_OF_CONDUCT.md", "DWD_FTP_STRUCTURE.md"]
 homepage = "https://earthobservations.github.io/python_dwd/"
 repository = "https://github.com/earthobservations/python_dwd"
-keywords = ["dwd", "weather", "observations", "forecasts", "weather-data", "open-data"]
+keywords = ["dwd", "deutscher wetterdienst", "weather", "weather-data", "open-data",
+"observations", "historical-data", "forecasts"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
