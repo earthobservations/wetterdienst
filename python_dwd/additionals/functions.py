@@ -4,6 +4,7 @@ A set of more general functions used for the organization
 from typing import Tuple, List, Optional
 
 from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
+from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 from python_dwd.enumerations.parameter_enumeration import Parameter
@@ -186,6 +187,43 @@ def find_all_match_strings_in_string(string: str,
                                      match_strings: List[str]):
     """ check if string has all match strings in it """
     return all([match_string in string for match_string in match_strings])
+
+
+def create_station_data_dtype_mapping(columns: List[str]) -> dict:
+    """
+    A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
+    want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
+    stored .h5 file. This is required as we want to store the data in this file with the same format which is a string,
+    thus after reading data back in the dtypes have to be matched.
+
+    Args:
+        columns: the column names of the DataFrame whose data should be converted
+    Return:
+         a dictionary with column names and dtypes for each of them
+    """
+    station_data_dtype_mapping = dict()
+
+    """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
+
+    date_columns = (
+        DWDMetaColumns.DATE.value,
+        DWDMetaColumns.FROM_DATE.value,
+        DWDMetaColumns.TO_DATE.value,
+        DWDDataColumns.END_OF_INTERVAL.value,
+        DWDDataColumns.TRUE_LOCAL_TIME.value
+    )
+
+    for column in columns:
+        if column == DWDMetaColumns.STATION_ID.value:
+            station_data_dtype_mapping[column] = int
+        elif column in date_columns:
+            station_data_dtype_mapping[column] = "datetime64"
+        elif column == DWDMetaColumns.EOR.value:
+            station_data_dtype_mapping[column] = str
+        else:
+            station_data_dtype_mapping[column] = float
+
+    return station_data_dtype_mapping
 
 
 def cast_to_list(iterable_) -> list:

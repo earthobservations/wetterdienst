@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Union
 import pandas as pd
 
-from python_dwd.additionals.helpers import create_station_data_dtype_mapping
+from python_dwd.additionals.functions import create_station_data_dtype_mapping
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution

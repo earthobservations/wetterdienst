@@ -7,7 +7,7 @@ from dateparser import parse as parsedate
 import pandas as pd
 
 from python_dwd import __version__, metadata_for_dwd_data
-from python_dwd.additionals.time_handling import mktimerange
+from python_dwd.additionals.time_handling import mktimerange, parse_datetime
 from python_dwd.additionals.util import normalize_options, setup_logging, read_list
 from python_dwd.dwd_station_request import DWDStationRequest
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
@@ -76,6 +76,9 @@ def run():
       # Acquire annual data from 2010 to 2020
       dwd readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
 
+      # Acquire hourly data
+      dwd readings --station=44,1048 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
+
     """
 
     # Read command line options.
@@ -129,8 +132,8 @@ def run():
             # Filter by time interval.
             if '/' in options.date:
                 date_from, date_to = options.date.split('/')
-                date_from = parsedate(date_from)
-                date_to = parsedate(date_to)
+                date_from = parse_datetime(date_from)
+                date_to = parse_datetime(date_to)
                 if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
                     date_from, date_to = mktimerange(request.time_resolution, date_from, date_to)
                     expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (df[DWDMetaColumns.TO_DATE.value] <= date_to)
@@ -140,7 +143,7 @@ def run():
 
             # Filter by date.
             else:
-                date = parsedate(options.date)
+                date = parse_datetime(options.date)
                 if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
                     date_from, date_to = mktimerange(request.time_resolution, date)
                     expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (df[DWDMetaColumns.TO_DATE.value] <= date_to)

@@ -42,6 +42,10 @@ class DWDOrigColumns(Enum):
     TNK = "TNK"
     TGK = "TGK"
 
+    # Hourly solar - not yet included in mapping
+    END_OF_INTERVAL = "INTERVALLENDE"
+    TRUE_LOCAL_TIME = "MESS_DATUM_WOZ"
+
     # 10 minutes data
     FX_10 = "FX_10"
     DX_10 = "DX_10"
@@ -83,3 +87,7 @@ class DWDDataColumns(Enum):
     TXK = "TEMPERATURE_MAX_200"
     TNK = "TEMPERATURE_MIN_200"
     TGK = "TEMPERATURE_MIN_005"
+
+    # Hourly solar
+    END_OF_INTERVAL = "END_OF_INTERVAL"
+    TRUE_LOCAL_TIME = "TRUE_LOCAL_TIME"

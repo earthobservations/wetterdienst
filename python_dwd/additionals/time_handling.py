@@ -1,5 +1,6 @@
 """ date time handling functions """
 from datetime import datetime
+from dateparser import parse as parsedate
 from typing import Optional, Tuple, Union
 import pandas as pd
 from pandas import Timestamp
@@ -23,6 +24,10 @@ def parse_date(date_string: str) -> Optional[Timestamp]:
         return None
 
     return date
+
+
+def parse_datetime(date_string: str) -> datetime:
+    return parsedate(date_string, date_formats=['%Y-%m-%dT%H'])
 
 
 def mktimerange(time_resolution: TimeResolution,
@@ -57,3 +62,27 @@ def mktimerange(time_resolution: TimeResolution,
         raise NotImplementedError("mktimerange only implemented for annual and monthly time ranges")
 
     return date_from, date_to
+
+
+def convert_datetime_hourly(date_string: str) -> datetime:
+    """
+    Data from the hourly time resolution has a timestamp format
+    of e.g. "2018121300". So, let's parse it using the custom
+    timestamp pattern %Y%m%d%H.
+
+    There's also an anomaly for hourly/solar observations,
+    where the timestamp seems to also include minutes,
+    like "2001010100:03" or "2001011508:09". For them,
+    we consider it to be safe to drop the minute part
+    right away by flooring it to "00".
+
+    :param date_string:
+    :return:
+    """
+
+    pattern = '%Y%m%d%H'
+
+    if ':' in date_string:
+        pattern = '%Y%m%d%H:%M'
+
+    return pd.to_datetime(date_string, format=pattern).replace(minute=00)
