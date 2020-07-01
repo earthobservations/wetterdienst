@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Tuple
 import pandas as pd
-from multiprocessing import Pool
+from multiprocessing.dummy import Pool
 import functools
 import datetime as dt
 import requests
@@ -149,19 +149,19 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
-    metadata_files = [_download_metadata_file_for_1minute_precipitation(file)
-                      for file in metadata_file_paths]
+    # metadata_files = [_download_metadata_file_for_1minute_precipitation(file)
+    #                   for file in metadata_file_paths]
 
-    # with Pool() as p:
-    #     metadata_files = p.map(
-    #         _download_metadata_file_for_1minute_precipitation, metadata_file_paths)
+    with Pool() as p:
+        metadata_files = p.map(
+            _download_metadata_file_for_1minute_precipitation, metadata_file_paths)
 
-    metadata_dfs = [_parse_geo_metadata(metadata_file_and_station_id)
-                    for metadata_file_and_station_id in zip(metadata_files, station_ids)]
+    # metadata_dfs = [_parse_geo_metadata(metadata_file_and_station_id)
+    #                 for metadata_file_and_station_id in zip(metadata_files, station_ids)]
 
-    # with Pool() as p:
-    #     metadata_dfs = p.map(
-    #         _parse_geo_metadata, zip(metadata_files, station_ids))
+    with Pool() as p:
+        metadata_dfs = p.map(
+            _parse_geo_metadata, zip(metadata_files, station_ids))
 
     meta_index_df = meta_index_df.append(other=metadata_dfs, ignore_index=True)
 
@@ -207,6 +207,8 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
     metadata_file, station_id = metadata_file_and_station_id
 
     metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{station_id}.txt"
+
+    print(metadata_geo_filename)
 
     with zipfile.ZipFile(metadata_file) as zip_file:
         with zip_file.open(metadata_geo_filename) as file_opened:
