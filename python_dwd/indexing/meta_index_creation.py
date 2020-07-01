@@ -70,7 +70,7 @@ def create_meta_index_for_dwd_data(parameter: Parameter,
 
     # If no state column available, take state information from daily historical precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
-        mdp = create_meta_index_for_dwd_data(
+        mdp = _create_meta_index_for_dwd_data(
             Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL)
 
         meta_index = pd.merge(
