@@ -21,6 +21,12 @@ def test_dwd_station_request():
                              time_resolution=TimeResolution.DAILY) == \
            [[1], Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, [PeriodType.HISTORICAL], None, None]
 
+    with pytest.raises(ValueError):
+        DWDStationRequest(station_ids=[1],
+                          parameter=Parameter.CLIMATE_SUMMARY,
+                          period_type=PeriodType.HISTORICAL,
+                          time_resolution=TimeResolution.MINUTE_1)
+
 
 def test_station_id():
     with pytest.raises(ValueError):

@@ -3,7 +3,6 @@ import sys
 import logging
 
 from docopt import docopt
-from dateparser import parse as parsedate
 import pandas as pd
 
 from python_dwd import __version__, metadata_for_dwd_data
@@ -99,9 +98,10 @@ def run():
         df = metadata_for_dwd_data(
             parameter=options.parameter,
             time_resolution=options.resolution,
-            period_type=options.period,
-            write_file=options.persist,
+            period_type=options.period
         )
+        if options.persist:
+            df.to_csv(f"metadata_{options.parameter}_{options.resolution}_{options.period}.csv")
 
     elif options.readings:
         request = DWDStationRequest(
@@ -110,12 +110,11 @@ def run():
             parameter=options.parameter,
             time_resolution=options.resolution,
             period_type=read_list(options.period),
-            humanize_column_names=True,
-        )
-        data = request.collect_data(
             write_file=options.persist,
             prefer_local=options.persist,
+            humanize_column_names=True,
         )
+        data = request.collect_data()
         data = list(data)
         if not data:
             log.error('No data available for given constraints')
@@ -123,9 +122,6 @@ def run():
         df = pd.concat(data)
 
     if options.readings:
-
-        # Filter by station.
-        #print(df[df['STATION_ID'] == 1048])
 
         if options.date:
 
@@ -136,9 +132,11 @@ def run():
                 date_to = parse_datetime(date_to)
                 if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
                     date_from, date_to = mktimerange(request.time_resolution, date_from, date_to)
-                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (df[DWDMetaColumns.TO_DATE.value] <= date_to)
+                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & \
+                                 (df[DWDMetaColumns.TO_DATE.value] <= date_to)
                 else:
-                    expression = (date_from <= df[DWDMetaColumns.DATE.value]) & (df[DWDMetaColumns.DATE.value] <= date_to)
+                    expression = (date_from <= df[DWDMetaColumns.DATE.value]) & \
+                                 (df[DWDMetaColumns.DATE.value] <= date_to)
                 df = df[expression]
 
             # Filter by date.
@@ -146,7 +144,8 @@ def run():
                 date = parse_datetime(options.date)
                 if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
                     date_from, date_to = mktimerange(request.time_resolution, date)
-                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (df[DWDMetaColumns.TO_DATE.value] <= date_to)
+                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & \
+                                 (df[DWDMetaColumns.TO_DATE.value] <= date_to)
                 else:
                     expression = (date == df[DWDMetaColumns.DATE.value])
                 df = df[expression]

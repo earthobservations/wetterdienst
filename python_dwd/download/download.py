@@ -15,11 +15,9 @@ from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
 from python_dwd.exceptions.failed_download_exception import FailedDownload
 
 
-def download_dwd_data(remote_files: pd.DataFrame,
+def download_dwd_data(remote_files: List[str],
                       parallel: bool = False) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
-
-    remote_files = remote_files[DWDMetaColumns.FILENAME.value].values.tolist()
 
     if parallel:
         with Pool() as p:

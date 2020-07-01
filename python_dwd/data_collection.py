@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Union, Optional
 import pandas as pd
 
+from python_dwd.additionals.functions import check_parameters
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
@@ -64,7 +65,10 @@ def collect_dwd_data(station_ids: List[int],
     time_resolution = TimeResolution(time_resolution)
     period_type = PeriodType(period_type)
 
-    # todo check parameters and if combination not existing, print something and return empty DataFrame
+    if not check_parameters(parameter, time_resolution, period_type):
+        log.info(f"The combination of {parameter.value}, {time_resolution.value}, {period_type.value}"
+                 f"is not valid. Empty DataFrame returned.")
+        return pd.DataFrame()
 
     # List for collected pandas DataFrames per each station id
     data = []
@@ -90,6 +94,10 @@ def collect_dwd_data(station_ids: List[int],
         remote_files = create_file_list_for_dwd_server(
             [station_id], parameter, time_resolution, period_type)
 
+        if len(remote_files) == 0:
+            log.info(f"No files found for {request_string}. Station will be skipped.")
+            continue
+
         filenames_and_files = download_dwd_data(remote_files, parallel_processing)
 
         station_data = parse_dwd_data(
@@ -104,7 +112,10 @@ def collect_dwd_data(station_ids: List[int],
     if run_download_only:
         return None
 
-    data = pd.concat(data)
+    try:
+        data = pd.concat(data)
+    except ValueError:
+        return pd.DataFrame()
 
     # Assign meaningful column names (humanized).
     if humanize_column_names:
