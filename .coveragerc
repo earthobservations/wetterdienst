@@ -1,2 +1,3 @@
 [run]
-source=python_dwd
+source = python_dwd
+omit = tests/*
