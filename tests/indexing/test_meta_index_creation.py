@@ -36,10 +36,6 @@ def test_meta_index_creation():
 
 
 @pytest.mark.remote
-@patch(
-    "python_dwd.file_path_handling.path_handling.list_files_of_climate_observations",
-    mock.MagicMock(return_value=["1_minute/precipitation/meta_data/Meta_Daten_ein_min_rr_00003.zip"])
-)
 def test_meta_index_1mph_creation():
     reset_meta_index_cache()
     meta_index_1mph = create_meta_index_for_dwd_data(
