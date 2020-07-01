@@ -14,7 +14,7 @@ def tests(session):
     session.run("poetry", "install", external=True)
     session.run("pytest", "--cov=python_dwd")
 
-
+    
 @nox.session(python=["3.8"])
 def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
