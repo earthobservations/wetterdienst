@@ -7,10 +7,10 @@ from functools import partial
 from multiprocessing import Pool
 
 from python_dwd.additionals.functions import create_station_data_dtype_mapping
-from python_dwd.additionals.time_handling import convert_datetime_hourly
 from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from python_dwd.constants.metadata import NA_STRING, STATION_DATA_SEP
 from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns, DWDOrigColumns
+from python_dwd.enumerations.datetime_format_enumeration import DatetimeFormat
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
 
@@ -51,13 +51,7 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
         for filename_and_file in filenames_and_files:
             data.append(_parse_dwd_data(filename_and_file, parameter, time_resolution))
 
-    try:
-        data = pd.concat(data).reset_index(drop=True)
-    except ValueError:
-        log.error(f"An error occurred while concatenating the data for files "
-                  f"{[filename for filename, file in filenames_and_files]}. "
-                  f"An empty DataFrame will be returned.")
-        data = pd.DataFrame()
+    data = pd.concat(data).reset_index(drop=True)
 
     return data
 
@@ -106,32 +100,38 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     # Special handling for hourly solar data, as it has more date columns
     if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
         # Rename date column correctly to end of interval, as it has additional minute information
-        data = data.rename(columns={DWDOrigColumns.DATE.value: DWDOrigColumns.END_OF_INTERVAL.value})
+        data = data.rename(
+            columns={
+                DWDOrigColumns.DATE.value: DWDOrigColumns.END_OF_INTERVAL.value
+            }
+        )
+
+        # Duplicate the end of interval column to create real datetime column
+        # remove minutes e.g. ":09" at the end of string
+        data[DWDOrigColumns.DATE.value] = data[DWDOrigColumns.END_OF_INTERVAL.value].str[:-3]
+
+        # Parse both extra timestamps correctly with additional minutes
+        data[DWDOrigColumns.END_OF_INTERVAL.value] = pd.to_datetime(
+            data[DWDOrigColumns.END_OF_INTERVAL.value], format=DatetimeFormat.YMDH_COLUMN_M.value)
+
+        data[DWDOrigColumns.TRUE_LOCAL_TIME.value] = pd.to_datetime(
+            data[DWDOrigColumns.TRUE_LOCAL_TIME.value], format=DatetimeFormat.YMDH_COLUMN_M.value)
 
         # Store columns for later reordering
         columns = data.columns.values.tolist()
-
-        # Duplicate the end of interval column, as it will be used as regular date without the minutes
-        data[DWDOrigColumns.DATE.value] = data[DWDOrigColumns.END_OF_INTERVAL.value]
-
-        pattern = '%Y%m%d%H'
-        # Parse both extra timestamps correctly with additional minutes
-        data[DWDOrigColumns.END_OF_INTERVAL.value] = pd.to_datetime(
-            data[DWDOrigColumns.END_OF_INTERVAL.value], format=pattern)
-
-        data[DWDOrigColumns.TRUE_LOCAL_TIME.value] = pd.to_datetime(
-            data[DWDOrigColumns.TRUE_LOCAL_TIME.value], format=pattern)
+        # Create newly ordered columns, date is inserted while original date was renamed above
+        columns_reordered = [columns[0], columns[-1], *columns[1:-1]]
 
         # Reorder columns to general format
-        data = data.reindex(columns=[columns[0], DWDOrigColumns.DATE.value, *columns[1:]])
+        data = data.reindex(columns=columns_reordered)
 
     # Assign meaningful column names (baseline).
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
     # Properly handle timestamps from "hourly" resolution, subdaily also has hour in timestamp
     if time_resolution in [TimeResolution.HOURLY, TimeResolution.SUBDAILY]:
-        data[DWDMetaColumns.DATE.value] = data[DWDMetaColumns.DATE.value].\
-            apply(lambda x: convert_datetime_hourly(x))
+        data[DWDMetaColumns.DATE.value] = pd.to_datetime(
+            data[DWDMetaColumns.DATE.value], format=DatetimeFormat.YMDH.value)
 
     # Coerce the data types appropriately.
     data = data.astype(create_station_data_dtype_mapping(data.columns))

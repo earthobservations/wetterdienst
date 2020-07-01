@@ -14,7 +14,7 @@ def create_file_list_for_dwd_server(station_ids: List[int],
                                     parameter: Union[Parameter, str],
                                     time_resolution: Union[TimeResolution, str],
                                     period_type: Union[PeriodType, str],
-                                    create_new_file_index: bool = False) -> pd.DataFrame:
+                                    create_new_file_index: bool = False) -> List[str]:
     """
     Function for selecting datafiles (links to archives) for given
     station_ids, parameter, time_resolution and period_type under consideration of a
@@ -42,4 +42,4 @@ def create_file_list_for_dwd_server(station_ids: List[int],
     file_index = file_index[
         file_index[DWDMetaColumns.STATION_ID.value].isin(station_ids)]
 
-    return file_index.loc[:, [DWDMetaColumns.FILENAME.value]]
+    return file_index[DWDMetaColumns.FILENAME.value].values.tolist()

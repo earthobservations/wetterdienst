@@ -1,6 +1,6 @@
 import re
 import zipfile
-from io import BytesIO, TextIOWrapper
+from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Tuple
 import pandas as pd
@@ -70,7 +70,7 @@ def create_meta_index_for_dwd_data(parameter: Parameter,
 
     # If no state column available, take state information from daily historical precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
-        mdp = create_meta_index_for_dwd_data(
+        mdp = _create_meta_index_for_dwd_data(
             Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL)
 
         meta_index = pd.merge(
@@ -202,7 +202,9 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
 
     with zipfile.ZipFile(metadata_file) as zip_file:
         with zip_file.open(metadata_geo_filename) as file_opened:
-            metadata_geo_df = _parse_zipped_data_into_df(file_opened)
+            metadata_geo_bytes = BytesIO(file_opened.read())
+
+    metadata_geo_df = _parse_zipped_data_into_df(metadata_geo_bytes)
 
     metadata_geo_df = metadata_geo_df.rename(columns=str.upper)
 
@@ -219,12 +221,12 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 
 
-def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
+def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
     """ A wrapper for read_csv of pandas library that has set the typically used parameters in the found data of the
     german weather service.
 
     Args:
-        file_opened (open) - the file that will be read
+        file - the file that will be read
 
     Return:
         A pandas DataFrame with the read data.
@@ -233,7 +235,7 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
     try:
         # First try utf-8
         file = pd.read_csv(
-            filepath_or_buffer=TextIOWrapper(file_opened, encoding="utf-8"),
+            filepath_or_buffer=file,  # TextIOWrapper(file_opened, encoding="utf-8")
             sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype=str,
@@ -241,10 +243,10 @@ def _parse_zipped_data_into_df(file_opened: open) -> pd.DataFrame:
             encoding="utf-8"
         )
     except UnicodeDecodeError:
-        file_opened.seek(0)
+        file.seek(0)
 
         file = pd.read_csv(
-            filepath_or_buffer=TextIOWrapper(file_opened, encoding="ISO-8859-1"),
+            filepath_or_buffer=file,  # TextIOWrapper(file_opened, encoding="ISO-8859-1")
             sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype=str,

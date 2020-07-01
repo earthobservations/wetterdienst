@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import List, Union, Generator
 import pandas as pd
 from pandas import Timestamp
+import dateparser
 
 from python_dwd import collect_dwd_data
-from python_dwd.additionals.time_handling import parse_date
 from python_dwd.enumerations.parameter_enumeration import Parameter
 from python_dwd.enumerations.period_type_enumeration import PeriodType
 from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
@@ -29,7 +29,31 @@ class DWDStationRequest:
                  period_type: Union[None, str, list, PeriodType] = None,
                  start_date: Union[None, str, Timestamp] = None,
                  end_date: Union[None, str, Timestamp] = None,
+                 prefer_local: bool = False,
+                 write_file: bool = False,
+                 folder: Union[str, Path] = DWD_FOLDER_MAIN,
+                 parallel_processing: bool = False,
+                 create_new_file_index: bool = False,
                  humanize_column_names: bool = False) -> None:
+        """
+        Class with mostly flexible arguments to define a request regarding DWD data. Special handling for
+        period type. If start_date/end_date are given all period types are considered and merged together
+        and the data is filtered for the given dates afterwards.
+        Args:
+            station_ids: definition of stations by str, int or list of str/int,
+            will be parsed to list of int
+            parameter: str or parameter enumeration defining the requested parameter
+            time_resolution: str or time resolution enumeration defining the requested time resolution
+            period_type: str or period type enumeration defining the requested period type
+            start_date: replacement for period type to define exact time of requested data
+            end_date: replacement for period type to define exact time of requested data
+            prefer_local: definition if data should rather be taken from a local source
+            write_file: should data be written to a local file
+            folder: place where file lists (and station data) are stored
+            parallel_processing: definition if data is downloaded/processed in parallel
+            create_new_file_index: definition if the file index should be recreated
+            humanize_column_names:
+        """
 
         if not (period_type or (start_date and end_date)):
             raise ValueError("Define either a 'time_resolution' or both the 'start_date' and 'end_date' and "
@@ -56,8 +80,15 @@ class DWDStationRequest:
         # periods the data is first sourced from historical
         self.period_type = sorted(self.period_type)
 
-        self.start_date = parse_date(start_date)
-        self.end_date = parse_date(end_date)
+        try:
+            self.start_date = Timestamp(dateparser.parse(start_date))
+        except TypeError:
+            self.start_date = None
+
+        try:
+            self.end_date = Timestamp(dateparser.parse(end_date))
+        except TypeError:
+            self.end_date = None
 
         if self.start_date:
             # working with ranges of data means expecting data to be laying between periods, thus including all
@@ -79,6 +110,11 @@ class DWDStationRequest:
             raise ValueError("No combination for parameter, time_resolution "
                              "and period_type could be found.")
 
+        self.prefer_local = prefer_local
+        self.write_file = write_file
+        self.folder = folder
+        self.parallel_processing = parallel_processing
+        self.create_new_file_index = create_new_file_index
         self.humanize_column_names = humanize_column_names
 
     def __eq__(self, other):
@@ -97,12 +133,7 @@ class DWDStationRequest:
                           self.start_date.value,
                           self.end_date.value])
 
-    def collect_data(self,
-                     prefer_local: bool = False,
-                     write_file: bool = False,
-                     folder: Union[str, Path] = DWD_FOLDER_MAIN,
-                     parallel_processing: bool = False,
-                     create_new_file_index: bool = False) -> Generator[pd.DataFrame, None, None]:
+    def collect_data(self) -> Generator[pd.DataFrame, None, None]:
         """
         Method to collect data for a defined request. The function is build as generator in
         order to not cloak the memory thus if the user wants the data as one pandas DataFrame
@@ -110,16 +141,12 @@ class DWDStationRequest:
         pd.concat(list(request.collect_data([...])).
 
         Args:
-            prefer_local: definition if data should rather be taken from a local source
-            write_file: should data be written to a local file
-            folder: place where file lists (and station data) are stored
-            parallel_processing: definition if data is downloaded/processed in parallel
-            create_new_file_index: definition if the file index should be recreated
+            same as init
 
         Returns:
             via a generator per station a pandas.DataFrame
         """
-        if create_new_file_index:
+        if self.create_new_file_index:
             reset_file_index_cache()
 
         for station_id in self.station_ids:
@@ -131,15 +158,15 @@ class DWDStationRequest:
                     parameter=self.parameter,
                     time_resolution=self.time_resolution,
                     period_type=period_type,
-                    folder=folder,
-                    prefer_local=prefer_local,
-                    parallel_processing=parallel_processing,
-                    write_file=write_file,
+                    folder=self.folder,
+                    prefer_local=self.prefer_local,
+                    parallel_processing=self.parallel_processing,
+                    write_file=self.write_file,
                     create_new_file_index=False,
                     humanize_column_names=self.humanize_column_names
                 )
 
-                # Filter out values which already are in the dataframe
+                # Filter out values which already are in the DataFrame
                 try:
                     period_df = period_df[
                         ~period_df[DWDMetaColumns.DATE.value].isin(df_of_station_id[DWDMetaColumns.DATE.value])]
