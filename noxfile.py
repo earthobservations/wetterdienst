@@ -12,7 +12,7 @@ from nox.sessions import Session
 def tests(session):
     """Run tests."""
     session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov=python_dwd tests/")
+    session.run("pytest", "--cov=python_dwd")
 
 
 @nox.session(python=["3.8"])
