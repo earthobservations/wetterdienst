@@ -149,11 +149,13 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
 
-    metadata_files = Pool().map(
-        _download_metadata_file_for_1minute_precipitation, metadata_file_paths)
+    with Pool() as p:
+        metadata_files = p.map(
+            _download_metadata_file_for_1minute_precipitation, metadata_file_paths)
 
-    metadata_dfs = Pool().map(
-        _parse_geo_metadata, zip(metadata_files, station_ids))
+    with Pool() as p:
+        metadata_dfs = p.map(
+            _parse_geo_metadata, zip(metadata_files, station_ids))
 
     meta_index_df = meta_index_df.append(other=metadata_dfs, ignore_index=True)
 
