@@ -12,9 +12,9 @@ from nox.sessions import Session
 def tests(session):
     """Run tests."""
     session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov")
+    session.run("pytest", "--cov=python_dwd")
 
-
+    
 @nox.session(python=["3.8"])
 def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
