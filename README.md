@@ -1,4 +1,4 @@
-# wetterdienst - a Python library to ease access to open weather data
+# Wetterdienst - a Python library to ease access to open weather data
 
 [![Tests](https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg)](https://github.com/earthobservations/wetterdienst/actions?workflow=Tests)
 ![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)
@@ -10,7 +10,7 @@
 
 ## 1. Introduction
 
-The library **wetterdienst** (former python_dwd) was created as an alternative to [rdwd](https://github.com/brry/rdwd), 
+The library **Wetterdienst** was created as an alternative to [rdwd](https://github.com/brry/rdwd),
 an R package that I had used for downloading station data from the German Weather Service 
 ([Deutscher Wetterdienst](https://www.dwd.de/EN)). Though in the beginning it was a self chosen project to get into 
 Python, over time and by the help of others the project evolved step by step to a solid project.
@@ -48,7 +48,7 @@ The available parameters are also sorted in different periods:
 - recent values covering data from latest plus a certain range of historical data / **recent**
 - current values covering only latest data / **now**
 
-It is also possible to use enumeration keywords. The availability table shows the enumeration keyword mapping the availability via python_dwd and on the CDC server.
+It is also possible to use enumeration keywords. This table lists the available enumeration keyword mappings on the CDC server.
 
 |Paramater/Granularity                       |1_minute                             |   10_minutes                    |hourly | subdaily | daily     |monthly | annual| 
 |----------------|-------------------------------|-----------------------------|-----------------------------|----------------|-------------|-----------------------------|-----------------------------|
@@ -108,12 +108,12 @@ Additionally the following functions allow you to reset the cache:
 
 To retrieve meta data and get a first insight:
 ```
-import python_dwd
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
+import wetterdienst
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.parameter_enumeration import Parameter
 
-metadata = python_dwd.metadata_for_dwd_data(
+metadata = wetterdienst.metadata_for_dwd_data(
     parameter=Parameter.PRECIPITATION_MORE,
     time_resolution=TimeResolution.DAILY,
     period_type=PeriodType.HISTORICAL
@@ -124,12 +124,12 @@ The column **HAS_FILE** indicates if the station has a file with data on the ser
 
 To retrieve observation data:
 ``` 
-import python_dwd
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
+import wetterdienst
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.parameter_enumeration import Parameter
 
-station_data = collect_dwd_data(
+station_data = wetterdienst.collect_dwd_data(
     station_ids=[1048], 
     parameter=Parameter.CLIMATE_SUMMARY, 
     time_resolution=TimeResolution.DAILY, 
@@ -160,13 +160,13 @@ Feel free to use the library if you want to automate the data access and analyze
 library is developed voluntarily and we rely on your feedback regarding bugs, features, etc...
 
 ## 8. Getting started
-
 ```
 pip install wetterdienst
+wetterdienst --help
 ```
 
-or for further stuff
-
+## 9. Development
+For hacking on the library, you might want to follow these steps:
 ```
 # Acquire sources
 git clone https://github.com/earthobservations/wetterdienst
@@ -180,32 +180,35 @@ poetry run pytest
 
 # Invoke comand line tool
 poetry shell
-dwd --help
+wetterdienst --help
 ```
 
 ____
 
 ## Docker support
 
-To use python_dwd in a Docker container, you just have to build the image from this project
-
+To use Wetterdienst in a Docker container, you just have to build the image from this project
 ```
 docker build -t "wetterdienst" .
 ```
 
 To run the tests in the given environment, just call 
-
 ```
-docker run -ti -v $(pwd):/app wetterdienst:latest pytest tests/
+docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest tests
 ```
 from the main directory. To work in an iPython shell you just have to change the command `pytest tests/` to `ipython`.
 
 #### Command line script  
-You can download data as csv files after building docker container. Actually only the `collect_dwd_data` is supported by 
-this service. 
+You can download data as csv files after building docker container.
+Currently, only the `collect_dwd_data` is supported by this service.
 
 ```
-docker run -ti -v $(pwd):/app wetterdienst:latest python3 wetterdienst/run.py 
-collect_dwd_data "[1048]" "kl" "daily" "historical" /app/dwd_data/ False False True False True True
+docker run \
+    -ti -v $(pwd):/app wetterdienst:latest poetry run python wetterdienst/run.py \
+    collect_dwd_data "[1048]" "kl" "daily" "historical" /app/dwd_data/ False False True False True True
 ```
- 
+
+The `wetterdienst` command is also available through Docker:
+```
+docker run -ti -v $(pwd):/app wetterdienst:latest poetry run wetterdienst
+```
