@@ -17,7 +17,7 @@ keywords = ["dwd", "deutscher wetterdienst", "german weather service", "weather"
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT",
+    "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
