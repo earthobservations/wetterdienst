@@ -78,7 +78,7 @@ pytest-cov = "^2.10.0"
 codecov = "^2.1.7"
 
 [tool.poetry.scripts]
-dwd = 'python_dwd.cli:run'
+wetterdienst = 'wetterdienst.cli:run'
 
 [build-system]
 requires = ["poetry>=0.12"]
