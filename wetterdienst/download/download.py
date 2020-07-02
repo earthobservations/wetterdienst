@@ -8,11 +8,11 @@ from io import BytesIO
 from multiprocessing import Pool
 import pandas as pd
 
-from python_dwd.constants.metadata import STATION_DATA_MATCH_STRINGS
-from python_dwd.download.download_services import download_file_from_climate_observations
-from python_dwd.additionals.functions import find_all_match_strings_in_string
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.exceptions.failed_download_exception import FailedDownload
+from wetterdienst.constants.metadata import STATION_DATA_MATCH_STRINGS
+from wetterdienst.download.download_services import download_file_from_climate_observations
+from wetterdienst.additionals.functions import find_all_match_strings_in_string
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.exceptions.failed_download_exception import FailedDownload
 
 
 def download_dwd_data(remote_files: List[str],

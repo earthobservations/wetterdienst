@@ -5,11 +5,11 @@ from mock import patch
 import pytest
 from pandas import Timestamp
 
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.indexing.meta_index_creation import create_meta_index_for_dwd_data, reset_meta_index_cache
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.indexing.meta_index_creation import create_meta_index_for_dwd_data, reset_meta_index_cache
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
 
 
 @pytest.mark.remote

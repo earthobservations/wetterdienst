@@ -652,7 +652,7 @@ testing = ["jaraco.itertools", "func-timeout"]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 
 [metadata]
-content-hash = "c05d71c51a89b48cc47f8fc164ba7e9e73cf1fdaa59b1c9cc8f15fc1d67572d1"
+content-hash = "dabb11ba153b970f1464ded7a38d0e15d987a5aa454fa6b4d98ee9607fd92b0d"
 python-versions = ">=3.6.1"
 
 [metadata.files]

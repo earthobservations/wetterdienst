@@ -6,13 +6,13 @@ import pandas as pd
 from functools import partial
 from multiprocessing import Pool
 
-from python_dwd.additionals.functions import create_station_data_dtype_mapping
-from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from python_dwd.constants.metadata import NA_STRING, STATION_DATA_SEP
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns, DWDOrigColumns
-from python_dwd.enumerations.datetime_format_enumeration import DatetimeFormat
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.additionals.functions import create_station_data_dtype_mapping
+from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from wetterdienst.constants.metadata import NA_STRING, STATION_DATA_SEP
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDOrigColumns
+from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 log = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
 """ time resolution to parameter mapping """
 from typing import Dict, List
 
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 TIME_RESOLUTION_PARAMETER_MAPPING: Dict[TimeResolution, Dict[Parameter, List[PeriodType]]] = {
     TimeResolution.MINUTE_1: {

@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "python_dwd"
+name = "wetterdienst"
 version = "0.1.0"
-description = "Python Library For Accessing Weather Data From German Weather Service"
+description = "Python library to ease access to open weather data"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
     "Daniel Lassahn <daniel.lassahn@meteointelligence.de>",
@@ -9,10 +9,10 @@ authors = [
 ]
 license = "MIT"
 readme = "README.md"
-include = ["LICENSE.md", "CHANGELOG.md", "CODE_OF_CONDUCT.md", "DWD_FTP_STRUCTURE.md"]
-homepage = "https://earthobservations.github.io/python_dwd/"
-repository = "https://github.com/earthobservations/python_dwd"
-keywords = ["dwd", "deutscher wetterdienst", "weather", "weather-data", "open-data",
+include = ["LICENSE.md", "CHANGELOG.md", "CODE_OF_CONDUCT.md", "DWD_FILE_SERVER_STRUCTURE.md"]
+homepage = "https://earthobservations.github.io/wetterdienst/"
+repository = "https://github.com/earthobservations/wetterdienst"
+keywords = ["dwd", "deutscher wetterdienst", "german weather service", "weather", "weather-data", "open-data",
 "observations", "historical-data", "forecasts"]
 classifiers = [
     "Programming Language :: Python",
@@ -59,6 +59,7 @@ munch = "^2.5.0"
 dateparser = "^0.7.4"
 beautifulsoup4 = "^4.9.1"
 requests = "^2.24.0"
+python-dateutil = "^2.8.0"
 
 importlib_metadata = {version = "1.6.1", python = "<3.8"}
 

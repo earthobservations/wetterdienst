@@ -2,11 +2,11 @@
 from typing import Union, List
 import pandas as pd
 
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.indexing.file_index_creation import create_file_index_for_dwd_server, \
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.indexing.file_index_creation import create_file_index_for_dwd_server, \
     reset_file_index_cache
 
 

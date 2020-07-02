@@ -5,8 +5,8 @@ from typing import Tuple, Union
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-from python_dwd.enumerations.datetime_format_enumeration import DatetimeFormat
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
 def parse_datetime(date_string: str) -> datetime:

@@ -1,4 +1,4 @@
-from python_dwd.data_models.coordinates import Coordinates
+from wetterdienst.data_models.coordinates import Coordinates
 import numpy as np
 
 

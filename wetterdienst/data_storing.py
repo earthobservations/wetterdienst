@@ -3,11 +3,11 @@ from pathlib import Path
 from typing import Union
 import pandas as pd
 
-from python_dwd.additionals.functions import create_station_data_dtype_mapping
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_local_filepath_for_station_data
+from wetterdienst.additionals.functions import create_station_data_dtype_mapping
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.file_path_handling.path_handling import build_local_filepath_for_station_data
 
 
 def store_dwd_data(station_data: pd.DataFrame,

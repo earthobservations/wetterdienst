@@ -1,3 +1,3 @@
 [run]
-source = python_dwd
+source = wetterdienst
 omit = tests/*

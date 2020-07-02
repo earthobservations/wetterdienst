@@ -1,6 +1,6 @@
 """ mapping from german column names to english column names"""
 from numpy import datetime64
-from python_dwd.enumerations.column_names_enumeration import DWDOrigColumns, DWDMetaColumns, DWDDataColumns
+from wetterdienst.enumerations.column_names_enumeration import DWDOrigColumns, DWDMetaColumns, DWDDataColumns
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigColumns.STATION_ID.value:                DWDMetaColumns.STATION_ID.value,
