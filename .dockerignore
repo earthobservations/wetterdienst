@@ -1,0 +1,11 @@
+*
+
+!README.md
+!pyproject.toml
+!poetry.lock
+!wetterdienst
+
+!tests
+!pytest.ini
+!noxfile.py
+!.coverragerc
