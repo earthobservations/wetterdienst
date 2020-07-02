@@ -5,15 +5,15 @@ import pandas as pd
 from pandas import Timestamp
 import dateparser
 
-from python_dwd import collect_dwd_data
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.additionals.functions import check_parameters, cast_to_list
-from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
-from python_dwd.constants.metadata import DWD_FOLDER_MAIN
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.indexing.file_index_creation import reset_file_index_cache
+from wetterdienst import collect_dwd_data
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.additionals.functions import check_parameters, cast_to_list
+from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
+from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.indexing.file_index_creation import reset_file_index_cache
 
 log = logging.getLogger(__name__)
 

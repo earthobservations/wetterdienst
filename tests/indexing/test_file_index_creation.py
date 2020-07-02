@@ -2,12 +2,12 @@
 import pytest
 import requests
 
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.indexing.file_index_creation import create_file_index_for_dwd_server, \
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.indexing.file_index_creation import create_file_index_for_dwd_server, \
     reset_file_index_cache
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
 
 
 @pytest.mark.remote

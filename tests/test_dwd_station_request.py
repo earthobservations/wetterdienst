@@ -1,9 +1,9 @@
 import pytest
-from python_dwd.dwd_station_request import DWDStationRequest
-from python_dwd.exceptions.start_date_end_date_exception import StartDateEndDateError
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.dwd_station_request import DWDStationRequest
+from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
 def test_parse_station_id_to_list_of_integers():

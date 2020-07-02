@@ -9,16 +9,16 @@ import functools
 import datetime as dt
 import requests
 
-from python_dwd.additionals.functions import find_all_match_strings_in_string
-from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
+from wetterdienst.additionals.functions import find_all_match_strings_in_string
+from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
     METADATA_DTYPE_MAPPING
-from python_dwd.constants.metadata import STATION_ID_REGEX, STATION_DATA_SEP, NA_STRING
-from python_dwd.download.download_services import download_file_from_climate_observations
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_path_to_parameter, \
+from wetterdienst.constants.metadata import STATION_ID_REGEX, STATION_DATA_SEP, NA_STRING
+from wetterdienst.download.download_services import download_file_from_climate_observations
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.file_path_handling.path_handling import build_path_to_parameter, \
     list_files_of_climate_observations
 
 METADATA_COLUMNS = [

@@ -3,13 +3,13 @@ import re
 import functools
 import pandas as pd
 
-from python_dwd.constants.access_credentials import DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
-from python_dwd.constants.metadata import ARCHIVE_FORMAT, STATION_ID_REGEX
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_path_to_parameter, \
+from wetterdienst.constants.access_credentials import DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
+from wetterdienst.constants.metadata import ARCHIVE_FORMAT, STATION_ID_REGEX
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.file_path_handling.path_handling import build_path_to_parameter, \
     list_files_of_climate_observations
 
 

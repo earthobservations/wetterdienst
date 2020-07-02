@@ -1,8 +1,8 @@
-from python_dwd.additionals.functions import check_parameters, retrieve_time_resolution_from_filename,\
+from wetterdienst.additionals.functions import check_parameters, retrieve_time_resolution_from_filename,\
     retrieve_parameter_from_filename, retrieve_period_type_from_filename, determine_parameters
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.parameter_enumeration import Parameter
 
 
 def test_check_parameters():

@@ -22,4 +22,4 @@ jobs:
     - name: Generate coverage report
       run: nox -s tests-3.8 coverage
       env:
-        CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -6,3 +6,4 @@ dwd_data/
 *.egg-info
 coverage.xml
 .coverage
+htmlcov

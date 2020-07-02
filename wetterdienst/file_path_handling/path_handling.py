@@ -3,13 +3,13 @@ from pathlib import Path, PurePosixPath
 from typing import Union, List
 from bs4 import BeautifulSoup
 
-from python_dwd.constants.access_credentials import HTTPS_EXPRESSION, DWD_SERVER, \
+from wetterdienst.constants.access_credentials import HTTPS_EXPRESSION, DWD_SERVER, \
     DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
-from python_dwd.constants.metadata import DWD_FOLDER_STATION_DATA, DWD_FILE_STATION_DATA, H5_FORMAT
-from python_dwd.download.https_handling import create_dwd_session
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.constants.metadata import DWD_FOLDER_STATION_DATA, DWD_FILE_STATION_DATA, H5_FORMAT
+from wetterdienst.download.https_handling import create_dwd_session
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
 def build_path_to_parameter(parameter: Parameter,

@@ -3,11 +3,11 @@ A set of more general functions used for the organization
 """
 from typing import Tuple, List, Optional
 
-from python_dwd.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
+from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.parameter_enumeration import Parameter
 
 FILE_2_PARAMETER = {
     TimeResolution.MINUTE_1:

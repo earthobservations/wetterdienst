@@ -5,12 +5,12 @@ import pandas as pd
 import mock
 from shutil import rmtree
 
-from python_dwd.additionals.functions import create_station_data_dtype_mapping
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.additionals.functions import create_station_data_dtype_mapping
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
 
-from python_dwd.data_storing import store_dwd_data, restore_dwd_data, _build_local_store_key
+from wetterdienst.data_storing import store_dwd_data, restore_dwd_data, _build_local_store_key
 
 # Create folder for storage test
 test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")

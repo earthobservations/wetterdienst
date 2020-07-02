@@ -1,7 +1,7 @@
-from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.parameter_enumeration import Parameter
+from wetterdienst.file_path_handling.file_list_creation import create_file_list_for_dwd_server
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.parameter_enumeration import Parameter
 
 
 def test_create_file_list_for_dwd_server():

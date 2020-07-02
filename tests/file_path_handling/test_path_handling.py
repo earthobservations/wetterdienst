@@ -2,10 +2,10 @@ from pathlib import PurePosixPath
 
 import pytest
 
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.file_path_handling.path_handling import build_local_filepath_for_station_data, build_path_to_parameter, \
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.file_path_handling.path_handling import build_local_filepath_for_station_data, build_path_to_parameter, \
     build_climate_observations_path, list_files_of_climate_observations
 
 
