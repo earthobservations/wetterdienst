@@ -4,9 +4,9 @@ from io import StringIO, BytesIO
 from pathlib import Path
 import pandas as pd
 
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.parsing_data.parse_data_from_files import parse_dwd_data
 
 fixtures_dir = Path(__file__, "../..").resolve().absolute() / "fixtures"
 

@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2018 Benjamin Gutzmann, Daniel Lassahn
+Copyright (c) 2018 earthobservations, Benjamin Gutzmann, Daniel Lassahn, Andreas Motl
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -1,9 +1,9 @@
-from python_dwd.additionals.geo_location import get_nearest_station,\
+from wetterdienst.additionals.geo_location import get_nearest_station,\
     _derive_nearest_neighbours
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.data_models.coordinates import Coordinates
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.data_models.coordinates import Coordinates
 import numpy as np
 from unittest.mock import patch, MagicMock
 import pandas as pd
@@ -13,7 +13,7 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 
 
 @patch(
-    'python_dwd.parse_metadata.metadata_for_dwd_data',
+    'wetterdienst.parse_metadata.metadata_for_dwd_data',
     MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON"))
 )
 def test_get_nearest_station():

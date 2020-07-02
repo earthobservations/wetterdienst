@@ -11,8 +11,11 @@ from nox.sessions import Session
 @nox.session(python=["3.6", "3.7", "3.8"])
 def tests(session):
     """Run tests."""
+    install_with_constraints(
+        session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock"
+    )
     session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov=python_dwd")
+    session.run("pytest", "--cov=wetterdienst")
 
 
 @nox.session(python=["3.8"])

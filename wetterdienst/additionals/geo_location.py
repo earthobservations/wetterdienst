@@ -3,12 +3,12 @@ from typing import List, Union, Tuple
 import numpy as np
 from scipy.spatial import cKDTree
 
-from python_dwd.parse_metadata import metadata_for_dwd_data
-from python_dwd.additionals.functions import check_parameters
-from python_dwd.data_models.coordinates import Coordinates
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import \
+from wetterdienst.parse_metadata import metadata_for_dwd_data
+from wetterdienst.additionals.functions import check_parameters
+from wetterdienst.data_models.coordinates import Coordinates
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import \
     TimeResolution
 
 KM_EARTH_RADIUS = 6371

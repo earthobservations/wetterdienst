@@ -7,11 +7,11 @@ import pandas as pd
 from io import StringIO
 from shutil import rmtree
 
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.data_collection import collect_dwd_data
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.data_collection import collect_dwd_data
 
 # Create folder for storage test
 test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
@@ -40,11 +40,11 @@ csv_file.seek(0)
 
 
 @patch(
-    "python_dwd.data_collection.create_file_list_for_dwd_server",
+    "wetterdienst.data_collection.create_file_list_for_dwd_server",
     mock.MagicMock(return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]}))
 )
 @patch(
-    "python_dwd.data_collection.download_dwd_data",
+    "wetterdienst.data_collection.download_dwd_data",
     mock.MagicMock(return_value=[(filename, csv_file)])
 )
 def test_collect_dwd_data():
@@ -91,11 +91,11 @@ def test_collect_dwd_data():
 
 
 @patch(
-    "python_dwd.data_collection.restore_dwd_data",
+    "wetterdienst.data_collection.restore_dwd_data",
     mock.MagicMock(return_value=pd.DataFrame())
 )
 @patch(
-    "python_dwd.data_collection.create_file_list_for_dwd_server",
+    "wetterdienst.data_collection.create_file_list_for_dwd_server",
     mock.MagicMock(return_value=pd.DataFrame(columns=[DWDMetaColumns.FILENAME.value]))
 )
 def test_collect_dwd_data_empty():

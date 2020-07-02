@@ -4,8 +4,8 @@ import pytest
 import dateparser
 from pandas import Timestamp
 
-from python_dwd.additionals.time_handling import mktimerange, parse_datetime
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
 def test_parse_datetime():

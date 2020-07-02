@@ -4,17 +4,17 @@ from pathlib import Path
 from typing import List, Union, Optional
 import pandas as pd
 
-from python_dwd.additionals.functions import check_parameters
-from python_dwd.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
-from python_dwd.constants.metadata import DWD_FOLDER_MAIN
-from python_dwd.indexing.file_index_creation import reset_file_index_cache
-from python_dwd.file_path_handling.file_list_creation import create_file_list_for_dwd_server
-from python_dwd.download.download import download_dwd_data
-from python_dwd.parsing_data.parse_data_from_files import parse_dwd_data
-from python_dwd.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
+from wetterdienst.additionals.functions import check_parameters
+from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
+from wetterdienst.indexing.file_index_creation import reset_file_index_cache
+from wetterdienst.file_path_handling.file_list_creation import create_file_list_for_dwd_server
+from wetterdienst.download.download import download_dwd_data
+from wetterdienst.parsing_data.parse_data_from_files import parse_dwd_data
+from wetterdienst.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
 
 log = logging.getLogger(__name__)
 

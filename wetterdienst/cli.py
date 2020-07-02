@@ -5,14 +5,14 @@ import logging
 from docopt import docopt
 import pandas as pd
 
-from python_dwd import __version__, metadata_for_dwd_data
-from python_dwd.additionals.time_handling import mktimerange, parse_datetime
-from python_dwd.additionals.util import normalize_options, setup_logging, read_list
-from python_dwd.dwd_station_request import DWDStationRequest
-from python_dwd.enumerations.column_names_enumeration import DWDMetaColumns
-from python_dwd.enumerations.parameter_enumeration import Parameter
-from python_dwd.enumerations.period_type_enumeration import PeriodType
-from python_dwd.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst import __version__, metadata_for_dwd_data
+from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
+from wetterdienst.additionals.util import normalize_options, setup_logging, read_list
+from wetterdienst.dwd_station_request import DWDStationRequest
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 log = logging.getLogger(__name__)
 
