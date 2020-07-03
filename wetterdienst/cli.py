@@ -20,11 +20,11 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      dwd stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--persist] [--format=<format>]
-      dwd readings --station=<station> --parameter=<parameter> --resolution=<resolution> --period=<period> [--persist] [--date=<date>] [--format=<format>]
-      dwd about [parameters] [resolutions] [periods]
-      dwd --version
-      dwd (-h | --help)
+      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--persist] [--format=<format>]
+      wetterdienst readings --station=<station> --parameter=<parameter> --resolution=<resolution> --period=<period> [--persist] [--date=<date>] [--format=<format>]
+      wetterdienst about [parameters] [resolutions] [periods]
+      wetterdienst --version
+      wetterdienst (-h | --help)
 
     Options:
       --station=<station>           Comma-separated list of station identifiers
@@ -43,45 +43,45 @@ def run():
     Examples:
 
       # Get list of stations for daily climate summary data in JSON format
-      dwd stations --parameter=kl --resolution=daily --period=recent
+      wetterdienst stations --parameter=kl --resolution=daily --period=recent
 
       # Get list of stations for daily climate summary data in CSV format
-      dwd stations --parameter=kl --resolution=daily --period=recent --format=csv
+      wetterdienst stations --parameter=kl --resolution=daily --period=recent --format=csv
 
       # Get daily climate summary data for stations 44 and 1048
-      dwd readings --station=44,1048 --parameter=kl --resolution=daily --period=recent
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent
 
       # Optionally save/restore to/from disk in order to avoid asking upstream servers each time
-      dwd readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --persist
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --persist
 
       # Limit output to specific date
-      dwd readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
 
       # Limit output to specified date range in ISO-8601 time interval format
-      dwd readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
 
       # The real power horse: Acquire data across historical+recent data sets
-      dwd readings --station=44,1048 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
 
       # Acquire monthly data for 2020-05
-      dwd readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
 
       # Acquire monthly data from 2017-01 to 2019-12
-      dwd readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
 
       # Acquire annual data for 2019
-      dwd readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2019
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2019
 
       # Acquire annual data from 2010 to 2020
-      dwd readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
 
       # Acquire hourly data
-      dwd readings --station=44,1048 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
+      wetterdienst readings --station=44,1048 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
 
     """
 
     # Read command line options.
-    options = normalize_options(docopt(run.__doc__, version=f'dwd {__version__}'))
+    options = normalize_options(docopt(run.__doc__, version=f'wetterdienst {__version__}'))
 
     # Setup logging.
     debug = options.get('debug')
@@ -192,5 +192,5 @@ def about(options):
         output(PeriodType)
 
     else:
-        log.error('Invoke "dwd about" with one of "parameter", "resolution" or "period"')
+        log.error('Invoke "wetterdienst about" with one of "parameter", "resolution" or "period"')
         sys.exit(1)
