@@ -5,7 +5,7 @@ import logging
 from docopt import docopt
 import pandas as pd
 
-from wetterdienst import __version__, metadata_for_dwd_data
+from wetterdienst import __version__, metadata_for_dwd_data, get_nearest_station
 from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
 from wetterdienst.additionals.util import normalize_options, setup_logging, read_list
 from wetterdienst.dwd_station_request import DWDStationRequest
@@ -20,17 +20,21 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--persist] [--format=<format>]
-      wetterdienst readings --station=<station> --parameter=<parameter> --resolution=<resolution> --period=<period> [--persist] [--date=<date>] [--format=<format>]
+      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--latitude=] [--longitude=] [--count=] [--persist] [--format=<format>]
+      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--format=<format>]
+      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--count=] [--persist] [--date=<date>] [--format=<format>]
       wetterdienst about [parameters] [resolutions] [periods]
       wetterdienst --version
       wetterdienst (-h | --help)
 
     Options:
-      --station=<station>           Comma-separated list of station identifiers
       --parameter=<parameter>       Parameter/variable, e.g. "kl", "air_temperature", "precipitation", etc.
       --resolution=<resolution>     Dataset resolution: "annual", "monthly", "daily", "hourly", "minute_10", "minute_1"
       --period=<period>             Dataset period: "historical", "recent", "now"
+      --station=<station>           Comma-separated list of station identifiers
+      --latitude=<latitude>         Latitude for filtering by geoposition.
+      --longitude=<longitude>       Longitude for filtering by geoposition.
+      --count=<count>               Number of nearby stations when filtering by geoposition.
       --persist                     Save and restore data to filesystem w/o going to the network
       --date=<date>                 Date for filtering data. Can be either a single date(time) or
                                     an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
@@ -78,6 +82,10 @@ def run():
       # Acquire hourly data
       wetterdienst readings --station=44,1048 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
 
+      # Acquire stations and readings by geoposition.
+      wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --count=10
+      wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --count=10 --date=2020-06-30
+
     """
 
     # Read command line options.
@@ -94,18 +102,47 @@ def run():
         about(options)
         return
 
+    options.count = int(options.count or 1)
+
     if options.stations:
         df = metadata_for_dwd_data(
             parameter=options.parameter,
             time_resolution=options.resolution,
             period_type=options.period
         )
+        if options.latitude and options.longitude:
+            nearest_station, distances = get_nearest_station(
+                latitudes=[float(options.latitude)], longitudes=[float(options.longitude)],
+                parameter=options.parameter,
+                time_resolution=options.resolution,
+                period_type=options.period,
+                num_stations_nearby=options.count,
+            )
+            df = df[df.STATION_ID.isin(nearest_station)]
+
         if options.persist:
             df.to_csv(f"metadata_{options.parameter}_{options.resolution}_{options.period}.csv")
 
     elif options.readings:
+
+        if options.station:
+            station_ids = read_list(options.station)
+
+        elif options.latitude and options.longitude:
+            nearest_station, distances = get_nearest_station(
+                latitudes=[float(options.latitude)], longitudes=[float(options.longitude)],
+                parameter=options.parameter,
+                time_resolution=options.resolution,
+                period_type=options.period,
+                num_stations_nearby=options.count,
+            )
+            station_ids = nearest_station
+
+        else:
+            raise KeyError('Either --station or --lat, --lon required')
+
         request = DWDStationRequest(
-            station_ids=read_list(options.station),
+            station_ids=station_ids,
             # TODO: Would like to say "climate_summary" instead of "kl" here.
             parameter=options.parameter,
             time_resolution=options.resolution,
@@ -192,5 +229,5 @@ def about(options):
         output(PeriodType)
 
     else:
-        log.error('Invoke "wetterdienst about" with one of "parameter", "resolution" or "period"')
+        log.error('Invoke "wetterdienst about" with one of "parameters", "resolutions" or "periods"')
         sys.exit(1)
