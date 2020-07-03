@@ -1,4 +1,8 @@
 # Changelog
+
+## Development
+- Bring geospatial filtering to the command line.
+
 ## 0.1.0
 - initial release
 - update README.md
