@@ -21,10 +21,8 @@ jobs:
         pip install poetry==1.0.9
     - name: Generate coverage report
       run: nox -s tests-3.8
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1.0.10
+      uses: codecov/codecov-action@v1.0
       with:
         file: ./coverage.xml
         flags: unittests

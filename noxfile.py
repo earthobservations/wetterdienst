@@ -15,7 +15,7 @@ def tests(session):
         session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock"
     )
     session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov=./", "--cov-config=.coveragerc", "--cov-report=xml")
+    session.run("pytest", "--cov", "--cov-config=.coveragerc", "--cov-report=xml")
 
     
 # @nox.session(python=["3.8"])
