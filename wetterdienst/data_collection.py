@@ -10,6 +10,7 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
+from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameterCombination
 from wetterdienst.indexing.file_index_creation import reset_file_index_cache
 from wetterdienst.file_path_handling.file_list_creation import create_file_list_for_dwd_server
 from wetterdienst.download.download import download_dwd_data
@@ -52,6 +53,14 @@ def collect_dwd_data(station_ids: List[int],
     Returns:
         a pandas DataFrame with all the data given by the station ids
     """
+    parameter = Parameter(parameter)
+    time_resolution = TimeResolution(time_resolution)
+    period_type = PeriodType(period_type)
+
+    if not check_parameters(parameter, time_resolution, period_type):
+        raise InvalidParameterCombination(
+            f"The combination of {parameter.value}, {time_resolution.value}, {period_type.value} is invalid.")
+
     # Override parallel for time resolutions with only one file per station
     # to prevent overhead
     if parallel_processing and time_resolution not in \
@@ -60,15 +69,6 @@ def collect_dwd_data(station_ids: List[int],
 
     if create_new_file_index:
         reset_file_index_cache()
-
-    parameter = Parameter(parameter)
-    time_resolution = TimeResolution(time_resolution)
-    period_type = PeriodType(period_type)
-
-    if not check_parameters(parameter, time_resolution, period_type):
-        log.info(f"The combination of {parameter.value}, {time_resolution.value}, {period_type.value}"
-                 f"is not valid. Empty DataFrame returned.")
-        return pd.DataFrame()
 
     # List for collected pandas DataFrames per each station id
     data = []

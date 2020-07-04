@@ -50,27 +50,27 @@ The available parameters are also sorted in different periods:
 
 It is also possible to use enumeration keywords. This table lists the available enumeration keyword mappings on the CDC server.
 
-|Paramater/Granularity                       |1_minute                             |   10_minutes                    |hourly | subdaily | daily     |monthly | annual| 
-|----------------|-------------------------------|-----------------------------|-----------------------------|----------------|-------------|-----------------------------|-----------------------------|
-| `TEMPERATURE_SOIL = "soil_temperature"`  | :x: | :x: | :heavy_check_mark:| :x: | :heavy_check_mark: |:x: | :x:|
-| `TEMPERATURE_AIR = "air_temperature"` |:x: | :heavy_check_mark:| :heavy_check_mark:| :heavy_check_mark:| :x:|:x: |:x: |
-| `PRECIPITATION = "precipitation"`    | :heavy_check_mark: | :heavy_check_mark: |:x: |:x: | :x:| :x:|:x: |
-| `TEMPERATURE_EXTREME = "extreme_temperature"` | :x:|:heavy_check_mark: | :x:|:x: | :x:|:x: |:x: |
-| `WIND_EXTREME = "extreme_wind"  `  |:x: | :heavy_check_mark: | :x:| :x:|:x: |:x: |:x: |
-| `SOLAR = "solar"`  | :x: | :heavy_check_mark: | :heavy_check_mark:|:x: | :heavy_check_mark:| :x:|:x: |
-| `WIND = "wind"  ` |:x: |:heavy_check_mark: | :heavy_check_mark:|:heavy_check_mark:|:x: |:x: |:x: |
-| `CLOUD_TYPE = "cloud_type"`  |:x: | :x: | :heavy_check_mark:|:x: |:x: |:x: |:x: |
-| `CLOUDINESS = "cloudiness"  `    | :x: | :x: |:heavy_check_mark: |:heavy_check_mark: | :x:| :x:| :x:|
-| `SUNSHINE_DURATION = "sun"` |:x: |:x: | :heavy_check_mark:| :x:|:x:|:x:|:x: |
-| `VISBILITY = "visibility"`  | :x:|  :x:|:heavy_check_mark: |:heavy_check_mark: |:x: | :x:| :x:|
-| `WATER_EQUIVALENT = "water_equiv"`  | :x:| :x: |:x: |:x: |:heavy_check_mark: |:x: | :x:|
-| `PRECIPITATION_MORE = "more_precip"  `    | :x: | :x: |:x: |:x: | :heavy_check_mark:|:heavy_check_mark: | :heavy_check_mark:|
-| `PRESSURE = "pressure"` | :x:|:x: | :heavy_check_mark:|:heavy_check_mark:|:x: |:x:|:x: |
-| `CLIMATE_SUMMARY = "kl"`  |:x: | :x: |:x: | :heavy_check_mark:|:heavy_check_mark: |:heavy_check_mark: |:x: |
-| `MOISTURE = "moisture"` |:x: | :x: |:x: | :heavy_check_mark:|:x: |:x: |:x: |
-| `WIND_SYNOP = "wind_synop"` |:x: | :x: | :heavy_check_mark:|:x: |:x: |:x: |:x: |
-| `DEW_POINT = "dew_point"` |:x: | :x: | :heavy_check_mark:|:x: |:x: |:x: |:x: |
-| `WEATHER_PHENOMENA = "weather_phenomena"` |:x: | :x: |:x: |:x: | :heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
+|Parameter/Granularity                              | 1_minute              | 10_minutes            | hourly                | subdaily              | daily                 | monthly               | annual                | 
+|---------------------------------------------------|-----------------------|-----------------------|-----------------------|-----------------------|-----------------------|-----------------------|-----------------------|
+| `PRECIPITATION = "precipitation"`                 | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   | :x:                   |
+| `TEMPERATURE_AIR = "air_temperature"`             | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   |
+| `TEMPERATURE_EXTREME = "extreme_temperature"`     | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   | :x:                   |
+| `WIND_EXTREME = "extreme_wind"`                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   | :x:                   |
+| `SOLAR = "solar"`                                 | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   |
+| `WIND = "wind"`                                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   |
+| `CLOUD_TYPE = "cloud_type"`                       | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   |
+| `CLOUDINESS = "cloudiness"`                       | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   |
+| `DEW_POINT = "dew_point"`                         | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   |
+| `PRESSURE = "pressure"`                           | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   |
+| `TEMPERATURE_SOIL = "soil_temperature"`           | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   |
+| `SUNSHINE_DURATION = "sun"`                       | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   |
+| `VISBILITY = "visibility"`                        | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   |
+| `WIND_SYNOPTIC = "wind_synop"`                    | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   | :x:                   |
+| `MOISTURE = "moisture"`                           | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   | :x:                   |
+| `CLIMATE_SUMMARY = "kl"`                          | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    | :x:                   |
+| `PRECIPITATION_MORE = "more_precip"`              | :x:                   | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    |
+| `WATER_EQUIVALENT = "water_equiv"`                | :x:                   | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   |
+| `WEATHER_PHENOMENA = "weather_phenomena"`         | :x:                   | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    |
 
 ## 3. Functionality of the toolset
 
@@ -154,18 +154,18 @@ As already said in the introduction, the file server has lots of special cases. 
 data, which has no obvious given period type. Still one can find the thought of period in the file description, which
 is **recent** and was defined as such in the library.
 
-## 7. Conclusion
+## 6. Conclusion
 
 Feel free to use the library if you want to automate the data access and analyze the german climate. Be aware that this 
 library is developed voluntarily and we rely on your feedback regarding bugs, features, etc...
 
-## 8. Getting started
+## Getting started
 ```
 pip install wetterdienst
 wetterdienst --help
 ```
 
-## 9. Development
+## Development
 For hacking on the library, you might want to follow these steps:
 ```
 # Acquire sources
@@ -198,7 +198,7 @@ docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest tests
 ```
 from the main directory. To work in an iPython shell you just have to change the command `pytest tests/` to `ipython`.
 
-#### Command line script  
+### Command line script  
 You can download data as csv files after building docker container.
 Currently, only the `collect_dwd_data` is supported by this service.
 

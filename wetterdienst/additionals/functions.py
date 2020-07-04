@@ -98,18 +98,18 @@ def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, Peri
     time_resolution = retrieve_time_resolution_from_filename(filename)
 
     if time_resolution is None:
-        raise ValueError(f"Resolution {time_resolution} couldn't be determined.")
+        raise ValueError(f"Resolution {time_resolution} could not be determined.")
 
     # First determine the variable
     parameter = retrieve_parameter_from_filename(filename, time_resolution)
 
     if parameter is None:
-        raise ValueError(f"Variable {parameter} couldn't be determined.")
+        raise ValueError(f"Variable {parameter} could not be determined.")
 
     period_type = retrieve_period_type_from_filename(filename)
 
     if period_type is None:
-        raise ValueError(f"Timestamp {period_type} couldn't be determined.")
+        raise ValueError(f"Timestamp {period_type} could not be determined.")
 
     return parameter, time_resolution, period_type
 
@@ -183,12 +183,6 @@ def check_parameters(parameter: Parameter,
     return True
 
 
-def find_all_match_strings_in_string(string: str,
-                                     match_strings: List[str]):
-    """ check if string has all match strings in it """
-    return all([match_string in string for match_string in match_strings])
-
-
 def create_station_data_dtype_mapping(columns: List[str]) -> dict:
     """
     A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
@@ -218,8 +212,6 @@ def create_station_data_dtype_mapping(columns: List[str]) -> dict:
             station_data_dtype_mapping[column] = int
         elif column in date_columns:
             station_data_dtype_mapping[column] = "datetime64"
-        elif column == DWDMetaColumns.EOR.value:
-            station_data_dtype_mapping[column] = str
         else:
             station_data_dtype_mapping[column] = float
 
@@ -233,7 +225,7 @@ def cast_to_list(iterable_) -> list:
     Args:
         iterable_:
     Return:
-        ?
+        list of anything
     """
     try:
         iterable_ = iterable_.split()

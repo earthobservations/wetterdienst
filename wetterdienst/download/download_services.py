@@ -12,8 +12,7 @@ def download_file_from_climate_observations(filepath: Union[PurePosixPath, str])
     A function used to download a specified file from the server
 
     Args:
-        filepath: the path that defines the file
-        base_url: the base_url representing the part of the server which is worked with
+        filepath: the path that defines the file relative to observations_germany/climate/
 
     Returns:
         bytes of the file

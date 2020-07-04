@@ -1,18 +1,16 @@
 """ download scripts """
 from typing import List, Union, Tuple
 from pathlib import Path
-import urllib.request
-import urllib.error
 import zipfile
 from io import BytesIO
 from multiprocessing import Pool
-import pandas as pd
+from requests.exceptions import InvalidURL
 
-from wetterdienst.constants.metadata import STATION_DATA_MATCH_STRINGS
 from wetterdienst.download.download_services import download_file_from_climate_observations
-from wetterdienst.additionals.functions import find_all_match_strings_in_string
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.exceptions.failed_download_exception import FailedDownload
+from wetterdienst.exceptions.product_file_not_found_exception import ProductFileNotFound
+
+PRODUCT_FILE_IDENTIFIER = 'produkt'
 
 
 def download_dwd_data(remote_files: List[str],
@@ -50,18 +48,28 @@ def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
     """
     try:
         zip_file = download_file_from_climate_observations(remote_file)
-    except urllib.error.URLError as e:
+    except InvalidURL as e:
         raise e(f"Error: the station data {remote_file} couldn't be reached.")
     except Exception:
         raise FailedDownload(f"Download failed for {remote_file}")
 
     try:
-        with zipfile.ZipFile(zip_file) as zip_file_opened:
-            produkt_file = [file_in_zip
-                            for file_in_zip in zip_file_opened.namelist()
-                            if find_all_match_strings_in_string(file_in_zip, STATION_DATA_MATCH_STRINGS)].pop(0)
-            file = BytesIO(zip_file_opened.open(produkt_file).read())
-    except zipfile.BadZipFile as e:
-        raise zipfile.BadZipFile(f"The zipfile seems to be corrupted.\n {str(e)}")
+        zip_file_opened = zipfile.ZipFile(zip_file)
 
-    return file
+        # Files of archive
+        archive_files = zip_file_opened.namelist()
+
+        for file in archive_files:
+            # If found file load file in bytes, close zipfile and return bytes
+            if file.startswith(PRODUCT_FILE_IDENTIFIER):
+                file_in_bytes = BytesIO(zip_file_opened.open(file).read())
+
+                zip_file_opened.close()
+
+                return file_in_bytes
+
+        # If whatsoever no file was found and returned already throw exception
+        raise ProductFileNotFound(f"The archive of {remote_file} does not hold a 'produkt' file.")
+
+    except zipfile.BadZipFile as e:
+        raise e(f"The archive of {remote_file} seems to be corrupted.\n {str(e)}")

@@ -1,3 +1,12 @@
 [run]
+branch = True
 source = wetterdienst
-omit = tests/*
+
+[report]
+ignore_errors = True
+fail_under = 0
+
+omit =
+    */wetterdienst/cli.py
+    */wetterdienst/run.py
+    */tests/*
