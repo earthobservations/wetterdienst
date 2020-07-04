@@ -7,6 +7,7 @@ ignore_errors = True
 fail_under = 0
 
 omit =
-    */wetterdienst/cli.py
-    */wetterdienst/run.py
-    */tests/*
+    wetterdienst/cli.py
+    wetterdienst/run.py
+    tests/*
+    noxfile.py
