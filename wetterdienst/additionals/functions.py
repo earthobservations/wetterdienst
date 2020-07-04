@@ -1,13 +1,14 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union, Callable
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameter
 
 FILE_2_PARAMETER = {
     TimeResolution.MINUTE_1:
@@ -98,18 +99,18 @@ def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, Peri
     time_resolution = retrieve_time_resolution_from_filename(filename)
 
     if time_resolution is None:
-        raise ValueError(f"Resolution {time_resolution} couldn't be determined.")
+        raise ValueError(f"Resolution {time_resolution} could not be determined.")
 
     # First determine the variable
     parameter = retrieve_parameter_from_filename(filename, time_resolution)
 
     if parameter is None:
-        raise ValueError(f"Variable {parameter} couldn't be determined.")
+        raise ValueError(f"Variable {parameter} could not be determined.")
 
     period_type = retrieve_period_type_from_filename(filename)
 
     if period_type is None:
-        raise ValueError(f"Timestamp {period_type} couldn't be determined.")
+        raise ValueError(f"Timestamp {period_type} could not be determined.")
 
     return parameter, time_resolution, period_type
 
@@ -183,12 +184,6 @@ def check_parameters(parameter: Parameter,
     return True
 
 
-def find_all_match_strings_in_string(string: str,
-                                     match_strings: List[str]):
-    """ check if string has all match strings in it """
-    return all([match_string in string for match_string in match_strings])
-
-
 def create_station_data_dtype_mapping(columns: List[str]) -> dict:
     """
     A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
@@ -218,8 +213,6 @@ def create_station_data_dtype_mapping(columns: List[str]) -> dict:
             station_data_dtype_mapping[column] = int
         elif column in date_columns:
             station_data_dtype_mapping[column] = "datetime64"
-        elif column == DWDMetaColumns.EOR.value:
-            station_data_dtype_mapping[column] = str
         else:
             station_data_dtype_mapping[column] = float
 
@@ -233,7 +226,7 @@ def cast_to_list(iterable_) -> list:
     Args:
         iterable_:
     Return:
-        ?
+        list of anything
     """
     try:
         iterable_ = iterable_.split()
@@ -244,3 +237,27 @@ def cast_to_list(iterable_) -> list:
             iterable_ = [iterable_]
 
     return iterable_
+
+
+def parse_enumeration_from_template(
+        enum_: Union[str, Parameter, TimeResolution, PeriodType],
+        enum_template: Union[Parameter, TimeResolution, PeriodType, Callable]
+) -> Union[Parameter, TimeResolution, PeriodType]:
+    """
+    Function used to parse an enumeration(string) to a enumeration based on a template
+    Args:
+        enum_: enumeration as string or Enum
+        enum_template: base enumeration from which the enumeration is parsed
+
+    Returns:
+        parsed enumeration from template
+    Raises:
+        InvalidParameter if no matching enumeration found
+    """
+    try:
+        return enum_template[enum_.upper()]
+    except (KeyError, AttributeError):
+        try:
+            return enum_template(enum_)
+        except ValueError:
+            raise InvalidParameter(f"{enum_} could not be parsed from {enum_template.__name__}.")

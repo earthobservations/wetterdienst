@@ -2,14 +2,14 @@ import re
 import zipfile
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Tuple
+from typing import Tuple, List
 import pandas as pd
 from multiprocessing.dummy import Pool
 import functools
 import datetime as dt
 import requests
+from requests.exceptions import InvalidURL
 
-from wetterdienst.additionals.functions import find_all_match_strings_in_string
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING, \
     METADATA_DTYPE_MAPPING
 from wetterdienst.constants.metadata import STATION_ID_REGEX, STATION_DATA_SEP, NA_STRING
@@ -18,6 +18,7 @@ from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.exceptions.meta_file_not_found_exception import MetaFileNotFound
 from wetterdienst.file_path_handling.path_handling import build_path_to_parameter, \
     list_files_of_climate_observations
 
@@ -32,7 +33,7 @@ METADATA_COLUMNS = [
     DWDMetaColumns.STATE.value
 ]
 
-METADATA_MATCH_STRINGS = ['beschreibung', '.txt']
+META_FILE_IDENTIFIERS = ['beschreibung', 'txt']
 
 METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"
 
@@ -103,12 +104,12 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
     files_server = list_files_of_climate_observations(
         parameter_path, recursive=True)
 
-    meta_file = [file for file in files_server
-                 if find_all_match_strings_in_string(file.lower(), METADATA_MATCH_STRINGS)].pop(0)
+    # Find the one meta file from the files listed on the server
+    meta_file = _find_meta_file(files_server, str(parameter_path))
 
     try:
         file = download_file_from_climate_observations(meta_file)
-    except requests.exceptions.InvalidURL as e:
+    except InvalidURL as e:
         raise e(f"Error: reading metadata {meta_file} file failed.")
 
     meta_index = pd.read_fwf(
@@ -130,6 +131,26 @@ def _create_meta_index_for_dwd_data(parameter: Parameter,
     return meta_index.astype(METADATA_DTYPE_MAPPING)
 
 
+def _find_meta_file(files: List[str], path: str) -> str:
+    """
+    Function used to find meta file based on predefined strings that are usually found in those files
+    Args:
+        files: list of files found on server path
+        path: the path that was searched for a meta file
+
+    Returns:
+        the matching file
+    Raises:
+        MetaFileNotFound - for the case no file was found
+    """
+    for file in files:
+        file_strings = file.lower().replace(".", "_").split("_")
+        if set(file_strings).issuperset(META_FILE_IDENTIFIERS):
+            return file
+
+    raise MetaFileNotFound(f"No meta file was found amongst the files at {path}.")
+
+
 def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
     """
     A helping function to create a raw index of metadata for stations of the set of
@@ -147,7 +168,7 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
 
-    meta_index_df = pd.DataFrame(None, columns=METADATA_COLUMNS)
+    meta_index_df = pd.DataFrame(columns=METADATA_COLUMNS)
 
     with Pool() as p:
         metadata_files = p.map(
@@ -161,27 +182,28 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = meta_index_df.astype(METADATA_DTYPE_MAPPING)
 
+    # Drop empty state column again as it will be merged later on
     meta_index_df = meta_index_df.drop(labels=DWDMetaColumns.STATE.value, axis=1)
 
     return meta_index_df.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(drop=True)
 
 
-def _download_metadata_file_for_1minute_precipitation(metadatafile: str) -> BytesIO:
+def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> BytesIO:
     """ A function that simply opens a filepath with help of the urllib library and then writes the content to a BytesIO
     object and returns this object. For this case as it opens lots of requests (there are approx 1000 different files
     to open for 1minute data), it will do the same at most three times for one file to assure success reading the file.
 
     Args:
-        metadatafile (str) - the file that shall be downloaded and returned as bytes.
+        metadata_file (str) - the file that shall be downloaded and returned as bytes.
 
     Return:
         A BytesIO object to which the opened file was written beforehand.
 
     """
     try:
-        file = download_file_from_climate_observations(metadatafile)
+        file = download_file_from_climate_observations(metadata_file)
     except requests.exceptions.InvalidURL as e:
-        raise e(f"Error: reading metadata {metadatafile} file failed.")
+        raise e(f"Error: reading metadata {metadata_file} file failed.")
 
     return file
 

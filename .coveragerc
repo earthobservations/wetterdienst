@@ -1,3 +1,13 @@
 [run]
-source = wetterdienst
-omit = tests/*
+branch = true
+source =
+    wetterdienst
+
+[report]
+show_missing = true
+fail_under = 0
+omit =
+    wetterdienst/cli.py
+    wetterdienst/run.py
+    tests/*
+    noxfile.py

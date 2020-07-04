@@ -1,6 +1,5 @@
 """ file list creation for requested files """
 from typing import Union, List
-import pandas as pd
 
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter

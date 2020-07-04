@@ -143,7 +143,6 @@ def run():
 
         request = DWDStationRequest(
             station_ids=station_ids,
-            # TODO: Would like to say "climate_summary" instead of "kl" here.
             parameter=options.parameter,
             time_resolution=options.resolution,
             period_type=read_list(options.period),
