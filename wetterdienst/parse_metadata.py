@@ -2,6 +2,7 @@
 from typing import Union
 import pandas as pd
 
+from wetterdienst.additionals.functions import parse_enumeration_from_template
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
@@ -42,9 +43,9 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
     if create_new_file_index:
         reset_file_index_cache()
 
-    parameter = Parameter(parameter)
-    time_resolution = TimeResolution(time_resolution)
-    period_type = PeriodType(period_type)
+    parameter = parse_enumeration_from_template(parameter, Parameter)
+    time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
+    period_type = parse_enumeration_from_template(period_type, PeriodType)
 
     meta_index = create_meta_index_for_dwd_data(
         parameter, time_resolution, period_type)

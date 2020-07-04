@@ -1,13 +1,14 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union, Callable
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameter
 
 FILE_2_PARAMETER = {
     TimeResolution.MINUTE_1:
@@ -236,3 +237,27 @@ def cast_to_list(iterable_) -> list:
             iterable_ = [iterable_]
 
     return iterable_
+
+
+def parse_enumeration_from_template(
+        enum_: Union[str, Parameter, TimeResolution, PeriodType],
+        enum_template: Union[Parameter, TimeResolution, PeriodType, Callable]
+) -> Union[Parameter, TimeResolution, PeriodType]:
+    """
+    Function used to parse an enumeration(string) to a enumeration based on a template
+    Args:
+        enum_: enumeration as string or Enum
+        enum_template: base enumeration from which the enumeration is parsed
+
+    Returns:
+        parsed enumeration from template
+    Raises:
+        InvalidParameter if no matching enumeration found
+    """
+    try:
+        return enum_template[enum_.upper()]
+    except (KeyError, AttributeError):
+        try:
+            return enum_template(enum_)
+        except ValueError:
+            raise InvalidParameter(f"{enum_} could not be parsed from {enum_template.__name__}.")

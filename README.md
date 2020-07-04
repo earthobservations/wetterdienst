@@ -48,7 +48,7 @@ The available parameters are also sorted in different periods:
 - recent values covering data from latest plus a certain range of historical data / **recent**
 - current values covering only latest data / **now**
 
-It is also possible to use enumeration keywords. This table lists the available enumeration keyword mappings on the CDC server.
+The table below lists the available enumeration keyword mappings on the CDC server.
 
 |Parameter/Granularity                              | 1_minute              | 10_minutes            | hourly                | subdaily              | daily                 | monthly               | annual                | 
 |---------------------------------------------------|-----------------------|-----------------------|-----------------------|-----------------------|-----------------------|-----------------------|-----------------------|
@@ -71,6 +71,20 @@ It is also possible to use enumeration keywords. This table lists the available 
 | `PRECIPITATION_MORE = "more_precip"`              | :x:                   | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    |
 | `WATER_EQUIVALENT = "water_equiv"`                | :x:                   | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :x:                   | :x:                   |
 | `WEATHER_PHENOMENA = "weather_phenomena"`         | :x:                   | :x:                   | :x:                   | :x:                   | :heavy_check_mark:    | :heavy_check_mark:    | :heavy_check_mark:    |
+
+There are three possibilities to define parameter, time resolution and period type:
+- by using the exact enumeration e.g. 
+    ```
+    Parameter.CLIMATE_SUMMARY
+    ```
+- by using the enumeration string e.g. 
+    ```
+    "climate_summary" or "CLIMATE_SUMMARY"
+    ```
+- by using the originally defined parameter string e.g. 
+    ```
+    "kl"
+    ```
 
 ## 3. Functionality of the toolset
 

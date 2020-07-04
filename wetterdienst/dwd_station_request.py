@@ -9,7 +9,7 @@ from wetterdienst import collect_dwd_data
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.additionals.functions import check_parameters, cast_to_list
+from wetterdienst.additionals.functions import check_parameters, cast_to_list, parse_enumeration_from_template
 from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
@@ -64,17 +64,20 @@ class DWDStationRequest:
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
-        self.parameter = Parameter(parameter)
+        self.parameter = parse_enumeration_from_template(
+            parameter, Parameter)
 
-        self.time_resolution = TimeResolution(time_resolution)
+        self.time_resolution = parse_enumeration_from_template(
+            time_resolution, TimeResolution)
 
         self.period_type = []
         for pt in cast_to_list(period_type):
             if pt is None:
                 self.period_type.append(None)
-                continue
-
-            self.period_type.append(PeriodType(pt))
+            else:
+                self.period_type.append(
+                    parse_enumeration_from_template(pt, PeriodType)
+                )
 
         # Additional sorting required for self.period_type to ensure that for multiple
         # periods the data is first sourced from historical

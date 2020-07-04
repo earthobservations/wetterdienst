@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Union, Optional
 import pandas as pd
 
-from wetterdienst.additionals.functions import check_parameters
+from wetterdienst.additionals.functions import check_parameters, parse_enumeration_from_template
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
@@ -53,18 +53,19 @@ def collect_dwd_data(station_ids: List[int],
     Returns:
         a pandas DataFrame with all the data given by the station ids
     """
-    parameter = Parameter(parameter)
-    time_resolution = TimeResolution(time_resolution)
-    period_type = PeriodType(period_type)
+    parameter = parse_enumeration_from_template(parameter, Parameter)
+    time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
+    period_type = parse_enumeration_from_template(period_type, PeriodType)
 
     if not check_parameters(parameter, time_resolution, period_type):
         raise InvalidParameterCombination(
-            f"The combination of {parameter.value}, {time_resolution.value}, {period_type.value} is invalid.")
+            f"The combination of {parameter.value}, {time_resolution.value}, "
+            f"{period_type.value} is invalid.")
 
     # Override parallel for time resolutions with only one file per station
     # to prevent overhead
     if parallel_processing and time_resolution not in \
-            [TimeResolution.MINUTE_1, TimeResolution.MINUTE_10]:
+            (TimeResolution.MINUTE_1, TimeResolution.MINUTE_10):
         parallel_processing = False
 
     if create_new_file_index:
