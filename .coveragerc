@@ -1,11 +1,11 @@
 [run]
-branch = True
-source = wetterdienst
+branch = true
+source =
+    wetterdienst
 
 [report]
-ignore_errors = True
+show_missing = true
 fail_under = 0
-
 omit =
     wetterdienst/cli.py
     wetterdienst/run.py

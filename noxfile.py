@@ -11,24 +11,22 @@ from nox.sessions import Session
 @nox.session(python=["3.6", "3.7", "3.8"])
 def tests(session):
     """Run tests."""
+    session.run("poetry", "install", "--no-dev", external=True)
     install_with_constraints(
-        session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock"
+        session, "pytest", "mock"
     )
-    session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov-config=.coveragerc", "--cov-report=xml", "--cov=wetterdienst", "tests/")
+    session.run("pytest")
 
     
-# @nox.session(python=["3.8"])
-# def coverage(session: Session) -> None:
-#     """Run tests and upload coverage data."""
-#     install_with_constraints(
-#         session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock", "codecov"
-#     )
-#     session.run("poetry", "install", external=True)
-#     session.run("pytest", "--cov=./", "--cov-config=.coveragerc", "--cov-report=xml")
-#     # install_with_constraints(session, "coverage[toml]", "codecov")
-#     # session.run("coverage", "xml")
-#     session.run("codecov", *session.posargs)
+@nox.session(python=["3.7"])
+def coverage(session: Session) -> None:
+    """Run tests and upload coverage data."""
+    session.run("poetry", "install", "--no-dev", external=True)
+    install_with_constraints(
+        session, "coverage[toml]", "pytest", "pytest-cov", "mock"
+    )
+    session.run("pytest", "--cov=wetterdienst", "tests/")
+    session.run("coverage", "xml")
 
 
 def install_with_constraints(

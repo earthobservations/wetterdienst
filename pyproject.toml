@@ -72,10 +72,10 @@ matplotlib       = { version = "^3.0.3", optional = true }
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 
 [tool.poetry.dev-dependencies]
+coverage = {extras = ["toml"], version = "^5.0.1"}
 pytest = "^5.4.3"
-mock = "^4.0"
 pytest-cov = "^2.10.0"
-#codecov = "^2.1.7"
+mock = "^4.0"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
