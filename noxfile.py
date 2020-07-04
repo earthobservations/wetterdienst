@@ -15,20 +15,20 @@ def tests(session):
         session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock"
     )
     session.run("poetry", "install", external=True)
-    session.run("pytest")
+    session.run("pytest", "--cov=./", "--cov-config=.coveragerc", "--cov-report=xml")
 
     
-@nox.session(python=["3.8"])
-def coverage(session: Session) -> None:
-    """Run tests and upload coverage data."""
-    install_with_constraints(
-        session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock", "codecov"
-    )
-    session.run("poetry", "install", external=True)
-    session.run("pytest", "--cov=./", "--cov-config=.coveragerc", "--cov-report=xml")
-    # install_with_constraints(session, "coverage[toml]", "codecov")
-    # session.run("coverage", "xml")
-    session.run("codecov", *session.posargs)
+# @nox.session(python=["3.8"])
+# def coverage(session: Session) -> None:
+#     """Run tests and upload coverage data."""
+#     install_with_constraints(
+#         session, "coverage[toml]", "pytest", "pytest-cov", "pytest-mock", "codecov"
+#     )
+#     session.run("poetry", "install", external=True)
+#     session.run("pytest", "--cov=./", "--cov-config=.coveragerc", "--cov-report=xml")
+#     # install_with_constraints(session, "coverage[toml]", "codecov")
+#     # session.run("coverage", "xml")
+#     session.run("codecov", *session.posargs)
 
 
 def install_with_constraints(
