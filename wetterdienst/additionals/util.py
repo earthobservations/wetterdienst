@@ -2,7 +2,6 @@
 import sys
 import logging
 
-from docopt import docopt
 from munch import Munch, munchify
 
 
