@@ -1,10 +1,11 @@
 # Changelog
 
 ## Development
-- ...
+- [cli] Add geospatial filtering by distance.
+- [cli] Filter stations by station identifiers.
 
 ## 0.1.1 (05.07.2020)
-- Bring geospatial filtering to the command line.
+- [cli] Add geospatial filtering by number of nearby stations.
 - Simplify release pipeline
 - small updates to readme
 - change updating "parallel" argument to be done after parameter parsing to prevent mistakenly not found 
