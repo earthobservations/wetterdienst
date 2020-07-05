@@ -1,6 +1,7 @@
 """ calculates the nearest weather station to a requested location"""
 from typing import List, Union, Tuple, Optional
 import numpy as np
+import pandas as pd
 from scipy.spatial import cKDTree
 
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
@@ -131,3 +132,45 @@ def _derive_nearest_neighbours(latitudes_stations: np.array,
     return distance_tree.query(
         coordinates.get_coordinates_in_radians(),
         k=num_stations_nearby)
+
+
+def stations_to_geojson(df: pd.DataFrame) -> dict:
+    """
+    Convert DWD station information into GeoJSON format.
+
+    :param df: Input DataFrame containing station information.
+    :return: Dictionary in GeoJSON FeatureCollection format.
+    """
+
+    df = df.rename(columns=str.lower)
+
+    features = []
+    for index, station in df.iterrows():
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": station["station_id"],
+                    "name": station["stationname"],
+                    "state": station["state"],
+                    "from_date": station["from_date"].isoformat(),
+                    "to_date": station["to_date"].isoformat(),
+                    "has_file": station["has_file"],
+                },
+                "geometry": {
+                    # WGS84 is implied and coordinates represent decimal degrees ordered as
+                    # "longitude, latitude [,elevation]" with z expressed as metres
+                    # above mean sea level per WGS84.
+                    # -- http://wiki.geojson.org/RFC-001
+                    "type": "Point",
+                    "coordinates": [station["lon"], station["lat"], station["stationheight"]],
+                },
+            }
+        )
+
+    data = {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+    return data

@@ -3,6 +3,7 @@
 ## Development
 - [cli] Add geospatial filtering by distance.
 - [cli] Filter stations by station identifiers.
+- [cli] Add GeoJSON output format for station data.
 
 ## 0.1.1 (05.07.2020)
 - [cli] Add geospatial filtering by number of nearby stations.

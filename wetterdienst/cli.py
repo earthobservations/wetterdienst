@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
+import json
 import logging
 from typing import Tuple, List
 
@@ -8,6 +9,7 @@ from munch import Munch
 import pandas as pd
 
 from wetterdienst import __version__, metadata_for_dwd_data, get_nearby_stations
+from wetterdienst.additionals.geo_location import stations_to_geojson
 from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
 from wetterdienst.additionals.util import normalize_options, setup_logging, read_list
 from wetterdienst.dwd_station_request import DWDStationRequest
@@ -52,11 +54,14 @@ def run():
       # Get list of all stations for daily climate summary data in JSON format
       wetterdienst stations --parameter=kl --resolution=daily --period=recent
 
-      # Get list of all stations for daily climate summary data in CSV format
+      # Get list of all stations in CSV format
       wetterdienst stations --parameter=kl --resolution=daily --period=recent --format=csv
 
-      # Get list of specific stations for daily climate summary
+      # Get list of specific stations
       wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=1,1048,2667
+
+      # Get list of specific stations in GeoJSON format
+      wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=1,1048,2667 --format=geojson
 
     Examples requesting readings:
 
@@ -200,6 +205,12 @@ def run():
     if options.format == 'json':
         output = df.to_json(orient='records', date_format='iso', indent=4)
 
+    # Output as GeoJSON.
+    elif options.format == 'geojson':
+        if options.readings:
+            raise KeyError('GeoJSON format only available for stations output')
+        output = json.dumps(stations_to_geojson(df), indent=4)
+
     # Output as CSV.
     elif options.format == 'csv':
         #df.to_csv(f"metadata_{options.parameter}_{options.resolution}_{options.period}.csv")
@@ -213,7 +224,7 @@ def run():
         return
 
     else:
-        log.error('Output format must be one of "json", "csv", "excel".')
+        log.error('Output format must be one of "json", "geojson", "csv", "excel".')
         sys.exit(1)
 
     print(output)
