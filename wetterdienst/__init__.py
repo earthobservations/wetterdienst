@@ -1,3 +1,6 @@
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.parse_metadata import metadata_for_dwd_data
 from wetterdienst.file_path_handling.file_list_creation import \
     create_file_list_for_dwd_server
