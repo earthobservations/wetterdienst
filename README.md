@@ -95,24 +95,25 @@ The toolset provides different functions/classes which are:
     especially which stations can be found. 
     - with **create_new_file_index**, the function can be forced to retrieve a new list of files from the server, 
     which is usually avoided as it rarely changes.
-- **create_file_list_for_dwd_server:**
-    - is used with the help of the metadata to retrieve file paths to files for a set of parameters + station id
-    - here also **create_new_file_index** can be used
-- **download_dwd_data:**
-    - is used with the created file paths to download and store the data (second os optionally, in a hdf)
-- **parse_dwd_data:**
-    - is used to get the data into the Python environment in shape of a pandas DataFrame. 
-    - the data will be ready to be analyzed by you!
-- **get_nearest_station:**
-    - calculates the nearest weather station based on the coordinates for the requested data
-    - it returns a list of station ids that can be used to download the data
+- **get_nearby_stations:**
+    - calculates the close weather stations based on the coordinates for the requested data
+    - either selected by rank (n stations) or by distance in km
+    - it returns a list of station ids that can be used to download the data plus the distances
 - **collect_dwd_data:**
     - combines create_file_list_for_dwd_server, download_dwd_data and parse_dwd_data for multiple stations
+    - wraps the following three functions:
+        - **create_file_list_for_dwd_server:**
+            - is used with the help of the metadata to retrieve file paths to files for a set of parameters + station id
+            - here also **create_new_file_index** can be used
+        - **download_dwd_data:**
+            - is used with the created file paths to download and store the data (second os optionally, in a hdf)
+        - **parse_dwd_data:**
+            - is used to get the data into the Python environment in shape of a pandas DataFrame. 
+            - the data will be ready to be analyzed by you!
 - **DWDStationRequest:**
     - a class that can combine multiple periods/date ranges for any number of stations for you
     
 Additionally the following functions allow you to reset the cache of the file/meta index:
-
 - **reset_file_index_cache:**
     - reset the cached file index to get latest list of files (only required for constantly running system)
 - **reset_meta_index_cache:**
@@ -123,9 +124,7 @@ Additionally the following functions allow you to reset the cache of the file/me
 To retrieve meta data and get a first insight:
 ```
 import wetterdienst
-from wetterdienst.enumerations.period_type_enumeration import PeriodType
-from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst import Parameter, PeriodType, TimeResolution
 
 metadata = wetterdienst.metadata_for_dwd_data(
     parameter=Parameter.PRECIPITATION_MORE,
@@ -133,15 +132,26 @@ metadata = wetterdienst.metadata_for_dwd_data(
     period_type=PeriodType.HISTORICAL
 )
 ```
-
 The column **HAS_FILE** indicates if the station has a file with data on the server.
+
+To get nearby stations:
+```
+from wetterdienst import Parameter, PeriodType, TimeResolution
+from wetterdienst import get_nearby_stations
+
+get_nearby_stations(
+    [50., 51.4], [8.9, 9.3],
+    Parameter.TEMPERATURE_AIR,
+    TimeResolution.HOURLY,
+    PeriodType.RECENT,
+    num_stations_nearby=1
+)
+```
 
 To retrieve observation data:
 ``` 
 import wetterdienst
-from wetterdienst.enumerations.period_type_enumeration import PeriodType
-from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst import Parameter, PeriodType, TimeResolution
 
 station_data = wetterdienst.collect_dwd_data(
     station_ids=[1048], 
