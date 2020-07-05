@@ -90,32 +90,32 @@ There are three possibilities to define parameter, time resolution and period ty
 
 The toolset provides different functions/classes which are:
 
-- metadata_for_dwd_data
+- **metadata_for_dwd_data:**
     - discover what data for a set of parameters (parameter, time_resolution, period_type) is available, 
     especially which stations can be found. 
     - with **create_new_file_index**, the function can be forced to retrieve a new list of files from the server, 
     which is usually avoided as it rarely changes.
-- create_file_list_for_dwd_server:
+- **create_file_list_for_dwd_server:**
     - is used with the help of the metadata to retrieve file paths to files for a set of parameters + station id
     - here also **create_new_file_index** can be used
-- download_dwd_data:
-    - is used with the created file paths to **download and store** the data (second os optionally, in a hdf)
-- parse_dwd_data:
+- **download_dwd_data:**
+    - is used with the created file paths to download and store the data (second os optionally, in a hdf)
+- **parse_dwd_data:**
     - is used to get the data into the Python environment in shape of a pandas DataFrame. 
     - the data will be ready to be analyzed by you!
-- get_nearest_station:
+- **get_nearest_station:**
     - calculates the nearest weather station based on the coordinates for the requested data
     - it returns a list of station ids that can be used to download the data
-- collect_dwd_data:
+- **collect_dwd_data:**
     - combines create_file_list_for_dwd_server, download_dwd_data and parse_dwd_data for multiple stations
-- DWDStationRequest:
+- **DWDStationRequest:**
     - a class that can combine multiple periods/date ranges for any number of stations for you
     
-Additionally the following functions allow you to reset the cache:
+Additionally the following functions allow you to reset the cache of the file/meta index:
 
-- reset_file_index_cache:
+- **reset_file_index_cache:**
     - reset the cached file index to get latest list of files (only required for constantly running system)
-- reset_meta_index_cache:
+- **reset_meta_index_cache:**
     - reset the cached meta index to get latest list of files (only required for constantly running system)
  
 ### Basic usage:
@@ -154,7 +154,7 @@ station_data = wetterdienst.collect_dwd_data(
 Also one may try out DWDStationRequest, a class to define the whole request, which also covers the definition of a 
 requested time range, which may combine different periods of one data for you.
 
-Also check out the more advanced examples in the **example** folder.
+Also check out the more advanced examples in the **example/** folder.
 
 ## 4. About the metadata
 

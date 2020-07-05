@@ -45,7 +45,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.6.1"
+python = "^3.6.1"
 pandas = "1.0.4"
 tables = "3.6.1"
 numpy = "1.18.3"
@@ -72,7 +72,7 @@ matplotlib       = { version = "^3.0.3", optional = true }
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 
 [tool.poetry.dev-dependencies]
-coverage = {extras = ["toml"], version = "^5.0.1"}
+coverage = {extras = ["toml"], version = "5"}
 pytest = "^5.4.3"
 pytest-cov = "^2.10.0"
 mock = "^4.0"
