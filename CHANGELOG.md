@@ -1,5 +1,8 @@
 # Changelog
 
+## Development
+- ...
+
 ## 0.1.1 (05.07.2020)
 - Bring geospatial filtering to the command line.
 - Simplify release pipeline
