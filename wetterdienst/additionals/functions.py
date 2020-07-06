@@ -231,7 +231,43 @@ def coerce_column_types(df: pd.DataFrame,
         else:
             df[column] = df[column].astype(float)
 
+    # FIXME: Should be based on the upcoming knowledgebase subsystem.
+    coerce_integer_columns(df)
+
     return df
+
+
+def coerce_integer_columns(df: pd.DataFrame):
+    """
+    Coerce specific columns designated as Integer types.
+
+    FIXME: Should be based on the upcoming knowledgebase subsystem.
+
+    :param df:
+    :return:
+    """
+    integer_fields = [
+
+        # Different quality level fields.
+        'QN',
+        'QN_2',     # Soil temperature (daily)
+        'QN_3',     # Daily observations (daily), Wind (hourly)
+        'QN_4',     # Daily observations (daily)
+        'QN_7',     # Sun (hourly)
+        'QN_8',     # Precipitation, pressure, cloudiness, visibility (hourly)
+        'QN_9',     # Air temperature, pressure (hourly)
+        'QN_592',   # Solar (hourly)
+
+        # Column "precipitation_form" from "daily observations".
+        'RSKF',
+    ]
+
+    # In version 0.24.+ pandas has gained the ability to hold integer dtypes with missing values.
+    # https://pandas.pydata.org/pandas-docs/stable/user_guide/integer_na.html
+    # https://stackoverflow.com/questions/21287624/convert-pandas-column-containing-nans-to-dtype-int/21290084
+    for integer_field in integer_fields:
+        if integer_field in df.columns:
+            df[integer_field] = df[integer_field].astype('Int64')
 
 
 def cast_to_list(iterable_) -> list:

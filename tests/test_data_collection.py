@@ -1,5 +1,6 @@
 """ Tests for data_collection """
 import mock
+import numpy
 import pytest
 from mock import patch
 from pathlib import Path
@@ -146,6 +147,10 @@ def test_collect_daily_vanilla():
         'TGK',
     ]
 
+    assert isinstance(data.iloc[0]['QN_3'], numpy.int64)
+    assert isinstance(data.iloc[0]['QN_4'], numpy.int64)
+    assert isinstance(data.iloc[0]['RSKF'], numpy.int64)
+
 
 @pytest.mark.remote
 def test_collect_daily_humanized():
@@ -180,6 +185,8 @@ def test_collect_daily_humanized():
         'TEMPERATURE_MIN_005',
     ]
 
+    assert isinstance(data.iloc[0]['PRECIPITATION_FORM'], numpy.int64)
+
 
 @pytest.mark.remote
 def test_collect_hourly_vanilla():
@@ -199,3 +206,5 @@ def test_collect_hourly_vanilla():
         'TT_TU',
         'RF_TU',
     ]
+
+    assert isinstance(data.iloc[0]['QN_9'], numpy.int64)
