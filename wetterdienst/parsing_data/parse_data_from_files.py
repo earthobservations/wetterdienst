@@ -3,8 +3,6 @@ import logging
 from typing import List, Tuple, Union
 from io import BytesIO
 import pandas as pd
-from functools import partial
-from multiprocessing import Pool
 
 from wetterdienst.additionals.functions import create_station_data_dtype_mapping
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
@@ -19,8 +17,7 @@ log = logging.getLogger(__name__)
 
 def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
                    parameter: Parameter,
-                   time_resolution: Union[TimeResolution, str],
-                   parallel: bool = False) -> pd.DataFrame:
+                   time_resolution: Union[TimeResolution, str]) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
     The filename is required to defined if and where an error happened.
@@ -30,7 +27,6 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
         that should be read
         parameter: enumeration of parameter used to correctly parse the date field
         time_resolution: enumeration of time resolution used to correctly parse the date field
-        parallel: bool set for parallel processing
 
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
@@ -38,64 +34,40 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
 
     time_resolution = TimeResolution(time_resolution)
 
-    data = []
+    byte_string = b""
 
-    if parallel:
-        with Pool() as p:
-            data.extend(
-                p.map(
-                    partial(_parse_dwd_data, parameter=parameter, time_resolution=time_resolution),
-                    filenames_and_files)
-            )
-    else:
-        for filename_and_file in filenames_and_files:
-            data.append(_parse_dwd_data(filename_and_file, parameter, time_resolution))
+    # Walk over every file
+    for filename, file in filenames_and_files:
+        # Get byte string from file
+        file_byte_string = file.read()
 
-    data = pd.concat(data).reset_index(drop=True)
+        if len(file_byte_string) == 0:
+            log.warning(f"The file {filename} has no bytes in it and is skipped.")
+            continue
 
-    return data
+        # If the byte_string is empty write all to it to include the header
+        if len(byte_string) == 0:
+            byte_string += file_byte_string
+        # Otherwise exclude the first line (header)
+        else:
+            byte_string += file_byte_string[file_byte_string.index(b"\n") + 1]
 
+    # Remove empty strings and ";eor"
+    # ";eor" required to remove as some files of 10minutes have ;eor, while others do not have it
+    # which results in pandas parser error
+    data = BytesIO(byte_string.replace(b" ", b"").replace(b";eor", b""))
 
-def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
-                    parameter: Parameter,
-                    time_resolution: TimeResolution) -> pd.DataFrame:
-    """
-    A wrapping function that only handles data for one station id. The files passed to it are thus related to this id.
-    This is important for storing the data locally as the DataFrame that is stored should obviously only handle one
-    station at a time.
+    data = pd.read_csv(
+        filepath_or_buffer=data,
+        sep=STATION_DATA_SEP,
+        na_values=NA_STRING,
+        dtype="str"
+    )
 
-    Args:
-        filename_and_file: the files belonging to one station
-        time_resolution: enumeration of time resolution used to correctly parse the date field
-    Returns:
-        pandas.DataFrame with data from that station, acn be empty if no data is provided or local file is not found
-    or has no data in it
-    """
-    filename, file = filename_and_file
-
-    try:
-        data = pd.read_csv(
-            filepath_or_buffer=file,
-            sep=STATION_DATA_SEP,
-            na_values=NA_STRING,
-            dtype="str",
-            skipinitialspace=True
-        )
-    except pd.errors.ParserError:
-        log.warning(f"The file representing {filename} could not be parsed and is skipped.")
-        return pd.DataFrame()
-    except ValueError:
-        log.warning(f"The file representing {filename} is None and is skipped.")
-        return pd.DataFrame()
-
-    # Column names contain spaces, so strip them away.
     data = data.rename(columns=str.strip)
 
     # Make column names uppercase.
     data = data.rename(columns=str.upper)
-
-    # End of record (EOR) has no value, so drop it right away.
-    data = data.drop(columns=DWDMetaColumns.EOR.value, errors='ignore')
 
     # Special handling for hourly solar data, as it has more date columns
     if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:

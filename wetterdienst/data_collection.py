@@ -26,7 +26,6 @@ def collect_dwd_data(station_ids: List[int],
                      period_type: Union[PeriodType, str],
                      folder: Union[str, Path] = DWD_FOLDER_MAIN,
                      prefer_local: bool = False,
-                     parallel_processing: bool = False,
                      write_file: bool = False,
                      create_new_file_index: bool = False,
                      humanize_column_names: bool = False,
@@ -44,7 +43,6 @@ def collect_dwd_data(station_ids: List[int],
         period_type: period type as enumeration
         folder: folder for local file interaction
         prefer_local: boolean for if local data should be preferred
-        parallel_processing: boolean if to use parallel download/processing
         write_file: boolean if to write data to local storage
         create_new_file_index: boolean if to create a new file index for the data selection
         humanize_column_names: boolean to yield column names better for human consumption
@@ -61,12 +59,6 @@ def collect_dwd_data(station_ids: List[int],
         raise InvalidParameterCombination(
             f"The combination of {parameter.value}, {time_resolution.value}, "
             f"{period_type.value} is invalid.")
-
-    # Override parallel for time resolutions with only one file per station
-    # to prevent overhead
-    if parallel_processing and time_resolution not in \
-            (TimeResolution.MINUTE_1, TimeResolution.MINUTE_10):
-        parallel_processing = False
 
     if create_new_file_index:
         reset_file_index_cache()
@@ -99,10 +91,10 @@ def collect_dwd_data(station_ids: List[int],
             log.info(f"No files found for {request_string}. Station will be skipped.")
             continue
 
-        filenames_and_files = download_dwd_data(remote_files, parallel_processing)
+        filenames_and_files = download_dwd_data(remote_files)
 
         station_data = parse_dwd_data(
-            filenames_and_files, parameter, time_resolution, parallel_processing)
+            filenames_and_files, parameter, time_resolution)
 
         if write_file:
             store_dwd_data(

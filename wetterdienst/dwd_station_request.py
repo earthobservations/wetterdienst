@@ -32,7 +32,6 @@ class DWDStationRequest:
                  prefer_local: bool = False,
                  write_file: bool = False,
                  folder: Union[str, Path] = DWD_FOLDER_MAIN,
-                 parallel_processing: bool = False,
                  create_new_file_index: bool = False,
                  humanize_column_names: bool = False) -> None:
         """
@@ -50,7 +49,6 @@ class DWDStationRequest:
             prefer_local: definition if data should rather be taken from a local source
             write_file: should data be written to a local file
             folder: place where file lists (and station data) are stored
-            parallel_processing: definition if data is downloaded/processed in parallel
             create_new_file_index: definition if the file index should be recreated
             humanize_column_names:
         """
@@ -116,7 +114,6 @@ class DWDStationRequest:
         self.prefer_local = prefer_local
         self.write_file = write_file
         self.folder = folder
-        self.parallel_processing = parallel_processing
         self.create_new_file_index = create_new_file_index
         self.humanize_column_names = humanize_column_names
 
@@ -163,7 +160,6 @@ class DWDStationRequest:
                     period_type=period_type,
                     folder=self.folder,
                     prefer_local=self.prefer_local,
-                    parallel_processing=self.parallel_processing,
                     write_file=self.write_file,
                     create_new_file_index=False,
                     humanize_column_names=self.humanize_column_names
