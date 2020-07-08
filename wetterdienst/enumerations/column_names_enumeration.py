@@ -66,6 +66,7 @@ class DWDMetaColumns(Enum):
     FILENAME = "FILENAME"
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
+    EOR = "EOR"
 
 
 class DWDDataColumns(Enum):

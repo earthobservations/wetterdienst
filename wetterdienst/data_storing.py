@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Union
 import pandas as pd
 
-from wetterdienst.additionals.functions import create_station_data_dtype_mapping
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -83,10 +82,9 @@ def restore_dwd_data(station_id: int,
         return pd.DataFrame()
 
     # Cast to pandas DataFrame
-    station_data_df = pd.DataFrame(station_data)
+    station_data = pd.DataFrame(station_data)
 
-    return station_data_df.astype(
-        create_station_data_dtype_mapping(station_data_df.columns))
+    return station_data
 
 
 def _build_local_store_key(station_id: Union[str, int],

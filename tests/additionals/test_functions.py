@@ -41,23 +41,6 @@ def test_determine_parameters():
                                                                    PeriodType.HISTORICAL)
 
 
-def test_create_station_data_dtype_mapping():
-    station_data_dtype_mapping = create_station_data_dtype_mapping(
-        [
-            DWDMetaColumns.STATION_ID.value,
-            DWDMetaColumns.DATE.value,
-            DWDDataColumns.END_OF_INTERVAL.value,
-            DWDDataColumns.RSK.value
-        ]
-    )
-    assert station_data_dtype_mapping == {
-        "STATION_ID": int,
-        "DATE": "datetime64",
-        "END_OF_INTERVAL": "datetime64",
-        "PRECIPITATION_HEIGHT": float
-    }
-
-
 def test_cast_to_list():
     assert cast_to_list("abc") == ["abc"]
     assert cast_to_list(1) == [1]

@@ -1,10 +1,13 @@
 """
 A set of more general functions used for the organization
 """
-from typing import Tuple, List, Optional, Union, Callable
+from typing import Tuple, Optional, Union, Callable
+import pandas as pd
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
+from wetterdienst.constants.time_resolution_mapping import TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
+from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -184,7 +187,8 @@ def check_parameters(parameter: Parameter,
     return True
 
 
-def create_station_data_dtype_mapping(columns: List[str]) -> dict:
+def convert_station_data_dtypes(station_data: pd.DataFrame,
+                                time_resolution: TimeResolution) -> pd.DataFrame:
     """
     A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
     want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
@@ -192,15 +196,14 @@ def create_station_data_dtype_mapping(columns: List[str]) -> dict:
     thus after reading data back in the dtypes have to be matched.
 
     Args:
-        columns: the column names of the DataFrame whose data should be converted
+        station_data: the station_data gathered in a pandas.DataFrame
+        time_resolution: time resolution of the data as enumeration
     Return:
-         a dictionary with column names and dtypes for each of them
+         station data with converted dtypes
     """
-    station_data_dtype_mapping = dict()
-
     """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
-    date_columns = (
+    regular_date_columns = (
         DWDMetaColumns.DATE.value,
         DWDMetaColumns.FROM_DATE.value,
         DWDMetaColumns.TO_DATE.value,
@@ -208,15 +211,27 @@ def create_station_data_dtype_mapping(columns: List[str]) -> dict:
         DWDDataColumns.TRUE_LOCAL_TIME.value
     )
 
-    for column in columns:
-        if column == DWDMetaColumns.STATION_ID.value:
-            station_data_dtype_mapping[column] = int
-        elif column in date_columns:
-            station_data_dtype_mapping[column] = "datetime64"
-        else:
-            station_data_dtype_mapping[column] = float
+    irregular_date_columns = (
+        DWDDataColumns.END_OF_INTERVAL.value,
+        DWDDataColumns.TRUE_LOCAL_TIME.value,
+    )
 
-    return station_data_dtype_mapping
+    for column in station_data.columns:
+        # Properly handle timestamps from "hourly" resolution, subdaily also has hour in timestamp
+        if column == DWDMetaColumns.STATION_ID.value:
+            station_data[column] = station_data[column].astype(int)
+        elif column in regular_date_columns:
+            station_data[column] = pd.to_datetime(
+                station_data[column],
+                format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution]
+            )
+        elif column in irregular_date_columns:
+            station_data[column] = pd.to_datetime(
+                station_data[column], format=DatetimeFormat.YMDH_COLUMN_M.value)
+        else:
+            station_data[column] = pd.to_numeric(station_data[column], "coerce")
+
+    return station_data
 
 
 def cast_to_list(iterable_) -> list:
