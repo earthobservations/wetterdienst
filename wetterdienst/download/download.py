@@ -3,8 +3,8 @@ from typing import List, Union, Tuple
 from pathlib import Path
 import zipfile
 from io import BytesIO
-from multiprocessing.dummy import Pool
 from requests.exceptions import InvalidURL
+from concurrent.futures import ThreadPoolExecutor
 
 from wetterdienst.download.download_services import download_file_from_climate_observations
 from wetterdienst.exceptions.failed_download_exception import FailedDownload
@@ -16,8 +16,9 @@ PRODUCT_FILE_IDENTIFIER = 'produkt'
 def download_dwd_data(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
-    with Pool() as p:
-        files_in_bytes = p.map(_download_dwd_data, remote_files)
+    with ThreadPoolExecutor() as executor:
+        files_in_bytes = executor.map(_download_dwd_data, remote_files)
+
     return list(
         zip(
             remote_files,

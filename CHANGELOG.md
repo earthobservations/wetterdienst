@@ -4,7 +4,7 @@
 - [cli] Add geospatial filtering by distance.
 - [cli] Filter stations by station identifiers.
 - [cli] Add GeoJSON output format for station data.
-- improvements to parsing high resolution data by setting specific datetime formats
+- improvements to parsing high resolution data by setting specific datetime formats and changing to concurrent.futures
 - fix na value detection for cases where cells have leading and trailing whitespace
 
 ## 0.1.1 (05.07.2020)

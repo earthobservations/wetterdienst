@@ -2,8 +2,7 @@ import pytest
 
 from wetterdienst.additionals.functions import check_parameters, retrieve_time_resolution_from_filename, \
     retrieve_parameter_from_filename, retrieve_period_type_from_filename, determine_parameters, \
-    create_station_data_dtype_mapping, cast_to_list, parse_enumeration_from_template
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
+    cast_to_list, parse_enumeration_from_template
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter

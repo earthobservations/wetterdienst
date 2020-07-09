@@ -187,8 +187,8 @@ def check_parameters(parameter: Parameter,
     return True
 
 
-def convert_station_data_dtypes(station_data: pd.DataFrame,
-                                time_resolution: TimeResolution) -> pd.DataFrame:
+def coerce_column_types(df: pd.DataFrame,
+                        time_resolution: TimeResolution) -> pd.DataFrame:
     """
     A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
     want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
@@ -196,7 +196,7 @@ def convert_station_data_dtypes(station_data: pd.DataFrame,
     thus after reading data back in the dtypes have to be matched.
 
     Args:
-        station_data: the station_data gathered in a pandas.DataFrame
+        df: the station_data gathered in a pandas.DataFrame
         time_resolution: time resolution of the data as enumeration
     Return:
          station data with converted dtypes
@@ -216,22 +216,22 @@ def convert_station_data_dtypes(station_data: pd.DataFrame,
         DWDDataColumns.TRUE_LOCAL_TIME.value,
     )
 
-    for column in station_data.columns:
+    for column in df.columns:
         # Properly handle timestamps from "hourly" resolution, subdaily also has hour in timestamp
         if column == DWDMetaColumns.STATION_ID.value:
-            station_data[column] = station_data[column].astype(int)
+            df[column] = df[column].astype(int)
         elif column in regular_date_columns:
-            station_data[column] = pd.to_datetime(
-                station_data[column],
+            df[column] = pd.to_datetime(
+                df[column],
                 format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution]
             )
         elif column in irregular_date_columns:
-            station_data[column] = pd.to_datetime(
-                station_data[column], format=DatetimeFormat.YMDH_COLUMN_M.value)
+            df[column] = pd.to_datetime(
+                df[column], format=DatetimeFormat.YMDH_COLUMN_M.value)
         else:
-            station_data[column] = pd.to_numeric(station_data[column], "coerce")
+            df[column] = df[column].astype(float)
 
-    return station_data
+    return df
 
 
 def cast_to_list(iterable_) -> list:

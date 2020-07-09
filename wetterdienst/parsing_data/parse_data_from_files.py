@@ -3,10 +3,8 @@ import logging
 from typing import List, Tuple, Union
 from io import BytesIO
 import pandas as pd
-from functools import partial
-from multiprocessing.dummy import Pool
 
-from wetterdienst.additionals.functions import convert_station_data_dtypes
+from wetterdienst.additionals.functions import coerce_column_types
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from wetterdienst.constants.metadata import NA_STRING, STATION_DATA_SEP
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDOrigColumns
@@ -27,18 +25,14 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
         that should be read
         parameter: enumeration of parameter used to correctly parse the date field
         time_resolution: enumeration of time resolution used to correctly parse the date field
-        parallel: bool set for parallel processing
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
     """
 
     time_resolution = TimeResolution(time_resolution)
 
-    with Pool() as p:
-        data = p.map(
-                partial(_parse_dwd_data, parameter=parameter, time_resolution=time_resolution),
-                filenames_and_files
-        )
+    data = [_parse_dwd_data(filename_and_file, parameter, time_resolution)
+            for filename_and_file in filenames_and_files]
 
     data = pd.concat(data).reset_index(drop=True)
 
@@ -63,9 +57,10 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
 
     try:
         data = pd.read_csv(
-            filepath_or_buffer=file,
+            filepath_or_buffer=BytesIO(file.read().replace(b" ", b"")),  # prevent leading/trailing whitespace
             sep=STATION_DATA_SEP,
-            dtype="str"
+            dtype="str",
+            na_values=NA_STRING
         )
     except pd.errors.ParserError:
         log.warning(f"The file representing {filename} could not be parsed and is skipped.")
@@ -82,13 +77,6 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
 
     # End of record (EOR) has no value, so drop it right away.
     data = data.drop(columns=DWDMetaColumns.EOR.value, errors='ignore')
-
-    # Remove leading and trailing white space from columns (happens sometimes)
-    for column in data.columns:
-        data[column] = data[column].str.strip()
-
-    # Replace with NA
-    data = data.replace(to_replace=NA_STRING, value=pd.NA)
 
     # Special handling for hourly solar data, as it has more date columns
     if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
@@ -115,6 +103,6 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
     # Coerce the data types appropriately.
-    data = convert_station_data_dtypes(data, time_resolution)
+    data = coerce_column_types(data, time_resolution)
 
     return data
