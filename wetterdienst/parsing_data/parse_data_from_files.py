@@ -81,15 +81,17 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     # Special handling for hourly solar data, as it has more date columns
     if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
         # Rename date column correctly to end of interval, as it has additional minute information
+        # Also rename column with true local time to english one
         data = data.rename(
             columns={
-                DWDOrigColumns.DATE.value: DWDOrigColumns.END_OF_INTERVAL.value
+                DWDOrigMetaColumns.DATE.value: DWDOrigDataColumns.END_OF_INTERVAL.value,
+                "MESS_DATUM_WOZ": DWDOrigDataColumns.TRUE_LOCAL_TIME.value
             }
         )
 
         # Duplicate the end of interval column to create real datetime column
         # remove minutes e.g. ":09" at the end of string
-        data[DWDOrigColumns.DATE.value] = data[DWDOrigColumns.END_OF_INTERVAL.value].str[:-3]
+        data[DWDOrigDataColumns.DATE.value] = data[DWDOrigDataColumns.END_OF_INTERVAL.value].str[:-3]
 
         # Store columns for later reordering
         columns = data.columns.values.tolist()

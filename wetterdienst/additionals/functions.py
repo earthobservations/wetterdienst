@@ -276,3 +276,57 @@ def parse_enumeration_from_template(
             return enum_template(enum_)
         except ValueError:
             raise InvalidParameter(f"{enum_} could not be parsed from {enum_template.__name__}.")
+
+
+@lru_cache(maxsize=None)
+def create_humanized_column_names_mapping(time_resolution: TimeResolution,
+                                          parameter: Parameter) -> dict:
+    """
+    Function to create an extend humanized column names mapping. The function
+    takes care of the special cases of quality columns. Therefor it requires the
+    time resolution and parameter.
+
+    Args:
+        time_resolution: time resolution enumeration
+        parameter: parameter enumeration
+
+    Returns:
+        dictionary with mappings extended by quality columns mappings
+    """
+    base_mapping = GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED.copy()
+
+    quality_columns = [
+        DWDOrigDataColumns.QN,
+        DWDOrigDataColumns.QN_2,
+        DWDOrigDataColumns.QN_3,
+        DWDOrigDataColumns.QN_4,
+        DWDOrigDataColumns.QN_6,
+        DWDOrigDataColumns.QN_7,
+        DWDOrigDataColumns.QN_8,
+        DWDOrigDataColumns.QN_9,
+        DWDOrigDataColumns.QN_592
+    ]
+
+    if time_resolution == TimeResolution.DAILY and parameter == Parameter.CLIMATE_SUMMARY:
+        base_mapping.update(
+            {
+                DWDOrigDataColumns.QN_3.value: DWDDataColumns.QN_WIND.value,
+                DWDOrigDataColumns.QN_4.value: DWDDataColumns.QN_OTHERS.value,
+            }
+        )
+    elif time_resolution in [TimeResolution.MONTHLY, TimeResolution.ANNUAL] and parameter == Parameter.CLIMATE_SUMMARY:
+        base_mapping.update(
+            {
+                DWDOrigDataColumns.QN_4.value: DWDDataColumns.QN_OTHERS.value,
+                DWDOrigDataColumns.QN_6.value: DWDDataColumns.QN_PRECIPITATION.value,
+            }
+        )
+    else:
+        base_mapping.update(
+            {
+                qn_column.value: DWDDataColumns.QN.value
+                for qn_column in quality_columns
+            }
+        )
+
+    return base_mapping

@@ -67,6 +67,7 @@ def list_files_of_climate_observations(path: Union[PurePosixPath, str],
     if recursive:
         files_in_folders = [
             list_files_of_climate_observations(folder, recursive) for folder in folders]
+
         for files_in_folder in files_in_folders:
             files.extend(files_in_folder)
 
