@@ -29,7 +29,7 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
-    list_files_of_dwd_server,
+    list_remote_files,
 )
 
 
@@ -148,7 +148,7 @@ def _create_file_index_for_dwd_server(
 
     url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
 
-    files_server = list_files_of_dwd_server(url, recursive=True)
+    files_server = list_remote_files(url, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"

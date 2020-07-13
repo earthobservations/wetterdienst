@@ -42,7 +42,7 @@ def build_path_to_parameter(
     return f"{time_resolution.value}/{parameter.value}/{period_type.value}/"
 
 
-def list_files_of_dwd_server(url: str, recursive: bool) -> List[str]:
+def list_remote_files(url: str, recursive: bool) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server
 
@@ -78,9 +78,7 @@ def list_files_of_dwd_server(url: str, recursive: bool) -> List[str]:
             folders.append(urljoin(url, f))
 
     if recursive:
-        files_in_folders = [
-            list_files_of_dwd_server(folder, recursive) for folder in folders
-        ]
+        files_in_folders = [list_remote_files(folder, recursive) for folder in folders]
 
         for files_in_folder in files_in_folders:
             files.extend(files_in_folder)

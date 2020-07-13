@@ -6,7 +6,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
     build_local_filepath_for_station_data,
     build_path_to_parameter,
-    list_files_of_dwd_server,
+    list_remote_files,
 )
 
 
@@ -28,7 +28,7 @@ def test_build_index_path():
 
 @pytest.mark.remote
 def test_list_files_of_climate_observations():
-    files_server = list_files_of_dwd_server(
+    files_server = list_remote_files(
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "annual/kl/recent",
         recursive=False,

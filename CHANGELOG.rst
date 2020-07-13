@@ -1,3 +1,4 @@
+*********
 Changelog
 *********
 
@@ -10,6 +11,7 @@ Development
 - Query results with SQL, based on in-memory DuckDB
 - split get_nearby_stations into two functions, get_nearby_stations_by_number and
   get_nearby_stations_by_distance
+- Add MOSMIX client and parser. Thanks, @jlewis91!
 
 0.7.0 (16.09.2020)
 ==================
@@ -20,6 +22,9 @@ Development
 - Make the CLI work again and add software tests to prevent future havocs
 - Use Sphinx Material theme for documentation
 - Fix typo in enumeration for TimeResolution.MINUTES_10
+- Add test for Jupyter notebook
+- Add function to discover available climate observations
+  (time resolution, parameter, period type)
 
 0.6.0 (07.09.2020)
 ==================

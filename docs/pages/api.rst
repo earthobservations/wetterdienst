@@ -1,3 +1,5 @@
+.. wetterdienst-api:
+
 ###
 API
 ###
@@ -5,6 +7,7 @@ API
 .. contents::
     :local:
     :depth: 1
+
 
 ************
 Introduction
@@ -222,8 +225,28 @@ Examples:
 ******
 MOSMIX
 ******
+::
 
-Yet to be implemented...
+    from wetterdienst.mosmix import MOSMIXReader
+
+    # MOSMIX-L, all parameters
+    mosmix = MOSMIXReader(station_ids=["01001", "01008"])
+    response = mosmix.read_mosmix_l_latest()
+
+    print(response.metadata)
+    print(response.stations)
+    print(response.forecasts)
+
+Other variants::
+
+    # MOSMIX-L, specific parameters
+    mosmix = MOSMIXReader(station_ids=["01001", "01008"], parameters=["DD", "ww"])
+    response = mosmix.read_mosmix_l_latest()
+
+    # MOSMIX-S, all parameters
+    mosmix = MOSMIXReader(station_ids=["01028", "01092"])
+    response = mosmix.read_mosmix_s_latest()
+
 
 *******
 RADOLAN

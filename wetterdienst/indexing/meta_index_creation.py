@@ -33,7 +33,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.exceptions import MetaFileNotFound
 from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
-    list_files_of_dwd_server,
+    list_remote_files,
 )
 
 METADATA_COLUMNS = [
@@ -151,7 +151,7 @@ def _create_meta_index_for_climate_observations(
         ],
     )
 
-    files_server = list_files_of_dwd_server(url, recursive=True)
+    files_server = list_remote_files(url, recursive=True)
 
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(files_server, url)
@@ -226,7 +226,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
         ],
     )
 
-    metadata_file_paths = list_files_of_dwd_server(url, recursive=False)
+    metadata_file_paths = list_remote_files(url, recursive=False)
 
     station_ids = [
         re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths
