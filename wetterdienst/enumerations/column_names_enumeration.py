@@ -9,6 +9,14 @@ without prior written approval by the copyright holder.
 """
 from enum import Enum
 
+# Required for Python 3.6 atm
+try:
+    from typing import GenericMeta  # python 3.6
+except ImportError:
+    # in 3.7, genericmeta doesn't exist but we don't need it
+    class GenericMeta(type):
+        pass
+
 
 class DWDOrigMetaColumns(Enum):
     """ Original meta column names from DWD data """
@@ -45,7 +53,7 @@ class DWDMetaColumns(Enum):
     FILEID = "FILEID"
 
 
-class _DWDDataColumnBase:
+class _DWDDataColumnBase(metaclass=GenericMeta):
     def __class_getitem__(cls, item):
         return getattr(cls, item)
 
