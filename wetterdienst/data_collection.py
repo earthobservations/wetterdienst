@@ -6,7 +6,6 @@ import pandas as pd
 
 from wetterdienst.additionals.functions import check_parameters, parse_enumeration_from_template, \
     create_humanized_column_names_mapping
-from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
