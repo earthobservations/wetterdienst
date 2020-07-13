@@ -7,7 +7,8 @@ import pandas as pd
 from wetterdienst.additionals.functions import coerce_column_types
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from wetterdienst.constants.metadata import NA_STRING, STATION_DATA_SEP
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDOrigColumns
+from wetterdienst.enumerations.column_names_enumeration import DWDOrigMetaColumns, \
+    DWDMetaColumns, DWDOrigDataColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
@@ -84,14 +85,14 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
         # Also rename column with true local time to english one
         data = data.rename(
             columns={
-                DWDOrigMetaColumns.DATE.value: DWDOrigDataColumns.END_OF_INTERVAL.value,
-                "MESS_DATUM_WOZ": DWDOrigDataColumns.TRUE_LOCAL_TIME.value
+                DWDOrigMetaColumns.DATE.value: DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value,
+                "MESS_DATUM_WOZ": DWDOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
             }
         )
 
         # Duplicate the end of interval column to create real datetime column
         # remove minutes e.g. ":09" at the end of string
-        data[DWDOrigDataColumns.DATE.value] = data[DWDOrigDataColumns.END_OF_INTERVAL.value].str[:-3]
+        data[DWDMetaColumns.DATE.value] = data[DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value].str[:-3]
 
         # Store columns for later reordering
         columns = data.columns.values.tolist()

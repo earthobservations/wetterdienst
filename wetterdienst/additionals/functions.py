@@ -1,12 +1,13 @@
 """
 A set of more general functions used for the organization
 """
+from functools import lru_cache
 from typing import Tuple, Optional, Union, Callable
 import pandas as pd
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from wetterdienst.constants.time_resolution_mapping import TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns, DWDOrigDataColumns
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -206,14 +207,12 @@ def coerce_column_types(df: pd.DataFrame,
     regular_date_columns = (
         DWDMetaColumns.DATE.value,
         DWDMetaColumns.FROM_DATE.value,
-        DWDMetaColumns.TO_DATE.value,
-        DWDDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value,
-        DWDDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+        DWDMetaColumns.TO_DATE.value
     )
 
     irregular_date_columns = (
-        DWDDataColumns.END_OF_INTERVAL.value,
-        DWDDataColumns.TRUE_LOCAL_TIME.value,
+        DWDDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value,
+        DWDDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
     )
 
     for column in df.columns:
@@ -222,9 +221,7 @@ def coerce_column_types(df: pd.DataFrame,
             df[column] = df[column].astype(int)
         elif column in regular_date_columns:
             df[column] = pd.to_datetime(
-                df[column],
-                format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution]
-            )
+                df[column], format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution])
         elif column in irregular_date_columns:
             df[column] = pd.to_datetime(
                 df[column], format=DatetimeFormat.YMDH_COLUMN_M.value)
@@ -295,7 +292,10 @@ def create_humanized_column_names_mapping(time_resolution: TimeResolution,
     """
     column_name_mapping = {
         orig_column.value: humanized_column.value
-        for orig_column, humanized_column in zip(DWDOrigDataColumns[time_resolution.name][parameter.name], DWDDataColumns[time_resolution.name][parameter.name])
+        for orig_column, humanized_column in zip(
+            DWDOrigDataColumns[time_resolution.name][parameter.name],
+            DWDDataColumns[time_resolution.name][parameter.name]
+        )
     }
 
     return column_name_mapping

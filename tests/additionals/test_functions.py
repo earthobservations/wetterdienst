@@ -2,7 +2,7 @@ import pytest
 
 from wetterdienst.additionals.functions import check_parameters, retrieve_time_resolution_from_filename, \
     retrieve_parameter_from_filename, retrieve_period_type_from_filename, determine_parameters, \
-    cast_to_list, parse_enumeration_from_template
+    cast_to_list, parse_enumeration_from_template, create_humanized_column_names_mapping
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -52,3 +52,27 @@ def test_parse_enumeration_from_template():
 
     with pytest.raises(InvalidParameter):
         parse_enumeration_from_template("climate", Parameter)
+
+
+def test_create_humanized_column_names_mapping():
+    """ Test for function to create a mapping to humanized column names """
+    hcnm = create_humanized_column_names_mapping(TimeResolution.DAILY, Parameter.CLIMATE_SUMMARY)
+
+    assert hcnm == {
+        'QN_3': "QUALITY_WIND",
+        'FX': "WIND_GUST_MAX",
+        'FM': "WIND_VELOCITY",
+        'QN_4': "QUALITY_GENERAL",
+        'RSK': "PRECIPITATION_HEIGHT",
+        'RSKF': "PRECIPITATION_FORM",
+        'SDK': "SUNSHINE_DURATION",
+        'SHK_TAG': "SNOW_DEPTH",
+        'NM': "CLOUD_COVERAGE",
+        'VPM': "PRESSURE_VAPOR",
+        'PM': "PRESSURE_AIR",
+        'TMK': "TEMPERATURE_AIR_200",
+        'UPM': "HUMIDITY",
+        'TXK': "TEMPERATURE_AIR_MAX_200",
+        'TNK': "TEMPERATURE_AIR_MIN_200",
+        'TGK': "TEMPERATURE_AIR_MIN_005",
+    }

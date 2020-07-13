@@ -45,12 +45,12 @@ class DWDMetaColumns(Enum):
     FILEID = "FILEID"
 
 
-class DWDDataColumnBase:
+class _DWDDataColumnBase:
     def __class_getitem__(cls, item):
         return getattr(cls, item)
 
 
-class DWDOrigDataColumns(DWDDataColumnBase):
+class DWDOrigDataColumns(_DWDDataColumnBase):
     """
     Original data column names from DWD data
     - two anomalies:
@@ -59,7 +59,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
         - annual/kl -> QN_4, QN_6
     """
     # 1_minute
-    class MINUTE_1(DWDDataColumnBase):
+    class MINUTE_1(_DWDDataColumnBase):  # noqa
         # precipitation
         class PRECIPITATION(Enum):
             QN = "QN"
@@ -67,9 +67,9 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             RS_IND_01 = "RS_IND_01"  # int
 
     # 10_minutes
-    class MINUTES_10(dict):
+    class MINUTES_10(_DWDDataColumnBase):  # noqa
         # air_temperature
-        class TEMPERATURE_AIR(Enum):
+        class TEMPERATURE_AIR(Enum):  # noqa
             QN = "QN"
             PP_10 = "PP_10"
             TT_10 = "TT_10"
@@ -78,7 +78,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             TD_10 = "TD_10"
 
         # extreme_temperature
-        class TEMPERATURE_EXTREME(Enum):
+        class TEMPERATURE_EXTREME(Enum):  # noqa
             QN = "QN"
             TX_10 = "TX_10"
             TX5_10 = "TX5_10"
@@ -86,7 +86,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             TN5_10 = "TN5_10"
 
         # extreme_wind
-        class WIND_EXTREME(Enum):
+        class WIND_EXTREME(Enum):  # noqa
             QN = "QN"
             FX_10 = "FX_10"
             FNX_10 = "FNX_10"
@@ -115,15 +115,15 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             DD_10 = "DD_10"
 
     # hourly
-    class HOURLY(dict):
+    class HOURLY(_DWDDataColumnBase):
         # air_temperature
-        class TEMPERATURE_AIR(Enum):
+        class TEMPERATURE_AIR(Enum):  # noqa
             QN_9 = "QN_9"
             TT_TU = "TT_TU"
             RF_TU = "RF_TU"
 
         # cloud_type
-        class CLOUD_TYPE(Enum):
+        class CLOUD_TYPE(Enum):  # noqa
             QN_8 = "QN_8"
             V_N = "V_N"  # int
             V_N_I = "V_N_I"  # str
@@ -151,7 +151,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             V_N = "V_N"  # int
 
         # dew_point
-        class DEW_POINT(Enum):
+        class DEW_POINT(Enum):  # noqa
             QN_8 = "QN_8"
             TT = "TT"
             TD = "TD"
@@ -170,7 +170,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             P0 = "P0"
 
         # soil_temperature
-        class TEMPERATURE_SOIL(Enum):
+        class TEMPERATURE_SOIL(Enum):  # noqa
             QN_2 = "QN_2"
             V_TE002 = "V_TE002"
             V_TE005 = "V_TE005"
@@ -208,15 +208,15 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             D = "D"  # int
 
         # wind_synop
-        class WIND_SYNOPTIC(Enum):
+        class WIND_SYNOPTIC(Enum):  # noqa
             QN_8 = "QN_8"
             FF = "FF"
             DD = "DD"  # int
 
     # subdaily
-    class SUBDAILY(dict):
+    class SUBDAILY(_DWDDataColumnBase):  # noqa
         # air_temperature
-        class TEMPERATURE_AIR(Enum):
+        class TEMPERATURE_AIR(Enum):  # noqa
             QN_4 = "QN_4"
             TT_TER = "TT_TER"
             RF_TER = "RF_TER"
@@ -257,9 +257,9 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             FK_TER = "FK_TER"  # int
 
     # Daily
-    class DAILY(dict):
+    class DAILY(_DWDDataColumnBase):
         # kl
-        class CLIMATE_SUMMARY(Enum):
+        class CLIMATE_SUMMARY(Enum):  # noqa
             QN_3 = "QN_3"
             FX = "FX"
             FM = "FM"
@@ -278,7 +278,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             TGK = "TGK"
 
         # more_precip
-        class PRECIPITATION_MORE(Enum):
+        class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QN_6"
             RS = "RS"
             RSF = "RSF"  # int
@@ -286,7 +286,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             NSH_TAG = "NSH_TAG"  # int
 
         # soil_temperature
-        class TEMPERATURE_SOIL(Enum):
+        class TEMPERATURE_SOIL(Enum):  # noqa
             QN_2 = "QN_2"
             V_TE002M = "V_TE002M"
             V_TE005M = "V_TE005M"
@@ -303,7 +303,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             SD_STRAHL = "SD_STRAHL"
 
         # water_equiv
-        class WATER_EQUIVALENT(Enum):
+        class WATER_EQUIVALENT(Enum):  # noqa
             QN_6 = "QN_6"
             ASH_6 = "ASH_6"  # int
             SH_TAG = "SH_TAG"  # int
@@ -311,7 +311,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             WAAS_6 = "WAAS_6"
 
         # weather_phenomena
-        class WEATHER_PHENOMENA(Enum):
+        class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QN_4"
             NEBEL = "NEBEL"  # int
             GEWITTER = "GEWITTER"  # int
@@ -324,9 +324,9 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             HAGEL = "HAGEL"  # int
 
     # monthly
-    class MONTHLY(dict):
+    class MONTHLY(_DWDDataColumnBase):
         # kl
-        class CLIMATE_SUMMARY(Enum):
+        class CLIMATE_SUMMARY(Enum):  # noqa
             QN_4 = "QN_4"
             MO_N = "MO_N"
             MO_TT = "MO_TT"
@@ -342,7 +342,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             MX_RS = "MX_RS"
 
         # more_precip
-        class PRECIPITATION_MORE(Enum):
+        class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QN_6"
             MO_NSH = "MO_NSH"  # int
             MO_RR = "MO_RR"
@@ -350,7 +350,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             MX_RS = "MX_RS"
 
         # weather_phenomena
-        class WEATHER_PHENOMENA(Enum):
+        class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QN_4"
             MO_STURM_6 = "MO_STURM_6"  # int
             MO_STURM_8 = "MO_STURM_8"  # int
@@ -362,9 +362,9 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             MO_TAU = "MO_TAU"  # int
 
     # annual
-    class ANNUAL(dict):
+    class ANNUAL(_DWDDataColumnBase):
         # kl
-        class CLIMATE_SUMMARY(Enum):
+        class CLIMATE_SUMMARY(Enum):  # noqa
             QN_4 = "QN_4"
             JA_N = "JA_N"
             JA_TT = "JA_TT"
@@ -380,7 +380,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             JA_MX_RS = "JA_MX_RS"
 
         # more_precip
-        class PRECIPITATION_MORE(Enum):
+        class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QN_6"
             JA_NSH = "JA_NSH"  # int
             JA_RR = "JA_RR"
@@ -388,7 +388,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             JA_MX_RS = "JA_MX_RS"
 
         # weather_phenomena
-        class WEATHER_PHENOMENA(Enum):
+        class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QN_4"
             JA_STURM_6 = "JA_STURM_6"
             JA_STURM_8 = "JA_STURM_8"
@@ -400,7 +400,7 @@ class DWDOrigDataColumns(DWDDataColumnBase):
             JA_TAU = "JA_TAU"
 
 
-class DWDDataColumns(dict):
+class DWDDataColumns(_DWDDataColumnBase):
     """
     Original data column names from DWD data
     - two anomalies:
@@ -409,7 +409,7 @@ class DWDDataColumns(dict):
         - annual/kl -> QN_4, QN_6
     """
     # 1_minute
-    class MINUTE_1(dict):
+    class MINUTE_1(_DWDDataColumnBase):  # noqa
         # precipitation
         class PRECIPITATION(Enum):
             QN = "QUALITY"
@@ -417,9 +417,9 @@ class DWDDataColumns(dict):
             RS_IND_01 = "PRECIPITATION_FORM"  # int
 
     # 10_minutes
-    class MINUTES_10(dict):
+    class MINUTES_10(_DWDDataColumnBase):  # noqa
         # air_temperature
-        class TEMPERATURE_AIR(Enum):
+        class TEMPERATURE_AIR(Enum):  # noqa
             QN = "QUALITY"
             PP_10 = "PRESSURE_AIR_AT_STATION_HEIGHT"
             TT_10 = "TEMPERATURE_AIR_200"
@@ -428,7 +428,7 @@ class DWDDataColumns(dict):
             TD_10 = "TEMPERATURE_DEW_POINT_200"
 
         # extreme_temperature
-        class TEMPERATURE_EXTREME(Enum):
+        class TEMPERATURE_EXTREME(Enum):  # noqa
             QN = "QUALITY"
             TX_10 = "TEMPERATURE_AIR_MAX_200"
             TX5_10 = "TEMPERATURE_AIR_MAX_005"
@@ -436,7 +436,7 @@ class DWDDataColumns(dict):
             TN5_10 = "TEMPERATURE_AIR_MIN_005"
 
         # extreme_wind
-        class WIND_EXTREME(Enum):
+        class WIND_EXTREME(Enum):  # noqa
             QN = "QUALITY"
             FX_10 = "WIND_GUST_MAX"
             FNX_10 = "WIND_VELOCITY_MIN"
@@ -465,15 +465,15 @@ class DWDDataColumns(dict):
             DD_10 = "WIND_DIRECTION"
 
     # hourly
-    class HOURLY(dict):
+    class HOURLY(_DWDDataColumnBase):
         # air_temperature
-        class TEMPERATURE_AIR(Enum):
+        class TEMPERATURE_AIR(Enum):  # noqa
             QN_9 = "QUALITY"
             TT_TU = "TEMPERATURE_AIR_200"
             RF_TU = "HUMIDITY"
 
         # cloud_type
-        class CLOUD_TYPE(Enum):
+        class CLOUD_TYPE(Enum):  # noqa
             QN_8 = "QUALITY"
             V_N = "CLOUD_COVERAGE_TOTAL"  # int
             V_N_I = "CLOUD_COVERAGE_TOTAL_MEASUREMENT_INDICATOR"  # str
@@ -501,7 +501,7 @@ class DWDDataColumns(dict):
             V_N = "CLOUD_COVERAGE_TOTAL"  # int
 
         # dew_point
-        class DEW_POINT(Enum):
+        class DEW_POINT(Enum):  # noqa
             QN_8 = "QUALITY"
             TT = "TEMPERATURE_AIR_200"
             TD = "TEMPERATURE_DEW_POINT_200"
@@ -520,7 +520,7 @@ class DWDDataColumns(dict):
             P0 = "PRESSURE_AIR_AT_STATION_HEIGHT"
 
         # soil_temperature
-        class TEMPERATURE_SOIL(Enum):
+        class TEMPERATURE_SOIL(Enum):  # noqa
             QN_2 = "QUALITY"
             V_TE002 = "TEMPERATURE_SOIL_002"
             V_TE005 = "TEMPERATURE_SOIL_005"
@@ -558,15 +558,15 @@ class DWDDataColumns(dict):
             D = "WIND_DIRECTION"  # int
 
         # wind_synop
-        class WIND_SYNOPTIC(Enum):
+        class WIND_SYNOPTIC(Enum):  # noqa
             QN_8 = "QUALITY"
             FF = "WIND_VELOCITY"
             DD = "WIND_DIRECTION"  # int
 
     # subdaily
-    class SUBDAILY(dict):
+    class SUBDAILY(_DWDDataColumnBase):  # noqa
         # air_temperature
-        class TEMPERATURE_AIR(Enum):
+        class TEMPERATURE_AIR(Enum):  # noqa
             QN_4 = "QUALITY"
             TT_TER = "TEMPERATURE_AIR_200"
             RF_TER = "HUMIDITY"
@@ -607,13 +607,13 @@ class DWDDataColumns(dict):
             FK_TER = "WIND_FORCE_BEAUFORT"  # int ???
 
     # Daily
-    class DAILY(dict):
+    class DAILY(_DWDDataColumnBase):
         # kl
-        class CLIMATE_SUMMARY(Enum):
+        class CLIMATE_SUMMARY(Enum):  # noqa
             QN_3 = "QUALITY_WIND"
             FX = "WIND_GUST_MAX"
             FM = "WIND_VELOCITY"
-            QN_4 = "QUALITY_OTHERS"  # special case here with two quality columns!
+            QN_4 = "QUALITY_GENERAL"  # special case here with two quality columns!
             RSK = "PRECIPITATION_HEIGHT"
             RSKF = "PRECIPITATION_FORM"
             SDK = "SUNSHINE_DURATION"
@@ -628,7 +628,7 @@ class DWDDataColumns(dict):
             TGK = "TEMPERATURE_AIR_MIN_005"
 
         # more_precip
-        class PRECIPITATION_MORE(Enum):
+        class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QUALITY"
             RS = "PRECIPITATION_HEIGHT"
             RSF = "PRECIPITATION_FORM"  # int
@@ -636,7 +636,7 @@ class DWDDataColumns(dict):
             NSH_TAG = "SNOW_DEPTH_NEW"  # int
 
         # soil_temperature
-        class TEMPERATURE_SOIL(Enum):
+        class TEMPERATURE_SOIL(Enum):  # noqa
             QN_2 = "QUALITY"
             V_TE002M = "TEMPERATURE_SOIL_002"
             V_TE005M = "TEMPERATURE_SOIL_005"
@@ -653,7 +653,7 @@ class DWDDataColumns(dict):
             SD_STRAHL = "SUNSHINE_DURATION"
 
         # water_equiv
-        class WATER_EQUIVALENT(Enum):
+        class WATER_EQUIVALENT(Enum):  # noqa
             QN_6 = "QUALITY"
             ASH_6 = "SNOW_DEPTH_EXCELLED"  # int
             SH_TAG = "SNOW_DEPTH"  # int
@@ -661,7 +661,7 @@ class DWDDataColumns(dict):
             WAAS_6 = "WATER_EQUIVALENT_SNOW"
 
         # weather_phenomena
-        class WEATHER_PHENOMENA(Enum):
+        class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QUALITY"
             NEBEL = "FOG"  # int
             GEWITTER = "THUNDER"  # int
@@ -674,10 +674,10 @@ class DWDDataColumns(dict):
             HAGEL = "HAIL"  # int
 
     # monthly
-    class MONTHLY(dict):
+    class MONTHLY(_DWDDataColumnBase):
         # kl
-        class CLIMATE_SUMMARY(Enum):
-            QN_4 = "QUALITY_OTHERS"
+        class CLIMATE_SUMMARY(Enum):  # noqa
+            QN_4 = "QUALITY_GENERAL"
             MO_N = "CLOUD_COVERAGE"
             MO_TT = "TEMPERATURE_AIR_200"
             MO_TX = "TEMPERATURE_AIR_MAX_MEAN_200"
@@ -692,7 +692,7 @@ class DWDDataColumns(dict):
             MX_RS = "PRECIPITATION_HEIGHT_MAX"
 
         # more_precip
-        class PRECIPITATION_MORE(Enum):
+        class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QUALITY"
             MO_NSH = "SNOW_DEPTH_NEW_SUM"  # int
             MO_RR = "PRECIPITATION_HEIGHT"
@@ -700,7 +700,7 @@ class DWDDataColumns(dict):
             MX_RS = "PRECIPITATION_HEIGHT_MAX"
 
         # weather_phenomena
-        class WEATHER_PHENOMENA(Enum):
+        class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QUALITY"
             MO_STURM_6 = "STORM_STRONG_WIND"  # int
             MO_STURM_8 = "STORM_STORMIER_WIND"  # int
@@ -712,10 +712,10 @@ class DWDDataColumns(dict):
             MO_TAU = "DEW"  # int
 
     # annual
-    class ANNUAL(dict):
+    class ANNUAL(_DWDDataColumnBase):
         # kl
-        class CLIMATE_SUMMARY(Enum):
-            QN_4 = "QUALITY_OTHERS"
+        class CLIMATE_SUMMARY(Enum):  # noqa
+            QN_4 = "QUALITY_GENERAL"
             JA_N = "CLOUD_COVERAGE"
             JA_TT = "TEMPERATURE_AIR_200"
             JA_TX = "TEMPERATURE_AIR_MAX_MEAN_200"
@@ -730,7 +730,7 @@ class DWDDataColumns(dict):
             JA_MX_RS = "JA_MX_RS"  # ???
 
         # more_precip
-        class PRECIPITATION_MORE(Enum):
+        class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QUALITY"
             JA_NSH = "SNOW_DEPTH_NEW_SUM"  # int
             JA_RR = "PRECIPITATION_HEIGHT"
@@ -738,7 +738,7 @@ class DWDDataColumns(dict):
             JA_MX_RS = "JA_MX_RS"
 
         # weather_phenomena
-        class WEATHER_PHENOMENA(Enum):
+        class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QUALITY"
             JA_STURM_6 = "STORM_STRONG_WIND"
             JA_STURM_8 = "STORM_STORMIER_WIND"
@@ -748,5 +748,3 @@ class DWDDataColumns(dict):
             JA_HAGEL = "HAIL"
             JA_NEBEL = "FOG"
             JA_TAU = "DEW"
-
-
