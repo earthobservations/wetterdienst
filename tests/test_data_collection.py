@@ -43,7 +43,7 @@ csv_file.seek(0)
     mock.MagicMock(return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]}))
 )
 @patch(
-    "wetterdienst.data_collection.download_dwd_data",
+    "wetterdienst.data_collection.download_dwd_data_parallel",
     mock.MagicMock(return_value=[(filename, BytesIO(csv_file.read().encode()))])
 )
 def test_collect_dwd_data():

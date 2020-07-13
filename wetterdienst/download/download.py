@@ -29,7 +29,7 @@ def download_dwd_data_parallel(remote_files: List[str]) -> List[Tuple[str, Bytes
 
 def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
     """
-    This function downloads the stationdata for which the link is
+    This function downloads the station data for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
     the zipfile) for its parameters, creates the full filepath and downloads the
     file(s) according to the set up folder.

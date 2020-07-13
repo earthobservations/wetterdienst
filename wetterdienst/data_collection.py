@@ -13,7 +13,7 @@ from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameterCombination
 from wetterdienst.indexing.file_index_creation import reset_file_index_cache
 from wetterdienst.file_path_handling.file_list_creation import create_file_list_for_dwd_server
-from wetterdienst.download.download import download_dwd_data
+from wetterdienst.download.download import download_dwd_data_parallel
 from wetterdienst.parsing_data.parse_data_from_files import parse_dwd_data
 from wetterdienst.data_storing import restore_dwd_data, store_dwd_data, _build_local_store_key
 
@@ -91,7 +91,7 @@ def collect_dwd_data(station_ids: List[int],
             log.info(f"No files found for {request_string}. Station will be skipped.")
             continue
 
-        filenames_and_files = download_dwd_data(remote_files)
+        filenames_and_files = download_dwd_data_parallel(remote_files)
 
         station_data = parse_dwd_data(
             filenames_and_files, parameter, time_resolution)
