@@ -10,6 +10,7 @@ without prior written approval by the copyright holder.
 from enum import Enum
 
 # Required for Python 3.6 atm
+# https://github.com/pawamoy/mkdocstrings/issues/2
 try:
     from typing import GenericMeta  # python 3.6
 except ImportError:
