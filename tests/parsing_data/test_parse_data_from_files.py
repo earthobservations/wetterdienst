@@ -20,7 +20,7 @@ def test_parse_dwd_data():
     file_in_bytes.seek(0)
 
     station_data = parse_dwd_data(
-        filenames_and_files=[(filename, file_in_bytes)],
+        filenames_and_files=[(filename, BytesIO(file_in_bytes.read().encode()))],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY
     )

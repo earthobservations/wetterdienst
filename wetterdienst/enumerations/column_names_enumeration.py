@@ -62,11 +62,11 @@ class DWDMetaColumns(Enum):
     LONGITUDE = "LON"
     STATIONNAME = "STATIONNAME"
     STATE = "STATE"
-    EOR = "EOR"
     # Extra column names
     FILENAME = "FILENAME"
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
+    EOR = "EOR"
 
 
 class DWDDataColumns(Enum):

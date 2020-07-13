@@ -4,7 +4,7 @@ import pytest
 from mock import patch
 from pathlib import Path
 import pandas as pd
-from io import StringIO
+from io import StringIO, BytesIO
 from shutil import rmtree
 
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
@@ -24,7 +24,6 @@ station_ids = [1]
 parameter = Parameter.CLIMATE_SUMMARY
 time_resolution = TimeResolution.DAILY
 period_type = PeriodType.HISTORICAL
-parallel_processing = False
 create_new_file_index = False
 
 # Set filename for mock
@@ -44,8 +43,8 @@ csv_file.seek(0)
     mock.MagicMock(return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]}))
 )
 @patch(
-    "wetterdienst.data_collection.download_dwd_data",
-    mock.MagicMock(return_value=[(filename, csv_file)])
+    "wetterdienst.data_collection.download_dwd_data_parallel",
+    mock.MagicMock(return_value=[(filename, BytesIO(csv_file.read().encode()))])
 )
 def test_collect_dwd_data():
     """ Test for data collection """
@@ -61,7 +60,6 @@ def test_collect_dwd_data():
         period_type=period_type,
         folder=test_folder,
         prefer_local=False,
-        parallel_processing=parallel_processing,
         write_file=True,
         create_new_file_index=create_new_file_index
     ).equals(file)
@@ -78,7 +76,6 @@ def test_collect_dwd_data():
         period_type=period_type,
         folder=test_folder,
         prefer_local=True,
-        parallel_processing=parallel_processing,
         write_file=True,
         create_new_file_index=create_new_file_index
     ).equals(file)
@@ -112,7 +109,6 @@ def test_collect_dwd_data_empty():
         period_type=period_type,
         folder="",
         prefer_local=True,
-        parallel_processing=parallel_processing,
         write_file=False,
         create_new_file_index=create_new_file_index
     ).empty

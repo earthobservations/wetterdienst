@@ -3,8 +3,8 @@ from typing import List, Union, Tuple
 from pathlib import Path
 import zipfile
 from io import BytesIO
-from multiprocessing import Pool
 from requests.exceptions import InvalidURL
+from concurrent.futures import ThreadPoolExecutor
 
 from wetterdienst.download.download_services import download_file_from_climate_observations
 from wetterdienst.exceptions.failed_download_exception import FailedDownload
@@ -13,27 +13,23 @@ from wetterdienst.exceptions.product_file_not_found_exception import ProductFile
 PRODUCT_FILE_IDENTIFIER = 'produkt'
 
 
-def download_dwd_data(remote_files: List[str],
-                      parallel: bool = False) -> List[Tuple[str, BytesIO]]:
+def download_dwd_data_parallel(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
-    if parallel:
-        with Pool() as p:
-            files_in_bytes = p.map(_download_dwd_data, remote_files)
-        return list(
-            zip(
-                remote_files,
-                files_in_bytes
-            )
+    with ThreadPoolExecutor() as executor:
+        files_in_bytes = executor.map(_download_dwd_data_parallel, remote_files)
+
+    return list(
+        zip(
+            remote_files,
+            files_in_bytes
         )
-    else:
-        return [(remote_file, _download_dwd_data(remote_file))
-                for remote_file in remote_files]
+    )
 
 
-def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
+def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
     """
-    This function downloads the stationdata for which the link is
+    This function downloads the station data for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
     the zipfile) for its parameters, creates the full filepath and downloads the
     file(s) according to the set up folder.
