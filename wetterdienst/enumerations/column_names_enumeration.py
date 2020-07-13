@@ -7,8 +7,8 @@ Modification, redistribution and use in source and binary
 forms, with or without modification, are not permitted
 without prior written approval by the copyright holder.
 """
-from __future__ import annotations
 from enum import Enum
+from typing import Generic, TypeVar
 
 # Required for Python 3.6 atm
 # https://github.com/pawamoy/mkdocstrings/issues/2
@@ -55,7 +55,10 @@ class DWDMetaColumns(Enum):
     FILEID = "FILEID"
 
 
-class _DWDDataColumnBase:
+T = TypeVar('T')
+
+
+class _DWDDataColumnBase(Generic[T], metaclass=GenericMeta):
     def __class_getitem__(cls, item):
         return getattr(cls, item)
 
