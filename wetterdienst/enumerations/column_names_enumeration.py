@@ -7,6 +7,7 @@ Modification, redistribution and use in source and binary
 forms, with or without modification, are not permitted
 without prior written approval by the copyright holder.
 """
+from __future__ import annotations
 from enum import Enum
 
 # Required for Python 3.6 atm
@@ -54,7 +55,7 @@ class DWDMetaColumns(Enum):
     FILEID = "FILEID"
 
 
-class _DWDDataColumnBase(metaclass=GenericMeta):
+class _DWDDataColumnBase:
     def __class_getitem__(cls, item):
         return getattr(cls, item)
 
