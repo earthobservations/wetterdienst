@@ -13,11 +13,11 @@ from wetterdienst.exceptions.product_file_not_found_exception import ProductFile
 PRODUCT_FILE_IDENTIFIER = 'produkt'
 
 
-def download_dwd_data(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
+def download_dwd_data_parallel(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
     with ThreadPoolExecutor() as executor:
-        files_in_bytes = executor.map(_download_dwd_data, remote_files)
+        files_in_bytes = executor.map(_download_dwd_data_parallel, remote_files)
 
     return list(
         zip(
@@ -27,7 +27,7 @@ def download_dwd_data(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
     )
 
 
-def _download_dwd_data(remote_file: Union[str, Path]) -> BytesIO:
+def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
     """
     This function downloads the stationdata for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
