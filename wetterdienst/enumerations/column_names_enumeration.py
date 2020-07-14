@@ -1,17 +1,4 @@
 from enum import Enum
-from typing import Generic, TypeVar
-
-# Required for Python 3.6 atm
-# https://github.com/pawamoy/mkdocstrings/issues/2
-try:
-    from typing import GenericMeta  # python 3.6
-    
-    class _DWDDataColumnMeta(GenericMeta):
-        pass
-except ImportError:
-    # in 3.7, genericmeta doesn't exist but we don't need it
-    class _DWDDataColumnMeta(type):
-        pass
 
 
 class DWDOrigMetaColumns(Enum):
@@ -48,11 +35,15 @@ class DWDMetaColumns(Enum):
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
 
-T = TypeVar('T')
 
-class _DWDDataColumnBase(Generic[T], metaclass=_DWDDataColumnMeta):
-    def __class_getitem__(cls, item):
-        return getattr(cls, item)
+# https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class
+class _GetAttrMeta(type):
+    def __getitem__(cls, x):
+        return getattr(cls, x)
+
+
+class _DWDDataColumnBase(metaclass=_GetAttrMeta):
+    pass
 
 
 class DWDOrigDataColumns(_DWDDataColumnBase):
