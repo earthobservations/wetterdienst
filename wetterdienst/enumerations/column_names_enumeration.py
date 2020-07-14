@@ -4,9 +4,9 @@ from enum import Enum
 # https://github.com/pawamoy/mkdocstrings/issues/2
 try:
     from typing import GenericMeta  # python 3.6
-    class _Dummy(type, GenericMeta):
+    class _Dummy(type):
         pass
-    class _DWDDataColumnMeta(metaclass=_Dummy):
+    class _DWDDataColumnMeta(_Dummy, GenericMeta):
         pass
 except ImportError:
     # in 3.7, genericmeta doesn't exist but we don't need it
