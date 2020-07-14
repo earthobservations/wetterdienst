@@ -1,22 +1,16 @@
-"""
--*- coding: utf-8 -*-
-
-Copyright (c) 2020, Benjamin Gutzmann, Aachen, Germany
-All rights reserved.
-Modification, redistribution and use in source and binary
-forms, with or without modification, are not permitted
-without prior written approval by the copyright holder.
-"""
 from enum import Enum
-from typing import Generic, TypeVar
 
 # Required for Python 3.6 atm
 # https://github.com/pawamoy/mkdocstrings/issues/2
 try:
     from typing import GenericMeta  # python 3.6
+    class _Dummy(type, GenericMeta):
+        pass
+    class _DWDDataColumnMeta(metaclass=_Dummy):
+        pass
 except ImportError:
     # in 3.7, genericmeta doesn't exist but we don't need it
-    class GenericMeta(type):
+    class _DWDDataColumnMeta(type):
         pass
 
 
@@ -55,10 +49,7 @@ class DWDMetaColumns(Enum):
     FILEID = "FILEID"
 
 
-T = TypeVar('T')
-
-
-class _DWDDataColumnBase(Generic[T], metaclass=GenericMeta):
+class _DWDDataColumnBase(metaclass=_DWDDataColumnMeta):
     def __class_getitem__(cls, item):
         return getattr(cls, item)
 
