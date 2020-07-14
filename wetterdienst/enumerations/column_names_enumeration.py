@@ -5,9 +5,8 @@ from typing import Generic, TypeVar
 # https://github.com/pawamoy/mkdocstrings/issues/2
 try:
     from typing import GenericMeta  # python 3.6
-    T = TypeVar('T')
     
-    class _DWDDataColumnMeta(Generic[T], GenericMeta):
+    class _DWDDataColumnMeta(GenericMeta):
         pass
 except ImportError:
     # in 3.7, genericmeta doesn't exist but we don't need it
@@ -49,8 +48,9 @@ class DWDMetaColumns(Enum):
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
 
+T = TypeVar('T')
 
-class _DWDDataColumnBase(metaclass=_DWDDataColumnMeta):
+class _DWDDataColumnBase(Generic[T], metaclass=_DWDDataColumnMeta):
     def __class_getitem__(cls, item):
         return getattr(cls, item)
 
