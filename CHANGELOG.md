@@ -6,6 +6,8 @@
 - [cli] Add GeoJSON output format for station data.
 - improvements to parsing high resolution data by setting specific datetime formats and changing to concurrent.futures
 - fix na value detection for cases where cells have leading and trailing whitespace
+- change column name mapping to more explicit one with columns being individually addressable
+- add full column names for every individual parameter
 
 ## 0.1.1 (05.07.2020)
 - [cli] Add geospatial filtering by number of nearby stations.

@@ -148,40 +148,6 @@ def test_collect_daily_vanilla():
 
 
 @pytest.mark.remote
-def test_collect_daily_humanized():
-    """ Test for data collection with real data and humanized column names """
-
-    data = collect_dwd_data(
-        station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
-        humanize_column_names=True
-    )
-
-    assert list(data.columns.values) == [
-        'STATION_ID',
-        'DATE',
-        'QN_3',
-        'WIND_GUST_MAX',
-        'WIND_VELOCITY',
-        'QN_4',
-        'PRECIPITATION_HEIGHT',
-        'PRECIPITATION_FORM',
-        'SUNSHINE_DURATION',
-        'SNOW_DEPTH',
-        'CLOUD_COVER',
-        'VAPOR_PRESSURE',
-        'PRESSURE',
-        'TEMPERATURE',
-        'HUMIDITY',
-        'TEMPERATURE_MAX_200',
-        'TEMPERATURE_MIN_200',
-        'TEMPERATURE_MIN_005',
-    ]
-
-
-@pytest.mark.remote
 def test_collect_hourly_vanilla():
     """ Test for data collection with real data """
 

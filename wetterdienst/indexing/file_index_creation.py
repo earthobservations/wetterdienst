@@ -40,17 +40,23 @@ def create_file_index_for_dwd_server(parameter: Parameter,
     files_server = files_server[files_server.FILENAME.str.endswith(
         ARCHIVE_FORMAT)]
 
-    files_server.loc[:, DWDMetaColumns.FILENAME.value] = files_server.loc[:, DWDMetaColumns.FILENAME.value].\
+    files_server[DWDMetaColumns.FILENAME.value] = files_server[DWDMetaColumns.FILENAME.value].\
         str.replace(f"{DWD_CDC_PATH}/{DWD_CLIM_OBS_GERMANY_PATH}/", "")
 
-    file_names = files_server.loc[:, DWDMetaColumns.FILENAME.value].str.split("/").apply(
-        lambda strings: strings[-1])
+    # file_names = files_server.loc[:, DWDMetaColumns.FILENAME.value].str.split("/").apply(
+    #     lambda strings: strings[-1])
+    #
+    # files_server.loc[:, DWDMetaColumns.STATION_ID.value] = file_names.apply(
+    #     lambda x: re.findall(STATION_ID_REGEX, x).pop(0))
 
-    files_server.loc[:, DWDMetaColumns.STATION_ID.value] = file_names.apply(
-        lambda x: re.findall(STATION_ID_REGEX, x).pop(0))
+    # file_names = files_server.loc[:, DWDMetaColumns.FILENAME.value].str.split("/").apply(
+    #     lambda strings: strings[-1])
 
-    files_server.loc[:, DWDMetaColumns.STATION_ID.value] = files_server.loc[:, DWDMetaColumns.STATION_ID.value].\
-        astype(int)
+    files_server[DWDMetaColumns.STATION_ID.value] = files_server[DWDMetaColumns.FILENAME.value].apply(
+        lambda x: re.findall(STATION_ID_REGEX, x)[0]).astype(int)
+
+    # files_server.loc[:, DWDMetaColumns.STATION_ID.value] = files_server.loc[:, DWDMetaColumns.STATION_ID.value].\
+    #     astype(int)
 
     files_server = files_server.sort_values(
         by=[DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value])

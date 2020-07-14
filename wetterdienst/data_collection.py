@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import List, Union, Optional
 import pandas as pd
 
-from wetterdienst.additionals.functions import check_parameters, parse_enumeration_from_template
-from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED
+from wetterdienst.additionals.functions import check_parameters, parse_enumeration_from_template, \
+    create_humanized_column_names_mapping
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -112,6 +112,7 @@ def collect_dwd_data(station_ids: List[int],
 
     # Assign meaningful column names (humanized).
     if humanize_column_names:
-        data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING_HUMANIZED)
+        hcnm = create_humanized_column_names_mapping(time_resolution, parameter)
+        data = data.rename(columns=hcnm)
 
     return data

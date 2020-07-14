@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Tuple, List
 import pandas as pd
-from multiprocessing.dummy import Pool
+from concurrent.futures import ThreadPoolExecutor
 import functools
 import datetime as dt
 import requests
@@ -26,10 +26,10 @@ METADATA_COLUMNS = [
     DWDMetaColumns.STATION_ID.value,
     DWDMetaColumns.FROM_DATE.value,
     DWDMetaColumns.TO_DATE.value,
-    DWDMetaColumns.STATIONHEIGHT.value,
+    DWDMetaColumns.STATION_HEIGHT.value,
     DWDMetaColumns.LATITUDE.value,
     DWDMetaColumns.LONGITUDE.value,
-    DWDMetaColumns.STATIONNAME.value,
+    DWDMetaColumns.STATION_NAME.value,
     DWDMetaColumns.STATE.value
 ]
 
@@ -170,15 +170,15 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = pd.DataFrame(columns=METADATA_COLUMNS)
 
-    with Pool() as p:
-        metadata_files = p.map(
+    with ThreadPoolExecutor() as executor:
+        metadata_files = executor.map(
             _download_metadata_file_for_1minute_precipitation, metadata_file_paths)
 
-    with Pool() as p:
-        metadata_dfs = p.map(
+    with ThreadPoolExecutor() as executor:
+        metadata_dfs = executor.map(
             _parse_geo_metadata, zip(metadata_files, station_ids))
 
-    meta_index_df = meta_index_df.append(other=metadata_dfs, ignore_index=True)
+    meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
 
     meta_index_df = meta_index_df.astype(METADATA_DTYPE_MAPPING)
 
