@@ -24,10 +24,10 @@ class DWDMetaColumns(Enum):
     DATE = "DATE"
     FROM_DATE = "FROM_DATE"
     TO_DATE = "TO_DATE"
-    STATION_HEIGHT = "STATIONHEIGHT"
+    STATION_HEIGHT = "STATION_HEIGHT"
     LATITUDE = "LAT"
     LONGITUDE = "LON"
-    STATION_NAME = "STATIONNAME"
+    STATION_NAME = "STATION_NAME"
     STATE = "STATE"
     EOR = "EOR"
     # Extra column names
@@ -60,6 +60,8 @@ class DWDOrigDataColumns(_DWDDataColumnBase):
         class PRECIPITATION(Enum):
             QN = "QN"
             RS_01 = "RS_01"
+            RTH_01 = "RTH_01"
+            RWH_01 = "RWH_01"
             RS_IND_01 = "RS_IND_01"  # int
 
     # 10_minutes
@@ -409,7 +411,9 @@ class DWDDataColumns(_DWDDataColumnBase):
         # precipitation
         class PRECIPITATION(Enum):
             QN = "QUALITY"
-            RS_01 = "PRECIPITATION_FORM"
+            RS_01 = "PRECIPITATION_HEIGHT"
+            RTH_01 = "PRECIPITATION_HEIGHT_DROPLET"
+            RWH_01 = "PRECIPITATION_HEIGHT_ROCKER"
             RS_IND_01 = "PRECIPITATION_FORM"  # int
 
     # 10_minutes
@@ -417,7 +421,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
             QN = "QUALITY"
-            PP_10 = "PRESSURE_AIR_AT_STATION_HEIGHT"
+            PP_10 = "PRESSURE_AIR_STATION_HEIGHT"
             TT_10 = "TEMPERATURE_AIR_200"
             TM5_10 = "TEMPERATURE_AIR_005"
             RF_10 = "HUMIDITY"
@@ -437,14 +441,14 @@ class DWDDataColumns(_DWDDataColumnBase):
             FX_10 = "WIND_GUST_MAX"
             FNX_10 = "WIND_VELOCITY_MIN"
             FMX_10 = "WIND_VELOCITY_ROLLING_MEAN_MAX"
-            DX_10 = "WIND_VELOCITY_MAX_DIRECTION"  # int
+            DX_10 = "WIND_DIRECTION_MAX_VELOCITY"  # int
 
         # precipitation
         class PRECIPITATION(Enum):
             QN = "QUALITY"
             RWS_DAU_10 = "PRECIPITATION_DURATION"
             RWS_10 = "PRECIPITATION_HEIGHT"
-            RWS_IND_10 = "PRECIPITATION_FORM_WR_CODE"  # int ???
+            RWS_IND_10 = "PRECIPITATION_INDICATOR_WR"  # int
 
         # solar
         class SOLAR(Enum):
@@ -472,7 +476,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         class CLOUD_TYPE(Enum):  # noqa
             QN_8 = "QUALITY"
             V_N = "CLOUD_COVERAGE_TOTAL"  # int
-            V_N_I = "CLOUD_COVERAGE_TOTAL_MEASUREMENT_INDICATOR"  # str
+            V_N_I = "CLOUD_COVERAGE_TOTAL_INDICATOR"  # str
             V_S1_CS = "CLOUD_TYPE_LAYER1"  # int
             V_S1_CSA = "CLOUD_TYPE_LAYER1_ABBREVIATION"  # str
             V_S1_HHS = "CLOUD_HEIGHT_LAYER1"
@@ -493,7 +497,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         # cloudiness
         class CLOUDINESS(Enum):
             QN_8 = "QUALITY"
-            V_N_I = "CLOUD_COVERAGE_TOTAL_MEASUREMENT_INDICATOR"  # str
+            V_N_I = "CLOUD_COVERAGE_TOTAL_INDICATOR"  # str
             V_N = "CLOUD_COVERAGE_TOTAL"  # int
 
         # dew_point
@@ -506,14 +510,14 @@ class DWDDataColumns(_DWDDataColumnBase):
         class PRECIPITATION(Enum):
             QN_8 = "QUALITY"
             R1 = "PRECIPITATION_HEIGHT"
-            RS_IND = "PRECIPITATION_INDICATOR"  # int
-            WRTR = "PRECIPITATION_FORM_WR_CODE"  # int
+            RS_IND = "PRECIPITATION_INDICATOR_T/F"  # int
+            WRTR = "PRECIPITATION_FORM"  # int
 
         # pressure
         class PRESSURE(Enum):
             QN_8 = "QUALITY"
-            P = "PRESSURE_AIR_AT_SEA_LEVEL"
-            P0 = "PRESSURE_AIR_AT_STATION_HEIGHT"
+            P = "PRESSURE_AIR_SEA_LEVEL"
+            P0 = "PRESSURE_AIR_STATION_HEIGHT"
 
         # soil_temperature
         class TEMPERATURE_SOIL(Enum):  # noqa
@@ -544,7 +548,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         # visibility
         class VISIBILITY(Enum):
             QN_8 = "QUALITY"
-            V_VV_I = "VISIBILITY_MEASUREMENT_INDICATOR"  # str
+            V_VV_I = "VISIBILITY_INDICATOR"  # str
             V_VV = "VISIBILITY"  # int
 
         # wind
@@ -571,7 +575,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         class CLOUDINESS(Enum):
             QN_4 = "QUALITY"
             N_TER = "CLOUD_COVERAGE_TOTAL"  # int
-            CD_TER = "CD_TER"  # int ???
+            CD_TER = "CLOUD_DENSITY"  # int
 
         # moisture
         class MOISTURE(Enum):
@@ -599,8 +603,8 @@ class DWDDataColumns(_DWDDataColumnBase):
         # wind
         class WIND(Enum):
             QN_4 = "QUALITY"
-            DK_TER = "WIND_DIRECTION"  # int ???
-            FK_TER = "WIND_FORCE_BEAUFORT"  # int ???
+            DK_TER = "WIND_DIRECTION"  # int
+            FK_TER = "WIND_FORCE_BEAUFORT"  # int
 
     # Daily
     class DAILY(_DWDDataColumnBase):
@@ -614,7 +618,7 @@ class DWDDataColumns(_DWDDataColumnBase):
             RSKF = "PRECIPITATION_FORM"
             SDK = "SUNSHINE_DURATION"
             SHK_TAG = "SNOW_DEPTH"
-            NM = "CLOUD_COVERAGE"
+            NM = "CLOUD_COVERAGE_TOTAL"
             VPM = "PRESSURE_VAPOR"
             PM = "PRESSURE_AIR"
             TMK = "TEMPERATURE_AIR_200"
@@ -674,7 +678,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         # kl
         class CLIMATE_SUMMARY(Enum):  # noqa
             QN_4 = "QUALITY_GENERAL"
-            MO_N = "CLOUD_COVERAGE"
+            MO_N = "CLOUD_COVERAGE_TOTAL"
             MO_TT = "TEMPERATURE_AIR_200"
             MO_TX = "TEMPERATURE_AIR_MAX_MEAN_200"
             MO_TN = "TEMPERATURE_AIR_MIN_MEAN_200"
@@ -690,7 +694,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         # more_precip
         class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QUALITY"
-            MO_NSH = "SNOW_DEPTH_NEW_SUM"  # int
+            MO_NSH = "SNOW_DEPTH_NEW"  # int
             MO_RR = "PRECIPITATION_HEIGHT"
             MO_SH_S = "SNOW_DEPTH"  # int
             MX_RS = "PRECIPITATION_HEIGHT_MAX"
@@ -712,7 +716,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         # kl
         class CLIMATE_SUMMARY(Enum):  # noqa
             QN_4 = "QUALITY_GENERAL"
-            JA_N = "CLOUD_COVERAGE"
+            JA_N = "CLOUD_COVERAGE_TOTAL"
             JA_TT = "TEMPERATURE_AIR_200"
             JA_TX = "TEMPERATURE_AIR_MAX_MEAN_200"
             JA_TN = "TEMPERATURE_AIR_MIN_MEAN_200"
@@ -723,15 +727,15 @@ class DWDDataColumns(_DWDDataColumnBase):
             JA_MX_TN = "TEMPERATURE_AIR_MIN_200"
             QN_6 = "QUALITY_PRECIPITATION"
             JA_RR = "PRECIPITATION_HEIGHT"
-            JA_MX_RS = "JA_MX_RS"  # ???
+            JA_MX_RS = "PRECIPITATION_HEIGHT_MAX"  #
 
         # more_precip
         class PRECIPITATION_MORE(Enum):  # noqa
             QN_6 = "QUALITY"
-            JA_NSH = "SNOW_DEPTH_NEW_SUM"  # int
+            JA_NSH = "SNOW_DEPTH_NEW"  # int
             JA_RR = "PRECIPITATION_HEIGHT"
-            JA_SH_S = "SNOW_DEPTH_SUM"  # int
-            JA_MX_RS = "JA_MX_RS"
+            JA_SH_S = "SNOW_DEPTH"  # int
+            JA_MX_RS = "PRECIPITATION_HEIGHT_MAX"
 
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa

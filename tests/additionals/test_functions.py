@@ -67,7 +67,7 @@ def test_create_humanized_column_names_mapping():
         'RSKF': "PRECIPITATION_FORM",
         'SDK': "SUNSHINE_DURATION",
         'SHK_TAG': "SNOW_DEPTH",
-        'NM': "CLOUD_COVERAGE",
+        'NM': "CLOUD_COVERAGE_TOTAL",
         'VPM': "PRESSURE_VAPOR",
         'PM': "PRESSURE_AIR",
         'TMK': "TEMPERATURE_AIR_200",

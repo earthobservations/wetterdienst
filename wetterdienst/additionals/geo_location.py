@@ -151,7 +151,7 @@ def stations_to_geojson(df: pd.DataFrame) -> dict:
                 "type": "Feature",
                 "properties": {
                     "id": station["station_id"],
-                    "name": station["stationname"],
+                    "name": station["station_name"],
                     "state": station["state"],
                     "from_date": station["from_date"].isoformat(),
                     "to_date": station["to_date"].isoformat(),
@@ -163,7 +163,7 @@ def stations_to_geojson(df: pd.DataFrame) -> dict:
                     # above mean sea level per WGS84.
                     # -- http://wiki.geojson.org/RFC-001
                     "type": "Point",
-                    "coordinates": [station["lon"], station["lat"], station["stationheight"]],
+                    "coordinates": [station["lon"], station["lat"], station["station_height"]],
                 },
             }
         )
