@@ -1,12 +1,13 @@
 from enum import Enum
+from typing import Generic, TypeVar
 
 # Required for Python 3.6 atm
 # https://github.com/pawamoy/mkdocstrings/issues/2
 try:
     from typing import GenericMeta  # python 3.6
-    class _Dummy(type):
-        pass
-    class _DWDDataColumnMeta(_Dummy, GenericMeta):
+    T = TypeVar('T')
+    
+    class _DWDDataColumnMeta(Generic[T], GenericMeta):
         pass
 except ImportError:
     # in 3.7, genericmeta doesn't exist but we don't need it
