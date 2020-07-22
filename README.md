@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg)](https://codecov.io/gh/earthobservations/wetterdienst)
 [![PyPI](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
 [![License](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.md)
-[![Downloads](https://pepy.tech/badge/wetterdienst/month)](https://pepy.tech/project/wetterdienst/month)
+[![Downloads](https://img.shields.io/pypi/dm/wetterdienst)](https://pypi.org/project/wetterdienst/)
 
 ## 1. Introduction
 

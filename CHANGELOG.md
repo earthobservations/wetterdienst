@@ -1,6 +1,9 @@
 # Changelog
 
 ## Development
+...
+
+## 0.2.0 (23.07.2020)
 - [cli] Add geospatial filtering by distance.
 - [cli] Filter stations by station identifiers.
 - [cli] Add GeoJSON output format for station data.
@@ -8,6 +11,7 @@
 - fix na value detection for cases where cells have leading and trailing whitespace
 - change column name mapping to more explicit one with columns being individually addressable
 - add full column names for every individual parameter
+- more specific type casting for integer fields and string fields
 
 ## 0.1.1 (05.07.2020)
 - [cli] Add geospatial filtering by number of nearby stations.
