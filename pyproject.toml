@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.1.1"
+version = "0.2.0"
 description = "Python library to ease access to open weather data"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
