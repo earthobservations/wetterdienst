@@ -73,7 +73,8 @@ def test_coerce_field_types():
         "V_VV_I": ["P"]
     })
 
-    assert coerce_field_types(df, TimeResolution.HOURLY).equals(expected_df)
+    assert coerce_field_types(df, TimeResolution.HOURLY).values.tolist() == \
+        expected_df.values.tolist()
 
 
 def test_create_humanized_column_names_mapping():
