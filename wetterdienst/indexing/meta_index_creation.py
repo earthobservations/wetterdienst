@@ -80,7 +80,13 @@ def create_meta_index_for_dwd_data(parameter: Parameter,
             how="left"
         )
 
-    return meta_index
+    meta_index[DWDMetaColumns.FROM_DATE.value] = pd.to_datetime(
+        meta_index[DWDMetaColumns.FROM_DATE.value], format="%Y%m%d")
+
+    meta_index[DWDMetaColumns.TO_DATE.value] = pd.to_datetime(
+        meta_index[DWDMetaColumns.TO_DATE.value], format="%Y%m%d")
+
+    return meta_index.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(drop=True)
 
 
 def _create_meta_index_for_dwd_data(parameter: Parameter,
@@ -180,12 +186,17 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
 
+    missing_to_date_index = pd.isnull(meta_index_df[DWDMetaColumns.TO_DATE.value])
+
+    meta_index_df.loc[missing_to_date_index, DWDMetaColumns.TO_DATE.value] = pd.Timestamp(
+                dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
+
     meta_index_df = meta_index_df.astype(METADATA_DTYPE_MAPPING)
 
     # Drop empty state column again as it will be merged later on
     meta_index_df = meta_index_df.drop(labels=DWDMetaColumns.STATE.value, axis=1)
 
-    return meta_index_df.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(drop=True)
+    return meta_index_df
 
 
 def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> BytesIO:
@@ -224,9 +235,8 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
 
     metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{station_id}.txt"
 
-    with zipfile.ZipFile(metadata_file) as zip_file:
-        with zip_file.open(metadata_geo_filename) as file_opened:
-            metadata_geo_bytes = BytesIO(file_opened.read())
+    with zipfile.ZipFile(metadata_file, mode="r") as zip_file:
+        metadata_geo_bytes = BytesIO(zip_file.read(metadata_geo_filename))
 
     metadata_geo_df = _parse_zipped_data_into_df(metadata_geo_bytes)
 
@@ -238,9 +248,9 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
 
-    if pd.isnull(metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1]):
-        metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = pd.Timestamp(
-                dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
+    # if pd.isnull(metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1]):
+    #     metadata_geo_df[DWDMetaColumns.TO_DATE.value].iloc[-1] = pd.Timestamp(
+    #             dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
 
     return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
 

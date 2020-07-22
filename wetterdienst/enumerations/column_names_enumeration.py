@@ -388,14 +388,14 @@ class DWDOrigDataColumns(_DWDDataColumnBase):
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QN_4 = "QN_4"
-            JA_STURM_6 = "JA_STURM_6"
-            JA_STURM_8 = "JA_STURM_8"
-            JA_GEWITTER = "JA_GEWITTER"
-            JA_GLATTEIS = "JA_GLATTEIS"
-            JA_GRAUPEL = "JA_GRAUPEL"
-            JA_HAGEL = "JA_HAGEL"
-            JA_NEBEL = "JA_NEBEL"
-            JA_TAU = "JA_TAU"
+            JA_STURM_6 = "JA_STURM_6"  # int
+            JA_STURM_8 = "JA_STURM_8"  # int
+            JA_GEWITTER = "JA_GEWITTER"  # int
+            JA_GLATTEIS = "JA_GLATTEIS"  # int
+            JA_GRAUPEL = "JA_GRAUPEL"  # int
+            JA_HAGEL = "JA_HAGEL"  # int
+            JA_NEBEL = "JA_NEBEL"  # int
+            JA_TAU = "JA_TAU"  # int
 
 
 class DWDDataColumns(_DWDDataColumnBase):
