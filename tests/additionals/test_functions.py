@@ -1,8 +1,10 @@
 import pytest
+import numpy as np
+import pandas as pd
 
 from wetterdienst.additionals.functions import check_parameters, retrieve_time_resolution_from_filename, \
     retrieve_parameter_from_filename, retrieve_period_type_from_filename, determine_parameters, \
-    cast_to_list, parse_enumeration_from_template, create_humanized_column_names_mapping
+    cast_to_list, parse_enumeration_from_template, create_humanized_column_names_mapping, coerce_field_types
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -52,6 +54,26 @@ def test_parse_enumeration_from_template():
 
     with pytest.raises(InvalidParameter):
         parse_enumeration_from_template("climate", Parameter)
+
+
+def test_coerce_field_types():
+    df = pd.DataFrame({
+        "QN": ["1"],
+        "RS_IND_01": ["1"],
+        "DATE": ["1970010100"],
+        "END_OF_INTERVAL": ["1970010100:00"],
+        "V_VV_I": ["P"]
+    })
+
+    expected_df = pd.DataFrame({
+        "QN": pd.Series([1], dtype=np.int32),
+        "RS_IND_01": pd.Series([1], dtype=np.int32),
+        "DATE": [pd.Timestamp("1970-01-01")],
+        "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
+        "V_VV_I": ["P"]
+    })
+
+    assert coerce_field_types(df, TimeResolution.HOURLY).equals(expected_df)
 
 
 def test_create_humanized_column_names_mapping():

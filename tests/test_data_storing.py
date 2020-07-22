@@ -5,7 +5,7 @@ import pandas as pd
 import mock
 from shutil import rmtree
 
-from wetterdienst.additionals.functions import coerce_column_types
+from wetterdienst.additionals.functions import coerce_field_types
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
@@ -31,7 +31,7 @@ filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
 
 # Loading test data
 file = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
-file = coerce_column_types(file, time_resolution)
+file = coerce_field_types(file, time_resolution)
 
 # Prepare csv for regular "downloading" test
 csv_file = StringIO()

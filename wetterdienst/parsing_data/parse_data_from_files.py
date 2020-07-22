@@ -4,7 +4,7 @@ from typing import List, Tuple, Union
 from io import BytesIO
 import pandas as pd
 
-from wetterdienst.additionals.functions import coerce_column_types
+from wetterdienst.additionals.functions import coerce_field_types
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from wetterdienst.constants.metadata import NA_STRING, STATION_DATA_SEP
 from wetterdienst.enumerations.column_names_enumeration import DWDOrigMetaColumns, \
@@ -106,6 +106,6 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
     # Coerce the data types appropriately.
-    data = coerce_column_types(data, time_resolution)
+    data = coerce_field_types(data, time_resolution)
 
     return data

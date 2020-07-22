@@ -2,6 +2,7 @@
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Union
+import requests
 
 from wetterdienst.download.https_handling import create_dwd_session
 from wetterdienst.file_path_handling.path_handling import build_climate_observations_path
@@ -17,9 +18,9 @@ def download_file_from_climate_observations(filepath: Union[PurePosixPath, str])
     Returns:
         bytes of the file
     """
-    dwd_session = create_dwd_session()
+    # dwd_session = create_dwd_session()
 
-    r = dwd_session.get(build_climate_observations_path(filepath))
+    r = requests.get(build_climate_observations_path(filepath))
     r.raise_for_status()
 
     return BytesIO(r.content)
