@@ -6,11 +6,13 @@ from io import BytesIO
 from requests.exceptions import InvalidURL
 from concurrent.futures import ThreadPoolExecutor
 
-from wetterdienst.download.download_services import download_file_from_climate_observations
+from wetterdienst.download.download_services import (
+    download_file_from_climate_observations,
+)
 from wetterdienst.exceptions.failed_download_exception import FailedDownload
 from wetterdienst.exceptions.product_file_not_found_exception import ProductFileNotFound
 
-PRODUCT_FILE_IDENTIFIER = 'produkt'
+PRODUCT_FILE_IDENTIFIER = "produkt"
 
 
 def download_dwd_data_parallel(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
@@ -19,12 +21,7 @@ def download_dwd_data_parallel(remote_files: List[str]) -> List[Tuple[str, Bytes
     with ThreadPoolExecutor() as executor:
         files_in_bytes = executor.map(_download_dwd_data_parallel, remote_files)
 
-    return list(
-        zip(
-            remote_files,
-            files_in_bytes
-        )
-    )
+    return list(zip(remote_files, files_in_bytes))
 
 
 def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
@@ -65,7 +62,9 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
                 return file_in_bytes
 
         # If whatsoever no file was found and returned already throw exception
-        raise ProductFileNotFound(f"The archive of {remote_file} does not hold a 'produkt' file.")
+        raise ProductFileNotFound(
+            f"The archive of {remote_file} does not hold a 'produkt' file."
+        )
 
     except zipfile.BadZipFile as e:
         raise e(f"The archive of {remote_file} seems to be corrupted.\n {str(e)}")

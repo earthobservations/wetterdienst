@@ -7,6 +7,7 @@ class Parameter(Enum):
         enumeration for different parameter/variables
         measured by dwd weather stations, listed from 1_minute to yearly resolution
     """
+
     # 1_minute
     PRECIPITATION = "precipitation"
     # 10_minutes - left out: wind_test
@@ -32,5 +33,3 @@ class Parameter(Enum):
     PRECIPITATION_MORE = "more_precip"
     WATER_EQUIVALENT = "water_equiv"
     WEATHER_PHENOMENA = "weather_phenomena"
-
-

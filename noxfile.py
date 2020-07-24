@@ -12,26 +12,37 @@ from nox.sessions import Session
 def tests(session):
     """Run tests."""
     session.run("poetry", "install", "--no-dev", external=True)
-    install_with_constraints(
-        session, "pytest", "mock"
-    )
+    install_with_constraints(session, "pytest", "mock")
     session.run("pytest")
 
-    
+
 @nox.session(python=["3.7"])
 def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
     session.run("poetry", "install", "--no-dev", external=True)
-    install_with_constraints(
-        session, "coverage[toml]", "pytest", "pytest-cov", "mock"
-    )
+    install_with_constraints(session, "coverage[toml]", "pytest", "pytest-cov", "mock")
     session.run("pytest", "--cov=wetterdienst", "tests/")
     session.run("coverage", "xml")
 
 
-def install_with_constraints(
-    session: Session, *args: str, **kwargs: Any
-) -> None:
+locations = "wetterdienst", "tests", "noxfile.py"
+
+
+@nox.session(python=["3.6", "3.7", "3.8"])
+def black(session):
+    args = session.posargs or locations
+    session.install("black")
+    session.run("black", *args)
+
+
+@nox.session(python=["3.7"])
+def lint(session):
+    args = session.posargs or locations
+    session.install("flake8")
+    session.run("flake8", *args)
+
+
+def install_with_constraints(session: Session, *args: str, **kwargs: Any) -> None:
     """
     Install packages constrained by Poetry's lock file.
 

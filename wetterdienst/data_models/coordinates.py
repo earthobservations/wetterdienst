@@ -33,5 +33,6 @@ class Coordinates:
         return np.radians(self.get_coordinates())
 
     def __eq__(self, other):
-        return np.array_equal(self.latitudes, other.latitudes) and \
-               np.array_equal(self.longitudes, other.longitudes)
+        return np.array_equal(self.latitudes, other.latitudes) and np.array_equal(
+            self.longitudes, other.longitudes
+        )

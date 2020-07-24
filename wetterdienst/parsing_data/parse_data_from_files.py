@@ -7,17 +7,22 @@ import pandas as pd
 from wetterdienst.additionals.functions import coerce_field_types
 from wetterdienst.constants.column_name_mapping import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
 from wetterdienst.constants.metadata import NA_STRING, STATION_DATA_SEP
-from wetterdienst.enumerations.column_names_enumeration import DWDOrigMetaColumns, \
-    DWDMetaColumns, DWDOrigDataColumns
+from wetterdienst.enumerations.column_names_enumeration import (
+    DWDOrigMetaColumns,
+    DWDMetaColumns,
+    DWDOrigDataColumns,
+)
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 log = logging.getLogger(__name__)
 
 
-def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
-                   parameter: Parameter,
-                   time_resolution: Union[TimeResolution, str]) -> pd.DataFrame:
+def parse_dwd_data(
+    filenames_and_files: List[Tuple[str, BytesIO]],
+    parameter: Parameter,
+    time_resolution: Union[TimeResolution, str],
+) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
     The filename is required to defined if and where an error happened.
@@ -32,17 +37,21 @@ def parse_dwd_data(filenames_and_files: List[Tuple[str, BytesIO]],
 
     time_resolution = TimeResolution(time_resolution)
 
-    data = [_parse_dwd_data(filename_and_file, parameter, time_resolution)
-            for filename_and_file in filenames_and_files]
+    data = [
+        _parse_dwd_data(filename_and_file, parameter, time_resolution)
+        for filename_and_file in filenames_and_files
+    ]
 
     data = pd.concat(data).reset_index(drop=True)
 
     return data
 
 
-def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
-                    parameter: Parameter,
-                    time_resolution: TimeResolution) -> pd.DataFrame:
+def _parse_dwd_data(
+    filename_and_file: Tuple[str, BytesIO],
+    parameter: Parameter,
+    time_resolution: TimeResolution,
+) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to it are thus related to this id.
     This is important for storing the data locally as the DataFrame that is stored should obviously only handle one
@@ -58,13 +67,17 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
 
     try:
         data = pd.read_csv(
-            filepath_or_buffer=BytesIO(file.read().replace(b" ", b"")),  # prevent leading/trailing whitespace
+            filepath_or_buffer=BytesIO(
+                file.read().replace(b" ", b"")
+            ),  # prevent leading/trailing whitespace
             sep=STATION_DATA_SEP,
             dtype="str",
-            na_values=NA_STRING
+            na_values=NA_STRING,
         )
     except pd.errors.ParserError:
-        log.warning(f"The file representing {filename} could not be parsed and is skipped.")
+        log.warning(
+            f"The file representing {filename} could not be parsed and is skipped."
+        )
         return pd.DataFrame()
     except ValueError:
         log.warning(f"The file representing {filename} is None and is skipped.")
@@ -77,7 +90,7 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
     data = data.rename(columns=str.upper)
 
     # End of record (EOR) has no value, so drop it right away.
-    data = data.drop(columns=DWDMetaColumns.EOR.value, errors='ignore')
+    data = data.drop(columns=DWDMetaColumns.EOR.value, errors="ignore")
 
     # Special handling for hourly solar data, as it has more date columns
     if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
@@ -86,13 +99,15 @@ def _parse_dwd_data(filename_and_file: Tuple[str, BytesIO],
         data = data.rename(
             columns={
                 DWDOrigMetaColumns.DATE.value: DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value,
-                "MESS_DATUM_WOZ": DWDOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                "MESS_DATUM_WOZ": DWDOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             }
         )
 
         # Duplicate the end of interval column to create real datetime column
         # remove minutes e.g. ":09" at the end of string
-        data[DWDMetaColumns.DATE.value] = data[DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value].str[:-3]
+        data[DWDMetaColumns.DATE.value] = data[
+            DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value
+        ].str[:-3]
 
         # Store columns for later reordering
         columns = data.columns.values.tolist()

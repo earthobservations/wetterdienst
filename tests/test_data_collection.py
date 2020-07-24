@@ -40,11 +40,13 @@ csv_file.seek(0)
 
 @patch(
     "wetterdienst.data_collection.create_file_list_for_dwd_server",
-    mock.MagicMock(return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]}))
+    mock.MagicMock(
+        return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]})
+    ),
 )
 @patch(
     "wetterdienst.data_collection.download_dwd_data_parallel",
-    mock.MagicMock(return_value=[(filename, BytesIO(csv_file.read().encode()))])
+    mock.MagicMock(return_value=[(filename, BytesIO(csv_file.read().encode()))]),
 )
 def test_collect_dwd_data():
     """ Test for data collection """
@@ -61,7 +63,7 @@ def test_collect_dwd_data():
         folder=test_folder,
         prefer_local=False,
         write_file=True,
-        create_new_file_index=create_new_file_index
+        create_new_file_index=create_new_file_index,
     ).equals(file)
 
     """
@@ -77,7 +79,7 @@ def test_collect_dwd_data():
         folder=test_folder,
         prefer_local=True,
         write_file=True,
-        create_new_file_index=create_new_file_index
+        create_new_file_index=create_new_file_index,
     ).equals(file)
 
     # Remove storage folder
@@ -89,11 +91,11 @@ def test_collect_dwd_data():
 
 @patch(
     "wetterdienst.data_collection.restore_dwd_data",
-    mock.MagicMock(return_value=pd.DataFrame())
+    mock.MagicMock(return_value=pd.DataFrame()),
 )
 @patch(
     "wetterdienst.data_collection.create_file_list_for_dwd_server",
-    mock.MagicMock(return_value=pd.DataFrame(columns=[DWDMetaColumns.FILENAME.value]))
+    mock.MagicMock(return_value=pd.DataFrame(columns=[DWDMetaColumns.FILENAME.value])),
 )
 def test_collect_dwd_data_empty():
     """ Test for data collection with no available data """
@@ -110,7 +112,7 @@ def test_collect_dwd_data_empty():
         folder="",
         prefer_local=True,
         write_file=False,
-        create_new_file_index=create_new_file_index
+        create_new_file_index=create_new_file_index,
     ).empty
 
 
@@ -122,28 +124,28 @@ def test_collect_daily_vanilla():
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT
+        period_type=PeriodType.RECENT,
     )
 
     assert list(data.columns.values) == [
-        'STATION_ID',
-        'DATE',
-        'QN_3',
-        'FX',
-        'FM',
-        'QN_4',
-        'RSK',
-        'RSKF',
-        'SDK',
-        'SHK_TAG',
-        'NM',
-        'VPM',
-        'PM',
-        'TMK',
-        'UPM',
-        'TXK',
-        'TNK',
-        'TGK',
+        "STATION_ID",
+        "DATE",
+        "QN_3",
+        "FX",
+        "FM",
+        "QN_4",
+        "RSK",
+        "RSKF",
+        "SDK",
+        "SHK_TAG",
+        "NM",
+        "VPM",
+        "PM",
+        "TMK",
+        "UPM",
+        "TXK",
+        "TNK",
+        "TGK",
     ]
 
 
@@ -155,13 +157,13 @@ def test_collect_hourly_vanilla():
         station_ids=[1048],
         parameter=Parameter.TEMPERATURE_AIR,
         time_resolution=TimeResolution.HOURLY,
-        period_type=PeriodType.RECENT
+        period_type=PeriodType.RECENT,
     )
 
     assert list(data.columns.values) == [
-        'STATION_ID',
-        'DATE',
-        'QN_9',
-        'TT_TU',
-        'RF_TU',
+        "STATION_ID",
+        "DATE",
+        "QN_9",
+        "TT_TU",
+        "RF_TU",
     ]

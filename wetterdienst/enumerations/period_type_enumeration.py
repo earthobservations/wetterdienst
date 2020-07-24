@@ -14,6 +14,7 @@ quality marks and drop overlapping values from other periods.
 @functools.total_ordering
 class PeriodType(Enum):
     """ enumeration for different period types of storage on dwd server"""
+
     HISTORICAL = "historical"
     RECENT = "recent"
     NOW = "now"
@@ -22,22 +23,22 @@ class PeriodType(Enum):
     def _period_type_order_mapping(self):
         # IMPORTANT: THIS DEPENDS ON THE NAMING CONVENTIONS USED IN THE PeriodType
         # ENUMERATION AS SHOWN BELOW
-        return {
-            "HISTORICAL": 0,
-            "RECENT": 1,
-            "NOW": 2
-        }
+        return {"HISTORICAL": 0, "RECENT": 1, "NOW": 2}
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
-            return self._period_type_order_mapping[self.name] < \
-                   self._period_type_order_mapping[other.name]
+            return (
+                self._period_type_order_mapping[self.name]
+                < self._period_type_order_mapping[other.name]
+            )
         return NotImplemented
 
     def __gt__(self, other):
         if self.__class__ is other.__class__:
-            return self._period_type_order_mapping[self.name] > \
-                   self._period_type_order_mapping[other.name]
+            return (
+                self._period_type_order_mapping[self.name]
+                > self._period_type_order_mapping[other.name]
+            )
         return NotImplemented
 
     def __ge__(self, other):

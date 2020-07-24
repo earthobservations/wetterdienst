@@ -20,12 +20,16 @@ def parse_datetime(date_string: str) -> datetime:
         any kind of datetime
     """
     # Tries out any given format of DatetimeFormat enumeration
-    return dateparser.parse(date_string, date_formats=[dt_format.value for dt_format in DatetimeFormat])
+    return dateparser.parse(
+        date_string, date_formats=[dt_format.value for dt_format in DatetimeFormat]
+    )
 
 
-def mktimerange(time_resolution: TimeResolution,
-                date_from: Union[datetime, str],
-                date_to: Union[datetime, str] = None) -> Tuple[datetime, datetime]:
+def mktimerange(
+    time_resolution: TimeResolution,
+    date_from: Union[datetime, str],
+    date_to: Union[datetime, str] = None,
+) -> Tuple[datetime, datetime]:
     """
     Compute appropriate time ranges for monthly and annual time resolutions.
     This takes into account to properly floor/ceil the date_from/date_to
@@ -52,6 +56,8 @@ def mktimerange(time_resolution: TimeResolution,
         date_to = pd.to_datetime(date_to) + relativedelta(day=31)
 
     else:
-        raise NotImplementedError("mktimerange only implemented for annual and monthly time ranges")
+        raise NotImplementedError(
+            "mktimerange only implemented for annual and monthly time ranges"
+        )
 
     return date_from, date_to

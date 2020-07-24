@@ -108,10 +108,12 @@ def run():
     """
 
     # Read command line options.
-    options = normalize_options(docopt(run.__doc__, version=f'wetterdienst {__version__}'))
+    options = normalize_options(
+        docopt(run.__doc__, version=f"wetterdienst {__version__}")
+    )
 
     # Setup logging.
-    debug = options.get('debug')
+    debug = options.get("debug")
     log_level = logging.INFO
     if debug:
         log_level = logging.DEBUG
@@ -125,7 +127,7 @@ def run():
         df = metadata_for_dwd_data(
             parameter=options.parameter,
             time_resolution=options.resolution,
-            period_type=options.period
+            period_type=options.period,
         )
 
         if options.station:
@@ -137,7 +139,7 @@ def run():
             df = df[df.STATION_ID.isin(nearby_stations)]
 
         if df.empty:
-            log.error('No data available for given constraints')
+            log.error("No data available for given constraints")
             sys.exit(1)
 
     elif options.readings:
@@ -150,7 +152,7 @@ def run():
             station_ids = nearby_stations
 
         else:
-            raise KeyError('Either --station or --lat, --lon required')
+            raise KeyError("Either --station or --lat, --lon required")
 
         request = DWDStationRequest(
             station_ids=station_ids,
@@ -164,7 +166,7 @@ def run():
         data = list(request.collect_data())
 
         if not data:
-            log.error('No data available for given constraints')
+            log.error("No data available for given constraints")
             sys.exit(1)
 
         df = pd.concat(data)
@@ -174,53 +176,64 @@ def run():
         if options.date:
 
             # Filter by time interval.
-            if '/' in options.date:
-                date_from, date_to = options.date.split('/')
+            if "/" in options.date:
+                date_from, date_to = options.date.split("/")
                 date_from = parse_datetime(date_from)
                 date_to = parse_datetime(date_to)
-                if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
-                    date_from, date_to = mktimerange(request.time_resolution, date_from, date_to)
-                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & \
-                                 (df[DWDMetaColumns.TO_DATE.value] <= date_to)
+                if request.time_resolution in (
+                    TimeResolution.ANNUAL,
+                    TimeResolution.MONTHLY,
+                ):
+                    date_from, date_to = mktimerange(
+                        request.time_resolution, date_from, date_to
+                    )
+                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (
+                        df[DWDMetaColumns.TO_DATE.value] <= date_to
+                    )
                 else:
-                    expression = (date_from <= df[DWDMetaColumns.DATE.value]) & \
-                                 (df[DWDMetaColumns.DATE.value] <= date_to)
+                    expression = (date_from <= df[DWDMetaColumns.DATE.value]) & (
+                        df[DWDMetaColumns.DATE.value] <= date_to
+                    )
                 df = df[expression]
 
             # Filter by date.
             else:
                 date = parse_datetime(options.date)
-                if request.time_resolution in (TimeResolution.ANNUAL, TimeResolution.MONTHLY):
+                if request.time_resolution in (
+                    TimeResolution.ANNUAL,
+                    TimeResolution.MONTHLY,
+                ):
                     date_from, date_to = mktimerange(request.time_resolution, date)
-                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & \
-                                 (df[DWDMetaColumns.TO_DATE.value] <= date_to)
+                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (
+                        df[DWDMetaColumns.TO_DATE.value] <= date_to
+                    )
                 else:
-                    expression = (date == df[DWDMetaColumns.DATE.value])
+                    expression = date == df[DWDMetaColumns.DATE.value]
                 df = df[expression]
 
     # Make column names lowercase.
     df = df.rename(columns=str.lower)
 
     # Output as JSON.
-    if options.format == 'json':
-        output = df.to_json(orient='records', date_format='iso', indent=4)
+    if options.format == "json":
+        output = df.to_json(orient="records", date_format="iso", indent=4)
 
     # Output as GeoJSON.
-    elif options.format == 'geojson':
+    elif options.format == "geojson":
         if options.readings:
-            raise KeyError('GeoJSON format only available for stations output')
+            raise KeyError("GeoJSON format only available for stations output")
         output = json.dumps(stations_to_geojson(df), indent=4)
 
     # Output as CSV.
-    elif options.format == 'csv':
-        #df.to_csv(f"metadata_{options.parameter}_{options.resolution}_{options.period}.csv")
-        output = df.to_csv(index=False, date_format='%Y-%m-%dT%H-%M-%S')
+    elif options.format == "csv":
+        # df.to_csv(f"metadata_{options.parameter}_{options.resolution}_{options.period}.csv")
+        output = df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
 
     # Output as XLSX.
-    elif options.format == 'excel':
+    elif options.format == "excel":
         # TODO: Obtain output file name from command line.
         log.info('Writing "output.xlsx"')
-        df.to_excel('output.xlsx', index=False)
+        df.to_excel("output.xlsx", index=False)
         return
 
     else:
@@ -246,7 +259,8 @@ def get_nearby(options: Munch) -> Tuple[List, List]:
     """
 
     nearby_baseline_args = dict(
-        latitudes=[float(options.latitude)], longitudes=[float(options.longitude)],
+        latitudes=[float(options.latitude)],
+        longitudes=[float(options.longitude)],
         parameter=options.parameter,
         time_resolution=options.resolution,
         period_type=options.period,
@@ -255,13 +269,11 @@ def get_nearby(options: Munch) -> Tuple[List, List]:
     if options.latitude and options.longitude:
         if options.count:
             nearby_stations, distances = get_nearby_stations(
-                **nearby_baseline_args,
-                num_stations_nearby=int(options.count),
+                **nearby_baseline_args, num_stations_nearby=int(options.count),
             )
         elif options.distance:
             nearby_stations, distances = get_nearby_stations(
-                **nearby_baseline_args,
-                max_distance_in_km=int(options.distance),
+                **nearby_baseline_args, max_distance_in_km=int(options.distance),
             )
 
         return nearby_stations, distances
@@ -280,7 +292,7 @@ def about(options: Munch):
     def output(thing):
         for item in thing:
             if item:
-                print('-', item.value)
+                print("-", item.value)
 
     if options.parameters:
         output(Parameter)
@@ -292,5 +304,7 @@ def about(options: Munch):
         output(PeriodType)
 
     else:
-        log.error('Invoke "wetterdienst about" with one of "parameters", "resolutions" or "periods"')
+        log.error(
+            'Invoke "wetterdienst about" with one of "parameters", "resolutions" or "periods"'
+        )
         sys.exit(1)

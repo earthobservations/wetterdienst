@@ -3,6 +3,7 @@ from enum import Enum
 
 class DWDOrigMetaColumns(Enum):
     """ Original meta column names from DWD data """
+
     STATION_ID = "STATIONS_ID"
     DATE = "MESS_DATUM"
     FROM_DATE = "VON_DATUM"
@@ -20,6 +21,7 @@ class DWDOrigMetaColumns(Enum):
 
 class DWDMetaColumns(Enum):
     """ Overhauled column names for metadata fields """
+
     STATION_ID = "STATION_ID"
     DATE = "DATE"
     FROM_DATE = "FROM_DATE"
@@ -54,6 +56,7 @@ class DWDOrigDataColumns(_DWDDataColumnBase):
         - monthly/kl -> QN_4, QN_6
         - annual/kl -> QN_4, QN_6
     """
+
     # 1_minute
     class MINUTE_1(_DWDDataColumnBase):  # noqa
         # precipitation
@@ -186,7 +189,9 @@ class DWDOrigDataColumns(_DWDDataColumnBase):
             FG_LBERG = "FG_LBERG"
             SD_LBERG = "SD_LBERG"
             ZENIT = "ZENIT"
-            TRUE_LOCAL_TIME = "TRUE_LOCAL_TIME"  # original name was adjusted to this one
+            TRUE_LOCAL_TIME = (
+                "TRUE_LOCAL_TIME"  # original name was adjusted to this one
+            )
 
         # sun
         class SUN(Enum):
@@ -406,6 +411,7 @@ class DWDDataColumns(_DWDDataColumnBase):
         - monthly/kl -> QN_4, QN_6
         - annual/kl -> QN_4, QN_6
     """
+
     # 1_minute
     class MINUTE_1(_DWDDataColumnBase):  # noqa
         # precipitation
@@ -538,7 +544,9 @@ class DWDDataColumns(_DWDDataColumnBase):
             FG_LBERG = "RADIATION_GLOBAL"
             SD_LBERG = "SUNSHINE_DURATION"
             ZENIT = "SUN_ZENITH"
-            TRUE_LOCAL_TIME = "TRUE_LOCAL_TIME"  # original name was adjusted to this one
+            TRUE_LOCAL_TIME = (
+                "TRUE_LOCAL_TIME"  # original name was adjusted to this one
+            )
 
         # sun
         class SUN(Enum):

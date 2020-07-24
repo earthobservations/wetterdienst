@@ -17,7 +17,6 @@ def create_dwd_session() -> requests.Session:
     """
     dwd_session = requests.Session()
 
-    dwd_session.mount(
-        HTTPS_EXPRESSION, HTTPAdapter(max_retries=MAX_RETRIES))
+    dwd_session.mount(HTTPS_EXPRESSION, HTTPAdapter(max_retries=MAX_RETRIES))
 
     return dwd_session

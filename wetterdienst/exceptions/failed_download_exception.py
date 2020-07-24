@@ -3,4 +3,5 @@
 
 class FailedDownload(Exception):
     """ Failed download exception """
+
     pass

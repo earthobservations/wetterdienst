@@ -1,13 +1,13 @@
 # Wetterdienst - a Python library to ease access to open weather data
 
 [![Tests](https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg)](https://github.com/earthobservations/wetterdienst/actions?workflow=Tests)
-![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)
-![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)
-![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)
 [![codecov](https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg)](https://codecov.io/gh/earthobservations/wetterdienst)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
 [![PyPI](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
-[![License](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.md)
+[![PyPI status](https://img.shields.io/pypi/status/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
 [![Downloads](https://img.shields.io/pypi/dm/wetterdienst)](https://pypi.org/project/wetterdienst/)
+[![License](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.md)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## 1. Introduction
 
@@ -207,7 +207,10 @@ poetry run pytest
 poetry shell
 wetterdienst --help
 ```
-
+After adding your changes, please invoke black code formatter with
+```
+nox -s black
+```
 ____
 
 ## Docker support
