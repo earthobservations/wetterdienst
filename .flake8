@@ -1,3 +1,5 @@
 [flake8]
-select = C,E,F,W
-max-complexity = 10
+select = B,B9,BLK,C,E,F,W,S
+ignore = E203,W503
+max-line-length = 88
+per-file-ignores = tests/*:S101
