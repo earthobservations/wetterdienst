@@ -19,7 +19,7 @@ def normalize_options(options):
     for key, value in options.items():
 
         # Add primary variant.
-        key = key.strip("--<>")
+        key = key.replace("--<>", "")
         normalized[key] = value
 
         # Add secondary variant.

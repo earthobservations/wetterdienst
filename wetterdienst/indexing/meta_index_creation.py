@@ -66,9 +66,9 @@ def create_meta_index_for_dwd_data(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
     """
-    Wrapper function that either calls the regular meta index function for general parameters
-    or the special function for 1minute precipitation historical where meta index is
-    created in a more complex way.
+    Wrapper function that either calls the regular meta index function for general
+    parameters or the special function for 1minute precipitation historical where meta
+    index is created in a more complex way.
 
     Args:
         parameter: observation measure
@@ -91,7 +91,8 @@ def create_meta_index_for_dwd_data(
             parameter, time_resolution, period_type
         )
 
-    # If no state column available, take state information from daily historical precipitation
+    # If no state column available, take state information from daily historical
+    # precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_dwd_data(
             Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL
@@ -129,8 +130,9 @@ def _create_meta_index_for_dwd_data(
         time_resolution: frequency/granularity of measurement interval
         period_type: current, recent or historical files
     Return:
-        DataFrame with parsed columns of the corresponding text file. Columns are translated into English and data is
-        not yet complete as file existence is not checked.
+        DataFrame with parsed columns of the corresponding text file. Columns are
+        translated into English and data is not yet complete as file existence is
+        not checked.
 
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
@@ -167,7 +169,8 @@ def _create_meta_index_for_dwd_data(
 
 def _find_meta_file(files: List[str], path: str) -> str:
     """
-    Function used to find meta file based on predefined strings that are usually found in those files
+    Function used to find meta file based on predefined strings that are usually found
+    in those files
     Args:
         files: list of files found on server path
         path: the path that was searched for a meta file
@@ -236,9 +239,11 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
 
 def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> BytesIO:
-    """ A function that simply opens a filepath with help of the urllib library and then writes the content to a BytesIO
-    object and returns this object. For this case as it opens lots of requests (there are approx 1000 different files
-    to open for 1minute data), it will do the same at most three times for one file to assure success reading the file.
+    """ A function that simply opens a filepath with help of the urllib library and then
+    writes the content to a BytesIO object and returns this object. For this case as it
+    opens lots of requests (there are approx 1000 different files to open for
+    1minute data), it will do the same at most three times for one file to assure
+    success reading the file.
 
     Args:
         metadata_file (str) - the file that shall be downloaded and returned as bytes.
@@ -258,12 +263,14 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 def _parse_geo_metadata(
     metadata_file_and_station_id: Tuple[BytesIO, str]
 ) -> pd.DataFrame:
-    """ A function that analysis the given file (bytes) and extracts geography of 1minute metadata
-    zip and catches the relevant information and create a similar file to those that can usually be
-    found already prepared for other parameter combinations.
+    """ A function that analysis the given file (bytes) and extracts geography of
+    1minute metadata zip and catches the relevant information and create a similar file
+    to those that can usually be found already prepared for other
+    parameter combinations.
 
     Args:
-        metadata_file_and_station_id (BytesIO, str) - the file that holds the information and the statid of that file.
+        metadata_file_and_station_id (BytesIO, str) - the file that holds the
+        information and the station id of that file.
 
     Return:
         A pandas DataFrame with the combined data for one respective station.
@@ -292,7 +299,8 @@ def _parse_geo_metadata(
 
 
 def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
-    """ A wrapper for read_csv of pandas library that has set the typically used parameters in the found data of the
+    """ A wrapper for read_csv of pandas library that has set the typically used
+    parameters in the found data of the
     german weather service.
 
     Args:
@@ -305,7 +313,7 @@ def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
     try:
         # First try utf-8
         file = pd.read_csv(
-            filepath_or_buffer=file,  # TextIOWrapper(file_opened, encoding="utf-8")
+            filepath_or_buffer=file,
             sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype=str,
@@ -316,7 +324,7 @@ def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
         file.seek(0)
 
         file = pd.read_csv(
-            filepath_or_buffer=file,  # TextIOWrapper(file_opened, encoding="ISO-8859-1")
+            filepath_or_buffer=file,
             sep=STATION_DATA_SEP,
             na_values=NA_STRING,
             dtype=str,

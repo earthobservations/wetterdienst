@@ -3,7 +3,7 @@ from enum import Enum
 import functools
 
 """
-Following this: https://stackoverflow.com/questions/39268052/how-to-compare-enums-in-python
+Source: https://stackoverflow.com/questions/39268052/how-to-compare-enums-in-python
 Ordering is required for the PeriodType enumeration in order for it to be sorted.
 PeriodType needs to be sortable for the request definition where for the case of
 requesting data for several periods, we want preferably the historical data with

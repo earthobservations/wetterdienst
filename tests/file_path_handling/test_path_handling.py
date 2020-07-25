@@ -18,7 +18,7 @@ def test_build_local_filepath_for_station_data():
 
     assert (
         "/".join(local_filepath.as_posix().split("/")[-3:])
-        == f"dwd_data/station_data/dwd_station_data.h5"
+        == "dwd_data/station_data/dwd_station_data.h5"
     )
 
 
@@ -32,7 +32,8 @@ def test_build_index_path():
 def test_build_climate_observations_path():
     assert (
         build_climate_observations_path("abc")
-        == "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/abc"
+        == "https://opendata.dwd.de/climate_environment/CDC/"
+        "observations_germany/climate/abc"
     )
 
 

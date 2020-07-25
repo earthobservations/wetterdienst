@@ -1,7 +1,5 @@
 """ tests for file index creation """
-import mock
 import requests
-from mock import patch
 import pytest
 from pandas import Timestamp
 

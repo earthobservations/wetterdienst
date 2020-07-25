@@ -24,7 +24,8 @@ log = logging.getLogger(__name__)
 
 class DWDStationRequest:
     """
-    The DWDStationRequest class represents a request for station data as provided by the DWD service
+    The DWDStationRequest class represents a request for station data as provided by the
+    DWD service
     """
 
     def __init__(
@@ -42,16 +43,20 @@ class DWDStationRequest:
         humanize_column_names: bool = False,
     ) -> None:
         """
-        Class with mostly flexible arguments to define a request regarding DWD data. Special handling for
-        period type. If start_date/end_date are given all period types are considered and merged together
-        and the data is filtered for the given dates afterwards.
+        Class with mostly flexible arguments to define a request regarding DWD data.
+        Special handling for period type. If start_date/end_date are given all period
+        types are considered and merged together and the data is filtered for the given
+        dates afterwards.
         Args:
             station_ids: definition of stations by str, int or list of str/int,
             will be parsed to list of int
             parameter: str or parameter enumeration defining the requested parameter
-            time_resolution: str or time resolution enumeration defining the requested time resolution
-            period_type: str or period type enumeration defining the requested period type
-            start_date: replacement for period type to define exact time of requested data
+            time_resolution: str or time resolution enumeration defining the requested
+            time resolution
+            period_type: str or period type enumeration defining the requested
+            period type
+            start_date: replacement for period type to define exact time of
+            requested data
             end_date: replacement for period type to define exact time of requested data
             prefer_local: definition if data should rather be taken from a local source
             write_file: should data be written to a local file
@@ -62,8 +67,8 @@ class DWDStationRequest:
 
         if not (period_type or (start_date and end_date)):
             raise ValueError(
-                "Define either a 'time_resolution' or both the 'start_date' and 'end_date' and "
-                "leave the other one empty!"
+                "Define either a 'time_resolution' or both the 'start_date' and "
+                "'end_date' and leave the other one empty!"
             )
 
         try:
@@ -101,7 +106,8 @@ class DWDStationRequest:
             self.end_date = None
 
         if self.start_date:
-            # working with ranges of data means expecting data to be laying between periods, thus including all
+            # working with ranges of data means expecting data to be laying between
+            # periods, thus including all periods
             self.period_type = [
                 PeriodType.HISTORICAL,
                 PeriodType.RECENT,
@@ -122,7 +128,8 @@ class DWDStationRequest:
                 )
                 self.period_type.remove(period_type)
 
-        # Use the clean up of self.period_type to identify if there's any data with those parameters
+        # Use the clean up of self.period_type to identify if there's any data with
+        # those parameters
         if not self.period_type:
             raise ValueError(
                 "No combination for parameter, time_resolution "
@@ -146,9 +153,12 @@ class DWDStationRequest:
         ] == other
 
     def __str__(self):
+        station_ids_joined = "& ".join(
+            [str(station_id) for station_id in self.station_ids]
+        )
         return ", ".join(
             [
-                f"station_ids {'& '.join([str(station_id) for station_id in self.station_ids])}",
+                f"station_ids {station_ids_joined}",
                 self.parameter.value,
                 self.time_resolution.value,
                 "& ".join([period_type.value for period_type in self.period_type]),
@@ -159,9 +169,9 @@ class DWDStationRequest:
 
     def collect_data(self) -> Generator[pd.DataFrame, None, None]:
         """
-        Method to collect data for a defined request. The function is build as generator in
-        order to not cloak the memory thus if the user wants the data as one pandas DataFrame
-        the generator has to be casted to a DataFrame manually via
+        Method to collect data for a defined request. The function is build as generator
+        in order to not cloak the memory thus if the user wants the data as one pandas
+        DataFrame the generator has to be casted to a DataFrame manually via
         pd.concat(list(request.collect_data([...])).
 
         Args:

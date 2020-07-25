@@ -96,7 +96,8 @@ def _build_local_store_key(
     period_type: PeriodType,
 ) -> str:
     """
-    Function that builds a request string from defined parameters including a single station id
+    Function that builds a request string from defined parameters including a single
+    station id
 
     Args:
         station_id: station id of data

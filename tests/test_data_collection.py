@@ -52,8 +52,8 @@ def test_collect_dwd_data():
     """ Test for data collection """
     """
     1. Scenario
-    This scenario makes sure we take fresh data and write it to the given folder, thus we can run
-    just another test afterwards as no old data is used
+    This scenario makes sure we take fresh data and write it to the given folder, thus
+    we can run just another test afterwards as no old data is used
     """
     collect_dwd_data(
         station_ids=station_ids,
@@ -68,8 +68,8 @@ def test_collect_dwd_data():
 
     """
     2. Scenario
-    This scenario tries to get the data from the given folder. This data was placed by the first test
-    and is now restored
+    This scenario tries to get the data from the given folder. This data was placed by
+    the first test and is now restored
     """
     collect_dwd_data(
         station_ids=station_ids,

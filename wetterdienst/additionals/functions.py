@@ -412,10 +412,11 @@ def coerce_field_types(
     df: pd.DataFrame, time_resolution: TimeResolution
 ) -> pd.DataFrame:
     """
-    A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
-    want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
-    stored .h5 file. This is required as we want to store the data in this file with the same format which is a string,
-    thus after reading data back in the dtypes have to be matched.
+    A function used to create a unique dtype mapping for a given list of column names.
+    This function is needed as we want to ensure the expected dtypes of the returned
+    DataFrame as well as for mapping data after reading it from a stored .h5 file. This
+    is required as we want to store the data in this file with the same format which is
+    a string, thus after reading data back in the dtypes have to be matched.
 
     Args:
         df: the station_data gathered in a pandas.DataFrame
@@ -423,10 +424,8 @@ def coerce_field_types(
     Return:
          station data with converted dtypes
     """
-    """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in df.columns:
-        # Properly handle timestamps from "hourly" resolution, subdaily also has hour in timestamp
         if column == DWDMetaColumns.STATION_ID.value:
             df[column] = df[column].astype(int)
         elif column in DATE_FIELDS_REGULAR:
@@ -450,8 +449,8 @@ def coerce_field_types(
 
 def cast_to_list(iterable_) -> list:
     """
-    A function that either converts an existing iterable to a list or simply puts the item into a list to make an
-    iterable that includes this item.
+    A function that either converts an existing iterable to a list or simply puts the
+    item into a list to make an iterable that includes this item.
     Args:
         iterable_:
     Return:

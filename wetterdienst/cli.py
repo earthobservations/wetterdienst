@@ -24,25 +24,25 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=] [--latitude=] [--longitude=] [--count=] [--distance=] [--persist] [--format=<format>]
-      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--format=<format>]
-      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--count=] [--distance=] [--persist] [--date=<date>] [--format=<format>]
+      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=] [--latitude=] [--longitude=] [--count=] [--distance=] [--persist] [--format=<format>]  # noqa:E501
+      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--format=<format>]  # noqa:E501
+      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--count=] [--distance=] [--persist] [--date=<date>] [--format=<format>]  # noqa:E501
       wetterdienst about [parameters] [resolutions] [periods]
       wetterdienst --version
       wetterdienst (-h | --help)
 
     Options:
-      --parameter=<parameter>       Parameter/variable, e.g. "kl", "air_temperature", "precipitation", etc.
-      --resolution=<resolution>     Dataset resolution: "annual", "monthly", "daily", "hourly", "minute_10", "minute_1"
+      --parameter=<parameter>       Parameter/variable, e.g. "kl", "air_temperature", "precipitation", etc.  # noqa:E501
+      --resolution=<resolution>     Dataset resolution: "annual", "monthly", "daily", "hourly", "minute_10", "minute_1"  # noqa:E501
       --period=<period>             Dataset period: "historical", "recent", "now"
       --station=<station>           Comma-separated list of station identifiers
       --latitude=<latitude>         Latitude for filtering by geoposition.
       --longitude=<longitude>       Longitude for filtering by geoposition.
-      --count=<count>               Number of nearby stations when filtering by geoposition.
-      --distance=<distance>         Maximum distance in km when filtering by geoposition.
-      --persist                     Save and restore data to filesystem w/o going to the network
-      --date=<date>                 Date for filtering data. Can be either a single date(time) or
-                                    an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
+      --count=<count>               Number of nearby stations when filtering by geoposition.  # noqa:E501
+      --distance=<distance>         Maximum distance in km when filtering by geoposition.  # noqa:E501
+      --persist                     Save and restore data to filesystem w/o going to the network  # noqa:E501
+      --date=<date>                 Date for filtering data. Can be either a single date(time) or  # noqa:E501
+                                    an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.  # noqa:E501
       --format=<format>             Output format. [Default: json]
       --version                     Show version information
       --debug                       Enable debug messages
@@ -55,55 +55,55 @@ def run():
       wetterdienst stations --parameter=kl --resolution=daily --period=recent
 
       # Get list of all stations in CSV format
-      wetterdienst stations --parameter=kl --resolution=daily --period=recent --format=csv
+      wetterdienst stations --parameter=kl --resolution=daily --period=recent --format=csv  # noqa:E501
 
       # Get list of specific stations
-      wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=1,1048,2667
+      wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=1,1048,2667  # noqa:E501
 
       # Get list of specific stations in GeoJSON format
-      wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=1,1048,2667 --format=geojson
+      wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=1,1048,2667 --format=geojson  # noqa:E501
 
     Examples requesting readings:
 
       # Get daily climate summary data for stations 44 and 1048
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent  # noqa:E501
 
-      # Optionally save/restore to/from disk in order to avoid asking upstream servers each time
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --persist
+      # Optionally save/restore to/from disk in order to avoid asking upstream servers each time  # noqa:E501
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --persist  # noqa:E501
 
       # Limit output to specific date
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01  # noqa:E501
 
       # Limit output to specified date range in ISO-8601 time interval format
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05  # noqa:E501
 
       # The real power horse: Acquire data across historical+recent data sets
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11  # noqa:E501
 
       # Acquire monthly data for 2020-05
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05  # noqa:E501
 
       # Acquire monthly data from 2017-01 to 2019-12
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12  # noqa:E501
 
       # Acquire annual data for 2019
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2019
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2019  # noqa:E501
 
       # Acquire annual data from 2010 to 2020
-      wetterdienst readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
+      wetterdienst readings --station=44,1048 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020  # noqa:E501
 
       # Acquire hourly data
-      wetterdienst readings --station=44,1048 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
+      wetterdienst readings --station=44,1048 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12  # noqa:E501
 
     Examples using geospatial features:
 
-      # Acquire stations and readings by geoposition, request specific number of nearby stations.
-      wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --count=10
-      wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --count=10 --date=2020-06-30
+      # Acquire stations and readings by geoposition, request specific number of nearby stations.  # noqa:E501
+      wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --count=10  # noqa:E501
+      wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --count=10 --date=2020-06-30  # noqa:E501
 
-      # Acquire stations and readings by geoposition, request stations within specific radius.
-      wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --distance=20
-      wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --distance=20 --date=2020-06-30
+      # Acquire stations and readings by geoposition, request stations within specific radius.  # noqa:E501
+      wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --distance=20  # noqa:E501
+      wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=50.2 --lon=10.3 --distance=20 --date=2020-06-30  # noqa:E501
 
     """
 
@@ -226,7 +226,6 @@ def run():
 
     # Output as CSV.
     elif options.format == "csv":
-        # df.to_csv(f"metadata_{options.parameter}_{options.resolution}_{options.period}.csv")
         output = df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
 
     # Output as XLSX.
@@ -305,6 +304,7 @@ def about(options: Munch):
 
     else:
         log.error(
-            'Invoke "wetterdienst about" with one of "parameters", "resolutions" or "periods"'
+            'Invoke "wetterdienst about" with one of "parameters", "resolutions" or '
+            '"periods"'
         )
         sys.exit(1)

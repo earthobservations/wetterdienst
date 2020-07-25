@@ -30,9 +30,11 @@ def parse_dwd_data(
         filenames_and_files: list of tuples of a filename and its local stored file
         that should be read
         parameter: enumeration of parameter used to correctly parse the date field
-        time_resolution: enumeration of time resolution used to correctly parse the date field
+        time_resolution: enumeration of time resolution used to correctly parse the
+        date field
     Returns:
-        pandas.DataFrame with requested data, for different station ids the data is still put into one DataFrame
+        pandas.DataFrame with requested data, for different station ids the data is
+        still put into one DataFrame
     """
 
     time_resolution = TimeResolution(time_resolution)
@@ -53,15 +55,16 @@ def _parse_dwd_data(
     time_resolution: TimeResolution,
 ) -> pd.DataFrame:
     """
-    A wrapping function that only handles data for one station id. The files passed to it are thus related to this id.
-    This is important for storing the data locally as the DataFrame that is stored should obviously only handle one
-    station at a time.
+    A wrapping function that only handles data for one station id. The files passed to
+    it are thus related to this id. This is important for storing the data locally as
+    the DataFrame that is stored should obviously only handle one station at a time.
     Args:
         filename_and_file: the files belonging to one station
-        time_resolution: enumeration of time resolution used to correctly parse the date field
+        time_resolution: enumeration of time resolution used to correctly parse the
+        date field
     Returns:
-        pandas.DataFrame with data from that station, acn be empty if no data is provided or local file is not found
-    or has no data in it
+        pandas.DataFrame with data from that station, acn be empty if no data is
+        provided or local file is not found or has no data in it
     """
     filename, file = filename_and_file
 
@@ -94,11 +97,13 @@ def _parse_dwd_data(
 
     # Special handling for hourly solar data, as it has more date columns
     if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
-        # Rename date column correctly to end of interval, as it has additional minute information
-        # Also rename column with true local time to english one
+        # Rename date column correctly to end of interval, as it has additional minute
+        # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
-                DWDOrigMetaColumns.DATE.value: DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value,
+                DWDOrigMetaColumns.DATE.value: (
+                    DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value
+                ),
                 "MESS_DATUM_WOZ": DWDOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             }
         )
@@ -111,7 +116,8 @@ def _parse_dwd_data(
 
         # Store columns for later reordering
         columns = data.columns.values.tolist()
-        # Create newly ordered columns, date is inserted while original date was renamed above
+        # Create newly ordered columns, date is inserted while original date was
+        # renamed above
         columns_reordered = [columns[0], columns[-1], *columns[1:-1]]
 
         # Reorder columns to general format

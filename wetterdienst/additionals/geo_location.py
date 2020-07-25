@@ -116,8 +116,8 @@ def get_nearby_stations(
     return (
         metadata.loc[
             indices_nearest_neighbours, DWDMetaColumns.STATION_ID.value
-        ].tolist(),
-        distances_km.tolist(),
+        ].values.tolist(),
+        distances_km.values.tolist(),
     )
 
 
@@ -132,10 +132,13 @@ def _derive_nearest_neighbours(
     neighbours to coordinate pairs
 
     Args:
-        latitudes_stations (np.array): latitude values of stations being compared to the coordinates
-        longitudes_stations (np.array): longitude values of stations being compared to the coordinates
-        coordinates (Coordinates): the coordinates for which the nearest neighbour is searched
-        num_stations_nearby: Number of stations that should be nearby 
+        latitudes_stations (np.array): latitude values of stations being compared to
+        the coordinates
+        longitudes_stations (np.array): longitude values of stations being compared to
+        the coordinates
+        coordinates (Coordinates): the coordinates for which the nearest neighbour
+        is searched
+        num_stations_nearby: Number of stations that should be nearby
 
     Returns:
         Tuple of distances and ranks of nearest to most distant stations
@@ -158,7 +161,7 @@ def stations_to_geojson(df: pd.DataFrame) -> dict:
     df = df.rename(columns=str.lower)
 
     features = []
-    for index, station in df.iterrows():
+    for _, station in df.iterrows():
         features.append(
             {
                 "type": "Feature",
@@ -171,8 +174,8 @@ def stations_to_geojson(df: pd.DataFrame) -> dict:
                     "has_file": station["has_file"],
                 },
                 "geometry": {
-                    # WGS84 is implied and coordinates represent decimal degrees ordered as
-                    # "longitude, latitude [,elevation]" with z expressed as metres
+                    # WGS84 is implied and coordinates represent decimal degrees ordered
+                    # as "longitude, latitude [,elevation]" with z expressed as metres
                     # above mean sea level per WGS84.
                     # -- http://wiki.geojson.org/RFC-001
                     "type": "Point",

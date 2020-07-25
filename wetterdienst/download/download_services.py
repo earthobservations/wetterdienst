@@ -16,7 +16,8 @@ def download_file_from_climate_observations(
     A function used to download a specified file from the server
 
     Args:
-        filepath: the path that defines the file relative to observations_germany/climate/
+        filepath: the path that defines the file relative to
+        observations_germany/climate/
 
     Returns:
         bytes of the file

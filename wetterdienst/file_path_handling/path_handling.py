@@ -53,8 +53,10 @@ def list_files_of_climate_observations(
     A function used to create a listing of all files of a given path on the server
 
     Args:
-        path: the path which should be searched for files (relative to climate observations Germany)
-        recursive: definition if the function should iteratively list files from subfolders
+        path: the path which should be searched for files (relative to climate
+        observations Germany)
+        recursive: definition if the function should iteratively list files
+        from subfolders
 
     Returns:
         a list of strings representing the files from the path
@@ -92,8 +94,8 @@ def list_files_of_climate_observations(
 
 def build_climate_observations_path(path: Union[PurePosixPath, str]) -> str:
     """
-    A function used to create the filepath consisting of the server, the climate observations
-    path and the path of a subdirectory/file
+    A function used to create the filepath consisting of the server, the
+    climate observations path and the path of a subdirectory/file
 
     Args:
         path: the path of folder/file on the server
@@ -101,7 +103,11 @@ def build_climate_observations_path(path: Union[PurePosixPath, str]) -> str:
     Returns:
         the path create from the given parameters
     """
-    return f"{HTTPS_EXPRESSION}{PurePosixPath(DWD_SERVER, DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH, path)}"
+    climate_observations_path = PurePosixPath(
+        DWD_SERVER, DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH, path
+    )
+
+    return f"{HTTPS_EXPRESSION}{climate_observations_path}"
 
 
 def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str, Path]:

@@ -57,8 +57,10 @@ def collect_dwd_data(
         folder: folder for local file interaction
         prefer_local: boolean for if local data should be preferred
         write_file: boolean if to write data to local storage
-        create_new_file_index: boolean if to create a new file index for the data selection
-        humanize_column_names: boolean to yield column names better for human consumption
+        create_new_file_index: boolean if to create a new file index for the
+        data selection
+        humanize_column_names: boolean to yield column names better for
+        human consumption
         run_download_only: boolean to run only the download and storing process
 
     Returns:
