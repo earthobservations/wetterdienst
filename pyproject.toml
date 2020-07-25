@@ -45,7 +45,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6.1"
+python = "^3.6"
 pandas = "1.0.4"
 tables = "3.6.1"
 numpy = "1.18.3"
