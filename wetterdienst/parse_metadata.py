@@ -7,17 +7,23 @@ from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.indexing.file_index_creation import create_file_index_for_dwd_server, \
-    reset_file_index_cache
-from wetterdienst.indexing.meta_index_creation import create_meta_index_for_dwd_data, \
-    reset_meta_index_cache
+from wetterdienst.indexing.file_index_creation import (
+    create_file_index_for_dwd_server,
+    reset_file_index_cache,
+)
+from wetterdienst.indexing.meta_index_creation import (
+    create_meta_index_for_dwd_data,
+    reset_meta_index_cache,
+)
 
 
-def metadata_for_dwd_data(parameter: Union[Parameter, str],
-                          time_resolution: Union[TimeResolution, str],
-                          period_type: Union[PeriodType, str],
-                          create_new_meta_index: bool = False,
-                          create_new_file_index: bool = False) -> pd.DataFrame:
+def metadata_for_dwd_data(
+    parameter: Union[Parameter, str],
+    time_resolution: Union[TimeResolution, str],
+    period_type: Union[PeriodType, str],
+    create_new_meta_index: bool = False,
+    create_new_file_index: bool = False,
+) -> pd.DataFrame:
     """
     A main function to retrieve metadata for a set of parameters that creates a
         corresponding csv.
@@ -47,15 +53,19 @@ def metadata_for_dwd_data(parameter: Union[Parameter, str],
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
 
-    meta_index = create_meta_index_for_dwd_data(
-        parameter, time_resolution, period_type)
+    meta_index = create_meta_index_for_dwd_data(parameter, time_resolution, period_type)
 
     meta_index[DWDMetaColumns.HAS_FILE.value] = False
 
     file_index = create_file_index_for_dwd_server(
-        parameter, time_resolution, period_type)
+        parameter, time_resolution, period_type
+    )
 
-    meta_index.loc[meta_index.loc[:, DWDMetaColumns.STATION_ID.value].isin(
-        file_index[DWDMetaColumns.STATION_ID.value]), DWDMetaColumns.HAS_FILE.value] = True
+    meta_index.loc[
+        meta_index.loc[:, DWDMetaColumns.STATION_ID.value].isin(
+            file_index[DWDMetaColumns.STATION_ID.value]
+        ),
+        DWDMetaColumns.HAS_FILE.value,
+    ] = True
 
     return meta_index

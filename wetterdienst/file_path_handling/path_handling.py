@@ -3,18 +3,26 @@ from pathlib import Path, PurePosixPath
 from typing import Union, List
 from bs4 import BeautifulSoup
 
-from wetterdienst.constants.access_credentials import HTTPS_EXPRESSION, DWD_SERVER, \
-    DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH
-from wetterdienst.constants.metadata import DWD_FOLDER_STATION_DATA, DWD_FILE_STATION_DATA, H5_FORMAT
+from wetterdienst.constants.access_credentials import (
+    HTTPS_EXPRESSION,
+    DWD_SERVER,
+    DWD_CDC_PATH,
+    DWD_CLIM_OBS_GERMANY_PATH,
+)
+from wetterdienst.constants.metadata import (
+    DWD_FOLDER_STATION_DATA,
+    DWD_FILE_STATION_DATA,
+    H5_FORMAT,
+)
 from wetterdienst.download.https_handling import create_dwd_session
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def build_path_to_parameter(parameter: Parameter,
-                            time_resolution: TimeResolution,
-                            period_type: PeriodType) -> PurePosixPath:
+def build_path_to_parameter(
+    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
+) -> PurePosixPath:
     """
     Function to build a indexing file path
     Args:
@@ -25,23 +33,30 @@ def build_path_to_parameter(parameter: Parameter,
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter == Parameter.SOLAR and time_resolution in (TimeResolution.HOURLY, TimeResolution.DAILY):
+    if parameter == Parameter.SOLAR and time_resolution in (
+        TimeResolution.HOURLY,
+        TimeResolution.DAILY,
+    ):
         parameter_path = PurePosixPath(time_resolution.value, parameter.value)
     else:
         parameter_path = PurePosixPath(
-            time_resolution.value, parameter.value, period_type.value)
+            time_resolution.value, parameter.value, period_type.value
+        )
 
     return parameter_path
 
 
-def list_files_of_climate_observations(path: Union[PurePosixPath, str],
-                                       recursive: bool) -> List[str]:
+def list_files_of_climate_observations(
+    path: Union[PurePosixPath, str], recursive: bool
+) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server
 
     Args:
-        path: the path which should be searched for files (relative to climate observations Germany)
-        recursive: definition if the function should iteratively list files from subfolders
+        path: the path which should be searched for files (relative to climate
+        observations Germany)
+        recursive: definition if the function should iteratively list files
+        from subfolders
 
     Returns:
         a list of strings representing the files from the path
@@ -53,7 +68,9 @@ def list_files_of_climate_observations(path: Union[PurePosixPath, str],
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    files_and_folders = [link.get("href") for link in soup.find_all("a") if link.get("href") != "../"]
+    files_and_folders = [
+        link.get("href") for link in soup.find_all("a") if link.get("href") != "../"
+    ]
 
     files = []
     folders = []
@@ -66,7 +83,8 @@ def list_files_of_climate_observations(path: Union[PurePosixPath, str],
 
     if recursive:
         files_in_folders = [
-            list_files_of_climate_observations(folder, recursive) for folder in folders]
+            list_files_of_climate_observations(folder, recursive) for folder in folders
+        ]
 
         for files_in_folder in files_in_folders:
             files.extend(files_in_folder)
@@ -76,8 +94,8 @@ def list_files_of_climate_observations(path: Union[PurePosixPath, str],
 
 def build_climate_observations_path(path: Union[PurePosixPath, str]) -> str:
     """
-    A function used to create the filepath consisting of the server, the climate observations
-    path and the path of a subdirectory/file
+    A function used to create the filepath consisting of the server, the
+    climate observations path and the path of a subdirectory/file
 
     Args:
         path: the path of folder/file on the server
@@ -85,7 +103,11 @@ def build_climate_observations_path(path: Union[PurePosixPath, str]) -> str:
     Returns:
         the path create from the given parameters
     """
-    return f"{HTTPS_EXPRESSION}{PurePosixPath(DWD_SERVER, DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH, path)}"
+    climate_observations_path = PurePosixPath(
+        DWD_SERVER, DWD_CDC_PATH, DWD_CLIM_OBS_GERMANY_PATH, path
+    )
+
+    return f"{HTTPS_EXPRESSION}{climate_observations_path}"
 
 
 def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str, Path]:
@@ -99,6 +121,7 @@ def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str
         a Path build upon the folder
     """
     local_filepath = Path(
-        folder, DWD_FOLDER_STATION_DATA, f"{DWD_FILE_STATION_DATA}{H5_FORMAT}").absolute()
+        folder, DWD_FOLDER_STATION_DATA, f"{DWD_FILE_STATION_DATA}{H5_FORMAT}"
+    ).absolute()
 
     return local_filepath

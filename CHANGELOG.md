@@ -1,7 +1,9 @@
 # Changelog
 
 ## Development
-...
+- establish code style black
+- setup nox session that can be used to run black via nox -s black for one of the supported 
+Python versions
 
 ## 0.2.0 (23.07.2020)
 - [cli] Add geospatial filtering by distance.

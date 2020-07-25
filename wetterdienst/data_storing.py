@@ -6,15 +6,19 @@ import pandas as pd
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.file_path_handling.path_handling import build_local_filepath_for_station_data
+from wetterdienst.file_path_handling.path_handling import (
+    build_local_filepath_for_station_data,
+)
 
 
-def store_dwd_data(station_data: pd.DataFrame,
-                   station_id: int,
-                   parameter: Parameter,
-                   time_resolution: TimeResolution,
-                   period_type: PeriodType,
-                   folder: Union[str, Path]) -> None:
+def store_dwd_data(
+    station_data: pd.DataFrame,
+    station_id: int,
+    parameter: Parameter,
+    time_resolution: TimeResolution,
+    period_type: PeriodType,
+    folder: Union[str, Path],
+) -> None:
     """
     Function to store data in a local file hdf file. The function takes a pandas
     DataFrame plus additionally the request parameters to identify data within the
@@ -35,23 +39,23 @@ def store_dwd_data(station_data: pd.DataFrame,
         return
 
     request_string = _build_local_store_key(
-        station_id, parameter, time_resolution, period_type)
+        station_id, parameter, time_resolution, period_type
+    )
 
     local_filepath = build_local_filepath_for_station_data(folder)
 
     local_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    station_data.to_hdf(
-        path_or_buf=local_filepath,
-        key=request_string
-    )
+    station_data.to_hdf(path_or_buf=local_filepath, key=request_string)
 
 
-def restore_dwd_data(station_id: int,
-                     parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType,
-                     folder: Union[str, Path]) -> pd.DataFrame:
+def restore_dwd_data(
+    station_id: int,
+    parameter: Parameter,
+    time_resolution: TimeResolution,
+    period_type: PeriodType,
+    folder: Union[str, Path],
+) -> pd.DataFrame:
     """
     Function to restore data from a local hdf file based on the place (folder) where
     the file is stored and parameters that define the request in particular.
@@ -68,16 +72,14 @@ def restore_dwd_data(station_id: int,
         could be restored
     """
     request_string = _build_local_store_key(
-        station_id, parameter, time_resolution, period_type)
+        station_id, parameter, time_resolution, period_type
+    )
 
     local_filepath = build_local_filepath_for_station_data(folder)
 
     try:
         # typing required as pandas.read_hdf returns an object by typing
-        station_data = pd.read_hdf(
-            path_or_buf=local_filepath,
-            key=request_string
-        )
+        station_data = pd.read_hdf(path_or_buf=local_filepath, key=request_string)
     except (FileNotFoundError, KeyError):
         return pd.DataFrame()
 
@@ -87,12 +89,15 @@ def restore_dwd_data(station_id: int,
     return station_data
 
 
-def _build_local_store_key(station_id: Union[str, int],
-                           parameter: Parameter,
-                           time_resolution: TimeResolution,
-                           period_type: PeriodType) -> str:
+def _build_local_store_key(
+    station_id: Union[str, int],
+    parameter: Parameter,
+    time_resolution: TimeResolution,
+    period_type: PeriodType,
+) -> str:
     """
-    Function that builds a request string from defined parameters including a single station id
+    Function that builds a request string from defined parameters including a single
+    station id
 
     Args:
         station_id: station id of data
@@ -103,7 +108,9 @@ def _build_local_store_key(station_id: Union[str, int],
     Returns:
         a string building a key that is used to identify the request
     """
-    request_string = f"{parameter.value}/{time_resolution.value}/" \
-                     f"{period_type.value}/station_id_{int(station_id)}"
+    request_string = (
+        f"{parameter.value}/{time_resolution.value}/"
+        f"{period_type.value}/station_id_{int(station_id)}"
+    )
 
     return request_string

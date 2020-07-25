@@ -6,8 +6,14 @@ from typing import Tuple, Optional, Union, Callable
 import pandas as pd
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
-from wetterdienst.constants.time_resolution_mapping import TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns, DWDDataColumns, DWDOrigDataColumns
+from wetterdienst.constants.time_resolution_mapping import (
+    TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
+)
+from wetterdienst.enumerations.column_names_enumeration import (
+    DWDMetaColumns,
+    DWDDataColumns,
+    DWDOrigDataColumns,
+)
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -15,77 +21,82 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameter
 
 FILE_2_PARAMETER = {
-    TimeResolution.MINUTE_1:
-        {'nieder': Parameter.PRECIPITATION},
-    TimeResolution.MINUTE_10:
-        {'nieder': Parameter.PRECIPITATION,
-         'tu': Parameter.TEMPERATURE_AIR,
-         'extrema_temp': Parameter.TEMPERATURE_EXTREME,
-         'tx': Parameter.TEMPERATURE_EXTREME,
-         'fx': Parameter.WIND_EXTREME,
-         'rr': Parameter.PRECIPITATION,
-         'extrema_wind': Parameter.WIND_EXTREME,
-         'solar': Parameter.SOLAR,
-         'ff': Parameter.WIND,
-         'wind': Parameter.WIND},
-    TimeResolution.HOURLY:
-        {'tu': Parameter.TEMPERATURE_AIR,
-         'cs': Parameter.CLOUD_TYPE,
-         'n': Parameter.CLOUDINESS,
-         "td": Parameter.DEW_POINT,
-         'rr': Parameter.PRECIPITATION,
-         'p0': Parameter.PRESSURE,
-         'eb': Parameter.TEMPERATURE_SOIL,
-         'st': Parameter.SOLAR,
-         "sd": Parameter.SUNSHINE_DURATION,
-         'vv': Parameter.VISIBILITY,
-         "ff": Parameter.WIND,
-         "f": Parameter.WIND_SYNOPTIC},
-    TimeResolution.SUBDAILY:
-        {'tu': Parameter.TEMPERATURE_AIR,
-         'n': Parameter.CLOUDINESS,
-         "tf": Parameter.MOISTURE,
-         'pp': Parameter.PRESSURE,
-         "ek": Parameter.SOIL,
-         "vk": Parameter.VISIBILITY,
-         "fk": Parameter.WIND},
-    TimeResolution.DAILY:
-        {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION_MORE,
-         'eb': Parameter.TEMPERATURE_SOIL,
-         'st': Parameter.SOLAR,
-         'wa': Parameter.WATER_EQUIVALENT,
-         "wetter": Parameter.WEATHER_PHENOMENA},
-    TimeResolution.MONTHLY:
-        {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION_MORE,
-         "wetter": Parameter.WEATHER_PHENOMENA},
-    TimeResolution.ANNUAL:
-        {'kl': Parameter.CLIMATE_SUMMARY,
-         'rr': Parameter.PRECIPITATION_MORE,
-         "wetter": Parameter.WEATHER_PHENOMENA}
+    TimeResolution.MINUTE_1: {"nieder": Parameter.PRECIPITATION},
+    TimeResolution.MINUTE_10: {
+        "nieder": Parameter.PRECIPITATION,
+        "tu": Parameter.TEMPERATURE_AIR,
+        "extrema_temp": Parameter.TEMPERATURE_EXTREME,
+        "tx": Parameter.TEMPERATURE_EXTREME,
+        "fx": Parameter.WIND_EXTREME,
+        "rr": Parameter.PRECIPITATION,
+        "extrema_wind": Parameter.WIND_EXTREME,
+        "solar": Parameter.SOLAR,
+        "ff": Parameter.WIND,
+        "wind": Parameter.WIND,
+    },
+    TimeResolution.HOURLY: {
+        "tu": Parameter.TEMPERATURE_AIR,
+        "cs": Parameter.CLOUD_TYPE,
+        "n": Parameter.CLOUDINESS,
+        "td": Parameter.DEW_POINT,
+        "rr": Parameter.PRECIPITATION,
+        "p0": Parameter.PRESSURE,
+        "eb": Parameter.TEMPERATURE_SOIL,
+        "st": Parameter.SOLAR,
+        "sd": Parameter.SUNSHINE_DURATION,
+        "vv": Parameter.VISIBILITY,
+        "ff": Parameter.WIND,
+        "f": Parameter.WIND_SYNOPTIC,
+    },
+    TimeResolution.SUBDAILY: {
+        "tu": Parameter.TEMPERATURE_AIR,
+        "n": Parameter.CLOUDINESS,
+        "tf": Parameter.MOISTURE,
+        "pp": Parameter.PRESSURE,
+        "ek": Parameter.SOIL,
+        "vk": Parameter.VISIBILITY,
+        "fk": Parameter.WIND,
+    },
+    TimeResolution.DAILY: {
+        "kl": Parameter.CLIMATE_SUMMARY,
+        "rr": Parameter.PRECIPITATION_MORE,
+        "eb": Parameter.TEMPERATURE_SOIL,
+        "st": Parameter.SOLAR,
+        "wa": Parameter.WATER_EQUIVALENT,
+        "wetter": Parameter.WEATHER_PHENOMENA,
+    },
+    TimeResolution.MONTHLY: {
+        "kl": Parameter.CLIMATE_SUMMARY,
+        "rr": Parameter.PRECIPITATION_MORE,
+        "wetter": Parameter.WEATHER_PHENOMENA,
+    },
+    TimeResolution.ANNUAL: {
+        "kl": Parameter.CLIMATE_SUMMARY,
+        "rr": Parameter.PRECIPITATION_MORE,
+        "wetter": Parameter.WEATHER_PHENOMENA,
+    },
 }
 
 FILE_2_TIME_RESOLUTION = {
-    '1minutenwerte': TimeResolution.MINUTE_1,
-    '10minutenwerte': TimeResolution.MINUTE_10,
-    'stundenwerte': TimeResolution.HOURLY,
-    'tageswerte': TimeResolution.DAILY,
-    'monatswerte': TimeResolution.MONTHLY,
-    'jahreswerte': TimeResolution.ANNUAL,
+    "1minutenwerte": TimeResolution.MINUTE_1,
+    "10minutenwerte": TimeResolution.MINUTE_10,
+    "stundenwerte": TimeResolution.HOURLY,
+    "tageswerte": TimeResolution.DAILY,
+    "monatswerte": TimeResolution.MONTHLY,
+    "jahreswerte": TimeResolution.ANNUAL,
 }
 
 FILE_2_PERIOD = {
-    'hist': PeriodType.HISTORICAL,
-    'now': PeriodType.NOW,
-    'akt': PeriodType.RECENT,
-    'row': PeriodType.RECENT  # files with row are also classified as "recent" by DWD
+    "hist": PeriodType.HISTORICAL,
+    "now": PeriodType.NOW,
+    "akt": PeriodType.RECENT,
+    "row": PeriodType.RECENT,  # files with row are also classified as "recent" by DWD
 }
 
 DATE_FIELDS_REGULAR = (
     DWDMetaColumns.DATE.value,
     DWDMetaColumns.FROM_DATE.value,
-    DWDMetaColumns.TO_DATE.value
+    DWDMetaColumns.TO_DATE.value,
 )
 
 DATE_FIELDS_IRREGULAR = (
@@ -334,14 +345,17 @@ def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
     elif "_now" in filename:
         period_type = PeriodType.NOW
     elif "_row" in filename:
-        period_type = PeriodType.RECENT  # files with row are also classified as "recent" by DWD
+        period_type = (
+            PeriodType.RECENT
+        )  # files with row are also classified as "recent" by DWD
     else:
         period_type = None
     return period_type
 
 
-def retrieve_parameter_from_filename(filename: str,
-                                     time_resolution: TimeResolution) -> Optional[Parameter]:
+def retrieve_parameter_from_filename(
+    filename: str, time_resolution: TimeResolution
+) -> Optional[Parameter]:
     """
     defines the requested Parameter by checking the filename
 
@@ -349,9 +363,11 @@ def retrieve_parameter_from_filename(filename: str,
     filename = filename.lower()
 
     try:
-        parameter = \
-            FILE_2_PARAMETER[time_resolution][
-                list(set(FILE_2_PARAMETER[time_resolution].keys()) & set(filename.split('_')))[0]]
+        parameter = FILE_2_PARAMETER[time_resolution][
+            list(
+                set(FILE_2_PARAMETER[time_resolution].keys()) & set(filename.split("_"))
+            )[0]
+        ]
     except IndexError:
         parameter = None
 
@@ -367,21 +383,24 @@ def retrieve_time_resolution_from_filename(filename: str) -> Optional[TimeResolu
     filename = filename.lower()
 
     try:
-        time_resolution = \
-            FILE_2_TIME_RESOLUTION[list(set(FILE_2_TIME_RESOLUTION.keys()) & set(filename.split('_')))[0]]
+        time_resolution = FILE_2_TIME_RESOLUTION[
+            list(set(FILE_2_TIME_RESOLUTION.keys()) & set(filename.split("_")))[0]
+        ]
     except IndexError:
         time_resolution = None
     return time_resolution
 
 
-def check_parameters(parameter: Parameter,
-                     time_resolution: TimeResolution,
-                     period_type: PeriodType) -> bool:
+def check_parameters(
+    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
+) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
     """
-    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, {}).get(parameter, [])
+    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, {}).get(
+        parameter, []
+    )
 
     if period_type not in check:
         return False
@@ -389,13 +408,15 @@ def check_parameters(parameter: Parameter,
     return True
 
 
-def coerce_field_types(df: pd.DataFrame,
-                       time_resolution: TimeResolution) -> pd.DataFrame:
+def coerce_field_types(
+    df: pd.DataFrame, time_resolution: TimeResolution
+) -> pd.DataFrame:
     """
-    A function used to create a unique dtype mapping for a given list of column names. This function is needed as we
-    want to ensure the expected dtypes of the returned DataFrame as well as for mapping data after reading it from a
-    stored .h5 file. This is required as we want to store the data in this file with the same format which is a string,
-    thus after reading data back in the dtypes have to be matched.
+    A function used to create a unique dtype mapping for a given list of column names.
+    This function is needed as we want to ensure the expected dtypes of the returned
+    DataFrame as well as for mapping data after reading it from a stored .h5 file. This
+    is required as we want to store the data in this file with the same format which is
+    a string, thus after reading data back in the dtypes have to be matched.
 
     Args:
         df: the station_data gathered in a pandas.DataFrame
@@ -403,18 +424,19 @@ def coerce_field_types(df: pd.DataFrame,
     Return:
          station data with converted dtypes
     """
-    """ Possible columns: STATION_ID, DATETIME, EOR, QN_ and other, measured values like rainfall """
 
     for column in df.columns:
-        # Properly handle timestamps from "hourly" resolution, subdaily also has hour in timestamp
         if column == DWDMetaColumns.STATION_ID.value:
             df[column] = df[column].astype(int)
         elif column in DATE_FIELDS_REGULAR:
             df[column] = pd.to_datetime(
-                df[column], format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution])
+                df[column],
+                format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution],
+            )
         elif column in DATE_FIELDS_IRREGULAR:
             df[column] = pd.to_datetime(
-                df[column], format=DatetimeFormat.YMDH_COLUMN_M.value)
+                df[column], format=DatetimeFormat.YMDH_COLUMN_M.value
+            )
         elif column in QUALITY_FIELDS or column in INTEGER_FIELDS:
             df[column] = df[column].astype(int)
         elif column in STRING_FIELDS:
@@ -427,8 +449,8 @@ def coerce_field_types(df: pd.DataFrame,
 
 def cast_to_list(iterable_) -> list:
     """
-    A function that either converts an existing iterable to a list or simply puts the item into a list to make an
-    iterable that includes this item.
+    A function that either converts an existing iterable to a list or simply puts the
+    item into a list to make an iterable that includes this item.
     Args:
         iterable_:
     Return:
@@ -446,8 +468,8 @@ def cast_to_list(iterable_) -> list:
 
 
 def parse_enumeration_from_template(
-        enum_: Union[str, Parameter, TimeResolution, PeriodType],
-        enum_template: Union[Parameter, TimeResolution, PeriodType, Callable]
+    enum_: Union[str, Parameter, TimeResolution, PeriodType],
+    enum_template: Union[Parameter, TimeResolution, PeriodType, Callable],
 ) -> Union[Parameter, TimeResolution, PeriodType]:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template
@@ -466,12 +488,15 @@ def parse_enumeration_from_template(
         try:
             return enum_template(enum_)
         except ValueError:
-            raise InvalidParameter(f"{enum_} could not be parsed from {enum_template.__name__}.")
+            raise InvalidParameter(
+                f"{enum_} could not be parsed from {enum_template.__name__}."
+            )
 
 
 @lru_cache(maxsize=None)
-def create_humanized_column_names_mapping(time_resolution: TimeResolution,
-                                          parameter: Parameter) -> dict:
+def create_humanized_column_names_mapping(
+    time_resolution: TimeResolution, parameter: Parameter
+) -> dict:
     """
     Function to create an extend humanized column names mapping. The function
     takes care of the special cases of quality columns. Therefor it requires the
@@ -488,7 +513,7 @@ def create_humanized_column_names_mapping(time_resolution: TimeResolution,
         orig_column.value: humanized_column.value
         for orig_column, humanized_column in zip(
             DWDOrigDataColumns[time_resolution.name][parameter.name],
-            DWDDataColumns[time_resolution.name][parameter.name]
+            DWDDataColumns[time_resolution.name][parameter.name],
         )
     }
 

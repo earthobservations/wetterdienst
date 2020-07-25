@@ -22,7 +22,7 @@ def test_parse_dwd_data():
     station_data = parse_dwd_data(
         filenames_and_files=[(filename, BytesIO(file_in_bytes.read().encode()))],
         parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY
+        time_resolution=TimeResolution.DAILY,
     )
 
     station_data.equals(station_data_original)

@@ -72,6 +72,12 @@ matplotlib       = { version = "^3.0.3", optional = true }
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 
 [tool.poetry.dev-dependencies]
+nox = "^2020.5.24"
+black = "^19.10b0"
+flake8 = "^3.8.3"
+flake8-black = "^0.2.0"
+flake8-bugbear = "^20.1.4"
+flake8-bandit = "^2.1.2"
 coverage = {extras = ["toml"], version = "5"}
 pytest = "^5.4.3"
 pytest-cov = "^2.10.0"
