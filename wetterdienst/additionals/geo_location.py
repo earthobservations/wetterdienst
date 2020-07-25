@@ -117,7 +117,7 @@ def get_nearby_stations(
         metadata.loc[
             indices_nearest_neighbours, DWDMetaColumns.STATION_ID.value
         ].values.tolist(),
-        distances_km.values.tolist(),
+        distances_km.tolist(),
     )
 
 
