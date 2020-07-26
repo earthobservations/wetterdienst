@@ -39,8 +39,9 @@ class DWDStationRequest:
         prefer_local: bool = False,
         write_file: bool = False,
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
-        create_new_file_index: bool = False,
+        tidy_data: bool = True,
         humanize_column_names: bool = False,
+        create_new_file_index: bool = False,
     ) -> None:
         """
         Class with mostly flexible arguments to define a request regarding DWD data.
@@ -61,8 +62,9 @@ class DWDStationRequest:
             prefer_local: definition if data should rather be taken from a local source
             write_file: should data be written to a local file
             folder: place where file lists (and station data) are stored
+            tidy_data: reshape DataFrame to a more tidy, row based version of data
+            humanize_column_names: replace column names by more meaningful ones
             create_new_file_index: definition if the file index should be recreated
-            humanize_column_names:
         """
 
         if not (period_type or (start_date and end_date)):
@@ -139,8 +141,9 @@ class DWDStationRequest:
         self.prefer_local = prefer_local
         self.write_file = write_file
         self.folder = folder
-        self.create_new_file_index = create_new_file_index
+        self.tidy_data = tidy_data
         self.humanize_column_names = humanize_column_names
+        self.create_new_file_index = create_new_file_index
 
     def __eq__(self, other):
         return [
@@ -195,8 +198,9 @@ class DWDStationRequest:
                     folder=self.folder,
                     prefer_local=self.prefer_local,
                     write_file=self.write_file,
-                    create_new_file_index=False,
+                    tidy_data=self.tidy_data,
                     humanize_column_names=self.humanize_column_names,
+                    create_new_file_index=False,
                 )
 
                 # Filter out values which already are in the DataFrame

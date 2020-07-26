@@ -9,6 +9,7 @@ from wetterdienst.additionals.functions import (
     parse_enumeration_from_template,
     create_humanized_column_names_mapping,
 )
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -31,6 +32,20 @@ from wetterdienst.data_storing import (
 log = logging.getLogger(__name__)
 
 
+POSSIBLE_ID_VARS = (
+    DWDMetaColumns.STATION_ID.value,
+    DWDMetaColumns.DATE.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+)
+
+POSSIBLE_DATE_VARS = (
+    DWDMetaColumns.DATE.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+)
+
+
 def collect_dwd_data(
     station_ids: List[int],
     parameter: Union[Parameter, str],
@@ -39,9 +54,10 @@ def collect_dwd_data(
     folder: Union[str, Path] = DWD_FOLDER_MAIN,
     prefer_local: bool = False,
     write_file: bool = False,
-    create_new_file_index: bool = False,
+    tidy_data: bool = True,
     humanize_column_names: bool = False,
     run_download_only: bool = False,
+    create_new_file_index: bool = False,
 ) -> Optional[pd.DataFrame]:
     """
     Function that organizes the complete pipeline of data collection, either
@@ -56,12 +72,15 @@ def collect_dwd_data(
         period_type: period type as enumeration
         folder: folder for local file interaction
         prefer_local: boolean for if local data should be preferred
-        write_file: boolean if to write data to local storage
-        create_new_file_index: boolean if to create a new file index for the
-        data selection
+        write_file: boolean to write data to local storage
+        tidy_data: boolean to tidy up data so that there's only one set of values for
+        a datetime in a row
+        e.g. station_id, parameter, element, datetime, value, quality
         humanize_column_names: boolean to yield column names better for
         human consumption
         run_download_only: boolean to run only the download and storing process
+        create_new_file_index: boolean if to create a new file index for the
+        data selection
 
     Returns:
         a pandas DataFrame with all the data given by the station ids
@@ -134,9 +153,72 @@ def collect_dwd_data(
     except ValueError:
         return pd.DataFrame()
 
+    if tidy_data:
+        data = _tidy_up_data(data, parameter)
+
     # Assign meaningful column names (humanized).
     if humanize_column_names:
         hcnm = create_humanized_column_names_mapping(time_resolution, parameter)
         data = data.rename(columns=hcnm)
 
     return data
+
+
+def _tidy_up_data(df: pd.DataFrame, parameter: Parameter) -> pd.DataFrame:
+    """
+    Function to create a tidy DataFrame by reshaping it, putting quality in a
+    separate column and setting an extra column with the parameter.
+
+    Args:
+        df: DataFrame to be tidied
+        parameter: the parameter that is written in a column to identify a set of
+        different parameters amongst each other
+
+    Returns:
+        the tidied DataFrame
+    """
+    id_vars = []
+    date_vars = []
+
+    # Add id columns based on metadata columns
+    for column in POSSIBLE_ID_VARS:
+        if column in df:
+            id_vars.append(column)
+            if column in POSSIBLE_DATE_VARS:
+                date_vars.append(column)
+
+    # Extract quality
+    # Set empty quality for first columns until first QN column
+    quality = pd.Series()
+    column_quality = pd.Series()
+
+    for column in df:
+        # If is quality column, overwrite current "column quality"
+        if column.startswith("QN"):
+            column_quality = df.pop(column)
+        else:
+            quality = quality.append(column_quality)
+
+    df_tidy = df.melt(
+        id_vars=id_vars,
+        var_name=DWDMetaColumns.ELEMENT.value,
+        value_name=DWDMetaColumns.VALUE.value,
+    )
+
+    df_tidy[DWDMetaColumns.PARAMETER.value] = parameter.name
+
+    df_tidy[DWDMetaColumns.QUALITY.value] = quality.values
+
+    # Reorder properly
+    df_tidy = df_tidy.reindex(
+        columns=[
+            DWDMetaColumns.STATION_ID.value,
+            DWDMetaColumns.PARAMETER.value,
+            DWDMetaColumns.ELEMENT.value,
+            *date_vars,
+            DWDMetaColumns.VALUE.value,
+            DWDMetaColumns.QUALITY.value,
+        ]
+    )
+
+    return df_tidy

@@ -36,6 +36,12 @@ class DWDMetaColumns(Enum):
     FILENAME = "FILENAME"
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
+    # Columns used for tidy data
+    # Column for quality
+    PARAMETER = "PARAMETER"
+    ELEMENT = "ELEMENT"
+    VALUE = "VALUE"
+    QUALITY = "QUALITY"
 
 
 # https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class

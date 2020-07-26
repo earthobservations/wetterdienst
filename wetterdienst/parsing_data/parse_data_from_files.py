@@ -101,27 +101,19 @@ def _parse_dwd_data(
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
-                DWDOrigMetaColumns.DATE.value: (
-                    DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value
-                ),
                 "MESS_DATUM_WOZ": DWDOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             }
         )
 
-        # Duplicate the end of interval column to create real datetime column
-        # remove minutes e.g. ":09" at the end of string
-        data[DWDMetaColumns.DATE.value] = data[
-            DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value
-        ].str[:-3]
+        # Duplicate the date column to end of interval column
+        data[DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
+            DWDOrigMetaColumns.DATE.value
+        ]
 
-        # Store columns for later reordering
-        columns = data.columns.values.tolist()
-        # Create newly ordered columns, date is inserted while original date was
-        # renamed above
-        columns_reordered = [columns[0], columns[-1], *columns[1:-1]]
-
-        # Reorder columns to general format
-        data = data.reindex(columns=columns_reordered)
+        # Fix real date column by cutting of minutes
+        data[DWDOrigMetaColumns.DATE.value] = data[DWDOrigMetaColumns.DATE.value].str[
+            :-3
+        ]
 
     # Assign meaningful column names (baseline).
     data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)

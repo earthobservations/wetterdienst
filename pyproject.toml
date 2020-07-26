@@ -17,6 +17,9 @@ keywords = ["dwd", "deutscher wetterdienst", "german weather service", "weather"
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -45,7 +48,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.6.1"
 pandas = "1.0.4"
 tables = "3.6.1"
 numpy = "1.18.3"
