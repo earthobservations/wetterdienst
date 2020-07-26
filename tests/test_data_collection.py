@@ -11,20 +11,13 @@ from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
-from wetterdienst.data_collection import collect_dwd_data
+from wetterdienst.data_collection import collect_dwd_data, _tidy_up_data
 
 # Create folder for storage test
 test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
 test_folder.mkdir(parents=True, exist_ok=True)
 
 fixtures_dir = Path(__file__, "../").resolve().absolute() / "fixtures"
-
-# Setting parameters for tests
-station_ids = [1]
-parameter = Parameter.CLIMATE_SUMMARY
-time_resolution = TimeResolution.DAILY
-period_type = PeriodType.HISTORICAL
-create_new_file_index = False
 
 # Set filename for mock
 filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
@@ -56,14 +49,15 @@ def test_collect_dwd_data():
     we can run just another test afterwards as no old data is used
     """
     collect_dwd_data(
-        station_ids=station_ids,
-        parameter=parameter,
-        time_resolution=time_resolution,
-        period_type=period_type,
+        station_ids=[1],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.HISTORICAL,
         folder=test_folder,
         prefer_local=False,
         write_file=True,
-        create_new_file_index=create_new_file_index,
+        tidy_data=False,
+        create_new_file_index=False,
     ).equals(file)
 
     """
@@ -72,14 +66,15 @@ def test_collect_dwd_data():
     the first test and is now restored
     """
     collect_dwd_data(
-        station_ids=station_ids,
-        parameter=parameter,
-        time_resolution=time_resolution,
-        period_type=period_type,
+        station_ids=[1],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.HISTORICAL,
         folder=test_folder,
         prefer_local=True,
         write_file=True,
-        create_new_file_index=create_new_file_index,
+        tidy_data=False,
+        create_new_file_index=False,
     ).equals(file)
 
     # Remove storage folder
@@ -105,14 +100,15 @@ def test_collect_dwd_data_empty():
     Test for request where no data is available
     """
     assert collect_dwd_data(
-        station_ids=station_ids,
-        parameter=parameter,
-        time_resolution=time_resolution,
-        period_type=period_type,
+        station_ids=[1],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.HISTORICAL,
         folder="",
         prefer_local=True,
         write_file=False,
-        create_new_file_index=create_new_file_index,
+        tidy_data=False,
+        create_new_file_index=False,
     ).empty
 
 
@@ -125,6 +121,7 @@ def test_collect_daily_vanilla():
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,
+        tidy_data=False,
     )
 
     assert list(data.columns.values) == [
@@ -158,6 +155,7 @@ def test_collect_hourly_vanilla():
         parameter=Parameter.TEMPERATURE_AIR,
         time_resolution=TimeResolution.HOURLY,
         period_type=PeriodType.RECENT,
+        tidy_data=False,
     )
 
     assert list(data.columns.values) == [
@@ -167,3 +165,72 @@ def test_collect_hourly_vanilla():
         "TT_TU",
         "RF_TU",
     ]
+
+
+def test_tidy_up_data():
+    """ Test for function to tidy data"""
+    df = pd.DataFrame(
+        {
+            "STATION_ID": [1048],
+            "DATE": [pd.Timestamp("2019-01-23 00:00:00")],
+            "QN_3": [10],
+            "FX": [11.8],
+            "FM": [5.8],
+            "QN_4": [3],
+            "RSK": [0.0],
+            "RSKF": [0.0],
+            "SDK": [7.1],
+            "SHK_TAG": [0.0],
+            "NM": [2.3],
+            "VPM": [3.2],
+            "PM": [975.4],
+            "TMK": [-5.5],
+            "UPM": [79.17],
+            "TXK": [-1.7],
+            "TNK": [-7.9],
+            "TGK": [-11.4],
+        }
+    )
+
+    df_tidy = pd.DataFrame(
+        {
+            "STATION_ID": [1048] * 14,
+            "PARAMETER": ["CLIMATE_SUMMARY"] * 14,
+            "ELEMENT": [
+                "FX",
+                "FM",
+                "RSK",
+                "RSKF",
+                "SDK",
+                "SHK_TAG",
+                "NM",
+                "VPM",
+                "PM",
+                "TMK",
+                "UPM",
+                "TXK",
+                "TNK",
+                "TGK",
+            ],
+            "DATE": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
+            "VALUE": [
+                11.8,
+                5.8,
+                0.0,
+                0.0,
+                7.1,
+                0.0,
+                2.3,
+                3.2,
+                975.4,
+                -5.5,
+                79.17,
+                -1.7,
+                -7.9,
+                -11.4,
+            ],
+            "QUALITY": [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+        }
+    )
+
+    assert _tidy_up_data(df, Parameter.CLIMATE_SUMMARY).equals(df_tidy)

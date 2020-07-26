@@ -184,8 +184,8 @@ def _tidy_up_data(df: pd.DataFrame, parameter: Parameter) -> pd.DataFrame:
     for column in POSSIBLE_ID_VARS:
         if column in df:
             id_vars.append(column)
-        if column in POSSIBLE_DATE_VARS:
-            date_vars.append(column)
+            if column in POSSIBLE_DATE_VARS:
+                date_vars.append(column)
 
     # Extract quality
     # Set empty quality for first columns until first QN column

@@ -4,6 +4,8 @@
 - establish code style black
 - setup nox session that can be used to run black via nox -s black for one of the supported 
 Python versions
+- add option for data collection to tidy the DataFrame (properly reshape) with the 
+"tidy_data" keyword and set it to be used as default
 
 ## 0.2.0 (23.07.2020)
 - [cli] Add geospatial filtering by distance.
