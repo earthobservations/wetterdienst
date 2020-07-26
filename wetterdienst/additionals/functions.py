@@ -426,6 +426,9 @@ def coerce_field_types(
     """
 
     for column in df.columns:
+        column_value_index = df[column].notna()
+
+        # Station ids are handled separately as they are expected to not have any nans
         if column == DWDMetaColumns.STATION_ID.value:
             df[column] = df[column].astype(int)
         elif column in DATE_FIELDS_REGULAR:
@@ -438,7 +441,10 @@ def coerce_field_types(
                 df[column], format=DatetimeFormat.YMDH_COLUMN_M.value
             )
         elif column in QUALITY_FIELDS or column in INTEGER_FIELDS:
-            df[column] = df[column].astype(int)
+            # can only convert cells with non nan
+            df.loc[column_value_index, column] = df.loc[
+                column_value_index, column
+            ].astype(int)
         elif column in STRING_FIELDS:
             df[column] = df[column].astype(str)
         else:

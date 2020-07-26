@@ -6,6 +6,8 @@
 Python versions
 - add option for data collection to tidy the DataFrame (properly reshape) with the 
 "tidy_data" keyword and set it to be used as default
+- fix integer type casting for cases with nans in the column/series
+- fix humanizing of column names for tidy data
 
 ## 0.2.0 (23.07.2020)
 - [cli] Add geospatial filtering by distance.

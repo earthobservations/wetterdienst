@@ -159,7 +159,12 @@ def collect_dwd_data(
     # Assign meaningful column names (humanized).
     if humanize_column_names:
         hcnm = create_humanized_column_names_mapping(time_resolution, parameter)
-        data = data.rename(columns=hcnm)
+        if tidy_data:
+            data[DWDMetaColumns.ELEMENT.value] = data[
+                DWDMetaColumns.ELEMENT.value
+            ].apply(lambda x: hcnm[x])
+        else:
+            data = data.rename(columns=hcnm)
 
     return data
 
