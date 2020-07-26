@@ -1,6 +1,9 @@
 # Changelog
 
 ## Development
+...
+
+## 0.3.0 (26.07.2020)
 - establish code style black
 - setup nox session that can be used to run black via nox -s black for one of the supported 
 Python versions
