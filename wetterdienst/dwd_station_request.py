@@ -125,7 +125,8 @@ class DWDStationRequest:
         self.prefer_local = prefer_local
         self.write_file = write_file
         self.folder = folder
-        self.tidy_data = tidy_data
+        # If more then one parameter requested, automatically tidy data
+        self.tidy_data = len(self.parameter) == 2 or tidy_data
         self.humanize_column_names = humanize_column_names
         self.create_new_file_index = create_new_file_index
 
