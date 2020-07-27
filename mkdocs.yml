@@ -1,0 +1,9 @@
+site_name: Wetterdienst
+
+nav:
+    - Home: "index.md"
+    - About:
+      - "License": "license.md"
+      - "Changelog": "../CHANGELOG.md"
+
+theme: readthedocs
