@@ -50,10 +50,10 @@ def test_station_id():
 
 def test_time_input():
     assert DWDStationRequest(
-            station_ids=[1],
-            parameter=Parameter.CLIMATE_SUMMARY,
-            time_resolution=TimeResolution.DAILY,
-            start_date="1971-01-01",
+        station_ids=[1],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        start_date="1971-01-01",
     ) == [
         [1],
         [Parameter.CLIMATE_SUMMARY],
@@ -69,27 +69,27 @@ def test_time_input():
         time_resolution=TimeResolution.DAILY,
         end_date="1971-01-01",
     ) == [
-               [1],
-               [Parameter.CLIMATE_SUMMARY],
-               TimeResolution.DAILY,
-               [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW],
-               pd.Timestamp("1971-01-01"),
-               pd.Timestamp("1971-01-01"),
-           ]
+        [1],
+        [Parameter.CLIMATE_SUMMARY],
+        TimeResolution.DAILY,
+        [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW],
+        pd.Timestamp("1971-01-01"),
+        pd.Timestamp("1971-01-01"),
+    ]
 
     assert DWDStationRequest(
-                station_ids=[1],
-                parameter=Parameter.CLIMATE_SUMMARY,
-                time_resolution=TimeResolution.DAILY,
-                period_type=PeriodType.HISTORICAL,
-                start_date="1971-01-01",
+        station_ids=[1],
+        parameter=Parameter.CLIMATE_SUMMARY,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.HISTORICAL,
+        start_date="1971-01-01",
     ) == [
         [1],
         [Parameter.CLIMATE_SUMMARY],
         TimeResolution.DAILY,
         [PeriodType.HISTORICAL],
         None,
-        None
+        None,
     ]
 
     with pytest.raises(StartDateEndDateError):

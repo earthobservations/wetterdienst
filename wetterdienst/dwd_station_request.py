@@ -10,11 +10,12 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.additionals.functions import (
-    check_parameters,
     cast_to_list,
     parse_enumeration_from_template,
 )
-from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameterCombination
+from wetterdienst.exceptions.invalid_parameter_exception import (
+    InvalidParameterCombination,
+)
 from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
@@ -34,7 +35,9 @@ class DWDStationRequest:
         station_ids: Union[str, int, List[Union[int, str]]],
         parameter: Union[str, Parameter, List[Union[str, Parameter]]],
         time_resolution: Union[str, TimeResolution],
-        period_type: Union[Union[None, str, PeriodType], List[Union[None, str, PeriodType]]] = None,
+        period_type: Union[
+            Union[None, str, PeriodType], List[Union[None, str, PeriodType]]
+        ] = None,
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
         prefer_local: bool = False,
@@ -100,10 +103,12 @@ class DWDStationRequest:
                 if pt is None:
                     self.period_type.append(None)
                 else:
-                    self.period_type.append(parse_enumeration_from_template(pt, PeriodType))
+                    self.period_type.append(
+                        parse_enumeration_from_template(pt, PeriodType)
+                    )
 
-            # Additional sorting required for self.period_type to ensure that for multiple
-            # periods the data is first sourced from historical
+            # Additional sorting required for self.period_type to ensure that for
+            # multiple periods the data is first sourced from historical
             self.period_type = sorted(self.period_type)
 
         else:
@@ -219,7 +224,9 @@ class DWDStationRequest:
                     except KeyError:
                         pass
 
-                    df_parameter_period = df_parameter_period.append(df_period, ignore_index=True)
+                    df_parameter_period = df_parameter_period.append(
+                        df_period, ignore_index=True
+                    )
 
                 df_station = df_station.append(df_parameter_period, ignore_index=True)
 
