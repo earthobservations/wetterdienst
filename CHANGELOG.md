@@ -1,7 +1,7 @@
 # Changelog
 
 ## Development
-...
+- extend DWDStationRequest to take multiple parameters as request
 
 ## 0.3.0 (26.07.2020)
 - establish code style black

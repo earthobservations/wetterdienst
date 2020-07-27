@@ -10,9 +10,11 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.additionals.functions import (
-    check_parameters,
     cast_to_list,
     parse_enumeration_from_template,
+)
+from wetterdienst.exceptions.invalid_parameter_exception import (
+    InvalidParameterCombination,
 )
 from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
@@ -31,9 +33,11 @@ class DWDStationRequest:
     def __init__(
         self,
         station_ids: Union[str, int, List[Union[int, str]]],
-        parameter: Union[str, Parameter],
+        parameter: Union[str, Parameter, List[Union[str, Parameter]]],
         time_resolution: Union[str, TimeResolution],
-        period_type: Union[None, str, list, PeriodType] = None,
+        period_type: Union[
+            Union[None, str, PeriodType], List[Union[None, str, PeriodType]]
+        ] = None,
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
         prefer_local: bool = False,
@@ -67,10 +71,10 @@ class DWDStationRequest:
             create_new_file_index: definition if the file index should be recreated
         """
 
-        if not (period_type or (start_date and end_date)):
+        if not (period_type or start_date or end_date):
             raise ValueError(
-                "Define either a 'time_resolution' or both the 'start_date' and "
-                "'end_date' and leave the other one empty!"
+                "Define either a 'time_resolution' or one of or both 'start_date' and "
+                "'end_date' and leave 'time_resolution' empty!"
             )
 
         try:
@@ -80,34 +84,34 @@ class DWDStationRequest:
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
-        self.parameter = parse_enumeration_from_template(parameter, Parameter)
+        self.parameter = []
+        for p in cast_to_list(parameter):
+            self.parameter.append(parse_enumeration_from_template(p, Parameter))
 
         self.time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution
         )
 
-        self.period_type = []
-        for pt in cast_to_list(period_type):
-            if pt is None:
-                self.period_type.append(None)
-            else:
-                self.period_type.append(parse_enumeration_from_template(pt, PeriodType))
+        # start date and end date required for collect_data in any case
+        self.start_date = None
+        self.end_date = None
 
-        # Additional sorting required for self.period_type to ensure that for multiple
-        # periods the data is first sourced from historical
-        self.period_type = sorted(self.period_type)
+        if period_type:
+            # For the case that a period_type is given, parse the period type(s)
+            self.period_type = []
+            for pt in cast_to_list(period_type):
+                if pt is None:
+                    self.period_type.append(None)
+                else:
+                    self.period_type.append(
+                        parse_enumeration_from_template(pt, PeriodType)
+                    )
 
-        try:
-            self.start_date = Timestamp(dateparser.parse(start_date))
-        except TypeError:
-            self.start_date = None
+            # Additional sorting required for self.period_type to ensure that for
+            # multiple periods the data is first sourced from historical
+            self.period_type = sorted(self.period_type)
 
-        try:
-            self.end_date = Timestamp(dateparser.parse(end_date))
-        except TypeError:
-            self.end_date = None
-
-        if self.start_date:
+        else:
             # working with ranges of data means expecting data to be laying between
             # periods, thus including all periods
             self.period_type = [
@@ -116,32 +120,26 @@ class DWDStationRequest:
                 PeriodType.NOW,
             ]
 
+            # If only one date given, make the other one equal
+            if not start_date:
+                start_date = end_date
+
+            if not end_date:
+                end_date = start_date
+
+            self.start_date = Timestamp(dateparser.parse(start_date))
+            self.end_date = Timestamp(dateparser.parse(end_date))
+
             if not self.start_date <= self.end_date:
                 raise StartDateEndDateError(
                     "Error: 'start_date' must be smaller or equal to 'end_date'."
                 )
 
-        for period_type in self.period_type.copy():
-            if not check_parameters(self.parameter, self.time_resolution, period_type):
-                log.info(
-                    f"Combination of: parameter {self.parameter.value}, "
-                    f"time_resolution {self.time_resolution.value}, "
-                    f"period_type {period_type} not available and removed."
-                )
-                self.period_type.remove(period_type)
-
-        # Use the clean up of self.period_type to identify if there's any data with
-        # those parameters
-        if not self.period_type:
-            raise ValueError(
-                "No combination for parameter, time_resolution "
-                "and period_type could be found."
-            )
-
         self.prefer_local = prefer_local
         self.write_file = write_file
         self.folder = folder
-        self.tidy_data = tidy_data
+        # If more then one parameter requested, automatically tidy data
+        self.tidy_data = len(self.parameter) == 2 or tidy_data
         self.humanize_column_names = humanize_column_names
         self.create_new_file_index = create_new_file_index
 
@@ -162,7 +160,7 @@ class DWDStationRequest:
         return ", ".join(
             [
                 f"station_ids {station_ids_joined}",
-                self.parameter.value,
+                "& ".join([parameter.value for parameter in self.parameter]),
                 self.time_resolution.value,
                 "& ".join([period_type.value for period_type in self.period_type]),
                 self.start_date.value,
@@ -187,43 +185,60 @@ class DWDStationRequest:
             reset_file_index_cache()
 
         for station_id in self.station_ids:
-            df_of_station_id = pd.DataFrame()
+            df_station = pd.DataFrame()
 
-            for period_type in self.period_type:
-                period_df = collect_dwd_data(
-                    station_ids=[station_id],
-                    parameter=self.parameter,
-                    time_resolution=self.time_resolution,
-                    period_type=period_type,
-                    folder=self.folder,
-                    prefer_local=self.prefer_local,
-                    write_file=self.write_file,
-                    tidy_data=self.tidy_data,
-                    humanize_column_names=self.humanize_column_names,
-                    create_new_file_index=False,
-                )
+            for parameter in self.parameter:
+                df_parameter_period = pd.DataFrame()
 
-                # Filter out values which already are in the DataFrame
-                try:
-                    period_df = period_df[
-                        ~period_df[DWDMetaColumns.DATE.value].isin(
-                            df_of_station_id[DWDMetaColumns.DATE.value]
+                for period_type in self.period_type:
+                    try:
+                        df_period = collect_dwd_data(
+                            station_ids=[station_id],
+                            parameter=parameter,
+                            time_resolution=self.time_resolution,
+                            period_type=period_type,
+                            folder=self.folder,
+                            prefer_local=self.prefer_local,
+                            write_file=self.write_file,
+                            tidy_data=self.tidy_data,
+                            humanize_column_names=self.humanize_column_names,
+                            create_new_file_index=False,
                         )
-                    ]
-                except KeyError:
-                    pass
+                    except InvalidParameterCombination:
+                        log.info(
+                            f"Combination for "
+                            f"{parameter.value}/"
+                            f"{self.time_resolution.value}/"
+                            f"{period_type} does not exist and is skipped."
+                        )
 
-                df_of_station_id = df_of_station_id.append(period_df)
+                        continue
+
+                    # Filter out values which already are in the DataFrame
+                    try:
+                        df_period = df_period[
+                            ~df_period[DWDMetaColumns.DATE.value].isin(
+                                df_parameter_period[DWDMetaColumns.DATE.value]
+                            )
+                        ]
+                    except KeyError:
+                        pass
+
+                    df_parameter_period = df_parameter_period.append(
+                        df_period, ignore_index=True
+                    )
+
+                df_station = df_station.append(df_parameter_period, ignore_index=True)
 
             # Filter for dates range if start_date and end_date are defined
             if self.start_date:
-                df_of_station_id = df_of_station_id[
-                    (df_of_station_id[DWDMetaColumns.DATE.value] >= self.start_date)
-                    & (df_of_station_id[DWDMetaColumns.DATE.value] <= self.end_date)
+                df_station = df_station[
+                    (df_station[DWDMetaColumns.DATE.value] >= self.start_date)
+                    & (df_station[DWDMetaColumns.DATE.value] <= self.end_date)
                 ]
 
             # Empty dataframe should be skipped
-            if df_of_station_id.empty:
+            if df_station.empty:
                 continue
 
-            yield df_of_station_id
+            yield df_station

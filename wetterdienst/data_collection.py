@@ -194,8 +194,8 @@ def _tidy_up_data(df: pd.DataFrame, parameter: Parameter) -> pd.DataFrame:
 
     # Extract quality
     # Set empty quality for first columns until first QN column
-    quality = pd.Series()
-    column_quality = pd.Series()
+    quality = pd.Series(dtype=int)
+    column_quality = pd.Series(dtype=int)
 
     for column in df:
         # If is quality column, overwrite current "column quality"
