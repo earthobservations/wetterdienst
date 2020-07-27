@@ -68,10 +68,10 @@ class DWDStationRequest:
             create_new_file_index: definition if the file index should be recreated
         """
 
-        if not (period_type or (start_date and end_date)):
+        if not (period_type or start_date or end_date):
             raise ValueError(
-                "Define either a 'time_resolution' or both the 'start_date' and "
-                "'end_date' and leave the other one empty!"
+                "Define either a 'time_resolution' or one of or both 'start_date' and "
+                "'end_date' and leave 'time_resolution' empty!"
             )
 
         try:
@@ -93,24 +93,8 @@ class DWDStationRequest:
         self.start_date = None
         self.end_date = None
 
-        if start_date and end_date:
-            # working with ranges of data means expecting data to be laying between
-            # periods, thus including all periods
-            self.period_type = [
-                PeriodType.HISTORICAL,
-                PeriodType.RECENT,
-                PeriodType.NOW,
-            ]
-
-            self.start_date = Timestamp(dateparser.parse(start_date))
-            self.end_date = Timestamp(dateparser.parse(end_date))
-
-            if not self.start_date <= self.end_date:
-                raise StartDateEndDateError(
-                    "Error: 'start_date' must be smaller or equal to 'end_date'."
-                )
-
-        else:
+        if period_type:
+            # For the case that a period_type is given, parse the period type(s)
             self.period_type = []
             for pt in cast_to_list(period_type):
                 if pt is None:
@@ -121,6 +105,30 @@ class DWDStationRequest:
             # Additional sorting required for self.period_type to ensure that for multiple
             # periods the data is first sourced from historical
             self.period_type = sorted(self.period_type)
+
+        else:
+            # working with ranges of data means expecting data to be laying between
+            # periods, thus including all periods
+            self.period_type = [
+                PeriodType.HISTORICAL,
+                PeriodType.RECENT,
+                PeriodType.NOW,
+            ]
+
+            # If only one date given, make the other one equal
+            if not start_date:
+                start_date = end_date
+
+            if not end_date:
+                end_date = start_date
+
+            self.start_date = Timestamp(dateparser.parse(start_date))
+            self.end_date = Timestamp(dateparser.parse(end_date))
+
+            if not self.start_date <= self.end_date:
+                raise StartDateEndDateError(
+                    "Error: 'start_date' must be smaller or equal to 'end_date'."
+                )
 
         self.prefer_local = prefer_local
         self.write_file = write_file
