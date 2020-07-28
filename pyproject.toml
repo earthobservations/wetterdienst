@@ -86,6 +86,7 @@ pytest = "^5.4.3"
 pytest-cov = "^2.10.0"
 mock = "^4.0"
 sphinx = "^3.1.2"
+sphinx-rtd-theme = "^0.5.0"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
