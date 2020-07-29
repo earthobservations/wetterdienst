@@ -11,6 +11,9 @@
 
 ## 1. Introduction
 
+Before you read this, check out the full documentation if you want to get the whole story:
+https://wetterdienst.readthedocs.io/en/latest/
+
 The library **Wetterdienst** was created as an alternative to [rdwd](https://github.com/brry/rdwd),
 an R package that I had used for downloading station data from the German Weather Service 
 ([Deutscher Wetterdienst](https://www.dwd.de/EN)). Though in the beginning it was a self chosen project to get into 

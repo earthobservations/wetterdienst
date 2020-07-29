@@ -10,9 +10,12 @@ Welcome to wetterdienst's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   about.rst
-
-
+   installation
+   data_coverage
+   usage
+   behind_the_scenes
+   development
+   license
 
 Indices and tables
 ==================
@@ -20,3 +23,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+Quickstart
+==========
