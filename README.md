@@ -5,7 +5,7 @@
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
 [![PyPI](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
 [![PyPI status](https://img.shields.io/pypi/status/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
-[![Downloads](https://img.shields.io/pypi/dm/wetterdienst)](https://pypi.org/project/wetterdienst/)
+[![Downloads](https://pepy.tech/badge/wetterdienst/month)](https://pepy.tech/project/wetterdienst/month)
 [![License](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.md)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
