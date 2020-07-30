@@ -3,26 +3,27 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+****************************************
 Welcome to wetterdienst's documentation!
-========================================
+****************************************
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   installation
-   data_coverage
-   usage
-   behind_the_scenes
-   development
-   license
+   pages/installation
+   pages/data_coverage
+   pages/usage
+   pages/behind_the_scenes
+   pages/development
+   pages/license
 
 Indices and tables
-==================
+##################
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
 
 Quickstart
-==========
+##########
