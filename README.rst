@@ -16,8 +16,8 @@ Wetterdienst - a Python library to ease access to open weather data
 .. image:: https://img.shields.io/pypi/status/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
 
-.. image:: https://img.shields.io/pypi/dm/wetterdienst
-   :target: https://pypi.org/project/wetterdienst/
+.. image:: https://pepy.tech/badge/wetterdienst/month
+   :target: https://pepy.tech/project/wetterdienst/month
 
 .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
    :target: https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.rst
