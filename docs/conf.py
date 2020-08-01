@@ -68,7 +68,6 @@ latex_elements = {
     % characters that are part of the 'random' module examples
     % appear properly in the PDF output.
     \usepackage{fontspec}
-    \setmonofont{Courier New}
     ''',
     # disable font inclusion
     'fontpkg': '',
