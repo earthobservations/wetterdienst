@@ -9,7 +9,7 @@
 .. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
 
-.. image:: https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/
+.. image:: https://img.shields.io/pypi/v/wetterdienst.svg
    :target: https://pypi.org/project/wetterdienst/
 
 .. image:: https://img.shields.io/pypi/status/wetterdienst.svg
@@ -24,8 +24,12 @@
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
 
-Before you read this, check out the full documentation at:
-https://wetterdienst.readthedocs.io/en/latest/
+.. image:: https://zenodo.org/badge/160953150.svg
+   :target: https://zenodo.org/badge/latestdoi/160953150
+
+.. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
+    :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 Welcome to wetterdienst, your friendly weather service library for Python from the
 neighbourhood! We are an group of people, who try to make access to weather data in
@@ -45,4 +49,7 @@ Copyright owner. To check out further, follow
 and
 `that <https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548>`_
 
-Check out CHANGELOG.rst for latest changes in the library!
+Check out the full documentation at:
+https://wetterdienst.readthedocs.io/en/latest/
+
+.. include:: CHANGELOG.rst
