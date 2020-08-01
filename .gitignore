@@ -7,3 +7,5 @@ dwd_data/
 coverage.xml
 .coverage
 htmlcov
+.nox/
+.pytest_cache/

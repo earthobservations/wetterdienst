@@ -8,8 +8,8 @@ authors = [
     "Andreas Motl <andreas.motl@panodata.org>"
 ]
 license = "MIT"
-readme = "README.md"
-include = ["LICENSE.md", "CHANGELOG.md", "CODE_OF_CONDUCT.md", "DWD_FILE_SERVER_STRUCTURE.md"]
+readme = "README.rst"
+include = ["LICENSE.rst", "CHANGELOG.rst", "CODE_OF_CONDUCT.rst", "DWD_FILE_SERVER_STRUCTURE.md"]
 homepage = "https://earthobservations.github.io/wetterdienst/"
 repository = "https://github.com/earthobservations/wetterdienst"
 keywords = ["dwd", "deutscher wetterdienst", "german weather service", "weather", "weather-data", "open-data",
@@ -85,6 +85,8 @@ coverage = {extras = ["toml"], version = "5"}
 pytest = "^5.4.3"
 pytest-cov = "^2.10.0"
 mock = "^4.0"
+sphinx = "^3.1.2"
+sphinx-rtd-theme = "^0.5.0"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
