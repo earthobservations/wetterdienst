@@ -1,9 +1,6 @@
 # Minimal makefile for Sphinx documentation
 #
 
-# https://doughellmann.com/blog/2016/07/13/using-unicode-with-sphinx-restructuredtext-and-pdf-output/
-PDFLATEX = xelatex
-
 # You can set these variables from the command line, and also
 # from the environment for the first two.
 SPHINXOPTS    ?=
