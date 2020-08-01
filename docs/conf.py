@@ -63,12 +63,13 @@ html_static_path = ['_static']
 
 # https://doughellmann.com/blog/2016/07/13/using-unicode-with-sphinx-restructuredtext-and-pdf-output/
 latex_elements = {
-    'preamble': '''
-    % Enable unicode and use Courier New to ensure the card suit
-    % characters that are part of the 'random' module examples
-    % appear properly in the PDF output.
-    \usepackage{fontspec}
-    ''',
+    # 'preamble': '''
+    # % Enable unicode and use Courier New to ensure the card suit
+    # % characters that are part of the 'random' module examples
+    # % appear properly in the PDF output.
+    # \usepackage{fontspec}
+    # \setmonofont{Courier New}
+    # ''',
     # disable font inclusion
     'fontpkg': '',
     'fontenc': '',
