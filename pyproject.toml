@@ -10,7 +10,7 @@ authors = [
 license = "MIT"
 readme = "README.rst"
 include = ["LICENSE.rst", "CHANGELOG.rst", "CODE_OF_CONDUCT.rst", "DWD_FILE_SERVER_STRUCTURE.md"]
-homepage = "https://earthobservations.github.io/wetterdienst/"
+homepage = "https://wetterdienst.readthedocs.io/"
 repository = "https://github.com/earthobservations/wetterdienst"
 keywords = ["dwd", "deutscher wetterdienst", "german weather service", "weather", "weather-data", "open-data",
 "observations", "historical-data", "forecasts"]
