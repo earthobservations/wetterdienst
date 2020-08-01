@@ -1,4 +1,5 @@
-Behind the scenes
+Behind The Scenes
 #################
 
-How does the library actually work?
+Let's look at some anomalies that happen to be on the file server and how we manage to
+get along with them.
