@@ -1,4 +1,5 @@
-# Wetterdienst - a Python library to ease access to open weather data
+Wetterdienst - a Python library to ease access to open weather data
+###################################################################
 
 .. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
