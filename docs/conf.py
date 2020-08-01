@@ -60,21 +60,3 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-
-# https://doughellmann.com/blog/2016/07/13/using-unicode-with-sphinx-restructuredtext-and-pdf-output/
-latex_elements = {
-    # 'preamble': '''
-    # % Enable unicode and use Courier New to ensure the card suit
-    # % characters that are part of the 'random' module examples
-    # % appear properly in the PDF output.
-    # \usepackage{fontspec}
-    # \setmonofont{Courier New}
-    # ''',
-    # disable font inclusion
-    'fontpkg': '',
-    'fontenc': '',
-    # Fix Unicode handling by disabling the defaults for a few items
-    # set by sphinx
-    'inputenc': '',
-    'utf8extra': '',
-}
