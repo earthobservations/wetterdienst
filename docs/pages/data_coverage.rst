@@ -97,8 +97,8 @@ how the DWD calls the parameter e.g. "precipitation".
 | `WEATHER_PHENOMENA = "weather_phenomena"`         | |cross|               | |cross|               | |cross|               | |cross|               | |check|               | |check|               | |check|               |
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
 
-.. |check| unicode:: U+2714 .. check mark
-.. |cross| unicode:: U+2013 .. cross mark
+.. |check| + .. check mark
+.. |cross| - .. cross mark
 
 MOSMIX
 ******
