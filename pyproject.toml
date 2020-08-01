@@ -8,8 +8,8 @@ authors = [
     "Andreas Motl <andreas.motl@panodata.org>"
 ]
 license = "MIT"
-readme = "README.md"
-include = ["LICENSE.md", "CHANGELOG.md", "CODE_OF_CONDUCT.md", "DWD_FILE_SERVER_STRUCTURE.md"]
+readme = "README.rst"
+include = ["LICENSE.rst", "CHANGELOG.rst", "CODE_OF_CONDUCT.rst", "DWD_FILE_SERVER_STRUCTURE.md"]
 homepage = "https://earthobservations.github.io/wetterdienst/"
 repository = "https://github.com/earthobservations/wetterdienst"
 keywords = ["dwd", "deutscher wetterdienst", "german weather service", "weather", "weather-data", "open-data",
