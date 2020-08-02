@@ -6,6 +6,7 @@ Current
 
 - extend DWDStationRequest to take multiple parameters as request
 - add documentation at readthedocs.io
+- [cli] Adjust methods to work with multiple parameters
 
 0.3.0 (26.07.2020)
 ==================

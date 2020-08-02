@@ -156,12 +156,13 @@ def run():
 
         request = DWDStationRequest(
             station_ids=station_ids,
-            parameter=options.parameter,
+            parameter=read_list(options.parameter),
             time_resolution=options.resolution,
             period_type=read_list(options.period),
             write_file=options.persist,
             prefer_local=options.persist,
             humanize_column_names=True,
+            tidy_data=True,
         )
         data = list(request.collect_data())
 
@@ -216,6 +217,10 @@ def run():
 
     # Output as JSON.
     if options.format == "json":
+        df[DWDMetaColumns.PARAMETER.value] = df[
+            DWDMetaColumns.PARAMETER.value
+        ].str.lower()
+        df[DWDMetaColumns.ELEMENT.value] = df[DWDMetaColumns.ELEMENT.value].str.lower()
         output = df.to_json(orient="records", date_format="iso", indent=4)
 
     # Output as GeoJSON.
