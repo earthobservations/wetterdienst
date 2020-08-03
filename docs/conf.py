@@ -10,21 +10,34 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+
+# Check https://github.com/wemake-services/wemake-python-styleguide/blob/master/docs/conf.py#L22-L37
+# for how to get the version from the pyproject.toml
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../wetterdienst'))
+import tomlkit
+sys.path.insert(0, os.path.abspath('..'))
 
-from wetterdienst import __version__  # noqa
+
+# https://github.com/wemake-services/wemake-python-styleguide/blob/master/docs/conf.py#L22-L37
+def _get_project_meta():
+    with open('../pyproject.toml') as pyproject:
+        file_contents = pyproject.read()
+
+    return tomlkit.parse(file_contents)['tool']['poetry']
 
 
 # -- Project information -----------------------------------------------------
+pkg_meta = _get_project_meta()
 
-project = 'wetterdienst'
+project = str(pkg_meta['name'])
 copyright = '2020, earthobservations including Benjamin Gutzmann, Daniel Lassahn, Andreas Motl'
 author = 'Benjamin Gutzmann, Daniel Lassahn, Andreas Motl'
 
 # The full version, including alpha/beta/rc tags
-release = __version__
+version = str(pkg_meta['version'])
+
+release = version
 
 
 # -- General configuration ---------------------------------------------------
