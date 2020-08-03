@@ -27,43 +27,48 @@ Introduction to wetterdienst
 
 
 Welcome to wetterdienst, your friendly weather service library for Python from the
-neighbourhood! We are an group of people, who try to make access to weather data in
+neighbourhood! We are a group of people, who try to make access to weather data in
 Python feel like a warm summer breeze, similar to other projects like
-`rdwd <https://github.com/brry/rdwd>`_ ,
-which originally drew our interest in this project. As we reach to provide you with data
-from multiple weather services, we are still stuck with this one weather service from
-Germany, that has questioned our believe in humanity. But we think we are at good
-condition to make further progress to soon fully cover the German weather service, right
-after finishing this documentation. But now it's up to you to take a closer look at
-what we did here.
+`rdwd <https://github.com/brry/rdwd>`_
+for the R language ,which originally drew our interest in this project. As we long-term
+goal is to provide you with data from multiple weather services, we are still stuck with
+the German Weather Service (DWD). However we think we are at good condition to make further
+progress and soon cover the main parts of the data provided by the DWD, which are
+
+- historical weather data from ground stations
+- MOSMIX statistical optimized scalar forecasts extracted from weather models
+- RADOLAN fitted radar data for areal precipitation
+
+To get better insight on which data we have currently made available, with this library
+take a look at
+`Data Coverage <https://wetterdienst.readthedocs.io/en/latest/pages/data_coverage.html>`_
+.
 
 **CAUTION**
 Although the data is specified as being open, the DWD asks you to reference them as
-Copyright owner. To check out further, take a look at
-`Open Data at the DWD <https://www.dwd.de/EN/ourservices/opendata/opendata.html>`_
+Copyright owner. To check out further, take a look at the
+`Open Data Strategy at the DWD <https://www.dwd.de/EN/ourservices/opendata/opendata.html>`_
 and the
 `Official Copyright <https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548>`_
 
-The full documentation of wetterdienst is available at:
-https://wetterdienst.readthedocs.io/en/latest/
-
 To keep you updated about added features etc. we provide a
 `Changelog <https://wetterdienst.readthedocs.io/en/latest/pages/development.html#current>`_
-. Furthermore to get insight on which data we have made available the section
-`Data Coverage <https://wetterdienst.readthedocs.io/en/latest/pages/data_coverage.html>`_
-may be of special interest for you.
+.
+
+We strongly recommend reading the full documentation, which will be updated continuously
+as we make progress with this library:
+https://wetterdienst.readthedocs.io/en/latest/
 
 Getting started
 ***************
 
-Run the following
+Run the following to make wetterdienst available in your current environment:
 
 .. code-block:: Python
 
     pip install wetterdienst
 
-to make wetterdienst available in your current environment. To get some historical
-observed station data call
+To get some historical observed station data call
 
 .. code-block:: Python
 
@@ -77,10 +82,17 @@ observed station data call
         period_type=PeriodType.HISTORICAL
     )
 
-For other examples and functionality such getting metadata, running the library in a
-Docker image and a client take a look at the
+Furthermore we currently offer:
+
+- getting metadata for a set of Parameter, PeriodType and TimeResolution
+- getting station(s) nearby a selected location for a given set...
+- storing/recovering collected data
+- a prepared Docker image to run the library dockerized
+- a client to run the library from command line
+
+For the whole functionality, check out the
 `API <https://wetterdienst.readthedocs.io/en/latest/pages/api.html>`_
-section, which will be constantly updated with new functions. Also don't miss out our
+section of our documentation, which will be constantly updated. Also don't miss out our
 `examples <https://github.com/earthobservations/wetterdienst/tree/master/example>`_
 .
 
