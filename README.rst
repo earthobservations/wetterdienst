@@ -5,6 +5,13 @@ Introduction to wetterdienst
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
 .. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/earthobservations/wetterdienst
+.. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
+    :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/psf/black
+
+
 .. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
 .. image:: https://img.shields.io/pypi/v/wetterdienst.svg
@@ -15,13 +22,9 @@ Introduction to wetterdienst
    :target: https://pepy.tech/project/wetterdienst/month
 .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
    :target: https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.rst
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
 .. image:: https://zenodo.org/badge/160953150.svg
    :target: https://zenodo.org/badge/latestdoi/160953150
-.. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
-    :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+
 
 Welcome to wetterdienst, your friendly weather service library for Python from the
 neighbourhood! We are an group of people, who try to make access to weather data in
@@ -53,8 +56,7 @@ may be of special interest for you.
 Getting started
 ***************
 
-We have set Python >= 3.6 as requirement which is automatically tested for
-Linux/MACOS/Windows. Simply run
+Run the following
 
 .. code-block:: Python
 
@@ -75,8 +77,8 @@ observed station data call
         period_type=PeriodType.HISTORICAL
     )
 
-For other examples and functionality such as a Docker image and a client take a look at
-the
+For other examples and functionality such getting metadata, running the library in a
+Docker image and a client take a look at the
 `API <https://wetterdienst.readthedocs.io/en/latest/pages/api.html>`_
 section, which will be constantly updated with new functions. Also don't miss out our
 `examples <https://github.com/earthobservations/wetterdienst/tree/master/example>`_

@@ -4,6 +4,11 @@ Changelog
 Current
 =======
 
+...
+
+0.4.0 (03.08.2020)
+==================
+
 - extend DWDStationRequest to take multiple parameters as request
 - add documentation at readthedocs.io
 - [cli] Adjust methods to work with multiple parameters

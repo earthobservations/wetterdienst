@@ -15,6 +15,8 @@
 # sys.path.insert(0, os.path.abspath('.'))
 import sphinx_rtd_theme
 
+from wetterdienst import __version__
+
 
 # -- Project information -----------------------------------------------------
 
@@ -23,7 +25,7 @@ copyright = '2020, Benjamin Gutzmann, Daniel Lassahn, Andreas Motl'
 author = 'Benjamin Gutzmann, Daniel Lassahn, Andreas Motl'
 
 # The full version, including alpha/beta/rc tags
-release = '0.3.0'
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
