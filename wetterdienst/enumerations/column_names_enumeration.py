@@ -42,6 +42,9 @@ class DWDMetaColumns(Enum):
     ELEMENT = "ELEMENT"
     VALUE = "VALUE"
     QUALITY = "QUALITY"
+    # Columns used for RADOLAN
+    PERIOD_TYPE = "PERIOD_TYPE"
+    DATETIME = "DATETIME"
 
 
 # https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class

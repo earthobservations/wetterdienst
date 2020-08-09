@@ -1,13 +1,21 @@
 """ Data storing/restoring methods"""
+import re
+from io import BytesIO
 from pathlib import Path
-from typing import Union
+from typing import Union, List, Tuple
+import tarfile
+import gzip
+import datetime as dt
+
 import pandas as pd
 
+from wetterdienst.constants.metadata import RADOLAN_RECENT_DT_REGEX
+from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
-    build_local_filepath_for_station_data,
+    build_local_filepath_for_station_data, build_local_filepath_for_radolan,
 )
 
 
@@ -114,3 +122,75 @@ def _build_local_store_key(
     )
 
     return request_string
+
+
+def store_radolan_data(
+        datetime: dt.datetime,
+        file_in_bytes: BytesIO,
+        time_resolution: TimeResolution,
+        period_type: PeriodType,
+        folder: Union[str, Path]
+) -> None:
+    radolan_filenames_and_files_in_bytes = _extract_radolan_data(
+        datetime,
+        file_in_bytes,
+        period_type
+    )
+
+    for filename, file_in_bytes in radolan_filenames_and_files_in_bytes:
+        datetime_string = re.findall(RADOLAN_RECENT_DT_REGEX, filename)[0]
+
+        filepath = build_local_filepath_for_radolan(
+            pd.to_datetime(datetime_string, format=DatetimeFormat.ymdhm.value),
+            folder,
+            time_resolution
+        )
+
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        with filepath.open("wb") as f:
+            f.write(file_in_bytes.read())
+
+
+def restore_radolan_data(
+        datetime: dt.datetime,
+        time_resolution: TimeResolution,
+        folder: Union[str, Path]
+) -> BytesIO:
+    filepath = build_local_filepath_for_radolan(
+        datetime,
+        folder,
+        time_resolution
+    )
+
+    with filepath.open("rb") as f:
+        file_in_bytes = BytesIO(f.read())
+
+    return file_in_bytes
+
+
+def _extract_radolan_data(
+        datetime: dt.datetime,
+        file_in_bytes: BytesIO,
+        period_type: PeriodType
+) -> List[Tuple[str, BytesIO]]:
+    filenames_and_files_im_bytes = []
+
+    if period_type == PeriodType.HISTORICAL:
+        with tarfile.open(fileobj=file_in_bytes, mode="rb") as gz_file:
+            file_in_archive = gz_file.getmembers()[0]
+
+            file_unpacked = gz_file.extractfile(file_in_archive.name)
+
+            with tarfile.open(fileobj=file_unpacked) as tar_file:
+                for file in tar_file.getmembers():
+                    filenames_and_files_im_bytes.append(
+                        (file.name, tar_file.extractfile(file))
+                    )
+    else:
+        with gzip.GzipFile(fileobj=file_in_bytes, mode="rb") as gz_file:
+            filenames_and_files_im_bytes.append(
+                (datetime.strftime(DatetimeFormat.ymdhm.value), BytesIO(gz_file.read()))
+            )
+
+    return filenames_and_files_im_bytes

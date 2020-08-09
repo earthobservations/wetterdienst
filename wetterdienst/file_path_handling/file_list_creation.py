@@ -6,7 +6,7 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.indexing.file_index_creation import (
-    create_file_index_for_dwd_server,
+    create_file_index_for_climate_observations,
     reset_file_index_cache,
 )
 
@@ -39,7 +39,7 @@ def create_file_list_for_dwd_server(
     time_resolution = TimeResolution(time_resolution)
     period_type = PeriodType(period_type)
 
-    file_index = create_file_index_for_dwd_server(
+    file_index = create_file_index_for_climate_observations(
         parameter, time_resolution, period_type
     )
 

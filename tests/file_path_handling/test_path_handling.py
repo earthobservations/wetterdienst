@@ -8,7 +8,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
     build_local_filepath_for_station_data,
     build_path_to_parameter,
-    build_climate_observations_path,
+    build_dwd_cdc_data_path,
     list_files_of_climate_observations,
 )
 
@@ -31,8 +31,8 @@ def test_build_index_path():
 
 def test_build_climate_observations_path():
     assert (
-        build_climate_observations_path("abc")
-        == "https://opendata.dwd.de/climate_environment/CDC/"
+            build_dwd_cdc_data_path("abc")
+            == "https://opendata.dwd.de/climate_environment/CDC/"
         "observations_germany/climate/abc"
     )
 

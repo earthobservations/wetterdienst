@@ -3,14 +3,20 @@ from typing import List, Union, Tuple
 from pathlib import Path
 import zipfile
 from io import BytesIO
-from requests.exceptions import InvalidURL
 from concurrent.futures import ThreadPoolExecutor
+import datetime as dt
 
+from requests.exceptions import InvalidURL
+
+from wetterdienst import TimeResolution, PeriodType
+from wetterdienst.constants.access_credentials import DWDCDCDataPath
 from wetterdienst.download.download_services import (
-    download_file_from_climate_observations,
+    download_file_from_dwd,
 )
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.exceptions.failed_download_exception import FailedDownload
 from wetterdienst.exceptions.product_file_not_found_exception import ProductFileNotFound
+from wetterdienst.indexing.file_index_creation import create_file_index_for_radolan
 
 PRODUCT_FILE_IDENTIFIER = "produkt"
 
@@ -40,7 +46,7 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
 
     """
     try:
-        zip_file = download_file_from_climate_observations(remote_file)
+        zip_file = download_file_from_dwd(remote_file, DWDCDCDataPath.CLIMATE_OBSERVATIONS)
     except InvalidURL as e:
         raise e(f"Error: the station data {remote_file} couldn't be reached.")
     except Exception:
@@ -68,3 +74,28 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
 
     except zipfile.BadZipFile as e:
         raise e(f"The archive of {remote_file} seems to be corrupted.\n {str(e)}")
+
+
+def download_radolan_data(
+        datetime: dt.datetime,
+        time_resolution: TimeResolution
+) -> Tuple[BytesIO, PeriodType]:
+    file_index = create_file_index_for_radolan(time_resolution)
+
+    if datetime in file_index[DWDMetaColumns.DATETIME.value].tolist():
+        file_index_selected = file_index[file_index[DWDMetaColumns.DATETIME.value] == datetime]
+    else:
+        file_index_selected = file_index[
+            (file_index[DWDMetaColumns.DATETIME.value].dt.year == datetime.year) &
+            (file_index[DWDMetaColumns.DATETIME.value].dt.month == datetime.month)
+        ]
+
+    file_in_bytes = download_file_from_dwd(
+        file_index_selected[DWDMetaColumns.FILENAME.value].item(),
+        DWDCDCDataPath.GRIDS_GERMANY
+    )
+
+    period_type = file_index_selected[DWDMetaColumns.PERIOD_TYPE.value].item()
+
+    return file_in_bytes, period_type
+

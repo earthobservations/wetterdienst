@@ -33,3 +33,6 @@ class Parameter(Enum):
     PRECIPITATION_MORE = "more_precip"
     WATER_EQUIVALENT = "water_equiv"
     WEATHER_PHENOMENA = "weather_phenomena"
+
+    # Others
+    RADOLAN = "radolan"

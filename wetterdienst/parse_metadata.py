@@ -8,7 +8,7 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.indexing.file_index_creation import (
-    create_file_index_for_dwd_server,
+    create_file_index_for_climate_observations,
     reset_file_index_cache,
 )
 from wetterdienst.indexing.meta_index_creation import (
@@ -57,7 +57,7 @@ def metadata_for_dwd_data(
 
     meta_index[DWDMetaColumns.HAS_FILE.value] = False
 
-    file_index = create_file_index_for_dwd_server(
+    file_index = create_file_index_for_climate_observations(
         parameter, time_resolution, period_type
     )
 

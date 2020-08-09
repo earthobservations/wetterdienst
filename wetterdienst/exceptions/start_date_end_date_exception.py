@@ -3,3 +3,7 @@
 
 class StartDateEndDateError(Exception):
     pass
+
+
+class DatetimeOutOfRangeError(Exception):
+    pass
