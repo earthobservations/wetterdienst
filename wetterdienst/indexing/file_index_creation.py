@@ -5,7 +5,7 @@ import pandas as pd
 
 from wetterdienst.constants.access_credentials import (
     DWD_CDC_PATH,
-    DWDCDCDataPath,
+    DWDCDCBase,
 )
 from wetterdienst.constants.metadata import ArchiveFormat, STATION_ID_REGEX, RADOLAN_HISTORICAL_DT_REGEX, \
     RADOLAN_RECENT_DT_REGEX
@@ -21,7 +21,7 @@ from wetterdienst.file_path_handling.path_handling import (
 
 
 @lru_cache
-def create_file_index_for_climate_observations(
+def create_file_index_for_dwd_server(
         parameter: Parameter,
         time_resolution: TimeResolution,
         period_type: PeriodType
@@ -31,10 +31,10 @@ def create_file_index_for_climate_observations(
         parameter,
         time_resolution,
         period_type,
-        DWDCDCDataPath.CLIMATE_OBSERVATIONS
+        DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
-    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.startswith(ArchiveFormat.ZIP.value)]
+    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.endswith(ArchiveFormat.ZIP.value)]
 
     file_index[DWDMetaColumns.STATION_ID.value] = file_index[
         DWDMetaColumns.FILENAME.value
@@ -57,18 +57,24 @@ def create_file_index_for_climate_observations(
 def create_file_index_for_radolan(
         time_resolution: TimeResolution
 ) -> pd.DataFrame:
-    file_index = pd.DataFrame()
+    file_index = []
 
-    for period_type, radolan_dt_regex, radolan_dt_format in zip((PeriodType.HISTORICAL, PeriodType.RECENT), (RADOLAN_HISTORICAL_DT_REGEX, RADOLAN_RECENT_DT_REGEX), (DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value)):
+    for period_type, radolan_dt_regex, radolan_dt_format in zip(
+            (PeriodType.HISTORICAL, PeriodType.RECENT),
+            (RADOLAN_HISTORICAL_DT_REGEX, RADOLAN_RECENT_DT_REGEX),
+            (DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value)
+    ):
         file_index_period = _create_file_index_for_dwd_server(
             Parameter.RADOLAN,
             time_resolution,
             period_type,
-            DWDCDCDataPath.GRIDS_GERMANY
+            DWDCDCBase.GRIDS_GERMANY
         )
 
         file_index_period = file_index_period[file_index_period[DWDMetaColumns.FILENAME.value].str.endswith(
             (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value))]
+
+        file_index_period = file_index_period[file_index_period[DWDMetaColumns.FILENAME.value].str.contains("/bin/")]
 
         # Store period type to easily define how to work with data
         # as historical and recent data is stored differently
@@ -79,16 +85,16 @@ def create_file_index_for_radolan(
             apply(lambda x: re.findall(radolan_dt_regex, x)[0]).\
             apply(lambda x: pd.to_datetime(x, format=radolan_dt_format))
 
-        file_index = file_index.append(file_index_period)
+        file_index.append(file_index_period)
 
-    return file_index
+    return pd.concat(file_index)
 
 
 def _create_file_index_for_dwd_server(
     parameter: Parameter,
     time_resolution: TimeResolution,
     period_type: PeriodType,
-    base: DWDCDCDataPath
+    cdc_base: DWDCDCBase
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -97,24 +103,24 @@ def _create_file_index_for_dwd_server(
         parameter: parameter of Parameter enumeration
         time_resolution: time resolution of TimeResolution enumeration
         period_type: period type of PeriodType enumeration
-        base: base path e.g. climate_observations/germany
+        cdc_base: base path e.g. climate_observations/germany
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
-    files_server = list_files_of_dwd(parameter_path, base, recursive=True)
+    files_server = list_files_of_dwd(parameter_path, cdc_base, recursive=True)
 
     files_server = pd.DataFrame(files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str")
 
     files_server[DWDMetaColumns.FILENAME.value] = files_server[
         DWDMetaColumns.FILENAME.value
-    ].str.replace(f"{DWD_CDC_PATH}/{base.value}/", "")
+    ].str.replace(f"{DWD_CDC_PATH}/{cdc_base.value}/", "")
 
     return files_server
 
 
 def reset_file_index_cache() -> None:
     """ Function to reset the cached file index for all kinds of parameters """
-    create_file_index_for_climate_observations.cache_clear()
+    create_file_index_for_dwd_server.cache_clear()
     create_file_index_for_radolan.cache_clear()

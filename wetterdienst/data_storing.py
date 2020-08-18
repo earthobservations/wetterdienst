@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Union, List, Tuple
 import tarfile
 import gzip
-import datetime as dt
+from datetime import datetime
 
 import pandas as pd
 
@@ -125,40 +125,32 @@ def _build_local_store_key(
 
 
 def store_radolan_data(
-        datetime: dt.datetime,
-        file_in_bytes: BytesIO,
+        date_time_and_file: Tuple[datetime, BytesIO],
         time_resolution: TimeResolution,
-        period_type: PeriodType,
         folder: Union[str, Path]
 ) -> None:
-    radolan_filenames_and_files_in_bytes = _extract_radolan_data(
-        datetime,
-        file_in_bytes,
-        period_type
+
+    date_time, file = date_time_and_file
+
+    filepath = build_local_filepath_for_radolan(
+        date_time,
+        folder,
+        time_resolution
     )
 
-    for filename, file_in_bytes in radolan_filenames_and_files_in_bytes:
-        datetime_string = re.findall(RADOLAN_RECENT_DT_REGEX, filename)[0]
+    filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        filepath = build_local_filepath_for_radolan(
-            pd.to_datetime(datetime_string, format=DatetimeFormat.ymdhm.value),
-            folder,
-            time_resolution
-        )
-
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        with filepath.open("wb") as f:
-            f.write(file_in_bytes.read())
+    with filepath.open("wb") as f:
+        f.write(file.read())
 
 
 def restore_radolan_data(
-        datetime: dt.datetime,
+        date_time: datetime,
         time_resolution: TimeResolution,
         folder: Union[str, Path]
 ) -> BytesIO:
     filepath = build_local_filepath_for_radolan(
-        datetime,
+        date_time,
         folder,
         time_resolution
     )
@@ -169,28 +161,4 @@ def restore_radolan_data(
     return file_in_bytes
 
 
-def _extract_radolan_data(
-        datetime: dt.datetime,
-        file_in_bytes: BytesIO,
-        period_type: PeriodType
-) -> List[Tuple[str, BytesIO]]:
-    filenames_and_files_im_bytes = []
 
-    if period_type == PeriodType.HISTORICAL:
-        with tarfile.open(fileobj=file_in_bytes, mode="rb") as gz_file:
-            file_in_archive = gz_file.getmembers()[0]
-
-            file_unpacked = gz_file.extractfile(file_in_archive.name)
-
-            with tarfile.open(fileobj=file_unpacked) as tar_file:
-                for file in tar_file.getmembers():
-                    filenames_and_files_im_bytes.append(
-                        (file.name, tar_file.extractfile(file))
-                    )
-    else:
-        with gzip.GzipFile(fileobj=file_in_bytes, mode="rb") as gz_file:
-            filenames_and_files_im_bytes.append(
-                (datetime.strftime(DatetimeFormat.ymdhm.value), BytesIO(gz_file.read()))
-            )
-
-    return filenames_and_files_im_bytes

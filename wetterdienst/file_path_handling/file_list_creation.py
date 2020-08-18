@@ -1,13 +1,14 @@
 """ file list creation for requested files """
 from typing import Union, List
+from datetime import datetime
 
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.indexing.file_index_creation import (
-    create_file_index_for_climate_observations,
-    reset_file_index_cache,
+    create_file_index_for_dwd_server,
+    reset_file_index_cache, create_file_index_for_radolan,
 )
 
 
@@ -39,7 +40,7 @@ def create_file_list_for_dwd_server(
     time_resolution = TimeResolution(time_resolution)
     period_type = PeriodType(period_type)
 
-    file_index = create_file_index_for_climate_observations(
+    file_index = create_file_index_for_dwd_server(
         parameter, time_resolution, period_type
     )
 
@@ -48,3 +49,20 @@ def create_file_list_for_dwd_server(
     ]
 
     return file_index[DWDMetaColumns.FILENAME.value].values.tolist()
+
+
+def create_filepath_for_radolan(
+        date_time: datetime,
+        time_resolution: TimeResolution
+) -> str:
+    file_index = create_file_index_for_radolan(time_resolution)
+
+    if date_time in file_index[DWDMetaColumns.DATETIME.value].tolist():
+        file_index = file_index[file_index[DWDMetaColumns.DATETIME.value] == date_time]
+    else:
+        file_index = file_index[
+            (file_index[DWDMetaColumns.DATETIME.value].dt.year == date_time.year) &
+            (file_index[DWDMetaColumns.DATETIME.value].dt.month == date_time.month)
+        ]
+
+    return f"{file_index[DWDMetaColumns.FILENAME.value].item()}"

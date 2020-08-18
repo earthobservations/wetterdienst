@@ -10,7 +10,7 @@ import datetime as dt
 import requests
 from requests.exceptions import InvalidURL
 
-from wetterdienst.constants.access_credentials import DWDCDCDataPath
+from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.constants.column_name_mapping import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
     METADATA_DTYPE_MAPPING,
@@ -30,7 +30,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.exceptions.meta_file_not_found_exception import MetaFileNotFound
 from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
-    list_files_of_dwd,
+    list_files_of_dwd
 )
 
 METADATA_COLUMNS = [
@@ -139,13 +139,13 @@ def _create_meta_index_for_dwd_data(
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
     files_server = list_files_of_dwd(
-        parameter_path, DWDCDCDataPath.CLIMATE_OBSERVATIONS, recursive=True)
+        parameter_path, DWDCDCBase.CLIMATE_OBSERVATIONS, recursive=True)
 
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(files_server, str(parameter_path))
 
     try:
-        file = download_file_from_dwd(meta_file, DWDCDCDataPath.CLIMATE_OBSERVATIONS)
+        file = download_file_from_dwd(meta_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
     except InvalidURL as e:
         raise e(f"Error: reading metadata {meta_file} file failed.")
 
@@ -204,8 +204,8 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
         TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER
     )
 
-    metadata_file_paths = list_files_of_climate_observations(
-        metadata_path, recursive=False
+    metadata_file_paths = list_files_of_dwd(
+        metadata_path, recursive=False, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
     station_ids = [
@@ -255,7 +255,7 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        file = download_file_from_climate_observations(metadata_file)
+        file = download_file_from_dwd(metadata_file, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS)
     except requests.exceptions.InvalidURL as e:
         raise e(f"Error: reading metadata {metadata_file} file failed.")
 
