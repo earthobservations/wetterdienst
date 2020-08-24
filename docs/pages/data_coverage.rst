@@ -108,4 +108,9 @@ Yet to be implemented...
 RADOLAN
 *******
 
-Yet to be implemented...
+The RADOLAN data offers the user radar precipitation measurements that are with
+ground based measurements. The data is offered in hourly and daily versions, both
+being frequently updated for the recent version and data for each concluded year is
+stored in the historical version. The daily version offers gliding sums of the last 24
+hours while the hourly version offers hourly sums of precipitation. The precipitation
+amount is given in 1/10 mm.

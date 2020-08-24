@@ -19,6 +19,7 @@ from wetterdienst.additionals.geo_location import get_nearby_stations  # noqa:F4
 from wetterdienst.data_collection import collect_dwd_data  # noqa:F401
 from wetterdienst.dwd_station_request import DWDStationRequest  # noqa:F401
 
+from wetterdienst.radolan import collect_radolan_data, DWDRadolanRequest
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/

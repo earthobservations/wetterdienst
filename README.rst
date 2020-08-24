@@ -32,9 +32,9 @@ Python feel like a warm summer breeze, similar to other projects like
 `rdwd <https://github.com/brry/rdwd>`_
 for the R language ,which originally drew our interest in this project. As we long-term
 goal is to provide you with data from multiple weather services, we are still stuck with
-the German Weather Service (DWD). However we think we are at good condition to make further
-progress and soon cover the main parts of the data provided by the DWD, which are
+the German Weather Service (DWD).
 
+We currently cover
 - historical weather data from ground stations
 - MOSMIX statistical optimized scalar forecasts extracted from weather models
 - RADOLAN fitted radar data for areal precipitation
@@ -83,9 +83,11 @@ To get some historical observed station data call
     )
 
 Furthermore we currently offer:
-
+- RADOLAN radar based precipitation for Germany
 - getting metadata for a set of Parameter, PeriodType and TimeResolution
 - getting station(s) nearby a selected location for a given set...
+
+and also
 - storing/recovering collected data
 - a prepared Docker image to run the library dockerized
 - a client to run the library from command line

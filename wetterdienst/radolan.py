@@ -5,18 +5,15 @@ from typing import Union, List, Tuple, Optional, Generator
 from datetime import datetime
 import logging
 
+from dateutil.parser import isoparse
 import pandas as pd
 
 from wetterdienst.additionals.functions import parse_enumeration_from_template
-from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.data_storing import store_radolan_data, restore_radolan_data
 from wetterdienst.download.download import download_radolan_data
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
-from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.enumerations.period_type_enumeration import PeriodType
-from wetterdienst.exceptions.start_date_end_date_exception import DatetimeOutOfRangeError
 from wetterdienst.file_path_handling.file_list_creation import create_filepath_for_radolan
 from wetterdienst.indexing.file_index_creation import create_file_index_for_radolan
 
@@ -39,42 +36,52 @@ class DWDRadolanRequest:
         self.time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
 
         if date_times == "latest":
-            pass
+            file_index_radolan = create_file_index_for_radolan(time_resolution)
+
+            self.date_times = pd.Series(file_index_radolan[DWDMetaColumns.DATETIME.value][-1:])
         elif date_times:
-            pass
+            self.date_times = pd.Series([isoparse(date_time) for date_time in date_times])
         else:
-            self.date_times = pd.date_range(start_date, end_date)
+            self.date_times = pd.Series(pd.date_range(isoparse(start_date), isoparse(end_date)))
+
+        self.date_times = self.date_times.dt.floor(freq='50min')
+
+        self.date_times = self.date_times.drop_duplicates().sort_values()
 
         self.prefer_local = prefer_local
         self.write_file = write_file
+        self.folder = folder
 
     def __eq__(self, other):
         return [
-            self.station_ids,
-            self.parameter,
             self.time_resolution,
-            self.period_type,
-            self.start_date,
-            self.end_date,
+            self.date_times.tolist(),
         ] == other
 
     def __str__(self):
-        station_ids_joined = "& ".join(
-            [str(station_id) for station_id in self.station_ids]
-        )
         return ", ".join(
             [
-                f"station_ids {station_ids_joined}",
-                "& ".join([parameter.value for parameter in self.parameter]),
                 self.time_resolution.value,
-                "& ".join([period_type.value for period_type in self.period_type]),
-                self.start_date.value,
-                self.end_date.value,
+                "& ".join(self.date_times),
             ]
         )
 
     def collect_data(self) -> Generator[Tuple[datetime, BytesIO], None, None]:
-        pass
+        """
+        Function used to get the data for the request returned as generator.
+
+        Returns:
+            for each datetime the same datetime and file in bytes
+        """
+        for date_time in self.date_times:
+            _, file_in_bytes = collect_radolan_data(
+                time_resolution=self.time_resolution,
+                date_times=[date_time],
+                write_file=self.write_file,
+                folder=self.folder
+            )[0]
+
+            yield date_time, file_in_bytes
 
 
 def collect_radolan_data(
@@ -90,19 +97,6 @@ def collect_radolan_data(
     data = []
     # datetime = pd.to_datetime(datetime).replace(tzinfo=None)
     for date_time in date_times:
-        # RADOLAN is only offered ina 10 minute interval respective 1hour
-        if date_time.minute % 10 != 0:
-            raise ValueError("date_minute must be one of 0, 10, 20, 30, 40, 50")
-
-        if time_resolution == TimeResolution.DAILY and date_time.minute != 50:
-            raise ValueError("daily RADOLAN is set for minute 50")
-
-        file_index = create_file_index_for_radolan(time_resolution)
-
-        if date_time < file_index[DWDMetaColumns.DATETIME.value].min() or date_time > file_index[DWDMetaColumns.DATETIME.value].max():
-            raise DatetimeOutOfRangeError(
-                f"RADOLAN is not available for datetime {str(date_time)}")
-
         if prefer_local:
             try:
                 data.append(
@@ -123,6 +117,10 @@ def collect_radolan_data(
                 log.info(f"RADOLAN data for {str(date_time)} will be collected from internet")
 
         remote_radolan_file_path = create_filepath_for_radolan(date_time, time_resolution)
+
+        if remote_radolan_file_path == "":
+            log.warning(f"RADOLAN not found for {str(date_time)}, will be skipped.")
+            continue
 
         date_time_and_file = download_radolan_data(date_time, remote_radolan_file_path)
 

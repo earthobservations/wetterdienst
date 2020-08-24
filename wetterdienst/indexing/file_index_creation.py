@@ -2,6 +2,7 @@
 import re
 from functools import lru_cache
 import pandas as pd
+from dateparser import parse
 
 from wetterdienst.constants.access_credentials import (
     DWD_CDC_PATH,
@@ -57,37 +58,46 @@ def create_file_index_for_dwd_server(
 def create_file_index_for_radolan(
         time_resolution: TimeResolution
 ) -> pd.DataFrame:
-    file_index = []
+    """
+    Function used to create a file index for the RADOLAN product. The file index will
+    include both recent as well as historical files. A datetime column is created from
+    the filenames which contain some datetime formats. This datetime column is required
+    for later filtering for the requested file.
 
-    for period_type, radolan_dt_regex, radolan_dt_format in zip(
-            (PeriodType.HISTORICAL, PeriodType.RECENT),
-            (RADOLAN_HISTORICAL_DT_REGEX, RADOLAN_RECENT_DT_REGEX),
-            (DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value)
-    ):
-        file_index_period = _create_file_index_for_dwd_server(
+    Args:
+        time_resolution: time resolution enumeration for the requesed RADOLAN product,
+        where two are possible: hourly and daily
+
+    Returns:
+        file index as DataFrame
+    """
+    file_index = [
+        _create_file_index_for_dwd_server(
             Parameter.RADOLAN,
             time_resolution,
             period_type,
             DWDCDCBase.GRIDS_GERMANY
         )
+        for period_type in (PeriodType.HISTORICAL, PeriodType.RECENT)
+    ]
 
-        file_index_period = file_index_period[file_index_period[DWDMetaColumns.FILENAME.value].str.endswith(
-            (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value))]
+    file_index = pd.concat(file_index)
 
-        file_index_period = file_index_period[file_index_period[DWDMetaColumns.FILENAME.value].str.contains("/bin/")]
+    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.contains("/bin/")]
 
-        # Store period type to easily define how to work with data
-        # as historical and recent data is stored differently
-        file_index_period[DWDMetaColumns.PERIOD_TYPE.value] = period_type
+    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.endswith(
+        (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value))]
 
-        # Require datetime of file for filtering
-        file_index_period[DWDMetaColumns.DATETIME.value] = file_index_period[DWDMetaColumns.FILENAME.value].\
-            apply(lambda x: re.findall(radolan_dt_regex, x)[0]).\
-            apply(lambda x: pd.to_datetime(x, format=radolan_dt_format))
+    r = re.compile(f"{RADOLAN_HISTORICAL_DT_REGEX}|{RADOLAN_RECENT_DT_REGEX}")
 
-        file_index.append(file_index_period)
+    # Require datetime of file for filtering
+    file_index[DWDMetaColumns.DATETIME.value] = file_index[DWDMetaColumns.FILENAME.value].\
+        apply(lambda x: r.findall(x)[0])
 
-    return pd.concat(file_index)
+    file_index[DWDMetaColumns.DATETIME.value] = file_index[DWDMetaColumns.DATETIME.value].apply(
+        lambda x: parse(x, date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value]))
+
+    return file_index
 
 
 def _create_file_index_for_dwd_server(

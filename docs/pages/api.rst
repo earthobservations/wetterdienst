@@ -163,4 +163,13 @@ Yet to be implemented...
 API For RADOLAN
 ***************
 
-Yet to be implemented...
+A request for RADOLAN data can be made either with DWDRadolanRequest or can be directly
+collected with collect_radolan_data.
+
+To use DWDRadolanRequest, you have to provide a time resolution (either hourly or daily)
+and date_times (list of datetimes or strings) or a start date and end date. Datetimes
+are rounded to HH:50min as the data is packaged for this minute step. Additionally
+you can provide a folder and if to use local RADOLAN (to read in stored data) and if
+to write the file to a folder.
+
+
