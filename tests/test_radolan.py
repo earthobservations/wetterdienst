@@ -2,7 +2,7 @@ from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
+import pytest
 
 from wetterdienst.radolan import collect_radolan_data, DWDRadolanRequest
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -17,7 +17,7 @@ def test_collect_radolan_data():
 
     radolan_hourly_test = collect_radolan_data(
         date_times=[datetime(year=2019, month=8, day=8, hour=0, minute=50)],
-        time_resolution=TimeResolution.HOURLY
+        time_resolution=TimeResolution.HOURLY,
     )[0][1]
 
     assert radolan_hourly.getvalue() == radolan_hourly_test.getvalue()
@@ -27,22 +27,28 @@ def test_collect_radolan_data():
 
     radolan_daily_test = collect_radolan_data(
         date_times=[datetime(year=2019, month=8, day=8, hour=0, minute=50)],
-        time_resolution=TimeResolution.DAILY
+        time_resolution=TimeResolution.DAILY,
     )[0][1]
 
     assert radolan_daily.getvalue() == radolan_daily_test.getvalue()
 
 
 def test_dwd_radolan_request():
+    with pytest.raises(ValueError):
+        DWDRadolanRequest(
+            time_resolution=TimeResolution.MINUTE_1, date_times=["2019-08-08 00:50:00"]
+        )
+
     request = DWDRadolanRequest(
-        time_resolution=TimeResolution.HOURLY,
-        date_times=["2019-08-08 00:50:00"]
+        time_resolution=TimeResolution.HOURLY, date_times=["2019-08-08 00:50:00"]
     )
 
-    assert request == [
+    assert request == DWDRadolanRequest(
         TimeResolution.HOURLY,
-        [datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)]
-    ]
+        [datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)],
+    )
+
+    print(request.date_times)
 
     with Path(FIXTURES_DIR, "radolan_hourly_201908080050").open("rb") as f:
         radolan_hourly = BytesIO(f.read())

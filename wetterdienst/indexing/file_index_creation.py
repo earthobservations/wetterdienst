@@ -8,8 +8,12 @@ from wetterdienst.constants.access_credentials import (
     DWD_CDC_PATH,
     DWDCDCBase,
 )
-from wetterdienst.constants.metadata import ArchiveFormat, STATION_ID_REGEX, RADOLAN_HISTORICAL_DT_REGEX, \
-    RADOLAN_RECENT_DT_REGEX
+from wetterdienst.constants.metadata import (
+    ArchiveFormat,
+    STATION_ID_REGEX,
+    RADOLAN_HISTORICAL_DT_REGEX,
+    RADOLAN_RECENT_DT_REGEX,
+)
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -23,27 +27,31 @@ from wetterdienst.file_path_handling.path_handling import (
 
 @lru_cache
 def create_file_index_for_dwd_server(
-        parameter: Parameter,
-        time_resolution: TimeResolution,
-        period_type: PeriodType
+    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
-
+    """
+    Function (cached) to create a file index of the DWD station data. The file index
+    is created for an individual set of parameters.
+    Args:
+        parameter: parameter of Parameter enumeration
+        time_resolution: time resolution of TimeResolution enumeration
+        period_type: period type of PeriodType enumeration
+    Returns:
+        file index in a pandas.DataFrame with sets of parameters and station id
+    """
     file_index = _create_file_index_for_dwd_server(
-        parameter,
-        time_resolution,
-        period_type,
-        DWDCDCBase.CLIMATE_OBSERVATIONS
+        parameter, time_resolution, period_type, DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
-    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.endswith(ArchiveFormat.ZIP.value)]
+    file_index = file_index[
+        file_index[DWDMetaColumns.FILENAME.value].str.endswith(ArchiveFormat.ZIP.value)
+    ]
 
-    file_index[DWDMetaColumns.STATION_ID.value] = file_index[
-        DWDMetaColumns.FILENAME.value
-    ].apply(lambda x: re.findall(STATION_ID_REGEX, x)[0])
-
-    file_index.loc[:, DWDMetaColumns.STATION_ID.value] = file_index.loc[
-        :, DWDMetaColumns.STATION_ID.value
-    ].astype(int)
+    file_index[DWDMetaColumns.STATION_ID.value] = (
+        file_index[DWDMetaColumns.FILENAME.value]
+        .apply(lambda x: re.findall(STATION_ID_REGEX, x)[0])
+        .astype(int)
+    )
 
     file_index = file_index.sort_values(
         by=[DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value]
@@ -55,9 +63,7 @@ def create_file_index_for_dwd_server(
 
 
 @lru_cache
-def create_file_index_for_radolan(
-        time_resolution: TimeResolution
-) -> pd.DataFrame:
+def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN product. The file index will
     include both recent as well as historical files. A datetime column is created from
@@ -71,31 +77,39 @@ def create_file_index_for_radolan(
     Returns:
         file index as DataFrame
     """
-    file_index = [
-        _create_file_index_for_dwd_server(
-            Parameter.RADOLAN,
-            time_resolution,
-            period_type,
-            DWDCDCBase.GRIDS_GERMANY
+    file_index = pd.concat(
+        [
+            _create_file_index_for_dwd_server(
+                Parameter.RADOLAN,
+                time_resolution,
+                period_type,
+                DWDCDCBase.GRIDS_GERMANY,
+            )
+            for period_type in (PeriodType.HISTORICAL, PeriodType.RECENT)
+        ]
+    )
+
+    file_index = file_index[
+        file_index[DWDMetaColumns.FILENAME.value].str.contains("/bin/")
+        & file_index[DWDMetaColumns.FILENAME.value].str.endswith(
+            (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value)
         )
-        for period_type in (PeriodType.HISTORICAL, PeriodType.RECENT)
     ]
-
-    file_index = pd.concat(file_index)
-
-    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.contains("/bin/")]
-
-    file_index = file_index[file_index[DWDMetaColumns.FILENAME.value].str.endswith(
-        (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value))]
 
     r = re.compile(f"{RADOLAN_HISTORICAL_DT_REGEX}|{RADOLAN_RECENT_DT_REGEX}")
 
     # Require datetime of file for filtering
-    file_index[DWDMetaColumns.DATETIME.value] = file_index[DWDMetaColumns.FILENAME.value].\
-        apply(lambda x: r.findall(x)[0])
+    file_index[DWDMetaColumns.DATETIME.value] = file_index[
+        DWDMetaColumns.FILENAME.value
+    ].apply(lambda x: r.findall(x)[0])
 
-    file_index[DWDMetaColumns.DATETIME.value] = file_index[DWDMetaColumns.DATETIME.value].apply(
-        lambda x: parse(x, date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value]))
+    file_index[DWDMetaColumns.DATETIME.value] = file_index[
+        DWDMetaColumns.DATETIME.value
+    ].apply(
+        lambda x: parse(
+            x, date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value]
+        )
+    )
 
     return file_index
 
@@ -104,7 +118,7 @@ def _create_file_index_for_dwd_server(
     parameter: Parameter,
     time_resolution: TimeResolution,
     period_type: PeriodType,
-    cdc_base: DWDCDCBase
+    cdc_base: DWDCDCBase,
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -121,7 +135,9 @@ def _create_file_index_for_dwd_server(
 
     files_server = list_files_of_dwd(parameter_path, cdc_base, recursive=True)
 
-    files_server = pd.DataFrame(files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str")
+    files_server = pd.DataFrame(
+        files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
+    )
 
     files_server[DWDMetaColumns.FILENAME.value] = files_server[
         DWDMetaColumns.FILENAME.value

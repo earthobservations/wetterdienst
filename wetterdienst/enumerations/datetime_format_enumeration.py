@@ -11,4 +11,3 @@ class DatetimeFormat(Enum):
     # For RADOLAN file datetime parsing
     YM = "%Y%m"
     ymdhm = "%y%m%d%H%M"
-

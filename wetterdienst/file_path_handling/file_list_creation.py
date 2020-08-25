@@ -6,10 +6,10 @@ from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.exceptions.start_date_end_date_exception import DatetimeOutOfRangeError
 from wetterdienst.indexing.file_index_creation import (
     create_file_index_for_dwd_server,
-    reset_file_index_cache, create_file_index_for_radolan,
+    reset_file_index_cache,
+    create_file_index_for_radolan,
 )
 
 
@@ -53,8 +53,7 @@ def create_file_list_for_dwd_server(
 
 
 def create_filepath_for_radolan(
-        date_time: datetime,
-        time_resolution: TimeResolution
+    date_time: datetime, time_resolution: TimeResolution
 ) -> str:
     """
     Function used to create a relative filepath for a requested datetime depending on
@@ -73,8 +72,8 @@ def create_filepath_for_radolan(
         file_index = file_index[file_index[DWDMetaColumns.DATETIME.value] == date_time]
     else:
         file_index = file_index[
-            (file_index[DWDMetaColumns.DATETIME.value].dt.year == date_time.year) &
-            (file_index[DWDMetaColumns.DATETIME.value].dt.month == date_time.month)
+            (file_index[DWDMetaColumns.DATETIME.value].dt.year == date_time.year)
+            & (file_index[DWDMetaColumns.DATETIME.value].dt.month == date_time.month)
         ]
 
     if file_index.empty:

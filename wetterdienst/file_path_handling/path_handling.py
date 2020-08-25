@@ -4,7 +4,6 @@ from typing import Union, List
 from datetime import datetime
 
 from bs4 import BeautifulSoup
-import pandas as pd
 
 from wetterdienst.constants.access_credentials import (
     HTTPS_EXPRESSION,
@@ -15,7 +14,9 @@ from wetterdienst.constants.access_credentials import (
 from wetterdienst.constants.metadata import (
     DWD_FOLDER_STATION_DATA,
     DWD_FILE_STATION_DATA,
-    DataFormat, DWD_FOLDER_RADOLAN, DWD_FILE_RADOLAN
+    DataFormat,
+    DWD_FOLDER_RADOLAN,
+    DWD_FILE_RADOLAN,
 )
 from wetterdienst.download.https_handling import create_dwd_session
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
@@ -51,9 +52,7 @@ def build_path_to_parameter(
 
 
 def list_files_of_dwd(
-    path: Union[PurePosixPath, str],
-    cdc_base: DWDCDCBase,
-    recursive: bool
+    path: Union[PurePosixPath, str], cdc_base: DWDCDCBase, recursive: bool
 ) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server
@@ -99,8 +98,9 @@ def list_files_of_dwd(
     return files
 
 
-def build_dwd_cdc_data_path(path: Union[PurePosixPath, str],
-                            cdc_base: DWDCDCBase) -> str:
+def build_dwd_cdc_data_path(
+    path: Union[PurePosixPath, str], cdc_base: DWDCDCBase
+) -> str:
     """
     A function used to create the filepath consisting of the server, the
     climate observations path and the path of a subdirectory/file
@@ -112,9 +112,7 @@ def build_dwd_cdc_data_path(path: Union[PurePosixPath, str],
     Returns:
         the path create from the given parameters
     """
-    dwd_cdc_data_path = PurePosixPath(
-        DWD_SERVER, DWD_CDC_PATH, cdc_base.value, path
-    )
+    dwd_cdc_data_path = PurePosixPath(DWD_SERVER, DWD_CDC_PATH, cdc_base.value, path)
 
     return f"{HTTPS_EXPRESSION}{dwd_cdc_data_path}"
 
@@ -130,16 +128,16 @@ def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str
         a Path build upon the folder
     """
     local_filepath = Path(
-        folder, DWD_FOLDER_STATION_DATA, f"{DWD_FILE_STATION_DATA}.{DataFormat.H5.value}"
+        folder,
+        DWD_FOLDER_STATION_DATA,
+        f"{DWD_FILE_STATION_DATA}.{DataFormat.H5.value}",
     ).absolute()
 
     return local_filepath
 
 
 def build_local_filepath_for_radolan(
-        date_time: datetime,
-        folder: Union[str, Path],
-        time_resolution: TimeResolution
+    date_time: datetime, folder: Union[str, Path], time_resolution: TimeResolution
 ) -> Union[str, Path]:
     """
 
@@ -155,7 +153,8 @@ def build_local_filepath_for_radolan(
         folder,
         DWD_FOLDER_RADOLAN,
         time_resolution.value,
-        f"{DWD_FILE_RADOLAN}_{time_resolution.value}_{date_time.strftime(DatetimeFormat.YMDHM.value)}"
+        f"{DWD_FILE_RADOLAN}_{time_resolution.value}_"
+        f"{date_time.strftime(DatetimeFormat.YMDHM.value)}",
     ).absolute()
 
     return local_filepath

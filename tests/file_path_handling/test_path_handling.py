@@ -32,8 +32,8 @@ def test_build_index_path():
 
 def test_build_climate_observations_path():
     assert (
-            build_dwd_cdc_data_path("abc", cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS)
-            == "https://opendata.dwd.de/climate_environment/CDC/"
+        build_dwd_cdc_data_path("abc", cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS)
+        == "https://opendata.dwd.de/climate_environment/CDC/"
         "observations_germany/climate/abc"
     )
 

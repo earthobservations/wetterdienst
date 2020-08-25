@@ -12,9 +12,7 @@ from functools import lru_cache
 from requests.exceptions import InvalidURL
 
 from wetterdienst.constants.access_credentials import DWDCDCBase
-from wetterdienst.download.download_services import (
-    download_file_from_dwd,
-)
+from wetterdienst.download.download_services import download_file_from_dwd
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.exceptions.failed_download_exception import FailedDownload
 from wetterdienst.exceptions.product_file_not_found_exception import ProductFileNotFound
@@ -78,8 +76,7 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
 
 
 def download_radolan_data(
-        date_time: datetime,
-        remote_radolan_file_path: str,
+    date_time: datetime, remote_radolan_file_path: str,
 ) -> Tuple[datetime, BytesIO]:
     """
     Function used to download Radolan data for a given datetime. The function calls
@@ -102,23 +99,21 @@ def download_radolan_data(
 
 
 @lru_cache(maxsize=750)
-def _download_radolan_data(
-        remote_radolan_filepath: str
-) -> BytesIO:
+def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     """
     Function (cached) that downloads the RADOLAN file
     Args:
         remote_radolan_filepath: the file path to the file on the DWD server
 
     Returns:
-        the file in binary, either an archive of one file or an archive of multiple files
+        the file in binary, either an archive of one file or an archive of multiple
+        files
     """
     return download_file_from_dwd(remote_radolan_filepath, DWDCDCBase.GRIDS_GERMANY)
 
 
 def _extract_radolan_data(
-        date_time: datetime,
-        archive_in_bytes: BytesIO
+    date_time: datetime, archive_in_bytes: BytesIO
 ) -> Tuple[datetime, BytesIO]:
     """
     Function used to extract RADOLAN file for the requested datetime from the downloaded
@@ -149,7 +144,8 @@ def _extract_radolan_data(
                         return date_time, BytesIO(tar_file.extractfile(file).read())
 
                 raise FileNotFoundError(
-                    f"Radolan file for {date_time_string} not found.")
+                    f"Radolan file for {date_time_string} not found."
+                )
 
     # Otherwise if there's an error the data is from recent time period and only has to
     # be unpacked once
