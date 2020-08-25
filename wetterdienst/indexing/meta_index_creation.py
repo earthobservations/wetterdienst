@@ -5,7 +5,7 @@ from pathlib import PurePosixPath
 from typing import Tuple, List
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
-import functools
+from functools import lru_cache
 import datetime as dt
 import requests
 from requests.exceptions import InvalidURL
@@ -60,7 +60,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 ]
 
 
-@functools.lru_cache(maxsize=None)
+@lru_cache(maxsize=None)
 def create_meta_index_for_dwd_data(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:

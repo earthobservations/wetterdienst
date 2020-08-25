@@ -25,7 +25,7 @@ from wetterdienst.file_path_handling.path_handling import (
 )
 
 
-@lru_cache
+@lru_cache(maxsize=None)
 def create_file_index_for_dwd_server(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
@@ -62,7 +62,7 @@ def create_file_index_for_dwd_server(
     ]
 
 
-@lru_cache
+@lru_cache(maxsize=None)
 def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN product. The file index will
