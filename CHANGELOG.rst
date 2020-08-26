@@ -4,7 +4,13 @@ Changelog
 Current
 =======
 
-- add RADOLAN collection
+...
+
+0.5.0 (27.08.2020)
+==================
+
+- add RADOLAN support
+- change module and function naming in accordance with RADOLAN
 
 0.4.0 (03.08.2020)
 ==================
