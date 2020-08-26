@@ -1,6 +1,10 @@
 """ Data storing/restoring methods"""
+from io import BytesIO
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
+
+from datetime import datetime
+
 import pandas as pd
 
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -8,6 +12,7 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
     build_local_filepath_for_station_data,
+    build_local_filepath_for_radolan,
 )
 
 
@@ -114,3 +119,30 @@ def _build_local_store_key(
     )
 
     return request_string
+
+
+def store_radolan_data(
+    date_time_and_file: Tuple[datetime, BytesIO],
+    time_resolution: TimeResolution,
+    folder: Union[str, Path],
+) -> None:
+
+    date_time, file = date_time_and_file
+
+    filepath = build_local_filepath_for_radolan(date_time, folder, time_resolution)
+
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    with filepath.open("wb") as f:
+        f.write(file.read())
+
+
+def restore_radolan_data(
+    date_time: datetime, time_resolution: TimeResolution, folder: Union[str, Path]
+) -> BytesIO:
+    filepath = build_local_filepath_for_radolan(date_time, folder, time_resolution)
+
+    with filepath.open("rb") as f:
+        file_in_bytes = BytesIO(f.read())
+
+    return file_in_bytes

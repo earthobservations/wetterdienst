@@ -4,7 +4,7 @@ Changelog
 Current
 =======
 
-...
+- add RADOLAN collection
 
 0.4.0 (03.08.2020)
 ==================

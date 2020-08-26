@@ -5,11 +5,12 @@ from pathlib import PurePosixPath
 from typing import Tuple, List
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
-import functools
+from functools import lru_cache
 import datetime as dt
 import requests
 from requests.exceptions import InvalidURL
 
+from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.constants.column_name_mapping import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
     METADATA_DTYPE_MAPPING,
@@ -19,9 +20,7 @@ from wetterdienst.constants.metadata import (
     STATION_DATA_SEP,
     NA_STRING,
 )
-from wetterdienst.download.download_services import (
-    download_file_from_climate_observations,
-)
+from wetterdienst.download.download_services import download_file_from_dwd
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
@@ -29,7 +28,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.exceptions.meta_file_not_found_exception import MetaFileNotFound
 from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
-    list_files_of_climate_observations,
+    list_files_of_dwd,
 )
 
 METADATA_COLUMNS = [
@@ -61,7 +60,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 ]
 
 
-@functools.lru_cache(maxsize=None)
+@lru_cache(maxsize=None)
 def create_meta_index_for_dwd_data(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
@@ -122,7 +121,7 @@ def create_meta_index_for_dwd_data(
 def _create_meta_index_for_dwd_data(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
-    """ Function used to create meta index DataFrame parsed from the text files that are
+    """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
 
     Args:
@@ -137,13 +136,15 @@ def _create_meta_index_for_dwd_data(
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
-    files_server = list_files_of_climate_observations(parameter_path, recursive=True)
+    files_server = list_files_of_dwd(
+        parameter_path, DWDCDCBase.CLIMATE_OBSERVATIONS, recursive=True
+    )
 
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(files_server, str(parameter_path))
 
     try:
-        file = download_file_from_climate_observations(meta_file)
+        file = download_file_from_dwd(meta_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
     except InvalidURL as e:
         raise e(f"Error: reading metadata {meta_file} file failed.")
 
@@ -202,8 +203,8 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
         TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER
     )
 
-    metadata_file_paths = list_files_of_climate_observations(
-        metadata_path, recursive=False
+    metadata_file_paths = list_files_of_dwd(
+        metadata_path, recursive=False, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
     station_ids = [
@@ -239,7 +240,7 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
 
 
 def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> BytesIO:
-    """ A function that simply opens a filepath with help of the urllib library and then
+    """A function that simply opens a filepath with help of the urllib library and then
     writes the content to a BytesIO object and returns this object. For this case as it
     opens lots of requests (there are approx 1000 different files to open for
     1minute data), it will do the same at most three times for one file to assure
@@ -253,7 +254,9 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        file = download_file_from_climate_observations(metadata_file)
+        file = download_file_from_dwd(
+            metadata_file, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
+        )
     except requests.exceptions.InvalidURL as e:
         raise e(f"Error: reading metadata {metadata_file} file failed.")
 
@@ -263,7 +266,7 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 def _parse_geo_metadata(
     metadata_file_and_station_id: Tuple[BytesIO, str]
 ) -> pd.DataFrame:
-    """ A function that analysis the given file (bytes) and extracts geography of
+    """A function that analysis the given file (bytes) and extracts geography of
     1minute metadata zip and catches the relevant information and create a similar file
     to those that can usually be found already prepared for other
     parameter combinations.
@@ -299,7 +302,7 @@ def _parse_geo_metadata(
 
 
 def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
-    """ A wrapper for read_csv of pandas library that has set the typically used
+    """A wrapper for read_csv of pandas library that has set the typically used
     parameters in the found data of the
     german weather service.
 

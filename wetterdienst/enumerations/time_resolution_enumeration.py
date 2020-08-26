@@ -4,8 +4,8 @@ from enum import Enum
 
 class TimeResolution(Enum):
     """
-        enumeration for granularity/resolution of the weather
-        observations stored on dwd server
+    enumeration for granularity/resolution of the weather
+    observations stored on dwd server
     """
 
     MINUTE_1 = "1_minute"
