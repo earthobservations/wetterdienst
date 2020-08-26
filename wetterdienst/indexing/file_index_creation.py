@@ -1,6 +1,7 @@
 """ file index creation for available DWD station data """
 import re
 from functools import lru_cache
+
 import pandas as pd
 from dateparser import parse
 
@@ -21,12 +22,12 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
-    list_files_of_dwd,
+    list_files_of_dwd_server,
 )
 
 
 @lru_cache(maxsize=None)
-def create_file_index_for_dwd_server(
+def create_file_index_for_climate_observations(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
     """
@@ -130,7 +131,7 @@ def _create_file_index_for_dwd_server(
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
-    files_server = list_files_of_dwd(parameter_path, cdc_base, recursive=True)
+    files_server = list_files_of_dwd_server(parameter_path, cdc_base, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
@@ -145,5 +146,5 @@ def _create_file_index_for_dwd_server(
 
 def reset_file_index_cache() -> None:
     """ Function to reset the cached file index for all kinds of parameters """
-    create_file_index_for_dwd_server.cache_clear()
+    create_file_index_for_climate_observations.cache_clear()
     create_file_index_for_radolan.cache_clear()

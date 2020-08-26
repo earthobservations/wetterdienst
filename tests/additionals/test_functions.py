@@ -16,7 +16,7 @@ from wetterdienst.additionals.functions import (
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
-from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameter
+from wetterdienst.exceptions import InvalidParameter
 
 
 def test_check_parameters():

@@ -2,7 +2,6 @@
 from io import BytesIO
 from pathlib import Path
 from typing import Union, Tuple
-
 from datetime import datetime
 
 import pandas as pd
@@ -16,7 +15,7 @@ from wetterdienst.file_path_handling.path_handling import (
 )
 
 
-def store_dwd_data(
+def store_climate_observations(
     station_data: pd.DataFrame,
     station_id: int,
     parameter: Parameter,
@@ -54,7 +53,7 @@ def store_dwd_data(
     station_data.to_hdf(path_or_buf=local_filepath, key=request_string)
 
 
-def restore_dwd_data(
+def restore_climate_observations(
     station_id: int,
     parameter: Parameter,
     time_resolution: TimeResolution,

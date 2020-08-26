@@ -8,16 +8,16 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.indexing.file_index_creation import (
-    create_file_index_for_dwd_server,
+    create_file_index_for_climate_observations,
     reset_file_index_cache,
 )
 from wetterdienst.indexing.meta_index_creation import (
-    create_meta_index_for_dwd_data,
+    create_meta_index_for_climate_observations,
     reset_meta_index_cache,
 )
 
 
-def metadata_for_dwd_data(
+def metadata_for_climate_observations(
     parameter: Union[Parameter, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
@@ -53,11 +53,13 @@ def metadata_for_dwd_data(
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
 
-    meta_index = create_meta_index_for_dwd_data(parameter, time_resolution, period_type)
+    meta_index = create_meta_index_for_climate_observations(
+        parameter, time_resolution, period_type
+    )
 
     meta_index[DWDMetaColumns.HAS_FILE.value] = False
 
-    file_index = create_file_index_for_dwd_server(
+    file_index = create_file_index_for_climate_observations(
         parameter, time_resolution, period_type
     )
 

@@ -11,7 +11,10 @@ from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
-from wetterdienst.data_collection import collect_dwd_data, _tidy_up_data
+from wetterdienst.data_collection import (
+    collect_climate_observations_data,
+    _tidy_up_data,
+)
 
 # Create folder for storage test
 test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
@@ -32,13 +35,13 @@ csv_file.seek(0)
 
 
 @patch(
-    "wetterdienst.data_collection.create_file_list_for_dwd_server",
+    "wetterdienst.data_collection.create_file_list_for_climate_observations",
     mock.MagicMock(
         return_value=pd.DataFrame({DWDMetaColumns.FILENAME.value: [filename]})
     ),
 )
 @patch(
-    "wetterdienst.data_collection.download_dwd_data_parallel",
+    "wetterdienst.data_collection.download_climate_observations_data_parallel",
     mock.MagicMock(return_value=[(filename, BytesIO(csv_file.read().encode()))]),
 )
 def test_collect_dwd_data():
@@ -48,7 +51,7 @@ def test_collect_dwd_data():
     This scenario makes sure we take fresh data and write it to the given folder, thus
     we can run just another test afterwards as no old data is used
     """
-    collect_dwd_data(
+    collect_climate_observations_data(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -65,7 +68,7 @@ def test_collect_dwd_data():
     This scenario tries to get the data from the given folder. This data was placed by
     the first test and is now restored
     """
-    collect_dwd_data(
+    collect_climate_observations_data(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -85,11 +88,11 @@ def test_collect_dwd_data():
 
 
 @patch(
-    "wetterdienst.data_collection.restore_dwd_data",
+    "wetterdienst.data_collection.restore_climate_observations",
     mock.MagicMock(return_value=pd.DataFrame()),
 )
 @patch(
-    "wetterdienst.data_collection.create_file_list_for_dwd_server",
+    "wetterdienst.data_collection.create_file_list_for_climate_observations",
     mock.MagicMock(return_value=pd.DataFrame(columns=[DWDMetaColumns.FILENAME.value])),
 )
 def test_collect_dwd_data_empty():
@@ -99,7 +102,7 @@ def test_collect_dwd_data_empty():
     1. Scenario
     Test for request where no data is available
     """
-    assert collect_dwd_data(
+    assert collect_climate_observations_data(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -116,7 +119,7 @@ def test_collect_dwd_data_empty():
 def test_collect_daily_vanilla():
     """ Test for data collection with real data """
 
-    data = collect_dwd_data(
+    data = collect_climate_observations_data(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -150,7 +153,7 @@ def test_collect_daily_vanilla():
 def test_collect_hourly_vanilla():
     """ Test for data collection with real data """
 
-    data = collect_dwd_data(
+    data = collect_climate_observations_data(
         station_ids=[1048],
         parameter=Parameter.TEMPERATURE_AIR,
         time_resolution=TimeResolution.HOURLY,

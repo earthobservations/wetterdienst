@@ -3,11 +3,11 @@ import zipfile
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Tuple, List
-import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import datetime as dt
-import requests
+
+import pandas as pd
 from requests.exceptions import InvalidURL
 
 from wetterdienst.constants.access_credentials import DWDCDCBase
@@ -25,10 +25,10 @@ from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.exceptions.meta_file_not_found_exception import MetaFileNotFound
+from wetterdienst.exceptions import MetaFileNotFound
 from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
-    list_files_of_dwd,
+    list_files_of_dwd_server,
 )
 
 METADATA_COLUMNS = [
@@ -61,7 +61,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 
 
 @lru_cache(maxsize=None)
-def create_meta_index_for_dwd_data(
+def create_meta_index_for_climate_observations(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
     """
@@ -84,16 +84,16 @@ def create_meta_index_for_dwd_data(
     )
 
     if cond:
-        meta_index = _create_meta_index_for_1minute__historical_precipitation()
+        meta_index = _create_meta_index_for_1minute_historical_precipitation()
     else:
-        meta_index = _create_meta_index_for_dwd_data(
+        meta_index = _create_meta_index_for_climate_observations(
             parameter, time_resolution, period_type
         )
 
     # If no state column available, take state information from daily historical
     # precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
-        mdp = _create_meta_index_for_dwd_data(
+        mdp = _create_meta_index_for_climate_observations(
             Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL
         )
 
@@ -118,7 +118,7 @@ def create_meta_index_for_dwd_data(
     )
 
 
-def _create_meta_index_for_dwd_data(
+def _create_meta_index_for_climate_observations(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
@@ -136,7 +136,7 @@ def _create_meta_index_for_dwd_data(
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
-    files_server = list_files_of_dwd(
+    files_server = list_files_of_dwd_server(
         parameter_path, DWDCDCBase.CLIMATE_OBSERVATIONS, recursive=True
     )
 
@@ -146,7 +146,7 @@ def _create_meta_index_for_dwd_data(
     try:
         file = download_file_from_dwd(meta_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
     except InvalidURL as e:
-        raise e(f"Error: reading metadata {meta_file} file failed.")
+        raise InvalidURL(f"Error: reading metadata {meta_file} file failed.") from e
 
     meta_index = pd.read_fwf(
         filepath_or_buffer=file,
@@ -189,7 +189,7 @@ def _find_meta_file(files: List[str], path: str) -> str:
     raise MetaFileNotFound(f"No meta file was found amongst the files at {path}.")
 
 
-def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
+def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     """
     A helping function to create a raw index of metadata for stations of the set of
     parameters as given. This raw metadata is then used by other functions. This
@@ -203,7 +203,7 @@ def _create_meta_index_for_1minute__historical_precipitation() -> pd.DataFrame:
         TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER
     )
 
-    metadata_file_paths = list_files_of_dwd(
+    metadata_file_paths = list_files_of_dwd_server(
         metadata_path, recursive=False, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
@@ -257,8 +257,8 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
         file = download_file_from_dwd(
             metadata_file, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
         )
-    except requests.exceptions.InvalidURL as e:
-        raise e(f"Error: reading metadata {metadata_file} file failed.")
+    except InvalidURL as e:
+        raise InvalidURL(f"Error: reading metadata {metadata_file} file failed.") from e
 
     return file
 
@@ -340,4 +340,4 @@ def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
 
 def reset_meta_index_cache() -> None:
     """ Function to reset cache of meta index """
-    create_meta_index_for_dwd_data.cache_clear()
+    create_meta_index_for_climate_observations.cache_clear()

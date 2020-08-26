@@ -5,10 +5,8 @@ import pandas as pd
 from scipy.spatial import cKDTree
 
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
-from wetterdienst.exceptions.invalid_parameter_exception import (
-    InvalidParameterCombination,
-)
-from wetterdienst.parse_metadata import metadata_for_dwd_data
+from wetterdienst.exceptions import InvalidParameterCombination
+from wetterdienst.parse_metadata import metadata_for_climate_observations
 from wetterdienst.additionals.functions import (
     check_parameters,
     parse_enumeration_from_template,
@@ -76,7 +74,9 @@ def get_nearby_stations(
 
     coords = Coordinates(latitudes, longitudes)
 
-    metadata = metadata_for_dwd_data(parameter, time_resolution, period_type)
+    metadata = metadata_for_climate_observations(
+        parameter, time_resolution, period_type
+    )
 
     # For distance filtering make normal query including all stations
     if max_distance_in_km:

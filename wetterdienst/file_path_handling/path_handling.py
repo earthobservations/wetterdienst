@@ -51,7 +51,7 @@ def build_path_to_parameter(
     return parameter_path
 
 
-def list_files_of_dwd(
+def list_files_of_dwd_server(
     path: Union[PurePosixPath, str], cdc_base: DWDCDCBase, recursive: bool
 ) -> List[str]:
     """
@@ -89,7 +89,7 @@ def list_files_of_dwd(
 
     if recursive:
         files_in_folders = [
-            list_files_of_dwd(folder, cdc_base, recursive) for folder in folders
+            list_files_of_dwd_server(folder, cdc_base, recursive) for folder in folders
         ]
 
         for files_in_folder in files_in_folders:

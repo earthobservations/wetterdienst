@@ -18,7 +18,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 log = logging.getLogger(__name__)
 
 
-def parse_dwd_data(
+def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
     parameter: Parameter,
     time_resolution: Union[TimeResolution, str],
@@ -40,7 +40,7 @@ def parse_dwd_data(
     time_resolution = TimeResolution(time_resolution)
 
     data = [
-        _parse_dwd_data(filename_and_file, parameter, time_resolution)
+        _parse_climate_observations_data(filename_and_file, parameter, time_resolution)
         for filename_and_file in filenames_and_files
     ]
 
@@ -49,7 +49,7 @@ def parse_dwd_data(
     return data
 
 
-def _parse_dwd_data(
+def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
     parameter: Parameter,
     time_resolution: TimeResolution,

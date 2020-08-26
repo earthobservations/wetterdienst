@@ -10,7 +10,7 @@ from wetterdienst.file_path_handling.path_handling import (
     build_local_filepath_for_station_data,
     build_path_to_parameter,
     build_dwd_cdc_data_path,
-    list_files_of_dwd,
+    list_files_of_dwd_server,
 )
 
 
@@ -40,7 +40,7 @@ def test_build_climate_observations_path():
 
 @pytest.mark.remote
 def test_list_files_of_climate_observations():
-    files_server = list_files_of_dwd(
+    files_server = list_files_of_dwd_server(
         "annual/kl/recent/", recursive=False, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 

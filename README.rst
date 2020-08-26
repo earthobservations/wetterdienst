@@ -35,9 +35,14 @@ goal is to provide you with data from multiple weather services, we are still st
 the German Weather Service (DWD).
 
 We currently cover
+
 - historical weather data from ground stations
-- MOSMIX statistical optimized scalar forecasts extracted from weather models
 - RADOLAN fitted radar data for areal precipitation
+
+and soon
+
+- MOSMIX statistical optimized scalar forecasts extracted from weather models
+
 
 To get better insight on which data we have currently made available, with this library
 take a look at
@@ -83,11 +88,13 @@ To get some historical observed station data call
     )
 
 Furthermore we currently offer:
+
 - RADOLAN radar based precipitation for Germany
 - getting metadata for a set of Parameter, PeriodType and TimeResolution
 - getting station(s) nearby a selected location for a given set...
 
 and also
+
 - storing/recovering collected data
 - a prepared Docker image to run the library dockerized
 - a client to run the library from command line

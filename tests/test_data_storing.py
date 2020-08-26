@@ -11,8 +11,8 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 
 from wetterdienst.data_storing import (
-    store_dwd_data,
-    restore_dwd_data,
+    store_climate_observations,
+    restore_climate_observations,
     _build_local_store_key,
 )
 
@@ -85,7 +85,7 @@ def test_build_local_store_key():
 @mock.patch("pandas.read_hdf", mock.MagicMock(return_value=file))
 def test_store_dwd_data():
     """ Tests for restore_dwd_data """
-    store_dwd_data(
+    store_climate_observations(
         station_data=file,
         station_id=station_id,
         parameter=parameter,
@@ -94,7 +94,7 @@ def test_store_dwd_data():
         folder=test_folder,
     )
 
-    station_data = restore_dwd_data(
+    station_data = restore_climate_observations(
         station_id=station_id,
         parameter=parameter,
         time_resolution=time_resolution,

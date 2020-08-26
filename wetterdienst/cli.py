@@ -8,11 +8,15 @@ from docopt import docopt
 from munch import Munch
 import pandas as pd
 
-from wetterdienst import __version__, metadata_for_dwd_data, get_nearby_stations
+from wetterdienst import (
+    __version__,
+    metadata_for_climate_observations,
+    get_nearby_stations,
+)
 from wetterdienst.additionals.geo_location import stations_to_geojson
 from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
 from wetterdienst.additionals.util import normalize_options, setup_logging, read_list
-from wetterdienst.dwd_station_request import DWDStationRequest
+from wetterdienst.api import DWDStationRequest
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
@@ -124,7 +128,7 @@ def run():
         return
 
     if options.stations:
-        df = metadata_for_dwd_data(
+        df = metadata_for_climate_observations(
             parameter=options.parameter,
             time_resolution=options.resolution,
             period_type=options.period,

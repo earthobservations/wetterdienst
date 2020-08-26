@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from wetterdienst.radolan import collect_radolan_data, DWDRadolanRequest
+from wetterdienst.data_collection import collect_radolan_data
+from wetterdienst.api import DWDRadolanRequest
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 

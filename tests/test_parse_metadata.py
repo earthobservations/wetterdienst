@@ -5,17 +5,17 @@ from pandas import Timestamp
 from wetterdienst import reset_meta_index_cache
 from wetterdienst.additionals.geo_location import stations_to_geojson
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
-from wetterdienst.parse_metadata import metadata_for_dwd_data
+from wetterdienst.parse_metadata import metadata_for_climate_observations
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
-def test_metadata_for_dwd_data():
+def test_metadata_for_climate_observations():
     reset_meta_index_cache()
 
     # Existing combination of parameters
-    metadata = metadata_for_dwd_data(
+    metadata = metadata_for_climate_observations(
         Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
     )
 
@@ -23,7 +23,7 @@ def test_metadata_for_dwd_data():
 
     reset_meta_index_cache()
 
-    metadata2 = metadata_for_dwd_data(
+    metadata2 = metadata_for_climate_observations(
         Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
     )
 
@@ -47,7 +47,7 @@ def test_metadata_for_dwd_data():
 
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(requests.exceptions.HTTPError):
-        metadata_for_dwd_data(
+        metadata_for_climate_observations(
             Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
         )
 
@@ -56,7 +56,7 @@ def test_metadata_geojson():
     reset_meta_index_cache()
 
     # Existing combination of parameters
-    df = metadata_for_dwd_data(
+    df = metadata_for_climate_observations(
         Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
     )
 
