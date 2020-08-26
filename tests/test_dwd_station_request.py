@@ -1,8 +1,8 @@
 import pytest
 import pandas as pd
 
-from wetterdienst.dwd_station_request import DWDStationRequest
-from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
+from wetterdienst.api import DWDStationRequest
+from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution

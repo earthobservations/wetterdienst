@@ -3,7 +3,7 @@ import gzip
 import tarfile
 from typing import List, Union, Tuple
 from pathlib import Path
-import zipfile
+from zipfile import ZipFile, BadZipFile
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -14,22 +14,27 @@ from requests.exceptions import InvalidURL
 from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.download.download_services import download_file_from_dwd
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
-from wetterdienst.exceptions.failed_download_exception import FailedDownload
-from wetterdienst.exceptions.product_file_not_found_exception import ProductFileNotFound
+from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
 
 PRODUCT_FILE_IDENTIFIER = "produkt"
 
 
-def download_dwd_data_parallel(remote_files: List[str]) -> List[Tuple[str, BytesIO]]:
+def download_climate_observations_data_parallel(
+    remote_files: List[str],
+) -> List[Tuple[str, BytesIO]]:
     """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
 
     with ThreadPoolExecutor() as executor:
-        files_in_bytes = executor.map(_download_dwd_data_parallel, remote_files)
+        files_in_bytes = executor.map(
+            _download_climate_observations_data_parallel, remote_files
+        )
 
     return list(zip(remote_files, files_in_bytes))
 
 
-def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
+def _download_climate_observations_data_parallel(
+    remote_file: Union[str, Path]
+) -> BytesIO:
     """
     This function downloads the station data for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
@@ -47,12 +52,14 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
     try:
         zip_file = download_file_from_dwd(remote_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
     except InvalidURL as e:
-        raise e(f"Error: the station data {remote_file} couldn't be reached.")
+        raise InvalidURL(
+            f"Error: the station data {remote_file} couldn't be reached."
+        ) from e
     except Exception:
         raise FailedDownload(f"Download failed for {remote_file}")
 
     try:
-        zip_file_opened = zipfile.ZipFile(zip_file)
+        zip_file_opened = ZipFile(zip_file)
 
         # Files of archive
         archive_files = zip_file_opened.namelist()
@@ -71,8 +78,8 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
             f"The archive of {remote_file} does not hold a 'produkt' file."
         )
 
-    except zipfile.BadZipFile as e:
-        raise e(f"The archive of {remote_file} seems to be corrupted.\n {str(e)}")
+    except BadZipFile as e:
+        raise BadZipFile(f"The archive of {remote_file} seems to be corrupted.") from e
 
 
 def download_radolan_data(

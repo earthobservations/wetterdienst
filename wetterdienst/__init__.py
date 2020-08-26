@@ -1,25 +1,28 @@
-from wetterdienst.enumerations.parameter_enumeration import Parameter  # noqa:F401
-from wetterdienst.enumerations.time_resolution_enumeration import (  # noqa:F401
+from wetterdienst.enumerations.parameter_enumeration import Parameter
+from wetterdienst.enumerations.time_resolution_enumeration import (
     TimeResolution,
 )
-from wetterdienst.enumerations.period_type_enumeration import PeriodType  # noqa:F401
-from wetterdienst.parse_metadata import metadata_for_dwd_data  # noqa:F401
-from wetterdienst.file_path_handling.file_list_creation import (  # noqa:F401
-    create_file_list_for_dwd_server,
+from wetterdienst.enumerations.period_type_enumeration import PeriodType
+from wetterdienst.parse_metadata import metadata_for_climate_observations
+from wetterdienst.file_path_handling.file_list_creation import (
+    create_file_list_for_climate_observations,
 )
-from wetterdienst.indexing.file_index_creation import (  # noqa:F401
+from wetterdienst.indexing.file_index_creation import (
     reset_file_index_cache,
 )
-from wetterdienst.indexing.meta_index_creation import (  # noqa:F401
+from wetterdienst.indexing.meta_index_creation import (
     reset_meta_index_cache,
 )
-from wetterdienst.download.download import download_dwd_data_parallel  # noqa:F401
-from wetterdienst.parsing_data.parse_data_from_files import parse_dwd_data  # noqa:F401
-from wetterdienst.additionals.geo_location import get_nearby_stations  # noqa:F401
-from wetterdienst.data_collection import collect_dwd_data  # noqa:F401
-from wetterdienst.dwd_station_request import DWDStationRequest  # noqa:F401
-
-from wetterdienst.radolan import collect_radolan_data, DWDRadolanRequest  # noqa:F401
+from wetterdienst.download.download import download_climate_observations_data_parallel
+from wetterdienst.parsing_data.parse_data_from_files import (
+    parse_climate_observations_data,
+)
+from wetterdienst.additionals.geo_location import get_nearby_stations
+from wetterdienst.data_collection import (
+    collect_climate_observations_data,
+    collect_radolan_data,
+)
+from wetterdienst.api import DWDStationRequest, DWDRadolanRequest
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/

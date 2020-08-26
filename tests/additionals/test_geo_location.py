@@ -1,4 +1,9 @@
+import os
+
 import pytest
+import numpy as np
+from unittest.mock import patch, MagicMock
+import pandas as pd
 
 from wetterdienst.additionals.geo_location import (
     get_nearby_stations,
@@ -8,16 +13,13 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.data_models.coordinates import Coordinates
-import numpy as np
-from unittest.mock import patch, MagicMock
-import pandas as pd
-import os
+
 
 fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 
 
 @patch(
-    "wetterdienst.parse_metadata.metadata_for_dwd_data",
+    "wetterdienst.parse_metadata.metadata_for_climate_observations",
     MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON")),
 )
 def test_get_nearby_stations():

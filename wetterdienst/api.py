@@ -1,11 +1,17 @@
 import logging
+from io import BytesIO
 from pathlib import Path
-from typing import List, Union, Generator
+from typing import List, Union, Generator, Optional, Tuple
+from datetime import datetime
+
 import pandas as pd
 from pandas import Timestamp
 import dateparser
 
-from wetterdienst import collect_dwd_data
+from wetterdienst.data_collection import (
+    collect_climate_observations_data,
+    collect_radolan_data,
+)
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -13,13 +19,13 @@ from wetterdienst.additionals.functions import (
     cast_to_list,
     parse_enumeration_from_template,
 )
-from wetterdienst.exceptions.invalid_parameter_exception import (
-    InvalidParameterCombination,
-)
-from wetterdienst.exceptions.start_date_end_date_exception import StartDateEndDateError
+from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
-from wetterdienst.indexing.file_index_creation import reset_file_index_cache
+from wetterdienst.indexing.file_index_creation import (
+    reset_file_index_cache,
+    create_file_index_for_radolan,
+)
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +198,7 @@ class DWDStationRequest:
 
                 for period_type in self.period_type:
                     try:
-                        df_period = collect_dwd_data(
+                        df_period = collect_climate_observations_data(
                             station_ids=[station_id],
                             parameter=parameter,
                             time_resolution=self.time_resolution,
@@ -242,3 +248,86 @@ class DWDStationRequest:
                 continue
 
             yield df_station
+
+
+class DWDRadolanRequest:
+    """
+    API for DWD RADOLAN data requests
+    """
+
+    def __init__(
+        self,
+        time_resolution: Union[str, TimeResolution],
+        date_times: Optional[Union[str, List[Union[str, datetime]]]] = None,
+        start_date: Optional[Union[str, datetime]] = None,
+        end_date: Optional[Union[str, datetime]] = None,
+        prefer_local: bool = False,
+        write_file: bool = False,
+        folder: Union[str, Path] = DWD_FOLDER_MAIN,
+    ):
+
+        time_resolution = parse_enumeration_from_template(
+            time_resolution, TimeResolution
+        )
+
+        if time_resolution not in (TimeResolution.HOURLY, TimeResolution.DAILY):
+            raise ValueError("RADOLAN only supports hourly and daily resolution.")
+
+        self.time_resolution = time_resolution
+
+        if date_times == "latest":
+            file_index_radolan = create_file_index_for_radolan(time_resolution)
+
+            self.date_times = pd.Series(
+                file_index_radolan[DWDMetaColumns.DATETIME.value][-1:]
+            )
+        elif date_times:
+            self.date_times = pd.Series(
+                pd.to_datetime(date_times, infer_datetime_format=True)
+            )
+        else:
+            self.date_times = pd.Series(
+                pd.date_range(
+                    pd.to_datetime(start_date, infer_datetime_format=True),
+                    pd.to_datetime(end_date, infer_datetime_format=True),
+                )
+            )
+
+        self.date_times = self.date_times.dt.floor(freq="H") + pd.Timedelta(minutes=50)
+
+        self.date_times = self.date_times.drop_duplicates().sort_values()
+
+        self.prefer_local = prefer_local
+        self.write_file = write_file
+        self.folder = folder
+
+    def __eq__(self, other):
+        return (
+            self.time_resolution == other.time_resolution
+            and self.date_times.values.tolist() == other.date_times.values.tolist()
+        )
+
+    def __str__(self):
+        return ", ".join(
+            [
+                self.time_resolution.value,
+                "& ".join([str(date_time) for date_time in self.date_times]),
+            ]
+        )
+
+    def collect_data(self) -> Generator[Tuple[datetime, BytesIO], None, None]:
+        """
+        Function used to get the data for the request returned as generator.
+
+        Returns:
+            for each datetime the same datetime and file in bytes
+        """
+        for date_time in self.date_times:
+            _, file_in_bytes = collect_radolan_data(
+                time_resolution=self.time_resolution,
+                date_times=[date_time],
+                write_file=self.write_file,
+                folder=self.folder,
+            )[0]
+
+            yield date_time, file_in_bytes

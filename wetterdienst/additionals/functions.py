@@ -3,6 +3,7 @@ A set of more general functions used for the organization
 """
 from functools import lru_cache
 from typing import Tuple, Optional, Union, Callable
+
 import pandas as pd
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
@@ -18,7 +19,7 @@ from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
-from wetterdienst.exceptions.invalid_parameter_exception import InvalidParameter
+from wetterdienst.exceptions import InvalidParameter
 
 FILE_2_PARAMETER = {
     TimeResolution.MINUTE_1: {"nieder": Parameter.PRECIPITATION},

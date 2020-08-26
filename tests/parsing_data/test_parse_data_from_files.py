@@ -6,7 +6,9 @@ import pandas as pd
 
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.parsing_data.parse_data_from_files import parse_dwd_data
+from wetterdienst.parsing_data.parse_data_from_files import (
+    parse_climate_observations_data,
+)
 
 fixtures_dir = Path(__file__, "../..").resolve().absolute() / "fixtures"
 
@@ -19,7 +21,7 @@ def test_parse_dwd_data():
     station_data_original.to_csv(file_in_bytes, sep=";")
     file_in_bytes.seek(0)
 
-    station_data = parse_dwd_data(
+    station_data = parse_climate_observations_data(
         filenames_and_files=[(filename, BytesIO(file_in_bytes.read().encode()))],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
