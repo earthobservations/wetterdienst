@@ -31,10 +31,13 @@ def test_file_index_creation():
 
     assert file_index.equals(file_index2)
 
-    assert file_index.loc[
-        file_index[DWDMetaColumns.STATION_ID.value] == 1048,
-        DWDMetaColumns.FILENAME.value,
-    ].values.tolist() == ["daily/kl/recent/tageswerte_KL_01048_akt.zip"]
+    assert (
+        file_index.loc[
+            file_index[DWDMetaColumns.STATION_ID.value] == 1048,
+            DWDMetaColumns.FILENAME.value,
+        ].values.tolist()
+        == ["daily/kl/recent/tageswerte_KL_01048_akt.zip"]
+    )
 
     with pytest.raises(requests.exceptions.HTTPError):
         create_file_index_for_dwd_server(

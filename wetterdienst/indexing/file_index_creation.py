@@ -101,13 +101,10 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
     # Require datetime of file for filtering
     file_index[DWDMetaColumns.DATETIME.value] = file_index[
         DWDMetaColumns.FILENAME.value
-    ].apply(lambda x: r.findall(x)[0])
-
-    file_index[DWDMetaColumns.DATETIME.value] = file_index[
-        DWDMetaColumns.DATETIME.value
     ].apply(
-        lambda x: parse(
-            x, date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value]
+        lambda filename: parse(
+            r.findall(filename)[0],
+            date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value],
         )
     )
 

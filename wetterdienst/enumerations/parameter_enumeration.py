@@ -4,8 +4,8 @@ from enum import Enum
 
 class Parameter(Enum):
     """
-        enumeration for different parameter/variables
-        measured by dwd weather stations, listed from 1_minute to yearly resolution
+    enumeration for different parameter/variables
+    measured by dwd weather stations, listed from 1_minute to yearly resolution
     """
 
     # 1_minute

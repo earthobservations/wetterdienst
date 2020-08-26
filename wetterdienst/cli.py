@@ -273,11 +273,13 @@ def get_nearby(options: Munch) -> Tuple[List, List]:
     if options.latitude and options.longitude:
         if options.count:
             nearby_stations, distances = get_nearby_stations(
-                **nearby_baseline_args, num_stations_nearby=int(options.count),
+                **nearby_baseline_args,
+                num_stations_nearby=int(options.count),
             )
         elif options.distance:
             nearby_stations, distances = get_nearby_stations(
-                **nearby_baseline_args, max_distance_in_km=int(options.distance),
+                **nearby_baseline_args,
+                max_distance_in_km=int(options.distance),
             )
 
         return nearby_stations, distances

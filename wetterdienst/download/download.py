@@ -76,7 +76,8 @@ def _download_dwd_data_parallel(remote_file: Union[str, Path]) -> BytesIO:
 
 
 def download_radolan_data(
-    date_time: datetime, remote_radolan_file_path: str,
+    date_time: datetime,
+    remote_radolan_file_path: str,
 ) -> Tuple[datetime, BytesIO]:
     """
     Function used to download Radolan data for a given datetime. The function calls
