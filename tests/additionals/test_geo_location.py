@@ -14,6 +14,8 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.data_models.coordinates import Coordinates
+from wetterdienst.exceptions import InvalidParameterCombination
+
 
 fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 
@@ -156,6 +158,17 @@ def test_get_nearby_stations():
             num_stations_nearby=0,
         )
 
+    with pytest.raises(InvalidParameterCombination):
+        get_nearby_stations(
+            [50.0, 51.4],
+            [8.9, 9.3],
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
+            Parameter.SOIL,
+            TimeResolution.MINUTE_10,
+            PeriodType.RECENT,
+            num_stations_nearby=1,
+        )
 
 def test_get_nearby_stations_out_of_distance():
     nearest_station = get_nearby_stations(
