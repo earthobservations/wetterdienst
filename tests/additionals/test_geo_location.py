@@ -2,6 +2,7 @@ import os
 
 import pytest
 import numpy as np
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 import pandas as pd
 
@@ -14,7 +15,6 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.data_models.coordinates import Coordinates
 
-
 fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 
 
@@ -24,47 +24,90 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 )
 def test_get_nearby_stations():
     # Test for one nearest station
-    nearest_station, distances = get_nearby_stations(
+    nearest_station = get_nearby_stations(
         [50.0, 51.4],
         [8.9, 9.3],
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         num_stations_nearby=1,
     )
+    nearest_station[0] = nearest_station[0].drop('TO_DATE', axis='columns')
 
-    assert nearest_station == [4411]
-
-    np.testing.assert_array_almost_equal(
-        np.array(distances), np.array([[11.653026716750542, 14.520733407578632]])
+    pd.testing.assert_frame_equal(
+        nearest_station[0],
+        pd.DataFrame([[4411,
+                       np.datetime64('2002-01-24', dtype='np.datetime64[ns]'),
+                       155.,
+                       49.9195,
+                       8.9671,
+                       'Schaafheim-Schlierbach',
+                       'Hessen',
+                       True,
+                       11.65302672]],
+                     columns=['STATION_ID', 'FROM_DATE', 'STATION_HEIGHT', 'LAT', 'LON',
+                              'STATION_NAME', 'STATE', 'HAS_FILE', 'DISTANCE_TO_LOCATION'],
+                     index=[321])
     )
 
+    # np.testing.assert_array_almost_equal(
+    #     np.array(distances), np.array([[11.653026716750542, 14.520733407578632]])
+    # )
+
     # Test for maximum distance (take same station
-    nearest_station, distances = get_nearby_stations(
+    nearest_station = get_nearby_stations(
         [50.0, 51.4],
         [8.9, 9.3],
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         max_distance_in_km=20,
     )
-
-    assert nearest_station == [4411, 2480]
-
-    np.testing.assert_array_almost_equal(
-        np.array(distances),
-        np.array(
-            [
-                [11.653026716750542, 14.520733407578632],
-                [12.572153957087247, 19.587815617354487],
-            ]
-        ),
+    nearest_station[0] = nearest_station[0].drop('TO_DATE', axis='columns')
+    pd.testing.assert_frame_equal(
+        nearest_station[0],
+        pd.DataFrame([[4411,
+                       np.datetime64('2002-01-24 00:00:00', dtype='datetime64[ns]'),
+                       155.0,
+                       49.9195,
+                       8.9671,
+                       'Schaafheim-Schlierbach',
+                       'Hessen',
+                       True,
+                       11.653026716750542],
+                      [2480,
+                       np.datetime64('2004-09-01 00:00:00', dtype='datetime64[ns]'),
+                       108.0,
+                       50.0643,
+                       8.993,
+                       'Kahl/Main',
+                       'Bayern',
+                       True,
+                       12.572153957087247],
+                      [7341,
+                       np.datetime64('2005-07-16 00:00:00', dtype='datetime64[ns]'),
+                       119.0,
+                       50.09,
+                       8.7862,
+                       'Offenbach-Wetterpark',
+                       'Hessen',
+                       True,
+                       16.13301589362613]],
+                     columns=['STATION_ID', 'FROM_DATE', 'STATION_HEIGHT', 'LAT', 'LON',
+                              'STATION_NAME', 'STATE', 'HAS_FILE', 'DISTANCE_TO_LOCATION'],
+                     index=[321, 170, 465])
     )
 
     with pytest.raises(ValueError):
         get_nearby_stations(
             [50.0, 51.4],
             [8.9, 9.3],
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
             Parameter.TEMPERATURE_AIR,
             TimeResolution.HOURLY,
             PeriodType.RECENT,
@@ -76,11 +119,16 @@ def test_get_nearby_stations():
         get_nearby_stations(
             [50.0, 51.4],
             [8.9, 9.3],
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
             Parameter.TEMPERATURE_AIR,
             TimeResolution.HOURLY,
             PeriodType.RECENT,
             num_stations_nearby=0,
         )
+
+
+test_get_nearby_stations()
 
 
 def test_derive_nearest_neighbours():
