@@ -1,37 +1,38 @@
 """ calculates the nearest weather station to a requested location"""
-from typing import List, Union, Tuple, Optional
 from _datetime import datetime
+from typing import List, Union, Tuple, Optional
+
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
-from wetterdienst.exceptions import InvalidParameterCombination
-from wetterdienst.parse_metadata import metadata_for_climate_observations
 from wetterdienst.additionals.functions import (
     check_parameters,
     parse_enumeration_from_template,
     cast_to_list,
 )
+from wetterdienst.additionals.time_handling import parse_datetime
 from wetterdienst.data_models.coordinates import Coordinates
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.additionals.time_handling import parse_datetime
+from wetterdienst.exceptions import InvalidParameterCombination
+from wetterdienst.parse_metadata import metadata_for_climate_observations
 
 KM_EARTH_RADIUS = 6371
 
 
 def get_nearby_stations(
-    latitudes: Union[List[float], np.array],
-    longitudes: Union[List[float], np.array],
-    minimal_available_date: Union[datetime, str],
-    maximal_available_date: Union[datetime, str],
-    parameter: Union[Parameter, str],
-    time_resolution: Union[TimeResolution, str],
-    period_type: Union[PeriodType, str],
-    num_stations_nearby: Optional[int] = None,
-    max_distance_in_km: Optional[float] = None,
+        latitudes: Union[List[float], np.array],
+        longitudes: Union[List[float], np.array],
+        minimal_available_date: Union[datetime, str],
+        maximal_available_date: Union[datetime, str],
+        parameter: Union[Parameter, str],
+        time_resolution: Union[TimeResolution, str],
+        period_type: Union[PeriodType, str],
+        num_stations_nearby: Optional[int] = None,
+        max_distance_in_km: Optional[float] = None,
 ) -> List[pd.DataFrame]:
     """
     Provides a list of weather station ids for the requested data
@@ -56,7 +57,7 @@ def get_nearby_stations(
 
     """
     if (num_stations_nearby and max_distance_in_km) and (
-        num_stations_nearby and max_distance_in_km
+            num_stations_nearby and max_distance_in_km
     ):
         raise ValueError("Either set 'num_stations_nearby' or 'max_distance_in_km'.")
 
@@ -67,9 +68,11 @@ def get_nearby_stations(
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
     minimal_available_date = \
-        minimal_available_date if isinstance(minimal_available_date, datetime) else parse_datetime(minimal_available_date)
+        minimal_available_date if isinstance(minimal_available_date, datetime) else parse_datetime(
+            minimal_available_date)
     maximal_available_date = \
-        maximal_available_date if isinstance(maximal_available_date, datetime) else parse_datetime(maximal_available_date)
+        maximal_available_date if isinstance(maximal_available_date, datetime) else parse_datetime(
+            maximal_available_date)
 
     if not check_parameters(parameter, time_resolution, period_type):
         raise InvalidParameterCombination(
@@ -124,10 +127,10 @@ def get_nearby_stations(
 
 
 def _derive_nearest_neighbours(
-    latitudes_stations: np.array,
-    longitudes_stations: np.array,
-    coordinates: Coordinates,
-    num_stations_nearby: int = 1,
+        latitudes_stations: np.array,
+        longitudes_stations: np.array,
+        coordinates: Coordinates,
+        num_stations_nearby: int = 1,
 ) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     """
     A function that uses a k-d tree algorithm to obtain the nearest
