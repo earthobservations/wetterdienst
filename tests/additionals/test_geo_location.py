@@ -34,29 +34,39 @@ def test_get_nearby_stations():
         PeriodType.RECENT,
         num_stations_nearby=1,
     )
-    nearest_station[0] = nearest_station[0].drop('TO_DATE', axis='columns')
+    nearest_station[0] = nearest_station[0].drop("TO_DATE", axis="columns")
 
     pd.testing.assert_frame_equal(
         nearest_station[0],
-        pd.DataFrame([[4411,
-                       np.datetime64('2002-01-24', dtype='np.datetime64[ns]'),
-                       155.,
-                       49.9195,
-                       8.9671,
-                       'Schaafheim-Schlierbach',
-                       'Hessen',
-                       True,
-                       11.65302672]],
-                     columns=['STATION_ID', 'FROM_DATE', 'STATION_HEIGHT', 'LAT', 'LON',
-                              'STATION_NAME', 'STATE', 'HAS_FILE', 'DISTANCE_TO_LOCATION'],
-                     index=[321])
+        pd.DataFrame(
+            [
+                [
+                    4411,
+                    np.datetime64("2002-01-24", dtype="np.datetime64[ns]"),
+                    155.0,
+                    49.9195,
+                    8.9671,
+                    "Schaafheim-Schlierbach",
+                    "Hessen",
+                    True,
+                    11.65302672,
+                ]
+            ],
+            columns=[
+                "STATION_ID",
+                "FROM_DATE",
+                "STATION_HEIGHT",
+                "LAT",
+                "LON",
+                "STATION_NAME",
+                "STATE",
+                "HAS_FILE",
+                "DISTANCE_TO_LOCATION",
+            ],
+            index=[321],
+        ),
     )
 
-    # np.testing.assert_array_almost_equal(
-    #     np.array(distances), np.array([[11.653026716750542, 14.520733407578632]])
-    # )
-
-    # Test for maximum distance (take same station
     nearest_station = get_nearby_stations(
         [50.0, 51.4],
         [8.9, 9.3],
@@ -67,39 +77,58 @@ def test_get_nearby_stations():
         PeriodType.RECENT,
         max_distance_in_km=20,
     )
-    nearest_station[0] = nearest_station[0].drop('TO_DATE', axis='columns')
+    nearest_station[0] = nearest_station[0].drop("TO_DATE", axis="columns")
     pd.testing.assert_frame_equal(
         nearest_station[0],
-        pd.DataFrame([[4411,
-                       np.datetime64('2002-01-24 00:00:00', dtype='datetime64[ns]'),
-                       155.0,
-                       49.9195,
-                       8.9671,
-                       'Schaafheim-Schlierbach',
-                       'Hessen',
-                       True,
-                       11.653026716750542],
-                      [2480,
-                       np.datetime64('2004-09-01 00:00:00', dtype='datetime64[ns]'),
-                       108.0,
-                       50.0643,
-                       8.993,
-                       'Kahl/Main',
-                       'Bayern',
-                       True,
-                       12.572153957087247],
-                      [7341,
-                       np.datetime64('2005-07-16 00:00:00', dtype='datetime64[ns]'),
-                       119.0,
-                       50.09,
-                       8.7862,
-                       'Offenbach-Wetterpark',
-                       'Hessen',
-                       True,
-                       16.13301589362613]],
-                     columns=['STATION_ID', 'FROM_DATE', 'STATION_HEIGHT', 'LAT', 'LON',
-                              'STATION_NAME', 'STATE', 'HAS_FILE', 'DISTANCE_TO_LOCATION'],
-                     index=[321, 170, 465])
+        pd.DataFrame(
+            [
+                [
+                    4411,
+                    np.datetime64("2002-01-24 00:00:00", dtype="datetime64[ns]"),
+                    155.0,
+                    49.9195,
+                    8.9671,
+                    "Schaafheim-Schlierbach",
+                    "Hessen",
+                    True,
+                    11.653026716750542,
+                ],
+                [
+                    2480,
+                    np.datetime64("2004-09-01 00:00:00", dtype="datetime64[ns]"),
+                    108.0,
+                    50.0643,
+                    8.993,
+                    "Kahl/Main",
+                    "Bayern",
+                    True,
+                    12.572153957087247,
+                ],
+                [
+                    7341,
+                    np.datetime64("2005-07-16 00:00:00", dtype="datetime64[ns]"),
+                    119.0,
+                    50.09,
+                    8.7862,
+                    "Offenbach-Wetterpark",
+                    "Hessen",
+                    True,
+                    16.13301589362613,
+                ],
+            ],
+            columns=[
+                "STATION_ID",
+                "FROM_DATE",
+                "STATION_HEIGHT",
+                "LAT",
+                "LON",
+                "STATION_NAME",
+                "STATE",
+                "HAS_FILE",
+                "DISTANCE_TO_LOCATION",
+            ],
+            index=[321, 170, 465],
+        ),
     )
 
     with pytest.raises(ValueError):
@@ -128,7 +157,18 @@ def test_get_nearby_stations():
         )
 
 
-test_get_nearby_stations()
+def test_get_nearby_stations_out_of_distance():
+    nearest_station = get_nearby_stations(
+        [50.0],
+        [8.9],
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
+        Parameter.TEMPERATURE_AIR,
+        TimeResolution.HOURLY,
+        PeriodType.RECENT,
+        max_distance_in_km=10,
+    )
+    assert nearest_station[0].empty is True
 
 
 def test_derive_nearest_neighbours():

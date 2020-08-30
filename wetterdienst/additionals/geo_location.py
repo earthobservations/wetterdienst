@@ -24,15 +24,15 @@ KM_EARTH_RADIUS = 6371
 
 
 def get_nearby_stations(
-        latitudes: Union[List[float], np.array],
-        longitudes: Union[List[float], np.array],
-        minimal_available_date: Union[datetime, str],
-        maximal_available_date: Union[datetime, str],
-        parameter: Union[Parameter, str],
-        time_resolution: Union[TimeResolution, str],
-        period_type: Union[PeriodType, str],
-        num_stations_nearby: Optional[int] = None,
-        max_distance_in_km: Optional[float] = None,
+    latitudes: Union[List[float], np.array],
+    longitudes: Union[List[float], np.array],
+    minimal_available_date: Union[datetime, str],
+    maximal_available_date: Union[datetime, str],
+    parameter: Union[Parameter, str],
+    time_resolution: Union[TimeResolution, str],
+    period_type: Union[PeriodType, str],
+    num_stations_nearby: Optional[int] = None,
+    max_distance_in_km: Optional[float] = None,
 ) -> List[pd.DataFrame]:
     """
     Provides a list of weather station ids for the requested data
@@ -57,7 +57,7 @@ def get_nearby_stations(
 
     """
     if (num_stations_nearby and max_distance_in_km) and (
-            num_stations_nearby and max_distance_in_km
+        num_stations_nearby and max_distance_in_km
     ):
         raise ValueError("Either set 'num_stations_nearby' or 'max_distance_in_km'.")
 
@@ -67,12 +67,16 @@ def get_nearby_stations(
     parameter = parse_enumeration_from_template(parameter, Parameter)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
-    minimal_available_date = \
-        minimal_available_date if isinstance(minimal_available_date, datetime) else parse_datetime(
-            minimal_available_date)
-    maximal_available_date = \
-        maximal_available_date if isinstance(maximal_available_date, datetime) else parse_datetime(
-            maximal_available_date)
+    minimal_available_date = (
+        minimal_available_date
+        if isinstance(minimal_available_date, datetime)
+        else parse_datetime(minimal_available_date)
+    )
+    maximal_available_date = (
+        maximal_available_date
+        if isinstance(maximal_available_date, datetime)
+        else parse_datetime(maximal_available_date)
+    )
 
     if not check_parameters(parameter, time_resolution, period_type):
         raise InvalidParameterCombination(
@@ -92,9 +96,10 @@ def get_nearby_stations(
         parameter, time_resolution, period_type
     )
 
-    metadata = \
-        metadata[(metadata[DWDMetaColumns.FROM_DATE.value] <= minimal_available_date) &
-                 (metadata[DWDMetaColumns.TO_DATE.value] >= maximal_available_date)].reset_index(drop=True)
+    metadata = metadata[
+        (metadata[DWDMetaColumns.FROM_DATE.value] <= minimal_available_date)
+        & (metadata[DWDMetaColumns.TO_DATE.value] >= maximal_available_date)
+    ].reset_index(drop=True)
 
     # For distance filtering make normal query including all stations
     if max_distance_in_km:
@@ -110,27 +115,40 @@ def get_nearby_stations(
     distances_km = np.array(distances * KM_EARTH_RADIUS)
     nearest_station_list = []
 
-    for distances_km_location, indices_nearest_neighbours_location in zip(distances_km, indices_nearest_neighbours):
+    for distances_km_location, indices_nearest_neighbours_location in zip(
+        distances_km, indices_nearest_neighbours
+    ):
         # Filter for distance based on calculated distances
         if max_distance_in_km:
-            _in_max_distance_indices = np.where(distances_km_location <= max_distance_in_km)[0]
-            indices_nearest_neighbours_location = \
-                indices_nearest_neighbours_location[_in_max_distance_indices]
+            _in_max_distance_indices = np.where(
+                distances_km_location <= max_distance_in_km
+            )[0]
+            indices_nearest_neighbours_location = indices_nearest_neighbours_location[
+                _in_max_distance_indices
+            ]
             distances_km_location = distances_km_location[_in_max_distance_indices]
 
-        metadata_location = metadata.loc[indices_nearest_neighbours_location
-                                         if isinstance(indices_nearest_neighbours_location, (list, np.ndarray))
-                                         else [indices_nearest_neighbours_location], :]
-        metadata_location['DISTANCE_TO_LOCATION'] = distances_km_location
+        metadata_location = metadata.loc[
+            indices_nearest_neighbours_location
+            if isinstance(indices_nearest_neighbours_location, (list, np.ndarray))
+            else [indices_nearest_neighbours_location],
+            :,
+        ]
+        metadata_location["DISTANCE_TO_LOCATION"] = distances_km_location
         nearest_station_list.append(metadata_location)
+
+    for _idx, _nearest_stations in enumerate(nearest_station_list):
+        if _nearest_stations.empty:
+            print(f"No weather station was found for {_idx+1}. location")
+
     return nearest_station_list
 
 
 def _derive_nearest_neighbours(
-        latitudes_stations: np.array,
-        longitudes_stations: np.array,
-        coordinates: Coordinates,
-        num_stations_nearby: int = 1,
+    latitudes_stations: np.array,
+    longitudes_stations: np.array,
+    coordinates: Coordinates,
+    num_stations_nearby: int = 1,
 ) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     """
     A function that uses a k-d tree algorithm to obtain the nearest
