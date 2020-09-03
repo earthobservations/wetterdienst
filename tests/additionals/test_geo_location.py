@@ -37,6 +37,7 @@ def test_get_nearby_stations():
         num_stations_nearby=1,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
+    nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
 
     pd.testing.assert_frame_equal(
         nearby_station,
@@ -80,6 +81,8 @@ def test_get_nearby_stations():
         max_distance_in_km=20,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
+    nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
+
     pd.testing.assert_frame_equal(
         nearby_station,
         pd.DataFrame(
