@@ -43,7 +43,7 @@ def test_get_nearby_stations():
         pd.DataFrame(
             [
                 [
-                    4411,
+                    np.int64(4411),
                     np.datetime64("2002-01-24", dtype="np.datetime64[ns]"),
                     155.0,
                     49.9195,
@@ -85,7 +85,7 @@ def test_get_nearby_stations():
         pd.DataFrame(
             [
                 [
-                    4411,
+                    np.int64(4411),
                     np.datetime64("2002-01-24 00:00:00", dtype="datetime64[ns]"),
                     155.0,
                     49.9195,
@@ -96,7 +96,7 @@ def test_get_nearby_stations():
                     11.653026716750542,
                 ],
                 [
-                    2480,
+                    np.int64(2480),
                     np.datetime64("2004-09-01 00:00:00", dtype="datetime64[ns]"),
                     108.0,
                     50.0643,
@@ -107,7 +107,7 @@ def test_get_nearby_stations():
                     12.572153957087247,
                 ],
                 [
-                    7341,
+                    np.int64(7341),
                     np.datetime64("2005-07-16 00:00:00", dtype="datetime64[ns]"),
                     119.0,
                     50.09,
