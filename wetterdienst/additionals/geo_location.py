@@ -127,7 +127,7 @@ def get_nearby_stations(
     ]
     metadata_location["DISTANCE_TO_LOCATION"] = distances_km
 
-    if metadata_location:
+    if metadata_location.empty:
         logger.warning(
             f"No weather station was found for coordinate "
             f"{latitude}°N and {longitude}°E "
