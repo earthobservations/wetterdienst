@@ -26,7 +26,7 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 )
 def test_get_nearby_stations():
     # Test for one nearest station
-    nearest_station = get_nearby_stations(
+    nearby_station = get_nearby_stations(
         50.0,
         8.9,
         datetime(2020, 1, 1),
@@ -36,10 +36,10 @@ def test_get_nearby_stations():
         PeriodType.RECENT,
         num_stations_nearby=1,
     )
-    nearest_station = nearest_station.drop("TO_DATE", axis="columns")
+    nearby_station = nearby_station.drop("TO_DATE", axis="columns")
 
     pd.testing.assert_frame_equal(
-        nearest_station,
+        nearby_station,
         pd.DataFrame(
             [
                 [
@@ -69,7 +69,7 @@ def test_get_nearby_stations():
         ),
     )
 
-    nearest_station = get_nearby_stations(
+    nearby_station = get_nearby_stations(
         50.0,
         8.9,
         datetime(2020, 1, 1),
@@ -79,9 +79,9 @@ def test_get_nearby_stations():
         PeriodType.RECENT,
         max_distance_in_km=20,
     )
-    nearest_station = nearest_station.drop("TO_DATE", axis="columns")
+    nearby_station = nearby_station.drop("TO_DATE", axis="columns")
     pd.testing.assert_frame_equal(
-        nearest_station,
+        nearby_station,
         pd.DataFrame(
             [
                 [
@@ -172,9 +172,9 @@ def test_get_nearby_stations():
 
 
 def test_get_nearby_stations_out_of_distance():
-    nearest_station = get_nearby_stations(
-        [50.0],
-        [8.9],
+    nearby_station = get_nearby_stations(
+        50.0,
+        8.9,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
         Parameter.TEMPERATURE_AIR,
@@ -182,7 +182,7 @@ def test_get_nearby_stations_out_of_distance():
         PeriodType.RECENT,
         max_distance_in_km=10,
     )
-    assert nearest_station[0].empty is True
+    assert nearby_station.empty is True
 
 
 def test_derive_nearest_neighbours():
