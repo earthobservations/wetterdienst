@@ -18,8 +18,8 @@ The API for the historical weather data mainly consists of the following functio
     - calculates the close weather stations based on the coordinates for the requested
       data
     - either selected by rank (n stations) or by distance in km
-    - it returns a list of station ids that can be used to download the data plus the
-      distances
+    - it returns a DataFrame with meta data, distances [in km] and station ids that can be used to download the
+      data plus the
 
 - **DWDStationRequest:**
     - a class that can combine multiple periods/date ranges for any number of stations
@@ -97,18 +97,21 @@ Now, we know an approximate location, where we cant to get data for the temperat
 
 .. code-block:: Python
 
+    from datetime import datetime
     from wetterdienst import Parameter, PeriodType, TimeResolution
     from wetterdienst import get_nearby_stations
 
     get_nearby_stations(
-        [50., 51.4], [8.9, 9.3],
+        50., 8.9,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         num_stations_nearby=1
     )
 
-The function returns us the station ids (and distances), that we can use to get our
+The function returns a meta data DataFrame, where we can find weather station ids and distances to get our
 observation data.
 
 .. code-block:: Python

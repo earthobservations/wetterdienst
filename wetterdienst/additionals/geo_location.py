@@ -1,41 +1,53 @@
 """ calculates the nearest weather station to a requested location"""
-from typing import List, Union, Tuple, Optional
+from _datetime import datetime
+from typing import Union, Tuple, Optional
+
 import numpy as np
 import pandas as pd
+import logging
 from scipy.spatial import cKDTree
 
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
-from wetterdienst.exceptions import InvalidParameterCombination
-from wetterdienst.parse_metadata import metadata_for_climate_observations
 from wetterdienst.additionals.functions import (
     check_parameters,
     parse_enumeration_from_template,
     cast_to_list,
 )
+from wetterdienst.additionals.time_handling import parse_datetime
 from wetterdienst.data_models.coordinates import Coordinates
+from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.exceptions import InvalidParameterCombination
+from wetterdienst.parse_metadata import metadata_for_climate_observations
 
 KM_EARTH_RADIUS = 6371
 
+logger = logging.getLogger(__name__)
+
 
 def get_nearby_stations(
-    latitudes: Union[List[float], np.array],
-    longitudes: Union[List[float], np.array],
+    latitude: float,
+    longitude: float,
+    minimal_available_date: Union[datetime, str],
+    maximal_available_date: Union[datetime, str],
     parameter: Union[Parameter, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
     num_stations_nearby: Optional[int] = None,
     max_distance_in_km: Optional[float] = None,
-) -> Tuple[List[int], List[List[float]]]:
+) -> pd.DataFrame:
     """
     Provides a list of weather station ids for the requested data
     Args:
-        latitudes: latitudes of locations to search for nearest
+        latitude: latitude of location to search for nearest
             weather station
-        longitudes: longitudes of locations to search for nearest
+        longitude: longitude of location to search for nearest
             weather station
+        minimal_available_date: Start date of timespan where measurements
+            should be available
+        maximal_available_date: End date of timespan where measurements
+            should be available
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -44,8 +56,7 @@ def get_nearby_stations(
             distance to location in km
 
     Returns:
-        list of stations ids for the given locations/coordinate pairs and
-        a list of distances in kilometer to the weather station
+        DataFrames with valid Stations in radius per requested location
 
     """
     if (num_stations_nearby and max_distance_in_km) and (
@@ -59,6 +70,16 @@ def get_nearby_stations(
     parameter = parse_enumeration_from_template(parameter, Parameter)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
+    minimal_available_date = (
+        minimal_available_date
+        if isinstance(minimal_available_date, datetime)
+        else parse_datetime(minimal_available_date)
+    )
+    maximal_available_date = (
+        maximal_available_date
+        if isinstance(maximal_available_date, datetime)
+        else parse_datetime(maximal_available_date)
+    )
 
     if not check_parameters(parameter, time_resolution, period_type):
         raise InvalidParameterCombination(
@@ -66,17 +87,16 @@ def get_nearby_stations(
             f"{period_type.value} is invalid."
         )
 
-    if not isinstance(latitudes, list):
-        latitudes = np.array(latitudes)
-
-    if not isinstance(longitudes, list):
-        latitudes = np.array(longitudes)
-
-    coords = Coordinates(latitudes, longitudes)
+    coords = Coordinates(np.array(latitude), np.array(longitude))
 
     metadata = metadata_for_climate_observations(
         parameter, time_resolution, period_type
     )
+
+    metadata = metadata[
+        (metadata[DWDMetaColumns.FROM_DATE.value] <= minimal_available_date)
+        & (metadata[DWDMetaColumns.TO_DATE.value] >= maximal_available_date)
+    ].reset_index(drop=True)
 
     # For distance filtering make normal query including all stations
     if max_distance_in_km:
@@ -86,39 +106,34 @@ def get_nearby_stations(
         metadata.LAT.values, metadata.LON.values, coords, num_stations_nearby
     )
 
-    # Make sure go get list of lists [[dist1_1, dist1_2], [dist2_1, dist2_2]]
-    if num_stations_nearby == 1:
-        distances = np.array([distances])
-    else:
-        distances = distances.T
-
-    if np.max(indices_nearest_neighbours.shape) > 1:
-        indices_nearest_neighbours = indices_nearest_neighbours[0]
-
     # Require list of indices for consistency
     # Cast to np.array required for subset
     indices_nearest_neighbours = np.array(cast_to_list(indices_nearest_neighbours))
-
     distances_km = np.array(distances * KM_EARTH_RADIUS)
 
     # Filter for distance based on calculated distances
     if max_distance_in_km:
-        indices_stations_in_distance = (
-            np.max(distances_km, axis=1) <= max_distance_in_km
+        _in_max_distance_indices = np.where(distances_km <= max_distance_in_km)[0]
+        indices_nearest_neighbours = indices_nearest_neighbours[
+            _in_max_distance_indices
+        ]
+        distances_km = distances_km[_in_max_distance_indices]
+
+    metadata_location = metadata.loc[
+        indices_nearest_neighbours
+        if isinstance(indices_nearest_neighbours, (list, np.ndarray))
+        else [indices_nearest_neighbours],
+        :,
+    ]
+    metadata_location["DISTANCE_TO_LOCATION"] = distances_km
+
+    if metadata_location.empty:
+        logger.warning(
+            f"No weather station was found for coordinate "
+            f"{latitude}°N and {longitude}°E "
         )
 
-        # Reduce stations to those in distance
-        distances_km = distances_km[indices_stations_in_distance]
-        indices_nearest_neighbours = indices_nearest_neighbours[
-            indices_stations_in_distance
-        ]
-
-    return (
-        metadata.loc[
-            indices_nearest_neighbours, DWDMetaColumns.STATION_ID.value
-        ].values.tolist(),
-        distances_km.tolist(),
-    )
+    return metadata_location
 
 
 def _derive_nearest_neighbours(
@@ -154,10 +169,12 @@ def stations_to_geojson(df: pd.DataFrame) -> dict:
     """
     Convert DWD station information into GeoJSON format.
 
-    :param df: Input DataFrame containing station information.
-    :return: Dictionary in GeoJSON FeatureCollection format.
-    """
+    Args:
+        df: Input DataFrame containing station information.
 
+    Return:
+         Dictionary in GeoJSON FeatureCollection format.
+    """
     df = df.rename(columns=str.lower)
 
     features = []
@@ -188,9 +205,7 @@ def stations_to_geojson(df: pd.DataFrame) -> dict:
             }
         )
 
-    data = {
+    return {
         "type": "FeatureCollection",
         "features": features,
     }
-
-    return data
