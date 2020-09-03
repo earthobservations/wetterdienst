@@ -1,6 +1,6 @@
 """ calculates the nearest weather station to a requested location"""
 from _datetime import datetime
-from typing import List, Union, Tuple, Optional
+from typing import Union, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -113,8 +113,7 @@ def get_nearby_stations(
 
     # Filter for distance based on calculated distances
     if max_distance_in_km:
-        _in_max_distance_indices = np.where(
-            distances_km <= max_distance_in_km)[0]
+        _in_max_distance_indices = np.where(distances_km <= max_distance_in_km)[0]
         indices_nearest_neighbours = indices_nearest_neighbours[
             _in_max_distance_indices
         ]
@@ -123,11 +122,16 @@ def get_nearby_stations(
     metadata_location = metadata.loc[
         indices_nearest_neighbours
         if isinstance(indices_nearest_neighbours, (list, np.ndarray))
-        else [indices_nearest_neighbours], :]
+        else [indices_nearest_neighbours],
+        :,
+    ]
     metadata_location["DISTANCE_TO_LOCATION"] = distances_km
 
     if metadata_location:
-        logger.warning(f"No weather station was found for {_idx+1}. location")
+        logger.warning(
+            f"No weather station was found for coordinate "
+            f"{latitude}°N and {longitude}°E "
+        )
 
     return metadata_location
 

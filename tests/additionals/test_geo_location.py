@@ -170,6 +170,7 @@ def test_get_nearby_stations():
             num_stations_nearby=1,
         )
 
+
 def test_get_nearby_stations_out_of_distance():
     nearest_station = get_nearby_stations(
         [50.0],
