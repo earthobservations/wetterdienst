@@ -4,6 +4,7 @@ from typing import List, Union, Tuple, Optional
 
 import numpy as np
 import pandas as pd
+import logging
 from scipy.spatial import cKDTree
 
 from wetterdienst.additionals.functions import (
@@ -22,10 +23,12 @@ from wetterdienst.parse_metadata import metadata_for_climate_observations
 
 KM_EARTH_RADIUS = 6371
 
+logger = logging.getLogger(__name__)
+
 
 def get_nearby_stations(
-    latitudes: Union[List[float], np.array],
-    longitudes: Union[List[float], np.array],
+    latitude: float,
+    longitude: float,
     minimal_available_date: Union[datetime, str],
     maximal_available_date: Union[datetime, str],
     parameter: Union[Parameter, str],
@@ -33,13 +36,13 @@ def get_nearby_stations(
     period_type: Union[PeriodType, str],
     num_stations_nearby: Optional[int] = None,
     max_distance_in_km: Optional[float] = None,
-) -> List[pd.DataFrame]:
+) -> pd.DataFrame:
     """
     Provides a list of weather station ids for the requested data
     Args:
-        latitudes: latitudes of locations to search for nearest
+        latitude: latitude of location to search for nearest
             weather station
-        longitudes: longitudes of locations to search for nearest
+        longitude: longitude of location to search for nearest
             weather station
         minimal_available_date: Start date of timespan where measurements
             should be available
@@ -53,7 +56,7 @@ def get_nearby_stations(
             distance to location in km
 
     Returns:
-        List of DataFrames with valid Stations in radius per requested location
+        DataFrames with valid Stations in radius per requested location
 
     """
     if (num_stations_nearby and max_distance_in_km) and (
@@ -84,13 +87,7 @@ def get_nearby_stations(
             f"{period_type.value} is invalid."
         )
 
-    if not isinstance(latitudes, list):
-        latitudes = np.array(latitudes)
-
-    if not isinstance(longitudes, list):
-        latitudes = np.array(longitudes)
-
-    coords = Coordinates(latitudes, longitudes)
+    coords = Coordinates(np.array(latitude), np.array(longitude))
 
     metadata = metadata_for_climate_observations(
         parameter, time_resolution, period_type
@@ -113,35 +110,26 @@ def get_nearby_stations(
     # Cast to np.array required for subset
     indices_nearest_neighbours = np.array(cast_to_list(indices_nearest_neighbours))
     distances_km = np.array(distances * KM_EARTH_RADIUS)
-    nearest_station_list = []
 
-    for distances_km_location, indices_nearest_neighbours_location in zip(
-        distances_km, indices_nearest_neighbours
-    ):
-        # Filter for distance based on calculated distances
-        if max_distance_in_km:
-            _in_max_distance_indices = np.where(
-                distances_km_location <= max_distance_in_km
-            )[0]
-            indices_nearest_neighbours_location = indices_nearest_neighbours_location[
-                _in_max_distance_indices
-            ]
-            distances_km_location = distances_km_location[_in_max_distance_indices]
-
-        metadata_location = metadata.loc[
-            indices_nearest_neighbours_location
-            if isinstance(indices_nearest_neighbours_location, (list, np.ndarray))
-            else [indices_nearest_neighbours_location],
-            :,
+    # Filter for distance based on calculated distances
+    if max_distance_in_km:
+        _in_max_distance_indices = np.where(
+            distances_km <= max_distance_in_km)[0]
+        indices_nearest_neighbours = indices_nearest_neighbours[
+            _in_max_distance_indices
         ]
-        metadata_location["DISTANCE_TO_LOCATION"] = distances_km_location
-        nearest_station_list.append(metadata_location)
+        distances_km = distances_km[_in_max_distance_indices]
 
-    for _idx, _nearest_stations in enumerate(nearest_station_list):
-        if _nearest_stations.empty:
-            print(f"No weather station was found for {_idx+1}. location")
+    metadata_location = metadata.loc[
+        indices_nearest_neighbours
+        if isinstance(indices_nearest_neighbours, (list, np.ndarray))
+        else [indices_nearest_neighbours], :]
+    metadata_location["DISTANCE_TO_LOCATION"] = distances_km
 
-    return nearest_station_list
+    if metadata_location:
+        logger.warning(f"No weather station was found for {_idx+1}. location")
+
+    return metadata_location
 
 
 def _derive_nearest_neighbours(

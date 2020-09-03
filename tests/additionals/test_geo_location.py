@@ -27,8 +27,8 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 def test_get_nearby_stations():
     # Test for one nearest station
     nearest_station = get_nearby_stations(
-        [50.0, 51.4],
-        [8.9, 9.3],
+        50.0,
+        8.9,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
         Parameter.TEMPERATURE_AIR,
@@ -36,10 +36,10 @@ def test_get_nearby_stations():
         PeriodType.RECENT,
         num_stations_nearby=1,
     )
-    nearest_station[0] = nearest_station[0].drop("TO_DATE", axis="columns")
+    nearest_station = nearest_station.drop("TO_DATE", axis="columns")
 
     pd.testing.assert_frame_equal(
-        nearest_station[0],
+        nearest_station,
         pd.DataFrame(
             [
                 [
@@ -70,8 +70,8 @@ def test_get_nearby_stations():
     )
 
     nearest_station = get_nearby_stations(
-        [50.0, 51.4],
-        [8.9, 9.3],
+        50.0,
+        8.9,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
         Parameter.TEMPERATURE_AIR,
@@ -79,9 +79,9 @@ def test_get_nearby_stations():
         PeriodType.RECENT,
         max_distance_in_km=20,
     )
-    nearest_station[0] = nearest_station[0].drop("TO_DATE", axis="columns")
+    nearest_station = nearest_station.drop("TO_DATE", axis="columns")
     pd.testing.assert_frame_equal(
-        nearest_station[0],
+        nearest_station,
         pd.DataFrame(
             [
                 [
@@ -135,8 +135,8 @@ def test_get_nearby_stations():
 
     with pytest.raises(ValueError):
         get_nearby_stations(
-            [50.0, 51.4],
-            [8.9, 9.3],
+            50.0,
+            8.9,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
             Parameter.TEMPERATURE_AIR,
@@ -148,8 +148,8 @@ def test_get_nearby_stations():
 
     with pytest.raises(ValueError):
         get_nearby_stations(
-            [50.0, 51.4],
-            [8.9, 9.3],
+            51.4,
+            9.3,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
             Parameter.TEMPERATURE_AIR,
@@ -160,8 +160,8 @@ def test_get_nearby_stations():
 
     with pytest.raises(InvalidParameterCombination):
         get_nearby_stations(
-            [50.0, 51.4],
-            [8.9, 9.3],
+            51.4,
+            9.3,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
             Parameter.SOIL,
