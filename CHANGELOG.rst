@@ -6,6 +6,13 @@ Current
 
 ...
 
+0.6.0 (07.09.2020)
+==================
+
+- enhance usage of get_nearby_stations to check for availability
+- output of get_nearby_stations is now a slice of meta_data DataFrame output
+
+
 0.5.0 (27.08.2020)
 ==================
 
