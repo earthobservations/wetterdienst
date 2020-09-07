@@ -35,7 +35,7 @@ def get_nearby_stations(
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
     num_stations_nearby: Optional[int] = None,
-    max_distance_in_km: Optional[float] = None,
+    max_distance_in_km: Optional[float] = None
 ) -> pd.DataFrame:
     """
     Provides a list of weather station ids for the requested data
