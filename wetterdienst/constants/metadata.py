@@ -4,6 +4,7 @@ from enum import Enum
 DWD_FOLDER_MAIN = "./dwd_data"
 DWD_FOLDER_STATION_DATA = "station_data"
 DWD_FOLDER_RADOLAN = "radolan"
+DWD_FOLDER_RADAR = "radar"
 
 DWD_FILE_STATION_DATA = "dwd_station_data"
 DWD_FILE_RADOLAN = "radolan"

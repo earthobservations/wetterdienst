@@ -10,7 +10,7 @@ import dateparser
 
 from wetterdienst.data_collection import (
     collect_climate_observations_data,
-    collect_radolan_data,
+    collect_radar_data,
 )
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
@@ -323,7 +323,7 @@ class DWDRadolanRequest:
             for each datetime the same datetime and file in bytes
         """
         for date_time in self.date_times:
-            _, file_in_bytes = collect_radolan_data(
+            _, file_in_bytes = collect_radar_data(
                 time_resolution=self.time_resolution,
                 date_times=[date_time],
                 write_file=self.write_file,

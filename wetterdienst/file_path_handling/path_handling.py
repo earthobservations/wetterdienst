@@ -1,6 +1,6 @@
 """ functions to handle paths and file names"""
 from pathlib import Path, PurePosixPath
-from typing import Union, List
+from typing import Union, List, Optional
 from datetime import datetime
 
 from bs4 import BeautifulSoup
@@ -10,6 +10,7 @@ from wetterdienst.constants.access_credentials import (
     DWD_SERVER,
     DWD_CDC_PATH,
     DWDCDCBase,
+    DWDWeatherBase
 )
 from wetterdienst.constants.metadata import (
     DWD_FOLDER_STATION_DATA,
@@ -23,10 +24,31 @@ from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.enumerations.radar_sites import RadarSites
+from wetterdienst.enumerations.radar_data_types import RadarDataTypes
+
+RADAR_PARAMETERS_SITES = \
+    [Parameter.DX_REFLECTIVITY, Parameter.LMAX_VOLUME_SCAN,
+     Parameter.PE_ECHO_TOP, Parameter.PF_REFLECTIVITY,
+     Parameter.PX_REFLECTIVITY, Parameter.PL_VOLUME_SCAN,
+     Parameter.PR_VELOCITY, Parameter.PX250_REFLECTIVITY,
+     Parameter.PZ_CAPPI, Parameter.SWEEP_VOL_PRECIPITATION_V,
+     Parameter.SWEEP_VOL_PRECIPITATION_Z,
+     Parameter.SWEEP_VOL_VELOCITY_V, Parameter.SWEEP_VOL_VELOCITY_Z]
+RADAR_PARAMETERS_COMPOSITES = [Parameter.PP_REFLECTIVITY, Parameter.PG_REFLECTIVITY,
+                               Parameter.WX_REFLECTIVITY, Parameter.WN_REFLECTIVITY,
+                               Parameter.RX_REFLECTIVITY]
+RADAR_PARAMETERS_WITH_HDF5 = [Parameter.SWEEP_VOL_PRECIPITATION_V,
+     Parameter.SWEEP_VOL_PRECIPITATION_Z,
+     Parameter.SWEEP_VOL_VELOCITY_V, Parameter.SWEEP_VOL_VELOCITY_Z]
 
 
 def build_path_to_parameter(
-    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
+        parameter: Parameter,
+        time_resolution: TimeResolution,
+        period_type: Optional[PeriodType] = None,
+        radar_site: Optional[RadarSites] = None,
+        radar_data_type: Optional[RadarDataTypes] = None
 ) -> PurePosixPath:
     """
     Function to build a indexing file path
@@ -34,15 +56,32 @@ def build_path_to_parameter(
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
+        radar_site: Site of the radar if parameter is one of RADAR_PARAMETERS_SITES
+        radar_data_type: Some radar data are available in different data types
 
     Returns:
         indexing file path relative to climate observations path
     """
     if parameter == Parameter.SOLAR and time_resolution in (
-        TimeResolution.HOURLY,
-        TimeResolution.DAILY,
+            TimeResolution.HOURLY,
+            TimeResolution.DAILY,
     ):
         parameter_path = PurePosixPath(time_resolution.value, parameter.value)
+    elif parameter in RADAR_PARAMETERS_COMPOSITES:
+        parameter_path = PurePosixPath(parameter.value)
+    elif parameter in RADAR_PARAMETERS_SITES:
+        if radar_site is None:
+            raise ValueError("You have choosen radar site data which "
+                             "requires to pass a RadarSite")
+        else:
+            parameter_path = PurePosixPath(parameter.value,
+                                           radar_site.value)
+            if parameter in RADAR_PARAMETERS_WITH_HDF5:
+                if radar_data_type is None:
+                    raise ValueError("You have to define a RadarDataType [hdf5 or binary]")
+                elif radar_data_type is RadarDataTypes.HDF5:
+                    parameter_path = PurePosixPath.joinpath(parameter_path, radar_data_type.value)
+
     else:
         parameter_path = PurePosixPath(
             time_resolution.value, parameter.value, period_type.value
@@ -52,7 +91,9 @@ def build_path_to_parameter(
 
 
 def list_files_of_dwd_server(
-    path: Union[PurePosixPath, str], cdc_base: DWDCDCBase, recursive: bool
+        path: Union[PurePosixPath, str],
+        dwd_base: Union[DWDCDCBase, DWDWeatherBase],
+        recursive: bool
 ) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server
@@ -60,7 +101,7 @@ def list_files_of_dwd_server(
     Args:
         path: the path which should be searched for files (relative to climate
         observations Germany)
-        cdc_base: base path e.g. climate observations/germany
+        dwd_base: base path e.g. climate observations/germany or just weather
         recursive: definition if the function should iteratively list files
         from subfolders
 
@@ -69,7 +110,7 @@ def list_files_of_dwd_server(
     """
     dwd_session = create_dwd_session()
 
-    r = dwd_session.get(build_dwd_cdc_data_path(path, cdc_base))
+    r = dwd_session.get(build_dwd_directory_data_path(path, dwd_base))
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -89,7 +130,7 @@ def list_files_of_dwd_server(
 
     if recursive:
         files_in_folders = [
-            list_files_of_dwd_server(folder, cdc_base, recursive) for folder in folders
+            list_files_of_dwd_server(folder, dwd_base, recursive) for folder in folders
         ]
 
         for files_in_folder in files_in_folders:
@@ -98,8 +139,8 @@ def list_files_of_dwd_server(
     return files
 
 
-def build_dwd_cdc_data_path(
-    path: Union[PurePosixPath, str], cdc_base: DWDCDCBase
+def build_dwd_directory_data_path(
+        path: Union[PurePosixPath, str], dwd_base: Union[DWDCDCBase, DWDWeatherBase]
 ) -> str:
     """
     A function used to create the filepath consisting of the server, the
@@ -107,14 +148,15 @@ def build_dwd_cdc_data_path(
 
     Args:
         path: the path of folder/file on the server
-        cdc_base: the CDC base path e.g. "climate observations/germany"
+        dwd_base: the CDC base path e.g. "climate observations/germany"
 
     Returns:
         the path create from the given parameters
     """
-    dwd_cdc_data_path = PurePosixPath(DWD_SERVER, DWD_CDC_PATH, cdc_base.value, path)
+    base_path = DWDCDCBase.PATH.value \
+        if isinstance(dwd_base, DWDCDCBase) else DWDWeatherBase.PATH.value
 
-    return f"{HTTPS_EXPRESSION}{dwd_cdc_data_path}"
+    return f"{HTTPS_EXPRESSION}{PurePosixPath(DWD_SERVER, base_path, dwd_base.value, path)}"
 
 
 def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str, Path]:
@@ -136,13 +178,17 @@ def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str
     return local_filepath
 
 
-def build_local_filepath_for_radolan(
-    date_time: datetime, folder: Union[str, Path], time_resolution: TimeResolution
+def build_local_filepath_for_radar(
+        parameter: Parameter,
+        date_time: datetime,
+        folder: Union[str, Path],
+        time_resolution: TimeResolution
 ) -> Union[str, Path]:
     """
 
     Args:
-        date_time:
+        parameter: radar data parameter
+        date_time: Timestamp of file
         folder:
         time_resolution:
 
@@ -151,9 +197,9 @@ def build_local_filepath_for_radolan(
     """
     local_filepath = Path(
         folder,
-        DWD_FOLDER_RADOLAN,
+        parameter.value,
         time_resolution.value,
-        f"{DWD_FILE_RADOLAN}_{time_resolution.value}_"
+        f"{parameter.value}_{time_resolution.value}_"
         f"{date_time.strftime(DatetimeFormat.YMDHM.value)}",
     ).absolute()
 

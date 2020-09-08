@@ -204,7 +204,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     )
 
     metadata_file_paths = list_files_of_dwd_server(
-        metadata_path, recursive=False, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
+        metadata_path, recursive=False, dwd_base=DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
     station_ids = [

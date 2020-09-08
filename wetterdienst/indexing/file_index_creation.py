@@ -1,6 +1,7 @@
 """ file index creation for available DWD station data """
 import re
 from functools import lru_cache
+from typing import Union, Optional
 
 import pandas as pd
 from dateparser import parse
@@ -8,6 +9,7 @@ from dateparser import parse
 from wetterdienst.constants.access_credentials import (
     DWD_CDC_PATH,
     DWDCDCBase,
+    DWDWeatherBase
 )
 from wetterdienst.constants.metadata import (
     ArchiveFormat,
@@ -24,6 +26,8 @@ from wetterdienst.file_path_handling.path_handling import (
     build_path_to_parameter,
     list_files_of_dwd_server,
 )
+from wetterdienst.enumerations.radar_sites import RadarSites
+from wetterdienst.enumerations.radar_data_types import RadarDataTypes
 
 
 @lru_cache(maxsize=None)
@@ -41,7 +45,7 @@ def create_file_index_for_climate_observations(
         file index in a pandas.DataFrame with sets of parameters and station id
     """
     file_index = _create_file_index_for_dwd_server(
-        parameter, time_resolution, period_type, DWDCDCBase.CLIMATE_OBSERVATIONS
+        parameter, time_resolution, DWDCDCBase.CLIMATE_OBSERVATIONS, period_type
     )
 
     file_index = file_index[
@@ -83,8 +87,9 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
             _create_file_index_for_dwd_server(
                 Parameter.RADOLAN,
                 time_resolution,
-                period_type,
                 DWDCDCBase.GRIDS_GERMANY,
+                period_type,
+
             )
             for period_type in (PeriodType.HISTORICAL, PeriodType.RECENT)
         ]
@@ -115,8 +120,10 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
 def _create_file_index_for_dwd_server(
     parameter: Parameter,
     time_resolution: TimeResolution,
-    period_type: PeriodType,
-    cdc_base: DWDCDCBase,
+    dwd_base: Union[DWDCDCBase, DWDWeatherBase],
+    period_type: Optional[PeriodType] = None,
+    radar_site: Optional[RadarSites] = None,
+    radar_data_type: Optional[RadarDataTypes] = None
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -124,22 +131,31 @@ def _create_file_index_for_dwd_server(
     Args:
         parameter: parameter of Parameter enumeration
         time_resolution: time resolution of TimeResolution enumeration
+        dwd_base: base path e.g. climate_observations/germany or weather
         period_type: period type of PeriodType enumeration
-        cdc_base: base path e.g. climate_observations/germany
+        radar_site: Site of the radar if parameter is one of RADAR_PARAMETERS_SITES
+        radar_data_type: Some radar data are available in different data types
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
+    parameter_path = build_path_to_parameter(parameter,
+                                             time_resolution,
+                                             period_type,
+                                             radar_site,
+                                             radar_data_type)
 
-    files_server = list_files_of_dwd_server(parameter_path, cdc_base, recursive=True)
+    files_server = list_files_of_dwd_server(parameter_path, dwd_base, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
     )
 
+    data_directory = DWDCDCBase.PATH.value \
+        if isinstance(dwd_base, DWDCDCBase) else DWDWeatherBase.PATH.value
+
     files_server[DWDMetaColumns.FILENAME.value] = files_server[
         DWDMetaColumns.FILENAME.value
-    ].str.replace(f"{DWD_CDC_PATH}/{cdc_base.value}/", "")
+    ].str.replace(f"{data_directory}/{dwd_base.value}/", "")
 
     return files_server
 

@@ -11,7 +11,7 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.file_path_handling.path_handling import (
     build_local_filepath_for_station_data,
-    build_local_filepath_for_radolan,
+    build_local_filepath_for_radar,
 )
 
 
@@ -121,14 +121,18 @@ def _build_local_store_key(
 
 
 def store_radolan_data(
-    date_time_and_file: Tuple[datetime, BytesIO],
-    time_resolution: TimeResolution,
-    folder: Union[str, Path],
+        parameter: Parameter,
+        date_time_and_file: Tuple[datetime, BytesIO],
+        time_resolution: TimeResolution,
+        folder: Union[str, Path],
 ) -> None:
+    """
+    Stores a binary file of radolan data locally
+    """
 
     date_time, file = date_time_and_file
 
-    filepath = build_local_filepath_for_radolan(date_time, folder, time_resolution)
+    filepath = build_local_filepath_for_radar(parameter, date_time, folder, time_resolution)
 
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -137,9 +141,13 @@ def store_radolan_data(
 
 
 def restore_radolan_data(
-    date_time: datetime, time_resolution: TimeResolution, folder: Union[str, Path]
+        parameter: Parameter,
+        date_time: datetime,
+        time_resolution: TimeResolution,
+        folder: Union[str, Path]
 ) -> BytesIO:
-    filepath = build_local_filepath_for_radolan(date_time, folder, time_resolution)
+    """ Opens downloaded radolan data into a binary object"""
+    filepath = build_local_filepath_for_radar(parameter, date_time, folder, time_resolution)
 
     with filepath.open("rb") as f:
         file_in_bytes = BytesIO(f.read())

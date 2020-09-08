@@ -5,7 +5,7 @@ from typing import Union
 
 from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.download.https_handling import create_dwd_session
-from wetterdienst.file_path_handling.path_handling import build_dwd_cdc_data_path
+from wetterdienst.file_path_handling.path_handling import build_dwd_directory_data_path
 
 
 def download_file_from_dwd(
@@ -22,7 +22,7 @@ def download_file_from_dwd(
     Returns:
         bytes of the file
     """
-    r = create_dwd_session().get(build_dwd_cdc_data_path(filepath, cdc_base))
+    r = create_dwd_session().get(build_dwd_directory_data_path(filepath, cdc_base))
     r.raise_for_status()
 
     return BytesIO(r.content)

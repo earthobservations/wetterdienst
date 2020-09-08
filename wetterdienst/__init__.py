@@ -20,7 +20,7 @@ from wetterdienst.parsing_data.parse_data_from_files import (
 from wetterdienst.additionals.geo_location import get_nearby_stations
 from wetterdienst.data_collection import (
     collect_climate_observations_data,
-    collect_radolan_data,
+    collect_radar_data,
 )
 from wetterdienst.api import DWDStationRequest, DWDRadolanRequest
 
