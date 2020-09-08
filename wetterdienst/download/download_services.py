@@ -22,9 +22,7 @@ def download_file_from_dwd(
     Returns:
         bytes of the file
     """
-    dwd_session = create_dwd_session()
-
-    r = dwd_session.get(build_dwd_cdc_data_path(filepath, cdc_base))
+    r = create_dwd_session().get(build_dwd_cdc_data_path(filepath, cdc_base))
     r.raise_for_status()
 
     return BytesIO(r.content)
