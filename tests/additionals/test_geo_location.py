@@ -168,7 +168,7 @@ def test_get_nearby_stations():
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
             Parameter.SOIL,
-            TimeResolution.MINUTE_10,
+            TimeResolution.MINUTES_10,
             PeriodType.RECENT,
             num_stations_nearby=1,
         )

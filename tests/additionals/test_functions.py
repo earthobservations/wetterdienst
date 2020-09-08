@@ -21,7 +21,7 @@ from wetterdienst.exceptions import InvalidParameter
 
 def test_check_parameters():
     assert check_parameters(
-        Parameter.PRECIPITATION, TimeResolution.MINUTE_10, PeriodType.HISTORICAL
+        Parameter.PRECIPITATION, TimeResolution.MINUTES_10, PeriodType.HISTORICAL
     )
     assert not check_parameters(
         Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
@@ -31,7 +31,7 @@ def test_check_parameters():
 def test_retrieve_time_resolution_from_filename():
     assert (
         retrieve_time_resolution_from_filename("10minutenwerte_2019.csv")
-        == TimeResolution.MINUTE_10
+        == TimeResolution.MINUTES_10
     )
     assert (
         retrieve_time_resolution_from_filename("1minutenwerte_2019.csv")
@@ -75,7 +75,7 @@ def test_retrieve_period_type_from_filename():
 def test_determine_parameters():
     assert determine_parameters("10minutenwerte_hist_nieder_") == (
         Parameter.PRECIPITATION,
-        TimeResolution.MINUTE_10,
+        TimeResolution.MINUTES_10,
         PeriodType.HISTORICAL,
     )
 

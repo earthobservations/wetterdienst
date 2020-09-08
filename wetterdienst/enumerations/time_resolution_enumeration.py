@@ -9,7 +9,7 @@ class TimeResolution(Enum):
     """
 
     MINUTE_1 = "1_minute"
-    MINUTE_10 = "10_minutes"
+    MINUTES_10 = "10_minutes"
     HOURLY = "hourly"
     SUBDAILY = "subdaily"
     DAILY = "daily"

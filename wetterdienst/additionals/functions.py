@@ -23,7 +23,7 @@ from wetterdienst.exceptions import InvalidParameter
 
 FILE_2_PARAMETER = {
     TimeResolution.MINUTE_1: {"nieder": Parameter.PRECIPITATION},
-    TimeResolution.MINUTE_10: {
+    TimeResolution.MINUTES_10: {
         "nieder": Parameter.PRECIPITATION,
         "tu": Parameter.TEMPERATURE_AIR,
         "extrema_temp": Parameter.TEMPERATURE_EXTREME,
@@ -80,7 +80,7 @@ FILE_2_PARAMETER = {
 
 FILE_2_TIME_RESOLUTION = {
     "1minutenwerte": TimeResolution.MINUTE_1,
-    "10minutenwerte": TimeResolution.MINUTE_10,
+    "10minutenwerte": TimeResolution.MINUTES_10,
     "stundenwerte": TimeResolution.HOURLY,
     "tageswerte": TimeResolution.DAILY,
     "monatswerte": TimeResolution.MONTHLY,
