@@ -7,7 +7,7 @@ import pandas as pd
 
 from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
-from wetterdienst.dwd.radolan.access import collect_radolan_data
+from wetterdienst.dwd.radolan.access import collect_radar_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.radolan.index import create_file_index_for_radolan
 from wetterdienst.dwd.util import parse_enumeration_from_template
@@ -99,7 +99,7 @@ class DWDRadolanRequest:
         :return: For each datetime, the same datetime and file in bytes
         """
         for date_time in self.date_times:
-            _, file_in_bytes = collect_radolan_data(
+            _, file_in_bytes = collect_radar_data(
                 time_resolution=self.time_resolution,
                 date_times=[date_time],
                 write_file=self.write_file,

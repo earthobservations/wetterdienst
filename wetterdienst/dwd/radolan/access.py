@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Tuple, List, Union
 
-from wetterdienst import TimeResolution
+from wetterdienst import TimeResolution, Parameter
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 
 from wetterdienst.dwd.network import download_file_from_dwd
@@ -19,7 +19,46 @@ from wetterdienst.util.cache import payload_cache_twelve_hours
 log = logging.getLogger(__name__)
 
 
-def collect_radolan_data(
+def collect_radar_data(
+    parameter: Parameter,
+    date_times: List[datetime],
+    time_resolution: TimeResolution,
+    prefer_local: bool = False,
+    write_file: bool = False,
+    folder: Union[str, Path] = DWD_FOLDER_MAIN,
+) -> List[Tuple[datetime, BytesIO]]:
+    """
+    Function used to collect Radar data for given datetimes and a time resolution.
+    Additionally the file can be written to a local folder and read from there as well.
+    Args:
+        parameter: What type of radar data should be collected
+        date_times: list of datetime objects for which radar data shall be acquired
+        time_resolution: the time resolution for requested data, either hourly or daily
+        prefer_local: boolean if file should be read from local store instead
+        write_file: boolean if file should be stored on the drive
+        folder: path for storage
+
+    Returns:
+        list of tuples of a datetime and the corresponding file in bytes
+    """
+    if time_resolution not in (TimeResolution.HOURLY,
+                               TimeResolution.DAILY,
+                               TimeResolution.MINUTE_5,
+                               TimeResolution.MINUTE_15):
+        raise ValueError("Wrong TimeResolution for RadarData")
+
+    if parameter == Parameter.RADOLAN:
+        return _collect_radolan_data(date_times,
+                                     time_resolution,
+                                     prefer_local,
+                                     write_file,
+                                     folder)
+    else:
+        raise ValueError("You have passed a non valid radar data Parameter. "
+                         "Valid Radar data:")
+
+
+def _collect_radolan_data(
     date_times: List[datetime],
     time_resolution: TimeResolution,
     prefer_local: bool = False,
@@ -29,18 +68,15 @@ def collect_radolan_data(
     """
     Function used to collect RADOLAN data for given datetimes and a time resolution.
     Additionally the file can be written to a local folder and read from there as well.
-
-    :param date_times:      List of datetime objects for which RADOLAN shall be acquired
-    :param time_resolution: Time resolution for requested data, either hourly or daily
-    :param prefer_local:    File should be read from local store instead
-    :param write_file:      File should be stored on the drive
-    :param folder:          Path for storage
-
-    :return:                List of tuples: datetime and the corresponding file in bytes
+    Args:
+        date_times: list of datetime objects for which RADOLAN shall be acquired
+        time_resolution: the time resolution for requested data, either hourly or daily
+        prefer_local: boolean if file should be read from local store instead
+        write_file: boolean if file should be stored on the drive
+        folder: path for storage
+    Returns:
+        list of tuples of a datetime and the corresponding file in bytes
     """
-    if time_resolution not in (TimeResolution.HOURLY, TimeResolution.DAILY):
-        raise ValueError("RADOLAN is only offered in hourly and daily resolution.")
-
     data = []
     # datetime = pd.to_datetime(datetime).replace(tzinfo=None)
     for date_time in date_times:
@@ -49,7 +85,7 @@ def collect_radolan_data(
                 data.append(
                     (
                         date_time,
-                        restore_radolan_data(date_time, time_resolution, folder),
+                        restore_radolan_data(Parameter.RADOLAN, date_time, time_resolution, folder),
                     )
                 )
 
@@ -57,7 +93,9 @@ def collect_radolan_data(
 
                 continue
             except FileNotFoundError:
-                log.info(f"Acquiring RADOLAN data for {str(date_time)}")
+                log.info(
+                    f"RADOLAN data for {str(date_time)} will be collected from internet"
+                )
 
         remote_radolan_file_path = create_filepath_for_radolan(
             date_time, time_resolution
@@ -72,7 +110,7 @@ def collect_radolan_data(
         data.append(date_time_and_file)
 
         if write_file:
-            store_radolan_data(date_time_and_file, time_resolution, folder)
+            store_radolan_data(Parameter.RADOLAN, date_time_and_file, time_resolution, folder)
 
     return data
 

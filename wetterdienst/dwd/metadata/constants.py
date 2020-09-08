@@ -14,6 +14,12 @@ class DWDCDCBase(Enum):
     GRIDS_GERMANY = "grids_germany/"
 
 
+class DWDWeatherBase(Enum):
+    PATH = "weather"
+    RADAR_COMPOSITE = "radar/composite"
+    RADAR_SITES = "radar/sites"
+
+
 DWD_FOLDER_MAIN = "./dwd_data"
 DWD_FOLDER_STATION_DATA = "station_data"
 DWD_FILE_STATION_DATA = "dwd_station_data"

@@ -69,3 +69,29 @@ RADAR_LOCATIONS = {'asb': {'site_name': 'ASR Borkum',
                            'latitude': 52.160096,
                            'longitude': 11.176091}
                    }
+
+""" enumeration for Radar Sites """
+from enum import Enum
+
+
+class RadarSites(Enum):
+    """
+    enumeration for the different radar locations/sites
+    """
+    ASB = 'asb'
+    BOO = 'boo'
+    DRS = 'drs'
+    EIS = 'eis'
+    ESS = 'ess'
+    FGB = 'fbg'
+    FLD = 'fld'
+    ISN = 'isn'
+    HNR = 'hnr'
+    MEM = 'mem'
+    NEU = 'neu'
+    NHB = 'nhb'
+    OFT = 'oft'
+    PRO = 'pro'
+    ROS = 'ros'
+    TUR = 'tur'
+    UMD = 'umd'

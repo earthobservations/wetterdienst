@@ -3,33 +3,38 @@ from io import BytesIO
 from pathlib import Path
 from typing import Tuple, Union
 
-from wetterdienst import TimeResolution
+from wetterdienst import TimeResolution, Parameter
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 
 
 def store_radolan_data(
-    date_time_and_file: Tuple[datetime, BytesIO],
-    time_resolution: TimeResolution,
-    folder: Union[str, Path],
+        parameter: Parameter,
+        date_time_and_file: Tuple[datetime, BytesIO],
+        time_resolution: TimeResolution,
+        folder: Union[str, Path],
 ) -> None:
+    """
+    Stores a binary file of radolan data locally
+    """
 
     date_time, file = date_time_and_file
 
-    filepath = build_local_filepath_for_radolan(date_time, folder, time_resolution)
+    filepath = build_local_filepath_for_radar(parameter, date_time, folder, time_resolution)
 
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
     with filepath.open("wb") as f:
         f.write(file.read())
 
-    # When the file has been written, reset seek pointer.
-    file.seek(0)
-
 
 def restore_radolan_data(
-    date_time: datetime, time_resolution: TimeResolution, folder: Union[str, Path]
+        parameter: Parameter,
+        date_time: datetime,
+        time_resolution: TimeResolution,
+        folder: Union[str, Path]
 ) -> BytesIO:
-    filepath = build_local_filepath_for_radolan(date_time, folder, time_resolution)
+    """ Opens downloaded radolan data into a binary object"""
+    filepath = build_local_filepath_for_radar(parameter, date_time, folder, time_resolution)
 
     with filepath.open("rb") as f:
         file_in_bytes = BytesIO(f.read())
@@ -37,13 +42,17 @@ def restore_radolan_data(
     return file_in_bytes
 
 
-def build_local_filepath_for_radolan(
-    date_time: datetime, folder: Union[str, Path], time_resolution: TimeResolution
+def build_local_filepath_for_radar(
+        parameter: Parameter,
+        date_time: datetime,
+        folder: Union[str, Path],
+        time_resolution: TimeResolution
 ) -> Union[str, Path]:
     """
 
     Args:
-        date_time:
+        parameter: radar data parameter
+        date_time: Timestamp of file
         folder:
         time_resolution:
 
@@ -52,9 +61,9 @@ def build_local_filepath_for_radolan(
     """
     local_filepath = Path(
         folder,
-        "radolan",
+        parameter.value,
         time_resolution.value,
-        f"radolan_{time_resolution.value}_"
+        f"{parameter.value}_{time_resolution.value}_"
         f"{date_time.strftime(DatetimeFormat.YMDHM.value)}",
     ).absolute()
 

@@ -17,6 +17,8 @@ class TimeResolution(Enum):
     DAILY = "daily"
     MONTHLY = "monthly"
     ANNUAL = "annual"
+    MINUTE_5 = "5_minutes"
+    MINUTE_15 = "15_minutes"
 
 
 TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[TimeResolution, str] = {
