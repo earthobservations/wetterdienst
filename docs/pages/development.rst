@@ -17,4 +17,20 @@ a fast merge. Otherwise if you have an idea of a problem or even better a soluti
 let us know via an issue (you could also describe problem with words so we can figure
 out how to solve it with a suitable programming solution).
 
+For development clone the repository and install developer dependencies via
+
+.. code-block:: Python
+
+    git clone https://github.com/earthobservations/wetterdienst
+    cd wetterdienst
+    pip install . or poetry install
+
+Before committing, run black code formatter and lint to test for format.
+
+.. code-block:: Python
+
+    nox -s tests
+    nox -s black
+    nox -s lint
+
 .. include:: ../../CHANGELOG.rst

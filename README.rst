@@ -105,5 +105,17 @@ section of our documentation, which will be constantly updated. Also don't miss 
 `examples <https://github.com/earthobservations/wetterdienst/tree/master/example>`_
 .
 
+Contribution
+***************
 
+Check out our contribution section in the documentation! For a successful PR passing
+all tests, you have to run
 
+.. code-block:: Python
+
+    nox -s tests
+    nox -s black
+    nox -s lint
+
+before committing. This will inform you in case of problems with tests and your code
+format.

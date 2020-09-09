@@ -2,7 +2,7 @@
 A set of more general functions used for the organization
 """
 from functools import lru_cache
-from typing import Tuple, Optional, Union, Callable
+from typing import Union, Callable
 
 import pandas as pd
 
@@ -21,78 +21,6 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.exceptions import InvalidParameter
 
-FILE_2_PARAMETER = {
-    TimeResolution.MINUTE_1: {"nieder": Parameter.PRECIPITATION},
-    TimeResolution.MINUTES_10: {
-        "nieder": Parameter.PRECIPITATION,
-        "tu": Parameter.TEMPERATURE_AIR,
-        "extrema_temp": Parameter.TEMPERATURE_EXTREME,
-        "tx": Parameter.TEMPERATURE_EXTREME,
-        "fx": Parameter.WIND_EXTREME,
-        "rr": Parameter.PRECIPITATION,
-        "extrema_wind": Parameter.WIND_EXTREME,
-        "solar": Parameter.SOLAR,
-        "ff": Parameter.WIND,
-        "wind": Parameter.WIND,
-    },
-    TimeResolution.HOURLY: {
-        "tu": Parameter.TEMPERATURE_AIR,
-        "cs": Parameter.CLOUD_TYPE,
-        "n": Parameter.CLOUDINESS,
-        "td": Parameter.DEW_POINT,
-        "rr": Parameter.PRECIPITATION,
-        "p0": Parameter.PRESSURE,
-        "eb": Parameter.TEMPERATURE_SOIL,
-        "st": Parameter.SOLAR,
-        "sd": Parameter.SUNSHINE_DURATION,
-        "vv": Parameter.VISIBILITY,
-        "ff": Parameter.WIND,
-        "f": Parameter.WIND_SYNOPTIC,
-    },
-    TimeResolution.SUBDAILY: {
-        "tu": Parameter.TEMPERATURE_AIR,
-        "n": Parameter.CLOUDINESS,
-        "tf": Parameter.MOISTURE,
-        "pp": Parameter.PRESSURE,
-        "ek": Parameter.SOIL,
-        "vk": Parameter.VISIBILITY,
-        "fk": Parameter.WIND,
-    },
-    TimeResolution.DAILY: {
-        "kl": Parameter.CLIMATE_SUMMARY,
-        "rr": Parameter.PRECIPITATION_MORE,
-        "eb": Parameter.TEMPERATURE_SOIL,
-        "st": Parameter.SOLAR,
-        "wa": Parameter.WATER_EQUIVALENT,
-        "wetter": Parameter.WEATHER_PHENOMENA,
-    },
-    TimeResolution.MONTHLY: {
-        "kl": Parameter.CLIMATE_SUMMARY,
-        "rr": Parameter.PRECIPITATION_MORE,
-        "wetter": Parameter.WEATHER_PHENOMENA,
-    },
-    TimeResolution.ANNUAL: {
-        "kl": Parameter.CLIMATE_SUMMARY,
-        "rr": Parameter.PRECIPITATION_MORE,
-        "wetter": Parameter.WEATHER_PHENOMENA,
-    },
-}
-
-FILE_2_TIME_RESOLUTION = {
-    "1minutenwerte": TimeResolution.MINUTE_1,
-    "10minutenwerte": TimeResolution.MINUTES_10,
-    "stundenwerte": TimeResolution.HOURLY,
-    "tageswerte": TimeResolution.DAILY,
-    "monatswerte": TimeResolution.MONTHLY,
-    "jahreswerte": TimeResolution.ANNUAL,
-}
-
-FILE_2_PERIOD = {
-    "hist": PeriodType.HISTORICAL,
-    "now": PeriodType.NOW,
-    "akt": PeriodType.RECENT,
-    "row": PeriodType.RECENT,  # files with row are also classified as "recent" by DWD
-}
 
 DATE_FIELDS_REGULAR = (
     DWDMetaColumns.DATE.value,
@@ -296,102 +224,6 @@ STRING_FIELDS = (
 )
 
 
-def determine_parameters(filename: str) -> Tuple[Parameter, TimeResolution, PeriodType]:
-    """
-    Function to determine the type of file from the bare filename
-    Needed for downloading the file and naming it correctly and understandable
-
-    Args:
-        filename: str containing all parameter information
-
-    Returns:
-        parameter: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
-
-    """
-    filename = filename.lower()
-
-    # First check for time resolution
-    time_resolution = retrieve_time_resolution_from_filename(filename)
-
-    if time_resolution is None:
-        raise ValueError(f"Resolution {time_resolution} could not be determined.")
-
-    # First determine the variable
-    parameter = retrieve_parameter_from_filename(filename, time_resolution)
-
-    if parameter is None:
-        raise ValueError(f"Variable {parameter} could not be determined.")
-
-    period_type = retrieve_period_type_from_filename(filename)
-
-    if period_type is None:
-        raise ValueError(f"Timestamp {period_type} could not be determined.")
-
-    return parameter, time_resolution, period_type
-
-
-def retrieve_period_type_from_filename(filename: str) -> Optional[PeriodType]:
-    """
-    defines the period type of storages on dwd server
-
-    """
-    filename = filename.lower()
-
-    if "_hist" in filename:
-        period_type = PeriodType.HISTORICAL
-    elif "_akt" in filename:
-        period_type = PeriodType.RECENT
-    elif "_now" in filename:
-        period_type = PeriodType.NOW
-    elif "_row" in filename:
-        period_type = (
-            PeriodType.RECENT
-        )  # files with row are also classified as "recent" by DWD
-    else:
-        period_type = None
-    return period_type
-
-
-def retrieve_parameter_from_filename(
-    filename: str, time_resolution: TimeResolution
-) -> Optional[Parameter]:
-    """
-    defines the requested Parameter by checking the filename
-
-    """
-    filename = filename.lower()
-
-    try:
-        parameter = FILE_2_PARAMETER[time_resolution][
-            list(
-                set(FILE_2_PARAMETER[time_resolution].keys()) & set(filename.split("_"))
-            )[0]
-        ]
-    except IndexError:
-        parameter = None
-
-    return parameter
-
-
-def retrieve_time_resolution_from_filename(filename: str) -> Optional[TimeResolution]:
-    """
-    defines the requested time_resolution/granularity of observations
-    by checking the filename
-
-    """
-    filename = filename.lower()
-
-    try:
-        time_resolution = FILE_2_TIME_RESOLUTION[
-            list(set(FILE_2_TIME_RESOLUTION.keys()) & set(filename.split("_")))[0]
-        ]
-    except IndexError:
-        time_resolution = None
-    return time_resolution
-
-
 def check_parameters(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> bool:
@@ -453,26 +285,6 @@ def coerce_field_types(
             df[column] = df[column].astype(float)
 
     return df
-
-
-def cast_to_list(iterable_) -> list:
-    """
-    A function that either converts an existing iterable to a list or simply puts the
-    item into a list to make an iterable that includes this item.
-    Args:
-        iterable_:
-    Return:
-        list of anything
-    """
-    try:
-        iterable_ = iterable_.split()
-    except (AttributeError, SyntaxError):
-        try:
-            iterable_ = list(iterable_)
-        except TypeError:
-            iterable_ = [iterable_]
-
-    return iterable_
 
 
 def parse_enumeration_from_template(

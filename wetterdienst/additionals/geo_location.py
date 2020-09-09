@@ -10,7 +10,6 @@ from scipy.spatial import cKDTree
 from wetterdienst.additionals.functions import (
     check_parameters,
     parse_enumeration_from_template,
-    cast_to_list,
 )
 from wetterdienst.additionals.time_handling import parse_datetime
 from wetterdienst.data_models.coordinates import Coordinates
@@ -108,7 +107,7 @@ def get_nearby_stations(
 
     # Require list of indices for consistency
     # Cast to np.array required for subset
-    indices_nearest_neighbours = np.array(cast_to_list(indices_nearest_neighbours))
+    indices_nearest_neighbours = np.array(pd.Series(indices_nearest_neighbours))
     distances_km = np.array(distances * KM_EARTH_RADIUS)
 
     # Filter for distance based on calculated distances

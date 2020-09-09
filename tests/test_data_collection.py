@@ -1,4 +1,6 @@
 """ Tests for data_collection """
+from datetime import datetime
+
 import mock
 import pytest
 from mock import patch
@@ -14,24 +16,27 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.data_collection import (
     collect_climate_observations_data,
     _tidy_up_data,
+    collect_radolan_data,
 )
 
-# Create folder for storage test
-test_folder = Path(Path(__file__).parent.absolute() / "dwd_data")
-test_folder.mkdir(parents=True, exist_ok=True)
 
-fixtures_dir = Path(__file__, "../").resolve().absolute() / "fixtures"
+TESTS_DIR = Path(__file__).parent
+
+FIXTURES_DIR = TESTS_DIR / "fixtures"
+
+TEMPORARY_DATA_DIR = TESTS_DIR / "dwd_data"
+TEMPORARY_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Set filename for mock
 filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
 
 # Loading test data
-file = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
+TEST_FILE = pd.read_json(FIXTURES_DIR / "FIXED_STATIONDATA.JSON")
 
 # Prepare csv for regular "downloading" test
-csv_file = StringIO()
-file.to_csv(csv_file, sep=";")
-csv_file.seek(0)
+CSV_FILE = StringIO()
+TEST_FILE.to_csv(CSV_FILE, sep=";")
+CSV_FILE.seek(0)
 
 
 @patch(
@@ -42,7 +47,7 @@ csv_file.seek(0)
 )
 @patch(
     "wetterdienst.data_collection.download_climate_observations_data_parallel",
-    mock.MagicMock(return_value=[(filename, BytesIO(csv_file.read().encode()))]),
+    mock.MagicMock(return_value=[(filename, BytesIO(CSV_FILE.read().encode()))]),
 )
 def test_collect_dwd_data():
     """ Test for data collection """
@@ -56,12 +61,12 @@ def test_collect_dwd_data():
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.HISTORICAL,
-        folder=test_folder,
+        folder=TEMPORARY_DATA_DIR,
         prefer_local=False,
         write_file=True,
         tidy_data=False,
         create_new_file_index=False,
-    ).equals(file)
+    ).equals(TEST_FILE)
 
     """
     2. Scenario
@@ -73,15 +78,15 @@ def test_collect_dwd_data():
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.HISTORICAL,
-        folder=test_folder,
+        folder=TEMPORARY_DATA_DIR,
         prefer_local=True,
         write_file=True,
         tidy_data=False,
         create_new_file_index=False,
-    ).equals(file)
+    ).equals(TEST_FILE)
 
     # Remove storage folder
-    rmtree(test_folder)
+    rmtree(TEMPORARY_DATA_DIR)
 
     # Have to place an assert afterwards to ensure that above function is executed
     assert True
@@ -237,3 +242,25 @@ def test_tidy_up_data():
     )
 
     assert _tidy_up_data(df, Parameter.CLIMATE_SUMMARY).equals(df_tidy)
+
+
+def test_collect_radolan_data():
+    with Path(FIXTURES_DIR, "radolan_hourly_201908080050").open("rb") as f:
+        radolan_hourly = BytesIO(f.read())
+
+    radolan_hourly_test = collect_radolan_data(
+        date_times=[datetime(year=2019, month=8, day=8, hour=0, minute=50)],
+        time_resolution=TimeResolution.HOURLY,
+    )[0][1]
+
+    assert radolan_hourly.getvalue() == radolan_hourly_test.getvalue()
+
+    with Path(FIXTURES_DIR, "radolan_daily_201908080050").open("rb") as f:
+        radolan_daily = BytesIO(f.read())
+
+    radolan_daily_test = collect_radolan_data(
+        date_times=[datetime(year=2019, month=8, day=8, hour=0, minute=50)],
+        time_resolution=TimeResolution.DAILY,
+    )[0][1]
+
+    assert radolan_daily.getvalue() == radolan_daily_test.getvalue()

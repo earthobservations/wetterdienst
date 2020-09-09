@@ -10,13 +10,13 @@ from wetterdienst.parsing_data.parse_data_from_files import (
     parse_climate_observations_data,
 )
 
-fixtures_dir = Path(__file__, "../..").resolve().absolute() / "fixtures"
+FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
 
 def test_parse_dwd_data():
     filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
 
-    station_data_original = pd.read_json(fixtures_dir / "FIXED_STATIONDATA.JSON")
+    station_data_original = pd.read_json(FIXTURES_DIR / "FIXED_STATIONDATA.JSON")
     file_in_bytes: Union[StringIO, BytesIO] = StringIO()
     station_data_original.to_csv(file_in_bytes, sep=";")
     file_in_bytes.seek(0)

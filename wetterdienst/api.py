@@ -16,7 +16,6 @@ from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.additionals.functions import (
-    cast_to_list,
     parse_enumeration_from_template,
 )
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
@@ -84,15 +83,15 @@ class DWDStationRequest:
             )
 
         try:
-            self.station_ids = [
-                int(station_id) for station_id in cast_to_list(station_ids)
-            ]
+            self.station_ids = pd.Series(station_ids).astype(int).tolist()
         except ValueError:
             raise ValueError("List of station id's can not be parsed to integers.")
 
-        self.parameter = []
-        for p in cast_to_list(parameter):
-            self.parameter.append(parse_enumeration_from_template(p, Parameter))
+        self.parameter = (
+            pd.Series(parameter)
+            .apply(parse_enumeration_from_template, args=(Parameter,))
+            .tolist()
+        )
 
         self.time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution
@@ -104,19 +103,12 @@ class DWDStationRequest:
 
         if period_type:
             # For the case that a period_type is given, parse the period type(s)
-            self.period_type = []
-            for pt in cast_to_list(period_type):
-                if pt is None:
-                    self.period_type.append(None)
-                else:
-                    self.period_type.append(
-                        parse_enumeration_from_template(pt, PeriodType)
-                    )
-
-            # Additional sorting required for self.period_type to ensure that for
-            # multiple periods the data is first sourced from historical
-            self.period_type = sorted(self.period_type)
-
+            self.period_type = (
+                pd.Series(period_type)
+                .apply(parse_enumeration_from_template, args=(PeriodType,))
+                .sort_values()
+                .tolist()
+            )
         else:
             # working with ranges of data means expecting data to be laying between
             # periods, thus including all periods
@@ -264,8 +256,20 @@ class DWDRadolanRequest:
         prefer_local: bool = False,
         write_file: bool = False,
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
-    ):
+    ) -> None:
+        """
 
+        Args:
+            time_resolution: time resolution enumeration, either hourly or daily
+            date_times: list of datetimes for which RADOLAN is requested, minutes have
+            to be defined (HOUR:50), otherwise rounded to 50 minutes as of its provision
+            start_date: alternative to datetimes, giving a start and end date
+            end_date: alternative to datetimes, giving a start and end date
+            prefer_local: boolean if RADOLAN should rather be loaded from disk, for
+            processing purposes
+            write_file: boolean if file should be stored on drive
+            folder: folder where to store RADOLAN data
+        """
         time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution
         )
