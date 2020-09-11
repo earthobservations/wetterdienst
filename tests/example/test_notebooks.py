@@ -6,7 +6,10 @@ EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
 
 FIXTURE = NBRegressionFixture(
     exec_timeout=50,
-    diff_ignore=("/metadata/language_info",),  # Python version will be different
+    diff_ignore=(
+        "/metadata/language_info",  # Python version will be different
+        "/cells/*/outputs/*/data/image/png",
+    ),
     force_regen=True,
     coverage=False,
     diff_color_words=False,
