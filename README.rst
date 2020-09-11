@@ -102,11 +102,10 @@ and also
 For the whole functionality, check out the
 `API <https://wetterdienst.readthedocs.io/en/latest/pages/api.html>`_
 section of our documentation, which will be constantly updated. Also don't miss out our
-`examples <https://github.com/earthobservations/wetterdienst/tree/master/example>`_
-.
+`examples <https://github.com/earthobservations/wetterdienst/tree/master/example>`_.
 
 Contribution
-***************
+************
 
 Check out our contribution section in the documentation! For a successful PR passing
 all tests, you have to run
