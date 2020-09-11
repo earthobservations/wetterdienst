@@ -12,7 +12,7 @@ from nox.sessions import Session
 def tests(session):
     """Run tests."""
     session.run("poetry", "install", "--no-dev", external=True)
-    install_with_constraints(session, "pytest", "mock")
+    install_with_constraints(session, "pytest", "pytest-notebook", "matplotlib", "mock")
     session.run("pytest")
 
 

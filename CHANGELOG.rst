@@ -1,10 +1,10 @@
 Changelog
 *********
 
-Current
+Development
 =======
 
-...
+- add test for Jupyter notebook
 
 0.6.0 (07.09.2020)
 ==================
