@@ -13,7 +13,7 @@ def tests(session):
     """Run tests."""
     session.run("poetry", "install", "--no-dev", external=True)
     install_with_constraints(session, "pytest", "pytest-notebook", "matplotlib", "mock")
-    session.run("pytest", "--disable-warnings")
+    session.run("pytest")
 
 
 @nox.session(python=["3.7"])
@@ -29,7 +29,7 @@ def coverage(session: Session) -> None:
         "pytest-cov",
         "mock",
     )
-    session.run("pytest", "--disable-warnings", "--cov=wetterdienst", "tests/")
+    session.run("pytest", "--cov=wetterdienst", "tests/")
     session.run("coverage", "xml")
 
 
