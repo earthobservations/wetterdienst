@@ -8,7 +8,8 @@ FIXTURE = NBRegressionFixture(
     exec_timeout=50,
     diff_ignore=(
         "/metadata/language_info",  # Python version will be different
-        "/cells/*/outputs/*/data/image/png",
+        "/cells/*/outputs/*/data/image/png",  # image has different md5 hash
+        "/cells/2/outputs/0",  # Matplotlib message
     ),
     force_regen=True,
     coverage=False,
