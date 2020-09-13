@@ -2,7 +2,8 @@
 A set of more general functions used for the organization
 """
 from functools import lru_cache
-from typing import Union, Callable
+from typing import Union, Callable, Optional
+import json
 
 import pandas as pd
 
@@ -338,3 +339,61 @@ def create_humanized_column_names_mapping(
     }
 
     return column_name_mapping
+
+
+def discover_climate_observations(
+    time_resolution: Optional[TimeResolution] = None,
+    parameter: Optional[Parameter] = None,
+    period_type: Optional[PeriodType] = None,
+) -> str:
+    """
+     Function to print/discover available time_resolution/parameter/period_type
+     combinations.
+
+    Args:
+        time_resolution: time_resolution to reduce the information
+        parameter: parameter to reduce the information
+        period_type: period_type to reduce the information
+
+    Returns:
+        string of available combinations
+
+    """
+    if not time_resolution:
+        time_resolution = [*TimeResolution]
+    if not parameter:
+        parameter = [*Parameter]
+    if not period_type:
+        period_type = [*PeriodType]
+
+    time_resolution = pd.Series(time_resolution).apply(
+        parse_enumeration_from_template, args=(TimeResolution,)
+    )
+    parameter = pd.Series(parameter).apply(
+        parse_enumeration_from_template, args=(Parameter,)
+    )
+    period_type = pd.Series(period_type).apply(
+        parse_enumeration_from_template, args=(PeriodType,)
+    )
+
+    trp_mapping_filtered = {
+        ts: {
+            par: [p for p in pt if p in period_type.values]
+            for par, pt in parameters_and_period_types.items()
+            if par in parameter.values
+        }
+        for ts, parameters_and_period_types in TIME_RESOLUTION_PARAMETER_MAPPING.items()
+        if ts in time_resolution.values
+    }
+
+    time_resolution_parameter_mapping = {
+        str(time_resolution): {
+            str(parameter): [str(period) for period in periods]
+            for parameter, periods in parameters_and_periods.items()
+            if periods
+        }
+        for time_resolution, parameters_and_periods in trp_mapping_filtered.items()
+        if parameters_and_periods
+    }
+
+    return json.dumps(time_resolution_parameter_mapping, indent=4)
