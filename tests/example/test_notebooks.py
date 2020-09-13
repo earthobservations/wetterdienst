@@ -8,7 +8,7 @@ FIXTURE = NBRegressionFixture(
     diff_ignore=(
         "/metadata/language_info",  # Python version depends on testing
         "/cells/*/outputs/*/data/image/png",  # pictures have random hashes
-        "/cells/*/outputs/*/text"
+        "/cells/*/outputs/*/*",
     ),
     force_regen=True,
 )
