@@ -8,6 +8,10 @@ API For Historical Weather Data
 
 The API for the historical weather data mainly consists of the following functions:
 
+- **discover_climate_observations:**
+    - prints out available time resolution, parameter, period type combinations and
+      subsets of it depending on the entered arguments
+
 - **metadata_for_dwd_data:**
     - discover what data for a set of parameters (parameter, time_resolution,
       period_type) is available, especially which stations can be found.

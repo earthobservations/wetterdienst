@@ -100,6 +100,9 @@ how the DWD calls the parameter e.g. "precipitation".
 .. |check| unicode:: + .. check
 .. |cross| unicode:: - .. cross
 
+This table and subsets of it can be printed with a function call of "discover_climate_
+observations" as described in the API section.
+
 MOSMIX
 ******
 

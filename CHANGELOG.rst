@@ -5,6 +5,8 @@ Development
 =======
 
 - add test for Jupyter notebook
+- add function to discover available climate observations (time resolution, parameter,
+period type)
 
 0.6.0 (07.09.2020)
 ==================

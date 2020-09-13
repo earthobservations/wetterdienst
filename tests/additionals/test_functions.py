@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -7,6 +9,7 @@ from wetterdienst.additionals.functions import (
     parse_enumeration_from_template,
     create_humanized_column_names_mapping,
     coerce_field_types,
+    discover_climate_observations,
 )
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -85,3 +88,19 @@ def test_create_humanized_column_names_mapping():
         "TNK": "TEMPERATURE_AIR_MIN_200",
         "TGK": "TEMPERATURE_AIR_MIN_005",
     }
+
+
+def test_discover_climate_observations():
+    assert discover_climate_observations(
+        TimeResolution.DAILY, Parameter.CLIMATE_SUMMARY
+    ) == json.dumps(
+        {
+            str(TimeResolution.DAILY): {
+                str(Parameter.CLIMATE_SUMMARY): [
+                    str(PeriodType.HISTORICAL),
+                    str(PeriodType.RECENT),
+                ]
+            }
+        },
+        indent=4,
+    )
