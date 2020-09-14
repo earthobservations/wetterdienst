@@ -1,6 +1,6 @@
 *
 
-!README.md
+!README.rst
 !pyproject.toml
 !poetry.lock
 !wetterdienst

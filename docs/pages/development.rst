@@ -37,3 +37,9 @@ Before committing, run black code formatter and lint to test for format.
     nox -s tests
     nox -s black
     nox -s lint
+
+In order to run the tests more **quickly**::
+
+    poetry install --extras=excel
+    poetry shell
+    pytest -vvvv -m "not (remote or slow)
