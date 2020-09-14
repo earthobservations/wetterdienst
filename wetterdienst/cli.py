@@ -12,6 +12,7 @@ from wetterdienst import (
     __version__,
     metadata_for_climate_observations,
     get_nearby_stations,
+    discover_climate_observations,
 )
 from wetterdienst.additionals.geo_location import stations_to_geojson
 from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
@@ -32,6 +33,7 @@ def run():
       wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--format=<format>]  # noqa:E501
       wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--count=] [--distance=] [--persist] [--date=<date>] [--format=<format>]  # noqa:E501
       wetterdienst about [parameters] [resolutions] [periods]
+      wetterdienst about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst --version
       wetterdienst (-h | --help)
 
@@ -312,6 +314,15 @@ def about(options: Munch):
 
     elif options.periods:
         output(PeriodType)
+
+    elif options.coverage:
+        print(
+            discover_climate_observations(
+                time_resolution=options.resolution,
+                parameter=read_list(options.parameter),
+                period_type=read_list(options.period),
+            )
+        )
 
     else:
         log.error(
