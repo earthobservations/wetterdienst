@@ -3,20 +3,25 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-****************************************
-Welcome to wetterdienst's documentation!
-****************************************
+#################################################################
+Wetterdienst - Python library to ease access to open weather data
+#################################################################
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
-   pages/welcome
+   README <pages/welcome>
    pages/installation
    pages/data_coverage
    pages/api
+   pages/cli
+
+.. toctree::
+   :maxdepth: 1
+
    pages/behind_the_scenes
    pages/development
+   pages/changelog
    pages/license_and_citation
 
 Indices and tables

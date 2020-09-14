@@ -7,13 +7,13 @@ version will always include most recent changes that may not have been released 
 
 PyPi
 
-.. code-block:: Python
+.. code-block:: bash
 
   pip install wetterdienst
 
 Github
 
-.. code-block:: Python
+.. code-block:: bash
 
   pip install git+https://github.com/earthobservations/wetterdienst
 
@@ -27,19 +27,19 @@ Docker
 We have a Docker image available that let's you run the library dockerized. To use
 Wetterdienst in a Docker container, you just have to build the image from this project
 
-.. code-block:: Python
+.. code-block:: bash
 
     docker build -t "wetterdienst" .
 
 To run the tests in the given environment, just call
 
-.. code-block:: Python
+.. code-block:: bash
 
     docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest tests
 
 from the main directory. To work in an iPython shell call
 
-.. code-block:: Python
+.. code-block:: bash
 
     docker run -ti -v $(pwd):/app wetterdienst:latest poetry run ipython
 
@@ -49,7 +49,7 @@ Command line script
 You can download data as csv files after building docker container.
 Currently, only the `collect_dwd_data` is supported by this service.
 
-.. code-block:: Python
+.. code-block:: bash
 
     docker run \
         -ti -v $(pwd):/app wetterdienst:latest poetry run python wetterdienst/run.py \
@@ -58,6 +58,6 @@ Currently, only the `collect_dwd_data` is supported by this service.
 
 The `wetterdienst` command is also available through Docker:
 
-.. code-block:: Python
+.. code-block:: bash
 
     docker run -ti -v $(pwd):/app wetterdienst:latest poetry run wetterdienst

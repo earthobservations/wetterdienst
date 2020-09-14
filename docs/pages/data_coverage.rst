@@ -1,3 +1,6 @@
+.. _data-coverage:
+
+#############
 Data Coverage
 #############
 
@@ -11,8 +14,8 @@ For a quick overview of the work of the DWD check the current
 `report <https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14>`_
 (only in german).
 
-Wetterdienst currently only supports historical weather data, but sets its target to
-include MOSMIX and radolan as well in future iterations.
+Wetterdienst currently supports historical weather data
+as well as MOSMIX and RADOLAN data.
 
 Historical Weather Data
 ***********************
@@ -100,8 +103,8 @@ how the DWD calls the parameter e.g. "precipitation".
 .. |check| unicode:: + .. check
 .. |cross| unicode:: - .. cross
 
-This table and subsets of it can be printed with a function call of "discover_climate_
-observations" as described in the API section.
+This table and subsets of it can be printed with a function call of
+``discover_climate_observations`` as described in the API section.
 
 MOSMIX
 ******

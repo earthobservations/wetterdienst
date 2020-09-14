@@ -1,3 +1,4 @@
+###########
 Development
 ###########
 
@@ -8,6 +9,7 @@ as flawless as we can. We are always looking for others to join and bring in the
 ideas so please consider writing us! Below you can find more about contribution and the
 most recent changelog of the library.
 
+************
 Contribution
 ************
 
@@ -19,18 +21,19 @@ out how to solve it with a suitable programming solution).
 
 For development clone the repository and install developer dependencies via
 
-.. code-block:: Python
+.. code-block:: bash
 
     git clone https://github.com/earthobservations/wetterdienst
     cd wetterdienst
-    pip install . or poetry install
+
+    pip install .
+    # or
+    poetry install
 
 Before committing, run black code formatter and lint to test for format.
 
-.. code-block:: Python
+.. code-block:: bash
 
     nox -s tests
     nox -s black
     nox -s lint
-
-.. include:: ../../CHANGELOG.rst
