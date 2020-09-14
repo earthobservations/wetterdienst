@@ -174,6 +174,10 @@ def test_get_nearby_stations():
         )
 
 
+@patch(
+    "wetterdienst.parse_metadata.metadata_for_climate_observations",
+    MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON")),
+)
 def test_get_nearby_stations_out_of_distance():
     nearby_station = get_nearby_stations(
         50.0,

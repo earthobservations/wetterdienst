@@ -107,6 +107,7 @@ def test_dwd_station_request():
         )
 
 
+@pytest.mark.remote
 def test_dwd_radolan_request():
     with pytest.raises(ValueError):
         DWDRadolanRequest(

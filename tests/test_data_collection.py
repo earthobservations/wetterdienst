@@ -244,6 +244,7 @@ def test_tidy_up_data():
     assert _tidy_up_data(df, Parameter.CLIMATE_SUMMARY).equals(df_tidy)
 
 
+@pytest.mark.remote
 def test_collect_radolan_data():
     with Path(FIXTURES_DIR, "radolan_hourly_201908080050").open("rb") as f:
         radolan_hourly = BytesIO(f.read())

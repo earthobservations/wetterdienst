@@ -11,6 +11,7 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 
+@pytest.mark.remote
 def test_metadata_for_climate_observations():
     reset_meta_index_cache()
 
@@ -52,6 +53,7 @@ def test_metadata_for_climate_observations():
         )
 
 
+@pytest.mark.remote
 def test_metadata_geojson():
     reset_meta_index_cache()
 
