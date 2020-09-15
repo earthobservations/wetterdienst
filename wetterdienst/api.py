@@ -61,11 +61,8 @@ class DWDStationRequest:
         :param station_ids: definition of stations by str, int or list of str/int,
                             will be parsed to list of int
         :param parameter:           Observation measure
-        :type parameter:            Union[Parameter, str]
         :param time_resolution:     Frequency/granularity of measurement interval
-        :type time_resolution:      Union[TimeResolution, str]
         :param period_type:         Recent or historical files
-        :type period_type:          Union[PeriodType, str]
         :param start_date:          Replacement for period type to define exact time
                                     of requested data
         :param end_date:            Replacement for period type to define exact time
@@ -244,7 +241,7 @@ class DWDStationRequest:
 
 class DWDRadolanRequest:
     """
-    API for DWD RADOLAN data requests
+    API for DWD RADOLAN data requests.
     """
 
     def __init__(
@@ -267,10 +264,10 @@ class DWDRadolanRequest:
         :param end_date:        Alternative to datetimes, giving a start and end date
         :param prefer_local:    RADOLAN should rather be loaded from disk, for
                                 processing purposes
-        :type prefer_local:     bool
         :param write_file:      File should be stored on drive
-        :type write_file:       bool
         :param folder:          Folder where to store RADOLAN data
+
+        :return:                Nothing for now.
         """
         time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution

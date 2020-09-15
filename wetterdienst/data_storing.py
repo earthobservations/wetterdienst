@@ -29,19 +29,14 @@ def store_climate_observations(
     hdf file and another folder argument for the place where the file is stored.
 
     :param station_data:            The pandas DataFrame with the obtained data
-    :type station_data:             pandas.DataFrame
     :param station_id:              The station id of the station to store
-    :type station_id:               int
     :param parameter:               Observation measure
-    :type parameter:                Parameter
     :param time_resolution:         Frequency/granularity of measurement interval
-    :type time_resolution:          TimeResolution
     :param period_type:             Recent or historical files
-    :type period_type:              PeriodType
     :param folder:                  The folder where the hdf is stored
-    :type folder:                   str
 
-    :return: None, prints information if data was not stored
+    :return:                        Nothing, only prints information if data was
+                                    not stored.
     """
     # Make sure that there is data that can be stored
     if station_data.empty:
@@ -70,18 +65,12 @@ def restore_climate_observations(
     the file is stored and parameters that define the request in particular.
 
     :param station_id:              Station id of which data should be restored
-    :type station_id:               int
     :param parameter:               Observation measure
-    :type parameter:                Parameter
     :param time_resolution:         Frequency/granularity of measurement interval
-    :type time_resolution:          TimeResolution
     :param period_type:             Recent or historical files
-    :type period_type:              PeriodType
     :param folder:                  The folder where the hdf is stored
-    :type folder:                   str
 
-    :return: All the data
-    :rtype: pandas.DataFrame
+    :return:                        All the data.
     """
     request_string = _build_local_store_key(
         station_id, parameter, time_resolution, period_type
@@ -112,16 +101,11 @@ def _build_local_store_key(
     station id
 
     :param station_id:              Station id of data
-    :type station_id:               int
     :param parameter:               Observation measure
-    :type parameter:                Parameter
     :param time_resolution:         Frequency/granularity of measurement interval
-    :type time_resolution:          TimeResolution
     :param period_type:             Recent or historical files
-    :type period_type:              PeriodType
 
     :return: A string building a key that is used to identify the request
-    :rtype:  str
     """
     request_string = (
         f"{parameter.value}/{time_resolution.value}/"

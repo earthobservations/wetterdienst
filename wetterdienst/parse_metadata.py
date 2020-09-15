@@ -35,18 +35,12 @@ def metadata_for_climate_observations(
     - daily precipitation data is the most common data served by the DWD
 
     :param parameter:               Observation measure
-    :type parameter:                Parameter
     :param time_resolution:         Frequency/granularity of measurement interval
-    :type time_resolution:          TimeResolution
     :param period_type:             Recent or historical files
-    :type period_type:              PeriodType
     :param create_new_meta_index:   Create a new meta index for metadata
-    :type create_new_meta_index:    bool
     :param create_new_file_index:   Create a new file index
-    :type create_new_file_index:    bool
 
     :return: List of stations for selected parameters
-    :rtype: pandas.DataFrame
     """
     if create_new_meta_index:
         reset_meta_index_cache()

@@ -76,32 +76,20 @@ def collect_climate_observations_data(
     it will try to store the data in a hdf file.
 
     :param station_ids:             station ids that are trying to be loaded
-    :type station_ids:              List[int]
     :param parameter:               Parameter as enumeration
-    :type parameter:                Parameter
     :param time_resolution:         Time resolution as enumeration
-    :type time_resolution:          TimeResolution
     :param period_type:             Period type as enumeration
-    :type period_type:              PeriodType
     :param folder:                  Folder for local file interaction
-    :type folder:                   str
     :param prefer_local:            Local data should be preferred
-    :type prefer_local:             bool
     :param write_file:              Write data to local storage
-    :type write_file:               bool
     :param tidy_data:               Tidy up data so that there's only one set of values
                                     for a datetime in a row, e.g. station_id, parameter,
                                     element, datetime, value, quality.
-    :type tidy_data:                bool
     :param humanize_column_names:   Yield column names for human consumption
-    :type humanize_column_names:    bool
     :param run_download_only:       Run only the download and storing process
-    :type run_download_only:        bool
     :param create_new_file_index:   Create a new file index for the data selection
-    :type create_new_file_index:    bool
 
-    :return: All the data given by the station ids.
-    :rtype: pandas.DataFrame
+    :return:                        All the data given by the station ids.
     """
     parameter = parse_enumeration_from_template(parameter, Parameter)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
@@ -258,19 +246,13 @@ def collect_radolan_data(
     Function used to collect RADOLAN data for given datetimes and a time resolution.
     Additionally the file can be written to a local folder and read from there as well.
 
-    :param date_times: List of datetime objects for which RADOLAN shall be acquired
-    :type date_times: List[datetime]
+    :param date_times:      List of datetime objects for which RADOLAN shall be acquired
     :param time_resolution: Time resolution for requested data, either hourly or daily
-    :type time_resolution: TimeResolution
-    :param prefer_local: File should be read from local store instead
-    :type prefer_local: bool
-    :param write_file: File should be stored on the drive
-    :type write_file: bool
-    :param folder: Path for storage
-    :type folder: str
+    :param prefer_local:    File should be read from local store instead
+    :param write_file:      File should be stored on the drive
+    :param folder:          Path for storage
 
-    :return: List of tuples of a datetime and the corresponding file in bytes
-    :rtype: List[Tuple[datetime, BytesIO]]
+    :return:                List of tuples: datetime and the corresponding file in bytes
     """
     if time_resolution not in (TimeResolution.HOURLY, TimeResolution.DAILY):
         raise ValueError("RADOLAN is only offered in hourly and daily resolution.")

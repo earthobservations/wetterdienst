@@ -48,17 +48,14 @@ def get_nearby_stations(
     :param maximal_available_date:  End date of timespan where measurements
                                     should be available
     :param parameter:               Observation measure
-    :type parameter:                Parameter
     :param time_resolution:         Frequency/granularity of measurement interval
-    :type time_resolution:          TimeResolution
     :param period_type:             Recent or historical files
-    :type period_type:              PeriodType
     :param num_stations_nearby:     Number of stations that should be nearby
     :param max_distance_in_km:      Alternative filtering criteria, maximum
                                     distance to location in km
 
-    :return: DataFrames with valid stations in radius per requested location
-    :rtype: pandas.DataFrame
+    :return:                        DataFrames with valid stations in radius per
+                                    requested location
 
     """
     if num_stations_nearby and max_distance_in_km:
