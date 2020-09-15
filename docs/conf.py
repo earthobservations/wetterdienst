@@ -50,8 +50,11 @@ master_doc = 'index'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx_rtd_theme",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.todo",
     "sphinx.ext.autosectionlabel",
+    "sphinx_rtd_theme",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -74,3 +77,69 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+# -- Custom options -------------------------------------------------
+
+# If true, `todo` and `todoList` produce output, else they produce nothing.
+todo_include_todos = True
+
+# Use docstring from both class-level and __init__ when documenting a class.
+autoclass_content = "both"
+
+
+# -- Material options -------------------------------------------
+import sphinx_material
+
+html_show_sourcelink = True
+html_sidebars = {
+    "**": ["logo-text.html", "globaltoc.html", "localtoc.html", "searchbox.html"]
+}
+
+# Required theme setup
+extensions.append('sphinx_material')
+html_theme = 'sphinx_material'
+html_theme_path = sphinx_material.html_theme_path()
+html_context = sphinx_material.get_html_context()
+
+# Material theme options (see theme.conf for more information)
+html_theme_options = {
+
+    # Set the name of the project to appear in the navigation.
+    'nav_title': 'Wetterdienst',
+
+    # Set you GA account ID to enable tracking
+    #'google_analytics_account': 'UA-XXXXX',
+
+    # Specify a base_url used to generate sitemap.xml. If not
+    # specified, then no sitemap will be built.
+    'base_url': 'https://wetterdienst.readthedocs.io/',
+
+    # Set the color and the accent color
+    #'color_primary': 'blue',
+    #'color_primary': 'blue-grey',
+    #'color_primary': 'indigo',
+    'color_primary': 'light-blue',
+
+    # 'color_accent': 'light-green',
+
+    # Set the repo location to get a badge with stats
+    'repo_url': 'https://github.com/earthobservations/wetterdienst',
+    'repo_name': 'wetterdienst',
+
+    # Visible levels of the global TOC; -1 means unlimited
+    'globaltoc_depth': 2,
+    # If False, expand all TOC entries
+    #'globaltoc_collapse': False,
+    # If True, show hidden TOC entries
+    #'globaltoc_includehidden': False,
+
+    "master_doc": False,
+    "nav_links": [
+    ],
+
+    "heroes": {
+        #"index": "Open weather data for humans.",
+        "pages/cli": "On your fingertips.",
+    },
+}
