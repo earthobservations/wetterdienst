@@ -2,8 +2,8 @@
 Behind the scenes
 #################
 
-Details
--------
+.. note:: This is some text extracted from ``api.rst``. It might fit better elsewhere.
+
 - The ``DWDStationRequest`` class can combine multiple periods/date ranges
   for any number of stations and parameters of one time resolution.
 - It wraps ``collect_climate_observations_data``, which in turn combines
