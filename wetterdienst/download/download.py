@@ -24,7 +24,12 @@ PRODUCT_FILE_IDENTIFIER = "produkt"
 def download_climate_observations_data_parallel(
     remote_files: List[str],
 ) -> List[Tuple[str, BytesIO]]:
-    """ wrapper for _download_dwd_data to provide a multiprocessing feature"""
+    """
+    Wrapper for ``_download_dwd_data`` to provide a multiprocessing feature.
+
+    :param remote_files:    List of requested files
+    :return:                List of downloaded files
+    """
 
     with ThreadPoolExecutor() as executor:
         files_in_bytes = executor.map(
@@ -93,15 +98,15 @@ def download_radolan_data(
     a separate download function that is cached for reuse which is especially used for
     historical data that comes packaged for multiple datetimes in one archive.
 
-    Args:
-        date_time: the datetime for the requested RADOLAN file, required for recognition
-        of the returned binary, which has no obvious name tag
-        remote_radolan_file_path: the remote filepath to the file that has the data
+    :param date_time:   The datetime for the requested RADOLAN file.
+                        This is required for the recognition of the returned binary,
+                        which has no obvious name tag.
+
+    :param remote_radolan_file_path: The remote filepath to the file that has the data
         for the requested datetime, either an archive of multiple files for a datetime
         in historical time or an archive with one file for the recent RADOLAN file
 
-    Returns:
-        string of requested datetime and binary file
+    :return: String of requested datetime and binary file
     """
     archive_in_bytes = _download_radolan_data(remote_radolan_file_path)
 

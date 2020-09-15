@@ -14,15 +14,13 @@ def download_file_from_dwd(
     filepath: Union[PurePosixPath, str], cdc_base: DWDCDCBase
 ) -> BytesIO:
     """
-    A function used to download a specified file from the server
+    A function used to download a specified file from the server.
 
-    Args:
-        filepath: the path that defines the file relative to
-        observations_germany/climate/
-        cdc_base:
+    :param filepath:    The path that defines the file relative to
+                        ``observations_germany/climate/``.
+    :param cdc_base:    Foobar.
 
-    Returns:
-        bytes of the file
+    :return:            Bytes of the file.
     """
     dwd_session = create_dwd_session()
 

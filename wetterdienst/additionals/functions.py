@@ -349,14 +349,10 @@ def discover_climate_observations(
     combinations.
 
     :param parameter:               Observation measure
-    :type parameter:                Parameter
     :param time_resolution:         Frequency/granularity of measurement interval
-    :type time_resolution:          TimeResolution
     :param period_type:             Recent or historical files
-    :type period_type:              PeriodType
 
-    :return: JSON string of available combinations
-    :rtype: str
+    :return:                        Result of available combinations in JSON.
     """
     if not time_resolution:
         time_resolution = [*TimeResolution]

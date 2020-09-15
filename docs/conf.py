@@ -51,6 +51,7 @@ master_doc = 'index'
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx_autodoc_typehints",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.autosectionlabel",
