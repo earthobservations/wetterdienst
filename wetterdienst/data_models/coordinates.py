@@ -1,4 +1,3 @@
-"""Class for storing and retrieving coordinates"""
 import numpy as np
 
 

@@ -1,4 +1,6 @@
-""" download scripts """
+"""
+**Download utilities**
+"""
 import gzip
 import tarfile
 from typing import List, Union, Tuple

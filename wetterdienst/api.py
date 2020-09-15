@@ -57,23 +57,27 @@ class DWDStationRequest:
         Special handling for period type. If start_date/end_date are given all period
         types are considered and merged together and the data is filtered for the given
         dates afterwards.
-        Args:
-            station_ids: definition of stations by str, int or list of str/int,
-            will be parsed to list of int
-            parameter: str or parameter enumeration defining the requested parameter
-            time_resolution: str or time resolution enumeration defining the requested
-            time resolution
-            period_type: str or period type enumeration defining the requested
-            period type
-            start_date: replacement for period type to define exact time of
-            requested data
-            end_date: replacement for period type to define exact time of requested data
-            prefer_local: definition if data should rather be taken from a local source
-            write_file: should data be written to a local file
-            folder: place where file lists (and station data) are stored
-            tidy_data: reshape DataFrame to a more tidy, row based version of data
-            humanize_column_names: replace column names by more meaningful ones
-            create_new_file_index: definition if the file index should be recreated
+
+        :param station_ids: definition of stations by str, int or list of str/int,
+                            will be parsed to list of int
+        :param parameter:           Observation measure
+        :type parameter:            Union[Parameter, str]
+        :param time_resolution:     Frequency/granularity of measurement interval
+        :type time_resolution:      Union[TimeResolution, str]
+        :param period_type:         Recent or historical files
+        :type period_type:          Union[PeriodType, str]
+        :param start_date:          Replacement for period type to define exact time
+                                    of requested data
+        :param end_date:            Replacement for period type to define exact time
+                                    of requested data
+        :param prefer_local:        Definition if data should rather be taken from a
+                                    local source
+        :param write_file:          Should data be written to a local file
+        :param folder:              Place where file lists (and station data) are stored
+        :param tidy_data:           Reshape DataFrame to a more tidy
+                                    and row-based version of data
+        :param humanize_column_names: Replace column names by more meaningful ones
+        :param create_new_file_index: Definition if the file index should be recreated
         """
 
         if not (period_type or start_date or end_date):
@@ -171,13 +175,9 @@ class DWDStationRequest:
         Method to collect data for a defined request. The function is build as generator
         in order to not cloak the memory thus if the user wants the data as one pandas
         DataFrame the generator has to be casted to a DataFrame manually via
-        pd.concat(list(request.collect_data([...])).
+        pd.concat(list(request.collect_data()).
 
-        Args:
-            same as init
-
-        Returns:
-            via a generator per station a pandas.DataFrame
+        :return: A generator yielding a pandas.DataFrame per station.
         """
         if self.create_new_file_index:
             reset_file_index_cache()
@@ -259,16 +259,18 @@ class DWDRadolanRequest:
     ) -> None:
         """
 
-        Args:
-            time_resolution: time resolution enumeration, either hourly or daily
-            date_times: list of datetimes for which RADOLAN is requested, minutes have
-            to be defined (HOUR:50), otherwise rounded to 50 minutes as of its provision
-            start_date: alternative to datetimes, giving a start and end date
-            end_date: alternative to datetimes, giving a start and end date
-            prefer_local: boolean if RADOLAN should rather be loaded from disk, for
-            processing purposes
-            write_file: boolean if file should be stored on drive
-            folder: folder where to store RADOLAN data
+        :param time_resolution: Time resolution enumeration, either hourly or daily
+        :param date_times:      List of datetimes for which RADOLAN is requested.
+                                Minutes have o be defined (HOUR:50), otherwise rounded
+                                to 50 minutes as of its provision.
+        :param start_date:      Alternative to datetimes, giving a start and end date
+        :param end_date:        Alternative to datetimes, giving a start and end date
+        :param prefer_local:    RADOLAN should rather be loaded from disk, for
+                                processing purposes
+        :type prefer_local:     bool
+        :param write_file:      File should be stored on drive
+        :type write_file:       bool
+        :param folder:          Folder where to store RADOLAN data
         """
         time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution
@@ -323,8 +325,7 @@ class DWDRadolanRequest:
         """
         Function used to get the data for the request returned as generator.
 
-        Returns:
-            for each datetime the same datetime and file in bytes
+        :return: For each datetime, the same datetime and file in bytes
         """
         for date_time in self.date_times:
             _, file_in_bytes = collect_radolan_data(

@@ -1,4 +1,6 @@
-""" helping functions for downloading german weather service data """
+"""
+**DWD download utilities**
+"""
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Union

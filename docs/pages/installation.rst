@@ -1,26 +1,31 @@
-Installation
-############
+#####
+Setup
+#####
+
+Wetterdienst can be used by either installing it on
+your workstation or within a Docker container.
 
 
-The installation of wetterdienst can happen via PyPi or directly from Github. The Github
-version will always include most recent changes that may not have been released to PyPi.
+******
+Native
+******
+The installation of ``wetterdienst`` can happen via PyPi or directly from GitHub. The GitHub
+version will always include most recent changes that may not have been released to PyPI.
 
-PyPi
+PyPI
 
 .. code-block:: bash
 
   pip install wetterdienst
 
-Github
+GitHub
 
 .. code-block:: bash
 
   pip install git+https://github.com/earthobservations/wetterdienst
 
-If you think that any constraints we have set for the library in the pyproject.toml
-may have to be updated/improved, please come back to us via mail or place an issue on
-Github.
 
+******
 Docker
 ******
 
@@ -35,29 +40,19 @@ To run the tests in the given environment, just call
 
 .. code-block:: bash
 
-    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest tests
+    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest -vvvv tests
 
-from the main directory. To work in an iPython shell call
+from the main directory. To work in an iPython shell, invoke
 
 .. code-block:: bash
 
     docker run -ti -v $(pwd):/app wetterdienst:latest poetry run ipython
 
 Command line script
-*******************
+===================
 
-You can download data as csv files after building docker container.
-Currently, only the `collect_dwd_data` is supported by this service.
-
-.. code-block:: bash
-
-    docker run \
-        -ti -v $(pwd):/app wetterdienst:latest poetry run python wetterdienst/run.py \
-        collect_dwd_data "[1048]" "kl" "daily" "historical" /app/dwd_data/ False False True False True True
-
-
-The `wetterdienst` command is also available through Docker:
+The ``wetterdienst`` command is also available through Docker:
 
 .. code-block:: bash
 
-    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run wetterdienst
+    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run wetterdienst --help

@@ -74,25 +74,34 @@ def collect_climate_observations_data(
     station id and, given by the parameters, either tries to get data from local
     store and/or if fails tries to get data from the internet. Finally if wanted
     it will try to store the data in a hdf file.
-    Args:
-        station_ids: station ids that are trying to be loaded
-        parameter: parameter as enumeration
-        time_resolution: time resolution as enumeration
-        period_type: period type as enumeration
-        folder: folder for local file interaction
-        prefer_local: boolean for if local data should be preferred
-        write_file: boolean to write data to local storage
-        tidy_data: boolean to tidy up data so that there's only one set of values for
-        a datetime in a row
-        e.g. station_id, parameter, element, datetime, value, quality
-        humanize_column_names: boolean to yield column names better for
-        human consumption
-        run_download_only: boolean to run only the download and storing process
-        create_new_file_index: boolean if to create a new file index for the
-        data selection
 
-    Returns:
-        a pandas DataFrame with all the data given by the station ids
+    :param station_ids:             station ids that are trying to be loaded
+    :type station_ids:              List[int]
+    :param parameter:               Parameter as enumeration
+    :type parameter:                Parameter
+    :param time_resolution:         Time resolution as enumeration
+    :type time_resolution:          TimeResolution
+    :param period_type:             Period type as enumeration
+    :type period_type:              PeriodType
+    :param folder:                  Folder for local file interaction
+    :type folder:                   str
+    :param prefer_local:            Local data should be preferred
+    :type prefer_local:             bool
+    :param write_file:              Write data to local storage
+    :type write_file:               bool
+    :param tidy_data:               Tidy up data so that there's only one set of values
+                                    for a datetime in a row, e.g. station_id, parameter,
+                                    element, datetime, value, quality.
+    :type tidy_data:                bool
+    :param humanize_column_names:   Yield column names for human consumption
+    :type humanize_column_names:    bool
+    :param run_download_only:       Run only the download and storing process
+    :type run_download_only:        bool
+    :param create_new_file_index:   Create a new file index for the data selection
+    :type create_new_file_index:    bool
+
+    :return: All the data given by the station ids.
+    :rtype: pandas.DataFrame
     """
     parameter = parse_enumeration_from_template(parameter, Parameter)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
@@ -185,13 +194,11 @@ def _tidy_up_data(df: pd.DataFrame, parameter: Parameter) -> pd.DataFrame:
     Function to create a tidy DataFrame by reshaping it, putting quality in a
     separate column and setting an extra column with the parameter.
 
-    Args:
-        df: DataFrame to be tidied
-        parameter: the parameter that is written in a column to identify a set of
-        different parameters amongst each other
+    :param df:          DataFrame to be tidied
+    :param parameter:   the parameter that is written in a column to identify a set of
+                        different parameters amongst each other
 
-    Returns:
-        the tidied DataFrame
+    :return:            The tidied DataFrame
     """
     id_vars = []
     date_vars = []
@@ -250,15 +257,20 @@ def collect_radolan_data(
     """
     Function used to collect RADOLAN data for given datetimes and a time resolution.
     Additionally the file can be written to a local folder and read from there as well.
-    Args:
-        date_times: list of datetime objects for which RADOLAN shall be acquired
-        time_resolution: the time resolution for requested data, either hourly or daily
-        prefer_local: boolean if file should be read from local store instead
-        write_file: boolean if file should be stored on the drive
-        folder: path for storage
 
-    Returns:
-        list of tuples of a datetime and the corresponding file in bytes
+    :param date_times: List of datetime objects for which RADOLAN shall be acquired
+    :type date_times: List[datetime]
+    :param time_resolution: Time resolution for requested data, either hourly or daily
+    :type time_resolution: TimeResolution
+    :param prefer_local: File should be read from local store instead
+    :type prefer_local: bool
+    :param write_file: File should be stored on the drive
+    :type write_file: bool
+    :param folder: Path for storage
+    :type folder: str
+
+    :return: List of tuples of a datetime and the corresponding file in bytes
+    :rtype: List[Tuple[datetime, BytesIO]]
     """
     if time_resolution not in (TimeResolution.HOURLY, TimeResolution.DAILY):
         raise ValueError("RADOLAN is only offered in hourly and daily resolution.")

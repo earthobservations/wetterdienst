@@ -1,7 +1,7 @@
 .. _data-coverage:
 
 #############
-Data Coverage
+Data coverage
 #############
 
 The DWD offers various datasets including but not only:

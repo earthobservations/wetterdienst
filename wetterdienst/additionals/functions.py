@@ -294,14 +294,12 @@ def parse_enumeration_from_template(
 ) -> Union[Parameter, TimeResolution, PeriodType]:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template
-    Args:
-        enum_: enumeration as string or Enum
-        enum_template: base enumeration from which the enumeration is parsed
 
-    Returns:
-        parsed enumeration from template
-    Raises:
-        InvalidParameter if no matching enumeration found
+    :param "enum_":           Enumeration as string or Enum
+    :param enum_template:   Base enumeration from which the enumeration is parsed
+
+    :return:                Parsed enumeration from template
+    :raises InvalidParameter: if no matching enumeration found
     """
     try:
         return enum_template[enum_.upper()]
@@ -347,17 +345,18 @@ def discover_climate_observations(
     period_type: Optional[PeriodType] = None,
 ) -> str:
     """
-     Function to print/discover available time_resolution/parameter/period_type
-     combinations.
+    Function to print/discover available time_resolution/parameter/period_type
+    combinations.
 
-    Args:
-        time_resolution: time_resolution to reduce the information
-        parameter: parameter to reduce the information
-        period_type: period_type to reduce the information
+    :param parameter:               Observation measure
+    :type parameter:                Parameter
+    :param time_resolution:         Frequency/granularity of measurement interval
+    :type time_resolution:          TimeResolution
+    :param period_type:             Recent or historical files
+    :type period_type:              PeriodType
 
-    Returns:
-        string of available combinations
-
+    :return: JSON string of available combinations
+    :rtype: str
     """
     if not time_resolution:
         time_resolution = [*TimeResolution]
