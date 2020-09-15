@@ -7,11 +7,10 @@ Wetterdienst - Open weather data for humans
 .. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/earthobservations/wetterdienst
 .. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
-    :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+.. image:: https://img.shields.io/badge/code\\%20style-black-000000.svg
    :target: https://github.com/psf/black
-
 
 .. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
@@ -130,7 +129,7 @@ copyright owner. Please take a look at the `Open Data Strategy at the DWD`_ and 
 `Official Copyright`_ statements before using the data.
 
 
-.. _rdwd: https://github.com/brry/rdwd>
+.. _rdwd: https://github.com/brry/rdwd
 .. _Wetterdienst API: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
 .. _data coverage: https://wetterdienst.readthedocs.io/en/latest/pages/data_coverage.html
 .. _changelog: https://wetterdienst.readthedocs.io/en/latest/pages/api.html

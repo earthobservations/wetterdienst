@@ -13,7 +13,7 @@ We are always looking for others to join and bring in their own ideas so
 please consider writing us! Below you can find more about contribution and the
 most recent changelog of the library.
 
-.. _rdwd: https://github.com/brry/rdwd>
+.. _rdwd: https://github.com/brry/rdwd
 
 
 ************
