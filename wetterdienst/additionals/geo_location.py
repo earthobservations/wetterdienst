@@ -38,24 +38,27 @@ def get_nearby_stations(
 ) -> pd.DataFrame:
     """
     Provides a list of weather station ids for the requested data
-    Args:
-        latitude: latitude of location to search for nearest
-            weather station
-        longitude: longitude of location to search for nearest
-            weather station
-        minimal_available_date: Start date of timespan where measurements
-            should be available
-        maximal_available_date: End date of timespan where measurements
-            should be available
-        parameter: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
-        num_stations_nearby: Number of stations that should be nearby
-        max_distance_in_km: alternative filtering criteria, maximum
-            distance to location in km
 
-    Returns:
-        DataFrames with valid Stations in radius per requested location
+    :param latitude:                Latitude of location to search for nearest
+                                    weather station
+    :param longitude:               Longitude of location to search for nearest
+                                    weather station
+    :param minimal_available_date:  Start date of timespan where measurements
+                                    should be available
+    :param maximal_available_date:  End date of timespan where measurements
+                                    should be available
+    :param parameter:               Observation measure
+    :type parameter:                Parameter
+    :param time_resolution:         Frequency/granularity of measurement interval
+    :type time_resolution:          TimeResolution
+    :param period_type:             Recent or historical files
+    :type period_type:              PeriodType
+    :param num_stations_nearby:     Number of stations that should be nearby
+    :param max_distance_in_km:      Alternative filtering criteria, maximum
+                                    distance to location in km
+
+    :return: DataFrames with valid stations in radius per requested location
+    :rtype: pandas.DataFrame
 
     """
     if num_stations_nearby and max_distance_in_km:

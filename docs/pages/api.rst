@@ -1,26 +1,47 @@
 ###
 API
 ###
-The API is divided amongst the data products as written in the :ref:`data-coverage` chapter.
+The API offers access to different data products. They are
+outlined in more detail within the :ref:`data-coverage` chapter.
 
-***********************
-Historical Weather Data
-***********************
-The API for the historical weather data mainly consists of the following functions:
+.. contents::
+    :local:
+    :depth: 1
 
-``discover_climate_observations``
-=================================
-- Print out available time resolution, parameter, period type combinations and
-  subsets of it depending on the entered arguments.
+************
+Observations
+************
+Acquire historical weather data through requesting by
+*parameter*, *time resolution* and *period type*.
 
-``metadata_for_climate_observations``
-=====================================
-- Discover what data for a set of parameters (parameter, time_resolution,
-  period_type) is available, especially which stations can be found.
-- With **create_new_file_index**, the function can be forced to retrieve a new list
-  of files from the server, which is usually avoided as it rarely changes.
+Request arguments
+=================
+The options *parameter*, *time resolution* and *period type* can be used in three ways:
 
-Let's get station information for a given parameter, time resolution and period type:
+- by using the exact enumeration e.g.
+    .. code-block:: python
+
+        Parameter.CLIMATE_SUMMARY
+
+- by using the enumeration string e.g.
+    .. code-block:: python
+
+        "climate_summary" or "CLIMATE_SUMMARY"
+
+- by using the originally defined parameter string e.g.
+    .. code-block:: python
+
+        "kl"
+
+Use ``wetterdienst.discover_climate_observations()`` to discover available
+time resolution, parameter, period type combinations and their subsets
+based on the obtained filter arguments.
+
+
+Station list
+============
+Get station information for a given set of *parameter*, *time resolution*
+and *period type* options.
 
 .. code-block:: python
 
@@ -33,19 +54,22 @@ Let's get station information for a given parameter, time resolution and period 
         period_type=PeriodType.HISTORICAL
     )
 
-The function returns a pandas DataFrame with information about the available stations,
-including the column **HAS_FILE**, that indicates if the station has a file with data on
-the server (which may not always be the case!).
+The function returns a Pandas DataFrame with information about the available stations.
+The column ``HAS_FILE`` indicates whether the station actually has a file with data on
+the server. That might not always be the case for stations which have been phased out.
 
+When using ``create_new_file_index=True``, the function can be forced to retrieve
+a new list of files from the server. Otherwise, data will be served from the
+cache because this information rarely changes.
 
-``DWDStationRequest``
-=====================
+Measurements
+============
+Use the ``DWDStationRequest`` class in order to get hold of measurement information.
 
-Synopsis
---------
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest, Parameter, PeriodType, TimeResolution
+    from wetterdienst import DWDStationRequest
+    from wetterdienst import Parameter, PeriodType, TimeResolution
 
     request = DWDStationRequest(
         station_ids=[3, 1048],
@@ -66,74 +90,20 @@ This gives us the most options to work with the data, getting multiple parameter
 once, parsed nicely into column structure with improved parameter names and stored
 automatically on the drive if wanted.
 
-Details
--------
-- A class that can combine multiple periods/date ranges for any number of stations
-  and parameters of one time resolution.
-- Wraps ``collect_climate_observations_data``:
 
-    - Combines create_file_list_for_dwd_server, download_dwd_data and
-      parse_dwd_data for multiple stations
-    - Wraps the following three functions:
-
-        - ``create_file_list_for_climate_observations``
-            - is used with the help of the metadata to retrieve file paths to
-              files for a set of parameters + station id
-            - here also **create_new_file_index** can be used
-
-        - ``download_climate_observations_data_parallel``
-            - is used with the created file paths to download and store the data
-              (second os optionally, in a hdf)
-
-        - ``parse_climate_observations_data``
-            - is used to get the data into the Python environment in
-              shape of a pandas DataFrame.
-            - the data will be ready to be analyzed by you!
-
-
-Additionally, the following functions allow you to reset the cache of the file/meta index:
-
-- **reset_file_index_cache:**
-    - reset the cached file index to get latest list of files (only required for
-      constantly running system)
-
-- **reset_meta_index_cache:**
-    - reset the cached meta index to get latest list of files (only required for
-      constantly running system)
-
-Parameter, time resolution and period type can be entered in three ways:
-
-- by using the exact enumeration e.g.
-    .. code-block:: python
-
-        Parameter.CLIMATE_SUMMARY
-
-- by using the enumeration string e.g.
-    .. code-block:: python
-
-        "climate_summary" or "CLIMATE_SUMMARY"
-
-- by using the originally defined parameter string e.g.
-    .. code-block:: python
-
-        "kl"
-
-
-******************
 Geospatial support
-******************
+==================
 
-``get_nearby_stations``
-=======================
-- Calculate the close weather stations based on the coordinates for the requested data.
-- Either selected by rank (n stations) or by distance in km.
-- It returns a DataFrame with meta data, distances [in km] and station ids
-  that can be used to download the data.
+Inquire the list of stations by geographic coordinates.
+
+- Calculate weather stations close to the given coordinates and set of parameters.
+- Either select by rank (n stations) or by distance in km.
 
 .. code-block:: python
 
     from datetime import datetime
-    from wetterdienst import get_nearby_stations, DWDStationRequest, Parameter, PeriodType, TimeResolution
+    from wetterdienst import get_nearby_stations, DWDStationRequest
+    from wetterdienst import Parameter, PeriodType, TimeResolution
 
     stations = get_nearby_stations(
         50.0, 8.9,
@@ -145,14 +115,16 @@ Geospatial support
         num_stations_nearby=1
     )
 
-The function returns a meta data DataFrame, where we can find
-weather station ids and distances to get the observation data:
+The function returns a DataFrame with the list of stations with distances [in km]
+to the given coordinates.
+
+The station ids within the DataFrame:
 
 .. code-block:: python
 
     station_ids = stations.STATION_ID.unique()
 
-Use these station ids to retrieve weather information:
+can be used to download the observation data:
 
 .. code-block:: python
 
@@ -174,7 +146,7 @@ Use these station ids to retrieve weather information:
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
 
-Check out the more advanced examples in the
+Please also check out more advanced examples in the
 `example <https://github.com/earthobservations/wetterdienst/tree/master/example>`_
 folder on Github.
 

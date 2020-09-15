@@ -1,6 +1,7 @@
 ######################
 Command line interface
 ######################
+
 ::
 
     $ wetterdienst --help

@@ -60,10 +60,10 @@ class _DWDDataColumnBase(metaclass=_GetAttrMeta):
 class DWDOrigDataColumns(_DWDDataColumnBase):
     """
     Original data column names from DWD data
-    - two anomalies:
-        - daily/kl -> QN_3, QN_4
-        - monthly/kl -> QN_4, QN_6
-        - annual/kl -> QN_4, QN_6
+    Two anomalies:
+    - daily/kl -> QN_3, QN_4
+    - monthly/kl -> QN_4, QN_6
+    - annual/kl -> QN_4, QN_6
     """
 
     # 1_minute
@@ -415,10 +415,11 @@ class DWDOrigDataColumns(_DWDDataColumnBase):
 class DWDDataColumns(_DWDDataColumnBase):
     """
     Original data column names from DWD data
-    - two anomalies:
-        - daily/kl -> QN_3, QN_4
-        - monthly/kl -> QN_4, QN_6
-        - annual/kl -> QN_4, QN_6
+
+    Two anomalies:
+    - daily/kl -> QN_3, QN_4
+    - monthly/kl -> QN_4, QN_6
+    - annual/kl -> QN_4, QN_6
     """
 
     # 1_minute

@@ -28,15 +28,20 @@ def store_climate_observations(
     DataFrame plus additionally the request parameters to identify data within the
     hdf file and another folder argument for the place where the file is stored.
 
-    Args:
-        station_data: the pandas DataFrame with the obtained data
-        station_id: the id of the station of which the data is stored in the DataFrame
-        parameter: the parameter enumeration
-        time_resolution: the time resolution enumeration
-        period_type: the period type as enumeration
-        folder: the folder where the hdf is stored
-    Returns:
-        None, prints information if data was not stored
+    :param station_data:            The pandas DataFrame with the obtained data
+    :type station_data:             pandas.DataFrame
+    :param station_id:              The station id of the station to store
+    :type station_id:               int
+    :param parameter:               Observation measure
+    :type parameter:                Parameter
+    :param time_resolution:         Frequency/granularity of measurement interval
+    :type time_resolution:          TimeResolution
+    :param period_type:             Recent or historical files
+    :type period_type:              PeriodType
+    :param folder:                  The folder where the hdf is stored
+    :type folder:                   str
+
+    :return: None, prints information if data was not stored
     """
     # Make sure that there is data that can be stored
     if station_data.empty:
@@ -64,16 +69,19 @@ def restore_climate_observations(
     Function to restore data from a local hdf file based on the place (folder) where
     the file is stored and parameters that define the request in particular.
 
-    Args:
-        station_id: the station id of which data should be restored
-        parameter: parameter as enumeration
-        time_resolution: time resolution as enumeration
-        period_type: period type as enumeration
-        folder: folder where the hdf file should be found as string
+    :param station_id:              Station id of which data should be restored
+    :type station_id:               int
+    :param parameter:               Observation measure
+    :type parameter:                Parameter
+    :param time_resolution:         Frequency/granularity of measurement interval
+    :type time_resolution:          TimeResolution
+    :param period_type:             Recent or historical files
+    :type period_type:              PeriodType
+    :param folder:                  The folder where the hdf is stored
+    :type folder:                   str
 
-    Returns:
-        a DataFrame holding the data or an empty DataFrame depending on if data
-        could be restored
+    :return: All the data
+    :rtype: pandas.DataFrame
     """
     request_string = _build_local_store_key(
         station_id, parameter, time_resolution, period_type
@@ -103,14 +111,17 @@ def _build_local_store_key(
     Function that builds a request string from defined parameters including a single
     station id
 
-    Args:
-        station_id: station id of data
-        parameter: parameter as enumeration
-        time_resolution: time resolution as enumeration
-        period_type: period type as enumeration
+    :param station_id:              Station id of data
+    :type station_id:               int
+    :param parameter:               Observation measure
+    :type parameter:                Parameter
+    :param time_resolution:         Frequency/granularity of measurement interval
+    :type time_resolution:          TimeResolution
+    :param period_type:             Recent or historical files
+    :type period_type:              PeriodType
 
-    Returns:
-        a string building a key that is used to identify the request
+    :return: A string building a key that is used to identify the request
+    :rtype:  str
     """
     request_string = (
         f"{parameter.value}/{time_resolution.value}/"

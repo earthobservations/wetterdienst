@@ -1,4 +1,5 @@
-License And Citation
+####################
+License and citation
 ####################
 
 .. include:: ../../LICENSE.rst

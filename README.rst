@@ -1,6 +1,6 @@
-#################################################################
-Wetterdienst - Python library to ease access to open weather data
-#################################################################
+###########################################
+Wetterdienst - Open weather data for humans
+###########################################
 
 .. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
@@ -27,14 +27,23 @@ Wetterdienst - Python library to ease access to open weather data
    :target: https://zenodo.org/badge/latestdoi/160953150
 
 
-Welcome to Wetterdienst, your friendly weather service library for Python from the
-neighbourhood! We are a group of people who try to make access to weather data in
-Python feel like a warm summer breeze, similar to other projects like
-`rdwd <https://github.com/brry/rdwd>`_
-for the R language, which originally drew our interest in this project.
+Introduction
+************
+Welcome to Wetterdienst, your friendly weather service library for Python.
 
-While our long-term goal is to provide you with data from multiple weather services,
-we are still stuck with the German Weather Service (DWD).
+We are a group of like-minded people trying to make access to weather data in
+Python feel like a warm summer breeze, similar to other projects like
+rdwd_ for the R language, which originally drew our interest in this project.
+
+While our long-term goal is to provide access to multiple weather services,
+we are still stuck with the German Weather Service (DWD). Contributions are
+always welcome!
+
+This program and its repository tries to use modern Python technologies
+all over the place. The library is based on Pandas across the board,
+uses Poetry for package administration and GitHub actions for
+all things CI.
+
 
 Features
 ********
@@ -50,7 +59,6 @@ The library currently covers
 To get better insight on which data we have currently made available, with this library
 take a look at `data coverage`_.
 
-.. _data coverage: https://wetterdienst.readthedocs.io/en/latest/pages/data_coverage.html
 
 Details
 =======
@@ -115,31 +123,17 @@ documentation, which will be constantly updated. To stay up to date with the
 development, take a look at the changelog_. Also, don't miss out our examples_.
 
 
-.. _Wetterdienst API: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
-.. _changelog: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
-.. _examples: https://github.com/earthobservations/wetterdienst/tree/master/example
-
-
-Contribution
-************
-Check out our contribution section in the documentation! For a successful PR passing
-all tests, you have to run
-
-.. code-block:: bash
-
-    nox -s tests
-    nox -s black
-    nox -s lint
-
-before committing. This will inform you in case of problems with tests and your code
-format.
-
-
 Data license
 ************
-**CAUTION**
 Although the data is specified as being open, the DWD asks you to reference them as
-Copyright owner. To check out further, take a look at the
-`Open Data Strategy at the DWD <https://www.dwd.de/EN/ourservices/opendata/opendata.html>`_
-and the
-`Official Copyright <https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548>`_.
+copyright owner. Please take a look at the `Open Data Strategy at the DWD`_ and the
+`Official Copyright`_ statements before using the data.
+
+
+.. _rdwd: https://github.com/brry/rdwd>
+.. _Wetterdienst API: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
+.. _data coverage: https://wetterdienst.readthedocs.io/en/latest/pages/data_coverage.html
+.. _changelog: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
+.. _examples: https://github.com/earthobservations/wetterdienst/tree/master/example
+.. _Open Data Strategy at the DWD: https://www.dwd.de/EN/ourservices/opendata/opendata.html
+.. _Official Copyright: https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548
