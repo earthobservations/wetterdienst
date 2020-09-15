@@ -56,6 +56,7 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.autosectionlabel",
     "sphinx_rtd_theme",
+    "sphinxcontrib.rsvgconverter",
     "sphinx.ext.imgconverter",
 ]
 

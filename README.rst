@@ -9,8 +9,6 @@ Wetterdienst - Open weather data for humans
 .. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
    :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
-.. image:: https://img.shields.io/badge/code\\%20style-black-000000.svg
-   :target: https://github.com/psf/black
 
 .. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
