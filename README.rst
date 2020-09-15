@@ -2,26 +2,30 @@
 Wetterdienst - Open weather data for humans
 ###########################################
 
-.. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
-   :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
-.. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/earthobservations/wetterdienst
-.. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
-   :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
+.. only:: html
 
-.. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
-   :target: https://pypi.python.org/pypi/wetterdienst/
-.. image:: https://img.shields.io/pypi/v/wetterdienst.svg
-   :target: https://pypi.org/project/wetterdienst/
-.. image:: https://img.shields.io/pypi/status/wetterdienst.svg
-   :target: https://pypi.python.org/pypi/wetterdienst/
-.. image:: https://pepy.tech/badge/wetterdienst/month
-   :target: https://pepy.tech/project/wetterdienst/month
-.. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
-   :target: https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.rst
-.. image:: https://zenodo.org/badge/160953150.svg
-   :target: https://zenodo.org/badge/latestdoi/160953150
+    .. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
+       :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
+    .. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg
+       :target: https://codecov.io/gh/earthobservations/wetterdienst
+    .. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
+       :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
+       :alt: Documentation Status
+    .. image:: https://img.shields.io/badge/code\\%20style-black-000000.svg
+       :target: https://github.com/psf/black
+
+    .. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
+       :target: https://pypi.python.org/pypi/wetterdienst/
+    .. image:: https://img.shields.io/pypi/v/wetterdienst.svg
+       :target: https://pypi.org/project/wetterdienst/
+    .. image:: https://img.shields.io/pypi/status/wetterdienst.svg
+       :target: https://pypi.python.org/pypi/wetterdienst/
+    .. image:: https://pepy.tech/badge/wetterdienst/month
+       :target: https://pepy.tech/project/wetterdienst/month
+    .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
+       :target: https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.rst
+    .. image:: https://zenodo.org/badge/160953150.svg
+       :target: https://zenodo.org/badge/latestdoi/160953150
 
 
 Introduction
