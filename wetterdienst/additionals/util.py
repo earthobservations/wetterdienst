@@ -20,7 +20,8 @@ def normalize_options(options: dict) -> Munch:
     for key, value in options.items():
 
         # Add primary variant.
-        key = key.replace("--<>", "")
+        chars = "--<>"
+        key = key.strip(chars)
         normalized[key] = value
 
         # Add secondary variant.

@@ -11,7 +11,7 @@ from nox.sessions import Session
 @nox.session(python=["3.6", "3.7", "3.8"])
 def tests(session):
     """Run tests."""
-    session.run("poetry", "install", "--no-dev", external=True)
+    session.run("poetry", "install", "--no-dev", "--extras=excel", external=True)
     install_with_constraints(session, "pytest", "pytest-notebook", "matplotlib", "mock")
     session.run("pytest")
 
@@ -19,7 +19,7 @@ def tests(session):
 @nox.session(python=["3.7"])
 def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
-    session.run("poetry", "install", "--no-dev", external=True)
+    session.run("poetry", "install", "--no-dev", "--extras=excel", external=True)
     install_with_constraints(
         session,
         "coverage[toml]",

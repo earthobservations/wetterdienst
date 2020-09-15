@@ -58,9 +58,7 @@ def get_nearby_stations(
         DataFrames with valid Stations in radius per requested location
 
     """
-    if (num_stations_nearby and max_distance_in_km) and (
-        num_stations_nearby and max_distance_in_km
-    ):
+    if num_stations_nearby and max_distance_in_km:
         raise ValueError("Either set 'num_stations_nearby' or 'max_distance_in_km'.")
 
     if num_stations_nearby == 0:
