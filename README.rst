@@ -64,13 +64,15 @@ Details
 - Get metadata for a set of Parameter, PeriodType and TimeResolution.
 - Get station(s) nearby a selected location for a given set.
 - Store/recover collected data.
-- Docker image to run the library dockerized.
-- Client to run the library from command line.
+- Command line interface.
+- Run SQL queries on the results.
+- Export results to databases and other data sinks.
+- Public Docker image on ghcr.io.
 
 
 Setup
 *****
-Run the following to make ``wetterdienst`` available in your current environment:
+Run this to make ``wetterdienst`` available in your current environment:
 
 .. code-block:: bash
 
@@ -115,7 +117,7 @@ Documentation
 We strongly recommend reading the full documentation, which will be updated continuously
 as we make progress with this library:
 
-    - https://wetterdienst.readthedocs.io/
+- https://wetterdienst.readthedocs.io/
 
 For the whole functionality, check out the `Wetterdienst API`_ section of our
 documentation, which will be constantly updated. To stay up to date with the
@@ -132,7 +134,7 @@ copyright owner. Please take a look at the `Open Data Strategy at the DWD`_ and 
 .. _rdwd: https://github.com/brry/rdwd
 .. _Wetterdienst API: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
 .. _data coverage: https://wetterdienst.readthedocs.io/en/latest/pages/data_coverage.html
-.. _changelog: https://wetterdienst.readthedocs.io/en/latest/pages/api.html
+.. _changelog: https://wetterdienst.readthedocs.io/en/latest/pages/changelog.html
 .. _examples: https://github.com/earthobservations/wetterdienst/tree/master/example
 .. _Open Data Strategy at the DWD: https://www.dwd.de/EN/ourservices/opendata/opendata.html
 .. _Official Copyright: https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548

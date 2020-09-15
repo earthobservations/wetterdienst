@@ -16,13 +16,27 @@ PyPI
 
 .. code-block:: bash
 
-  pip install wetterdienst
+    pip install wetterdienst
 
 GitHub
 
 .. code-block:: bash
 
-  pip install git+https://github.com/earthobservations/wetterdienst
+    pip install git+https://github.com/earthobservations/wetterdienst
+
+There are some extras available for ``wetterdienst``. Use them like::
+
+    pip install wetterdienst[sql]
+
+- ipython: Install iPython stack.
+- excel: Install openpyxl for Excel export.
+- docs: Install the Sphinx documentation generator.
+- sql: Install DuckDB for querying data using SQL.
+- duckdb: Install support for DuckDB.
+- influxdb: Install support for InfluxDB.
+- cratedb: Install support for CrateDB.
+- mysql: Install support for MySQL.
+- postgresql: Install support for PostgreSQL.
 
 In order to check the installation, invoke::
 

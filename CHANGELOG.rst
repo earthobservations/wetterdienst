@@ -6,6 +6,8 @@ Development
 
 - Add TTL-based persistent caching using dogpile.cache
 - Add ``example/radolan.py`` and adjust documentation
+- Export dataframe to different data sinks like SQLite, DuckDB, InfluxDB and CrateDB
+- Query results with SQL, based on in-memory DuckDB
 
 0.7.0 (16.09.2020)
 ==================

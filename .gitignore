@@ -10,3 +10,4 @@ htmlcov
 .nox/
 .pytest_cache/
 docs/_build/
+dist/

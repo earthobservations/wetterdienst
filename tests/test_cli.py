@@ -56,6 +56,18 @@ def test_cli_about_periods(capsys):
     assert "now" in response
 
 
+def test_cli_about_coverage(capsys):
+
+    sys.argv = ["wetterdienst", "about", "coverage"]
+    cli.run()
+    stdout, stderr = capsys.readouterr()
+
+    response = stdout
+    assert "TimeResolution.ANNUAL" in response
+    assert "Parameter.CLIMATE_SUMMARY" in response
+    assert "PeriodType.HISTORICAL" in response
+
+
 def invoke_wetterdienst_stations(format="json"):
     argv = shlex.split(
         f"wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --format={format}"  # noqa:E501,B950

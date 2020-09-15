@@ -54,7 +54,7 @@ This will inform you in case of problems with tests and your code format.
 
 In order to run the tests more **quickly**::
 
-    poetry install --extras=excel
+    poetry install --extras=sql --extras=excel
     poetry shell
     pytest -vvvv -m "not (remote or slow)"
 
