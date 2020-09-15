@@ -90,7 +90,13 @@ todo_include_todos = True
 # This value contains a list of modules to be mocked up. This is useful when
 # some external dependencies are not met at build time and break the building process.
 # https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#confval-autodoc_mock_imports
-autodoc_mock_imports = ["pandas"]
+autodoc_mock_imports = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "dateutil",
+    "dateparser",
+]
 
 # Use docstring from both class-level and __init__ when documenting a class.
 autoclass_content = "both"
