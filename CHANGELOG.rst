@@ -8,6 +8,7 @@ Development
 - Add function to discover available climate observations
   (time resolution, parameter, period type)
 - Make the CLI work again and add software tests to prevent future havocs
+- Use Sphinx Material theme for documentation
 
 0.6.0 (07.09.2020)
 ==================
