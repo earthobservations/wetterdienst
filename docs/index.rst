@@ -16,9 +16,20 @@ About
    Introduction <pages/welcome>
    pages/installation
    pages/data_coverage
+   pages/license_and_citation
+
+
+*****
+Usage
+*****
+.. toctree::
+   :maxdepth: 1
+
    API overview <pages/api>
    pages/cli
-   pages/license_and_citation
+   pages/library/index
+   pages/behind_the_scenes
+
 
 ********
 Plumbing
@@ -26,7 +37,5 @@ Plumbing
 .. toctree::
    :maxdepth: 1
 
-   pages/library/index
-   pages/behind_the_scenes
    pages/development
    pages/changelog

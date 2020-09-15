@@ -7,11 +7,9 @@ Module library
 * :ref:`modindex`
 
 
-**********
-Subsystems
-**********
 .. toctree::
     :maxdepth: 1
+    :caption: Subsystems
 
     api
     machinery
