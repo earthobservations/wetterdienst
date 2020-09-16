@@ -47,7 +47,7 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[
         Parameter.PRECIPITATION: [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.PRESSURE: [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.TEMPERATURE_SOIL: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        Parameter.SOLAR: [PeriodType.RECENT],
+        Parameter.SOLAR: [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.SUNSHINE_DURATION: [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.VISIBILITY: [PeriodType.HISTORICAL, PeriodType.RECENT],
         Parameter.WIND: [PeriodType.HISTORICAL, PeriodType.RECENT],
