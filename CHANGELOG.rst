@@ -4,7 +4,7 @@ Changelog
 Development
 ===========
 
-...
+- Add TTL-based persistent caching using dogpile.cache
 
 0.7.0 (16.09.2020)
 ==================

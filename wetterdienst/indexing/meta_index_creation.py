@@ -4,12 +4,12 @@ from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Tuple, List
 from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
 import datetime as dt
 
 import pandas as pd
 from requests.exceptions import InvalidURL
 
+from wetterdienst.additionals.cache import metaindex_cache
 from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.constants.column_name_mapping import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
@@ -60,7 +60,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 ]
 
 
-@lru_cache(maxsize=None)
+@metaindex_cache.cache_on_arguments()
 def create_meta_index_for_climate_observations(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
@@ -340,4 +340,4 @@ def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
 
 def reset_meta_index_cache() -> None:
     """ Function to reset cache of meta index """
-    create_meta_index_for_climate_observations.cache_clear()
+    metaindex_cache.invalidate()
