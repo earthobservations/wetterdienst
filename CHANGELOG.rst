@@ -4,7 +4,7 @@ Changelog
 Development
 ===========
 
-...
+- Add ``example/radolan.py`` and adjust documentation
 
 0.7.0 (16.09.2020)
 ==================
