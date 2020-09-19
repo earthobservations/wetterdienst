@@ -130,6 +130,9 @@ def store_radolan_data(
     with filepath.open("wb") as f:
         f.write(file.read())
 
+    # When the file has been written, reset seek pointer.
+    file.seek(0)
+
 
 def restore_radolan_data(
     date_time: datetime, time_resolution: TimeResolution, folder: Union[str, Path]
