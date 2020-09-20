@@ -3,7 +3,7 @@
 name: Docker Test
 on:
   push:
-    branches: [ master, test-docker ]
+    #branches: [ master, test-docker ]
   pull_request:
     branches: [ master ]
 jobs:
