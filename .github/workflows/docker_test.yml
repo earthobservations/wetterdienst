@@ -1,0 +1,18 @@
+# https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
+# https://docs.github.com/en/actions/creating-actions/dockerfile-support-for-github-actions
+name: Docker Test
+on:
+  push:
+    branches: [ master, test-docker ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  test_docker:
+    name: Test Docker image
+    runs-on: ubuntu-latest
+    steps:
+    - name: Invoke
+      id: invoke
+      uses: earthobservations/test-wetterdienst-docker@main
+    - name: Display runtime
+      run: echo "The time was ${{ steps.invoke.outputs.time }}"
