@@ -160,11 +160,36 @@ Yet to be implemented...
 RADOLAN
 *******
 
-A request for RADOLAN data can be made either with DWDRadolanRequest or can be directly
-collected with collect_radolan_data.
+To use ``DWDRadolanRequest``, you have to provide a time resolution (either hourly or daily)
+and ``date_times`` (list of datetimes or strings) or a start date and end date. Datetimes
+are rounded to HH:50min as the data is packaged for this minute step. Additionally,
+you can provide a folder to store/restore RADOLAN data to/from the local filesystem.
 
-To use DWDRadolanRequest, you have to provide a time resolution (either hourly or daily)
-and date_times (list of datetimes or strings) or a start date and end date. Datetimes
-are rounded to HH:50min as the data is packaged for this minute step. Additionally
-you can provide a folder and if to use local RADOLAN (to read in stored data) and if
-to write the file to a folder.
+This is a short snippet which should give you an idea
+how to use ``DWDRadolanRequest`` together with ``wradlib``.
+For a more thorough example, please have a look at `example/radolan.py`_.
+
+.. code-block:: python
+
+    from wetterdienst import DWDRadolanRequest, TimeResolution
+    import wradlib as wrl
+
+    radolan = DWDRadolanRequest(
+        TimeResolution.DAILY,
+        start_date="2020-09-04T12:00:00",
+        end_date="2020-09-04T12:00:00"
+    )
+
+    for item in radolan.collect_data():
+
+        # Decode item.
+        timestamp, buffer = item
+
+        # Decode data using wradlib.
+        data, attributes = wrl.io.read_radolan_composite(buffer)
+
+        # Do something with the data (numpy.ndarray) here.
+
+
+.. _wradlib: https://wradlib.org/
+.. _example/radolan.py: https://github.com/earthobservations/wetterdienst/blob/master/example/radolan.py
