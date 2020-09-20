@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
-          if [ -f .github/release/standard.test.yml]; then
+          if [[ -f .github/release/standard.test.yml ]]; then
             docker-compose --file .github/release/standard.test.yml build
             docker-compose --file .github/release/standard.test.yml run sut
           fi
