@@ -1,4 +1,5 @@
-FROM python:3.8.5-slim
+# 1. Build GDAL-python
+FROM python:3.8.5-slim as build-step
 
 # TODO: This currently installs GDAL==2.4.0. For a more recent version, ...
 #
@@ -23,6 +24,17 @@ RUN pip install GDAL==$(gdal-config --version)
 
 # Install wradlib.
 RUN pip install wradlib
+
+
+# 2. Main
+FROM python:3.8.5-slim
+
+# Install libgdal.
+RUN apt-get update
+RUN apt-get --yes install libgdal20
+
+# Copy build artefacts from first build step.
+COPY --from=build-step /usr/local/lib /usr/local/lib
 
 # Install Wetterdienst.
 RUN pip install wetterdienst[excel]
