@@ -84,14 +84,30 @@ appdirs = "^1.4.4"
 importlib_metadata = {version = "1.7.0", python = "<3.8"}
 
 # Optional dependencies aka. "extras"
-ipython          = { version = "^7.10.1", optional = true }
-ipython-genutils = { version = "^0.2.0", optional = true }
-matplotlib       = { version = "^3.0.3", optional = true }
-openpyxl         = { version = "^3.0.5", optional = true }
+ipython                         = { version = "^7.10.1", optional = true }
+ipython-genutils                = { version = "^0.2.0", optional = true }
+matplotlib                      = { version = "^3.0.3", optional = true }
+openpyxl                        = { version = "^3.0.5", optional = true }
+
+sphinx                          = { version = "^3.2.1", optional = true }
+sphinx-material                 = { version = "^0.0.30", optional = true }
+sphinx-autodoc-typehints        = { version = "1.11.0", optional = true }
+sphinxcontrib-svg2pdfconverter  = { version = "1.1.0", optional = true }
+tomlkit                         = { version = "0.7.0", optional = true }
+
 
 [tool.poetry.extras]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 excel = ["openpyxl"]
+docs = [
+    "sphinx",
+    "sphinx-material",
+    "tomlkit",
+    "sphinx-autodoc-typehints",
+    "sphinxcontrib-svg2pdfconverter",
+    "matplotlib",
+    "ipython"
+]
 
 [tool.poetry.dev-dependencies]
 nox = "^2020.8.22"
@@ -106,9 +122,6 @@ pytest-cov = "^2.10.1"
 pytest-notebook = "^0.6.0"
 nbconvert = ">=5.0, <6.0"
 mock = "^4.0"
-sphinx = "^3.2.1"
-sphinx-rtd-theme = "^0.5.0"
-sphinx-material = "^0.0.30"
 pygments = "^2.7.0"
 
 [tool.poetry.scripts]

@@ -16,6 +16,8 @@
 import os
 import sys
 import tomlkit
+import sphinx_material
+
 sys.path.insert(0, os.path.abspath('..'))
 
 
@@ -51,13 +53,12 @@ master_doc = 'index'
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx_autodoc_typehints",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.autosectionlabel",
-    "sphinx_rtd_theme",
-    "sphinxcontrib.rsvgconverter",
     "sphinx.ext.imgconverter",
+    "sphinxcontrib.rsvgconverter",
+    "sphinx_autodoc_typehints",
     #"matplotlib.sphinxext.only_directives",
     "matplotlib.sphinxext.plot_directive",
     "IPython.sphinxext.ipython_directive",
@@ -78,7 +79,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+# html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -97,20 +98,19 @@ todo_include_todos = True
 # This value contains a list of modules to be mocked up. This is useful when
 # some external dependencies are not met at build time and break the building process.
 # https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#confval-autodoc_mock_imports
-autodoc_mock_imports = [
-    "pandas",
-    "numpy",
-    "scipy",
-    "dateutil",
-    "dateparser",
-]
+# autodoc_mock_imports = [
+#     "pandas",
+#     "numpy",
+#     "scipy",
+#     "dateutil",
+#     "dateparser",
+# ]
 
 # Use docstring from both class-level and __init__ when documenting a class.
 autoclass_content = "both"
 
 
 # -- Material options -------------------------------------------
-import sphinx_material
 
 html_show_sourcelink = True
 html_sidebars = {
