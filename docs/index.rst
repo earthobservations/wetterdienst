@@ -26,6 +26,7 @@ Usage
    :maxdepth: 1
 
    API overview <pages/api>
+   pages/tutorial
    pages/cli
    pages/library/index
    pages/behind_the_scenes

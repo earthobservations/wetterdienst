@@ -6,6 +6,7 @@ from typing import Union, Callable, Optional
 import json
 
 import pandas as pd
+from numpy.distutils.misc_util import as_list
 
 from wetterdienst.constants.parameter_mapping import TIME_RESOLUTION_PARAMETER_MAPPING
 from wetterdienst.constants.time_resolution_mapping import (
@@ -339,6 +340,12 @@ def create_humanized_column_names_mapping(
     return column_name_mapping
 
 
+def parse_enumeration(template, values):
+    return list(
+        map(lambda x: parse_enumeration_from_template(x, template), as_list(values))
+    )
+
+
 def discover_climate_observations(
     time_resolution: Optional[TimeResolution] = None,
     parameter: Optional[Parameter] = None,
@@ -354,6 +361,7 @@ def discover_climate_observations(
 
     :return:                        Result of available combinations in JSON.
     """
+
     if not time_resolution:
         time_resolution = [*TimeResolution]
     if not parameter:
@@ -361,24 +369,18 @@ def discover_climate_observations(
     if not period_type:
         period_type = [*PeriodType]
 
-    time_resolution = pd.Series(time_resolution).apply(
-        parse_enumeration_from_template, args=(TimeResolution,)
-    )
-    parameter = pd.Series(parameter).apply(
-        parse_enumeration_from_template, args=(Parameter,)
-    )
-    period_type = pd.Series(period_type).apply(
-        parse_enumeration_from_template, args=(PeriodType,)
-    )
+    time_resolution = parse_enumeration(TimeResolution, time_resolution)
+    parameter = parse_enumeration(Parameter, parameter)
+    period_type = parse_enumeration(PeriodType, period_type)
 
     trp_mapping_filtered = {
         ts: {
-            par: [p for p in pt if p in period_type.values]
+            par: [p for p in pt if p in period_type]
             for par, pt in parameters_and_period_types.items()
-            if par in parameter.values
+            if par in parameter
         }
         for ts, parameters_and_period_types in TIME_RESOLUTION_PARAMETER_MAPPING.items()
-        if ts in time_resolution.values
+        if ts in time_resolution
     }
 
     time_resolution_parameter_mapping = {
