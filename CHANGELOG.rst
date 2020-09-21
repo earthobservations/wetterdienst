@@ -4,6 +4,7 @@ Changelog
 Development
 ===========
 
+- Add TTL-based persistent caching using dogpile.cache
 - Add ``example/radolan.py`` and adjust documentation
 
 0.7.0 (16.09.2020)

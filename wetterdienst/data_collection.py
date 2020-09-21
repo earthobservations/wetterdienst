@@ -125,7 +125,7 @@ def collect_climate_observations_data(
 
                 continue
 
-        log.info(f"Data for {request_string} will be collected from internet.")
+        log.info(f"Acquiring observations data for {request_string}")
 
         remote_files = create_file_list_for_climate_observations(
             [station_id], parameter, time_resolution, period_type
@@ -273,9 +273,7 @@ def collect_radolan_data(
 
                 continue
             except FileNotFoundError:
-                log.info(
-                    f"RADOLAN data for {str(date_time)} will be collected from internet"
-                )
+                log.info(f"Acquiring RADOLAN data for {str(date_time)}")
 
         remote_radolan_file_path = create_filepath_for_radolan(
             date_time, time_resolution

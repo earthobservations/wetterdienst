@@ -9,10 +9,10 @@ from zipfile import ZipFile, BadZipFile
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from functools import lru_cache
 
 from requests.exceptions import InvalidURL
 
+from wetterdienst.additionals.cache import payload_cache_one_hour
 from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.download.download_services import download_file_from_dwd
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
@@ -32,16 +32,12 @@ def download_climate_observations_data_parallel(
     """
 
     with ThreadPoolExecutor() as executor:
-        files_in_bytes = executor.map(
-            _download_climate_observations_data_parallel, remote_files
-        )
+        files_in_bytes = executor.map(_download_climate_observations_data, remote_files)
 
     return list(zip(remote_files, files_in_bytes))
 
 
-def _download_climate_observations_data_parallel(
-    remote_file: Union[str, Path]
-) -> BytesIO:
+def _download_climate_observations_data(remote_file: Union[str, Path]) -> BytesIO:
     """
     This function downloads the station data for which the link is
     provided by the 'select_dwd' function. It checks the shortened filepath (just
@@ -56,6 +52,11 @@ def _download_climate_observations_data_parallel(
         stores data on local file system
 
     """
+    return BytesIO(__download_climate_observations_data(remote_file=remote_file))
+
+
+@payload_cache_one_hour.cache_on_arguments()
+def __download_climate_observations_data(remote_file: Union[str, Path]) -> bytes:
     try:
         zip_file = download_file_from_dwd(remote_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
     except InvalidURL as e:
@@ -74,7 +75,7 @@ def _download_climate_observations_data_parallel(
         for file in archive_files:
             # If found file load file in bytes, close zipfile and return bytes
             if file.startswith(PRODUCT_FILE_IDENTIFIER):
-                file_in_bytes = BytesIO(zip_file_opened.open(file).read())
+                file_in_bytes = zip_file_opened.open(file).read()
 
                 zip_file_opened.close()
 
@@ -113,7 +114,7 @@ def download_radolan_data(
     return _extract_radolan_data(date_time, archive_in_bytes)
 
 
-@lru_cache(maxsize=750)
+@payload_cache_one_hour.cache_on_arguments()
 def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     """
     Function (cached) that downloads the RADOLAN file
