@@ -102,7 +102,6 @@ excel = ["openpyxl"]
 docs = [
     "sphinx",
     "sphinx-material",
-    "importlib_metadata",
     "tomlkit",
     "sphinx-autodoc-typehints",
     "sphinxcontrib-svg2pdfconverter",
