@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import sys
-import json
 import logging
 from datetime import datetime, timedelta
 
@@ -14,14 +13,12 @@ from wetterdienst import (
     get_nearby_stations,
     discover_climate_observations,
 )
-from wetterdienst.additionals.geo_location import stations_to_geojson
-from wetterdienst.additionals.time_handling import mktimerange, parse_datetime
 from wetterdienst.additionals.util import normalize_options, setup_logging, read_list
 from wetterdienst.api import DWDStationRequest
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
+from wetterdienst.io import DataPackage
 
 log = logging.getLogger(__name__)
 
@@ -29,9 +26,9 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=] [--latitude=] [--longitude=] [--number=] [--distance=] [--persist] [--format=<format>]
-      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--format=<format>]
-      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--number=] [--distance=] [--persist] [--date=<date>] [--format=<format>]
+      wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=] [--latitude=] [--longitude=] [--number=] [--distance=] [--persist] [--sql=] [--format=<format>]
+      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--sql=] [--format=<format>] [--target=<target>]
+      wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--number=] [--distance=] [--persist] [--date=<date>] [--sql=] [--format=<format>] [--target=<target>]
       wetterdienst about [parameters] [resolutions] [periods]
       wetterdienst about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst --version
@@ -49,7 +46,9 @@ def run():
       --persist                     Save and restore data to filesystem w/o going to the network
       --date=<date>                 Date for filtering data. Can be either a single date(time) or
                                     an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
+      --sql=<sql>                   SQL query to apply to DataFrame.
       --format=<format>             Output format. [Default: json]
+      --target=<target>             Output target for storing data into different data sinks.
       --version                     Show version information
       --debug                       Enable debug messages
       -h --help                     Show this screen
@@ -111,7 +110,21 @@ def run():
       wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
       wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25 --date=2020-06-30
 
-    Examples for inquring metadata:
+    Examples using SQL filtering:
+
+      # Find stations by state.
+      wetterdienst stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
+
+      # Find stations by name (LIKE query).
+      wetterdienst stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
+
+      # Find stations by name (regexp query).
+      wetterdienst stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
+
+      # Filter measurements: Display daily climate observation readings where the maximum temperature is below two degrees.
+      wetterdienst readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 2.0;"
+
+    Examples for inquiring metadata:
 
       # Display list of available parameters (air_temperature, precipitation, pressure, ...)
       wetterdienst about parameters
@@ -132,6 +145,20 @@ def run():
       # Tell me all parameters available for 'daily' resolution.
       wetterdienst about coverage --resolution=daily
 
+    Examples for exporting data to databases:
+
+      # Shortcut command for fetching readings from DWD
+      alias fetch="wetterdienst readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+
+      # Store readings to DuckDB
+      fetch --target="duckdb://database=dwd.duckdb&table=weather"
+
+      # Store readings to InfluxDB
+      fetch --target="influxdb://localhost/?database=dwd&table=weather"
+
+      # Store readings to CrateDB
+      fetch --target="crate://localhost/?database=dwd&table=weather"
+
     """
 
     # Read command line options.
@@ -150,6 +177,11 @@ def run():
         about(options)
         return
 
+    # Sanity checks.
+    if options.readings and options.format == "geojson":
+        raise KeyError("GeoJSON format only available for stations output")
+
+    # Acquire station list.
     if options.stations:
         df = metadata_for_climate_observations(
             parameter=options.parameter,
@@ -168,11 +200,16 @@ def run():
             log.error("No data available for given constraints")
             sys.exit(1)
 
+        data = DataPackage(df=df)
+
+    # Acquire observations.
     elif options.readings:
 
+        # Use list of station identifiers.
         if options.station:
             station_ids = read_list(options.station)
 
+        # Use coordinates for a nearby search to determine list of stations.
         elif options.latitude and options.longitude:
             df = get_nearby(options)
             station_ids = df.STATION_ID.unique()
@@ -180,6 +217,7 @@ def run():
         else:
             raise KeyError("Either --station or --lat, --lon required")
 
+        # Funnel all parameters to the workhorse.
         request = DWDStationRequest(
             station_ids=station_ids,
             parameter=read_list(options.parameter),
@@ -190,86 +228,41 @@ def run():
             humanize_column_names=True,
             tidy_data=True,
         )
-        data = list(request.collect_data())
 
-        if not data:
-            log.error("No data available for given constraints")
+        # Collect data and merge together.
+        data = DataPackage()
+        try:
+            data.collect(request)
+
+        except ValueError as ex:
+            log.error(ex)
             sys.exit(1)
 
-        df = pd.concat(data)
-
-    if options.readings:
-
-        if options.date:
-
-            # Filter by time interval.
-            if "/" in options.date:
-                date_from, date_to = options.date.split("/")
-                date_from = parse_datetime(date_from)
-                date_to = parse_datetime(date_to)
-                if request.time_resolution in (
-                    TimeResolution.ANNUAL,
-                    TimeResolution.MONTHLY,
-                ):
-                    date_from, date_to = mktimerange(
-                        request.time_resolution, date_from, date_to
-                    )
-                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (
-                        df[DWDMetaColumns.TO_DATE.value] <= date_to
-                    )
-                else:
-                    expression = (date_from <= df[DWDMetaColumns.DATE.value]) & (
-                        df[DWDMetaColumns.DATE.value] <= date_to
-                    )
-                df = df[expression]
-
-            # Filter by date.
-            else:
-                date = parse_datetime(options.date)
-                if request.time_resolution in (
-                    TimeResolution.ANNUAL,
-                    TimeResolution.MONTHLY,
-                ):
-                    date_from, date_to = mktimerange(request.time_resolution, date)
-                    expression = (date_from <= df[DWDMetaColumns.FROM_DATE.value]) & (
-                        df[DWDMetaColumns.TO_DATE.value] <= date_to
-                    )
-                else:
-                    expression = date == df[DWDMetaColumns.DATE.value]
-                df = df[expression]
+    # Filter readings by datetime expression.
+    if options.readings and options.date:
+        data.filter_by_date(options.date, request.time_resolution)
 
     # Make column names lowercase.
-    df = df.rename(columns=str.lower)
-    for attribute in DWDMetaColumns.PARAMETER, DWDMetaColumns.ELEMENT:
-        attribute_name = attribute.value.lower()
-        if attribute_name in df:
-            df[attribute_name] = df[attribute_name].str.lower()
+    data.lowercase_fieldnames()
 
-    # Output as JSON.
-    if options.format == "json":
-        output = df.to_json(orient="records", date_format="iso", indent=4)
+    # Apply filtering by SQL.
+    if options.sql:
+        log.info(f"Filtering with SQL: {options.sql}")
+        data.filter_by_sql(options.sql)
 
-    # Output as GeoJSON.
-    elif options.format == "geojson":
-        if options.readings:
-            raise KeyError("GeoJSON format only available for stations output")
-        output = json.dumps(stations_to_geojson(df), indent=4)
-
-    # Output as CSV.
-    elif options.format == "csv":
-        output = df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
-
-    # Output as XLSX.
-    # FIXME: Make --format=excel write to a designated file.
-    elif options.format == "excel":
-        # TODO: Obtain output file name from command line.
-        output_filename = "output.xlsx"
-        log.info(f"Writing {output_filename}")
-        df.to_excel(output_filename, index=False)
+    # Emit to data sink, e.g. write to database.
+    if options.target:
+        log.info(f"Writing data to target {options.target}")
+        data.export(options.target)
         return
 
-    else:
-        log.error('Output format must be one of "json", "geojson", "csv", "excel".')
+    # Render to output format.
+    try:
+        output = data.format(options.format)
+    except KeyError as ex:
+        log.error(
+            f'{ex}. Output format must be one of "json", "geojson", "csv", "excel".'
+        )
         sys.exit(1)
 
     print(output)

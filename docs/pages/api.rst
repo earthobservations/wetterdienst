@@ -1,18 +1,29 @@
 ###
 API
 ###
-The API offers access to different data products. They are
-outlined in more detail within the :ref:`data-coverage` chapter.
 
 .. contents::
     :local:
     :depth: 1
 
 ************
+Introduction
+************
+The API offers access to different data products. They are
+outlined in more detail within the :ref:`data-coverage` chapter.
+Please also check out complete examples about how to use the API in the
+`example <https://github.com/earthobservations/wetterdienst/tree/master/example>`_
+folder.
+In order to explore all features interactively,
+you might want to try the :ref:`cli`.
+
+
+************
 Observations
 ************
 Acquire historical weather data through requesting by
 *parameter*, *time resolution* and *period type*.
+
 
 Request arguments
 =================
@@ -146,9 +157,70 @@ can be used to download the observation data:
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
 
-Please also check out more advanced examples in the
-`example <https://github.com/earthobservations/wetterdienst/tree/master/example>`_
-folder on Github.
+
+SQL support
+===========
+Querying data using SQL is provided by an in-memory DuckDB_ database.
+In order to explore what is possible, please have a look at the `DuckDB SQL introduction`_.
+
+The result data is provided through a virtual table called ``data``.
+
+.. code-block:: python
+
+    from wetterdienst import DWDStationRequest, DataPackage
+    from wetterdienst import Parameter, PeriodType, TimeResolution
+
+    request = DWDStationRequest(
+        station_ids=[1048],
+        parameter=[Parameter.TEMPERATURE_AIR],
+        time_resolution=TimeResolution.HOURLY,
+        start_date="2019-01-01",
+        end_date="2020-01-01",
+        tidy_data=True,
+        humanize_column_names=True,
+        prefer_local=True,
+        write_file=True,
+    )
+
+    data = DataPackage(request=request)
+    data.lowercase_fieldnames()
+    df = data.filter_by_sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
+    print(df)
+
+
+Data export
+===========
+Data can be exported to SQLite_, DuckDB_, InfluxDB_, CrateDB_ and more targets.
+A target is identified by a connection string.
+
+Examples:
+
+- sqlite:///dwd.sqlite?table=weather
+- duckdb:///dwd.duckdb?table=weather
+- influxdb://localhost/?database=dwd&table=weather
+- crate://localhost/?database=dwd&table=weather
+
+.. code-block:: python
+
+    from wetterdienst import DWDStationRequest, DataPackage
+    from wetterdienst import Parameter, PeriodType, TimeResolution
+
+    request = DWDStationRequest(
+        station_ids=[1048],
+        parameter=[Parameter.TEMPERATURE_AIR],
+        time_resolution=TimeResolution.HOURLY,
+        start_date="2019-01-01",
+        end_date="2020-01-01",
+        tidy_data=True,
+        humanize_column_names=True,
+        prefer_local=True,
+        write_file=True,
+    )
+
+    data = DataPackage(request=request)
+    data.lowercase_fieldnames()
+    data.export("influxdb://localhost/?database=dwd&table=weather")
+
 
 ******
 MOSMIX
@@ -193,3 +265,9 @@ For a more thorough example, please have a look at `example/radolan.py`_.
 
 .. _wradlib: https://wradlib.org/
 .. _example/radolan.py: https://github.com/earthobservations/wetterdienst/blob/master/example/radolan.py
+
+.. _SQLite: https://www.sqlite.org/
+.. _DuckDB: https://duckdb.org/docs/sql/introduction
+.. _DuckDB SQL introduction: https://duckdb.org/docs/sql/introduction
+.. _InfluxDB: https://github.com/influxdata/influxdb
+.. _CrateDB: https://github.com/crate/crate
