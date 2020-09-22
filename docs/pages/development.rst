@@ -27,6 +27,10 @@ Otherwise, if you have an idea of a problem or even better a solution just
 let us know via an issue (you could also describe problem with words so we can figure
 out how to solve it with a suitable programming solution).
 
+
+***************
+Getting started
+***************
 For working on the code base, please clone the repository and install development
 dependencies.
 
@@ -53,3 +57,32 @@ In order to run the tests more **quickly**::
     poetry install --extras=excel
     poetry shell
     pytest -vvvv -m "not (remote or slow)"
+
+
+******
+Docker
+******
+In order to build a development Docker image incorporating the current
+working tree, you might want to use the toplevel ``Dockerfile`` within
+this project.
+
+If you want to use readymade images to just run Wetterdienst, please
+head over to :ref:`run-in-docker`.
+
+.. highlight:: bash
+
+Build the image::
+
+    docker build -t "wetterdienst" .
+
+To run the tests in the given environment, just call::
+
+    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest -vvvv tests
+
+from the main directory. To work in an iPython shell, invoke::
+
+    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run ipython
+
+The ``wetterdienst`` command is also available::
+
+    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run wetterdienst --help
