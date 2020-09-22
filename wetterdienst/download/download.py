@@ -12,7 +12,10 @@ from datetime import datetime
 
 from requests.exceptions import InvalidURL
 
-from wetterdienst.additionals.cache import payload_cache_one_hour
+from wetterdienst.additionals.cache import (
+    payload_cache_five_minutes,
+    payload_cache_twelve_hours,
+)
 from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.download.download_services import download_file_from_dwd
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
@@ -55,7 +58,7 @@ def _download_climate_observations_data(remote_file: Union[str, Path]) -> BytesI
     return BytesIO(__download_climate_observations_data(remote_file=remote_file))
 
 
-@payload_cache_one_hour.cache_on_arguments()
+@payload_cache_five_minutes.cache_on_arguments()
 def __download_climate_observations_data(remote_file: Union[str, Path]) -> bytes:
     try:
         zip_file = download_file_from_dwd(remote_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
@@ -114,7 +117,7 @@ def download_radolan_data(
     return _extract_radolan_data(date_time, archive_in_bytes)
 
 
-@payload_cache_one_hour.cache_on_arguments()
+@payload_cache_twelve_hours.cache_on_arguments()
 def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     """
     Function (cached) that downloads the RADOLAN file

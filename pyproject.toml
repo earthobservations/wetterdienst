@@ -123,6 +123,7 @@ pytest-notebook = "^0.6.0"
 nbconvert = ">=5.0, <6.0"
 mock = "^4.0"
 pygments = "^2.7.0"
+matplotlib = "^3.0.3"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
