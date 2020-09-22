@@ -6,7 +6,6 @@ from pandas import Timestamp
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.indexing.meta_index_creation import (
     create_meta_index_for_climate_observations,
-    reset_meta_index_cache,
 )
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
@@ -15,7 +14,6 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 
 @pytest.mark.remote
 def test_meta_index_creation():
-    reset_meta_index_cache()
 
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
@@ -23,14 +21,6 @@ def test_meta_index_creation():
     )
 
     assert not meta_index.empty
-
-    reset_meta_index_cache()
-
-    meta_index2 = create_meta_index_for_climate_observations(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
-    )
-
-    assert meta_index.equals(meta_index2)
 
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(requests.exceptions.HTTPError):
@@ -41,7 +31,7 @@ def test_meta_index_creation():
 
 @pytest.mark.remote
 def test_meta_index_1mph_creation():
-    reset_meta_index_cache()
+
     meta_index_1mph = create_meta_index_for_climate_observations(
         Parameter.PRECIPITATION, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
     )
