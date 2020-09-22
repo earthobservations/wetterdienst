@@ -9,7 +9,7 @@ your workstation or within a Docker container.
 ******
 Native
 ******
-The installation of ``wetterdienst`` can happen via PyPi or directly from GitHub. The GitHub
+The installation of ``wetterdienst`` can happen via PyPI or directly from GitHub. The GitHub
 version will always include most recent changes that may not have been released to PyPI.
 
 PyPI
@@ -24,35 +24,43 @@ GitHub
 
   pip install git+https://github.com/earthobservations/wetterdienst
 
+In order to check the installation, invoke::
+
+    wetterdienst --help
+
+
+
+.. _run-in-docker:
 
 ******
 Docker
 ******
+Docker images for each stable release will get pushed to GitHub Container Registry.
 
-We have a Docker image available that let's you run the library dockerized. To use
-Wetterdienst in a Docker container, you just have to build the image from this project
+There are images in two variants, ``wetterdienst-standard`` and ``wetterdienst-full``.
 
-.. code-block:: bash
+``wetterdienst-standard`` will contain a minimum set of 3rd-party packages,
+while ``wetterdienst-full`` will try to serve a full environment by also
+including packages like GDAL and wradlib.
 
-    docker build -t "wetterdienst" .
+Library
+=======
+Use the latest stable version of Wetterdienst::
 
-To run the tests in the given environment, just call
+    $ docker run -ti ghcr.io/earthobservations/wetterdienst-standard
+    Python 3.8.5 (default, Sep 10 2020, 16:58:22)
+    [GCC 8.3.0] on linux
 
-.. code-block:: bash
-
-    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run pytest -vvvv tests
-
-from the main directory. To work in an iPython shell, invoke
-
-.. code-block:: bash
-
-    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run ipython
+    >>> import wetterdienst
+    >>> wetterdienst.__version__
+    '0.7.0'
 
 Command line script
 ===================
+The ``wetterdienst`` command is also available::
 
-The ``wetterdienst`` command is also available through Docker:
+    # Make an alias to use it conveniently from your shell.
+    alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst-standard wetterdienst'
 
-.. code-block:: bash
-
-    docker run -ti -v $(pwd):/app wetterdienst:latest poetry run wetterdienst --help
+    wetterdienst --version
+    wetterdienst --help
