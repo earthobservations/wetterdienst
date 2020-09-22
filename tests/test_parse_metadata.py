@@ -2,7 +2,6 @@ import pytest
 import requests
 from pandas import Timestamp
 
-from wetterdienst import reset_meta_index_cache
 from wetterdienst.additionals.geo_location import stations_to_geojson
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.parse_metadata import metadata_for_climate_observations
@@ -13,7 +12,6 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 @pytest.mark.remote
 def test_metadata_for_climate_observations():
-    reset_meta_index_cache()
 
     # Existing combination of parameters
     metadata = metadata_for_climate_observations(
@@ -21,14 +19,6 @@ def test_metadata_for_climate_observations():
     )
 
     assert not metadata.empty
-
-    reset_meta_index_cache()
-
-    metadata2 = metadata_for_climate_observations(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
-    )
-
-    assert metadata.equals(metadata2)
 
     assert metadata.loc[
         metadata[DWDMetaColumns.STATION_ID.value] == 1, :
@@ -55,7 +45,6 @@ def test_metadata_for_climate_observations():
 
 @pytest.mark.remote
 def test_metadata_geojson():
-    reset_meta_index_cache()
 
     # Existing combination of parameters
     df = metadata_for_climate_observations(
