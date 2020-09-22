@@ -7,6 +7,7 @@ from dateparser import parse
 from wetterdienst.additionals.cache import (
     fileindex_cache_five_minutes,
     fileindex_cache_one_hour,
+    fileindex_cache_twelve_hours,
 )
 from wetterdienst.constants.access_credentials import (
     DWD_CDC_PATH,
@@ -29,7 +30,7 @@ from wetterdienst.file_path_handling.path_handling import (
 )
 
 
-@fileindex_cache_five_minutes.cache_on_arguments()
+@fileindex_cache_twelve_hours.cache_on_arguments()
 def create_file_index_for_climate_observations(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
@@ -66,7 +67,7 @@ def create_file_index_for_climate_observations(
     ]
 
 
-@fileindex_cache_one_hour.cache_on_arguments()
+@fileindex_cache_five_minutes.cache_on_arguments()
 def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN product. The file index will

@@ -24,24 +24,42 @@ log.info("Cache directory is %s", cache_dir)
 # Define cache regions.
 metaindex_cache = make_region().configure(
     backend,
-    expiration_time=1 * 60,
-    arguments={"filename": os.path.join(cache_dir, "metaindex_1min.dbm")},
+    expiration_time=60 * 60 * 12,
+    arguments={"filename": os.path.join(cache_dir, "metaindex.dbm")},
 )
 
 fileindex_cache_five_minutes = make_region().configure(
     backend,
-    expiration_time=5 * 60,
-    arguments={"filename": os.path.join(cache_dir, "fileindex_5min.dbm")},
+    expiration_time=60 * 5,
+    arguments={"filename": os.path.join(cache_dir, "fileindex_5m.dbm")},
 )
 
 fileindex_cache_one_hour = make_region().configure(
     backend,
     expiration_time=60 * 60,
-    arguments={"filename": os.path.join(cache_dir, "fileindex_60min.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "fileindex_1h.dbm")},
+)
+
+fileindex_cache_twelve_hours = make_region().configure(
+    backend,
+    expiration_time=60 * 60 * 12,
+    arguments={"filename": os.path.join(cache_dir, "fileindex_12h.dbm")},
+)
+
+payload_cache_five_minutes = make_region().configure(
+    backend,
+    expiration_time=60 * 5,
+    arguments={"filename": os.path.join(cache_dir, "payload_5m.dbm")},
 )
 
 payload_cache_one_hour = make_region().configure(
     backend,
     expiration_time=60 * 60,
-    arguments={"filename": os.path.join(cache_dir, "payload_60min.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "payload_1h.dbm")},
+)
+
+payload_cache_twelve_hours = make_region().configure(
+    backend,
+    expiration_time=60 * 60 * 12,
+    arguments={"filename": os.path.join(cache_dir, "payload_12h.dbm")},
 )
