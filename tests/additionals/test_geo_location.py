@@ -66,7 +66,7 @@ def test_get_nearby_stations():
                 "STATE",
                 "HAS_FILE",
                 "DISTANCE_TO_LOCATION",
-            ]
+            ],
         ),
     )
 
@@ -78,7 +78,7 @@ def test_get_nearby_stations():
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
-        datetime(2020, 1, 20)
+        datetime(2020, 1, 20),
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
     nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
@@ -131,7 +131,7 @@ def test_get_nearby_stations():
                 "STATE",
                 "HAS_FILE",
                 "DISTANCE_TO_LOCATION",
-            ]
+            ],
         ),
     )
 
@@ -144,7 +144,7 @@ def test_get_nearby_stations():
             TimeResolution.HOURLY,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
-            datetime(2020, 1, 20)
+            datetime(2020, 1, 20),
         )
 
     with pytest.raises(InvalidParameterCombination):
@@ -156,7 +156,7 @@ def test_get_nearby_stations():
             TimeResolution.MINUTES_10,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
-            datetime(2020, 1, 20)
+            datetime(2020, 1, 20),
         )
 
 
@@ -173,7 +173,7 @@ def test_get_nearby_stations_out_of_distance():
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
-        datetime(2020, 1, 20)
+        datetime(2020, 1, 20),
     )
     assert nearby_station.empty is True
 

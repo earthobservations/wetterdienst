@@ -81,8 +81,9 @@ def get_nearby_stations_by_number(
 
     if minimal_available_date and maximal_available_date:
         if minimal_available_date > maximal_available_date:
-            raise ValueError("'minimal_available_date' has to be before "
-                             "'maximal_available_date'")
+            raise ValueError(
+                "'minimal_available_date' has to be before " "'maximal_available_date'"
+            )
 
     coords = Coordinates(np.array(latitude), np.array(longitude))
 
@@ -114,12 +115,16 @@ def get_nearby_stations_by_number(
 
     # If num_stations_nearby is higher then the actual amount of stations
     # further indices and distances are added which have to be filtered out
-    distances = distances[:min(metadata.shape[0], num_stations_nearby)]
-    indices_nearest_neighbours = indices_nearest_neighbours[:min(metadata.shape[0], num_stations_nearby)]
+    distances = distances[: min(metadata.shape[0], num_stations_nearby)]
+    indices_nearest_neighbours = indices_nearest_neighbours[
+        : min(metadata.shape[0], num_stations_nearby)
+    ]
 
     distances_km = np.array(distances * KM_EARTH_RADIUS)
 
-    metadata_location = metadata.iloc[indices_nearest_neighbours, :].reset_index(drop=True)
+    metadata_location = metadata.iloc[indices_nearest_neighbours, :].reset_index(
+        drop=True
+    )
 
     metadata_location[DWDMetaColumns.DISTANCE_TO_LOCATION.value] = distances_km
 
@@ -178,11 +183,12 @@ def get_nearby_stations_by_distance(
         time_resolution,
         period_type,
         minimal_available_date,
-        maximal_available_date
+        maximal_available_date,
     )
 
     nearby_stations_in_distance = all_nearby_stations[
-        all_nearby_stations[DWDMetaColumns.DISTANCE_TO_LOCATION.value] <= max_distance_in_km
+        all_nearby_stations[DWDMetaColumns.DISTANCE_TO_LOCATION.value]
+        <= max_distance_in_km
     ]
 
     return nearby_stations_in_distance.reset_index(drop=True)
