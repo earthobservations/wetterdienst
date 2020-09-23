@@ -8,6 +8,7 @@ from munch import Munch
 import pandas as pd
 
 from wetterdienst import (
+    __appname__,
     __version__,
     metadata_for_climate_observations,
     get_nearby_stations_by_number,
@@ -29,6 +30,7 @@ def run():
       wetterdienst stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=] [--latitude=] [--longitude=] [--number=] [--distance=] [--persist] [--sql=] [--format=<format>]
       wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --station=<station> [--persist] [--date=<date>] [--sql=] [--format=<format>] [--target=<target>]
       wetterdienst readings --parameter=<parameter> --resolution=<resolution> --period=<period> --latitude= --longitude= [--number=] [--distance=] [--persist] [--date=<date>] [--sql=] [--format=<format>] [--target=<target>]
+      wetterdienst service [--listen=<listen>]
       wetterdienst about [parameters] [resolutions] [periods]
       wetterdienst about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst --version
@@ -51,6 +53,7 @@ def run():
       --target=<target>             Output target for storing data into different data sinks.
       --version                     Show version information
       --debug                       Enable debug messages
+      --listen=<listen>             HTTP server listen address. [Default: localhost:7890]
       -h --help                     Show this screen
 
 
@@ -159,12 +162,17 @@ def run():
       # Store readings to CrateDB
       fetch --target="crate://localhost/?database=dwd&table=weather"
 
+    Run as HTTP service:
+
+      wetterdienst service
+      wetterdienst service --listen=0.0.0.0:9999
+
     """
 
+    appname = f"{__appname__} {__version__}"
+
     # Read command line options.
-    options = normalize_options(
-        docopt(run.__doc__, version=f"wetterdienst {__version__}")
-    )
+    options = normalize_options(docopt(run.__doc__, version=appname))
 
     # Setup logging.
     debug = options.get("debug")
@@ -173,6 +181,17 @@ def run():
         log_level = logging.DEBUG
     setup_logging(log_level)
 
+    # Run service.
+    if options.service:  # pragma: no cover
+        listen_address = options.listen
+        log.info(f"Starting {appname}")
+        log.info(f"Starting web service on {listen_address}")
+        from wetterdienst.service import start_service
+
+        start_service(listen_address)
+        return
+
+    # Output domain information.
     if options.about:
         about(options)
         return
@@ -180,6 +199,8 @@ def run():
     # Sanity checks.
     if options.readings and options.format == "geojson":
         raise KeyError("GeoJSON format only available for stations output")
+
+    df = None
 
     # Acquire station list.
     if options.stations:
@@ -234,6 +255,11 @@ def run():
         except ValueError as ex:
             log.error(ex)
             sys.exit(1)
+
+    # Sanity checks.
+    if df is None:
+        log.error("No data available")
+        sys.exit(1)
 
     # Filter readings by datetime expression.
     if options.readings and options.date:

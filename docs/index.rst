@@ -28,6 +28,7 @@ Usage
    API overview <pages/api>
    pages/tutorial
    pages/cli
+   pages/service
    pages/library/index
    pages/behind_the_scenes
 

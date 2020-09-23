@@ -9,9 +9,10 @@ Development
 - Add ``example/radolan.py`` and adjust documentation
 - Export dataframe to different data sinks like SQLite, DuckDB, InfluxDB and CrateDB
 - Query results with SQL, based on in-memory DuckDB
-- split get_nearby_stations into two functions, get_nearby_stations_by_number and
+- Split get_nearby_stations into two functions, get_nearby_stations_by_number and
   get_nearby_stations_by_distance
 - Add MOSMIX client and parser. Thanks, @jlewis91!
+- Add basic HTTP API
 
 0.7.0 (16.09.2020)
 ==================

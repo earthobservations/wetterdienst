@@ -21,6 +21,9 @@ class IoAccessor:
     def __init__(self, pandas_obj):
         self.df = pandas_obj
 
+    def to_dict(self) -> dict:
+        return self.df.to_dict(orient="records")
+
     def sql(self, sql: str) -> pd.DataFrame:
         """
         Filter Pandas DataFrame using an SQL query.
@@ -37,7 +40,9 @@ class IoAccessor:
         """
         import duckdb
 
-        return duckdb.query(self.df, "data", sql).df()
+        df = duckdb.query(self.df, "data", sql).df()
+        self.df = df
+        return df
 
     def format(self, format: str) -> str:
         """
