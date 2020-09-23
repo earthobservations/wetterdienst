@@ -6,15 +6,30 @@ from surrogate import surrogate
 
 from wetterdienst import DWDStationRequest, Parameter, TimeResolution, PeriodType
 from wetterdienst.additionals.time_handling import parse_datetime
-from wetterdienst.io import DataPackage
 
 
-original = pd.DataFrame.from_dict(
+df_station = pd.DataFrame.from_dict(
+    [
+        {
+            "STATION_ID": 19087,
+            "FROM_DATE": parse_datetime("1957-05-01T00:00:00.000Z"),
+            "TO_DATE": parse_datetime("1995-11-30T00:00:00.000Z"),
+            "STATION_HEIGHT": 645.0,
+            "LAT": 48.8049,
+            "LON": 13.5528,
+            "STATION_NAME": "Freyung vorm Wald",
+            "STATE": "Bayern",
+            "HAS_FILE": False,
+        }
+    ]
+)
+
+df_data = pd.DataFrame.from_dict(
     [
         {
             "STATION_ID": 1048,
-            "PARAMETER": "climate_summary",
-            "ELEMENT": "temperature_air_max_200",
+            "PARAMETER": "CLIMATE_SUMMARY",
+            "ELEMENT": "TEMPERATURE_AIR_MAX_200",
             "DATE": parse_datetime("2019-12-28T00:00:00.000"),
             "VALUE": 1.3,
             "QUALITY": None,
@@ -23,12 +38,11 @@ original = pd.DataFrame.from_dict(
 )
 
 
-def test_lowercase_fieldnames():
+def test_lowercase():
 
-    dp = DataPackage(df=original)
-    dp.lowercase_fieldnames()
+    df = df_data.wd.lower()
 
-    assert list(dp.df.columns) == [
+    assert list(df.columns) == [
         "station_id",
         "parameter",
         "element",
@@ -37,26 +51,25 @@ def test_lowercase_fieldnames():
         "quality",
     ]
 
+    assert df.iloc[0]["parameter"] == "climate_summary"
+    assert df.iloc[0]["element"] == "temperature_air_max_200"
+
 
 def test_filter_by_date():
 
-    dp = DataPackage(df=original)
-    df = dp.filter_by_date("2019-12-28", TimeResolution.HOURLY)
+    df = df_data.wd.filter_by_date("2019-12-28", TimeResolution.HOURLY)
     assert not df.empty
 
-    dp = DataPackage(df=original)
-    df = dp.filter_by_date("2019-12-27", TimeResolution.HOURLY)
+    df = df_data.wd.filter_by_date("2019-12-27", TimeResolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_interval():
 
-    dp = DataPackage(df=original)
-    df = dp.filter_by_date("2019-12-27/2019-12-29", TimeResolution.HOURLY)
+    df = df_data.wd.filter_by_date("2019-12-27/2019-12-29", TimeResolution.HOURLY)
     assert not df.empty
 
-    dp = DataPackage(df=original)
-    df = dp.filter_by_date("2020/2022", TimeResolution.HOURLY)
+    df = df_data.wd.filter_by_date("2020/2022", TimeResolution.HOURLY)
     assert df.empty
 
 
@@ -76,16 +89,13 @@ def test_filter_by_date_monthly():
         ]
     )
 
-    dp = DataPackage(df=result)
-    df = dp.filter_by_date("2019-12/2020-01", TimeResolution.MONTHLY)
+    df = result.wd.filter_by_date("2019-12/2020-01", TimeResolution.MONTHLY)
     assert not df.empty
 
-    dp = DataPackage(df=result)
-    df = dp.filter_by_date("2020/2022", TimeResolution.MONTHLY)
+    df = result.wd.filter_by_date("2020/2022", TimeResolution.MONTHLY)
     assert df.empty
 
-    dp = DataPackage(df=result)
-    df = dp.filter_by_date("2020", TimeResolution.MONTHLY)
+    df = result.wd.filter_by_date("2020", TimeResolution.MONTHLY)
     assert df.empty
 
 
@@ -105,31 +115,24 @@ def test_filter_by_date_annual():
         ]
     )
 
-    dp = DataPackage(df=result)
-    df = dp.filter_by_date("2019-05/2019-09", TimeResolution.ANNUAL)
+    df = result.wd.filter_by_date("2019-05/2019-09", TimeResolution.ANNUAL)
     assert not df.empty
 
-    dp = DataPackage(df=result)
-    df = dp.filter_by_date("2020/2022", TimeResolution.ANNUAL)
+    df = result.wd.filter_by_date("2020/2022", TimeResolution.ANNUAL)
     assert df.empty
 
-    dp = DataPackage(df=result)
-    df = dp.filter_by_date("2020", TimeResolution.ANNUAL)
+    df = result.wd.filter_by_date("2020", TimeResolution.ANNUAL)
     assert df.empty
 
 
 def test_filter_by_sql():
 
-    dp = DataPackage(df=original)
-    dp.lowercase_fieldnames()
-    df = dp.filter_by_sql(
+    df = df_data.wd.lower().io.sql(
         "SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 1.5"
     )
     assert not df.empty
 
-    dp = DataPackage(df=original)
-    dp.lowercase_fieldnames()
-    df = dp.filter_by_sql(
+    df = df_data.wd.lower().io.sql(
         "SELECT * FROM data WHERE element='temperature_air_max_200' AND value > 1.5"
     )
     assert df.empty
@@ -137,9 +140,7 @@ def test_filter_by_sql():
 
 def test_format_json():
 
-    dp = DataPackage(df=original)
-    dp.lowercase_fieldnames()
-    output = dp.format("json")
+    output = df_data.wd.lower().io.format("json")
 
     response = json.loads(output)
     station_ids = list(set([reading["station_id"] for reading in response]))
@@ -147,11 +148,20 @@ def test_format_json():
     assert 1048 in station_ids
 
 
+def test_format_geojson():
+
+    output = df_station.wd.format("geojson")
+
+    response = json.loads(output)
+
+    station_names = [station["properties"]["name"] for station in response["features"]]
+
+    assert "Freyung vorm Wald" in station_names
+
+
 def test_format_csv():
 
-    dp = DataPackage(df=original)
-    dp.lowercase_fieldnames()
-    output = dp.format("csv").strip()
+    output = df_data.wd.lower().io.format("csv").strip()
 
     assert "station_id,parameter,element,date,value,quality" in output
     assert (
@@ -162,10 +172,8 @@ def test_format_csv():
 
 def test_format_unknown():
 
-    dp = DataPackage(df=original)
-
     with pytest.raises(KeyError):
-        dp.format("foobar")
+        df_data.wd.format("foobar")
 
 
 def test_request():
@@ -177,8 +185,8 @@ def test_request():
         period_type=PeriodType.RECENT,
     )
 
-    dp = DataPackage(request=request)
-    assert not dp.df.empty
+    df = request.collect_safe()
+    assert not df.empty
 
 
 def test_export_sqlite():
@@ -194,8 +202,8 @@ def test_export_sqlite():
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        dp = DataPackage(request=request)
-        dp.export("sqlite:///test.sqlite?table=testdrive")
+        df = request.collect_safe()
+        df.io.export("sqlite:///test.sqlite?table=testdrive")
 
         mock_to_sql.assert_called_once_with(
             name="testdrive",
@@ -220,8 +228,8 @@ def test_export_crate():
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        dp = DataPackage(request=request)
-        dp.export("crate://localhost/?database=test&table=testdrive")
+        df = request.collect_safe()
+        df.io.export("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
             name="testdrive",
@@ -248,8 +256,8 @@ def test_export_duckdb():
         "duckdb.connect", side_effect=[mock_connection], create=True
     ) as mock_connect:
 
-        dp = DataPackage(request=request)
-        dp.export("duckdb:///test.duckdb?table=testdrive")
+        df = request.collect_safe()
+        df.io.export("duckdb:///test.duckdb?table=testdrive")
 
         mock_connect.assert_called_once_with(database="test.duckdb", read_only=False)
         mock_connection.register.assert_called_once()
@@ -276,9 +284,8 @@ def test_export_influxdb():
         create=True,
     ) as mock_connect:
 
-        dp = DataPackage(request=request)
-        dp.lowercase_fieldnames()
-        dp.export("influxdb://localhost/?database=dwd&table=weather")
+        df = request.collect_safe()
+        df.wd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")

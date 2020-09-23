@@ -18,7 +18,6 @@ from wetterdienst.api import DWDStationRequest
 from wetterdienst.enumerations.parameter_enumeration import Parameter
 from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
-from wetterdienst.io import DataPackage
 
 log = logging.getLogger(__name__)
 
@@ -200,8 +199,6 @@ def run():
             log.error("No data available for given constraints")
             sys.exit(1)
 
-        data = DataPackage(df=df)
-
     # Acquire observations.
     elif options.readings:
 
@@ -230,9 +227,8 @@ def run():
         )
 
         # Collect data and merge together.
-        data = DataPackage()
         try:
-            data.collect(request)
+            df = request.collect_safe()
 
         except ValueError as ex:
             log.error(ex)
@@ -240,25 +236,25 @@ def run():
 
     # Filter readings by datetime expression.
     if options.readings and options.date:
-        data.filter_by_date(options.date, request.time_resolution)
+        df = df.wd.filter_by_date(options.date, request.time_resolution)
 
     # Make column names lowercase.
-    data.lowercase_fieldnames()
+    df = df.wd.lower()
 
     # Apply filtering by SQL.
     if options.sql:
         log.info(f"Filtering with SQL: {options.sql}")
-        data.filter_by_sql(options.sql)
+        df = df.io.sql(options.sql)
 
     # Emit to data sink, e.g. write to database.
     if options.target:
         log.info(f"Writing data to target {options.target}")
-        data.export(options.target)
+        df.io.export(options.target)
         return
 
     # Render to output format.
     try:
-        output = data.format(options.format)
+        output = df.wd.format(options.format)
     except KeyError as ex:
         log.error(
             f'{ex}. Output format must be one of "json", "geojson", "csv", "excel".'

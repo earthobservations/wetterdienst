@@ -2,7 +2,6 @@ import pytest
 import requests
 from pandas import Timestamp
 
-from wetterdienst.additionals.geo_location import stations_to_geojson
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.parse_metadata import metadata_for_climate_observations
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -55,7 +54,7 @@ def test_metadata_geojson():
 
     df = df[df[DWDMetaColumns.STATION_ID.value] == 1]
 
-    geojson = stations_to_geojson(df)
+    geojson = df.wd.to_geojson()
 
     properties = geojson["features"][0]["properties"]
     geometry = geojson["features"][0]["geometry"]

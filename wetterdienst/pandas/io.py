@@ -1,123 +1,27 @@
-import json
-import logging
-from typing import Union
-from urllib.parse import urlparse, parse_qs
+"""
+Postprocessing data.
 
+This aids in collecting, filtering, formatting and emitting data
+acquired through the core machinery.
+
+Extending pandas
+================
+- https://pandas.pydata.org/pandas-docs/stable/development/extending.html
+"""
+import logging
+from urllib.parse import urlparse, parse_qs
 import pandas as pd
 
-from wetterdienst import DWDStationRequest, TimeResolution
-from wetterdienst.additionals.geo_location import stations_to_geojson
-from wetterdienst.additionals.time_handling import parse_datetime, mktimerange
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 
 log = logging.getLogger(__name__)
 
 
-class DataPackage:
-    """
-    Postprocessing DWD data.
+@pd.api.extensions.register_dataframe_accessor("io")
+class IoAccessor:
+    def __init__(self, pandas_obj):
+        self.df = pandas_obj
 
-    This aids in collecting, filtering, formatting and emitting data
-    acquired through the core machinery.
-    """
-
-    def __init__(
-        self, df: pd.DataFrame = None, request: Union[DWDStationRequest] = None
-    ):
-        self.df = df
-        self.request = request
-
-        if self.request is not None:
-            self.collect(self.request)
-
-    def collect(self, request: Union[DWDStationRequest]):
-        """
-        Collect all data from ``DWDStationRequest`` and assign to ``self.df``.
-
-        :param request: The DWDStationRequest instance.
-        :return: self
-        """
-
-        data = list(request.collect_data())
-
-        if not data:
-            raise ValueError("No data available for given constraints")
-
-        self.df = pd.concat(data)
-
-        return self
-
-    def filter_by_date(
-        self, date: str, time_resolution: TimeResolution
-    ) -> pd.DataFrame:
-        """
-        Filter Pandas DataFrame by date or date interval.
-
-        Accepts different kinds of date formats, like:
-
-        - 2020-05-01
-        - 2020-06-15T12
-        - 2020-05
-        - 2019
-        - 2020-05-01/2020-05-05
-        - 2017-01/2019-12
-        - 2010/2020
-
-        :param date:
-        :param time_resolution:
-        :return: Filtered DataFrame
-        """
-
-        # Filter by date interval.
-        if "/" in date:
-            date_from, date_to = date.split("/")
-            date_from = parse_datetime(date_from)
-            date_to = parse_datetime(date_to)
-            if time_resolution in (
-                TimeResolution.ANNUAL,
-                TimeResolution.MONTHLY,
-            ):
-                date_from, date_to = mktimerange(time_resolution, date_from, date_to)
-                expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
-                    self.df[DWDMetaColumns.TO_DATE.value] <= date_to
-                )
-            else:
-                expression = (date_from <= self.df[DWDMetaColumns.DATE.value]) & (
-                    self.df[DWDMetaColumns.DATE.value] <= date_to
-                )
-            df = self.df[expression]
-
-        # Filter by specific date.
-        else:
-            date = parse_datetime(date)
-            if time_resolution in (
-                TimeResolution.ANNUAL,
-                TimeResolution.MONTHLY,
-            ):
-                date_from, date_to = mktimerange(time_resolution, date)
-                expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
-                    self.df[DWDMetaColumns.TO_DATE.value] <= date_to
-                )
-            else:
-                expression = date == self.df[DWDMetaColumns.DATE.value]
-            df = self.df[expression]
-
-        return df
-
-    def lowercase_fieldnames(self):
-        """
-        Make Pandas DataFrame column names lowercase.
-
-        :return: Mungled DataFrame
-        """
-        self.df = self.df.rename(columns=str.lower)
-        for attribute in DWDMetaColumns.PARAMETER, DWDMetaColumns.ELEMENT:
-            attribute_name = attribute.value.lower()
-            if attribute_name in self.df:
-                self.df[attribute_name] = self.df[attribute_name].str.lower()
-        return self
-
-    def filter_by_sql(self, sql: str) -> pd.DataFrame:
+    def sql(self, sql: str) -> pd.DataFrame:
         """
         Filter Pandas DataFrame using an SQL query.
         The virtual table name is "data", so queries
@@ -146,10 +50,6 @@ class DataPackage:
         # Output as JSON.
         if format == "json":
             output = self.df.to_json(orient="records", date_format="iso", indent=4)
-
-        # Output as GeoJSON.
-        elif format == "geojson":
-            output = json.dumps(stations_to_geojson(self.df), indent=4)
 
         # Output as CSV.
         elif format == "csv":
@@ -341,10 +241,12 @@ class DataPackage:
             )
             log.info("Writing to SQL database finished")
 
-        return self
-
 
 class ConnectionString:
+    """
+    Helper class to support ``IoAccessor.export()``.
+    """
+
     def __init__(self, url):
         self.url_raw = url
         self.url = urlparse(url)

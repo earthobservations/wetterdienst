@@ -238,6 +238,18 @@ class DWDStationRequest:
 
             yield df_station
 
+    def collect_safe(self):
+        """
+        Collect all data from ``DWDStationRequest``.
+        """
+
+        data = list(self.collect_data())
+
+        if not data:
+            raise ValueError("No data available for given constraints")
+
+        return pd.concat(data)
+
 
 class DWDRadolanRequest:
     """
