@@ -167,7 +167,7 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest, DataPackage
+    from wetterdienst import DWDStationRequest
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
     request = DWDStationRequest(
@@ -182,9 +182,8 @@ The result data is provided through a virtual table called ``data``.
         write_file=True,
     )
 
-    data = DataPackage(request=request)
-    data.lowercase_fieldnames()
-    df = data.filter_by_sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
+    df = request.collect_safe().wd.lower()
+    df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
     print(df)
 
 
@@ -202,7 +201,7 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest, DataPackage
+    from wetterdienst import DWDStationRequest
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
     request = DWDStationRequest(
@@ -217,9 +216,8 @@ Examples:
         write_file=True,
     )
 
-    data = DataPackage(request=request)
-    data.lowercase_fieldnames()
-    data.export("influxdb://localhost/?database=dwd&table=weather")
+    df = request.collect_safe().wd.lower()
+    df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 
 ******

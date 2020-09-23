@@ -18,7 +18,9 @@ from wetterdienst.data_collection import (
     collect_radolan_data,
 )
 from wetterdienst.api import DWDStationRequest, DWDRadolanRequest
-from wetterdienst.io import DataPackage
+
+# Load Pandas extensions.
+import wetterdienst.pandas
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/

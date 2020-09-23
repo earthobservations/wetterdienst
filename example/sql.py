@@ -15,7 +15,7 @@ Setup
 """
 import logging
 
-from wetterdienst import DWDStationRequest, DataPackage
+from wetterdienst import DWDStationRequest
 from wetterdienst import Parameter, PeriodType, TimeResolution
 
 log = logging.getLogger()
@@ -38,9 +38,8 @@ def sql_example():
     sql = "SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
 
-    data = DataPackage(request=request)
-    data.lowercase_fieldnames()
-    df = data.filter_by_sql(sql)
+    df = request.collect_safe()
+    df = df.wd.lower().io.sql(sql)
 
     print(df)
 
