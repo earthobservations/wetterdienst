@@ -45,6 +45,8 @@ class DWDMetaColumns(Enum):
     # Columns used for RADOLAN
     PERIOD_TYPE = "PERIOD_TYPE"
     DATETIME = "DATETIME"
+    # Column for distance used by get_nearby_stations_...
+    DISTANCE_TO_LOCATION = "DISTANCE_TO_LOCATION"
 
 
 # https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class

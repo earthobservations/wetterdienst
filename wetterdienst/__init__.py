@@ -12,7 +12,8 @@ from wetterdienst.parsing_data.parse_data_from_files import (
     parse_climate_observations_data,
 )
 from wetterdienst.additionals.functions import discover_climate_observations
-from wetterdienst.additionals.geo_location import get_nearby_stations
+from wetterdienst.additionals.geo_location import get_nearby_stations_by_number, \
+    get_nearby_stations_by_distance
 from wetterdienst.data_collection import (
     collect_climate_observations_data,
     collect_radolan_data,

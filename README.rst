@@ -62,7 +62,7 @@ take a look at `data coverage`_.
 Details
 =======
 - Get metadata for a set of Parameter, PeriodType and TimeResolution.
-- Get station(s) nearby a selected location for a given set.
+- Get station(s) nearby a selected location.
 - Store/recover collected data.
 - Command line interface.
 - Run SQL queries on the results.

@@ -10,7 +10,8 @@ import pandas as pd
 from wetterdienst import (
     __version__,
     metadata_for_climate_observations,
-    get_nearby_stations,
+    get_nearby_stations_by_number,
+    get_nearby_stations_by_distance,
     discover_climate_observations,
 )
 from wetterdienst.additionals.util import normalize_options, setup_logging, read_list
@@ -307,12 +308,12 @@ def get_nearby(options: Munch) -> pd.DataFrame:
 
     if options.latitude and options.longitude:
         if options.number:
-            nearby_stations = get_nearby_stations(
+            nearby_stations = get_nearby_stations_by_number(
                 **nearby_baseline_args,
                 num_stations_nearby=int(options.number),
             )
         elif options.distance:
-            nearby_stations = get_nearby_stations(
+            nearby_stations = get_nearby_stations_by_distance(
                 **nearby_baseline_args,
                 max_distance_in_km=int(options.distance),
             )
