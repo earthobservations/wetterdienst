@@ -113,17 +113,16 @@ Inquire the list of stations by geographic coordinates.
 .. code-block:: python
 
     from datetime import datetime
-    from wetterdienst import get_nearby_stations, DWDStationRequest
+    from wetterdienst import get_nearby_stations_by_number, DWDStationRequest
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    stations = get_nearby_stations(
-        50.0, 8.9,
-        datetime(2020, 1, 1),
-        datetime(2020, 1, 20),
+    stations = get_nearby_stations_by_number(
+        50.0, 8.9, 1,
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
-        num_stations_nearby=1
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20)
     )
 
 The function returns a DataFrame with the list of stations with distances [in km]

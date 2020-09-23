@@ -66,7 +66,7 @@ In order to build a development Docker image incorporating the current
 working tree, you might want to use the toplevel ``Dockerfile`` within
 this project.
 
-If you want to use readymade images to just run Wetterdienst, please
+If you want to use ready-made images to just run Wetterdienst, please
 head over to :ref:`run-in-docker`.
 
 .. highlight:: bash

@@ -7,7 +7,8 @@ from unittest.mock import patch, MagicMock
 import pandas as pd
 
 from wetterdienst.additionals.geo_location import (
-    get_nearby_stations,
+    get_nearby_stations_by_number,
+    get_nearby_stations_by_distance,
     _derive_nearest_neighbours,
 )
 from wetterdienst.enumerations.parameter_enumeration import Parameter
@@ -26,15 +27,15 @@ fixtures_dir = f"{os.path.dirname(__file__)}/../fixtures/"
 )
 def test_get_nearby_stations():
     # Test for one nearest station
-    nearby_station = get_nearby_stations(
+    nearby_station = get_nearby_stations_by_number(
         50.0,
         8.9,
-        datetime(2020, 1, 1),
-        datetime(2020, 1, 20),
+        1,
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
-        num_stations_nearby=1,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
     nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
@@ -66,19 +67,18 @@ def test_get_nearby_stations():
                 "HAS_FILE",
                 "DISTANCE_TO_LOCATION",
             ],
-            index=[321],
         ),
     )
 
-    nearby_station = get_nearby_stations(
+    nearby_station = get_nearby_stations_by_distance(
         50.0,
         8.9,
-        datetime(2020, 1, 1),
-        datetime(2020, 1, 20),
+        20,
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
-        max_distance_in_km=20,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
     nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
@@ -132,45 +132,31 @@ def test_get_nearby_stations():
                 "HAS_FILE",
                 "DISTANCE_TO_LOCATION",
             ],
-            index=[321, 170, 465],
         ),
     )
 
     with pytest.raises(ValueError):
-        get_nearby_stations(
-            50.0,
-            8.9,
-            datetime(2020, 1, 1),
-            datetime(2020, 1, 20),
-            Parameter.TEMPERATURE_AIR,
-            TimeResolution.HOURLY,
-            PeriodType.RECENT,
-            num_stations_nearby=1,
-            max_distance_in_km=1,
-        )
-
-    with pytest.raises(ValueError):
-        get_nearby_stations(
+        get_nearby_stations_by_number(
             51.4,
             9.3,
-            datetime(2020, 1, 1),
-            datetime(2020, 1, 20),
+            0,
             Parameter.TEMPERATURE_AIR,
             TimeResolution.HOURLY,
             PeriodType.RECENT,
-            num_stations_nearby=0,
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
         )
 
     with pytest.raises(InvalidParameterCombination):
-        get_nearby_stations(
+        get_nearby_stations_by_number(
             51.4,
             9.3,
-            datetime(2020, 1, 1),
-            datetime(2020, 1, 20),
+            1,
             Parameter.SOIL,
             TimeResolution.MINUTES_10,
             PeriodType.RECENT,
-            num_stations_nearby=1,
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
         )
 
 
@@ -179,15 +165,15 @@ def test_get_nearby_stations():
     MagicMock(return_value=pd.read_json(f"{fixtures_dir}FIXED_METADATA.JSON")),
 )
 def test_get_nearby_stations_out_of_distance():
-    nearby_station = get_nearby_stations(
+    nearby_station = get_nearby_stations_by_distance(
         50.0,
         8.9,
-        datetime(2020, 1, 1),
-        datetime(2020, 1, 20),
+        10,
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
-        max_distance_in_km=10,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
     )
     assert nearby_station.empty is True
 
