@@ -184,7 +184,11 @@ The result data is provided through a virtual table called ``data``.
         write_file=True,
     )
 
+<<<<<<< HEAD
     df = request.collect_safe().wd.lower()
+=======
+    df = request.collect_safe().io.lowercase_fieldnames()
+>>>>>>> 3f402a5... Refactor contents of "DataPackage" as Pandas extensions
     df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
     print(df)
 
