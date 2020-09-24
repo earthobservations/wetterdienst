@@ -5,6 +5,11 @@ Changelog
 Development
 ===========
 
+...
+
+0.8.0 (25.09.2020)
+==================
+
 - Add TTL-based persistent caching using dogpile.cache
 - Add ``example/radolan.py`` and adjust documentation
 - Export dataframe to different data sinks like SQLite, DuckDB, InfluxDB and CrateDB
