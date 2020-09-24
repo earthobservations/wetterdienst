@@ -12,10 +12,22 @@ from nox.sessions import Session
 def tests(session):
     """Run tests."""
     session.run(
-        "poetry", "install", "--no-dev", "--extras=sql", "--extras=excel", external=True
+        "poetry",
+        "install",
+        "--no-dev",
+        "--extras=http",
+        "--extras=sql",
+        "--extras=excel",
+        external=True,
     )
     install_with_constraints(
-        session, "pytest", "pytest-notebook", "matplotlib", "mock", "surrogate"
+        session,
+        "pytest",
+        "pytest-notebook",
+        "pytest-dictsdiff",
+        "matplotlib",
+        "mock",
+        "surrogate",
     )
     session.run("pytest")
 
@@ -24,13 +36,20 @@ def tests(session):
 def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
     session.run(
-        "poetry", "install", "--no-dev", "--extras=sql", "--extras=excel", external=True
+        "poetry",
+        "install",
+        "--no-dev",
+        "--extras=http",
+        "--extras=sql",
+        "--extras=excel",
+        external=True,
     )
     install_with_constraints(
         session,
         "coverage[toml]",
         "pytest",
         "pytest_notebook",
+        "pytest-dictsdiff",
         "matplotlib",
         "pytest-cov",
         "mock",

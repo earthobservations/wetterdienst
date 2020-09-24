@@ -26,11 +26,12 @@ GitHub
 
 There are some extras available for ``wetterdienst``. Use them like::
 
-    pip install wetterdienst[sql]
+    pip install wetterdienst[http,sql]
 
+- docs: Install the Sphinx documentation generator.
 - ipython: Install iPython stack.
 - excel: Install openpyxl for Excel export.
-- docs: Install the Sphinx documentation generator.
+- http: Install HTTP API prerequisites.
 - sql: Install DuckDB for querying data using SQL.
 - duckdb: Install support for DuckDB.
 - influxdb: Install support for InfluxDB.

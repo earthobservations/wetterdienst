@@ -25,6 +25,9 @@ from wetterdienst.api import DWDStationRequest, DWDRadolanRequest
 # Load Pandas extensions.
 import wetterdienst.pandas
 
+"""Wetterdienst - Open weather data for humans"""
+__appname__ = "wetterdienst"
+
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/
 try:
