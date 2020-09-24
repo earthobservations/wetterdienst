@@ -1,3 +1,4 @@
 sut:
-  build: standard
+  build: ../..
+  dockerfile: .github/release/standard/Dockerfile
   command: wetterdienst about parameters

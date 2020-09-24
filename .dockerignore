@@ -9,3 +9,5 @@
 !pytest.ini
 !noxfile.py
 !.coverragerc
+
+!dist

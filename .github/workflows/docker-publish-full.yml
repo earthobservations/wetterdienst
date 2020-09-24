@@ -5,7 +5,6 @@ on:
     # Publish `master` as Docker `latest` image.
     branches:
       - master
-      - test-docker
 
     # Publish `v1.2.3` tags as releases.
     tags:
@@ -24,7 +23,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Acquire sources
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Poetry
+        run: pip install poetry==1.0.10
+
+      - name: Build wheel package
+        run: poetry build --format=wheel
 
       - name: Run tests
         run: |
@@ -43,9 +54,21 @@ jobs:
     if: github.event_name == 'push'
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Acquire sources
+        uses: actions/checkout@v2
 
-      - name: Build image
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Poetry
+        run: pip install poetry==1.0.10
+
+      - name: Build wheel package
+        run: poetry build --format=wheel
+
+      - name: Build Docker image
         run: docker build . --file .github/release/full/Dockerfile --tag $IMAGE_NAME
 
       - name: Log into GitHub Container Registry
