@@ -55,11 +55,19 @@ def create_file_index_for_climate_observations(
         file_index[DWDMetaColumns.FILENAME.value].str.endswith(ArchiveFormat.ZIP.value)
     ]
 
+    r = re.compile(STATION_ID_REGEX)
+
     file_index[DWDMetaColumns.STATION_ID.value] = (
         file_index[DWDMetaColumns.FILENAME.value]
-        .apply(lambda x: re.findall(STATION_ID_REGEX, x)[0])
-        .astype(int)
+        .apply(lambda filename: r.findall(filename.split("/")[-1]))
+        .apply(lambda station_id: station_id[0] if station_id else pd.NA)
     )
+
+    file_index = file_index.dropna().reset_index(drop=True)
+
+    file_index[DWDMetaColumns.STATION_ID.value] = file_index[
+        DWDMetaColumns.STATION_ID.value
+    ].astype(int)
 
     file_index = file_index.sort_values(
         by=[DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value]
@@ -145,10 +153,6 @@ def _create_file_index_for_dwd_server(
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
     )
-
-    # files_server[DWDMetaColumns.FILENAME.value] = files_server[
-    #     DWDMetaColumns.FILENAME.value
-    # ].str.replace(f"{DWD_CDC_PATH}/{cdc_base.value}/", "")
 
     return files_server
 
