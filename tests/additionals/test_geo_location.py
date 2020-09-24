@@ -46,7 +46,7 @@ def test_get_nearby_stations():
             [
                 [
                     np.int64(4411),
-                    np.datetime64("2002-01-24", dtype="np.datetime64[ns]"),
+                    np.datetime64("2002-01-24"),
                     155.0,
                     49.9195,
                     8.9671,
@@ -89,7 +89,7 @@ def test_get_nearby_stations():
             [
                 [
                     np.int64(4411),
-                    np.datetime64("2002-01-24 00:00:00", dtype="datetime64[ns]"),
+                    np.datetime64("2002-01-24 00:00:00"),
                     155.0,
                     49.9195,
                     8.9671,
@@ -100,7 +100,7 @@ def test_get_nearby_stations():
                 ],
                 [
                     np.int64(2480),
-                    np.datetime64("2004-09-01 00:00:00", dtype="datetime64[ns]"),
+                    np.datetime64("2004-09-01 00:00:00"),
                     108.0,
                     50.0643,
                     8.993,
@@ -111,7 +111,7 @@ def test_get_nearby_stations():
                 ],
                 [
                     np.int64(7341),
-                    np.datetime64("2005-07-16 00:00:00", dtype="datetime64[ns]"),
+                    np.datetime64("2005-07-16 00:00:00"),
                     119.0,
                     50.09,
                     8.7862,

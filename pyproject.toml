@@ -64,16 +64,16 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
-pandas = "1.0.4"
-tables = "3.6.1"
-numpy = "1.18.3"
-scipy = "1.4.1"
-h5py = "2.10.0"
-cachetools = "^3.1.1"
+pandas = "^1.1.2"
+tables = "^3.6.1"
+numpy = "^1.19.2"
+scipy = "^1.5.2"
+h5py = "^2.10.0"
+cachetools = "^4.1.1"
 fire = "^0.3.1"
 docopt = "^0.6.2"
 munch = "^2.5.0"
-dateparser = "^0.7.4"
+dateparser = "^0.7.6"
 beautifulsoup4 = "^4.9.1"
 requests = "^2.24.0"
 python-dateutil = "^2.8.0"
@@ -85,7 +85,7 @@ importlib_metadata = {version = "1.7.0", python = "<3.8"}
 # Optional dependencies aka. "extras"
 ipython                         = { version = "^7.10.1", optional = true }
 ipython-genutils                = { version = "^0.2.0", optional = true }
-matplotlib                      = { version = "^3.0.3", optional = true }
+matplotlib                      = { version = "^3.3.2", optional = true }
 openpyxl                        = { version = "^3.0.5", optional = true }
 
 sphinx                          = { version = "^3.2.1", optional = true }
@@ -127,14 +127,14 @@ flake8 = "^3.8.3"
 flake8-black = "^0.2.1"
 flake8-bugbear = "^20.1.4"
 flake8-bandit = "^2.1.2"
-coverage = {extras = ["toml"], version = "5.2.1"}
-pytest = "^6.0.1"
+coverage = {extras = ["toml"], version = "^5.3"}
+pytest = "^6.0.2"
 pytest-cov = "^2.10.1"
-pytest-notebook = "^0.6.0"
+pytest-notebook = "^0.6.1"
 nbconvert = ">=5.0, <6.0"
-mock = "^4.0"
+mock = "^4.0.2"
 surrogate = "^0.1"
-matplotlib = "^3.0.3"
+matplotlib = "^3.3.2"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
