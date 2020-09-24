@@ -21,13 +21,13 @@ def test_file_index_creation():
 
     assert not file_index.empty
 
-    assert (
-        file_index.loc[
-            file_index[DWDMetaColumns.STATION_ID.value] == 1048,
-            DWDMetaColumns.FILENAME.value,
-        ].values.tolist()
-        == ["daily/kl/recent/tageswerte_KL_01048_akt.zip"]
-    )
+    assert file_index.loc[
+        file_index[DWDMetaColumns.STATION_ID.value] == 1048,
+        DWDMetaColumns.FILENAME.value,
+    ].values.tolist() == [
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
+        "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
+    ]
 
     with pytest.raises(requests.exceptions.HTTPError):
         create_file_index_for_climate_observations(

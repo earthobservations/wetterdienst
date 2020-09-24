@@ -13,4 +13,7 @@ def test_create_file_list_for_dwd_server():
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,
     )
-    assert remote_file_path == ["daily/kl/recent/tageswerte_KL_01048_akt.zip"]
+    assert remote_file_path == [
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
+        "daily/kl/recent/tageswerte_KL_01048_akt.zip"
+    ]

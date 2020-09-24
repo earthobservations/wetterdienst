@@ -22,7 +22,6 @@ from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDat
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
 from wetterdienst.indexing.file_index_creation import (
-    reset_file_index_cache,
     create_file_index_for_radolan,
 )
 
@@ -50,7 +49,6 @@ class DWDStationRequest:
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
-        create_new_file_index: bool = False,
     ) -> None:
         """
         Class with mostly flexible arguments to define a request regarding DWD data.
@@ -74,7 +72,6 @@ class DWDStationRequest:
         :param tidy_data:           Reshape DataFrame to a more tidy
                                     and row-based version of data
         :param humanize_column_names: Replace column names by more meaningful ones
-        :param create_new_file_index: Definition if the file index should be recreated
         """
 
         if not (period_type or start_date or end_date):
@@ -140,7 +137,6 @@ class DWDStationRequest:
         # If more then one parameter requested, automatically tidy data
         self.tidy_data = len(self.parameter) == 2 or tidy_data
         self.humanize_column_names = humanize_column_names
-        self.create_new_file_index = create_new_file_index
 
     def __eq__(self, other):
         return [
@@ -176,9 +172,6 @@ class DWDStationRequest:
 
         :return: A generator yielding a pandas.DataFrame per station.
         """
-        if self.create_new_file_index:
-            reset_file_index_cache()
-
         for station_id in self.station_ids:
             df_station = pd.DataFrame()
 
@@ -197,7 +190,6 @@ class DWDStationRequest:
                             write_file=self.write_file,
                             tidy_data=self.tidy_data,
                             humanize_column_names=self.humanize_column_names,
-                            create_new_file_index=False,
                         )
                     except InvalidParameterCombination:
                         log.info(

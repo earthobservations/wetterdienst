@@ -1,16 +1,11 @@
 """ functions to handle paths and file names"""
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Union, List
 from datetime import datetime
 
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
-from wetterdienst.constants.access_credentials import (
-    HTTPS_EXPRESSION,
-    DWD_SERVER,
-    DWD_CDC_PATH,
-    DWDCDCBase,
-)
 from wetterdienst.constants.metadata import (
     DWD_FOLDER_STATION_DATA,
     DWD_FILE_STATION_DATA,
@@ -27,7 +22,7 @@ from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 
 def build_path_to_parameter(
     parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
-) -> PurePosixPath:
+) -> str:
     """
     Function to build a indexing file path
     Args:
@@ -42,34 +37,29 @@ def build_path_to_parameter(
         TimeResolution.HOURLY,
         TimeResolution.DAILY,
     ):
-        parameter_path = PurePosixPath(time_resolution.value, parameter.value)
-    else:
-        parameter_path = PurePosixPath(
-            time_resolution.value, parameter.value, period_type.value
-        )
+        return f"{time_resolution.value}/{parameter.value}/"
 
-    return parameter_path
+    return f"{time_resolution.value}/{parameter.value}/{period_type.value}/"
 
 
-def list_files_of_dwd_server(
-    path: Union[PurePosixPath, str], cdc_base: DWDCDCBase, recursive: bool
-) -> List[str]:
+def list_files_of_dwd_server(url: str, recursive: bool) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server
 
     Args:
-        path: the path which should be searched for files (relative to climate
-        observations Germany)
-        cdc_base: base path e.g. climate observations/germany
+        url: the url which should be searched for files
         recursive: definition if the function should iteratively list files
-        from subfolders
+        from sub folders
 
     Returns:
         a list of strings representing the files from the path
     """
     dwd_session = create_dwd_session()
 
-    r = dwd_session.get(build_dwd_cdc_data_path(path, cdc_base))
+    if not url.endswith("/"):
+        url += "/"
+
+    r = dwd_session.get(url)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -83,38 +73,21 @@ def list_files_of_dwd_server(
 
     for f in files_and_folders:
         if not f.endswith("/"):
-            files.append(str(PurePosixPath(path, f)))
+            files.append(urljoin(url, f))
         else:
-            folders.append(PurePosixPath(path, f))
+            folders.append(urljoin(url, f))
+
+    # print(files, folders)
 
     if recursive:
         files_in_folders = [
-            list_files_of_dwd_server(folder, cdc_base, recursive) for folder in folders
+            list_files_of_dwd_server(folder, recursive) for folder in folders
         ]
 
         for files_in_folder in files_in_folders:
             files.extend(files_in_folder)
 
     return files
-
-
-def build_dwd_cdc_data_path(
-    path: Union[PurePosixPath, str], cdc_base: DWDCDCBase
-) -> str:
-    """
-    A function used to create the filepath consisting of the server, the
-    climate observations path and the path of a subdirectory/file
-
-    Args:
-        path: the path of folder/file on the server
-        cdc_base: the CDC base path e.g. "climate observations/germany"
-
-    Returns:
-        the path create from the given parameters
-    """
-    dwd_cdc_data_path = PurePosixPath(DWD_SERVER, DWD_CDC_PATH, cdc_base.value, path)
-
-    return f"{HTTPS_EXPRESSION}{dwd_cdc_data_path}"
 
 
 def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str, Path]:

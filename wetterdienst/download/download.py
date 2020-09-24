@@ -16,7 +16,6 @@ from wetterdienst.additionals.cache import (
     payload_cache_five_minutes,
     payload_cache_twelve_hours,
 )
-from wetterdienst.constants.access_credentials import DWDCDCBase
 from wetterdienst.download.download_services import download_file_from_dwd
 from wetterdienst.enumerations.datetime_format_enumeration import DatetimeFormat
 from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
@@ -59,9 +58,9 @@ def _download_climate_observations_data(remote_file: Union[str, Path]) -> BytesI
 
 
 @payload_cache_five_minutes.cache_on_arguments()
-def __download_climate_observations_data(remote_file: Union[str, Path]) -> bytes:
+def __download_climate_observations_data(remote_file: str) -> bytes:
     try:
-        zip_file = download_file_from_dwd(remote_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
+        zip_file = download_file_from_dwd(remote_file)
     except InvalidURL as e:
         raise InvalidURL(
             f"Error: the station data {remote_file} couldn't be reached."
@@ -128,7 +127,7 @@ def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
         the file in binary, either an archive of one file or an archive of multiple
         files
     """
-    return download_file_from_dwd(remote_radolan_filepath, DWDCDCBase.GRIDS_GERMANY)
+    return download_file_from_dwd(remote_radolan_filepath)
 
 
 def _extract_radolan_data(
