@@ -1,5 +1,7 @@
 """ file index creation for available DWD station data """
 import re
+from functools import reduce
+from urllib.parse import urljoin
 
 import pandas as pd
 from dateparser import parse
@@ -12,6 +14,7 @@ from wetterdienst.additionals.cache import (
 from wetterdienst.constants.access_credentials import (
     DWD_CDC_PATH,
     DWDCDCBase,
+    DWD_SERVER,
 )
 from wetterdienst.constants.metadata import (
     ArchiveFormat,
@@ -135,15 +138,17 @@ def _create_file_index_for_dwd_server(
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
-    files_server = list_files_of_dwd_server(parameter_path, cdc_base, recursive=True)
+    url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
+
+    files_server = list_files_of_dwd_server(url, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
     )
 
-    files_server[DWDMetaColumns.FILENAME.value] = files_server[
-        DWDMetaColumns.FILENAME.value
-    ].str.replace(f"{DWD_CDC_PATH}/{cdc_base.value}/", "")
+    # files_server[DWDMetaColumns.FILENAME.value] = files_server[
+    #     DWDMetaColumns.FILENAME.value
+    # ].str.replace(f"{DWD_CDC_PATH}/{cdc_base.value}/", "")
 
     return files_server
 

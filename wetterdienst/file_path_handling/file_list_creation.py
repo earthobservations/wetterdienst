@@ -8,7 +8,6 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.indexing.file_index_creation import (
     create_file_index_for_climate_observations,
-    reset_file_index_cache,
     create_file_index_for_radolan,
 )
 
@@ -18,7 +17,6 @@ def create_file_list_for_climate_observations(
     parameter: Union[Parameter, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
-    create_new_file_index: bool = False,
 ) -> List[str]:
     """
     Function for selecting datafiles (links to archives) for given
@@ -30,12 +28,9 @@ def create_file_list_for_climate_observations(
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
-        create_new_file_index: set if new file index is created
     Returns:
         List of path's to file
     """
-    if create_new_file_index:
-        reset_file_index_cache()
 
     parameter = Parameter(parameter)
     time_resolution = TimeResolution(time_resolution)

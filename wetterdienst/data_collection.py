@@ -18,7 +18,6 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.constants.metadata import DWD_FOLDER_MAIN
 from wetterdienst.exceptions import InvalidParameterCombination
-from wetterdienst.indexing.file_index_creation import reset_file_index_cache
 from wetterdienst.file_path_handling.file_list_creation import (
     create_file_list_for_climate_observations,
     create_filepath_for_radolan,
@@ -66,7 +65,6 @@ def collect_climate_observations_data(
     tidy_data: bool = True,
     humanize_column_names: bool = False,
     run_download_only: bool = False,
-    create_new_file_index: bool = False,
 ) -> Optional[pd.DataFrame]:
     """
     Function that organizes the complete pipeline of data collection, either
@@ -87,7 +85,6 @@ def collect_climate_observations_data(
                                     element, datetime, value, quality.
     :param humanize_column_names:   Yield column names for human consumption
     :param run_download_only:       Run only the download and storing process
-    :param create_new_file_index:   Create a new file index for the data selection
 
     :return:                        All the data given by the station ids.
     """
@@ -100,9 +97,6 @@ def collect_climate_observations_data(
             f"The combination of {parameter.value}, {time_resolution.value}, "
             f"{period_type.value} is invalid."
         )
-
-    if create_new_file_index:
-        reset_file_index_cache()
 
     # List for collected pandas DataFrames per each station id
     data = []

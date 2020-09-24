@@ -2,7 +2,7 @@ from functools import lru_cache
 import requests
 from requests.adapters import HTTPAdapter
 
-from wetterdienst.constants.access_credentials import HTTPS_EXPRESSION
+from wetterdienst.constants.access_credentials import DWD_SERVER
 
 MAX_RETRIES = 3
 
@@ -18,6 +18,6 @@ def create_dwd_session() -> requests.Session:
     """
     dwd_session = requests.Session()
 
-    dwd_session.mount(HTTPS_EXPRESSION, HTTPAdapter(max_retries=MAX_RETRIES))
+    dwd_session.mount(DWD_SERVER, HTTPAdapter(max_retries=MAX_RETRIES))
 
     return dwd_session

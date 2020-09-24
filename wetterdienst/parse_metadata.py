@@ -9,11 +9,9 @@ from wetterdienst.enumerations.period_type_enumeration import PeriodType
 from wetterdienst.enumerations.time_resolution_enumeration import TimeResolution
 from wetterdienst.indexing.file_index_creation import (
     create_file_index_for_climate_observations,
-    reset_file_index_cache,
 )
 from wetterdienst.indexing.meta_index_creation import (
     create_meta_index_for_climate_observations,
-    reset_meta_index_cache,
 )
 
 
@@ -21,8 +19,6 @@ def metadata_for_climate_observations(
     parameter: Union[Parameter, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
-    create_new_meta_index: bool = False,
-    create_new_file_index: bool = False,
 ) -> pd.DataFrame:
     """
     A main function to retrieve metadata for a set of parameters that creates a
@@ -37,16 +33,9 @@ def metadata_for_climate_observations(
     :param parameter:               Observation measure
     :param time_resolution:         Frequency/granularity of measurement interval
     :param period_type:             Recent or historical files
-    :param create_new_meta_index:   Create a new meta index for metadata
-    :param create_new_file_index:   Create a new file index
 
     :return: List of stations for selected parameters
     """
-    if create_new_meta_index:
-        reset_meta_index_cache()
-
-    if create_new_file_index:
-        reset_file_index_cache()
 
     parameter = parse_enumeration_from_template(parameter, Parameter)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)

@@ -65,7 +65,6 @@ def test_collect_dwd_data():
         prefer_local=False,
         write_file=True,
         tidy_data=False,
-        create_new_file_index=False,
     ).equals(TEST_FILE)
 
     """
@@ -82,7 +81,6 @@ def test_collect_dwd_data():
         prefer_local=True,
         write_file=True,
         tidy_data=False,
-        create_new_file_index=False,
     ).equals(TEST_FILE)
 
     # Remove storage folder
@@ -116,7 +114,6 @@ def test_collect_dwd_data_empty():
         prefer_local=True,
         write_file=False,
         tidy_data=False,
-        create_new_file_index=False,
     ).empty
 
 

@@ -1,16 +1,21 @@
 import re
 import zipfile
+from functools import reduce
 from io import BytesIO
-from pathlib import PurePosixPath
 from typing import Tuple, List
 from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
+from urllib.parse import urljoin
 
 import pandas as pd
 from requests.exceptions import InvalidURL
 
 from wetterdienst.additionals.cache import metaindex_cache
-from wetterdienst.constants.access_credentials import DWDCDCBase
+from wetterdienst.constants.access_credentials import (
+    DWDCDCBase,
+    DWD_SERVER,
+    DWD_CDC_PATH,
+)
 from wetterdienst.constants.column_name_mapping import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
     METADATA_DTYPE_MAPPING,
@@ -46,7 +51,7 @@ META_FILE_IDENTIFIERS = ["beschreibung", "txt"]
 
 METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"
 
-META_DATA_FOLDER = "meta_data"
+META_DATA_FOLDER = "meta_data/"
 
 METADATA_FIXED_COLUMN_WIDTH = [
     (0, 5),
@@ -136,15 +141,23 @@ def _create_meta_index_for_climate_observations(
     """
     parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
 
-    files_server = list_files_of_dwd_server(
-        parameter_path, DWDCDCBase.CLIMATE_OBSERVATIONS, recursive=True
+    url = reduce(
+        urljoin,
+        [
+            DWD_SERVER,
+            DWD_CDC_PATH,
+            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
+            parameter_path,
+        ],
     )
 
+    files_server = list_files_of_dwd_server(url, recursive=True)
+
     # Find the one meta file from the files listed on the server
-    meta_file = _find_meta_file(files_server, str(parameter_path))
+    meta_file = _find_meta_file(files_server, url)
 
     try:
-        file = download_file_from_dwd(meta_file, DWDCDCBase.CLIMATE_OBSERVATIONS)
+        file = download_file_from_dwd(meta_file)
     except InvalidURL as e:
         raise InvalidURL(f"Error: reading metadata {meta_file} file failed.") from e
 
@@ -168,13 +181,13 @@ def _create_meta_index_for_climate_observations(
     return meta_index.astype(METADATA_DTYPE_MAPPING)
 
 
-def _find_meta_file(files: List[str], path: str) -> str:
+def _find_meta_file(files: List[str], url: str) -> str:
     """
     Function used to find meta file based on predefined strings that are usually found
     in those files
     Args:
         files: list of files found on server path
-        path: the path that was searched for a meta file
+        url: the path that was searched for a meta file
 
     Returns:
         the matching file
@@ -182,11 +195,11 @@ def _find_meta_file(files: List[str], path: str) -> str:
         MetaFileNotFound - for the case no file was found
     """
     for file in files:
-        file_strings = file.lower().replace(".", "_").split("_")
+        file_strings = file.split("/")[-1].lower().replace(".", "_").split("_")
         if set(file_strings).issuperset(META_FILE_IDENTIFIERS):
             return file
 
-    raise MetaFileNotFound(f"No meta file was found amongst the files at {path}.")
+    raise MetaFileNotFound(f"No meta file was found amongst the files at {url}.")
 
 
 def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
@@ -199,13 +212,21 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     - especially for precipitation/1_minute/historical!
 
     """
-    metadata_path = PurePosixPath(
-        TimeResolution.MINUTE_1.value, Parameter.PRECIPITATION.value, META_DATA_FOLDER
+
+    parameter_path = f"{TimeResolution.MINUTE_1.value}/{Parameter.PRECIPITATION.value}/"
+
+    url = reduce(
+        urljoin,
+        [
+            DWD_SERVER,
+            DWD_CDC_PATH,
+            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
+            parameter_path,
+            META_DATA_FOLDER,
+        ],
     )
 
-    metadata_file_paths = list_files_of_dwd_server(
-        metadata_path, recursive=False, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
-    )
+    metadata_file_paths = list_files_of_dwd_server(url, recursive=False)
 
     station_ids = [
         re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths
@@ -254,11 +275,9 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        file = download_file_from_dwd(
-            metadata_file, cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS
-        )
+        file = download_file_from_dwd(metadata_file)
     except InvalidURL as e:
-        raise InvalidURL(f"Error: reading metadata {metadata_file} file failed.") from e
+        raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 
     return file
 
