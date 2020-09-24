@@ -62,7 +62,7 @@ def list_files_of_dwd_server(url: str, recursive: bool) -> List[str]:
     r = dwd_session.get(url)
     r.raise_for_status()
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = BeautifulSoup(r.text, "lxml")
 
     files_and_folders = [
         link.get("href") for link in soup.find_all("a") if link.get("href") != "../"
@@ -76,8 +76,6 @@ def list_files_of_dwd_server(url: str, recursive: bool) -> List[str]:
             files.append(urljoin(url, f))
         else:
             folders.append(urljoin(url, f))
-
-    # print(files, folders)
 
     if recursive:
         files_in_folders = [
