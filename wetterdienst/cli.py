@@ -169,7 +169,7 @@ def run():
     # Setup logging.
     debug = options.get("debug")
     log_level = logging.INFO
-    if debug:
+    if debug:  # pragma: no cover
         log_level = logging.DEBUG
     setup_logging(log_level)
 
