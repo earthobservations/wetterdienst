@@ -275,9 +275,9 @@ def coerce_field_types(
                 df[column], format=DatetimeFormat.YMDH_COLUMN_M.value
             )
         elif column in QUALITY_FIELDS or column in INTEGER_FIELDS:
-            df[column] = df[column].astype("int8", errors="ignore")
+            df[column] = pd.to_numeric(df[column], errors='coerce').astype(pd.Int8Dtype())
         elif column in STRING_FIELDS:
-            df[column] = df[column].astype("str")
+            df[column] = df[column].astype(pd.StringDtype())
         else:
             df[column] = df[column].astype(float)
 

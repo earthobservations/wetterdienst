@@ -51,16 +51,37 @@ def test_coerce_field_types():
 
     expected_df = pd.DataFrame(
         {
-            "QN": pd.Series([1], dtype=np.int8),
-            "RS_IND_01": pd.Series([1], dtype=np.int8),
+            "QN": pd.Series([1], dtype="Int8"),
+            "RS_IND_01": pd.Series([1], dtype="Int8"),
             "DATE": [pd.Timestamp("1970-01-01")],
             "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
-            "V_VV_I": ["P"],
+            "V_VV_I": pd.Series(["P"], dtype=pd.StringDtype()),
         }
     )
 
     df = coerce_field_types(df, TimeResolution.HOURLY)
 
+    assert_frame_equal(df, expected_df)
+
+
+def test_coerce_field_types_with_nans():
+    df = pd.DataFrame(
+        {
+            "QN": [pd.NA, np.nan, "1"],
+            "RS_IND_01": [pd.NA, np.nan, "1"],
+            "V_VV_I": [pd.NA, np.nan, "P"],
+        }
+    )
+
+    expected_df = pd.DataFrame(
+        {
+            "QN": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int8Dtype()),
+            "RS_IND_01": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int8Dtype()),
+            "V_VV_I": pd.Series([pd.NA, np.nan, "P"], dtype=pd.StringDtype()),
+        }
+    )
+
+    df = coerce_field_types(df, TimeResolution.HOURLY)
     assert_frame_equal(df, expected_df)
 
 

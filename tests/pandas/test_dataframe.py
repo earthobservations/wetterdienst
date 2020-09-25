@@ -125,6 +125,7 @@ def test_filter_by_date_annual():
     assert df.empty
 
 
+@pytest.mark.sql
 def test_filter_by_sql():
 
     df = df_data.wd.lower().io.sql(
