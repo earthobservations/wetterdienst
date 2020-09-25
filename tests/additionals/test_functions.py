@@ -3,6 +3,7 @@ import json
 import pytest
 import numpy as np
 import pandas as pd
+from pandas._testing import assert_frame_equal
 
 from wetterdienst.additionals.functions import (
     check_parameters,
@@ -50,18 +51,17 @@ def test_coerce_field_types():
 
     expected_df = pd.DataFrame(
         {
-            "QN": pd.Series([1], dtype=np.int32),
-            "RS_IND_01": pd.Series([1], dtype=np.int32),
+            "QN": pd.Series([1], dtype=np.int8),
+            "RS_IND_01": pd.Series([1], dtype=np.int8),
             "DATE": [pd.Timestamp("1970-01-01")],
             "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
             "V_VV_I": ["P"],
         }
     )
 
-    assert (
-        coerce_field_types(df, TimeResolution.HOURLY).values.tolist()
-        == expected_df.values.tolist()
-    )
+    df = coerce_field_types(df, TimeResolution.HOURLY)
+
+    assert_frame_equal(df, expected_df)
 
 
 def test_create_humanized_column_names_mapping():
