@@ -1,4 +1,5 @@
 sut:
-  build: full
+  build: ../..
+  dockerfile: .github/release/full/Dockerfile
   # TODO: We might went to improve this. Just say "wetterdienst about system" here.
   command: python -c 'import wradlib; print(wradlib.__version__)'
