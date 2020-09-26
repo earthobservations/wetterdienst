@@ -13,7 +13,6 @@ Behind the scenes
     - ``create_file_list_for_climate_observations``
         - is used with the help of the metadata to retrieve file paths to
           files for a set of parameters + station id
-        - here also **create_new_file_index** can be used
 
     - ``download_climate_observations_data_parallel``
         - is used with the created file paths to download and store the data

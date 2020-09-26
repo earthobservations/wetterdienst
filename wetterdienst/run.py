@@ -1,7 +1,6 @@
 """ entrypoints ro tun scripts via Docker or command line """
 import fire
-
-from wetterdienst.data_collection import collect_climate_observations_data
+from wetterdienst.dwd.observations.access import collect_climate_observations_data
 
 
 if __name__ == "__main__":

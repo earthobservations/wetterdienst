@@ -5,7 +5,7 @@ Changelog
 Development
 ===========
 
-...
+- Large refactoring
 
 0.8.0 (25.09.2020)
 ==================

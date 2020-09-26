@@ -14,14 +14,14 @@ def test_cli_help():
         cli.run()
 
     response = str(excinfo.value)
-    assert "wetterdienst stations" in response
-    assert "wetterdienst readings" in response
-    assert "wetterdienst about" in response
+    assert "wetterdienst dwd stations" in response
+    assert "wetterdienst dwd readings" in response
+    assert "wetterdienst dwd about" in response
 
 
 def test_cli_about_parameters(capsys):
 
-    sys.argv = ["wetterdienst", "about", "parameters"]
+    sys.argv = ["wetterdienst", "dwd", "about", "parameters"]
     cli.run()
     stdout, stderr = capsys.readouterr()
 
@@ -34,7 +34,7 @@ def test_cli_about_parameters(capsys):
 
 def test_cli_about_resolutions(capsys):
 
-    sys.argv = ["wetterdienst", "about", "resolutions"]
+    sys.argv = ["wetterdienst", "dwd", "about", "resolutions"]
     cli.run()
     stdout, stderr = capsys.readouterr()
 
@@ -46,7 +46,7 @@ def test_cli_about_resolutions(capsys):
 
 def test_cli_about_periods(capsys):
 
-    sys.argv = ["wetterdienst", "about", "periods"]
+    sys.argv = ["wetterdienst", "dwd", "about", "periods"]
     cli.run()
     stdout, stderr = capsys.readouterr()
 
@@ -58,7 +58,7 @@ def test_cli_about_periods(capsys):
 
 def test_cli_about_coverage(capsys):
 
-    sys.argv = ["wetterdienst", "about", "coverage"]
+    sys.argv = ["wetterdienst", "dwd", "about", "coverage"]
     cli.run()
     stdout, stderr = capsys.readouterr()
 
@@ -70,7 +70,7 @@ def test_cli_about_coverage(capsys):
 
 def invoke_wetterdienst_stations_empty(format="json"):
     argv = shlex.split(
-        f"wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=123456 --format={format}"  # noqa:E501,B950
+        f"wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --station=123456 --format={format}"  # noqa:E501,B950
     )
     sys.argv = argv
     cli.run()
@@ -78,7 +78,7 @@ def invoke_wetterdienst_stations_empty(format="json"):
 
 def invoke_wetterdienst_stations_static(format="json"):
     argv = shlex.split(
-        f"wetterdienst stations --resolution=daily --parameter=kl --period=recent --station=4411,7341 --format={format}"  # noqa:E501,B950
+        f"wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --station=4411,7341 --format={format}"  # noqa:E501,B950
     )
     sys.argv = argv
     cli.run()
@@ -86,7 +86,7 @@ def invoke_wetterdienst_stations_static(format="json"):
 
 def invoke_wetterdienst_stations_geo(format="json"):
     argv = shlex.split(
-        f"wetterdienst stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --format={format}"  # noqa:E501,B950
+        f"wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --format={format}"  # noqa:E501,B950
     )
     sys.argv = argv
     cli.run()
@@ -94,7 +94,7 @@ def invoke_wetterdienst_stations_geo(format="json"):
 
 def invoke_wetterdienst_readings_static(format="json"):
     argv = shlex.split(
-        f"wetterdienst readings --resolution=daily --parameter=kl --period=recent --station=4411,7341 --date=2020-06-30 --format={format}"  # noqa:E501,B950
+        f"wetterdienst dwd readings --resolution=daily --parameter=kl --period=recent --station=4411,7341 --date=2020-06-30 --format={format}"  # noqa:E501,B950
     )
     sys.argv = argv
     cli.run()
@@ -102,7 +102,7 @@ def invoke_wetterdienst_readings_static(format="json"):
 
 def invoke_wetterdienst_readings_geo(format="json"):
     argv = shlex.split(
-        f"wetterdienst readings --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30 --format={format}"  # noqa:E501,B950
+        f"wetterdienst dwd readings --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30 --format={format}"  # noqa:E501,B950
     )
     sys.argv = argv
     cli.run()

@@ -16,7 +16,7 @@ Setup
 import logging
 
 from wetterdienst import DWDStationRequest
-from wetterdienst import Parameter, PeriodType, TimeResolution
+from wetterdienst import TimeResolution, Parameter, PeriodType
 
 log = logging.getLogger()
 

@@ -72,9 +72,6 @@ The function returns a Pandas DataFrame with information about the available sta
 The column ``HAS_FILE`` indicates whether the station actually has a file with data on
 the server. That might not always be the case for stations which have been phased out.
 
-When using ``create_new_file_index=True``, the function can be forced to retrieve
-a new list of files from the server. Otherwise, data will be served from the
-cache because this information rarely changes.
 
 Measurements
 ============
@@ -116,7 +113,7 @@ Inquire the list of stations by geographic coordinates.
 .. code-block:: python
 
     from datetime import datetime
-    from wetterdienst import get_nearby_stations_by_number, DWDStationRequest
+    from wetterdienst import DWDStationRequest, get_nearby_stations_by_number
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
     stations = get_nearby_stations_by_number(

@@ -5,11 +5,16 @@ import logging
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
-from wetterdienst import __appname__, __version__
-from wetterdienst import PeriodType, Parameter, TimeResolution
-from wetterdienst import metadata_for_climate_observations, DWDStationRequest
-from wetterdienst.additionals.functions import parse_enumeration_from_template
-from wetterdienst.additionals.util import read_list
+from wetterdienst import (
+    __appname__,
+    __version__,
+    metadata_for_climate_observations,
+    TimeResolution,
+)
+from wetterdienst import PeriodType, Parameter
+from wetterdienst import DWDStationRequest
+from wetterdienst.dwd.util import parse_enumeration_from_template
+from wetterdienst.util.cli import read_list
 
 app = FastAPI(debug=False)
 
