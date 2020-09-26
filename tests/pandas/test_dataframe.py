@@ -5,8 +5,7 @@ import pytest
 from surrogate import surrogate
 
 from wetterdienst import DWDStationRequest, Parameter, TimeResolution, PeriodType
-from wetterdienst.additionals.time_handling import parse_datetime
-
+from wetterdienst.dwd.util import parse_datetime
 
 df_station = pd.DataFrame.from_dict(
     [
@@ -125,6 +124,7 @@ def test_filter_by_date_annual():
     assert df.empty
 
 
+@pytest.mark.sql
 def test_filter_by_sql():
 
     df = df_data.wd.lower().io.sql(

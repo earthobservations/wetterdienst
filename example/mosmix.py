@@ -10,8 +10,8 @@ stations 01001 and 01008 and parameters DD and ww.
 Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
-from wetterdienst.additionals.util import setup_logging
-from wetterdienst.mosmix import MOSMIXReader
+from wetterdienst.util.cli import setup_logging
+from wetterdienst.dwd.mosmix import MOSMIXReader
 
 
 def mosmix_example():

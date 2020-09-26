@@ -4,9 +4,9 @@ import json
 
 import pandas as pd
 
-from wetterdienst import TimeResolution
-from wetterdienst.additionals.time_handling import parse_datetime, mktimerange
-from wetterdienst.enumerations.column_names_enumeration import DWDMetaColumns
+from wetterdienst.dwd.util import parse_datetime, mktimerange
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.time_resolution import TimeResolution
 
 
 @pd.api.extensions.register_dataframe_accessor("wd")

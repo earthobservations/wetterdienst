@@ -1,3 +1,5 @@
+import pytest
+
 from wetterdienst.service import app
 from fastapi.testclient import TestClient
 
@@ -140,6 +142,8 @@ def test_dwd_readings_no_period():
     }
 
 
+@pytest.mark.xfail
+@pytest.mark.sql
 def test_dwd_readings_sql(dicts_are_same):
 
     response = client.get(

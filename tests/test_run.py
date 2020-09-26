@@ -5,7 +5,8 @@ import runpy
 
 
 @mock.patch(
-    "wetterdienst.data_collection.collect_climate_observations_data", side_effect=[None]
+    "wetterdienst.dwd.observations.access.collect_climate_observations_data",
+    side_effect=[None],
 )
 def test_run(mock_ccod):
     args = (

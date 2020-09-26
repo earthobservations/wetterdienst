@@ -15,6 +15,6 @@ FIXTURE = NBRegressionFixture(
 
 
 @pytest.mark.slow
-def test_simple_example():
+def test_jupyter_example():
     """ Test for simple_example jupyter notebook """
     FIXTURE.check(EXAMPLE_DIR / "simple_example.ipynb")
