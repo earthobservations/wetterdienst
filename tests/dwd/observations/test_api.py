@@ -90,9 +90,9 @@ def test_dwd_station_request():
         [1],
         [Parameter.CLIMATE_SUMMARY],
         TimeResolution.DAILY,
-        [PeriodType.HISTORICAL],
-        None,
-        None,
+        [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW],
+        pd.Timestamp("1971-01-01"),
+        pd.Timestamp("1971-01-01"),
     ]
 
     with pytest.raises(StartDateEndDateError):
