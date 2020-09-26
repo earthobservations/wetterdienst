@@ -78,7 +78,7 @@ def coerce_field_types(
             )
         elif column in QUALITY_FIELDS or column in INTEGER_FIELDS:
             df[column] = pd.to_numeric(df[column], errors="coerce").astype(
-                pd.Int8Dtype()
+                pd.Int64Dtype()
             )
         elif column in STRING_FIELDS:
             df[column] = df[column].astype(pd.StringDtype())

@@ -48,8 +48,8 @@ def test_coerce_field_types():
 
     expected_df = pd.DataFrame(
         {
-            "QN": pd.Series([1], dtype="Int8"),
-            "RS_IND_01": pd.Series([1], dtype="Int8"),
+            "QN": pd.Series([1], dtype=pd.Int64Dtype()),
+            "RS_IND_01": pd.Series([1], dtype=pd.Int64Dtype()),
             "DATE": [pd.Timestamp("1970-01-01")],
             "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
             "V_VV_I": pd.Series(["P"], dtype=pd.StringDtype()),
@@ -72,8 +72,8 @@ def test_coerce_field_types_with_nans():
 
     expected_df = pd.DataFrame(
         {
-            "QN": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int8Dtype()),
-            "RS_IND_01": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int8Dtype()),
+            "QN": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
+            "RS_IND_01": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
             "V_VV_I": pd.Series([pd.NA, np.nan, "P"], dtype=pd.StringDtype()),
         }
     )
