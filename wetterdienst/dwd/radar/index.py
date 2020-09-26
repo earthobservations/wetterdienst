@@ -5,16 +5,17 @@ from urllib.parse import urljoin
 import pandas as pd
 from dateparser import parse
 
-from wetterdienst import TimeResolution, Parameter, PeriodType
+from wetterdienst import TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.constants import ArchiveFormat, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.radar.sites import RadarSites
 from wetterdienst.dwd.radar.metadata import (
+    RadarParameter,
+    RadarDataType,
     RADAR_PARAMETERS_COMPOSITES,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_WITH_HDF5,
-    RadarDataTypes,
 )
 from wetterdienst.util.cache import fileindex_cache_five_minutes
 from wetterdienst.util.network import list_remote_files
@@ -41,7 +42,7 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
     file_index = pd.concat(
         [
             _create_fileindex_radar(
-                Parameter.RADOLAN,
+                RadarParameter.RADOLAN,
                 time_resolution,
                 period_type,
             )
@@ -72,11 +73,11 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
 
 
 def _create_fileindex_radar(
-    parameter: Parameter,
+    parameter: RadarParameter,
     time_resolution: Optional[TimeResolution] = None,
     period_type: Optional[PeriodType] = None,
     radar_site: Optional[RadarSites] = None,
-    radar_data_type: Optional[RadarDataTypes] = None,
+    radar_data_type: Optional[RadarDataType] = None,
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -103,18 +104,46 @@ def _create_fileindex_radar(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
     )
 
+    # Some directories have both "---bin" and "---bufr" files within the same directory,
+    # so we need to filter here by designated RadarDataType. Example:
+    # https://opendata.dwd.de/weather/radar/sites/px/boo/
+    if radar_data_type is not None:
+        if radar_data_type == RadarDataType.BINARY:
+            files_server = files_server[
+                files_server[DWDMetaColumns.FILENAME.value].str.contains("--bin")
+            ]
+        elif radar_data_type == RadarDataType.BUFR:
+            files_server = files_server[
+                files_server[DWDMetaColumns.FILENAME.value].str.contains("--buf")
+            ]
+
     return files_server
 
 
 def build_path_to_parameter(
-    parameter: Parameter,
+    parameter: RadarParameter,
     time_resolution: Optional[TimeResolution] = None,
     period_type: Optional[PeriodType] = None,
     radar_site: Optional[RadarSites] = None,
-    radar_data_type: Optional[RadarDataTypes] = None,
+    radar_data_type: Optional[RadarDataType] = None,
 ) -> str:
     """
-    Function to build a indexing file path
+    Function to build a indexing file path.
+    Supports composite- and site-based radar data.
+
+    Composites
+    ----------
+    - https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
+    - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
+    - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
+    - https://opendata.dwd.de/weather/radar/composit/
+    - https://opendata.dwd.de/weather/radar/radolan/
+
+    Sites
+    -----
+    - https://opendata.dwd.de/weather/radar/sites/
+
+
     Args:
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
@@ -125,11 +154,11 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter == Parameter.RADOLAN:
+    if parameter == RadarParameter.RADOLAN:
         parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/{parameter.value}/{period_type.value}"  # noqa:E501,B950
 
     elif parameter in RADAR_PARAMETERS_COMPOSITES:
-        parameter_path = f"weather/radar/composite/{parameter.value}"
+        parameter_path = f"weather/radar/composit/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_SITES:
         if radar_site is None:
@@ -139,7 +168,7 @@ def build_path_to_parameter(
             if parameter in RADAR_PARAMETERS_WITH_HDF5:
                 if radar_data_type is None:
                     raise ValueError("RadarDataType missing [hdf5 or binary]")
-                elif radar_data_type is RadarDataTypes.HDF5:
+                elif radar_data_type is RadarDataType.HDF5:
                     parameter_path = f"{parameter_path}/{radar_data_type.value}"
 
     else:

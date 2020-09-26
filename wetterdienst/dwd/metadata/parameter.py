@@ -38,31 +38,6 @@ class Parameter(Enum):
     WATER_EQUIVALENT = "water_equiv"
     WEATHER_PHENOMENA = "weather_phenomena"
 
-    # Radar data
-
-    # composites
-    RADOLAN = "radolan"
-    WX_REFLECTIVITY = "wx"
-    RX_REFLECTIVITY = "rx"
-    WN_REFLECTIVITY = "wn"
-    PG_REFLECTIVITY = "pg"
-    PP_REFLECTIVITY = "pp"
-
-    # sites
-    DX_REFLECTIVITY = "dx"
-    LMAX_VOLUME_SCAN = "lmax"
-    PE_ECHO_TOP = "pe"
-    PF_REFLECTIVITY = "pf"
-    PL_VOLUME_SCAN = "pl"
-    PR_VELOCITY = "pr"
-    PX_REFLECTIVITY = "px"
-    PX250_REFLECTIVITY = "px250"
-    PZ_CAPPI = "pz"
-    SWEEP_VOL_PRECIPITATION_V = "sweep_pcp_v"
-    SWEEP_VOL_PRECIPITATION_Z = "sweep_pcp_z"
-    SWEEP_VOL_VELOCITY_V = "sweep_vol_v"
-    SWEEP_VOL_VELOCITY_Z = "sweep_vol_z"
-
 
 TIME_RESOLUTION_PARAMETER_MAPPING: Dict[
     TimeResolution, Dict[Parameter, List[PeriodType]]

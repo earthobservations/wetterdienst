@@ -6,11 +6,12 @@ from io import BytesIO
 from pathlib import Path
 from typing import Tuple, List, Union
 
-from wetterdienst import TimeResolution, Parameter
+from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.radar.index import create_file_index_for_radolan
+from wetterdienst.dwd.radar.metadata import RadarParameter
 from wetterdienst.dwd.radar.store import restore_radar_data, store_radar_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 
 
 def collect_radar_data(
-    parameter: Parameter,
+    parameter: RadarParameter,
     date_times: List[datetime],
     time_resolution: TimeResolution,
     prefer_local: bool = False,
@@ -49,7 +50,7 @@ def collect_radar_data(
     ):
         raise ValueError("Wrong TimeResolution for RadarData")
 
-    if parameter == Parameter.RADOLAN:
+    if parameter == RadarParameter.RADOLAN:
         return _collect_radolan_data(
             date_times, time_resolution, prefer_local, write_file, folder
         )
@@ -87,7 +88,7 @@ def _collect_radolan_data(
                     (
                         date_time,
                         restore_radar_data(
-                            Parameter.RADOLAN, date_time, time_resolution, folder
+                            RadarParameter.RADOLAN, date_time, time_resolution, folder
                         ),
                     )
                 )
@@ -115,7 +116,7 @@ def _collect_radolan_data(
 
         if write_file:
             store_radar_data(
-                Parameter.RADOLAN, date_time_and_file, time_resolution, folder
+                RadarParameter.RADOLAN, date_time_and_file, time_resolution, folder
             )
 
     return data

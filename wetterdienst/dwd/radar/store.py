@@ -3,12 +3,13 @@ from io import BytesIO
 from pathlib import Path
 from typing import Tuple, Union
 
-from wetterdienst import TimeResolution, Parameter
+from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.dwd.radar.metadata import RadarParameter
 
 
 def store_radar_data(
-    parameter: Parameter,
+    parameter: RadarParameter,
     date_time_and_file: Tuple[datetime, BytesIO],
     time_resolution: TimeResolution,
     folder: Union[str, Path],
@@ -28,7 +29,7 @@ def store_radar_data(
 
 
 def restore_radar_data(
-    parameter: Parameter,
+    parameter: RadarParameter,
     date_time: datetime,
     time_resolution: TimeResolution,
     folder: Union[str, Path],
@@ -43,7 +44,7 @@ def restore_radar_data(
 
 
 def _build_local_filepath(
-    parameter: Parameter,
+    parameter: RadarParameter,
     date_time: datetime,
     folder: Union[str, Path],
     time_resolution: TimeResolution,
