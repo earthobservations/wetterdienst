@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import List, Union, Generator, Optional
+from typing import List, Union, Generator
 
 import pandas as pd
 from pandas import Timestamp
@@ -32,7 +32,7 @@ class DWDStationRequest:
         parameter: Union[str, Parameter, List[Union[str, Parameter]]],
         time_resolution: Union[str, TimeResolution],
         period_type: Union[
-            Union[None, str, PeriodType], List[Union[None, str, PeriodType]]
+            Union[None, str, PeriodType], List[Union[str, PeriodType]]
         ] = None,
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
@@ -52,11 +52,15 @@ class DWDStationRequest:
                             will be parsed to list of int
         :param parameter:           Observation measure
         :param time_resolution:     Frequency/granularity of measurement interval
-        :param period_type:         Recent or historical files
+        :param period_type:         Recent or historical files (optional), if None
+                                    and start_date and end_date None, all period
+                                    types are used
         :param start_date:          Replacement for period type to define exact time
-                                    of requested data
+                                    of requested data, if used, period type will be set
+                                    to all period types (hist, recent, now)
         :param end_date:            Replacement for period type to define exact time
-                                    of requested data
+                                    of requested data, if used, period type will be set
+                                    to all period types (hist, recent, now)
         :param prefer_local:        Definition if data should rather be taken from a
                                     local source
         :param write_file:          Should data be written to a local file
@@ -65,12 +69,6 @@ class DWDStationRequest:
                                     and row-based version of data
         :param humanize_column_names: Replace column names by more meaningful ones
         """
-
-        if not (period_type or start_date or end_date):
-            raise ValueError(
-                "Define either a 'time_resolution' or one of or both 'start_date' and "
-                "'end_date' and leave 'time_resolution' empty!"
-            )
 
         try:
             self.station_ids = pd.Series(station_ids).astype(int).tolist()
@@ -87,11 +85,12 @@ class DWDStationRequest:
             time_resolution, TimeResolution
         )
 
-        # start date and end date required for collect_data in any case
-        self.start_date = None
-        self.end_date = None
-
-        if period_type:
+        # If any date is given, use all period types and filter, else if not period type
+        # is given use all period types
+        if start_date or end_date or not period_type:
+            self.period_type = [*PeriodType]
+        # Otherwise period types will be parsed
+        else:
             # For the case that a period_type is given, parse the period type(s)
             self.period_type = (
                 pd.Series(period_type)
@@ -99,15 +98,8 @@ class DWDStationRequest:
                 .sort_values()
                 .tolist()
             )
-        else:
-            # working with ranges of data means expecting data to be laying between
-            # periods, thus including all periods
-            self.period_type = [
-                PeriodType.HISTORICAL,
-                PeriodType.RECENT,
-                PeriodType.NOW,
-            ]
 
+        if start_date or end_date:
             # If only one date given, make the other one equal
             if not start_date:
                 start_date = end_date
@@ -122,6 +114,9 @@ class DWDStationRequest:
                 raise StartDateEndDateError(
                     "Error: 'start_date' must be smaller or equal to 'end_date'."
                 )
+        else:
+            self.start_date = start_date
+            self.end_date = end_date
 
         self.prefer_local = prefer_local
         self.write_file = write_file
@@ -236,9 +231,11 @@ class DWDStationRequest:
 
 
 def discover_climate_observations(
-    time_resolution: Optional[TimeResolution] = None,
-    parameter: Optional[Parameter] = None,
-    period_type: Optional[PeriodType] = None,
+    time_resolution: Union[
+        None, str, TimeResolution, List[Union[str, TimeResolution]]
+    ] = None,
+    parameter: Union[None, str, Parameter, List[Union[str, Parameter]]] = None,
+    period_type: Union[None, str, PeriodType, List[Union[str, PeriodType]]] = None,
 ) -> str:
     """
     Function to print/discover available time_resolution/parameter/period_type
