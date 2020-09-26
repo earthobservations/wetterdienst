@@ -29,7 +29,7 @@ import matplotlib.pyplot as pl
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadolanRequest, TimeResolution
+from wetterdienst import DWDRadarRequest, TimeResolution
 
 
 def plot(data: np.ndarray, attributes: dict, label: str):
@@ -122,7 +122,7 @@ def radolan_example():
     """
 
     log.info("Acquiring RADOLAN data")
-    radolan = DWDRadolanRequest(
+    radolan = DWDRadarRequest(
         TimeResolution.DAILY,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00",

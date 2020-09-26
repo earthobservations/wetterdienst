@@ -5,15 +5,15 @@ from typing import Union, Optional, List, Generator, Tuple
 
 import pandas as pd
 
-from wetterdienst import TimeResolution
+from wetterdienst import TimeResolution, Parameter
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
-from wetterdienst.dwd.radolan.access import collect_radar_data
+from wetterdienst.dwd.radar.access import collect_radar_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.radolan.index import create_file_index_for_radolan
+from wetterdienst.dwd.radar.index import create_file_index_for_radolan
 from wetterdienst.dwd.util import parse_enumeration_from_template
 
 
-class DWDRadolanRequest:
+class DWDRadarRequest:
     """
     API for DWD RADOLAN data requests.
     """
@@ -31,15 +31,15 @@ class DWDRadolanRequest:
         """
 
         :param time_resolution: Time resolution enumeration, either hourly or daily
-        :param date_times:      List of datetimes for which RADOLAN is requested.
+        :param date_times:      List of datetimes for which radar data is requested.
                                 Minutes have o be defined (HOUR:50), otherwise rounded
                                 to 50 minutes as of its provision.
         :param start_date:      Alternative to datetimes, giving a start and end date
         :param end_date:        Alternative to datetimes, giving a start and end date
-        :param prefer_local:    RADOLAN should rather be loaded from disk, for
+        :param prefer_local:    Radar data should rather be loaded from disk, for
                                 processing purposes
         :param write_file:      File should be stored on drive
-        :param folder:          Folder where to store RADOLAN data
+        :param folder:          Folder where to store radar data
 
         :return:                Nothing for now.
         """
@@ -100,6 +100,7 @@ class DWDRadolanRequest:
         """
         for date_time in self.date_times:
             _, file_in_bytes = collect_radar_data(
+                parameter=Parameter.RADOLAN,
                 time_resolution=self.time_resolution,
                 date_times=[date_time],
                 write_file=self.write_file,

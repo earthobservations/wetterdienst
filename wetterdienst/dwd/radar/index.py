@@ -1,19 +1,21 @@
 import re
-from pathlib import PurePosixPath
-from typing import Optional, Union
+from typing import Optional
+from urllib.parse import urljoin
 
 import pandas as pd
 from dateparser import parse
 
 from wetterdienst import TimeResolution, Parameter, PeriodType
-from wetterdienst.dwd.metadata.constants import DWDCDCBase, ArchiveFormat, DWDWeatherBase
+from wetterdienst.dwd.metadata.constants import ArchiveFormat, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.index import _create_file_index_for_dwd_server
-from wetterdienst.dwd.metadata.radar_data_types import RadarDataTypes
-from wetterdienst.dwd.metadata.radar_sites import RadarSites
-from wetterdienst.file_path_handling.path_handling import RADAR_PARAMETERS_COMPOSITES, RADAR_PARAMETERS_SITES, \
-    RADAR_PARAMETERS_WITH_HDF5
+from wetterdienst.dwd.radar.sites import RadarSites
+from wetterdienst.dwd.radar.metadata import (
+    RADAR_PARAMETERS_COMPOSITES,
+    RADAR_PARAMETERS_SITES,
+    RADAR_PARAMETERS_WITH_HDF5,
+    RadarDataTypes,
+)
 from wetterdienst.util.cache import fileindex_cache_five_minutes
 from wetterdienst.util.network import list_remote_files
 
@@ -38,11 +40,10 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
     """
     file_index = pd.concat(
         [
-            _create_file_index_radolan(
+            _create_fileindex_radar(
                 Parameter.RADOLAN,
                 time_resolution,
                 period_type,
-                DWDCDCBase.GRIDS_GERMANY,
             )
             for period_type in (PeriodType.HISTORICAL, PeriodType.RECENT)
         ]
@@ -70,13 +71,12 @@ def create_file_index_for_radolan(time_resolution: TimeResolution) -> pd.DataFra
     return file_index
 
 
-def _create_file_index_radolan(
+def _create_fileindex_radar(
     parameter: Parameter,
-    time_resolution: TimeResolution,
-    dwd_base: Union[DWDCDCBase, DWDWeatherBase],
+    time_resolution: Optional[TimeResolution] = None,
     period_type: Optional[PeriodType] = None,
     radar_site: Optional[RadarSites] = None,
-    radar_data_type: Optional[RadarDataTypes] = None
+    radar_data_type: Optional[RadarDataTypes] = None,
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -91,33 +91,28 @@ def _create_file_index_radolan(
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    parameter_path = build_path_to_parameter(parameter,
-                                             time_resolution,
-                                             period_type,
-                                             radar_site,
-                                             radar_data_type)
+    parameter_path = build_path_to_parameter(
+        parameter, time_resolution, period_type, radar_site, radar_data_type
+    )
 
-    files_server = list_remote_files(parameter_path, dwd_base, recursive=True)
+    url = urljoin(DWD_SERVER, parameter_path)
+
+    files_server = list_remote_files(url, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
     )
 
-    data_directory = DWDCDCBase.PATH.value \
-        if isinstance(dwd_base, DWDCDCBase) else DWDWeatherBase.PATH.value
-
-    files_server[DWDMetaColumns.FILENAME.value] = files_server[
-        DWDMetaColumns.FILENAME.value
-    ].str.replace(f"{data_directory}/{dwd_base.value}/", "")
-
     return files_server
 
 
 def build_path_to_parameter(
-        parameter: Parameter,
-        radar_site: Optional[RadarSites] = None,
-        radar_data_type: Optional[RadarDataTypes] = None
-) -> PurePosixPath:
+    parameter: Parameter,
+    time_resolution: Optional[TimeResolution] = None,
+    period_type: Optional[PeriodType] = None,
+    radar_site: Optional[RadarSites] = None,
+    radar_data_type: Optional[RadarDataTypes] = None,
+) -> str:
     """
     Function to build a indexing file path
     Args:
@@ -130,23 +125,24 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter in RADAR_PARAMETERS_COMPOSITES:
-        parameter_path = PurePosixPath(parameter.value)
+    if parameter == Parameter.RADOLAN:
+        parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/{parameter.value}/{period_type.value}"  # noqa:E501,B950
+
+    elif parameter in RADAR_PARAMETERS_COMPOSITES:
+        parameter_path = f"weather/radar/composite/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_SITES:
         if radar_site is None:
-            raise ValueError("You have choosen radar site data which "
-                             "requires to pass a RadarSite")
+            raise ValueError("Acquiring radar site data requires a RadarSite")
         else:
-            parameter_path = PurePosixPath(parameter.value,
-                                           radar_site.value)
+            parameter_path = f"weather/radar/sites/{parameter.value}/{radar_site.value}"
             if parameter in RADAR_PARAMETERS_WITH_HDF5:
                 if radar_data_type is None:
-                    raise ValueError("You have to define a RadarDataType [hdf5 or binary]")
+                    raise ValueError("RadarDataType missing [hdf5 or binary]")
                 elif radar_data_type is RadarDataTypes.HDF5:
-                    parameter_path = PurePosixPath.joinpath(parameter_path, radar_data_type.value)
+                    parameter_path = f"{parameter_path}/{radar_data_type.value}"
 
     else:
-        raise KeyError("Unknown parameter for RADAR")
+        raise KeyError("Failed to compute path to RADAR data")
 
     return parameter_path

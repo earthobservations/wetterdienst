@@ -272,31 +272,40 @@ Other variants::
     response = mosmix.read_mosmix_s_latest()
 
 
-*******
-RADOLAN
-*******
+*****
+RADAR
+*****
 
-To use ``DWDRadolanRequest``, you have to provide a time resolution (either hourly or daily)
+To use ``DWDRadarRequest``, you have to provide a time resolution (either hourly or daily)
 and ``date_times`` (list of datetimes or strings) or a start date and end date. Datetimes
 are rounded to HH:50min as the data is packaged for this minute step. Additionally,
 you can provide a folder to store/restore RADOLAN data to/from the local filesystem.
 
 This is a short snippet which should give you an idea
-how to use ``DWDRadolanRequest`` together with ``wradlib``.
+how to use ``DWDRadarRequest`` together with ``wradlib``.
 For a more thorough example, please have a look at `example/radolan.py`_.
+
+The subsystem implements access to various radar data like:
+
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
+- https://opendata.dwd.de/weather/radar/radolan/
+- https://opendata.dwd.de/weather/radar/composit/
+- https://opendata.dwd.de/weather/radar/sites/
 
 .. code-block:: python
 
-    from wetterdienst import DWDRadolanRequest, TimeResolution
+    from wetterdienst import DWDRadarRequest, TimeResolution
     import wradlib as wrl
 
-    radolan = DWDRadolanRequest(
+    radar = DWDRadarRequest(
         TimeResolution.DAILY,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00"
     )
 
-    for item in radolan.collect_data():
+    for item in radar.collect_data():
 
         # Decode item.
         timestamp, buffer = item

@@ -10,8 +10,8 @@ from wetterdienst import TimeResolution, Parameter
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 
 from wetterdienst.dwd.network import download_file_from_dwd
-from wetterdienst.dwd.radolan.index import create_file_index_for_radolan
-from wetterdienst.dwd.radolan.store import restore_radolan_data, store_radolan_data
+from wetterdienst.dwd.radar.index import create_file_index_for_radolan
+from wetterdienst.dwd.radar.store import restore_radar_data, store_radar_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.util.cache import payload_cache_twelve_hours
@@ -41,21 +41,22 @@ def collect_radar_data(
     Returns:
         list of tuples of a datetime and the corresponding file in bytes
     """
-    if time_resolution not in (TimeResolution.HOURLY,
-                               TimeResolution.DAILY,
-                               TimeResolution.MINUTE_5,
-                               TimeResolution.MINUTE_15):
+    if time_resolution not in (
+        TimeResolution.HOURLY,
+        TimeResolution.DAILY,
+        TimeResolution.MINUTE_5,
+        TimeResolution.MINUTE_15,
+    ):
         raise ValueError("Wrong TimeResolution for RadarData")
 
     if parameter == Parameter.RADOLAN:
-        return _collect_radolan_data(date_times,
-                                     time_resolution,
-                                     prefer_local,
-                                     write_file,
-                                     folder)
+        return _collect_radolan_data(
+            date_times, time_resolution, prefer_local, write_file, folder
+        )
     else:
-        raise ValueError("You have passed a non valid radar data Parameter. "
-                         "Valid Radar data:")
+        raise ValueError(
+            "You have passed a non valid radar data Parameter. " "Valid Radar data:"
+        )
 
 
 def _collect_radolan_data(
@@ -85,7 +86,9 @@ def _collect_radolan_data(
                 data.append(
                     (
                         date_time,
-                        restore_radolan_data(Parameter.RADOLAN, date_time, time_resolution, folder),
+                        restore_radar_data(
+                            Parameter.RADOLAN, date_time, time_resolution, folder
+                        ),
                     )
                 )
 
@@ -100,6 +103,7 @@ def _collect_radolan_data(
         remote_radolan_file_path = create_filepath_for_radolan(
             date_time, time_resolution
         )
+        print("remote_radolan_file_path:", remote_radolan_file_path)
 
         if remote_radolan_file_path == "":
             log.warning(f"RADOLAN not found for {str(date_time)}, will be skipped.")
@@ -110,7 +114,9 @@ def _collect_radolan_data(
         data.append(date_time_and_file)
 
         if write_file:
-            store_radolan_data(Parameter.RADOLAN, date_time_and_file, time_resolution, folder)
+            store_radar_data(
+                Parameter.RADOLAN, date_time_and_file, time_resolution, folder
+            )
 
     return data
 

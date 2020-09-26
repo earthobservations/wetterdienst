@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 from wetterdienst.dwd.metadata.time_resolution import TimeResolution
-from wetterdienst.dwd.radolan.access import _collect_radolan_data
+from wetterdienst.dwd.radar.access import _collect_radolan_data
 
 HERE = Path(__file__).parent
 

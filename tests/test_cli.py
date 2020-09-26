@@ -30,6 +30,9 @@ def test_cli_about_parameters(capsys):
     assert "air_temperature" in response
     assert "weather_phenomena" in response
     assert "radolan" in response
+    assert "wx" in response
+    assert "rx" in response
+    assert "sweep_vol_z" in response
 
 
 def test_cli_about_resolutions(capsys):

@@ -3,23 +3,24 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
-from wetterdienst import DWDRadolanRequest, TimeResolution
+from wetterdienst import DWDRadarRequest, TimeResolution
 
 HERE = Path(__file__).parent
 
 
 @pytest.mark.remote
 def test_dwd_radolan_request():
+
     with pytest.raises(ValueError):
-        DWDRadolanRequest(
+        DWDRadarRequest(
             time_resolution=TimeResolution.MINUTE_1, date_times=["2019-08-08 00:50:00"]
         )
 
-    request = DWDRadolanRequest(
+    request = DWDRadarRequest(
         time_resolution=TimeResolution.HOURLY, date_times=["2019-08-08 00:50:00"]
     )
 
-    assert request == DWDRadolanRequest(
+    assert request == DWDRadarRequest(
         TimeResolution.HOURLY,
         [datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)],
     )

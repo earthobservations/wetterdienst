@@ -11,13 +11,6 @@ DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations
 
 class DWDCDCBase(Enum):
     CLIMATE_OBSERVATIONS = "observations_germany/climate/"
-    GRIDS_GERMANY = "grids_germany/"
-
-
-class DWDWeatherBase(Enum):
-    PATH = "weather"
-    RADAR_COMPOSITE = "radar/composite"
-    RADAR_SITES = "radar/sites"
 
 
 DWD_FOLDER_MAIN = "./dwd_data"

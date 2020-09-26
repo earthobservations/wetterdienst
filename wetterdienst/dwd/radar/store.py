@@ -7,19 +7,19 @@ from wetterdienst import TimeResolution, Parameter
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 
 
-def store_radolan_data(
-        parameter: Parameter,
-        date_time_and_file: Tuple[datetime, BytesIO],
-        time_resolution: TimeResolution,
-        folder: Union[str, Path],
+def store_radar_data(
+    parameter: Parameter,
+    date_time_and_file: Tuple[datetime, BytesIO],
+    time_resolution: TimeResolution,
+    folder: Union[str, Path],
 ) -> None:
     """
-    Stores a binary file of radolan data locally
+    Stores a binary file of radar data locally.
     """
 
     date_time, file = date_time_and_file
 
-    filepath = build_local_filepath_for_radar(parameter, date_time, folder, time_resolution)
+    filepath = _build_local_filepath(parameter, date_time, folder, time_resolution)
 
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -27,14 +27,14 @@ def store_radolan_data(
         f.write(file.read())
 
 
-def restore_radolan_data(
-        parameter: Parameter,
-        date_time: datetime,
-        time_resolution: TimeResolution,
-        folder: Union[str, Path]
+def restore_radar_data(
+    parameter: Parameter,
+    date_time: datetime,
+    time_resolution: TimeResolution,
+    folder: Union[str, Path],
 ) -> BytesIO:
-    """ Opens downloaded radolan data into a binary object"""
-    filepath = build_local_filepath_for_radar(parameter, date_time, folder, time_resolution)
+    """ Opens downloaded radar data into a binary object"""
+    filepath = _build_local_filepath(parameter, date_time, folder, time_resolution)
 
     with filepath.open("rb") as f:
         file_in_bytes = BytesIO(f.read())
@@ -42,11 +42,11 @@ def restore_radolan_data(
     return file_in_bytes
 
 
-def build_local_filepath_for_radar(
-        parameter: Parameter,
-        date_time: datetime,
-        folder: Union[str, Path],
-        time_resolution: TimeResolution
+def _build_local_filepath(
+    parameter: Parameter,
+    date_time: datetime,
+    folder: Union[str, Path],
+    time_resolution: TimeResolution,
 ) -> Union[str, Path]:
     """
 
