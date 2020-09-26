@@ -39,7 +39,7 @@ df_data = pd.DataFrame.from_dict(
 
 def test_lowercase():
 
-    df = df_data.wd.lower()
+    df = df_data.dwd.lower()
 
     assert list(df.columns) == [
         "station_id",
@@ -56,19 +56,19 @@ def test_lowercase():
 
 def test_filter_by_date():
 
-    df = df_data.wd.filter_by_date("2019-12-28", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-28", TimeResolution.HOURLY)
     assert not df.empty
 
-    df = df_data.wd.filter_by_date("2019-12-27", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-27", TimeResolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_interval():
 
-    df = df_data.wd.filter_by_date("2019-12-27/2019-12-29", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-27/2019-12-29", TimeResolution.HOURLY)
     assert not df.empty
 
-    df = df_data.wd.filter_by_date("2020/2022", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2020/2022", TimeResolution.HOURLY)
     assert df.empty
 
 
@@ -88,13 +88,13 @@ def test_filter_by_date_monthly():
         ]
     )
 
-    df = result.wd.filter_by_date("2019-12/2020-01", TimeResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2019-12/2020-01", TimeResolution.MONTHLY)
     assert not df.empty
 
-    df = result.wd.filter_by_date("2020/2022", TimeResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2020/2022", TimeResolution.MONTHLY)
     assert df.empty
 
-    df = result.wd.filter_by_date("2020", TimeResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2020", TimeResolution.MONTHLY)
     assert df.empty
 
 
@@ -114,25 +114,25 @@ def test_filter_by_date_annual():
         ]
     )
 
-    df = result.wd.filter_by_date("2019-05/2019-09", TimeResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2019-05/2019-09", TimeResolution.ANNUAL)
     assert not df.empty
 
-    df = result.wd.filter_by_date("2020/2022", TimeResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2020/2022", TimeResolution.ANNUAL)
     assert df.empty
 
-    df = result.wd.filter_by_date("2020", TimeResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2020", TimeResolution.ANNUAL)
     assert df.empty
 
 
 @pytest.mark.sql
 def test_filter_by_sql():
 
-    df = df_data.wd.lower().io.sql(
+    df = df_data.dwd.lower().io.sql(
         "SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 1.5"
     )
     assert not df.empty
 
-    df = df_data.wd.lower().io.sql(
+    df = df_data.dwd.lower().io.sql(
         "SELECT * FROM data WHERE element='temperature_air_max_200' AND value > 1.5"
     )
     assert df.empty
@@ -140,7 +140,7 @@ def test_filter_by_sql():
 
 def test_format_json():
 
-    output = df_data.wd.lower().io.format("json")
+    output = df_data.dwd.lower().io.format("json")
 
     response = json.loads(output)
     station_ids = list(set([reading["station_id"] for reading in response]))
@@ -150,7 +150,7 @@ def test_format_json():
 
 def test_format_geojson():
 
-    output = df_station.wd.format("geojson")
+    output = df_station.dwd.format("geojson")
 
     response = json.loads(output)
 
@@ -161,7 +161,7 @@ def test_format_geojson():
 
 def test_format_csv():
 
-    output = df_data.wd.lower().io.format("csv").strip()
+    output = df_data.dwd.lower().io.format("csv").strip()
 
     assert "station_id,parameter,element,date,value,quality" in output
     assert (
@@ -173,7 +173,7 @@ def test_format_csv():
 def test_format_unknown():
 
     with pytest.raises(KeyError):
-        df_data.wd.format("foobar")
+        df_data.dwd.format("foobar")
 
 
 def test_request():
@@ -285,7 +285,7 @@ def test_export_influxdb():
     ) as mock_connect:
 
         df = request.collect_safe()
-        df.wd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
+        df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")

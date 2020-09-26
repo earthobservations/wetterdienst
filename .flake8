@@ -7,4 +7,4 @@ per-file-ignores =
     wetterdienst/__init__.py:F401,
     wetterdienst/cli.py:E501,B950,
     wetterdienst/service.py:B008,
-    wetterdienst/pandas/io.py:E501,B950
+    wetterdienst/util/pandas.py:E501,B950

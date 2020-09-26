@@ -6,7 +6,7 @@ from typing import Union, Optional, List, Generator, Tuple
 import pandas as pd
 
 from wetterdienst import TimeResolution
-from wetterdienst.dwd.metadata.repository import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 from wetterdienst.dwd.radolan.access import collect_radolan_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.radolan.index import create_file_index_for_radolan

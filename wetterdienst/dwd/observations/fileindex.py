@@ -4,7 +4,7 @@ from typing import List, Union
 import pandas as pd
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.repository import (
+from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
     STATION_ID_REGEX,
     ArchiveFormat,

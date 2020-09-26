@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 import pandas as pd
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.repository import DWDCDCBase, DWD_SERVER, DWD_CDC_PATH
+from wetterdienst.dwd.metadata.constants import DWDCDCBase, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.util.cache import (
     fileindex_cache_five_minutes,

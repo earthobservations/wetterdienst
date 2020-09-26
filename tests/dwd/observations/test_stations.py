@@ -53,7 +53,7 @@ def test_metadata_geojson():
 
     df = df[df[DWDMetaColumns.STATION_ID.value] == 1]
 
-    geojson = df.wd.to_geojson()
+    geojson = df.dwd.to_geojson()
 
     properties = geojson["features"][0]["properties"]
     geometry = geojson["features"][0]["geometry"]

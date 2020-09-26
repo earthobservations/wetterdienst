@@ -4,7 +4,7 @@ import pandas as pd
 from dateparser import parse
 
 from wetterdienst import TimeResolution, Parameter, PeriodType
-from wetterdienst.dwd.metadata.repository import DWDCDCBase, ArchiveFormat
+from wetterdienst.dwd.metadata.constants import DWDCDCBase, ArchiveFormat
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server

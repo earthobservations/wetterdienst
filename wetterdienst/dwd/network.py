@@ -5,7 +5,7 @@ from io import BytesIO
 import requests
 from requests.adapters import HTTPAdapter
 
-from wetterdienst.dwd.metadata.repository import DWD_SERVER
+from wetterdienst.dwd.metadata.constants import DWD_SERVER
 
 
 logger = logging.getLogger(__name__)

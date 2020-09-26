@@ -4,13 +4,13 @@ import json
 
 import pandas as pd
 
-from wetterdienst.dwd.util import parse_datetime, mktimerange
+from wetterdienst.dwd.metadata import TimeResolution
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.metadata.time_resolution import TimeResolution
+from wetterdienst.dwd.util import parse_datetime, mktimerange
 
 
-@pd.api.extensions.register_dataframe_accessor("wd")
-class WetterdienstAccessor:
+@pd.api.extensions.register_dataframe_accessor("dwd")
+class PandasDwdExtension:
     def __init__(self, pandas_obj):
         self.df = pandas_obj
 
@@ -96,7 +96,7 @@ class WetterdienstAccessor:
 
         # Output as GeoJSON.
         if format == "geojson":
-            output = json.dumps(self.df.wd.to_geojson(), indent=4)
+            output = json.dumps(self.df.dwd.to_geojson(), indent=4)
 
         else:
             output = self.df.io.format(format=format)

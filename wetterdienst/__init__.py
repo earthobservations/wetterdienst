@@ -1,6 +1,7 @@
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.dwd.metadata.time_resolution import TimeResolution
-from wetterdienst.dwd.metadata.period_type import PeriodType
+"""Wetterdienst - Open weather data for humans"""
+__appname__ = "wetterdienst"
+
+from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.observations.api import (
     DWDStationRequest,
     discover_climate_observations,
@@ -11,12 +12,6 @@ from wetterdienst.dwd.observations.stations import (
     get_nearby_stations_by_distance,
 )
 from wetterdienst.dwd.radolan.api import DWDRadolanRequest
-
-# Load Pandas extensions.
-import wetterdienst.pandas
-
-"""Wetterdienst - Open weather data for humans"""
-__appname__ = "wetterdienst"
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/

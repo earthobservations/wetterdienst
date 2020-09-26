@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Tuple, List, Union
 
 from wetterdienst import TimeResolution
-from wetterdienst.dwd.metadata.repository import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.radolan.index import create_file_index_for_radolan
