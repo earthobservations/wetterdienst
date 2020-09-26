@@ -7,7 +7,7 @@ import pandas as pd
 from dateutil.relativedelta import relativedelta
 from numpy.distutils.misc_util import as_list
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.column_names import (
     DWDMetaColumns,
     DWDOrigDataColumns,

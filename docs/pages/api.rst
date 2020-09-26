@@ -224,10 +224,10 @@ MOSMIX
 ******
 ::
 
-    from wetterdienst.mosmix import MOSMIXReader
+    from wetterdienst.mosmix.api import MOSMIXRequest
 
     # MOSMIX-L, all parameters
-    mosmix = MOSMIXReader(station_ids=["01001", "01008"])
+    mosmix = MOSMIXRequest(station_ids=["01001", "01008"])
     response = mosmix.read_mosmix_l_latest()
 
     print(response.metadata)
@@ -237,11 +237,11 @@ MOSMIX
 Other variants::
 
     # MOSMIX-L, specific parameters
-    mosmix = MOSMIXReader(station_ids=["01001", "01008"], parameters=["DD", "ww"])
+    mosmix = MOSMIXRequest(station_ids=["01001", "01008"], parameters=["DD", "ww"])
     response = mosmix.read_mosmix_l_latest()
 
     # MOSMIX-S, all parameters
-    mosmix = MOSMIXReader(station_ids=["01028", "01092"])
+    mosmix = MOSMIXRequest(station_ids=["01028", "01092"])
     response = mosmix.read_mosmix_s_latest()
 
 

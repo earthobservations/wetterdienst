@@ -11,7 +11,7 @@ import pandas as pd
 from requests.exceptions import InvalidURL
 
 from wetterdienst.util.cache import metaindex_cache
-from wetterdienst.dwd.metadata.repository import (
+from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
     DWD_SERVER,
     DWD_CDC_PATH,

@@ -6,7 +6,7 @@ import pandas as pd
 
 from wetterdienst.dwd.util import coerce_field_types
 from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from wetterdienst.dwd.metadata.repository import NA_STRING, STATION_DATA_SEP
+from wetterdienst.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
 from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,

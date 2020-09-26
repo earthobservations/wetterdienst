@@ -23,7 +23,7 @@ from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst.dwd.metadata.period_type import PeriodType
 from wetterdienst import TimeResolution
-from wetterdienst.dwd.metadata.repository import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 from wetterdienst.exceptions import (
     InvalidParameterCombination,
     FailedDownload,

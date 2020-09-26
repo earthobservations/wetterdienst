@@ -14,7 +14,7 @@ from wetterdienst.dwd.metadata.parameter import (
 from wetterdienst import TimeResolution, Parameter, PeriodType
 from wetterdienst.dwd.util import parse_enumeration_from_template, parse_enumeration
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
-from wetterdienst.dwd.metadata.repository import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 
 log = logging.getLogger(__name__)

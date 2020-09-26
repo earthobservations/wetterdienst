@@ -1,5 +1,5 @@
 import pytest
-from wetterdienst.dwd.mosmix import MOSMIXReader
+from wetterdienst.dwd.mosmix.api import MOSMIXRequest
 
 
 @pytest.mark.remote
@@ -8,7 +8,7 @@ def test_mosmix_l():
     Test some details of a typical MOSMIX-L response.
     """
 
-    mosmix = MOSMIXReader(station_ids=["01001", "01008"])
+    mosmix = MOSMIXRequest(station_ids=["01001", "01008"])
     response = mosmix.read_mosmix_l_latest()
 
     # Verify metadata.
@@ -152,7 +152,7 @@ def test_mosmix_s():
     Test some details of a typical MOSMIX-S response.
     """
 
-    mosmix = MOSMIXReader(station_ids=["01028", "01092"])
+    mosmix = MOSMIXRequest(station_ids=["01028", "01092"])
     response = mosmix.read_mosmix_s_latest()
 
     # Verify metadata.
@@ -221,7 +221,7 @@ def test_mosmix_l_parameters():
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
 
-    mosmix = MOSMIXReader(station_ids=["01001", "01008"], parameters=["DD", "ww"])
+    mosmix = MOSMIXRequest(station_ids=["01001", "01008"], parameters=["DD", "ww"])
     response = mosmix.read_mosmix_l_latest()
 
     # Verify forecast data.
@@ -234,7 +234,7 @@ def test_mosmix_l_parameters():
 
 
 def test_mosmix_get_url_latest_fails():
-    mosmix = MOSMIXReader()
+    mosmix = MOSMIXRequest()
     with pytest.raises(KeyError) as ex:
         mosmix.get_url_latest("http://example.net")
 

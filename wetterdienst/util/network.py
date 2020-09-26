@@ -1,9 +1,9 @@
+import requests
 from typing import List
 from urllib.parse import urljoin
-
 from bs4 import BeautifulSoup
 
-from wetterdienst.dwd.network import create_dwd_session
+session = requests.Session()
 
 
 def list_remote_files(url: str, recursive: bool) -> List[str]:
@@ -18,12 +18,11 @@ def list_remote_files(url: str, recursive: bool) -> List[str]:
     Returns:
         a list of strings representing the files from the path
     """
-    dwd_session = create_dwd_session()
 
     if not url.endswith("/"):
         url += "/"
 
-    r = dwd_session.get(url)
+    r = session.get(url)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "lxml")

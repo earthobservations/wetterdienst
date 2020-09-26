@@ -9,8 +9,8 @@ Extending pandas
 - https://pandas.pydata.org/pandas-docs/stable/development/extending.html
 """
 import logging
-from urllib.parse import urlparse, parse_qs
 import pandas as pd
+from urllib.parse import urlparse, parse_qs
 
 
 log = logging.getLogger(__name__)

@@ -263,10 +263,10 @@ def run():
 
     # Filter readings by datetime expression.
     if options.readings and options.date:
-        df = df.wd.filter_by_date(options.date, request.time_resolution)
+        df = df.dwd.filter_by_date(options.date, request.time_resolution)
 
     # Make column names lowercase.
-    df = df.wd.lower()
+    df = df.dwd.lower()
 
     # Apply filtering by SQL.
     if options.sql:
@@ -281,7 +281,7 @@ def run():
 
     # Render to output format.
     try:
-        output = df.wd.format(options.format)
+        output = df.dwd.format(options.format)
     except KeyError as ex:
         log.error(
             f'{ex}. Output format must be one of "json", "geojson", "csv", "excel".'

@@ -1,4 +1,4 @@
-""" entrypoints ro tun scripts via Docker or command line """
+""" Run scripts via Docker or command line """
 import fire
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
 
