@@ -80,12 +80,12 @@ def _create_fileindex_radar(
     radar_data_type: Optional[RadarDataType] = None,
 ) -> pd.DataFrame:
     """
-    Function to create a file index of the DWD station data, which usually is shipped as
-    zipped/archived data. The file index is created for an individual set of parameters.
+    Function to create a file index of the DWD radar data, which is shipped as
+    bin bufr or odim-hdf5 data. The file index is created for a single parameter.
+
     Args:
         parameter: parameter of Parameter enumeration
         time_resolution: time resolution of TimeResolution enumeration
-        dwd_base: base path e.g. climate_observations/germany or weather
         period_type: period type of PeriodType enumeration
         radar_site: Site of the radar if parameter is one of RADAR_PARAMETERS_SITES
         radar_data_type: Some radar data are available in different data types
