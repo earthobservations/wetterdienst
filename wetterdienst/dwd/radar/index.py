@@ -16,6 +16,7 @@ from wetterdienst.dwd.radar.metadata import (
     RADAR_PARAMETERS_COMPOSITES,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_WITH_HDF5,
+    RADAR_PARAMETERS_RADOLAN,
 )
 from wetterdienst.util.cache import fileindex_cache_five_minutes
 from wetterdienst.util.network import list_remote_files
@@ -154,11 +155,17 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter == RadarParameter.RADOLAN:
-        parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/{parameter.value}/{period_type.value}"  # noqa:E501,B950
+    if parameter == RadarParameter.RADOLAN_GRID:
+        if time_resolution == TimeResolution.MINUTE_5:
+            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950
+        else:
+            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/radolan/{period_type.value}/bin"  # noqa:E501,B950
 
     elif parameter in RADAR_PARAMETERS_COMPOSITES:
         parameter_path = f"weather/radar/composit/{parameter.value}"
+
+    elif parameter in RADAR_PARAMETERS_RADOLAN:
+        parameter_path = f"weather/radar/radolan/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_SITES:
         if radar_site is None:
