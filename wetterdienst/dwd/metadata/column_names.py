@@ -435,7 +435,7 @@ class DWDDataColumns(_DWDDataColumnBase):
             RS_IND_01 = "PRECIPITATION_FORM"  # int
 
     # 10_minutes
-    class MINUTES_10(_DWDDataColumnBase):  # noqa
+    class MINUTE_10(_DWDDataColumnBase):  # noqa
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
             QN = "QUALITY"

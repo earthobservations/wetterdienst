@@ -131,6 +131,14 @@ html5lib = ["html5lib"]
 lxml = ["lxml"]
 
 [[package]]
+category = "main"
+description = "Simple construction, analysis and modification of binary data."
+name = "bitstring"
+optional = false
+python-versions = "*"
+version = "3.1.7"
+
+[[package]]
 category = "dev"
 description = "The uncompromising code formatter."
 name = "black"
@@ -195,6 +203,17 @@ version = "1.14.3"
 
 [package.dependencies]
 pycparser = "*"
+
+[[package]]
+category = "main"
+description = "Time-handling functionality from netcdf4-python"
+name = "cftime"
+optional = true
+python-versions = "*"
+version = "1.2.1"
+
+[package.dependencies]
+numpy = "*"
 
 [[package]]
 category = "main"
@@ -327,6 +346,17 @@ name = "defusedxml"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 version = "0.6.0"
+
+[[package]]
+category = "main"
+description = "A library to handle automated deprecations"
+name = "deprecation"
+optional = false
+python-versions = "*"
+version = "2.1.0"
+
+[package.dependencies]
+packaging = "*"
 
 [[package]]
 category = "dev"
@@ -511,6 +541,17 @@ flake8 = "*"
 
 [[package]]
 category = "main"
+description = "GDAL: Geospatial Data Abstraction Library"
+name = "gdal"
+optional = true
+python-versions = "*"
+version = "3.1.3"
+
+[package.extras]
+numpy = ["numpy (>1.0.0)"]
+
+[[package]]
+category = "main"
 description = "Python bindings and utilities for GeoJSON"
 name = "geojson"
 optional = true
@@ -546,6 +587,17 @@ name = "h11"
 optional = true
 python-versions = "*"
 version = "0.9.0"
+
+[[package]]
+category = "main"
+description = "netCDF4 via h5py"
+name = "h5netcdf"
+optional = true
+python-versions = ">=3.6"
+version = "0.8.1"
+
+[package.dependencies]
+h5py = "*"
 
 [[package]]
 category = "main"
@@ -976,6 +1028,18 @@ traitlets = ">=4.1"
 test = ["pytest", "pytest-cov", "testpath"]
 
 [[package]]
+category = "main"
+description = "Provides an object-oriented python interface to the netCDF version 4 library."
+name = "netcdf4"
+optional = true
+python-versions = "*"
+version = "1.5.4"
+
+[package.dependencies]
+cftime = "*"
+numpy = ">=1.9"
+
+[[package]]
 category = "dev"
 description = "A web-based notebook environment for interactive computing"
 name = "notebook"
@@ -1208,6 +1272,18 @@ name = "py"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.9.0"
+
+[[package]]
+category = "main"
+description = "Python toolkit to work with BUFR files"
+name = "pybufrkit"
+optional = false
+python-versions = "*"
+version = "0.2.17"
+
+[package.dependencies]
+bitstring = ">=3.1.3"
+six = "*"
 
 [[package]]
 category = "dev"
@@ -1955,6 +2031,51 @@ version = "8.1"
 
 [[package]]
 category = "main"
+description = "wradlib - An Open Source Library for Weather Radar Data Processing"
+name = "wradlib"
+optional = true
+python-versions = "*"
+version = "1.8.0"
+
+[package.dependencies]
+deprecation = "*"
+gdal = "*"
+h5netcdf = "*"
+h5py = "*"
+matplotlib = "*"
+netCDF4 = "*"
+numpy = "*"
+requests = "*"
+scipy = "*"
+xarray = "*"
+xmltodict = "*"
+
+[package.extras]
+dev = ["codecov", "coverage", "pytest", "pytest-cov", "pytest-sugar", "pytest-xdist", "nbconvert", "nbformat"]
+
+[[package]]
+category = "main"
+description = "N-D labeled arrays and datasets in Python"
+name = "xarray"
+optional = true
+python-versions = ">=3.6"
+version = "0.16.1"
+
+[package.dependencies]
+numpy = ">=1.15"
+pandas = ">=0.25"
+setuptools = ">=38.4"
+
+[[package]]
+category = "main"
+description = "Makes working with XML feel like you are working with JSON"
+name = "xmltodict"
+optional = true
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "0.12.0"
+
+[[package]]
+category = "main"
 description = "Backport of pathlib-compatible object wrapper for zip files"
 marker = "python_version < \"3.8\""
 name = "zipp"
@@ -1967,6 +2088,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=3.5,<3.7.3 || >3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pytest-cov", "jaraco.test (>=3.2.0)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [extras]
+bufr = ["pybufrkit"]
 cratedb = ["crate"]
 docs = ["sphinx", "sphinx-material", "tomlkit", "sphinx-autodoc-typehints", "sphinxcontrib-svg2pdfconverter", "matplotlib", "ipython"]
 duckdb = ["duckdb"]
@@ -1976,10 +2098,11 @@ influxdb = ["influxdb"]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
+radar = ["wradlib", "pybufrkit"]
 sql = ["duckdb"]
 
 [metadata]
-content-hash = "ef833e1caef18ad6176391667f0bf47060765991ed01243f46981c211aadd955"
+content-hash = "8a55e0851f898a6bce9b1879a74e572d8d03c138560b387c7ae1f7914eb1c21d"
 lock-version = "1.0"
 python-versions = "^3.6.1"
 
@@ -2043,6 +2166,9 @@ beautifulsoup4 = [
     {file = "beautifulsoup4-4.9.3-py3-none-any.whl", hash = "sha256:fff47e031e34ec82bf17e00da8f592fe7de69aeea38be00523c04623c04fb666"},
     {file = "beautifulsoup4-4.9.3.tar.gz", hash = "sha256:84729e322ad1d5b4d25f805bfa05b902dd96450f43842c4e99067d5e1369eb25"},
 ]
+bitstring = [
+    {file = "bitstring-3.1.7.tar.gz", hash = "sha256:fdf3eb72b229d2864fb507f8f42b1b2c57af7ce5fec035972f9566de440a864a"},
+]
 black = [
     {file = "black-20.8b1-py3-none-any.whl", hash = "sha256:70b62ef1527c950db59062cda342ea224d772abdf6adc58b86a45421bab20a6b"},
     {file = "black-20.8b1.tar.gz", hash = "sha256:1c02557aa099101b9d21496f8a914e9ed2222ef70336404eeeac8edba836fbea"},
@@ -2093,6 +2219,24 @@ cffi = [
     {file = "cffi-1.14.3-cp39-cp39-win32.whl", hash = "sha256:d80998ed59176e8cba74028762fbd9b9153b9afc71ea118e63bbf5d4d0f9552b"},
     {file = "cffi-1.14.3-cp39-cp39-win_amd64.whl", hash = "sha256:c150eaa3dadbb2b5339675b88d4573c1be3cb6f2c33a6c83387e10cc0bf05bd3"},
     {file = "cffi-1.14.3.tar.gz", hash = "sha256:f92f789e4f9241cd262ad7a555ca2c648a98178a953af117ef7fad46aa1d5591"},
+]
+cftime = [
+    {file = "cftime-1.2.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:1381b4ba9e53e932472a7da574d8553477d15aa8bc647425cb0110db4f4dfdac"},
+    {file = "cftime-1.2.1-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:5ddbc9514719e6b964cd9fd5f306679af09f53f8f6792888d62448b1b6d764d9"},
+    {file = "cftime-1.2.1-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:7a2b0a3821071560d2ae01236215be6dd7bfa81328823ec602f37496aeea35d0"},
+    {file = "cftime-1.2.1-cp36-none-win32.whl", hash = "sha256:33b5180650a4aace7ce021af4af0f278477be94276da7b7c8ae51b49e5a022a9"},
+    {file = "cftime-1.2.1-cp36-none-win_amd64.whl", hash = "sha256:eba48c7e47468f16cb1c8caf6ce772e39d067100e3893b94cf7dd394ec23d943"},
+    {file = "cftime-1.2.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:3c23e4b0109ff7b878fc60d7ed9131bdc8c2c8ea098c2f9200e19c596ffe0019"},
+    {file = "cftime-1.2.1-cp37-cp37m-manylinux1_i686.whl", hash = "sha256:7cb8defe607da8cacbd4ebb3b983571732b0476be98decda37595ae49108797f"},
+    {file = "cftime-1.2.1-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:fec04d3bed7078f1a62db7dab12790b96eb3b48e3522ad0c28c9d36175b99f89"},
+    {file = "cftime-1.2.1-cp37-none-win32.whl", hash = "sha256:d6bf1c1954660a500d11ca047151205182212dfaa20b2eb0c6dfe372140868fc"},
+    {file = "cftime-1.2.1-cp37-none-win_amd64.whl", hash = "sha256:08bc1af49f92a31b8b58a4d8b61bf457e17832eb3440eac7eec79afca7d0be59"},
+    {file = "cftime-1.2.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:bf797e0c71631406a19fe2a69ff311cb9be10610c30e02f7f75920e779076840"},
+    {file = "cftime-1.2.1-cp38-cp38-manylinux1_i686.whl", hash = "sha256:b694aead858872b7102f860d00439147df1d867ea8fbaafe0be787f7fa59c264"},
+    {file = "cftime-1.2.1-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:8390ea907988b11a93fa263365ca6a4ea829378b1e24e48b1087803d6bb6089c"},
+    {file = "cftime-1.2.1-cp38-none-win32.whl", hash = "sha256:b4bb4ae6c6e44f4d8bc080042515e70423bec20f5279e49b564c0238dc4319ad"},
+    {file = "cftime-1.2.1-cp38-none-win_amd64.whl", hash = "sha256:650e3ca771f6b6e9d6984af007c1045eb77eae40f9342e2982a45162a097cac5"},
+    {file = "cftime-1.2.1.tar.gz", hash = "sha256:ab5d5076f7d3e699758a244ada7c66da96bae36e22b9e351ce0ececc36f0a57f"},
 ]
 chardet = [
     {file = "chardet-3.0.4-py2.py3-none-any.whl", hash = "sha256:fc323ffcaeaed0e0a02bf4d117757b98aed530d9ed4531e3e15460124c106691"},
@@ -2175,6 +2319,10 @@ defusedxml = [
     {file = "defusedxml-0.6.0-py2.py3-none-any.whl", hash = "sha256:6687150770438374ab581bb7a1b327a847dd9c5749e396102de3fad4e8a3ef93"},
     {file = "defusedxml-0.6.0.tar.gz", hash = "sha256:f684034d135af4c6cbb949b8a4d2ed61634515257a67299e5f940fbaa34377f5"},
 ]
+deprecation = [
+    {file = "deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a"},
+    {file = "deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff"},
+]
 dictdiffer = [
     {file = "dictdiffer-0.8.1-py2.py3-none-any.whl", hash = "sha256:d79d9a39e459fe33497c858470ca0d2e93cb96621751de06d631856adfd9c390"},
     {file = "dictdiffer-0.8.1.tar.gz", hash = "sha256:1adec0d67cdf6166bda96ae2934ddb5e54433998ceab63c984574d187cc563d2"},
@@ -2246,6 +2394,9 @@ flake8-polyfill = [
     {file = "flake8-polyfill-1.0.2.tar.gz", hash = "sha256:e44b087597f6da52ec6393a709e7108b2905317d0c0b744cdca6208e670d8eda"},
     {file = "flake8_polyfill-1.0.2-py2.py3-none-any.whl", hash = "sha256:12be6a34ee3ab795b19ca73505e7b55826d5f6ad7230d31b18e106400169b9e9"},
 ]
+gdal = [
+    {file = "GDAL-3.1.3.tar.gz", hash = "sha256:a82a13fb4a43c2c8e3a3afe8ec61772452d663820926f2bffb5de868278f94e2"},
+]
 geojson = [
     {file = "geojson-2.5.0-py2.py3-none-any.whl", hash = "sha256:ccbd13368dd728f4e4f13ffe6aaf725b6e802c692ba0dde628be475040c534ba"},
     {file = "geojson-2.5.0.tar.gz", hash = "sha256:6e4bb7ace4226a45d9c8c8b1348b3fc43540658359f93c3f7e03efa9f15f658a"},
@@ -2261,6 +2412,10 @@ gitpython = [
 h11 = [
     {file = "h11-0.9.0-py2.py3-none-any.whl", hash = "sha256:4bc6d6a1238b7615b266ada57e0618568066f57dd6fa967d1290ec9309b2f2f1"},
     {file = "h11-0.9.0.tar.gz", hash = "sha256:33d4bca7be0fa039f4e84d50ab00531047e53d6ee8ffbc83501ea602c169cae1"},
+]
+h5netcdf = [
+    {file = "h5netcdf-0.8.1-py2.py3-none-any.whl", hash = "sha256:8c3de80cb1e547c39081e735a84dcdd0029dc2daee918a80098a41ab954a557f"},
+    {file = "h5netcdf-0.8.1.tar.gz", hash = "sha256:b94af698f99d57aac7828033f1c42ad014f5bda7ee5819f9014b4fbef5b56b25"},
 ]
 h5py = [
     {file = "h5py-2.10.0-cp27-cp27m-macosx_10_6_intel.whl", hash = "sha256:ecf4d0b56ee394a0984de15bceeb97cbe1fe485f1ac205121293fc44dcf3f31f"},
@@ -2533,6 +2688,26 @@ nbformat = [
     {file = "nbformat-5.0.7-py3-none-any.whl", hash = "sha256:ea55c9b817855e2dfcd3f66d74857342612a60b1f09653440f4a5845e6e3523f"},
     {file = "nbformat-5.0.7.tar.gz", hash = "sha256:54d4d6354835a936bad7e8182dcd003ca3dc0cedfee5a306090e04854343b340"},
 ]
+netcdf4 = [
+    {file = "netCDF4-1.5.4-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:c4192fa17493783b409c726048e5297591b2938e19fe7ec8f2769c859290a404"},
+    {file = "netCDF4-1.5.4-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:a443c1523ec0449483e620ae17f92cfd59567bd50f8dfece6b7ee7a20e28249d"},
+    {file = "netCDF4-1.5.4-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:ce5c4e42f8970ecbafb7f706648e03e8e1ec54a3db979a68f5cf49ff032ab06e"},
+    {file = "netCDF4-1.5.4-cp36-cp36m-win32.whl", hash = "sha256:af1eaadf3f0a1ef91c1f396c0b57d4a376db9459f6ae812e711404917b352a26"},
+    {file = "netCDF4-1.5.4-cp36-cp36m-win_amd64.whl", hash = "sha256:ff0db30eee3fe3d4dc18c6658e702b2a4859a3b94c1990177fea4660cebe3c37"},
+    {file = "netCDF4-1.5.4-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:3dd358286f60afcb7d2df15362157a1821786ddb4bac10239849b0b751be91a7"},
+    {file = "netCDF4-1.5.4-cp37-cp37m-manylinux1_i686.whl", hash = "sha256:eedd5d256a9393645bf06e9de97d8b744692217c426a03aca935fded43f5222f"},
+    {file = "netCDF4-1.5.4-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:f3d224b6ea4017ba067a116b7ba4e56e7086bdfd41aa0ceceef12b8b85dbf6b3"},
+    {file = "netCDF4-1.5.4-cp37-cp37m-win32.whl", hash = "sha256:703bca7c85f86ec8d469dfd2b7e9d7e5b4e1be0224c8c7f6c03ea132e1b55069"},
+    {file = "netCDF4-1.5.4-cp37-cp37m-win_amd64.whl", hash = "sha256:355aafbd932f98bcc04d16b20cfad9bec07df8631fa41ae8d3992ab071d7e37e"},
+    {file = "netCDF4-1.5.4-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:1dbc38bea9e50fd3476a6c9d8bcc871b8f36e194b40bb720584f7d3bb9c381b6"},
+    {file = "netCDF4-1.5.4-cp38-cp38-manylinux1_i686.whl", hash = "sha256:b39e453d0ecf81bf61f2c2dca36a22149f680499ac0e06029c7fa9fa5cc2e41f"},
+    {file = "netCDF4-1.5.4-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:395f9d7dbdfc13111e5a6a99ced9c64f2ffdff39a21d9d100374e31170ea4875"},
+    {file = "netCDF4-1.5.4-cp38-cp38-win32.whl", hash = "sha256:368c1820b6a059887af5b5902717788b45df9db3318a4f3c9f683acb9af7bf43"},
+    {file = "netCDF4-1.5.4-cp38-cp38-win_amd64.whl", hash = "sha256:26f073e09ce353c6b8f2baa4d20d41ae80bda19391110067968f0d2dfe0cba69"},
+    {file = "netCDF4-1.5.4-cp39-cp39-win32.whl", hash = "sha256:a3920a4a74ace672b12864cb505a4229dc86ce93ba299df0e933ed43f011d7a4"},
+    {file = "netCDF4-1.5.4-cp39-cp39-win_amd64.whl", hash = "sha256:223b84f8d2a148e889b1933944109bdecbefc097200ab42e8a66c967b1398e1b"},
+    {file = "netCDF4-1.5.4.tar.gz", hash = "sha256:941de6f3623b6474ecb4d043be5990690f7af4cf0d593b31be912627fe5aad03"},
+]
 notebook = [
     {file = "notebook-6.1.4-py3-none-any.whl", hash = "sha256:07b6e8b8a61aa2f780fe9a97430470485bc71262bc5cae8521f1441b910d2c88"},
     {file = "notebook-6.1.4.tar.gz", hash = "sha256:687d01f963ea20360c0b904ee7a37c3d8cda553858c8d6e33fd0afd13e89de32"},
@@ -2730,6 +2905,9 @@ ptyprocess = [
 py = [
     {file = "py-1.9.0-py2.py3-none-any.whl", hash = "sha256:366389d1db726cd2fcfc79732e75410e5fe4d31db13692115529d34069a043c2"},
     {file = "py-1.9.0.tar.gz", hash = "sha256:9ca6883ce56b4e8da7e79ac18787889fa5206c79dcc67fb065376cd2fe03f342"},
+]
+pybufrkit = [
+    {file = "pybufrkit-0.2.17.tar.gz", hash = "sha256:4161d6114ba14f2b18ad9227fd73cfee1d44d2d348fc49940abad8a233d89a17"},
 ]
 pycodestyle = [
     {file = "pycodestyle-2.6.0-py2.py3-none-any.whl", hash = "sha256:2295e7b2f6b5bd100585ebcb1f616591b652db8a741695b3d8f5d28bdc934367"},
@@ -3182,6 +3360,17 @@ websockets = [
     {file = "websockets-8.1-cp38-cp38-win32.whl", hash = "sha256:e898a0863421650f0bebac8ba40840fc02258ef4714cb7e1fd76b6a6354bda36"},
     {file = "websockets-8.1-cp38-cp38-win_amd64.whl", hash = "sha256:f8a7bff6e8664afc4e6c28b983845c5bc14965030e3fb98789734d416af77c4b"},
     {file = "websockets-8.1.tar.gz", hash = "sha256:5c65d2da8c6bce0fca2528f69f44b2f977e06954c8512a952222cea50dad430f"},
+]
+wradlib = [
+    {file = "wradlib-1.8.0.tar.gz", hash = "sha256:762e7940228592193bf1c8144e5f103859d7ef25143595543aedd11c39b4843a"},
+]
+xarray = [
+    {file = "xarray-0.16.1-py3-none-any.whl", hash = "sha256:72aa610a8d9ece583c3e94ad6a879aae2a33b632fea445b6685a14f288cbd9c6"},
+    {file = "xarray-0.16.1.tar.gz", hash = "sha256:5e1af056ff834bf62ca57da917159328fab21b1f8c25284f92083016bb2d92a5"},
+]
+xmltodict = [
+    {file = "xmltodict-0.12.0-py2.py3-none-any.whl", hash = "sha256:8bbcb45cc982f48b2ca8fe7e7827c5d792f217ecf1792626f808bf41c3b86051"},
+    {file = "xmltodict-0.12.0.tar.gz", hash = "sha256:50d8c638ed7ecb88d90561beedbf720c9b4e851a9fa6c47ebd64e99d166d8a21"},
 ]
 zipp = [
     {file = "zipp-3.3.0-py3-none-any.whl", hash = "sha256:eed8ec0b8d1416b2ca33516a37a08892442f3954dee131e92cfd92d8fe3e7066"},

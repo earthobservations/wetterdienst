@@ -15,9 +15,9 @@ def download_file_from_dwd(url: str) -> BytesIO:
     """
     A function used to download a specified file from the server.
 
-    :param url:    The url to the file on the dwd server ("https://www.
+    :param url:     The url to the file on the dwd server
 
-    :return:            Bytes of the file.
+    :return:        Bytes of the file.
     """
     dwd_session = create_dwd_session()
 

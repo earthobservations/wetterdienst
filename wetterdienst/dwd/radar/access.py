@@ -1,77 +1,274 @@
+import bz2
 import gzip
 import logging
 import tarfile
+from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Optional, Generator
 
-from wetterdienst import TimeResolution
+from deprecation import deprecated
+import pandas as pd
+
+from wetterdienst import TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
 
 from wetterdienst.dwd.network import download_file_from_dwd
-from wetterdienst.dwd.radar.index import create_file_index_for_radolan
-from wetterdienst.dwd.radar.metadata import RadarParameter
+from wetterdienst.dwd.radar.index import (
+    create_fileindex_radolan_cdc,
+    create_fileindex_radar,
+)
+from wetterdienst.dwd.radar.util import get_date_from_filename
+from wetterdienst.dwd.radar.metadata import (
+    RadarParameter,
+    RadarDate,
+    RadarDataFormat,
+    RadarDataSubset,
+)
+from wetterdienst.dwd.radar.sites import RadarSite
 from wetterdienst.dwd.radar.store import restore_radar_data, store_radar_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.util.cache import payload_cache_twelve_hours
+from wetterdienst.util.cache import (
+    payload_cache_twelve_hours,
+    payload_cache_five_minutes,
+)
+
 
 log = logging.getLogger(__name__)
 
 
+@dataclass
+class RadarResult:
+    """
+    Result object encapsulating radar data and metadata.
+    Currently, this will relate to exactly one radar data file.
+    """
+
+    data: BytesIO
+    timestamp: datetime = None
+    url: str = None
+    filename: str = None
+
+    def __getitem__(self, index):
+        """
+        Backward compatibility to address this instance as a tuple.
+
+        Formerly, this returned a tuple of ``(datetime, BytesIO)``.
+
+        :param index:
+        :return:
+        """
+        if index == 0:  # pragma: no cover
+            return self.timestamp
+        elif index == 1:
+            return self.data
+        else:  # pragma: no cover
+            raise KeyError(f"Index {index} undefined on RadarResult")
+
+
 def collect_radar_data(
     parameter: RadarParameter,
-    date_times: List[datetime],
-    time_resolution: TimeResolution,
-    prefer_local: bool = False,
-    write_file: bool = False,
-    folder: Union[str, Path] = DWD_FOLDER_MAIN,
-) -> List[Tuple[datetime, BytesIO]]:
+    time_resolution: Optional[TimeResolution] = None,
+    period_type: Optional[PeriodType] = None,
+    site: Optional[RadarSite] = None,
+    format: Optional[RadarDataFormat] = None,
+    subset: Optional[RadarDataSubset] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> RadarResult:
     """
-    Function used to collect Radar data for given datetimes and a time resolution.
-    Additionally the file can be written to a local folder and read from there as well.
-    Args:
-        parameter: What type of radar data should be collected
-        date_times: list of datetime objects for which radar data shall be acquired
-        time_resolution: the time resolution for requested data, either hourly or daily
-        prefer_local: boolean if file should be read from local store instead
-        write_file: boolean if file should be stored on the drive
-        folder: path for storage
+    Collect radar data for given parameters.
 
-    Returns:
-        list of tuples of a datetime and the corresponding file in bytes
+    :param parameter:       The radar moment to request
+    :param site:            Site/station if parameter is one of
+                            RADAR_PARAMETERS_SITES
+    :param format:          Data format (BINARY, BUFR, HDF5)
+    :param subset:          The subset (simple or polarimetric) for HDF5 data.
+    :param start_date:      Start date
+    :param end_date:        End date
+    :param time_resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+                            either daily or hourly or 5 minutes.
+    :param period_type:     Period type for RadarParameter.RADOLAN_CDC
+
+    :return:                ``RadarResult`` item
     """
-    if time_resolution not in (
-        TimeResolution.HOURLY,
-        TimeResolution.DAILY,
-        TimeResolution.MINUTE_5,
-        TimeResolution.MINUTE_15,
-    ):
-        raise ValueError("Wrong TimeResolution for RadarData")
 
-    if parameter == RadarParameter.RADOLAN:
-        return _collect_radolan_data(
-            date_times, time_resolution, prefer_local, write_file, folder
+    # Find latest file.
+    if start_date == RadarDate.LATEST:
+
+        file_index = create_fileindex_radar(
+            parameter=parameter,
+            site=site,
+            format=format,
+            parse_datetime=False,
         )
+
+        # Find "-latest-" file.
+        filenames = file_index["FILENAME"].tolist()
+        latest_file = list(filter(lambda x: "-latest-" in x, filenames))[0]
+
+        # Yield single "RadarResult" item.
+        result = next(_download_generic_data(url=latest_file))
+        yield result
+
     else:
-        raise ValueError(
-            "You have passed a non valid radar data Parameter. " "Valid Radar data:"
-        )
+
+        if parameter == RadarParameter.RADOLAN_CDC:
+
+            if period_type:
+                period_types = [period_type]
+            else:
+                period_types = [PeriodType.RECENT, PeriodType.HISTORICAL]
+
+            results = []
+            for period_type in period_types:
+
+                file_index = create_fileindex_radolan_cdc(
+                    time_resolution=time_resolution, period_type=period_type
+                )
+
+                # Filter for dates range if start_date and end_date are defined.
+                if period_type == PeriodType.RECENT:
+                    file_index = file_index[
+                        (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
+                        & (file_index[DWDMetaColumns.DATETIME.value] < end_date)
+                    ]
+
+                # This is for matching historical data, e.g. "RW-200509.tar.gz".
+                else:
+                    file_index = file_index[
+                        (
+                            file_index[DWDMetaColumns.DATETIME.value].dt.year
+                            == start_date.year
+                        )
+                        & (
+                            file_index[DWDMetaColumns.DATETIME.value].dt.month
+                            == start_date.month
+                        )
+                    ]
+
+                results.append(file_index)
+
+            file_index = pd.concat(results)
+
+            if file_index.empty:
+                log.warning(f"No radar file found for {parameter}, {site}, {format}")
+                return
+
+            # Iterate list of files and yield "RadarResult" items.
+            for _, row in file_index.iterrows():
+                url = row[DWDMetaColumns.FILENAME.value]
+                yield download_radolan_data(start_date, url)
+
+        else:
+            file_index = create_fileindex_radar(
+                parameter=parameter,
+                site=site,
+                format=format,
+                subset=subset,
+                parse_datetime=True,
+            )
+
+            # Filter for dates range if start_date and end_date are defined.
+            file_index = file_index[
+                (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
+                & (file_index[DWDMetaColumns.DATETIME.value] < end_date)
+            ]
+
+            if file_index.empty:
+                log.warning(f"No radar file found for {parameter}, {site}, {format}")
+                return
+
+            # Iterate list of files and yield "RadarResult" items.
+            for _, row in file_index.iterrows():
+                date_time = row[DWDMetaColumns.DATETIME.value]
+                url = row[DWDMetaColumns.FILENAME.value]
+
+                for result in _download_generic_data(url=url):
+                    if result.timestamp is None:
+                        result.timestamp = date_time
+                    yield result
 
 
-def _collect_radolan_data(
-    date_times: List[datetime],
+def should_cache_download(*args, **kwargs) -> bool:  # pragma: no cover
+    """
+    Determine whether this specific result should be cached.
+
+    Here, we don't want to cache any files containing "-latest-" in their filenames.
+
+    :param args: Arguments of decorated function.
+    :param kwargs: Keyword arguments of decorated function.
+    :return: When cache should be dimissed, return False. Otherwise, return True.
+    """
+    url = args[0]
+    if "-latest-" in url:
+        return False
+    return True
+
+
+@payload_cache_five_minutes.cache_on_arguments(should_cache_fn=should_cache_download)
+def _download_generic_data_cached(url: str) -> BytesIO:
+    return url, download_file_from_dwd(url)
+
+
+def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
+    """
+    Download radar data.
+
+    :param url:         The URL to the file on the DWD server
+
+    :return:            The file in binary, either an archive of one file
+                        or an archive of multiple files.
+    """
+
+    _, data = _download_generic_data_cached(url)
+
+    data.seek(0)
+
+    # RadarParameter.FX_REFLECTIVITY
+    if url.endswith(".tar.bz2"):
+        with bz2.BZ2File(data, mode="rb") as archive:
+            with tarfile.open(fileobj=archive) as tar_file:
+                for file in tar_file.getmembers():
+                    yield RadarResult(
+                        data=BytesIO(tar_file.extractfile(file).read()),
+                        timestamp=get_date_from_filename(file.name),
+                        filename=file.name,
+                    )
+
+    # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)
+    elif url.endswith(".bz2"):
+        with bz2.BZ2File(data, mode="rb") as archive:
+            data = BytesIO(archive.read())
+            yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
+
+    # RADAR_PARAMETERS_RADVOR
+    elif url.endswith(".gz"):
+        with gzip.GzipFile(fileobj=data, mode="rb") as archive:
+            data = BytesIO(archive.read())
+            yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
+
+    else:
+        yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
+
+
+@deprecated
+def _collect_radolan_cdc_data(
     time_resolution: TimeResolution,
+    date_times: Optional[Union[str, List[Union[str, datetime]]]] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     prefer_local: bool = False,
     write_file: bool = False,
     folder: Union[str, Path] = DWD_FOLDER_MAIN,
-) -> List[Tuple[datetime, BytesIO]]:
+) -> List[Tuple[datetime, BytesIO]]:  # pragma: no cover
     """
-    Function used to collect RADOLAN data for given datetimes and a time resolution.
-    Additionally the file can be written to a local folder and read from there as well.
+    Collect RADOLAN_CDC data for given datetimes and time resolution.
+    Additionally, the file can be written to a local folder and read from there as well.
+
     Args:
-        date_times: list of datetime objects for which RADOLAN shall be acquired
         time_resolution: the time resolution for requested data, either hourly or daily
         prefer_local: boolean if file should be read from local store instead
         write_file: boolean if file should be stored on the drive
@@ -88,7 +285,10 @@ def _collect_radolan_data(
                     (
                         date_time,
                         restore_radar_data(
-                            RadarParameter.RADOLAN, date_time, time_resolution, folder
+                            RadarParameter.RADOLAN_CDC,
+                            date_time,
+                            time_resolution,
+                            folder,
                         ),
                     )
                 )
@@ -104,7 +304,6 @@ def _collect_radolan_data(
         remote_radolan_file_path = create_filepath_for_radolan(
             date_time, time_resolution
         )
-        print("remote_radolan_file_path:", remote_radolan_file_path)
 
         if remote_radolan_file_path == "":
             log.warning(f"RADOLAN not found for {str(date_time)}, will be skipped.")
@@ -116,7 +315,7 @@ def _collect_radolan_data(
 
         if write_file:
             store_radar_data(
-                RadarParameter.RADOLAN, date_time_and_file, time_resolution, folder
+                RadarParameter.RADOLAN_CDC, date_time_and_file, time_resolution, folder
             )
 
     return data
@@ -124,32 +323,37 @@ def _collect_radolan_data(
 
 def download_radolan_data(
     date_time: datetime,
-    remote_radolan_file_path: str,
-) -> Tuple[datetime, BytesIO]:
+    url: str,
+) -> RadarResult:
     """
-    Function used to download Radolan data for a given datetime. The function calls
+    Function used to download RADOLAN_CDC data for a given datetime. The function calls
     a separate download function that is cached for reuse which is especially used for
-    historical data that comes packaged for multiple datetimes in one archive.
+    historical data that comes packaged for multiple time steps within a single archive.
 
     :param date_time:   The datetime for the requested RADOLAN file.
                         This is required for the recognition of the returned binary,
                         which has no obvious name tag.
 
-    :param remote_radolan_file_path: The remote filepath to the file that has the data
-        for the requested datetime, either an archive of multiple files for a datetime
-        in historical time or an archive with one file for the recent RADOLAN file
+    :param url:         The URL to the file that has the data
+                        for the requested datetime, either an archive of multiple files
+                        for a datetime in historical time or an archive with one file
+                        for the recent RADOLAN file
 
-    :return: String of requested datetime and binary file
+    :return:            ``RadarResult`` item
     """
-    archive_in_bytes = _download_radolan_data(remote_radolan_file_path)
+    archive_in_bytes = _download_radolan_data(url)
 
-    return _extract_radolan_data(date_time, archive_in_bytes)
+    result = _extract_radolan_data(date_time, archive_in_bytes)
+    result.url = url
+
+    return result
 
 
 @payload_cache_twelve_hours.cache_on_arguments()
 def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     """
-    Function (cached) that downloads the RADOLAN file
+    Function (cached) that downloads the RADOLAN_CDC file.
+
     Args:
         remote_radolan_filepath: the file path to the file on the DWD server
 
@@ -162,10 +366,10 @@ def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
 
 def _extract_radolan_data(
     date_time: datetime, archive_in_bytes: BytesIO
-) -> Tuple[datetime, BytesIO]:
+) -> RadarResult:
     """
-    Function used to extract RADOLAN file for the requested datetime from the downloaded
-    and cached archive.
+    Function used to extract RADOLAN_CDC file for the requested datetime
+    from the downloaded archive.
 
     Args:
         date_time: requested datetime of RADOLAN
@@ -189,11 +393,15 @@ def _extract_radolan_data(
             with tarfile.open(fileobj=file_in_archive) as tar_file:
                 for file in tar_file.getmembers():
                     if date_time_string in file.name:
-                        return date_time, BytesIO(tar_file.extractfile(file).read())
+                        return RadarResult(
+                            data=BytesIO(tar_file.extractfile(file).read()),
+                            timestamp=date_time,
+                            filename=file.name,
+                        )
 
                 raise FileNotFoundError(
-                    f"Radolan file for {date_time_string} not found."
-                )
+                    f"RADOLAN file for {date_time_string} not found."
+                )  # pragma: no cover
 
     # Otherwise if there's an error the data is from recent time period and only has to
     # be unpacked once
@@ -202,12 +410,15 @@ def _extract_radolan_data(
         archive_in_bytes.seek(0)
 
         with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
-            return date_time, BytesIO(gz_file.read())
+            return RadarResult(
+                data=BytesIO(gz_file.read()), timestamp=date_time, filename=gz_file.name
+            )
 
 
+@deprecated
 def create_filepath_for_radolan(
     date_time: datetime, time_resolution: TimeResolution
-) -> str:
+) -> str:  # pragma: no cover
     """
     Function used to create a relative filepath for a requested datetime depending on
     the file index for the relevant time resolution.
@@ -219,7 +430,7 @@ def create_filepath_for_radolan(
     Returns:
         a string, either empty if non found or with the relative path to the file
     """
-    file_index = create_file_index_for_radolan(time_resolution)
+    file_index = create_fileindex_radolan_cdc(time_resolution)
 
     if date_time in file_index[DWDMetaColumns.DATETIME.value].tolist():
         file_index = file_index[file_index[DWDMetaColumns.DATETIME.value] == date_time]
@@ -232,4 +443,7 @@ def create_filepath_for_radolan(
     if file_index.empty:
         return ""
 
-    return f"{file_index[DWDMetaColumns.FILENAME.value].item()}"
+    return (
+        file_index[DWDMetaColumns.DATETIME.value].item(),
+        f"{file_index[DWDMetaColumns.FILENAME.value].item()}",
+    )

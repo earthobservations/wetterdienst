@@ -166,7 +166,7 @@ def test_dwd_observation_sites_nearby_number_fail_2():
     with pytest.raises(InvalidParameterCombination):
         DWDObservationSites(
             Parameter.SOIL,
-            TimeResolution.MINUTES_10,
+            TimeResolution.MINUTE_10,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),

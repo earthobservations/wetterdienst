@@ -13,7 +13,7 @@ def store_radar_data(
     date_time_and_file: Tuple[datetime, BytesIO],
     time_resolution: TimeResolution,
     folder: Union[str, Path],
-) -> None:
+) -> None:  # pragma: no cover
     """
     Stores a binary file of radar data locally.
     """
@@ -33,7 +33,7 @@ def restore_radar_data(
     date_time: datetime,
     time_resolution: TimeResolution,
     folder: Union[str, Path],
-) -> BytesIO:
+) -> BytesIO:  # pragma: no cover
     """ Opens downloaded radar data into a binary object"""
     filepath = _build_local_filepath(parameter, date_time, folder, time_resolution)
 
@@ -50,7 +50,6 @@ def _build_local_filepath(
     time_resolution: TimeResolution,
 ) -> Union[str, Path]:
     """
-
     Args:
         parameter: radar data parameter
         date_time: Timestamp of file
@@ -58,7 +57,6 @@ def _build_local_filepath(
         time_resolution:
 
     Returns:
-
     """
     local_filepath = Path(
         folder,

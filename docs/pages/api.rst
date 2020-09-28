@@ -276,31 +276,41 @@ Other variants::
 RADAR
 *****
 
-To use ``DWDRadarRequest``, you have to provide a time resolution (either hourly or daily)
-and ``date_times`` (list of datetimes or strings) or a start date and end date. Datetimes
-are rounded to HH:50min as the data is packaged for this minute step. Additionally,
-you can provide a folder to store/restore RADOLAN data to/from the local filesystem.
+To use ``DWDRadarRequest``, you have to provide a ``RadarParameter``,
+which designates the type of radar data you want to obtain. There is
+radar data available at different locations within the DWD data repository:
 
-This is a short snippet which should give you an idea
-how to use ``DWDRadarRequest`` together with ``wradlib``.
-For a more thorough example, please have a look at `example/radolan.py`_.
-
-The subsystem implements access to various radar data like:
-
-- https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
+- https://opendata.dwd.de/weather/radar/composit/
+- https://opendata.dwd.de/weather/radar/radolan/
+- https://opendata.dwd.de/weather/radar/radvor/
+- https://opendata.dwd.de/weather/radar/sites/
 - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
 - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
-- https://opendata.dwd.de/weather/radar/radolan/
-- https://opendata.dwd.de/weather/radar/composit/
-- https://opendata.dwd.de/weather/radar/sites/
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
+
+For ``RADOLAN_CDC``-data, the time resolution parameter (either hourly or daily)
+must be specified.
+
+The ``date_times`` (list of datetimes or strings) or a ``start_date``
+and ``end_date`` parameters can optionally be specified to obtain data
+from specific points in time.
+
+For ``RADOLAN_CDC``-data, datetimes are rounded to ``HH:50min``, as the
+data is packaged for this minute step. Additionally, you can provide a
+folder to store/restore RADOLAN data to/from the local filesystem.
+
+This is an example on how to acquire ``RADOLAN_CDC`` data using
+``wetterdienst`` and process it using ``wradlib``.
+For a more thorough example, please have a look at `example/radar_radolan_cdc.py`_.
 
 .. code-block:: python
 
-    from wetterdienst import DWDRadarRequest, TimeResolution
+    from wetterdienst import DWDRadarRequest, RadarParameter, TimeResolution
     import wradlib as wrl
 
     radar = DWDRadarRequest(
-        TimeResolution.DAILY,
+        radar_parameter=RadarParameter.RADOLAN_CDC,
+        time_resolution=TimeResolution.DAILY,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00"
     )
@@ -317,7 +327,7 @@ The subsystem implements access to various radar data like:
 
 
 .. _wradlib: https://wradlib.org/
-.. _example/radolan.py: https://github.com/earthobservations/wetterdienst/blob/master/example/radolan.py
+.. _example/radolan.py: https://github.com/earthobservations/wetterdienst/blob/master/example/radar/radar_radolan_cdc.py
 
 .. _SQLite: https://www.sqlite.org/
 .. _DuckDB: https://duckdb.org/docs/sql/introduction

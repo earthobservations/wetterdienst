@@ -49,7 +49,7 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[
             PeriodType.NOW,
         ],
     },
-    TimeResolution.MINUTES_10: {
+    TimeResolution.MINUTE_10: {
         Parameter.PRECIPITATION: [
             PeriodType.HISTORICAL,
             PeriodType.RECENT,

@@ -11,19 +11,19 @@ class TimeResolution(Enum):
     """
 
     MINUTE_1 = "1_minute"
-    MINUTES_10 = "10_minutes"
+    MINUTE_5 = "5_minutes"
+    MINUTE_15 = "15_minutes"
+    MINUTE_10 = "10_minutes"
     HOURLY = "hourly"
     SUBDAILY = "subdaily"
     DAILY = "daily"
     MONTHLY = "monthly"
     ANNUAL = "annual"
-    MINUTE_5 = "5_minutes"
-    MINUTE_15 = "15_minutes"
 
 
 TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[TimeResolution, str] = {
     TimeResolution.MINUTE_1: DatetimeFormat.YMDHM.value,
-    TimeResolution.MINUTES_10: DatetimeFormat.YMDHM.value,
+    TimeResolution.MINUTE_10: DatetimeFormat.YMDHM.value,
     TimeResolution.HOURLY: DatetimeFormat.YMDH.value,
     TimeResolution.SUBDAILY: DatetimeFormat.YMDH.value,
     TimeResolution.DAILY: DatetimeFormat.YMD.value,

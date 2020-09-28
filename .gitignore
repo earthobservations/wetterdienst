@@ -11,3 +11,4 @@ htmlcov
 .pytest_cache/
 docs/_build/
 dist/
+tmp/

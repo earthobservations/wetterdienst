@@ -7,7 +7,7 @@ from wetterdienst.dwd.radar.metadata import RadarParameter
 from wetterdienst.dwd.radar.store import _build_local_filepath
 
 
-def test_build_local_filepath_for_radar():
+def test_radar_build_local_filepath_for_radar():
 
     radar_filepath = _build_local_filepath(
         RadarParameter.DX_REFLECTIVITY,

@@ -1,6 +1,8 @@
 from enum import Enum
 
-""" metadata about radar sites """
+# https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
+
+""" Metadata about all radar sites """
 RADAR_LOCATIONS = {
     "asb": {
         "site_name": "ASR Borkum",
@@ -106,12 +108,10 @@ RADAR_LOCATIONS = {
     },
 }
 
-""" enumeration for Radar Sites """
 
-
-class RadarSites(Enum):
+class RadarSite(Enum):
     """
-    enumeration for the different radar locations/sites
+    Enumerate short names of all radar sites.
     """
 
     ASB = "asb"
@@ -119,7 +119,7 @@ class RadarSites(Enum):
     DRS = "drs"
     EIS = "eis"
     ESS = "ess"
-    FGB = "fbg"
+    FBG = "fbg"
     FLD = "fld"
     ISN = "isn"
     HNR = "hnr"

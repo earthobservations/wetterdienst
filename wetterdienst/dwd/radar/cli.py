@@ -1,0 +1,43 @@
+import sys
+import h5py
+
+
+def hdf5dump(thing, compact=False):
+    """
+    Like "h5dump -n 1", but better.
+    """
+
+    blocklist = [
+        "afc_status",
+        "bpwr",
+        "prf",
+        "pulse",
+        "startazA",
+        "startazT",
+        "startelA",
+        "stopazA",
+        "stopazT",
+        "stopelA",
+    ]
+
+    with open(thing, "rb") as buffer:
+        hdf = h5py.File(buffer, "r")
+
+        def dumpattrs(item, indent=2):
+            for name, value in item.attrs.items():
+                if compact:
+                    if name in blocklist:
+                        continue
+                print(" " * indent, "-", name, value)
+
+        for group in hdf.keys():
+            print("name:", hdf[group].name)
+            dumpattrs(hdf[group])
+            for subgroup in hdf[group].keys():
+                print("  name:", subgroup)
+                dumpattrs(hdf[group][subgroup], indent=4)
+
+
+def wddump():
+    filename = sys.argv[1]
+    hdf5dump(filename, compact=True)
