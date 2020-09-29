@@ -142,7 +142,6 @@ def test_dwd_readings_no_period():
     }
 
 
-@pytest.mark.xfail
 @pytest.mark.sql
 def test_dwd_readings_sql(dicts_are_same):
 
@@ -167,6 +166,6 @@ def test_dwd_readings_sql(dicts_are_same):
             "element": "temperature_air_max_200",
             "date": "2019-12-28T00:00:00.000Z",
             "value": 1.3,
-            "quality": None,
+            "quality": 3,
         },
     )

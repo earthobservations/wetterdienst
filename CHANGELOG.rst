@@ -7,6 +7,7 @@ Development
 
 - Large refactoring
 - Make period type in DWDStationRequest and cli optional
+- Activate SQL querying again by using DuckDB 0.2.2.dev254. Thanks, @Mytherin!
 
 0.8.0 (25.09.2020)
 ==================

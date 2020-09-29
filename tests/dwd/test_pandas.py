@@ -29,7 +29,7 @@ df_data = pd.DataFrame.from_dict(
             "STATION_ID": 1048,
             "PARAMETER": "CLIMATE_SUMMARY",
             "ELEMENT": "TEMPERATURE_AIR_MAX_200",
-            "DATE": parse_datetime("2019-12-28T00:00:00.000"),
+            "DATE": parse_datetime("2019-12-28T00:00:00.000Z"),
             "VALUE": 1.3,
             "QUALITY": None,
         }
@@ -56,19 +56,19 @@ def test_lowercase():
 
 def test_filter_by_date():
 
-    df = df_data.dwd.filter_by_date("2019-12-28", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-28Z", TimeResolution.HOURLY)
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2019-12-27", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-27Z", TimeResolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_interval():
 
-    df = df_data.dwd.filter_by_date("2019-12-27/2019-12-29", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-27Z/2019-12-29Z", TimeResolution.HOURLY)
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2020/2022", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2020Z/2022Z", TimeResolution.HOURLY)
     assert df.empty
 
 
