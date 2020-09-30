@@ -150,3 +150,22 @@ wetterdienst = 'wetterdienst.cli:run'
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+
+[tool.pytest.ini_options]
+markers = [
+    "remote: Tests accessing the internet.",
+    "slow: Slow tests.",
+    "sql: All tests related to SQL."
+]
+
+[tool.coverage.run]
+branch = true
+source = ["wetterdienst"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
+omit =[
+    "tests/*",
+    "noxfile.py"
+]

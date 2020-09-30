@@ -6,8 +6,6 @@
 !wetterdienst
 
 !tests
-!pytest.ini
 !noxfile.py
-!.coverragerc
 
 !dist
