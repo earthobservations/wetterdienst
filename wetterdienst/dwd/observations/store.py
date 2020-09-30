@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Union
+import warnings
 
 import pandas as pd
 
@@ -9,6 +10,8 @@ from wetterdienst.dwd.metadata.constants import (
     DWD_FILE_STATION_DATA,
     DataFormat,
 )
+
+warnings.filterwarnings("ignore")
 
 
 def store_climate_observations(

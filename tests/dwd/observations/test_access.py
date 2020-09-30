@@ -1,9 +1,11 @@
 """ Tests for data_collection """
 import pytest
-from mock import MagicMock, patch
 from pathlib import Path
-import pandas as pd
 from io import StringIO, BytesIO
+
+import pandas as pd
+from pandas._testing import assert_frame_equal
+from mock import MagicMock, patch
 
 from wetterdienst.dwd.observations.access import (
     collect_climate_observations_data,
@@ -12,6 +14,7 @@ from wetterdienst.dwd.observations.access import (
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.period_type import PeriodType
+from wetterdienst.dwd.util import coerce_field_types
 
 HERE = Path(__file__).parent
 
@@ -23,13 +26,12 @@ TEST_FILE = pd.read_json(HERE / "FIXED_STATIONDATA.JSON")
 
 # Prepare csv for regular "downloading" test
 CSV_FILE = StringIO()
-TEST_FILE.to_csv(CSV_FILE, sep=";")
+TEST_FILE.to_csv(CSV_FILE, sep=";", index=False)
 CSV_FILE.seek(0)
 
 
-@pytest.mark.xfail
 @patch(
-    "wetterdienst.dwd.observations.fileindex.create_file_list_for_climate_observations",
+    "wetterdienst.dwd.observations.access.create_file_list_for_climate_observations",
     MagicMock(return_value=[filename]),
 )
 @patch(
@@ -43,7 +45,7 @@ def test_collect_dwd_data_success():
     This scenario makes sure we take fresh data and write it to the given folder, thus
     we can run just another test afterwards as no old data is used
     """
-    assert collect_climate_observations_data(
+    df = collect_climate_observations_data(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -51,14 +53,18 @@ def test_collect_dwd_data_success():
         prefer_local=False,
         write_file=True,
         tidy_data=False,
-    ).equals(TEST_FILE)
+    )
+
+    assert_frame_equal(
+        df, coerce_field_types(TEST_FILE, TimeResolution.DAILY), check_column_type=False
+    )
 
     """
     2. Scenario
     This scenario tries to get the data from the given folder. This data was placed by
     the first test and is now restored
     """
-    assert collect_climate_observations_data(
+    df = collect_climate_observations_data(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -66,29 +72,30 @@ def test_collect_dwd_data_success():
         prefer_local=True,
         write_file=True,
         tidy_data=False,
-    ).equals(TEST_FILE)
+    )
 
-    # Have to place an assert afterwards to ensure that above function is executed.
-    # WTF!!!
-    # assert True
+    assert_frame_equal(
+        df, coerce_field_types(TEST_FILE, TimeResolution.DAILY), check_column_type=False
+    )
 
 
-@pytest.mark.xfail
 @patch(
-    "wetterdienst.dwd.observations.store.restore_climate_observations",
+    "wetterdienst.dwd.observations.access.restore_climate_observations",
     MagicMock(return_value=pd.DataFrame()),
 )
 @patch(
-    "wetterdienst.dwd.observations.fileindex.create_file_list_for_climate_observations",
+    "wetterdienst.dwd.observations.access.create_file_list_for_climate_observations",
     MagicMock(return_value=[]),
 )
 def test_collect_dwd_data_empty():
     """ Test for data collection with no available data """
-
+    # mocked_restore_climate_observations.return_value.data = pd.DataFrame()
+    # mocked_create_file_list_for_climate_observations.return_value = []
     """
     1. Scenario
     Test for request where no data is available
     """
+    # create_file_index_for_climate_observations.invalidate()
 
     assert collect_climate_observations_data(
         station_ids=[1048],

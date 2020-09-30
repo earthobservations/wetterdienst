@@ -18,6 +18,7 @@ from wetterdienst.dwd.util import (
     check_parameters,
     parse_enumeration_from_template,
     create_humanized_column_names_mapping,
+    coerce_field_types,
 )
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.parameter import Parameter
@@ -158,6 +159,8 @@ def collect_climate_observations_data(
         data = pd.concat(data)
     except ValueError:
         return pd.DataFrame()
+
+    data = coerce_field_types(data, time_resolution)
 
     if tidy_data:
         data = _tidy_up_data(data, parameter)
