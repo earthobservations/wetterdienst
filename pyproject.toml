@@ -12,8 +12,7 @@ readme = "README.rst"
 include = [
     "LICENSE.rst",
     "CHANGELOG.rst",
-    "CODE_OF_CONDUCT.rst",
-    "DWD_FILE_SERVER_STRUCTURE.md"
+    "CODE_OF_CONDUCT.rst"
 ]
 homepage = "https://wetterdienst.readthedocs.io/"
 repository = "https://github.com/earthobservations/wetterdienst"
