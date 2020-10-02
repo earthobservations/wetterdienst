@@ -61,7 +61,7 @@ Get historical data for specific stations, using Python:
 
     from wetterdienst import DWDObservationData, Parameter, PeriodType, TimeResolution
 
-    request = DWDObservationData(
+    observations = DWDObservationData(
         station_ids=[1048,4411],
         parameter=[Parameter.CLIMATE_SUMMARY, Parameter.SOLAR],
         time_resolution=TimeResolution.DAILY,
@@ -73,7 +73,7 @@ Get historical data for specific stations, using Python:
         prefer_local=True
     )
 
-    for df in request.collect_data():
+    for df in observations.collect_data():
         # analyse the station here
 
 Get data for specific stations from the command line:

@@ -136,7 +136,7 @@ def dwd_readings(
     period = parse_enumeration_from_template(period, PeriodType)
 
     # Data acquisition.
-    request = DWDObservationData(
+    observations = DWDObservationData(
         station_ids=station_ids,
         parameter=parameter,
         time_resolution=resolution,
@@ -146,7 +146,7 @@ def dwd_readings(
     )
 
     # Postprocessing.
-    df = request.collect_safe()
+    df = observations.collect_safe()
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)

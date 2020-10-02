@@ -234,7 +234,7 @@ def run():
             raise KeyError("Either --station or --lat, --lon required")
 
         # Funnel all parameters to the workhorse.
-        request = DWDObservationData(
+        observations = DWDObservationData(
             station_ids=station_ids,
             parameter=read_list(options.parameter),
             time_resolution=options.resolution,
@@ -247,7 +247,7 @@ def run():
 
         # Collect data and merge together.
         try:
-            df = request.collect_safe()
+            df = observations.collect_safe()
 
         except ValueError as ex:
             log.error(ex)
@@ -260,7 +260,7 @@ def run():
 
     # Filter readings by datetime expression.
     if options.readings and options.date:
-        df = df.dwd.filter_by_date(options.date, request.time_resolution)
+        df = df.dwd.filter_by_date(options.date, observations.time_resolution)
 
     # Make column names lowercase.
     df = df.dwd.lower()

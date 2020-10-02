@@ -59,14 +59,16 @@ and *period type* options.
 
 .. code-block:: python
 
-    import wetterdienst
+    from wetterdienst import DWDObservationSites
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    metadata = wetterdienst.metadata_for_climate_observations(
+    sites = DWDObservationSites(
         parameter=Parameter.PRECIPITATION_MORE,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.HISTORICAL
     )
+
+    df = sites.all()
 
 The function returns a Pandas DataFrame with information about the available stations.
 The column ``HAS_FILE`` indicates whether the station actually has a file with data on
@@ -82,7 +84,7 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
     from wetterdienst import DWDObservationData
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    request = DWDObservationData(
+    observations = DWDObservationData(
         station_ids=[3, 1048],
         parameter=[Parameter.CLIMATE_SUMMARY, Parameter.SOLAR],
         time_resolution=TimeResolution.DAILY,
@@ -94,7 +96,7 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
         prefer_local=True
     )
 
-    for df in request.collect_data():
+    for df in observations.collect_data():
         # analyse the station here
 
 This gives us the most options to work with the data, getting multiple parameters at
@@ -113,16 +115,21 @@ Inquire the list of stations by geographic coordinates.
 .. code-block:: python
 
     from datetime import datetime
-    from wetterdienst import DWDObservationData, get_nearby_stations_by_number
+    from wetterdienst import DWDObservationSites
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    stations = get_nearby_stations_by_number(
-        50.0, 8.9, 1,
+    sites = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20)
+    )
+
+    df = sites.nearby_radius(
+        latitude=50.0,
+        longitude=8.9,
+        max_distance_in_km=30
     )
 
 The function returns a DataFrame with the list of stations with distances [in km]
@@ -138,7 +145,7 @@ can be used to download the observation data:
 
 .. code-block:: python
 
-    request = DWDObservationData(
+    observations = DWDObservationData(
         station_ids=station_ids,
         parameter=[Parameter.TEMPERATURE_AIR, Parameter.SOLAR],
         time_resolution=TimeResolution.HOURLY,
@@ -150,7 +157,7 @@ can be used to download the observation data:
         prefer_local=True
     )
 
-    for df in request.collect_data():
+    for df in observations.collect_data():
         # analyse the station here
 
 Et voila: We just got the data we wanted for our location and are ready to analyse the
@@ -169,7 +176,7 @@ The result data is provided through a virtual table called ``data``.
     from wetterdienst import DWDObservationData
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    request = DWDObservationData(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=[Parameter.TEMPERATURE_AIR],
         time_resolution=TimeResolution.HOURLY,
@@ -181,7 +188,7 @@ The result data is provided through a virtual table called ``data``.
         write_file=True,
     )
 
-    df = request.collect_safe().wd.lower()
+    df = observations.collect_safe().wd.lower()
     df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
     print(df)
 
@@ -203,7 +210,7 @@ Examples:
     from wetterdienst import DWDObservationData
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    request = DWDObservationData(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=[Parameter.TEMPERATURE_AIR],
         time_resolution=TimeResolution.HOURLY,
@@ -215,7 +222,7 @@ Examples:
         write_file=True,
     )
 
-    df = request.collect_safe().wd.lower()
+    df = observations.collect_safe().wd.lower()
     df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 
