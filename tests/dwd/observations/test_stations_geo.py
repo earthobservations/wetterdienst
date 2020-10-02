@@ -6,13 +6,10 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 import pandas as pd
 
+from wetterdienst.dwd.observations.api import DWDObservationSites
 from wetterdienst.dwd.observations.stations import _derive_nearest_neighbours
 from wetterdienst.util.geo import Coordinates
-from wetterdienst import (
-    get_nearby_stations_by_number,
-    get_nearby_stations_by_distance,
-    TimeResolution,
-)
+from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst.dwd.metadata.period_type import PeriodType
 from wetterdienst.exceptions import InvalidParameterCombination
@@ -22,22 +19,22 @@ HERE = Path(__file__).parent
 METADATA_FILE = HERE / "FIXED_METADATA.JSON"
 
 
-@pytest.mark.xfail
 @patch(
-    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
+    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
     MagicMock(return_value=pd.read_json(METADATA_FILE)),
 )
 def test_get_nearby_stations():
     # Test for one nearest station
-    nearby_station = get_nearby_stations_by_number(
-        50.0,
-        8.9,
-        1,
+    nearby_station = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+    ).nearby_number(
+        50.0,
+        8.9,
+        1,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
     nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
@@ -72,15 +69,16 @@ def test_get_nearby_stations():
         ),
     )
 
-    nearby_station = get_nearby_stations_by_distance(
-        50.0,
-        8.9,
-        20,
+    nearby_station = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+    ).nearby_radius(
+        50.0,
+        8.9,
+        20,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
     nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
@@ -138,45 +136,47 @@ def test_get_nearby_stations():
     )
 
     with pytest.raises(ValueError):
-        get_nearby_stations_by_number(
-            51.4,
-            9.3,
-            0,
+        DWDObservationSites(
             Parameter.TEMPERATURE_AIR,
             TimeResolution.HOURLY,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
+        ).nearby_number(
+            51.4,
+            9.3,
+            0,
         )
 
     with pytest.raises(InvalidParameterCombination):
-        get_nearby_stations_by_number(
-            51.4,
-            9.3,
-            1,
+        DWDObservationSites(
             Parameter.SOIL,
             TimeResolution.MINUTES_10,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
+        ).nearby_number(
+            51.4,
+            9.3,
+            1,
         )
 
 
-@pytest.mark.xfail
 @patch(
-    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
+    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
     MagicMock(return_value=pd.read_json(METADATA_FILE)),
 )
 def test_get_nearby_stations_out_of_distance():
-    nearby_station = get_nearby_stations_by_distance(
-        50.0,
-        8.9,
-        10,
+    nearby_station = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+    ).nearby_radius(
+        50.0,
+        8.9,
+        10,
     )
     assert nearby_station.empty is True
 

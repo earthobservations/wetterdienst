@@ -10,14 +10,11 @@ import pandas as pd
 from wetterdienst import (
     __appname__,
     __version__,
-    metadata_for_climate_observations,
-    get_nearby_stations_by_number,
-    get_nearby_stations_by_distance,
     discover_climate_observations,
     TimeResolution,
 )
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
-from wetterdienst.dwd.observations.api import DWDObservationRequest
+from wetterdienst.dwd.observations.api import DWDObservationData, DWDObservationSites
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst.dwd.metadata.period_type import PeriodType
 
@@ -204,11 +201,11 @@ def run():
 
     # Acquire station list.
     if options.stations:
-        df = metadata_for_climate_observations(
+        df = DWDObservationSites(
             parameter=options.parameter,
             time_resolution=options.resolution,
             period_type=options.period,
-        )
+        ).all()
 
         if options.station:
             station_ids = read_list(options.station)
@@ -237,7 +234,7 @@ def run():
             raise KeyError("Either --station or --lat, --lon required")
 
         # Funnel all parameters to the workhorse.
-        request = DWDObservationRequest(
+        request = DWDObservationData(
             station_ids=station_ids,
             parameter=read_list(options.parameter),
             time_resolution=options.resolution,
@@ -319,24 +316,28 @@ def get_nearby(options: Munch) -> pd.DataFrame:
     maximal_date = datetime(now.year, now.month, now.day)
 
     nearby_baseline_args = dict(
-        latitude=float(options.latitude),
-        longitude=float(options.longitude),
-        minimal_available_date=minimal_date,
-        maximal_available_date=maximal_date,
         parameter=options.parameter,
         time_resolution=options.resolution,
         period_type=options.period,
+        start_date=minimal_date,
+        end_date=maximal_date,
     )
 
     if options.latitude and options.longitude:
         if options.number:
-            nearby_stations = get_nearby_stations_by_number(
+            nearby_stations = DWDObservationSites(
                 **nearby_baseline_args,
+            ).nearby_number(
+                latitude=float(options.latitude),
+                longitude=float(options.longitude),
                 num_stations_nearby=int(options.number),
             )
         elif options.distance:
-            nearby_stations = get_nearby_stations_by_distance(
+            nearby_stations = DWDObservationSites(
                 **nearby_baseline_args,
+            ).nearby_radius(
+                latitude=float(options.latitude),
+                longitude=float(options.longitude),
                 max_distance_in_km=int(options.distance),
             )
 

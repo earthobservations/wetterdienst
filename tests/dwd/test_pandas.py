@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from surrogate import surrogate
 
-from wetterdienst import DWDObservationRequest, Parameter, TimeResolution, PeriodType
+from wetterdienst import DWDObservationData, Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.util import parse_datetime
 
 df_station = pd.DataFrame.from_dict(
@@ -178,7 +178,7 @@ def test_format_unknown():
 
 def test_request():
 
-    request = DWDObservationRequest(
+    request = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -191,7 +191,7 @@ def test_request():
 
 def test_export_sqlite():
 
-    request = DWDObservationRequest(
+    request = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -217,7 +217,7 @@ def test_export_sqlite():
 
 def test_export_crate():
 
-    request = DWDObservationRequest(
+    request = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -244,7 +244,7 @@ def test_export_crate():
 @surrogate("duckdb.connect")
 def test_export_duckdb():
 
-    request = DWDObservationRequest(
+    request = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -270,7 +270,7 @@ def test_export_duckdb():
 @surrogate("influxdb.dataframe_client.DataFrameClient")
 def test_export_influxdb():
 
-    request = DWDObservationRequest(
+    request = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,

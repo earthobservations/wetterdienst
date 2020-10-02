@@ -3,23 +3,24 @@ import requests
 from pandas import Timestamp
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst import metadata_for_climate_observations, TimeResolution
+from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst.dwd.metadata.period_type import PeriodType
+from wetterdienst.dwd.observations.api import DWDObservationSites
 
 
 @pytest.mark.remote
 def test_metadata_for_climate_observations():
 
     # Existing combination of parameters
-    metadata = metadata_for_climate_observations(
+    sites = DWDObservationSites(
         Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
-    )
+    ).all()
 
-    assert not metadata.empty
+    assert not sites.empty
 
-    assert metadata.loc[
-        metadata[DWDMetaColumns.STATION_ID.value] == 1, :
+    assert sites.loc[
+        sites[DWDMetaColumns.STATION_ID.value] == 1, :
     ].values.tolist() == [
         [
             1,
@@ -36,18 +37,18 @@ def test_metadata_for_climate_observations():
 
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(requests.exceptions.HTTPError):
-        metadata_for_climate_observations(
+        DWDObservationSites(
             Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
-        )
+        ).all()
 
 
 @pytest.mark.remote
 def test_metadata_geojson():
 
     # Existing combination of parameters
-    df = metadata_for_climate_observations(
+    df = DWDObservationSites(
         Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
-    )
+    ).all()
 
     assert not df.empty
 

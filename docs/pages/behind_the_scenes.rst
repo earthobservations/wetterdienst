@@ -4,7 +4,7 @@ Behind the scenes
 
 .. note:: This is some text extracted from ``api.rst``. It might fit better elsewhere.
 
-- The ``DWDObservationRequest`` class can combine multiple periods/date ranges
+- The ``DWDObservationData`` class can combine multiple periods/date ranges
   for any number of stations and parameters of one time resolution.
 - It wraps ``collect_climate_observations_data``, which in turn combines
   ``create_file_list_for_climate_observations``, ``download_climate_observations_data_parallel``
