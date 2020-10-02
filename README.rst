@@ -84,9 +84,9 @@ Get historical data for specific stations, using Python:
 
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest, Parameter, PeriodType, TimeResolution
+    from wetterdienst import DWDObservationRequest, Parameter, PeriodType, TimeResolution
 
-    request = DWDStationRequest(
+    request = DWDObservationRequest(
         station_ids=[1048,4411],
         parameter=[Parameter.CLIMATE_SUMMARY, Parameter.SOLAR],
         time_resolution=TimeResolution.DAILY,

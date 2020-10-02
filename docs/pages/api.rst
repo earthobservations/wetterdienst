@@ -75,14 +75,14 @@ the server. That might not always be the case for stations which have been phase
 
 Measurements
 ============
-Use the ``DWDStationRequest`` class in order to get hold of measurement information.
+Use the ``DWDObservationRequest`` class in order to get hold of measurement information.
 
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest
+    from wetterdienst import DWDObservationRequest
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    request = DWDStationRequest(
+    request = DWDObservationRequest(
         station_ids=[3, 1048],
         parameter=[Parameter.CLIMATE_SUMMARY, Parameter.SOLAR],
         time_resolution=TimeResolution.DAILY,
@@ -113,7 +113,7 @@ Inquire the list of stations by geographic coordinates.
 .. code-block:: python
 
     from datetime import datetime
-    from wetterdienst import DWDStationRequest, get_nearby_stations_by_number
+    from wetterdienst import DWDObservationRequest, get_nearby_stations_by_number
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
     stations = get_nearby_stations_by_number(
@@ -138,7 +138,7 @@ can be used to download the observation data:
 
 .. code-block:: python
 
-    request = DWDStationRequest(
+    request = DWDObservationRequest(
         station_ids=station_ids,
         parameter=[Parameter.TEMPERATURE_AIR, Parameter.SOLAR],
         time_resolution=TimeResolution.HOURLY,
@@ -166,10 +166,10 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest
+    from wetterdienst import DWDObservationRequest
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    request = DWDStationRequest(
+    request = DWDObservationRequest(
         station_ids=[1048],
         parameter=[Parameter.TEMPERATURE_AIR],
         time_resolution=TimeResolution.HOURLY,
@@ -200,10 +200,10 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst import DWDStationRequest
+    from wetterdienst import DWDObservationRequest
     from wetterdienst import Parameter, PeriodType, TimeResolution
 
-    request = DWDStationRequest(
+    request = DWDObservationRequest(
         station_ids=[1048],
         parameter=[Parameter.TEMPERATURE_AIR],
         time_resolution=TimeResolution.HOURLY,

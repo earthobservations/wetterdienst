@@ -20,9 +20,9 @@ from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 log = logging.getLogger(__name__)
 
 
-class DWDStationRequest:
+class DWDObservationRequest:
     """
-    The DWDStationRequest class represents a request for station data as provided by the
+    The DWDObservationRequest class represents a request for station data as provided by the
     DWD service
     """
 
@@ -219,7 +219,7 @@ class DWDStationRequest:
 
     def collect_safe(self):
         """
-        Collect all data from ``DWDStationRequest``.
+        Collect all data from ``DWDObservationRequest``.
         """
 
         data = list(self.collect_data())

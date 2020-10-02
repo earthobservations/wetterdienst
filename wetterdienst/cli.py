@@ -17,7 +17,7 @@ from wetterdienst import (
     TimeResolution,
 )
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
-from wetterdienst.dwd.observations.api import DWDStationRequest
+from wetterdienst.dwd.observations.api import DWDObservationRequest
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst.dwd.metadata.period_type import PeriodType
 
@@ -237,7 +237,7 @@ def run():
             raise KeyError("Either --station or --lat, --lon required")
 
         # Funnel all parameters to the workhorse.
-        request = DWDStationRequest(
+        request = DWDObservationRequest(
             station_ids=station_ids,
             parameter=read_list(options.parameter),
             time_resolution=options.resolution,

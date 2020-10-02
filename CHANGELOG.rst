@@ -6,10 +6,11 @@ Development
 ===========
 
 - Large refactoring
-- Make period type in DWDStationRequest and cli optional
+- Make period type in DWDObservationRequest and cli optional
 - Activate SQL querying again by using DuckDB 0.2.2.dev254. Thanks, @Mytherin!
 - Fix coercion of integers with nans
 - Fix problem with storing IntegerArrays in HDF
+- Rename DWDStationRequest to DWDObservationRequest
 
 0.8.0 (25.09.2020)
 ==================
@@ -51,7 +52,7 @@ Development
 0.4.0 (03.08.2020)
 ==================
 
-- extend DWDStationRequest to take multiple parameters as request
+- extend DWDObservationRequest to take multiple parameters as request
 - add documentation at readthedocs.io
 - [cli] Adjust methods to work with multiple parameters
 

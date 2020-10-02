@@ -12,7 +12,7 @@ from wetterdienst import (
     TimeResolution,
 )
 from wetterdienst import PeriodType, Parameter
-from wetterdienst import DWDStationRequest
+from wetterdienst import DWDObservationRequest
 from wetterdienst.dwd.util import parse_enumeration_from_template
 from wetterdienst.util.cli import read_list
 
@@ -136,7 +136,7 @@ def dwd_readings(
     period = parse_enumeration_from_template(period, PeriodType)
 
     # Data acquisition.
-    request = DWDStationRequest(
+    request = DWDObservationRequest(
         station_ids=station_ids,
         parameter=parameter,
         time_resolution=resolution,

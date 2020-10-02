@@ -9,12 +9,12 @@ from wetterdienst import (
     Parameter,
     PeriodType,
 )
-from wetterdienst.dwd.observations.api import DWDStationRequest
+from wetterdienst.dwd.observations.api import DWDObservationRequest
 from wetterdienst.exceptions import StartDateEndDateError
 
 
 def test_dwd_station_request():
-    assert DWDStationRequest(
+    assert DWDObservationRequest(
         station_ids=[1],
         parameter="kl",
         time_resolution="daily",
@@ -28,7 +28,7 @@ def test_dwd_station_request():
         None,
     ]
 
-    assert DWDStationRequest(
+    assert DWDObservationRequest(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -44,7 +44,7 @@ def test_dwd_station_request():
 
     # station id
     with pytest.raises(ValueError):
-        DWDStationRequest(
+        DWDObservationRequest(
             station_ids="test",
             parameter=Parameter.CLIMATE_SUMMARY,
             period_type=PeriodType.HISTORICAL,
@@ -52,7 +52,7 @@ def test_dwd_station_request():
         )
 
     # time input
-    assert DWDStationRequest(
+    assert DWDObservationRequest(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -66,7 +66,7 @@ def test_dwd_station_request():
         pd.Timestamp("1971-01-01"),
     ]
 
-    assert DWDStationRequest(
+    assert DWDObservationRequest(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -80,7 +80,7 @@ def test_dwd_station_request():
         pd.Timestamp("1971-01-01"),
     ]
 
-    assert DWDStationRequest(
+    assert DWDObservationRequest(
         station_ids=[1],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -96,7 +96,7 @@ def test_dwd_station_request():
     ]
 
     with pytest.raises(StartDateEndDateError):
-        DWDStationRequest(
+        DWDObservationRequest(
             station_ids=[1],
             parameter=Parameter.CLIMATE_SUMMARY,
             time_resolution=TimeResolution.DAILY,
