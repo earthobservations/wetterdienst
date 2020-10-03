@@ -16,7 +16,7 @@ Observations
 
 .. autofunction:: wetterdienst.metadata_for_climate_observations
 
-.. autoclass:: wetterdienst.api.DWDStationRequest
+.. autoclass:: wetterdienst.api.DWDObservationData
     :members:
 
 .. autofunction:: wetterdienst.get_nearby_stations

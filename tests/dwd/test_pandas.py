@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from surrogate import surrogate
 
-from wetterdienst import DWDStationRequest, Parameter, TimeResolution, PeriodType
+from wetterdienst import DWDObservationData, Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.util import parse_datetime
 
 df_station = pd.DataFrame.from_dict(
@@ -178,20 +178,20 @@ def test_format_unknown():
 
 def test_request():
 
-    request = DWDStationRequest(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,
     )
 
-    df = request.collect_safe()
+    df = observations.collect_safe()
     assert not df.empty
 
 
 def test_export_sqlite():
 
-    request = DWDStationRequest(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -202,7 +202,7 @@ def test_export_sqlite():
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        df = request.collect_safe()
+        df = observations.collect_safe()
         df.io.export("sqlite:///test.sqlite?table=testdrive")
 
         mock_to_sql.assert_called_once_with(
@@ -217,7 +217,7 @@ def test_export_sqlite():
 
 def test_export_crate():
 
-    request = DWDStationRequest(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -228,7 +228,7 @@ def test_export_crate():
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        df = request.collect_safe()
+        df = observations.collect_safe()
         df.io.export("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
@@ -244,7 +244,7 @@ def test_export_crate():
 @surrogate("duckdb.connect")
 def test_export_duckdb():
 
-    request = DWDStationRequest(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -256,7 +256,7 @@ def test_export_duckdb():
         "duckdb.connect", side_effect=[mock_connection], create=True
     ) as mock_connect:
 
-        df = request.collect_safe()
+        df = observations.collect_safe()
         df.io.export("duckdb:///test.duckdb?table=testdrive")
 
         mock_connect.assert_called_once_with(database="test.duckdb", read_only=False)
@@ -270,7 +270,7 @@ def test_export_duckdb():
 @surrogate("influxdb.dataframe_client.DataFrameClient")
 def test_export_influxdb():
 
-    request = DWDStationRequest(
+    observations = DWDObservationData(
         station_ids=[1048],
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
@@ -284,7 +284,7 @@ def test_export_influxdb():
         create=True,
     ) as mock_connect:
 
-        df = request.collect_safe()
+        df = observations.collect_safe()
         df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")

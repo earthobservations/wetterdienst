@@ -11,7 +11,16 @@ from wetterdienst.dwd.observations.access import collect_climate_observations_da
 from wetterdienst.dwd.metadata.parameter import (
     TIME_RESOLUTION_PARAMETER_MAPPING,
 )
-from wetterdienst import TimeResolution, Parameter, PeriodType
+from wetterdienst import (
+    TimeResolution,
+    Parameter,
+    PeriodType,
+)
+from wetterdienst.dwd.observations.stations import (
+    metadata_for_climate_observations,
+    get_nearby_stations_by_number,
+    get_nearby_stations_by_distance,
+)
 from wetterdienst.dwd.util import parse_enumeration_from_template, parse_enumeration
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
@@ -20,10 +29,10 @@ from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 log = logging.getLogger(__name__)
 
 
-class DWDStationRequest:
+class DWDObservationData:
     """
-    The DWDStationRequest class represents a request for station data as provided by the
-    DWD service
+    The DWDObservationData class represents a request for
+    observation data as provided by the DWD service.
     """
 
     def __init__(
@@ -219,7 +228,7 @@ class DWDStationRequest:
 
     def collect_safe(self):
         """
-        Collect all data from ``DWDStationRequest``.
+        Collect all data from ``DWDObservationData``.
         """
 
         data = list(self.collect_data())
@@ -228,6 +237,88 @@ class DWDStationRequest:
             raise ValueError("No data available for given constraints")
 
         return pd.concat(data)
+
+
+class DWDObservationSites:
+    """
+    The DWDObservationSites class represents a request for
+    station data as provided by the DWD service.
+    """
+
+    def __init__(
+        self,
+        parameter: Union[str, Parameter, List[Union[str, Parameter]]],
+        time_resolution: Union[
+            None, str, TimeResolution, List[Union[str, TimeResolution]]
+        ] = None,
+        period_type: Union[
+            Union[None, str, PeriodType], List[Union[str, PeriodType]]
+        ] = None,
+        start_date: Union[None, str, Timestamp] = None,
+        end_date: Union[None, str, Timestamp] = None,
+    ) -> None:
+        """
+        Request list of stations from DWD observation data, related to parameter,
+        time_resolution and period_type.
+
+        :param parameter:           Observation measure
+        :param time_resolution:     Frequency/granularity of measurement interval
+        :param period_type:         Recent or historical files (optional), if None
+                                    and start_date and end_date None, all period
+                                    types are used
+        :param start_date:          Start date of timespan where measurements
+                                    should be available
+        :param end_date:            End date of timespan where measurements
+                                    should be available
+        """
+        self.parameter = parameter
+        self.time_resolution = time_resolution
+        self.period_type = period_type
+        self.start_date = start_date
+        self.end_date = end_date
+
+    def all(self) -> pd.DataFrame:
+
+        return metadata_for_climate_observations(
+            parameter=self.parameter,
+            time_resolution=self.time_resolution,
+            period_type=self.period_type,
+        )
+
+    def nearby_radius(
+        self,
+        latitude: float,
+        longitude: float,
+        max_distance_in_km: int,
+    ) -> pd.DataFrame:
+        return get_nearby_stations_by_distance(
+            latitude=latitude,
+            longitude=longitude,
+            max_distance_in_km=max_distance_in_km,
+            parameter=self.parameter,
+            time_resolution=self.time_resolution,
+            period_type=self.period_type,
+            minimal_available_date=self.start_date,
+            maximal_available_date=self.end_date,
+        )
+
+    def nearby_number(
+        self,
+        latitude: float,
+        longitude: float,
+        num_stations_nearby: int,
+    ) -> pd.DataFrame:
+
+        return get_nearby_stations_by_number(
+            latitude=latitude,
+            longitude=longitude,
+            num_stations_nearby=num_stations_nearby,
+            parameter=self.parameter,
+            time_resolution=self.time_resolution,
+            period_type=self.period_type,
+            minimal_available_date=self.start_date,
+            maximal_available_date=self.end_date,
+        )
 
 
 def discover_climate_observations(

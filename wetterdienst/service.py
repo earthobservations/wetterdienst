@@ -8,11 +8,11 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from wetterdienst import (
     __appname__,
     __version__,
-    metadata_for_climate_observations,
     TimeResolution,
 )
 from wetterdienst import PeriodType, Parameter
-from wetterdienst import DWDStationRequest
+from wetterdienst import DWDObservationData
+from wetterdienst.dwd.observations.api import DWDObservationSites
 from wetterdienst.dwd.util import parse_enumeration_from_template
 from wetterdienst.util.cli import read_list
 
@@ -80,11 +80,11 @@ def dwd_stations(
     period = parse_enumeration_from_template(period, PeriodType)
 
     # Data acquisition.
-    df = metadata_for_climate_observations(
+    df = DWDObservationSites(
         parameter=parameter,
         time_resolution=resolution,
         period_type=period,
-    )
+    ).all()
 
     # Postprocessing.
     df = df.dwd.lower()
@@ -136,7 +136,7 @@ def dwd_readings(
     period = parse_enumeration_from_template(period, PeriodType)
 
     # Data acquisition.
-    request = DWDStationRequest(
+    observations = DWDObservationData(
         station_ids=station_ids,
         parameter=parameter,
         time_resolution=resolution,
@@ -146,7 +146,7 @@ def dwd_readings(
     )
 
     # Postprocessing.
-    df = request.collect_safe()
+    df = observations.collect_safe()
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)
