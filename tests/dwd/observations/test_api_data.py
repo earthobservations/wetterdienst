@@ -1,10 +1,7 @@
-import json
-
 import pytest
 import pandas as pd
 
 from wetterdienst import (
-    discover_climate_observations,
     TimeResolution,
     Parameter,
     PeriodType,
@@ -13,7 +10,7 @@ from wetterdienst.dwd.observations.api import DWDObservationData
 from wetterdienst.exceptions import StartDateEndDateError
 
 
-def test_dwd_station_request():
+def test_dwd_observation_data():
     assert DWDObservationData(
         station_ids=[1],
         parameter="kl",
@@ -103,19 +100,3 @@ def test_dwd_station_request():
             start_date="1971-01-01",
             end_date="1951-01-01",
         )
-
-
-def test_discover_climate_observations():
-    assert discover_climate_observations(
-        TimeResolution.DAILY, Parameter.CLIMATE_SUMMARY
-    ) == json.dumps(
-        {
-            str(TimeResolution.DAILY): {
-                str(Parameter.CLIMATE_SUMMARY): [
-                    str(PeriodType.HISTORICAL),
-                    str(PeriodType.RECENT),
-                ]
-            }
-        },
-        indent=4,
-    )

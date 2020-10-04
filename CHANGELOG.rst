@@ -10,8 +10,9 @@ Development
 - Activate SQL querying again by using DuckDB 0.2.2.dev254. Thanks, @Mytherin!
 - Fix coercion of integers with nans
 - Fix problem with storing IntegerArrays in HDF
-- Rename DWDStationRequest to DWDObservationData
-- Add DWDObservationSites API wrapper to acquire station information
+- Rename ``DWDStationRequest`` to ``DWDObservationData``
+- Add ``DWDObservationSites`` API wrapper to acquire station information
+- Move ``discover_climate_observations`` to ``DWDObservationMetadata.discover_parameters``
 
 0.8.0 (25.09.2020)
 ==================

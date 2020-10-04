@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import sys
 import logging
 from datetime import datetime, timedelta
@@ -7,16 +8,14 @@ from docopt import docopt
 from munch import Munch
 import pandas as pd
 
-from wetterdienst import (
-    __appname__,
-    __version__,
-    discover_climate_observations,
-    TimeResolution,
-)
+from wetterdienst import __appname__, __version__
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
-from wetterdienst.dwd.observations.api import DWDObservationData, DWDObservationSites
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.dwd.metadata.period_type import PeriodType
+from wetterdienst.dwd.observations.api import (
+    DWDObservationData,
+    DWDObservationSites,
+    DWDObservationMetadata,
+)
+from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
 
 log = logging.getLogger(__name__)
 
@@ -373,13 +372,15 @@ def about(options: Munch):
         output(PeriodType)
 
     elif options.coverage:
-        print(
-            discover_climate_observations(
+        output = json.dumps(
+            DWDObservationMetadata(
                 time_resolution=options.resolution,
                 parameter=read_list(options.parameter),
                 period_type=read_list(options.period),
-            )
+            ).discover_parameters(),
+            indent=4,
         )
+        print(output)
 
     else:
         log.error(
