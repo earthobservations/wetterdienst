@@ -9,6 +9,7 @@ from munch import Munch
 import pandas as pd
 
 from wetterdienst import __appname__, __version__
+from wetterdienst.dwd.observations.store_ng import StorageAdapter
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
 from wetterdienst.dwd.observations.api import (
     DWDObservationData,
@@ -232,14 +233,15 @@ def run():
         else:
             raise KeyError("Either --station or --lat, --lon required")
 
+        storage = StorageAdapter(persist=options.persist)
+
         # Funnel all parameters to the workhorse.
         observations = DWDObservationData(
             station_ids=station_ids,
             parameter=read_list(options.parameter),
             time_resolution=options.resolution,
             period_type=read_list(options.period),
-            write_file=options.persist,
-            prefer_local=options.persist,
+            storage=storage,
             humanize_column_names=True,
             tidy_data=True,
         )

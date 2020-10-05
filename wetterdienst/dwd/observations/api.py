@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import List, Union, Generator
 
 import pandas as pd
@@ -21,9 +20,10 @@ from wetterdienst.dwd.observations.stations import (
     get_nearby_stations_by_number,
     get_nearby_stations_by_distance,
 )
+from wetterdienst.dwd.observations.store_ng import StorageAdapter
 from wetterdienst.dwd.util import parse_enumeration_from_template, parse_enumeration
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
-from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DWDCDCBase
+from wetterdienst.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 
 log = logging.getLogger(__name__)
@@ -45,9 +45,7 @@ class DWDObservationData:
         ] = None,
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
-        prefer_local: bool = False,
-        write_file: bool = False,
-        folder: Union[str, Path] = DWD_FOLDER_MAIN,
+        storage: StorageAdapter = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
     ) -> None:
@@ -70,10 +68,7 @@ class DWDObservationData:
         :param end_date:            Replacement for period type to define exact time
                                     of requested data, if used, period type will be set
                                     to all period types (hist, recent, now)
-        :param prefer_local:        Definition if data should rather be taken from a
-                                    local source
-        :param write_file:          Should data be written to a local file
-        :param folder:              Place where file lists (and station data) are stored
+        :param storage:             Storage adapter.
         :param tidy_data:           Reshape DataFrame to a more tidy
                                     and row-based version of data
         :param humanize_column_names: Replace column names by more meaningful ones
@@ -127,9 +122,8 @@ class DWDObservationData:
             self.start_date = start_date
             self.end_date = end_date
 
-        self.prefer_local = prefer_local
-        self.write_file = write_file
-        self.folder = folder
+        self.storage = storage
+
         # If more then one parameter requested, automatically tidy data
         self.tidy_data = len(self.parameter) == 2 or tidy_data
         self.humanize_column_names = humanize_column_names
@@ -175,18 +169,28 @@ class DWDObservationData:
                 df_parameter_period = pd.DataFrame()
 
                 for period_type in self.period_type:
+                    storage = None
+                    if self.storage:
+                        storage = self.storage.hdf5(
+                            parameter=parameter,
+                            time_resolution=self.time_resolution,
+                            period_type=period_type,
+                        )
                     try:
                         df_period = collect_climate_observations_data(
                             station_ids=[station_id],
                             parameter=parameter,
                             time_resolution=self.time_resolution,
                             period_type=period_type,
-                            folder=self.folder,
-                            prefer_local=self.prefer_local,
-                            write_file=self.write_file,
+                            # folder=self.local_folder,
+                            # prefer_local=self.prefer_local,
+                            # write_file=self.write_file,
                             tidy_data=self.tidy_data,
                             humanize_column_names=self.humanize_column_names,
                         )
+                        if storage:
+                            storage.store(station_id=station_id, df=df_period)
+
                     except InvalidParameterCombination:
                         log.info(
                             f"Combination for "
