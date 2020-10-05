@@ -12,13 +12,13 @@ API
 Observations
 ************
 
-.. autoclass:: wetterdienst.api.DWDObservationData
+.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationData
     :members:
 
-.. autoclass:: wetterdienst.api.DWDObservationSites
+.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationSites
     :members:
 
-.. autoclass:: wetterdienst.api.DWDObservationMetadata
+.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationMetadata
     :members:
 
 
@@ -26,5 +26,5 @@ Observations
 RADOLAN
 *******
 
-.. autoclass:: wetterdienst.api.DWDRadolanRequest
+.. autoclass:: wetterdienst.dwd.radolan.api.DWDRadolanRequest
     :members:
