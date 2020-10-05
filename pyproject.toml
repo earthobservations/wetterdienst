@@ -80,6 +80,8 @@ python-dateutil = "^2.8.0"
 appdirs = "^1.4.4"
 lxml = "^4.5.2"
 tqdm = "^4.47.0"
+PyPDF2 = "^1.26.0"
+tabulate = "^0.8.7"
 
 # Conditionally installed for backward compatibility with older Python versions
 importlib_metadata              = {version = "1.7.0", python = "<3.8"}

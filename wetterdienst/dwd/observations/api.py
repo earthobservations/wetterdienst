@@ -6,6 +6,7 @@ import pandas as pd
 from pandas import Timestamp
 import dateparser
 
+from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
 from wetterdienst.dwd.metadata.parameter import (
     TIME_RESOLUTION_PARAMETER_MAPPING,
@@ -22,7 +23,7 @@ from wetterdienst.dwd.observations.stations import (
 )
 from wetterdienst.dwd.util import parse_enumeration_from_template, parse_enumeration
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
-from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DWDCDCBase
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 
 log = logging.getLogger(__name__)
@@ -387,3 +388,25 @@ class DWDObservationMetadata:
 
         return time_resolution_parameter_mapping
 
+    def describe_fields(self):
+
+        file_index = _create_file_index_for_dwd_server(
+            parameter=self.parameter,
+            time_resolution=self.time_resolution,
+            period_type=self.period_type,
+            cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
+        )
+
+        file_index = file_index[
+            file_index[DWDMetaColumns.FILENAME.value].str.contains("DESCRIPTION_")
+        ]
+
+        description_file_url = str(
+            file_index[DWDMetaColumns.FILENAME.value].tolist()[0]
+        )
+
+        from wetterdienst.dwd.observations.fields import read_description
+
+        document = read_description(description_file_url)
+
+        return document

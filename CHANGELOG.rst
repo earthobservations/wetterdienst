@@ -13,6 +13,7 @@ Development
 - Rename ``DWDStationRequest`` to ``DWDObservationData``
 - Add ``DWDObservationSites`` API wrapper to acquire station information
 - Move ``discover_climate_observations`` to ``DWDObservationMetadata.discover_parameters``
+- Add PDF-based ``DWDObservationMetadata.describe_fields()``
 
 0.8.0 (25.09.2020)
 ==================

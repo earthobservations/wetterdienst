@@ -47,7 +47,7 @@ The options *parameter*, *time resolution* and *period type* can be used in thre
 
         "kl"
 
-Use ``wetterdienst.discover_climate_observations()`` to discover available
+Use ``DWDObservationMetadata.discover_parameters()`` to discover available
 time resolution, parameter, period type combinations and their subsets
 based on the obtained filter arguments.
 
