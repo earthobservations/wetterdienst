@@ -1,5 +1,5 @@
 # 1. Build GDAL-python
-FROM python:3.8.5-slim as build-step
+FROM python:3.8.6-slim as build-step
 
 # TODO: This currently installs GDAL==2.4.0. For a more recent version, ...
 #
@@ -30,7 +30,7 @@ RUN pip install mysqlclient
 
 
 # 2. Main
-FROM python:3.8.5-slim
+FROM python:3.8.6-slim
 
 # Install libgdal.
 RUN apt-get update

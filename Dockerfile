@@ -1,4 +1,4 @@
-FROM python:3.8.5-slim
+FROM python:3.8.6-slim
 MAINTAINER Daniel Lassahn <daniel.lassahn@meteointelligence.de>
 
 ENV DEBIAN_FRONTEND noninteractive
