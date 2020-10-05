@@ -56,6 +56,8 @@ POSSIBLE_DATE_VARS = (
     DWDMetaColumns.TO_DATE.value,
 )
 
+PRODUCT_FILE_IDENTIFIER = "produkt"
+
 
 def collect_climate_observations_data(
     station_ids: List[int],
@@ -268,9 +270,6 @@ def _download_climate_observations_data(remote_file: Union[str, Path]) -> BytesI
 
     """
     return BytesIO(__download_climate_observations_data(remote_file=remote_file))
-
-
-PRODUCT_FILE_IDENTIFIER = "produkt"
 
 
 @payload_cache_five_minutes.cache_on_arguments()

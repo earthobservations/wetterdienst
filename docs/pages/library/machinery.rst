@@ -2,11 +2,16 @@
 Machinery
 #########
 
-.. automodule:: wetterdienst.data_collection
+****
+DWD
+****
+
+
+.. automodule:: wetterdienst.dwd.observations.access
     :members:
 
-.. automodule:: wetterdienst.data_storing
+.. automodule:: wetterdienst.dwd.mosmix.access
     :members:
 
-.. automodule:: wetterdienst.parse_metadata
+.. automodule:: wetterdienst.dwd.radolan.access
     :members:

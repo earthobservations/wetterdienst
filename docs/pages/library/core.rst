@@ -12,24 +12,10 @@ Core
 
 
 ***********
-Additionals
-***********
-
-.. automodule:: wetterdienst.additionals.functions
-    :members:
-
-.. automodule:: wetterdienst.additionals.geo_location
-    :members:
-
-.. automodule:: wetterdienst.additionals.time_handling
-    :members:
-
-
-***********
 Data models
 ***********
 
-.. automodule:: wetterdienst.data_models.coordinates
+.. automodule:: wetterdienst.util.geo
     :members:
 
 
@@ -37,21 +23,15 @@ Data models
 Download
 ********
 
-.. automodule:: wetterdienst.download.download
-    :members:
-
-.. automodule:: wetterdienst.download.download_services
-    :members:
-
-.. automodule:: wetterdienst.download.https_handling
+.. automodule:: wetterdienst.dwd.network
     :members:
 
 ************
 Enumerations
 ************
 
-.. automodule:: wetterdienst.enumerations.column_names_enumeration
+.. automodule:: wetterdienst.dwd.metadata.column_names
     :members:
 
-.. automodule:: wetterdienst.enumerations.datetime_format_enumeration
+.. automodule:: wetterdienst.dwd.metadata.datetime
     :members:
