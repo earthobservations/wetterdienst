@@ -12,14 +12,14 @@ API
 Observations
 ************
 
-.. autofunction:: wetterdienst.discover_climate_observations
-
-.. autofunction:: wetterdienst.metadata_for_climate_observations
-
 .. autoclass:: wetterdienst.api.DWDObservationData
     :members:
 
-.. autofunction:: wetterdienst.get_nearby_stations
+.. autoclass:: wetterdienst.api.DWDObservationSites
+    :members:
+
+.. autoclass:: wetterdienst.api.DWDObservationMetadata
+    :members:
 
 
 *******

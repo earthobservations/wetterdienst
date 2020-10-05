@@ -10,7 +10,7 @@ from wetterdienst.dwd.observations.api import DWDObservationSites
 
 
 @pytest.mark.remote
-def test_metadata_for_climate_observations():
+def test_dwd_observation_sites_success():
 
     # Existing combination of parameters
     sites = DWDObservationSites(
@@ -35,7 +35,10 @@ def test_metadata_for_climate_observations():
         ]
     ]
 
-    # todo: replace IndexError with UrlError/WrongSetOfParametersError
+
+def test_dwd_observation_sites_fail():
+
+    # TODO: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(requests.exceptions.HTTPError):
         DWDObservationSites(
             Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
@@ -43,7 +46,7 @@ def test_metadata_for_climate_observations():
 
 
 @pytest.mark.remote
-def test_metadata_geojson():
+def test_dwd_observation_sites_geojson():
 
     # Existing combination of parameters
     df = DWDObservationSites(

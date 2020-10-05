@@ -1,4 +1,3 @@
-import json
 import logging
 from pathlib import Path
 from typing import List, Union, Generator
@@ -7,6 +6,7 @@ import pandas as pd
 from pandas import Timestamp
 import dateparser
 
+from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
 from wetterdienst.dwd.metadata.parameter import (
     TIME_RESOLUTION_PARAMETER_MAPPING,
@@ -23,7 +23,7 @@ from wetterdienst.dwd.observations.stations import (
 )
 from wetterdienst.dwd.util import parse_enumeration_from_template, parse_enumeration
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
-from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DWDCDCBase
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 
 log = logging.getLogger(__name__)
@@ -321,53 +321,92 @@ class DWDObservationSites:
         )
 
 
-def discover_climate_observations(
-    time_resolution: Union[
-        None, str, TimeResolution, List[Union[str, TimeResolution]]
-    ] = None,
-    parameter: Union[None, str, Parameter, List[Union[str, Parameter]]] = None,
-    period_type: Union[None, str, PeriodType, List[Union[str, PeriodType]]] = None,
-) -> str:
+class DWDObservationMetadata:
     """
-    Function to print/discover available time_resolution/parameter/period_type
-    combinations.
-
-    :param parameter:               Observation measure
-    :param time_resolution:         Frequency/granularity of measurement interval
-    :param period_type:             Recent or historical files
-
-    :return:                        Result of available combinations in JSON.
+    Inquire metadata about weather observations on the
+    public DWD data repository.
     """
 
-    if not time_resolution:
-        time_resolution = [*TimeResolution]
-    if not parameter:
-        parameter = [*Parameter]
-    if not period_type:
-        period_type = [*PeriodType]
+    def __init__(
+        self,
+        parameter: Union[None, str, Parameter, List[Union[str, Parameter]]] = None,
+        time_resolution: Union[
+            None, str, TimeResolution, List[Union[str, TimeResolution]]
+        ] = None,
+        period_type: Union[None, str, PeriodType, List[Union[str, PeriodType]]] = None,
+    ):
+        self.parameter = parameter
+        self.time_resolution = time_resolution
+        self.period_type = period_type
 
-    time_resolution = parse_enumeration(TimeResolution, time_resolution)
-    parameter = parse_enumeration(Parameter, parameter)
-    period_type = parse_enumeration(PeriodType, period_type)
+    def discover_parameters(self) -> dict:
+        """
+        Function to print/discover available time_resolution/parameter/period_type
+        combinations.
 
-    trp_mapping_filtered = {
-        ts: {
-            par: [p for p in pt if p in period_type]
-            for par, pt in parameters_and_period_types.items()
-            if par in parameter
+        :param parameter:               Observation measure
+        :param time_resolution:         Frequency/granularity of measurement interval
+        :param period_type:             Recent or historical files
+
+        :return:                        Available parameter combinations.
+        """
+
+        parameter = self.parameter
+        time_resolution = self.time_resolution
+        period_type = self.period_type
+
+        if not parameter:
+            parameter = [*Parameter]
+        if not time_resolution:
+            time_resolution = [*TimeResolution]
+        if not period_type:
+            period_type = [*PeriodType]
+
+        time_resolution = parse_enumeration(TimeResolution, time_resolution)
+        parameter = parse_enumeration(Parameter, parameter)
+        period_type = parse_enumeration(PeriodType, period_type)
+
+        trp_mapping_filtered = {
+            ts: {
+                par: [p for p in pt if p in period_type]
+                for par, pt in parameters_and_period_types.items()
+                if par in parameter
+            }
+            for ts, parameters_and_period_types in TIME_RESOLUTION_PARAMETER_MAPPING.items()  # noqa:E501,B950
+            if ts in time_resolution
         }
-        for ts, parameters_and_period_types in TIME_RESOLUTION_PARAMETER_MAPPING.items()
-        if ts in time_resolution
-    }
 
-    time_resolution_parameter_mapping = {
-        str(time_resolution): {
-            str(parameter): [str(period) for period in periods]
-            for parameter, periods in parameters_and_periods.items()
-            if periods
+        time_resolution_parameter_mapping = {
+            str(time_resolution): {
+                str(parameter): [str(period) for period in periods]
+                for parameter, periods in parameters_and_periods.items()
+                if periods
+            }
+            for time_resolution, parameters_and_periods in trp_mapping_filtered.items()
+            if parameters_and_periods
         }
-        for time_resolution, parameters_and_periods in trp_mapping_filtered.items()
-        if parameters_and_periods
-    }
 
-    return json.dumps(time_resolution_parameter_mapping, indent=4)
+        return time_resolution_parameter_mapping
+
+    def describe_fields(self):
+
+        file_index = _create_file_index_for_dwd_server(
+            parameter=self.parameter,
+            time_resolution=self.time_resolution,
+            period_type=self.period_type,
+            cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
+        )
+
+        file_index = file_index[
+            file_index[DWDMetaColumns.FILENAME.value].str.contains("DESCRIPTION_")
+        ]
+
+        description_file_url = str(
+            file_index[DWDMetaColumns.FILENAME.value].tolist()[0]
+        )
+
+        from wetterdienst.dwd.observations.fields import read_description
+
+        document = read_description(description_file_url)
+
+        return document

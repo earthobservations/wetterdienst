@@ -23,7 +23,8 @@ METADATA_FILE = HERE / "FIXED_METADATA.JSON"
     "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
     MagicMock(return_value=pd.read_json(METADATA_FILE)),
 )
-def test_get_nearby_stations():
+def test_dwd_observation_sites_nearby_number_success():
+
     # Test for one nearest station
     nearby_station = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
@@ -135,6 +136,13 @@ def test_get_nearby_stations():
         ),
     )
 
+
+@patch(
+    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
+    MagicMock(return_value=pd.read_json(METADATA_FILE)),
+)
+def test_dwd_observation_sites_nearby_number_fail_1():
+
     with pytest.raises(ValueError):
         DWDObservationSites(
             Parameter.TEMPERATURE_AIR,
@@ -147,6 +155,13 @@ def test_get_nearby_stations():
             9.3,
             0,
         )
+
+
+@patch(
+    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
+    MagicMock(return_value=pd.read_json(METADATA_FILE)),
+)
+def test_dwd_observation_sites_nearby_number_fail_2():
 
     with pytest.raises(InvalidParameterCombination):
         DWDObservationSites(
@@ -166,7 +181,7 @@ def test_get_nearby_stations():
     "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
     MagicMock(return_value=pd.read_json(METADATA_FILE)),
 )
-def test_get_nearby_stations_out_of_distance():
+def test_dwd_observation_sites_nearby_distance():
     nearby_station = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,

@@ -3,9 +3,9 @@ __appname__ = "wetterdienst"
 
 from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.observations.api import (
-    DWDObservationSites,
     DWDObservationData,
-    discover_climate_observations,
+    DWDObservationSites,
+    DWDObservationMetadata,
 )
 from wetterdienst.dwd.radolan.api import DWDRadolanRequest
 
