@@ -73,7 +73,10 @@ class LocalHDF5Store:
         """
         Purge all HDF5 files for the current constraints.
         """
-        self.filepath.unlink(missing_ok=True)
+        try:
+            self.filepath.unlink()
+        except FileNotFoundError:
+            pass
 
     def store(self, station_id: int, df: pd.DataFrame) -> None:
         """
