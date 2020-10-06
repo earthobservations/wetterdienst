@@ -20,13 +20,34 @@ from wetterdienst.dwd.observations.stations import (
     get_nearby_stations_by_number,
     get_nearby_stations_by_distance,
 )
-from wetterdienst.dwd.observations.store_ng import StorageAdapter
-from wetterdienst.dwd.util import parse_enumeration_from_template, parse_enumeration
+from wetterdienst.dwd.observations.store import StorageAdapter
+from wetterdienst.dwd.util import (
+    parse_enumeration_from_template,
+    parse_enumeration,
+    build_parameter_identifier,
+)
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import (
+    DWDMetaColumns,
+    DWDOrigDataColumns,
+    DWDDataColumns,
+)
 
 log = logging.getLogger(__name__)
+
+POSSIBLE_ID_VARS = (
+    DWDMetaColumns.STATION_ID.value,
+    DWDMetaColumns.DATE.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+)
+
+POSSIBLE_DATE_VARS = (
+    DWDMetaColumns.DATE.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+)
 
 
 class DWDObservationData:
@@ -162,60 +183,19 @@ class DWDObservationData:
 
         :return: A generator yielding a pandas.DataFrame per station.
         """
+        # Remove HDF file for given parameters and period_types if defined by storage
+        if self.storage and self.storage.invalidate:
+            self._invalidate_storage()
+
         for station_id in self.station_ids:
-            df_station = pd.DataFrame()
+            df_station = []
 
             for parameter in self.parameter:
-                df_parameter_period = pd.DataFrame()
+                df_parameter = self._collect_parameter(parameter, station_id)
 
-                for period_type in self.period_type:
-                    storage = None
-                    if self.storage:
-                        storage = self.storage.hdf5(
-                            parameter=parameter,
-                            time_resolution=self.time_resolution,
-                            period_type=period_type,
-                        )
-                    try:
-                        df_period = collect_climate_observations_data(
-                            station_ids=[station_id],
-                            parameter=parameter,
-                            time_resolution=self.time_resolution,
-                            period_type=period_type,
-                            # folder=self.local_folder,
-                            # prefer_local=self.prefer_local,
-                            # write_file=self.write_file,
-                            tidy_data=self.tidy_data,
-                            humanize_column_names=self.humanize_column_names,
-                        )
-                        if storage:
-                            storage.store(station_id=station_id, df=df_period)
+                df_station.append(df_parameter)
 
-                    except InvalidParameterCombination:
-                        log.info(
-                            f"Combination for "
-                            f"{parameter.value}/"
-                            f"{self.time_resolution.value}/"
-                            f"{period_type} does not exist and is skipped."
-                        )
-
-                        continue
-
-                    # Filter out values which already are in the DataFrame
-                    try:
-                        df_period = df_period[
-                            ~df_period[DWDMetaColumns.DATE.value].isin(
-                                df_parameter_period[DWDMetaColumns.DATE.value]
-                            )
-                        ]
-                    except KeyError:
-                        pass
-
-                    df_parameter_period = df_parameter_period.append(
-                        df_period, ignore_index=True
-                    )
-
-                df_station = df_station.append(df_parameter_period, ignore_index=True)
+            df_station = pd.concat(df_station)
 
             # Filter for dates range if start_date and end_date are defined
             if self.start_date:
@@ -230,6 +210,78 @@ class DWDObservationData:
 
             yield df_station
 
+    def _collect_parameter(self, parameter: Parameter, station_id: int) -> pd.DataFrame:
+        df_parameter = pd.DataFrame()
+
+        for period_type in self.period_type:
+            parameter_identifier = build_parameter_identifier(
+                parameter, self.time_resolution, period_type, station_id
+            )
+
+            storage = None
+            if self.storage:
+                storage = self.storage.hdf5(
+                    parameter=parameter,
+                    time_resolution=self.time_resolution,
+                    period_type=period_type,
+                )
+
+                df_period = storage.restore(station_id)
+
+                if not df_period.empty:
+                    log.info(f"Data for {parameter_identifier} restored from local.")
+
+                    df_parameter = df_parameter.append(df_period)
+
+                    continue
+
+            log.info(f"Acquiring observations data for {parameter_identifier}.")
+
+            try:
+                df_period = collect_climate_observations_data(
+                    station_id, parameter, self.time_resolution, period_type
+                )
+            except InvalidParameterCombination:
+                log.info(
+                    f"Invalid combination {parameter.value}/"
+                    f"{self.time_resolution.value}/{period_type} is skipped."
+                )
+
+                df_period = pd.DataFrame()
+
+            if self.storage and self.storage.persist:
+                storage.store(station_id=station_id, df=df_period)
+
+            # Filter out values which already are in the DataFrame
+            try:
+                df_period = df_period[
+                    ~df_period[DWDMetaColumns.DATE.value].isin(
+                        df_parameter[DWDMetaColumns.DATE.value]
+                    )
+                ]
+            except KeyError:
+                pass
+
+            df_parameter = df_parameter.append(df_period)
+
+        if self.tidy_data:
+            df_parameter = self._tidy_up_data(df_parameter, parameter)
+
+        # Assign meaningful column names (humanized).
+        if self.humanize_column_names:
+            hcnm = self._create_humanized_column_names_mapping(
+                self.time_resolution, parameter
+            )
+
+            if self.tidy_data:
+                df_parameter[DWDMetaColumns.ELEMENT.value] = df_parameter[
+                    DWDMetaColumns.ELEMENT.value
+                ].apply(lambda x: hcnm[x])
+            else:
+                df_parameter = df_parameter.rename(columns=hcnm)
+
+        return df_parameter
+
     def collect_safe(self):
         """
         Collect all data from ``DWDObservationData``.
@@ -241,6 +293,103 @@ class DWDObservationData:
             raise ValueError("No data available for given constraints")
 
         return pd.concat(data)
+
+    def _invalidate_storage(self):
+        for parameter in self.parameter:
+            for period_type in self.period_type:
+                storage = self.storage.hdf5(
+                    parameter=parameter,
+                    time_resolution=self.time_resolution,
+                    period_type=period_type,
+                )
+
+                storage.invalidate()
+
+    @staticmethod
+    def _tidy_up_data(df: pd.DataFrame, parameter: Parameter) -> pd.DataFrame:
+        """
+        Function to create a tidy DataFrame by reshaping it, putting quality in a
+        separate column and setting an extra column with the parameter.
+
+        :param df:          DataFrame to be tidied
+        :param parameter:   the parameter that is written in a column to identify a set
+                            of different parameters amongst each other
+
+        :return:            The tidied DataFrame
+        """
+        id_vars = []
+        date_vars = []
+
+        # Add id columns based on metadata columns
+        for column in POSSIBLE_ID_VARS:
+            if column in df:
+                id_vars.append(column)
+                if column in POSSIBLE_DATE_VARS:
+                    date_vars.append(column)
+
+        # Extract quality
+        # Set empty quality for first columns until first QN column
+        quality = pd.Series()
+        column_quality = pd.Series()
+
+        for column in df:
+            # If is quality column, overwrite current "column quality"
+            if column.startswith("QN"):
+                column_quality = df.pop(column)
+            else:
+                quality = quality.append(column_quality)
+
+        df_tidy = df.melt(
+            id_vars=id_vars,
+            var_name=DWDMetaColumns.ELEMENT.value,
+            value_name=DWDMetaColumns.VALUE.value,
+        )
+
+        df_tidy[DWDMetaColumns.PARAMETER.value] = parameter.name
+
+        df_tidy[DWDMetaColumns.QUALITY.value] = quality.reset_index(drop=True).astype(
+            pd.Int64Dtype()
+        )
+
+        # Reorder properly
+        df_tidy = df_tidy.reindex(
+            columns=[
+                DWDMetaColumns.STATION_ID.value,
+                DWDMetaColumns.PARAMETER.value,
+                DWDMetaColumns.ELEMENT.value,
+                *date_vars,
+                DWDMetaColumns.VALUE.value,
+                DWDMetaColumns.QUALITY.value,
+            ]
+        )
+
+        return df_tidy
+
+    @staticmethod
+    def _create_humanized_column_names_mapping(
+        time_resolution: TimeResolution, parameter: Parameter
+    ) -> dict:
+        """
+        Function to create an extend humanized column names mapping. The function
+        takes care of the special cases of quality columns. Therefor it requires the
+        time resolution and parameter.
+
+        Args:
+            time_resolution: time resolution enumeration
+            parameter: parameter enumeration
+
+        Returns:
+            dictionary with mappings extended by quality columns mappings
+        """
+        column_name_mapping = {
+            orig_column.value: humanized_column.value
+            for orig_column, humanized_column in zip(
+                DWDOrigDataColumns[time_resolution.name][parameter.name],
+                DWDDataColumns[time_resolution.name][parameter.name],
+            )
+        }
+
+        return column_name_mapping
 
 
 class DWDObservationSites:

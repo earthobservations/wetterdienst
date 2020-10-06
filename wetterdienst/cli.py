@@ -9,7 +9,7 @@ from munch import Munch
 import pandas as pd
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.observations.store_ng import StorageAdapter
+from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
 from wetterdienst.dwd.observations.api import (
     DWDObservationData,

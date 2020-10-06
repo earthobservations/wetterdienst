@@ -1,5 +1,4 @@
 from datetime import datetime
-from functools import lru_cache
 from typing import Union, Callable, Tuple
 
 import dateparser
@@ -8,11 +7,7 @@ from dateutil.relativedelta import relativedelta
 from numpy.distutils.misc_util import as_list
 
 from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.column_names import (
-    DWDMetaColumns,
-    DWDOrigDataColumns,
-    DWDDataColumns,
-)
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.column_types import (
     DATE_FIELDS_REGULAR,
     DATE_FIELDS_IRREGULAR,
@@ -45,6 +40,18 @@ def check_parameters(
     return True
 
 
+def build_parameter_identifier(
+    parameter: Parameter,
+    time_resolution: TimeResolution,
+    period_type: PeriodType,
+    station_id: int,
+) -> str:
+    return (
+        f"{parameter.value}/{time_resolution.value}/"
+        f"{period_type.value}/station_id_{str(station_id)}"
+    )
+
+
 def coerce_field_types(
     df: pd.DataFrame, time_resolution: TimeResolution
 ) -> pd.DataFrame:
@@ -63,7 +70,6 @@ def coerce_field_types(
     """
 
     for column in df.columns:
-
         # Station ids are handled separately as they are expected to not have any nans
         if column == DWDMetaColumns.STATION_ID.value:
             df[column] = df[column].astype(int)
@@ -110,33 +116,6 @@ def parse_enumeration_from_template(
             raise InvalidParameter(
                 f"{enum_} could not be parsed from {enum_template.__name__}."
             )
-
-
-@lru_cache(maxsize=None)
-def create_humanized_column_names_mapping(
-    time_resolution: TimeResolution, parameter: Parameter
-) -> dict:
-    """
-    Function to create an extend humanized column names mapping. The function
-    takes care of the special cases of quality columns. Therefor it requires the
-    time resolution and parameter.
-
-    Args:
-        time_resolution: time resolution enumeration
-        parameter: parameter enumeration
-
-    Returns:
-        dictionary with mappings extended by quality columns mappings
-    """
-    column_name_mapping = {
-        orig_column.value: humanized_column.value
-        for orig_column, humanized_column in zip(
-            DWDOrigDataColumns[time_resolution.name][parameter.name],
-            DWDDataColumns[time_resolution.name][parameter.name],
-        )
-    }
-
-    return column_name_mapping
 
 
 def parse_enumeration(template, values):

@@ -36,7 +36,7 @@ def test_file_index_creation():
 
 def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
-        station_ids=[1048],
+        station_id=1048,
         parameter=Parameter.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,

@@ -15,6 +15,7 @@ Development
 - Move ``discover_climate_observations`` to ``DWDObservationMetadata.discover_parameters``
 - Add PDF-based ``DWDObservationMetadata.describe_fields()``
 - Upgrade Docker images to Python 3.8.6
+- Move intermediate storage of HDF out of data collection
 
 0.8.0 (25.09.2020)
 ==================
