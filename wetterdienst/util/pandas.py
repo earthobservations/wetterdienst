@@ -44,25 +44,25 @@ class IoAccessor:
         self.df = df
         return df
 
-    def format(self, format: str) -> str:
+    def format(self, fmt: str) -> str:
         """
         Format/render Pandas DataFrame to given output format.
 
-        :param format: One of json, geojson, csv, excel.
+        :param fmt: One of json, geojson, csv, excel.
         :return: Rendered payload.
         """
 
         # Output as JSON.
-        if format == "json":
+        if fmt == "json":
             output = self.df.to_json(orient="records", date_format="iso", indent=4)
 
         # Output as CSV.
-        elif format == "csv":
+        elif fmt == "csv":
             output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
 
         # Output as XLSX.
         # FIXME: Make --format=excel write to a designated file.
-        elif format == "excel":
+        elif fmt == "excel":
             # TODO: Obtain output file name from command line.
             output_filename = "output.xlsx"
             log.info(f"Writing {output_filename}")

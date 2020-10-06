@@ -9,12 +9,26 @@ from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.util import parse_datetime, mktimerange
 
 
+POSSIBLE_ID_VARS = (
+    DWDMetaColumns.STATION_ID.value,
+    DWDMetaColumns.DATE.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+)
+
+POSSIBLE_DATE_VARS = (
+    DWDMetaColumns.DATE.value,
+    DWDMetaColumns.FROM_DATE.value,
+    DWDMetaColumns.TO_DATE.value,
+)
+
+
 @pd.api.extensions.register_dataframe_accessor("dwd")
 class PandasDwdExtension:
     def __init__(self, pandas_obj):
         self.df = pandas_obj
 
-    def lower(self):
+    def lower(self) -> pd.DataFrame:
         """
         Make Pandas DataFrame column names and parameters lowercase.
 
@@ -86,20 +100,20 @@ class PandasDwdExtension:
 
         return df
 
-    def format(self, format: str) -> str:
+    def format(self, fmt: str) -> str:
         """
         Format/render Pandas DataFrame to given output format.
 
-        :param format: One of json, geojson, csv, excel.
+        :param fmt: One of json, geojson, csv, excel.
         :return: Rendered payload.
         """
 
         # Output as GeoJSON.
-        if format == "geojson":
+        if fmt == "geojson":
             output = json.dumps(self.df.dwd.to_geojson(), indent=4)
 
         else:
-            output = self.df.io.format(format=format)
+            output = self.df.io.format(fmt=fmt)
 
         return output
 
@@ -147,3 +161,45 @@ class PandasDwdExtension:
             "type": "FeatureCollection",
             "features": features,
         }
+
+    def tidy_up_data(self) -> pd.DataFrame:
+        """
+        Function to create a tidy DataFrame by reshaping it, putting quality in a
+        separate column, so that for each timestamp there is a tuple of parameter, value
+        and quality.
+
+        :return:            The tidied DataFrame
+        """
+        id_vars = []
+        date_vars = []
+
+        # Add id columns based on metadata columns
+        for column in POSSIBLE_ID_VARS:
+            if column in self.df:
+                id_vars.append(column)
+                if column in POSSIBLE_DATE_VARS:
+                    date_vars.append(column)
+
+        # Extract quality
+        # Set empty quality for first columns until first QN column
+        quality = pd.Series(dtype=pd.Int64Dtype())
+        column_quality = pd.Series(dtype=pd.Int64Dtype())
+
+        for column in self.df:
+            # If is quality column, overwrite current "column quality"
+            if column.startswith("QN"):
+                column_quality = self.df.pop(column)
+            else:
+                quality = quality.append(column_quality)
+
+        df_tidy = self.df.melt(
+            id_vars=id_vars,
+            var_name=DWDMetaColumns.ELEMENT.value,
+            value_name=DWDMetaColumns.VALUE.value,
+        )
+
+        df_tidy[DWDMetaColumns.QUALITY.value] = quality.reset_index(drop=True).astype(
+            pd.Int64Dtype()
+        )
+
+        return df_tidy

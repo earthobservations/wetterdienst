@@ -36,19 +36,6 @@ from wetterdienst.dwd.metadata.column_names import (
 
 log = logging.getLogger(__name__)
 
-POSSIBLE_ID_VARS = (
-    DWDMetaColumns.STATION_ID.value,
-    DWDMetaColumns.DATE.value,
-    DWDMetaColumns.FROM_DATE.value,
-    DWDMetaColumns.TO_DATE.value,
-)
-
-POSSIBLE_DATE_VARS = (
-    DWDMetaColumns.DATE.value,
-    DWDMetaColumns.FROM_DATE.value,
-    DWDMetaColumns.TO_DATE.value,
-)
-
 
 class DWDObservationData:
     """
@@ -265,7 +252,23 @@ class DWDObservationData:
             df_parameter = df_parameter.append(df_period)
 
         if self.tidy_data:
-            df_parameter = self._tidy_up_data(df_parameter, parameter)
+            df_parameter = df_parameter.dwd.tidy_up_data()
+
+            df_parameter.insert(2, DWDMetaColumns.PARAMETER.value, parameter.name)
+
+            # df_parameter[DWDMetaColumns.PARAMETER.value] = parameter.name
+            #
+            # # Reorder properly
+            # df_parameter = df_parameter.reindex(
+            #     columns=[
+            #         DWDMetaColumns.STATION_ID.value,
+            #         DWDMetaColumns.PARAMETER.value,
+            #         DWDMetaColumns.ELEMENT.value,
+            #         *date_vars,
+            #         DWDMetaColumns.VALUE.value,
+            #         DWDMetaColumns.QUALITY.value,
+            #     ]
+            # )
 
         # Assign meaningful column names (humanized).
         if self.humanize_column_names:
@@ -306,72 +309,12 @@ class DWDObservationData:
                 storage.invalidate()
 
     @staticmethod
-    def _tidy_up_data(df: pd.DataFrame, parameter: Parameter) -> pd.DataFrame:
-        """
-        Function to create a tidy DataFrame by reshaping it, putting quality in a
-        separate column and setting an extra column with the parameter.
-
-        :param df:          DataFrame to be tidied
-        :param parameter:   the parameter that is written in a column to identify a set
-                            of different parameters amongst each other
-
-        :return:            The tidied DataFrame
-        """
-        id_vars = []
-        date_vars = []
-
-        # Add id columns based on metadata columns
-        for column in POSSIBLE_ID_VARS:
-            if column in df:
-                id_vars.append(column)
-                if column in POSSIBLE_DATE_VARS:
-                    date_vars.append(column)
-
-        # Extract quality
-        # Set empty quality for first columns until first QN column
-        quality = pd.Series()
-        column_quality = pd.Series()
-
-        for column in df:
-            # If is quality column, overwrite current "column quality"
-            if column.startswith("QN"):
-                column_quality = df.pop(column)
-            else:
-                quality = quality.append(column_quality)
-
-        df_tidy = df.melt(
-            id_vars=id_vars,
-            var_name=DWDMetaColumns.ELEMENT.value,
-            value_name=DWDMetaColumns.VALUE.value,
-        )
-
-        df_tidy[DWDMetaColumns.PARAMETER.value] = parameter.name
-
-        df_tidy[DWDMetaColumns.QUALITY.value] = quality.reset_index(drop=True).astype(
-            pd.Int64Dtype()
-        )
-
-        # Reorder properly
-        df_tidy = df_tidy.reindex(
-            columns=[
-                DWDMetaColumns.STATION_ID.value,
-                DWDMetaColumns.PARAMETER.value,
-                DWDMetaColumns.ELEMENT.value,
-                *date_vars,
-                DWDMetaColumns.VALUE.value,
-                DWDMetaColumns.QUALITY.value,
-            ]
-        )
-
-        return df_tidy
-
-    @staticmethod
     def _create_humanized_column_names_mapping(
         time_resolution: TimeResolution, parameter: Parameter
     ) -> dict:
         """
-        Function to create an extend humanized column names mapping. The function
-        takes care of the special cases of quality columns. Therefor it requires the
+        Function to create a humanized column names mapping. The function
+        takes care of the special cases of quality columns. Therefore it requires the
         time resolution and parameter.
 
         Args:

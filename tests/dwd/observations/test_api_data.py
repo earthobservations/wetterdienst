@@ -205,7 +205,7 @@ def test_tidy_up_data():
     df_tidy = pd.DataFrame(
         {
             "STATION_ID": [1048] * 14,
-            "PARAMETER": ["CLIMATE_SUMMARY"] * 14,
+            "DATE": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
             "ELEMENT": [
                 "FX",
                 "FM",
@@ -222,7 +222,6 @@ def test_tidy_up_data():
                 "TNK",
                 "TGK",
             ],
-            "DATE": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
             "VALUE": [
                 11.8,
                 5.8,
@@ -246,5 +245,5 @@ def test_tidy_up_data():
     )
 
     assert_frame_equal(
-        DWDObservationData._tidy_up_data(df, Parameter.CLIMATE_SUMMARY), df_tidy
+        df.dwd.tidy_up_data(), df_tidy
     )
