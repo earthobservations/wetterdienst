@@ -244,6 +244,4 @@ def test_tidy_up_data():
         }
     )
 
-    assert_frame_equal(
-        df.dwd.tidy_up_data(), df_tidy
-    )
+    assert_frame_equal(df.dwd.tidy_up_data(), df_tidy)
