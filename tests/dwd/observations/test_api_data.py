@@ -5,11 +5,12 @@ import pytest
 import pandas as pd
 from pandas._testing import assert_frame_equal
 
-from wetterdienst import (
+from wetterdienst.dwd.metadata import (
     TimeResolution,
     Parameter,
     PeriodType,
 )
+from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.api import DWDObservationData
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.exceptions import StartDateEndDateError
@@ -153,7 +154,7 @@ def test_observation_data_storing():
 
 def test_create_humanized_column_names_mapping():
     """ Test for function to create a mapping to humanized column names """
-    hcnm = DWDObservationData._create_humanized_column_names_mapping(
+    hcnm = create_humanized_column_names_mapping(
         TimeResolution.DAILY, Parameter.CLIMATE_SUMMARY
     )
 
