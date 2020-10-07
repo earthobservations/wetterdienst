@@ -30,4 +30,6 @@ class DataFormat(Enum):
 class ArchiveFormat(Enum):
     ZIP = "zip"
     GZ = "gz"
+    BZ2 = "bz2"
     TAR_GZ = "tar.gz"
+    TAR_BZ2 = "tar.bz2"

@@ -296,12 +296,12 @@ and ``end_date`` parameters can optionally be specified to obtain data
 from specific points in time.
 
 For ``RADOLAN_CDC``-data, datetimes are rounded to ``HH:50min``, as the
-data is packaged for this minute step. Additionally, you can provide a
-folder to store/restore RADOLAN data to/from the local filesystem.
+data is packaged for this minute step.
 
 This is an example on how to acquire ``RADOLAN_CDC`` data using
 ``wetterdienst`` and process it using ``wradlib``.
-For a more thorough example, please have a look at `example/radar_radolan_cdc.py`_.
+
+For more examples, please have a look at `example/radar/`_.
 
 .. code-block:: python
 
@@ -327,7 +327,7 @@ For a more thorough example, please have a look at `example/radar_radolan_cdc.py
 
 
 .. _wradlib: https://wradlib.org/
-.. _example/radolan.py: https://github.com/earthobservations/wetterdienst/blob/master/example/radar/radar_radolan_cdc.py
+.. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/master/example/radar
 
 .. _SQLite: https://www.sqlite.org/
 .. _DuckDB: https://duckdb.org/docs/sql/introduction

@@ -12,7 +12,7 @@ from deprecation import deprecated
 import pandas as pd
 
 from wetterdienst import TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, ArchiveFormat
 
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.radar.index import (
@@ -228,7 +228,7 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
     data.seek(0)
 
     # RadarParameter.FX_REFLECTIVITY
-    if url.endswith(".tar.bz2"):
+    if url.endswith(ArchiveFormat.TAR_BZ2.value):
         with bz2.BZ2File(data, mode="rb") as archive:
             with tarfile.open(fileobj=archive) as tar_file:
                 for file in tar_file.getmembers():
@@ -239,13 +239,13 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
                     )
 
     # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)
-    elif url.endswith(".bz2"):
+    elif url.endswith(ArchiveFormat.BZ2.value):
         with bz2.BZ2File(data, mode="rb") as archive:
             data = BytesIO(archive.read())
             yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
 
     # RADAR_PARAMETERS_RADVOR
-    elif url.endswith(".gz"):
+    elif url.endswith(ArchiveFormat.GZ.value):
         with gzip.GzipFile(fileobj=data, mode="rb") as archive:
             data = BytesIO(archive.read())
             yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
