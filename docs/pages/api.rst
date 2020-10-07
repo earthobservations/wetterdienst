@@ -92,8 +92,6 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
         end_date="2020-01-01",
         tidy_data=True,
         humanize_column_names=True,
-        write_file=True,
-        prefer_local=True
     )
 
     for df in observations.collect_data():
@@ -153,8 +151,6 @@ can be used to download the observation data:
         end_date="2020-01-01",
         tidy_data=True,
         humanize_column_names=True,
-        write_file=True,
-        prefer_local=True
     )
 
     for df in observations.collect_data():
@@ -184,12 +180,38 @@ The result data is provided through a virtual table called ``data``.
         end_date="2020-01-01",
         tidy_data=True,
         humanize_column_names=True,
-        prefer_local=True,
-        write_file=True,
     )
 
-    df = observations.collect_safe().wd.lower()
+    df = observations.collect_safe().dwd.lower()
     df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
+    print(df)
+
+
+HDF5 storage
+============
+Wetterdienst can optionally persist acquired data to HDF5 files.
+To use that feature, pass a ``StorageAdapter`` instance to
+``DWDObservationData``.
+
+.. code-block:: python
+
+    from wetterdienst import DWDObservationData
+    from wetterdienst import Parameter, PeriodType, TimeResolution
+
+    storage = StorageAdapter(persist=True, folder="/path/to/dwd-archive")
+
+    observations = DWDObservationData(
+        station_ids=[1048],
+        parameter=[Parameter.TEMPERATURE_AIR],
+        time_resolution=TimeResolution.HOURLY,
+        start_date="2019-01-01",
+        end_date="2020-01-01",
+        tidy_data=True,
+        humanize_column_names=True,
+        storage=storage,
+    )
+
+    df = observations.collect_safe().dwd.lower()
     print(df)
 
 
@@ -218,11 +240,9 @@ Examples:
         end_date="2020-01-01",
         tidy_data=True,
         humanize_column_names=True,
-        prefer_local=True,
-        write_file=True,
     )
 
-    df = observations.collect_safe().wd.lower()
+    df = observations.collect_safe().dwd.lower()
     df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 

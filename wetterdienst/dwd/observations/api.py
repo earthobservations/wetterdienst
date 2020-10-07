@@ -229,10 +229,7 @@ class DWDObservationData:
                 df_period = storage.restore(station_id)
 
                 if not df_period.empty:
-                    log.info(f"Data for {parameter_identifier} restored from local.")
-
                     df_parameter = df_parameter.append(df_period)
-
                     continue
 
             log.info(f"Acquiring observations data for {parameter_identifier}.")
