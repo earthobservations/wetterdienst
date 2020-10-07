@@ -6,11 +6,12 @@ from pandas import Timestamp
 import dateparser
 
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
+from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
 from wetterdienst.dwd.metadata.parameter import (
     TIME_RESOLUTION_PARAMETER_MAPPING,
 )
-from wetterdienst import (
+from wetterdienst.dwd.metadata import (
     TimeResolution,
     Parameter,
     PeriodType,
@@ -28,11 +29,7 @@ from wetterdienst.dwd.util import (
 )
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
-from wetterdienst.dwd.metadata.column_names import (
-    DWDMetaColumns,
-    DWDOrigDataColumns,
-    DWDDataColumns,
-)
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 
 log = logging.getLogger(__name__)
 
@@ -178,7 +175,9 @@ class DWDObservationData:
             df_station = []
 
             for parameter in self.parameter:
-                df_parameter = self._collect_parameter(parameter, station_id)
+                df_parameter = self._collect_parameter_from_station(
+                    station_id, parameter
+                )
 
                 df_station.append(df_parameter)
 
@@ -197,7 +196,21 @@ class DWDObservationData:
 
             yield df_station
 
-    def _collect_parameter(self, parameter: Parameter, station_id: int) -> pd.DataFrame:
+    def _collect_parameter_from_station(
+        self, station_id: int, parameter: Parameter
+    ) -> pd.DataFrame:
+        """
+        Method to collect data for one specified parameter. Manages restoring,
+        collection and storing of data, transformation and combination of different
+        periods.
+
+        Args:
+            parameter:
+            station_id:
+
+        Returns:
+
+        """
         df_parameter = pd.DataFrame()
 
         for period_type in self.period_type:
@@ -256,23 +269,9 @@ class DWDObservationData:
 
             df_parameter.insert(2, DWDMetaColumns.PARAMETER.value, parameter.name)
 
-            # df_parameter[DWDMetaColumns.PARAMETER.value] = parameter.name
-            #
-            # # Reorder properly
-            # df_parameter = df_parameter.reindex(
-            #     columns=[
-            #         DWDMetaColumns.STATION_ID.value,
-            #         DWDMetaColumns.PARAMETER.value,
-            #         DWDMetaColumns.ELEMENT.value,
-            #         *date_vars,
-            #         DWDMetaColumns.VALUE.value,
-            #         DWDMetaColumns.QUALITY.value,
-            #     ]
-            # )
-
         # Assign meaningful column names (humanized).
         if self.humanize_column_names:
-            hcnm = self._create_humanized_column_names_mapping(
+            hcnm = create_humanized_column_names_mapping(
                 self.time_resolution, parameter
             )
 
@@ -285,7 +284,7 @@ class DWDObservationData:
 
         return df_parameter
 
-    def collect_safe(self):
+    def collect_safe(self) -> pd.DataFrame:
         """
         Collect all data from ``DWDObservationData``.
         """
@@ -297,7 +296,15 @@ class DWDObservationData:
 
         return pd.concat(data)
 
-    def _invalidate_storage(self):
+    def _invalidate_storage(self) -> None:
+        """
+        Wrapper for storage invalidation for all kinds of defined parameters and
+        periods. Used before gathering of data as it has no relation to any specific
+        station id.
+
+        Returns:
+            None
+        """
         for parameter in self.parameter:
             for period_type in self.period_type:
                 storage = self.storage.hdf5(
@@ -307,32 +314,6 @@ class DWDObservationData:
                 )
 
                 storage.invalidate()
-
-    @staticmethod
-    def _create_humanized_column_names_mapping(
-        time_resolution: TimeResolution, parameter: Parameter
-    ) -> dict:
-        """
-        Function to create a humanized column names mapping. The function
-        takes care of the special cases of quality columns. Therefore it requires the
-        time resolution and parameter.
-
-        Args:
-            time_resolution: time resolution enumeration
-            parameter: parameter enumeration
-
-        Returns:
-            dictionary with mappings extended by quality columns mappings
-        """
-        column_name_mapping = {
-            orig_column.value: humanized_column.value
-            for orig_column, humanized_column in zip(
-                DWDOrigDataColumns[time_resolution.name][parameter.name],
-                DWDDataColumns[time_resolution.name][parameter.name],
-            )
-        }
-
-        return column_name_mapping
 
 
 class DWDObservationSites:
@@ -387,6 +368,19 @@ class DWDObservationSites:
         longitude: float,
         max_distance_in_km: int,
     ) -> pd.DataFrame:
+        """
+        Wrapper for get_nearby_stations_by_distance using the given parameter set.
+        Returns nearest stations defined by distance (km).
+
+        Args:
+            latitude: latitude in degrees
+            longitude: longitude in degrees
+            max_distance_in_km: distance (km) for which stations will be selected
+
+        Returns:
+            pandas.DataFrame with station information for the selected stations
+        """
+
         return get_nearby_stations_by_distance(
             latitude=latitude,
             longitude=longitude,
@@ -404,6 +398,18 @@ class DWDObservationSites:
         longitude: float,
         num_stations_nearby: int,
     ) -> pd.DataFrame:
+        """
+        Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
+        nearest stations defined by number.
+
+        Args:
+            latitude: latitude in degrees
+            longitude: longitude in degrees
+            num_stations_nearby: number of stations to be returned, greater 0
+
+        Returns:
+            pandas.DataFrame with station information for the selected stations
+        """
 
         return get_nearby_stations_by_number(
             latitude=latitude,
@@ -439,10 +445,6 @@ class DWDObservationMetadata:
         """
         Function to print/discover available time_resolution/parameter/period_type
         combinations.
-
-        :param parameter:               Observation measure
-        :param time_resolution:         Frequency/granularity of measurement interval
-        :param period_type:             Recent or historical files
 
         :return:                        Available parameter combinations.
         """
@@ -484,7 +486,7 @@ class DWDObservationMetadata:
 
         return time_resolution_parameter_mapping
 
-    def describe_fields(self):
+    def describe_fields(self) -> dict:
 
         file_index = _create_file_index_for_dwd_server(
             parameter=self.parameter,

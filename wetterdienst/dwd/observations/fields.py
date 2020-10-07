@@ -71,14 +71,14 @@ def parse_parameters(text):
     return data
 
 
-def read_description(url):
+def read_description(url) -> dict:
     document = read_pdf(url)
     parameters_text = parse_section(document, "Parameters")
     parameters = parse_parameters(parameters_text)
     return parameters
 
 
-def process(url):  # pragma: no cover
+def process(url) -> None:  # pragma: no cover
 
     parameters = read_description(url)
 
