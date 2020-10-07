@@ -69,8 +69,6 @@ Get historical data for specific stations, using Python:
         end_date="2020-01-01",
         tidy_data=True,
         humanize_column_names=True,
-        write_file=True,
-        prefer_local=True
     )
 
     for df in observations.collect_data():

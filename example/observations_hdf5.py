@@ -2,7 +2,7 @@
 =====
 About
 =====
-Acquire measurement information from DWD and filter using SQL.
+Acquire measurement information from DWD and store into HDF5 files.
 
 
 =====
@@ -10,18 +10,21 @@ Setup
 =====
 ::
 
-    pip install wetterdienst[sql]
+    pip install wetterdienst
 
 """
 import logging
 
 from wetterdienst import DWDObservationData
 from wetterdienst import TimeResolution, Parameter
+from wetterdienst.dwd.observations.store import StorageAdapter
 
 log = logging.getLogger()
 
 
-def sql_example():
+def hdf5_example():
+
+    storage = StorageAdapter(persist=True)
 
     observations = DWDObservationData(
         station_ids=[1048],
@@ -31,20 +34,16 @@ def sql_example():
         end_date="2020-01-01",
         tidy_data=True,
         humanize_column_names=True,
+        storage=storage,
     )
 
-    sql = "SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;"
-    log.info(f"Invoking SQL query '{sql}'")
-
-    df = observations.collect_safe()
-    df = df.dwd.lower().io.sql(sql)
-
+    df = observations.collect_safe().dwd.lower()
     print(df)
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    sql_example()
+    hdf5_example()
 
 
 if __name__ == "__main__":

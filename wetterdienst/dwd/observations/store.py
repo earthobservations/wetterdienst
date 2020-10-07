@@ -89,8 +89,6 @@ class LocalHDF5Store:
         :return:            None
         """
 
-        log.info("+++++++++++++++++ STORE +++++++++++++++++")
-
         # Make sure that there is data that can be stored
         if df.empty:
             return
@@ -112,11 +110,10 @@ class LocalHDF5Store:
         :return:                        The restored DataFrame.
         """
 
-        log.info(f"Restoring HDF5 data from {self.filepath}")
-
         try:
-            # typing required as pandas.read_hdf returns an object by typing
+            # Typing required as pandas.read_hdf returns an object by typing.
             df = pd.read_hdf(path_or_buf=self.filepath, key=self.hdf5_key(station_id))
+            log.info(f"Restored HDF5 data from {self.filepath}")
         except (FileNotFoundError, KeyError):
             return pd.DataFrame()
 
