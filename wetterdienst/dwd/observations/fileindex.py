@@ -15,7 +15,7 @@ from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 
 def create_file_list_for_climate_observations(
-    station_ids: List[int],
+    station_id: int,
     parameter: Union[Parameter, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
@@ -26,7 +26,7 @@ def create_file_list_for_climate_observations(
     created list of files that are
     available online.
     Args:
-        station_ids: ids for the weather station to ask for data
+        station_id: station id for the weather station to ask for data
         parameter: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: recent or historical files
@@ -42,9 +42,7 @@ def create_file_list_for_climate_observations(
         parameter, time_resolution, period_type
     )
 
-    file_index = file_index[
-        file_index[DWDMetaColumns.STATION_ID.value].isin(station_ids)
-    ]
+    file_index = file_index[file_index[DWDMetaColumns.STATION_ID.value] == station_id]
 
     return file_index[DWDMetaColumns.FILENAME.value].values.tolist()
 

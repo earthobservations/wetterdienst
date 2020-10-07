@@ -1,134 +1,132 @@
+import logging
 from pathlib import Path
 from typing import Union
-import warnings
 
 import pandas as pd
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.constants import (
-    DWD_FOLDER_STATION_DATA,
-    DWD_FILE_STATION_DATA,
-    DataFormat,
-)
+from wetterdienst.dwd.metadata.column_types import QUALITY_FIELDS, INTEGER_FIELDS
+from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DataFormat
+from wetterdienst.dwd.util import build_parameter_identifier
 
-warnings.filterwarnings("ignore")
+log = logging.getLogger(__name__)
 
 
-def store_climate_observations(
-    station_data: pd.DataFrame,
-    station_id: int,
-    parameter: Parameter,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
-    folder: Union[str, Path],
-) -> None:
-    """
-    Function to store data in a local file hdf file. The function takes a pandas
-    DataFrame plus additionally the request parameters to identify data within the
-    hdf file and another folder argument for the place where the file is stored.
+class StorageAdapter:
+    def __init__(
+        self,
+        persist: bool = False,
+        invalidate: bool = False,
+        folder: Union[str, Path] = DWD_FOLDER_MAIN,
+    ):
+        self.persist = persist
+        self.invalidate = invalidate
+        self.folder = folder
 
-    :param station_data:            The pandas DataFrame with the obtained data
-    :param station_id:              The station id of the station to store
-    :param parameter:               Observation measure
-    :param time_resolution:         Frequency/granularity of measurement interval
-    :param period_type:             Recent or historical files
-    :param folder:                  The folder where the hdf is stored
-
-    :return:                        Nothing, only prints information if data was
-                                    not stored.
-    """
-    # Make sure that there is data that can be stored
-    if station_data.empty:
-        return
-
-    request_string = _build_local_store_key(
-        station_id, parameter, time_resolution, period_type
-    )
-
-    local_filepath = build_local_filepath_for_station_data(folder)
-
-    local_filepath.parent.mkdir(parents=True, exist_ok=True)
-
-    station_data.to_hdf(path_or_buf=local_filepath, key=request_string)
+    def hdf5(self, parameter, time_resolution, period_type):
+        return LocalHDF5Store(
+            parameter=parameter,
+            time_resolution=time_resolution,
+            period_type=period_type,
+            folder=self.folder,
+        )
 
 
-def restore_climate_observations(
-    station_id: int,
-    parameter: Parameter,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
-    folder: Union[str, Path],
-) -> pd.DataFrame:
-    """
-    Function to restore data from a local hdf file based on the place (folder) where
-    the file is stored and parameters that define the request in particular.
+class LocalHDF5Store:
+    def __init__(
+        self,
+        parameter: Union[Parameter, str],
+        time_resolution: Union[TimeResolution, str],
+        period_type: Union[PeriodType, str],
+        folder: Union[str, Path] = DWD_FOLDER_MAIN,
+    ):
+        self.parameter = parameter
+        self.time_resolution = time_resolution
+        self.period_type = period_type
+        self.folder = folder
 
-    :param station_id:              Station id of which data should be restored
-    :param parameter:               Observation measure
-    :param time_resolution:         Frequency/granularity of measurement interval
-    :param period_type:             Recent or historical files
-    :param folder:                  The folder where the hdf is stored
+    @property
+    def filename(self) -> str:
+        return (
+            f"{self.parameter.value}-{self.time_resolution.value}-"
+            f"{self.period_type.value}.{DataFormat.H5.value}"
+        )
 
-    :return:                        All the data.
-    """
+    @property
+    def filepath(self) -> Path:
+        return Path(self.folder, self.filename).absolute()
 
-    request_string = _build_local_store_key(
-        station_id, parameter, time_resolution, period_type
-    )
+    def hdf5_key(self, station_id: int) -> str:
+        """
+        Builds a HDF5 key string from defined parameters including a single station id.
 
-    local_filepath = build_local_filepath_for_station_data(folder)
+        :param station_id:  Station id of data
 
-    try:
-        # typing required as pandas.read_hdf returns an object by typing
-        station_data = pd.read_hdf(path_or_buf=local_filepath, key=request_string)
-    except (FileNotFoundError, KeyError):
-        return pd.DataFrame()
+        :return:            Key for storing data into HDF5 file.
+        """
 
-    # Cast to pandas DataFrame
-    station_data = pd.DataFrame(station_data)
+        return build_parameter_identifier(
+            self.parameter, self.time_resolution, self.period_type, station_id
+        )
 
-    return station_data
+    def invalidate(self):
+        """
+        Purge all HDF5 files for the current constraints.
+        """
+        try:
+            self.filepath.unlink()
+        except FileNotFoundError:
+            pass
 
+    def store(self, station_id: int, df: pd.DataFrame) -> None:
+        """
+        Store data in a local HDF5 file. The function takes the
+        station identifier and a Pandas DataFrame.
 
-def build_local_filepath_for_station_data(folder: Union[str, Path]) -> Union[str, Path]:
-    """
-    Function to create the local filepath for the station data that is being stored
-    in a file if requested.
-    Args:
-        folder: the given folder where the data should be stored
+        :param station_id:  The station id of the station to store
+        :param df:          DataFrame to store
 
-    Returns:
-        a Path build upon the folder
-    """
-    local_filepath = Path(
-        folder,
-        DWD_FOLDER_STATION_DATA,
-        f"{DWD_FILE_STATION_DATA}.{DataFormat.H5.value}",
-    ).absolute()
+        :return:            None
+        """
 
-    return local_filepath
+        log.info("+++++++++++++++++ STORE +++++++++++++++++")
 
+        # Make sure that there is data that can be stored
+        if df.empty:
+            return
 
-def _build_local_store_key(
-    station_id: Union[str, int],
-    parameter: Parameter,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
-) -> str:
-    """
-    Function that builds a request string from defined parameters including a single
-    station id
+        # Replace IntegerArrays by float64
+        for column in df:
+            if column in QUALITY_FIELDS or column in INTEGER_FIELDS:
+                df[column] = df[column].astype("float64")
 
-    :param station_id:              Station id of data
-    :param parameter:               Observation measure
-    :param time_resolution:         Frequency/granularity of measurement interval
-    :param period_type:             Recent or historical files
+        log.info(f"Storing HDF5 data to {self.filepath}")
+        self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        df.to_hdf(path_or_buf=self.filepath, key=self.hdf5_key(station_id))
 
-    :return: A string building a key that is used to identify the request
-    """
-    request_string = (
-        f"{parameter.value}/{time_resolution.value}/"
-        f"{period_type.value}/station_id_{int(station_id)}"
-    )
+    def restore(self, station_id: int) -> pd.DataFrame:
+        """
+        Restore data from a local HDF5 file.
 
-    return request_string
+        :param station_id:              Station id of which data should be restored
+        :return:                        The restored DataFrame.
+        """
+
+        log.info(f"Restoring HDF5 data from {self.filepath}")
+
+        try:
+            # typing required as pandas.read_hdf returns an object by typing
+            df = pd.read_hdf(path_or_buf=self.filepath, key=self.hdf5_key(station_id))
+        except (FileNotFoundError, KeyError):
+            return pd.DataFrame()
+
+        # Cast to pandas DataFrame
+        df = pd.DataFrame(df)
+
+        for column in df:
+            if column in QUALITY_FIELDS or column in INTEGER_FIELDS:
+                df[column] = df[column].astype(pd.Int64Dtype())
+
+        print("bli")
+
+        return df
