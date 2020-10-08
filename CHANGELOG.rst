@@ -16,6 +16,7 @@ Development
 - Add PDF-based ``DWDObservationMetadata.describe_fields()``
 - Upgrade Docker images to Python 3.8.6
 - Move intermediate storage of HDF out of data collection
+- Fix bug with date filtering for empty/no station data for a given parameter
 
 0.8.0 (25.09.2020)
 ==================
