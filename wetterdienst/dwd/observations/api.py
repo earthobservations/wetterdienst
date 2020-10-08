@@ -130,7 +130,7 @@ class DWDObservationData:
         self.storage = storage
 
         # If more then one parameter requested, automatically tidy data
-        self.tidy_data = len(self.parameter) == 2 or tidy_data
+        self.tidy_data = len(self.parameter) > 1 or tidy_data
         self.humanize_column_names = humanize_column_names
 
     def __eq__(self, other):
@@ -185,10 +185,15 @@ class DWDObservationData:
 
             # Filter for dates range if start_date and end_date are defined
             if self.start_date:
-                df_station = df_station[
-                    (df_station[DWDMetaColumns.DATE.value] >= self.start_date)
-                    & (df_station[DWDMetaColumns.DATE.value] <= self.end_date)
-                ]
+                # df_station may be empty depending on if station has data for given
+                # constraints
+                try:
+                    df_station = df_station[
+                        (df_station[DWDMetaColumns.DATE.value] >= self.start_date)
+                        & (df_station[DWDMetaColumns.DATE.value] <= self.end_date)
+                    ]
+                except KeyError:
+                    pass
 
             # Empty dataframe should be skipped
             if df_station.empty:
@@ -205,11 +210,11 @@ class DWDObservationData:
         periods.
 
         Args:
-            parameter:
-            station_id:
+            parameter: chosen parameter that is collected
+            station_id: station id for which parameter is collected
 
         Returns:
-
+            pandas.DataFrame for given parameter of station
         """
         df_parameter = pd.DataFrame()
 
