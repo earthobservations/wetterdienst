@@ -11,22 +11,10 @@ Synopsis::
     python dwd_description_pdf.py
 """
 import re
-from io import StringIO, BytesIO
-import requests
-import PyPDF2
+from io import StringIO
 from tabulate import tabulate
 
-
-def read_pdf(url):
-    text = StringIO()
-    payload = requests.get(url).content
-    pdf = PyPDF2.PdfFileReader(BytesIO(payload))
-    for page_number in range(pdf.numPages):
-        page = pdf.getPage(page_number)
-        result = page.extractText()
-        result = re.sub(r"www\.dwd\.de\n-\n\d+\n-\n", "", result)
-        text.write(result)
-    return text.getvalue()
+from wetterdienst.util.pdf import read_pdf
 
 
 def parse_section(text, headline):
@@ -73,6 +61,7 @@ def parse_parameters(text):
 
 def read_description(url) -> dict:
     document = read_pdf(url)
+    document = re.sub(r"www\.dwd\.de\n-\n\d+\n-\n", "", document)
     parameters_text = parse_section(document, "Parameters")
     parameters = parse_parameters(parameters_text)
     return parameters

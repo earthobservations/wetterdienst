@@ -13,7 +13,7 @@ from wetterdienst.dwd.radar.metadata import (
     RadarDataSubset,
     RADAR_PARAMETERS_RADOLAN,
 )
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.sites import RadarSite, RADAR_LOCATIONS
 from wetterdienst.dwd.util import parse_enumeration_from_template
 from wetterdienst.util.datetime import round_minutes, raster_minutes
 
@@ -243,3 +243,7 @@ class DWDRadarRequest:
             time_resolution=self.time_resolution,
             period_type=self.period_type,
         )
+
+    @staticmethod
+    def get_sites():
+        return RADAR_LOCATIONS
