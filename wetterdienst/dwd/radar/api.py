@@ -39,6 +39,7 @@ class DWDRadarRequest:
         site: Optional[RadarSite] = None,
         format: Optional[RadarDataFormat] = None,
         subset: Optional[RadarDataSubset] = None,
+        elevation: Optional[int] = None,
         start_date: Optional[Union[str, datetime, RadarDate]] = None,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
         time_resolution: Optional[Union[str, TimeResolution]] = None,
@@ -63,6 +64,7 @@ class DWDRadarRequest:
         self.site = parse_enumeration_from_template(site, RadarSite)
         self.format = parse_enumeration_from_template(format, RadarDataFormat)
         self.subset = parse_enumeration_from_template(subset, RadarDataSubset)
+        self.elevation = elevation and int(elevation)
         self.time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution
         )
@@ -79,6 +81,15 @@ class DWDRadarRequest:
                 raise ValueError(
                     "RADOLAN_CDC only supports daily, hourly and 5 minutes resolutions"
                 )
+
+        elevation_parameters = [
+            RadarParameter.SWEEP_VOL_VELOCITY_H,
+            RadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+        ]
+        if self.elevation is not None and self.parameter not in elevation_parameters:
+            raise ValueError(
+                f"Argument 'elevation' only valid for parameter={elevation_parameters}"
+            )
 
         if start_date == RadarDate.LATEST:
 
@@ -226,6 +237,7 @@ class DWDRadarRequest:
             site=self.site,
             format=self.format,
             subset=self.subset,
+            elevation=self.elevation,
             start_date=self.start_date,
             end_date=self.end_date,
             time_resolution=self.time_resolution,

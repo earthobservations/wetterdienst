@@ -75,6 +75,7 @@ def collect_radar_data(
     site: Optional[RadarSite] = None,
     format: Optional[RadarDataFormat] = None,
     subset: Optional[RadarDataSubset] = None,
+    elevation: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
 ) -> RadarResult:
@@ -154,6 +155,7 @@ def collect_radar_data(
             file_index = pd.concat(results)
 
             if file_index.empty:
+                # TODO: Extend this log message.
                 log.warning(f"No radar file found for {parameter}, {site}, {format}")
                 return
 
@@ -176,6 +178,16 @@ def collect_radar_data(
                 (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
                 & (file_index[DWDMetaColumns.DATETIME.value] < end_date)
             ]
+
+            # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
+            if elevation is not None:
+                filename = file_index[DWDMetaColumns.FILENAME.value]
+                file_index = file_index[
+                    (filename.str.contains(f"vradh_{elevation:02d}"))
+                    | (filename.str.contains(f"sweep_vol_v_{elevation}"))
+                    | (filename.str.contains(f"dbzh_{elevation:02d}"))
+                    | (filename.str.contains(f"sweep_vol_z_{elevation}"))
+                ]
 
             if file_index.empty:
                 log.warning(f"No radar file found for {parameter}, {site}, {format}")

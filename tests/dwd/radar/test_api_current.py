@@ -47,7 +47,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_vol_v_hdf5():
+def test_radar_request_site_current_sweep_vol_v_hdf5_full():
     """
     Example for testing radar sites full current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -84,6 +84,36 @@ def test_radar_request_site_current_sweep_vol_v_hdf5():
         assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
         assert hdf["/dataset1/data1/data"].shape == (360, 180)
+
+
+@pytest.mark.remote
+def test_radar_request_site_current_sweep_vol_v_hdf5_single():
+    """
+    Example for testing radar sites single current SWEEP_VOL,
+    this time in OPERA HDF5 (ODIM_H5) format.
+    """
+
+    request = DWDRadarRequest(
+        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
+        start_date=RadarDate.CURRENT,
+        site=RadarSite.BOO,
+        format=RadarDataFormat.HDF5,
+        subset=RadarDataSubset.SIMPLE,
+        elevation=1,
+    )
+
+    results = list(request.collect_data())
+
+    assert len(results) <= 1
+
+    if results:
+        assert "vradh_01" in results[0].url
+
+        buffer = results[0].data
+        hdf = h5py.File(buffer, "r")
+
+        assert hdf["/how"].attrs.get("scan_count") == 10
+        assert hdf["/dataset1/how"].attrs.get("scan_index") == 2
 
 
 @pytest.mark.remote
