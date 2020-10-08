@@ -5,14 +5,12 @@ import tarfile
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
-from typing import Tuple, List, Union, Optional, Generator
+from typing import Optional, Generator
 
-from deprecation import deprecated
 import pandas as pd
 
 from wetterdienst import TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, ArchiveFormat
+from wetterdienst.dwd.metadata.constants import ArchiveFormat
 
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.radar.index import (
@@ -27,7 +25,6 @@ from wetterdienst.dwd.radar.metadata import (
     RadarDataSubset,
 )
 from wetterdienst.dwd.radar.sites import RadarSite
-from wetterdienst.dwd.radar.store import restore_radar_data, store_radar_data
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.util.cache import (
@@ -266,73 +263,6 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
         yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
 
 
-@deprecated
-def _collect_radolan_cdc_data(
-    time_resolution: TimeResolution,
-    date_times: Optional[Union[str, List[Union[str, datetime]]]] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    prefer_local: bool = False,
-    write_file: bool = False,
-    folder: Union[str, Path] = DWD_FOLDER_MAIN,
-) -> List[Tuple[datetime, BytesIO]]:  # pragma: no cover
-    """
-    Collect RADOLAN_CDC data for given datetimes and time resolution.
-    Additionally, the file can be written to a local folder and read from there as well.
-
-    Args:
-        time_resolution: the time resolution for requested data, either hourly or daily
-        prefer_local: boolean if file should be read from local store instead
-        write_file: boolean if file should be stored on the drive
-        folder: path for storage
-    Returns:
-        list of tuples of a datetime and the corresponding file in bytes
-    """
-    data = []
-    # datetime = pd.to_datetime(datetime).replace(tzinfo=None)
-    for date_time in date_times:
-        if prefer_local:
-            try:
-                data.append(
-                    (
-                        date_time,
-                        restore_radar_data(
-                            RadarParameter.RADOLAN_CDC,
-                            date_time,
-                            time_resolution,
-                            folder,
-                        ),
-                    )
-                )
-
-                log.info(f"RADOLAN data for {str(date_time)} restored from local")
-
-                continue
-            except FileNotFoundError:
-                log.info(
-                    f"RADOLAN data for {str(date_time)} will be collected from internet"
-                )
-
-        remote_radolan_file_path = create_filepath_for_radolan(
-            date_time, time_resolution
-        )
-
-        if remote_radolan_file_path == "":
-            log.warning(f"RADOLAN not found for {str(date_time)}, will be skipped.")
-            continue
-
-        date_time_and_file = download_radolan_data(date_time, remote_radolan_file_path)
-
-        data.append(date_time_and_file)
-
-        if write_file:
-            store_radar_data(
-                RadarParameter.RADOLAN_CDC, date_time_and_file, time_resolution, folder
-            )
-
-    return data
-
-
 def download_radolan_data(
     date_time: datetime,
     url: str,
@@ -425,37 +355,3 @@ def _extract_radolan_data(
             return RadarResult(
                 data=BytesIO(gz_file.read()), timestamp=date_time, filename=gz_file.name
             )
-
-
-@deprecated
-def create_filepath_for_radolan(
-    date_time: datetime, time_resolution: TimeResolution
-) -> str:  # pragma: no cover
-    """
-    Function used to create a relative filepath for a requested datetime depending on
-    the file index for the relevant time resolution.
-
-    Args:
-        date_time: datetime for requested RADOLAN file
-        time_resolution: time resolution enumeration of the request
-
-    Returns:
-        a string, either empty if non found or with the relative path to the file
-    """
-    file_index = create_fileindex_radolan_cdc(time_resolution)
-
-    if date_time in file_index[DWDMetaColumns.DATETIME.value].tolist():
-        file_index = file_index[file_index[DWDMetaColumns.DATETIME.value] == date_time]
-    else:
-        file_index = file_index[
-            (file_index[DWDMetaColumns.DATETIME.value].dt.year == date_time.year)
-            & (file_index[DWDMetaColumns.DATETIME.value].dt.month == date_time.month)
-        ]
-
-    if file_index.empty:
-        return ""
-
-    return (
-        file_index[DWDMetaColumns.DATETIME.value].item(),
-        f"{file_index[DWDMetaColumns.FILENAME.value].item()}",
-    )
