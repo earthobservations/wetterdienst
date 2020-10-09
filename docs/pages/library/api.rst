@@ -22,9 +22,9 @@ Observations
     :members:
 
 
-*******
-RADOLAN
-*******
+*****
+RADAR
+*****
 
-.. autoclass:: wetterdienst.dwd.radolan.api.DWDRadolanRequest
+.. autoclass:: wetterdienst.dwd.radar.api.DWDRadarRequest
     :members:

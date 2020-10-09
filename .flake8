@@ -3,8 +3,9 @@ select = B,B9,BLK,C,E,F,W,S
 ignore = E203,W503
 max-line-length = 88
 per-file-ignores =
-    tests/*:S101,
-    wetterdienst/__init__.py:F401,
-    wetterdienst/cli.py:E501,B950,
-    wetterdienst/service.py:B008,
+    tests/*:S101
+    tests/dwd/radar/test_index.py:E501,B950,S101
+    wetterdienst/__init__.py:F401
+    wetterdienst/cli.py:E501,B950
+    wetterdienst/service.py:B008
     wetterdienst/util/pandas.py:E501,B950

@@ -72,7 +72,7 @@ def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
 
     metadata = DWDObservationMetadata(
         parameter=Parameter.TEMPERATURE_AIR,
-        time_resolution=TimeResolution.MINUTES_10,
+        time_resolution=TimeResolution.MINUTE_10,
         period_type=PeriodType.RECENT,
     )
 

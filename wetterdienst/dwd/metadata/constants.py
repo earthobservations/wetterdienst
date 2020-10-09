@@ -11,7 +11,6 @@ DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations
 
 class DWDCDCBase(Enum):
     CLIMATE_OBSERVATIONS = "observations_germany/climate/"
-    GRIDS_GERMANY = "grids_germany/"
 
 
 DWD_FOLDER_MAIN = "./dwd_data"
@@ -31,4 +30,6 @@ class DataFormat(Enum):
 class ArchiveFormat(Enum):
     ZIP = "zip"
     GZ = "gz"
+    BZ2 = "bz2"
     TAR_GZ = "tar.gz"
+    TAR_BZ2 = "tar.bz2"

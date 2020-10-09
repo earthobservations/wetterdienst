@@ -8,6 +8,20 @@ import nox
 from nox.sessions import Session
 
 
+def install_test_packages(session):
+    install_with_constraints(
+        session,
+        "pytest",
+        "pytest-notebook",
+        "pytest-dictsdiff",
+        "matplotlib",
+        "mock",
+        "surrogate",
+        "pybufrkit",
+        "deprecation",
+    )
+
+
 @nox.session(python=["3.6", "3.7", "3.8"])
 def tests(session):
     """Run tests."""
@@ -20,15 +34,7 @@ def tests(session):
         "--extras=excel",
         external=True,
     )
-    install_with_constraints(
-        session,
-        "pytest",
-        "pytest-notebook",
-        "pytest-dictsdiff",
-        "matplotlib",
-        "mock",
-        "surrogate",
-    )
+    install_test_packages(session)
     session.run("pytest")
 
 
@@ -44,16 +50,11 @@ def coverage(session: Session) -> None:
         "--extras=excel",
         external=True,
     )
+    install_test_packages(session)
     install_with_constraints(
         session,
         "coverage[toml]",
-        "pytest",
-        "pytest_notebook",
-        "pytest-dictsdiff",
-        "matplotlib",
         "pytest-cov",
-        "mock",
-        "surrogate",
     )
     session.run("pytest", "--cov=wetterdienst", "tests/")
     session.run("coverage", "xml")

@@ -17,7 +17,7 @@ from wetterdienst.exceptions import InvalidParameter
 
 def test_check_parameters():
     assert check_parameters(
-        Parameter.PRECIPITATION, TimeResolution.MINUTES_10, PeriodType.HISTORICAL
+        Parameter.PRECIPITATION, TimeResolution.MINUTE_10, PeriodType.HISTORICAL
     )
     assert not check_parameters(
         Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL

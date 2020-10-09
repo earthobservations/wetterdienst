@@ -17,6 +17,7 @@ Development
 - Upgrade Docker images to Python 3.8.6
 - Move intermediate storage of HDF out of data collection
 - Fix bug with date filtering for empty/no station data for a given parameter
+- Radar data: Add non-RADOLAN data acquisition
 
 0.8.0 (25.09.2020)
 ==================

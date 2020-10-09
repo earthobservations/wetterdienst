@@ -310,8 +310,8 @@ def get_nearby(options: Munch) -> pd.DataFrame:
     #   KeyError: "None of [Int64Index([0, 0, 0, 0, 0], dtype='int64')] are in the [index]"
     # See also https://github.com/earthobservations/wetterdienst/pull/145#discussion_r487698588.
 
-    days500 = datetime.now() + timedelta(days=-500)
-    now = datetime.now() + timedelta(days=-2)
+    days500 = datetime.utcnow() + timedelta(days=-500)
+    now = datetime.utcnow() + timedelta(days=-2)
 
     minimal_date = datetime(days500.year, days500.month, days500.day)
     maximal_date = datetime(now.year, now.month, now.day)

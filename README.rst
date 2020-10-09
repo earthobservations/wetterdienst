@@ -40,7 +40,7 @@ always welcome!
 
 This program and its repository tries to use modern Python technologies
 all over the place. The library is based on Pandas across the board,
-uses Poetry for package administration and GitHub actions for
+uses Poetry for package administration and GitHub Actions for
 all things CI.
 
 
@@ -51,9 +51,12 @@ Coverage
 ========
 The library currently covers
 
-- historical weather data from ground stations
-- RADOLAN fitted radar data for areal precipitation
-- MOSMIX statistical optimized scalar forecasts extracted from weather models
+- Weather observation data.
+  Both historical and recent.
+- Radar data.
+  All of composite, radolan, radvor, sites and radolan_cdc.
+- MOSMIX statistical optimized scalar forecasts extracted from weather models.
+  Both MOSMIX-L and MOSMIX-S is supported.
 
 To get better insight on which data we have currently made available, with this library
 take a look at `data coverage`_.
@@ -67,7 +70,7 @@ Details
 - Command line interface.
 - Run SQL queries on the results.
 - Export results to databases and other data sinks.
-- Public Docker image on ghcr.io.
+- Public Docker image.
 
 
 Setup
@@ -96,8 +99,9 @@ Get historical data for specific stations, using Python:
         humanize_column_names=True,
     )
 
+    # Collect and analyse data here.
     for df in observations.collect_data():
-        # analyse the station here
+        print(df)
 
 Get data for specific stations from the command line:
 

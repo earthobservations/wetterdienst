@@ -19,17 +19,17 @@ QUALITY_FIELDS = (
     DWDOrigDataColumns.MINUTE_1.PRECIPITATION.QN.value,
     # 10_minutes
     # temperature_air
-    DWDOrigDataColumns.MINUTES_10.TEMPERATURE_AIR.QN.value,
+    DWDOrigDataColumns.MINUTE_10.TEMPERATURE_AIR.QN.value,
     # temperature_extreme
-    DWDOrigDataColumns.MINUTES_10.TEMPERATURE_EXTREME.QN.value,
+    DWDOrigDataColumns.MINUTE_10.TEMPERATURE_EXTREME.QN.value,
     # wind_extreme
-    DWDOrigDataColumns.MINUTES_10.WIND_EXTREME.QN.value,
+    DWDOrigDataColumns.MINUTE_10.WIND_EXTREME.QN.value,
     # precipitation
-    DWDOrigDataColumns.MINUTES_10.PRECIPITATION.QN.value,
+    DWDOrigDataColumns.MINUTE_10.PRECIPITATION.QN.value,
     # solar
-    DWDOrigDataColumns.MINUTES_10.SOLAR.QN.value,
+    DWDOrigDataColumns.MINUTE_10.SOLAR.QN.value,
     # wind
-    DWDOrigDataColumns.MINUTES_10.WIND.QN.value,
+    DWDOrigDataColumns.MINUTE_10.WIND.QN.value,
     # hourly
     # temperature_air
     DWDOrigDataColumns.HOURLY.TEMPERATURE_AIR.QN_9.value,
@@ -106,9 +106,9 @@ INTEGER_FIELDS = (
     DWDOrigDataColumns.MINUTE_1.PRECIPITATION.RS_IND_01.value,
     # 10_minutes
     # wind_extreme
-    DWDOrigDataColumns.MINUTES_10.WIND_EXTREME.DX_10.value,
+    DWDOrigDataColumns.MINUTE_10.WIND_EXTREME.DX_10.value,
     # precipitation
-    DWDOrigDataColumns.MINUTES_10.PRECIPITATION.RWS_IND_10.value,
+    DWDOrigDataColumns.MINUTE_10.PRECIPITATION.RWS_IND_10.value,
     # hourly
     # cloud_type
     DWDOrigDataColumns.HOURLY.CLOUD_TYPE.V_N.value,

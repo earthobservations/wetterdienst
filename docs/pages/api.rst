@@ -272,31 +272,50 @@ Other variants::
     response = mosmix.read_mosmix_s_latest()
 
 
-*******
-RADOLAN
-*******
+*****
+RADAR
+*****
 
-To use ``DWDRadolanRequest``, you have to provide a time resolution (either hourly or daily)
-and ``date_times`` (list of datetimes or strings) or a start date and end date. Datetimes
-are rounded to HH:50min as the data is packaged for this minute step. Additionally,
-you can provide a folder to store/restore RADOLAN data to/from the local filesystem.
+To use ``DWDRadarRequest``, you have to provide a ``RadarParameter``,
+which designates the type of radar data you want to obtain. There is
+radar data available at different locations within the DWD data repository:
 
-This is a short snippet which should give you an idea
-how to use ``DWDRadolanRequest`` together with ``wradlib``.
-For a more thorough example, please have a look at `example/radolan.py`_.
+- https://opendata.dwd.de/weather/radar/composit/
+- https://opendata.dwd.de/weather/radar/radolan/
+- https://opendata.dwd.de/weather/radar/radvor/
+- https://opendata.dwd.de/weather/radar/sites/
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
+
+For ``RADOLAN_CDC``-data, the time resolution parameter (either hourly or daily)
+must be specified.
+
+The ``date_times`` (list of datetimes or strings) or a ``start_date``
+and ``end_date`` parameters can optionally be specified to obtain data
+from specific points in time.
+
+For ``RADOLAN_CDC``-data, datetimes are rounded to ``HH:50min``, as the
+data is packaged for this minute step.
+
+This is an example on how to acquire ``RADOLAN_CDC`` data using
+``wetterdienst`` and process it using ``wradlib``.
+
+For more examples, please have a look at `example/radar/`_.
 
 .. code-block:: python
 
-    from wetterdienst import DWDRadolanRequest, TimeResolution
+    from wetterdienst import DWDRadarRequest, RadarParameter, TimeResolution
     import wradlib as wrl
 
-    radolan = DWDRadolanRequest(
-        TimeResolution.DAILY,
+    radar = DWDRadarRequest(
+        radar_parameter=RadarParameter.RADOLAN_CDC,
+        time_resolution=TimeResolution.DAILY,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00"
     )
 
-    for item in radolan.collect_data():
+    for item in radar.collect_data():
 
         # Decode item.
         timestamp, buffer = item
@@ -308,7 +327,7 @@ For a more thorough example, please have a look at `example/radolan.py`_.
 
 
 .. _wradlib: https://wradlib.org/
-.. _example/radolan.py: https://github.com/earthobservations/wetterdienst/blob/master/example/radolan.py
+.. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/master/example/radar
 
 .. _SQLite: https://www.sqlite.org/
 .. _DuckDB: https://duckdb.org/docs/sql/introduction

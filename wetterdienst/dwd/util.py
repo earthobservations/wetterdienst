@@ -107,6 +107,9 @@ def parse_enumeration_from_template(
     :return:                Parsed enumeration from template
     :raises InvalidParameter: if no matching enumeration found
     """
+    if enum_ is None:
+        return None
+
     try:
         return enum_template[enum_.upper()]
     except (KeyError, AttributeError):

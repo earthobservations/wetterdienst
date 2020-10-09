@@ -5,7 +5,8 @@ About
 Example for DWD RADOLAN Composite RW/SF using wetterdienst and wradlib.
 Hourly and gliding 24h sum of radar- and station-based measurements (German).
 
-See also https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
+See also:
+- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
 
 This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00
 and plot the outcome with matplotlib.
@@ -19,6 +20,26 @@ Setup
     brew install gdal
     pip install wradlib
 
+
+=======
+Details
+=======
+RADOLAN: Radar Online Adjustment
+Radar based quantitative precipitation estimation
+
+RADOLAN Composite RW/SF
+Hourly and gliding 24h sum of radar- and station-based measurements (German)
+
+The routine procedure RADOLAN (Radar-Online-Calibration) provides area-wide,
+spatially and temporally high-resolution quantitative precipitation data in
+real-time for Germany.
+
+- https://www.dwd.de/EN/Home/_functions/aktuelles/2019/20190820_radolan.html
+- https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2
+- https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
+- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite
+- Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product
+- Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product
 """
 import logging
 
@@ -26,10 +47,12 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
+from wetterdienst.dwd.radar.metadata import RadarParameter
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadolanRequest, TimeResolution
+from wetterdienst import DWDRadarRequest, TimeResolution, PeriodType
 
 
 def plot(data: np.ndarray, attributes: dict, label: str):
@@ -77,7 +100,7 @@ def radolan_info(data: np.ndarray, attributes: dict):
     Display metadata from RADOLAN request.
     """
     log.info("Data shape: %s", data.shape)
-    log.info("Attributes: %s", attributes)
+    log.info("Attributes:")
 
     for key, value in attributes.items():
         print(f"- {key}: {value}")
@@ -99,45 +122,22 @@ def label_by_producttype(producttype: str) -> str:
     return label
 
 
-def radolan_example():
-    """
-    RADOLAN: Radar Online Adjustment
-    Radar based quantitative precipitation estimation
+def radolan_grid_example():
 
-    RADOLAN Composite RW/SF
-    Hourly and gliding 24h sum of radar- and station-based measurements (German)
-
-    The routine procedure RADOLAN (Radar-Online-Calibration) provides area-wide,
-    spatially and temporally high-resolution quantitative precipitation data in
-    real-time for Germany.
-
-    - https://www.dwd.de/EN/Home/_functions/aktuelles/2019/20190820_radolan.html
-    - https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2
-    - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
-    - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite
-    - Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product
-    - Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product
-
-    :return:
-    """
-
-    log.info("Acquiring RADOLAN data")
-    radolan = DWDRadolanRequest(
-        TimeResolution.DAILY,
+    log.info("Acquiring RADOLAN_CDC data")
+    radolan = DWDRadarRequest(
+        parameter=RadarParameter.RADOLAN_CDC,
+        time_resolution=TimeResolution.DAILY,
+        period_type=PeriodType.RECENT,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00",
-        #prefer_local=True,
-        #write_file=True
     )
 
     for item in radolan.collect_data():
 
-        # Decode item.
-        timestamp, buffer = item
-
         # Decode data using wradlib.
-        log.info("Parsing RADOLAN composite data for %s", timestamp)
-        data, attributes = wrl.io.read_radolan_composite(buffer)
+        log.info("Parsing RADOLAN_CDC composite data for %s", item.timestamp)
+        data, attributes = wrl.io.read_radolan_composite(item.data)
 
         # Compute label matching RW/SF product.
         label = label_by_producttype(attributes["producttype"])
@@ -148,7 +148,7 @@ def radolan_example():
 
 
 def main():
-    radolan_example()
+    radolan_grid_example()
 
 
 if __name__ == "__main__":

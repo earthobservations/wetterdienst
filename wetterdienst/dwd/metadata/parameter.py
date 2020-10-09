@@ -38,9 +38,6 @@ class Parameter(Enum):
     WATER_EQUIVALENT = "water_equiv"
     WEATHER_PHENOMENA = "weather_phenomena"
 
-    # Others
-    RADOLAN = "radolan"
-
 
 TIME_RESOLUTION_PARAMETER_MAPPING: Dict[
     TimeResolution, Dict[Parameter, List[PeriodType]]
@@ -52,7 +49,7 @@ TIME_RESOLUTION_PARAMETER_MAPPING: Dict[
             PeriodType.NOW,
         ],
     },
-    TimeResolution.MINUTES_10: {
+    TimeResolution.MINUTE_10: {
         Parameter.PRECIPITATION: [
             PeriodType.HISTORICAL,
             PeriodType.RECENT,

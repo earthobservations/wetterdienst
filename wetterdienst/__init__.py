@@ -7,7 +7,8 @@ from wetterdienst.dwd.observations.api import (
     DWDObservationSites,
     DWDObservationMetadata,
 )
-from wetterdienst.dwd.radolan.api import DWDRadolanRequest
+from wetterdienst.dwd.radar.api import DWDRadarRequest
+from wetterdienst.dwd.radar.metadata import RadarParameter
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/
