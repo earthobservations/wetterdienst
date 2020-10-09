@@ -5,6 +5,11 @@ Changelog
 Development
 ===========
 
+...
+
+0.9.0 (09.10.2020)
+==================
+
 - Large refactoring
 - Make period type in DWDObservationData and cli optional
 - Activate SQL querying again by using DuckDB 0.2.2.dev254. Thanks, @Mytherin!
