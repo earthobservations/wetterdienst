@@ -1,16 +1,20 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Union, Optional
 from urllib.parse import urljoin
 
 import pandas as pd
+from pandas._libs.tslibs.timestamps import Timestamp
 
+from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst.core.sites import WDSitesCore
+from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.constants import (
     DWD_SERVER,
     DWD_MOSMIX_S_PATH,
     DWD_MOSMIX_L_PATH,
     DWD_MOSMIX_L_SINGLE_PATH,
 )
-from wetterdienst.dwd.mosmix.access import KMLReader
+from wetterdienst.dwd.forecasts.access import KMLReader
 from wetterdienst.util.network import list_remote_files
 
 
@@ -41,22 +45,30 @@ class MOSMIXRequest:
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:E501,B950
     """
 
-    def __init__(self, station_ids: List = None, parameters: List = None):
+    def __init__(
+            self,
+            period_type: PeriodType,
+            station_ids: Optional[List] = None,
+            parameters: Optional[List] = None
+    ) -> None:
+        """
 
-        self.station_ids = None
-        self.parameters = None
+        Args:
+            period_type:
+            station_ids:
+            parameters:
+        """
+        if period_type not in (PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG):
+            raise ValueError(
+                "period_type should be one of FORECAST_SHORT or FORECAST_LONG")
+        station_ids = None if not station_ids else pd.Series(
+            station_ids).astype(str).tolist()
+        parameters = None if not parameters else pd.Series(
+            parameters).astype(str).tolist()
 
-        if station_ids:
-            assert isinstance(  # noqa:S101
-                station_ids, list
-            ), "station_ids must be None or a list"
-            self.station_ids = [str(station_id) for station_id in station_ids]
-
-        if parameters:
-            assert isinstance(  # noqa:S101
-                parameters, list
-            ), "parameters must be None or a list"
-            self.parameters = [str(param) for param in parameters]
+        self.period_type = period_type
+        self.station_ids = station_ids
+        self.parameters = parameters
 
         self.kml = KMLReader(station_ids=self.station_ids, parameters=self.parameters)
 
@@ -123,3 +135,25 @@ class MOSMIXRequest:
         for column in df.columns:
             if column == "W1W2" or column.startswith("WPc") or column in ["ww", "ww3"]:
                 df[column] = df[column].astype("Int64")
+
+
+class DWDForecastSites(WDSitesCore):
+    def __init__(
+            self,
+            start_date: Union[None, str, Timestamp] = None,
+            end_date: Union[None, str, Timestamp] = None,
+    ) -> None:
+        super().__init__(
+            parameter=Parameter.CLIMATE_SUMMARY,
+            time_resolution=TimeResolution.HOURLY,
+            period_type=[PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG],
+            start_date=start_date,
+            end_date=end_date
+        )
+
+    @staticmethod
+    def _check_parameters(**kwargs):
+        pass
+
+    def _all(self):
+        return metadata_for_forecasts()

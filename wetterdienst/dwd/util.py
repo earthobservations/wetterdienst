@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union, Callable, Tuple
+from typing import Union, Callable, Tuple, Optional
 
 import dateparser
 import pandas as pd
@@ -97,11 +97,11 @@ def coerce_field_types(
 def parse_enumeration_from_template(
     enum_: Union[str, Parameter, TimeResolution, PeriodType],
     enum_template: Union[Parameter, TimeResolution, PeriodType, Callable],
-) -> Union[Parameter, TimeResolution, PeriodType]:
+) -> Optional[Union[Parameter, TimeResolution, PeriodType]]:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template
 
-    :param "enum_":           Enumeration as string or Enum
+    :param enum_:           Enumeration as string or Enum
     :param enum_template:   Base enumeration from which the enumeration is parsed
 
     :return:                Parsed enumeration from template

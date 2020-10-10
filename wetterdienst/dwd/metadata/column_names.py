@@ -1,8 +1,8 @@
 from enum import Enum
 
 
-# https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class
 class _GetAttrMeta(type):
+    # https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class
     def __getitem__(cls, x):
         return getattr(cls, x)
 
@@ -27,8 +27,7 @@ class DWDOrigMetaColumns(Enum):
 
 class DWDMetaColumns(Enum):
     """ Overhauled column names for metadata fields """
-
-    STATION_ID = "STATION_ID"
+    STATION_ID = "STATION_ID"  # change to local id later
     DATE = "DATE"
     FROM_DATE = "FROM_DATE"
     TO_DATE = "TO_DATE"
@@ -53,6 +52,9 @@ class DWDMetaColumns(Enum):
     DATETIME = "DATETIME"
     # Column for distance used by get_nearby_stations_...
     DISTANCE_TO_LOCATION = "DISTANCE_TO_LOCATION"
+    # For mosmix
+    WMO_ID = "WMO_ID"
+    ICAO_ID = "ICAO_ID"
 
 
 class _DWDDataColumnBase(metaclass=_GetAttrMeta):

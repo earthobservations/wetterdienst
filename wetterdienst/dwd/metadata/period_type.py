@@ -18,12 +18,20 @@ class PeriodType(Enum):
     HISTORICAL = "historical"
     RECENT = "recent"
     NOW = "now"
+    FORECAST_SHORT = "forecast_short"
+    FORECAST_LONG = "forecast_long"
 
     @property
     def _period_type_order_mapping(self):
         # IMPORTANT: THIS DEPENDS ON THE NAMING CONVENTIONS USED IN THE PeriodType
         # ENUMERATION AS SHOWN BELOW
-        return {"HISTORICAL": 0, "RECENT": 1, "NOW": 2}
+        return {
+            "HISTORICAL": 0,
+            "RECENT": 1,
+            "NOW": 2,
+            "FORECAST_SHORT": 3,
+            "FORECAST_LONG": 4
+        }
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:

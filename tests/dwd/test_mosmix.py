@@ -1,5 +1,5 @@
 import pytest
-from wetterdienst.dwd.mosmix.api import MOSMIXRequest
+from wetterdienst.dwd.forecasts.api import MOSMIXRequest
 
 
 @pytest.mark.remote

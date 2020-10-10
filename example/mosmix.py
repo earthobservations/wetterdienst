@@ -11,26 +11,26 @@ Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.dwd.mosmix.api import MOSMIXRequest
+from wetterdienst.dwd.forecasts.api import MOSMIXRequest
 
 
 def mosmix_example():
 
     # A. MOSMIX-L -- Specific stations
-    # mosmix = MOSMIXRequest(station_ids=['01001', '01008'], parameters=['DD', 'ww'])
+    # forecasts = MOSMIXRequest(station_ids=['01001', '01008'], parameters=['DD', 'ww'])
     mosmix = MOSMIXRequest(station_ids=["01001", "01008"])
     response = mosmix.read_mosmix_l_latest()
 
     # B. MOSMIX-S -- All stations.
     # Remark: This will take **some** time for downloading and parsing ~40MB worth of XML.
-    # mosmix = MOSMIXRequest(station_ids=['01028', '01092'])
-    # mosmix = MOSMIXRequest(station_ids=['01028', '01092'], parameters=['DD', 'ww'])
-    # response = mosmix.read_mosmix_s_latest()
+    # forecasts = MOSMIXRequest(station_ids=['01028', '01092'])
+    # forecasts = MOSMIXRequest(station_ids=['01028', '01092'], parameters=['DD', 'ww'])
+    # response = forecasts.read_mosmix_s_latest()
 
     # C. MOSMIX-L -- All stations.
     # Remark: This will take **ages** for downloading and parsing ~80MB worth of XML.
-    # mosmix = MOSMIXRequest()
-    # response = mosmix.read_mosmix_l_latest()
+    # forecasts = MOSMIXRequest()
+    # response = forecasts.read_mosmix_l_latest()
 
     response.forecasts = response.forecasts.dropna(axis='columns', how='all')
 

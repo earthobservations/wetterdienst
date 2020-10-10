@@ -9,7 +9,6 @@ from os.path import basename
 from lxml import etree  # noqa:S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
-
 import numpy as np
 import pandas as pd
 
@@ -19,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 class KMLReader:
-    def __init__(self, station_ids: List = None, parameters: List = None):
+    def __init__(self, station_ids: List[str] = None, parameters: List[str] = None):
 
         self.station_ids = station_ids
         self.parameters = parameters
