@@ -5,7 +5,7 @@ Changelog
 Development
 ===========
 
-...
+- CLI: Obtain "--tidy" argument from command line
 
 0.9.0 (09.10.2020)
 ==================

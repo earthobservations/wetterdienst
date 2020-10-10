@@ -103,6 +103,14 @@ def invoke_wetterdienst_readings_static(format="json"):
     cli.run()
 
 
+def invoke_wetterdienst_readings_static_tidy(format="json"):
+    argv = shlex.split(
+        f"wetterdienst dwd readings --resolution=daily --parameter=kl --period=recent --station=4411,7341 --date=2020-06-30 --format={format} --tidy"  # noqa:E501,B950
+    )
+    sys.argv = argv
+    cli.run()
+
+
 def invoke_wetterdienst_readings_geo(format="json"):
     argv = shlex.split(
         f"wetterdienst dwd readings --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30 --format={format}"  # noqa:E501,B950
@@ -182,6 +190,50 @@ def test_cli_readings_json(capsys):
 
     assert 4411 in station_ids
     assert 7341 in station_ids
+
+    first = response[0]
+    assert list(first.keys()) == [
+        "station_id",
+        "date",
+        "quality_wind",
+        "wind_gust_max",
+        "wind_velocity",
+        "quality_general",
+        "precipitation_height",
+        "precipitation_form",
+        "sunshine_duration",
+        "snow_depth",
+        "cloud_coverage_total",
+        "pressure_vapor",
+        "pressure_air",
+        "temperature_air_200",
+        "humidity",
+        "temperature_air_max_200",
+        "temperature_air_min_200",
+        "temperature_air_min_005",
+    ]
+
+
+def test_cli_readings_json_tidy(capsys):
+
+    invoke_wetterdienst_readings_static_tidy(format="json")
+
+    stdout, stderr = capsys.readouterr()
+    response = json.loads(stdout)
+
+    station_ids = list(set([reading["station_id"] for reading in response]))
+    assert 4411 in station_ids
+    assert 7341 in station_ids
+
+    first = response[0]
+    assert list(first.keys()) == [
+        "station_id",
+        "date",
+        "parameter",
+        "element",
+        "value",
+        "quality",
+    ]
 
 
 def test_cli_readings_geojson(capsys):
