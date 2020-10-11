@@ -11,14 +11,14 @@ Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.dwd.forecasts.api import MOSMIXRequest
+from wetterdienst.dwd.forecasts.api import DWDMosmixData, PeriodType
 
 
 def mosmix_example():
 
     # A. MOSMIX-L -- Specific stations
     # forecasts = MOSMIXRequest(station_ids=['01001', '01008'], parameters=['DD', 'ww'])
-    mosmix = MOSMIXRequest(station_ids=["01001", "01008"])
+    mosmix = DWDMosmixData(station_ids=None, period_type=PeriodType.FORECAST_LONG)
     response = mosmix.read_mosmix_l_latest()
 
     # B. MOSMIX-S -- All stations.
