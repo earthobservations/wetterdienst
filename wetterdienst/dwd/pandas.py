@@ -164,9 +164,8 @@ class PandasDwdExtension:
 
     def tidy_up_data(self) -> pd.DataFrame:
         """
-        Function to create a tidy DataFrame by reshaping it, putting quality in a
-        separate column, so that for each timestamp there is a tuple of parameter, value
-        and quality.
+        Create a tidy DataFrame by reshaping it, putting quality in a separate column,
+        so that for each timestamp there is a tuple of parameter, value and quality.
 
         :return:            The tidied DataFrame
         """
