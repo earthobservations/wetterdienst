@@ -124,6 +124,4 @@ class LocalHDF5Store:
             if column in QUALITY_FIELDS or column in INTEGER_FIELDS:
                 df[column] = df[column].astype(pd.Int64Dtype())
 
-        print("bli")
-
         return df
