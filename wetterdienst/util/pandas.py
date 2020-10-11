@@ -95,7 +95,51 @@ class IoAccessor:
         :return: self
         """
 
-        database, tablename = ConnectionString(target).get()
+        t = ConnectionString(target)
+        database = t.get_database()
+        tablename = t.get_table()
+
+        if target.startswith("file://"):
+            filepath = t.get_path()
+
+            if target.endswith(".arrow"):
+                # https://arrow.apache.org/docs/python/ipc.html
+                # https://arrow.apache.org/docs/python/filesystems.html
+
+                log.info(f"Writing to Arrow IPC file '{filepath}'")
+
+                import pyarrow as pa
+                from pyarrow import fs
+
+                table = pa.Table.from_pandas(self.df)
+
+                local_filesystem = fs.LocalFileSystem()
+                sink = local_filesystem.open_output_stream(
+                    path=filepath, compression="lz4"
+                )
+                writer = pa.ipc.new_file(sink, table.schema)
+                writer.write_table(table)
+
+            elif target.endswith(".feather"):
+                # https://arrow.apache.org/docs/python/feather.html
+                log.info(f"Writing to Feather file '{filepath}'")
+                import pyarrow.feather as feather
+
+                feather.write_feather(self.df, filepath, compression="lz4")
+
+            elif target.endswith(".parquet"):
+                # https://arrow.apache.org/docs/python/parquet.html
+                log.info(f"Writing to Parquet file '{filepath}'")
+                import pyarrow as pa
+                import pyarrow.parquet as pq
+
+                table = pa.Table.from_pandas(self.df)
+                pq.write_table(table, filepath)
+
+            else:
+                raise ValueError("Unknown export file type")
+
+            return
 
         if target.startswith("duckdb://"):
             """
@@ -255,6 +299,9 @@ class ConnectionString:
     def __init__(self, url):
         self.url_raw = url
         self.url = urlparse(url)
+
+    def get_path(self):
+        return self.url.path or self.url.netloc
 
     def get_query_param(self, name):
         query = parse_qs(self.url.query)
