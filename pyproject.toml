@@ -152,6 +152,7 @@ docs = [
 ]
 http = ["fastapi", "uvicorn"]
 sql = ["duckdb"]
+arrow = ["pyarrow"]
 duckdb = ["duckdb"]
 influxdb = ["influxdb"]
 cratedb = ["crate"]
