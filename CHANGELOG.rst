@@ -8,6 +8,12 @@ Development
 - Rename DwdObservationParameterSet to DwdObservationDataset as well as corresponding
   columns
 - Merge metadata access into Request
+- Repair CLI and I/O subsystem
+- Add capability to export to Feather- and Parquet-files to I/O subsystem
+- Deprecate support for Python 3.6
+- Add ``--reload`` parameter to ``wetterdienst service`` for supporting development
+- Improve spreadsheet export
+- Increase I/O subsystem test coverage
 
 0.15.0 (07.03.2021)
 *******************
