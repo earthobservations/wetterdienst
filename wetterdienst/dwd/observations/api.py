@@ -20,6 +20,7 @@ from wetterdienst.dwd.observations.stations import (
     metadata_for_climate_observations,
     get_nearby_stations_by_number,
     get_nearby_stations_by_distance,
+    ALL_STATIONS,
 )
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.dwd.util import (
@@ -79,10 +80,13 @@ class DWDObservationData:
         :param humanize_column_names: Replace column names by more meaningful ones
         """
 
-        try:
-            self.station_ids = pd.Series(station_ids).astype(int).tolist()
-        except ValueError:
-            raise ValueError("List of station id's can not be parsed to integers.")
+        if station_ids == ALL_STATIONS:
+            self.station_ids = ALL_STATIONS
+        else:
+            try:
+                self.station_ids = pd.Series(station_ids).astype(int).tolist()
+            except ValueError:
+                raise ValueError("List of station id's can not be parsed to integers.")
 
         self.parameter = (
             pd.Series(parameter)
@@ -171,6 +175,21 @@ class DWDObservationData:
         if self.storage and self.storage.invalidate:
             self._invalidate_storage()
 
+        # Compute list of stations identifiers.
+        if self.station_ids == ALL_STATIONS:
+            for parameter in self.parameter:
+                for period_type in self.period_type:
+                    stations = []
+                    stations.append(
+                        DWDObservationSites(
+                            parameter=parameter,
+                            time_resolution=self.time_resolution,
+                            period_type=period_type,
+                        ).all()
+                    )
+                    self.station_ids = pd.concat(stations).STATION_ID.unique()
+
+        # Iterate all station identifiers.
         for station_id in self.station_ids:
             df_station = []
 

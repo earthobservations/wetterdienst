@@ -22,7 +22,10 @@ from wetterdienst.dwd.util import (
 )
 from wetterdienst.util.geo import Coordinates
 
+
 KM_EARTH_RADIUS = 6371
+ALL_STATIONS = object()
+
 
 logger = logging.getLogger(__name__)
 

@@ -9,6 +9,7 @@ from munch import Munch
 import pandas as pd
 
 from wetterdienst import __appname__, __version__
+from wetterdienst.dwd.observations.stations import ALL_STATIONS
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
 from wetterdienst.dwd.observations.api import (
@@ -223,7 +224,10 @@ def run():
 
         # Use list of station identifiers.
         if options.station:
-            station_ids = read_list(options.station)
+            if options.station == "all":
+                station_ids = ALL_STATIONS
+            else:
+                station_ids = read_list(options.station)
 
         # Use coordinates for a nearby search to determine list of stations.
         elif options.latitude and options.longitude:
