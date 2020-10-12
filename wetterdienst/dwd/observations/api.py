@@ -5,7 +5,7 @@ import pandas as pd
 from pandas import Timestamp
 import dateparser
 
-from wetterdienst.core.sites import WDSitesCore
+from wetterdienst.core.api import WDSitesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.access import collect_climate_observations_data

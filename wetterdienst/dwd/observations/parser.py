@@ -9,8 +9,8 @@ from wetterdienst.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
 from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
-    DWDOrigDataColumns,
 )
+from wetterdienst.dwd.observations.metadata import DWDObservationsOrigDataColumns
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst import TimeResolution
 
@@ -100,12 +100,13 @@ def _parse_climate_observations_data(
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
-                "MESS_DATUM_WOZ": DWDOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+                "MESS_DATUM_WOZ": (DWDObservationsOrigDataColumns.HOURLY.SOLAR.
+                                   TRUE_LOCAL_TIME.value),
             }
         )
 
         # Duplicate the date column to end of interval column
-        data[DWDOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
+        data[DWDObservationsOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
             DWDOrigMetaColumns.DATE.value
         ]
 

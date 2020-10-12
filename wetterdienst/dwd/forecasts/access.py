@@ -1,8 +1,9 @@
 # Source:
 # https://github.com/jlewis91/dwdbulk/blob/master/dwdbulk/api/forecasts.py
 import logging
+from enum import Enum
 from io import BytesIO
-from typing import List
+from typing import List, Optional
 from zipfile import ZipFile
 from os.path import basename
 
@@ -18,11 +19,16 @@ log = logging.getLogger(__name__)
 
 
 class KMLReader:
-    def __init__(self, station_ids: List[str] = None, parameters: List[str] = None):
+    def __init__(
+            self,
+            station_ids: Optional[List[str]] = None,
+            parameters: Optional[List[Enum]] = None
+    ) -> None:
+        if parameters:
+            parameters = [parameter.value for parameter in parameters]
 
         self.station_ids = station_ids
         self.parameters = parameters
-
         self.metadata = {}
         self.root = None
         self.timesteps = []
