@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.util.cache import metaindex_cache
 
 MOSMIX_STATION_LIST = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/" \
                       "mosmix_stationskatalog.cfg?view=nasPublication"
@@ -21,6 +22,7 @@ MOSMIX_METADATA_COLUMNS = [
 ]
 
 
+@metaindex_cache.cache_on_arguments()
 def metadata_for_forecasts() -> pd.DataFrame:
     payload = requests.get(MOSMIX_STATION_LIST, headers={"User-Agent": ""})
 

@@ -102,7 +102,7 @@ class KMLReader:
         )
 
         # Find all kml:Placemark items.
-        self.items += root.findall("kml:Document/kml:Placemark", root.nsmap)
+        self.items = root.findall("kml:Document/kml:Placemark", root.nsmap)
 
     def iter_items(self):
         for item in self.items:
@@ -114,31 +114,7 @@ class KMLReader:
     def get_metadata(self):
         return pd.DataFrame([self.metadata])
 
-    def get_stations(self):
-        stations = []
-        for station_forecast in self.iter_items():
-            station = {
-                "station_id": station_forecast.find("kml:name", self.root.nsmap).text,
-                "station_name": station_forecast.find(
-                    "kml:description", self.root.nsmap
-                ).text,
-            }
-
-            coordinates = station_forecast.find(
-                "kml:Point/kml:coordinates", self.root.nsmap
-            ).text.split(",")
-
-            station["longitude"] = float(coordinates[0])
-            station["latitude"] = float(coordinates[1])
-            station["height"] = float(coordinates[2])
-
-            stations.append(station)
-
-        return pd.DataFrame(stations)
-
     def get_forecasts(self):
-        df_list = []
-
         for station_forecast in self.iter_items():
             station_ids = station_forecast.find("kml:name", self.root.nsmap).text
 
@@ -167,8 +143,4 @@ class KMLReader:
 
                     df[measurement_parameter] = measurement_values
 
-                df_list.append(df)
-
-        df = pd.concat(df_list, axis=0)
-
-        return df
+            yield df
