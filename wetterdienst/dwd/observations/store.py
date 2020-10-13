@@ -5,7 +5,7 @@ from typing import Union
 import pandas as pd
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
-from wetterdienst.dwd.metadata.column_types import QUALITY_FIELDS, INTEGER_FIELDS
+from wetterdienst.dwd.observations.metadata.column_types import QUALITY_FIELDS, INTEGER_FIELDS
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DataFormat
 from wetterdienst.dwd.util import build_parameter_identifier
 

@@ -8,7 +8,7 @@ from numpy.distutils.misc_util import as_list
 
 from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.metadata.column_types import (
+from wetterdienst.dwd.observations.metadata.column_types import (
     DATE_FIELDS_REGULAR,
     DATE_FIELDS_IRREGULAR,
     QUALITY_FIELDS,

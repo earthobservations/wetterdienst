@@ -3,14 +3,6 @@ from enum import Enum
 from wetterdienst.util.column_names import WDDataColumnBase
 
 
-class ForecastDate(Enum):
-    """
-    Enumeration for pointing to different forecast dates.
-    """
-
-    LATEST = "latest"
-
-
 class DWDForecastsOrigDataColumns(WDDataColumnBase):
     # # https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
     class HOURLY(WDDataColumnBase):

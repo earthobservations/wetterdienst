@@ -1,4 +1,3 @@
-import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -11,8 +10,10 @@ from pandas._libs.tslibs.timestamps import Timestamp
 from requests import HTTPError
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
-from wetterdienst.core.api import WDDataCore, WDSitesCore
-from wetterdienst.dwd.forecasts.metadata import ForecastDate, \
+from wetterdienst.core.sites import WDSitesCore
+from wetterdienst.dwd.forecasts.metadata.column_types import DATE_FIELDS_REGULAR, INTEGER_FIELDS
+from wetterdienst.dwd.forecasts.metadata.dates import ForecastDate
+from wetterdienst.dwd.forecasts.metadata.column_names import \
     DWDForecastsOrigDataColumns, DWDForecastsDataColumns
 from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
@@ -40,16 +41,8 @@ class DWDMosmixResult:
     metadata: pd.DataFrame
     forecast: pd.DataFrame
 
-    def to_dict(self):
-        data = dict()
 
-        data["metadata"] = self.metadata.to_dict(orient="records")[0]
-        data["forecast"] = self.forecast.to_dict(orient="records")
-
-        return data
-
-
-class DWDMosmixData(WDDataCore):
+class DWDMosmixData:
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
@@ -274,8 +267,12 @@ class DWDMosmixData(WDDataCore):
     @staticmethod
     def coerce_columns(df):
         for column in df.columns:
-            if column == "W1W2" or column.startswith("WPc") or column in ["ww", "ww3"]:
-                df[column] = df[column].astype("Int64")
+            if column in DATE_FIELDS_REGULAR:
+                df[column] = pd.to_datetime(df[column], infer_datetime_format=True, utc=False)
+            elif column in INTEGER_FIELDS:
+                df[column] = df[column].astype(pd.Int64Dtype())
+            else:
+                df[column] = df[column].astype(float)
 
 
 class DWDForecastSites(WDSitesCore):
@@ -294,7 +291,7 @@ class DWDForecastSites(WDSitesCore):
 
     @staticmethod
     def _check_parameters(**kwargs):
-        """ No checks needed as only on parameter exists for MOSMIX """
+        """ No checks needed as only one parameter exists for MOSMIX """
         pass
 
     def _all(self):

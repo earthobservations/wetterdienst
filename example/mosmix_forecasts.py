@@ -10,7 +10,7 @@ stations 01001 and 01008 and parameters DD and ww.
 Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
-from wetterdienst.dwd.forecasts.metadata import ForecastDate
+from wetterdienst.dwd.forecasts.metadata.dates import ForecastDate
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.dwd.forecasts.api import DWDMosmixData, PeriodType
 

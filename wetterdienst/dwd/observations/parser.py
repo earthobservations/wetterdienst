@@ -10,7 +10,7 @@ from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
-from wetterdienst.dwd.observations.metadata import DWDObservationsOrigDataColumns
+from wetterdienst.dwd.observations.metadata.column_names import DWDObservationsOrigDataColumns
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst import TimeResolution
 

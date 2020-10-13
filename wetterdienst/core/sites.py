@@ -1,7 +1,7 @@
 import logging
 from abc import abstractmethod
 from datetime import datetime
-from typing import Union, List, Type
+from typing import Union, List
 
 import numpy as np
 import pandas as pd
@@ -9,18 +9,13 @@ from pandas import Timestamp
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.util import parse_enumeration_from_template, check_parameters, parse_datetime
-from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
-from wetterdienst.util.column_names import WDDataColumnBase
+from wetterdienst.dwd.util import parse_enumeration_from_template,  parse_datetime
+from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
 logger = logging.getLogger(__name__)
 
 KM_EARTH_RADIUS = 6371
-
-
-class WDDataCore:
-    pass
 
 
 class WDSitesCore:
