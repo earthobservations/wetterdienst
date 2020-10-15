@@ -1,5 +1,4 @@
 import pytest
-import requests
 from pandas import Timestamp
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -7,6 +6,7 @@ from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst.dwd.metadata.period_type import PeriodType
 from wetterdienst.dwd.observations.api import DWDObservationSites
+from wetterdienst.exceptions import InvalidParameterCombination
 
 
 @pytest.mark.remote
@@ -31,15 +31,12 @@ def test_dwd_observation_sites_success():
             8.8493,
             "Aach",
             "Baden-Württemberg",
-            True,
         ]
     ]
 
 
 def test_dwd_observation_sites_fail():
-
-    # TODO: replace IndexError with UrlError/WrongSetOfParametersError
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(InvalidParameterCombination):
         DWDObservationSites(
             Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
         ).all()

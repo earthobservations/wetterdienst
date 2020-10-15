@@ -5,6 +5,7 @@ import pandas as pd
 from pandas import Timestamp
 import dateparser
 
+from wetterdienst.core.sites import WDSitesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
@@ -16,16 +17,17 @@ from wetterdienst.dwd.metadata import (
     Parameter,
     PeriodType,
 )
-from wetterdienst.dwd.observations.stations import (
-    metadata_for_climate_observations,
-    get_nearby_stations_by_number,
-    get_nearby_stations_by_distance,
+from wetterdienst.dwd.observations.metadata.column_names import (
+    DWDObservationsOrigDataColumns,
+    DWDObservationsDataColumns,
 )
+from wetterdienst.dwd.observations.stations import metadata_for_climate_observations
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.dwd.util import (
     parse_enumeration_from_template,
     parse_enumeration,
     build_parameter_identifier,
+    check_parameters,
 )
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
@@ -97,7 +99,11 @@ class DWDObservationData:
         # If any date is given, use all period types and filter, else if not period type
         # is given use all period types
         if start_date or end_date or not period_type:
-            self.period_type = [*PeriodType]
+            self.period_type = [
+                PeriodType.HISTORICAL,
+                PeriodType.RECENT,
+                PeriodType.NOW,
+            ]
         # Otherwise period types will be parsed
         else:
             # For the case that a period_type is given, parse the period type(s)
@@ -274,7 +280,10 @@ class DWDObservationData:
         # Assign meaningful column names (humanized).
         if self.humanize_column_names:
             hcnm = create_humanized_column_names_mapping(
-                self.time_resolution, parameter
+                self.time_resolution,
+                parameter,
+                DWDObservationsOrigDataColumns,
+                DWDObservationsDataColumns,
             )
 
             if self.tidy_data:
@@ -318,111 +327,37 @@ class DWDObservationData:
                 storage.invalidate()
 
 
-class DWDObservationSites:
+class DWDObservationSites(WDSitesCore):
     """
     The DWDObservationSites class represents a request for
     station data as provided by the DWD service.
     """
 
-    def __init__(
-        self,
-        parameter: Union[str, Parameter, List[Union[str, Parameter]]],
-        time_resolution: Union[
-            None, str, TimeResolution, List[Union[str, TimeResolution]]
-        ] = None,
-        period_type: Union[
-            Union[None, str, PeriodType], List[Union[str, PeriodType]]
-        ] = None,
-        start_date: Union[None, str, Timestamp] = None,
-        end_date: Union[None, str, Timestamp] = None,
-    ) -> None:
-        """
-        Request list of stations from DWD observation data, related to parameter,
-        time_resolution and period_type.
+    @staticmethod
+    def _check_parameters(**kwargs):
+        parameter = kwargs.get("parameter")
+        time_resolution = kwargs.get("time_resolution")
+        period_type = kwargs.get("period_type")
 
-        :param parameter:           Observation measure
-        :param time_resolution:     Frequency/granularity of measurement interval
-        :param period_type:         Recent or historical files (optional), if None
-                                    and start_date and end_date None, all period
-                                    types are used
-        :param start_date:          Start date of timespan where measurements
-                                    should be available
-        :param end_date:            End date of timespan where measurements
-                                    should be available
-        """
-        self.parameter = parameter
-        self.time_resolution = time_resolution
-        self.period_type = period_type
-        self.start_date = start_date
-        self.end_date = end_date
+        if not check_parameters(parameter, time_resolution, period_type):
+            raise InvalidParameterCombination(
+                f"The combination of {parameter.value}, {time_resolution.value}, "
+                f"{period_type.value} is invalid."
+            )
 
-    def all(self) -> pd.DataFrame:
-
-        return metadata_for_climate_observations(
+    def _all(self) -> pd.DataFrame:
+        metadata = metadata_for_climate_observations(
             parameter=self.parameter,
             time_resolution=self.time_resolution,
             period_type=self.period_type,
         )
 
-    def nearby_radius(
-        self,
-        latitude: float,
-        longitude: float,
-        max_distance_in_km: int,
-    ) -> pd.DataFrame:
-        """
-        Wrapper for get_nearby_stations_by_distance using the given parameter set.
-        Returns nearest stations defined by distance (km).
+        # Filter only for stations that have a file
+        metadata = metadata[metadata[DWDMetaColumns.HAS_FILE.value].values]
 
-        Args:
-            latitude: latitude in degrees
-            longitude: longitude in degrees
-            max_distance_in_km: distance (km) for which stations will be selected
+        metadata = metadata.drop(columns=[DWDMetaColumns.HAS_FILE.value])
 
-        Returns:
-            pandas.DataFrame with station information for the selected stations
-        """
-
-        return get_nearby_stations_by_distance(
-            latitude=latitude,
-            longitude=longitude,
-            max_distance_in_km=max_distance_in_km,
-            parameter=self.parameter,
-            time_resolution=self.time_resolution,
-            period_type=self.period_type,
-            minimal_available_date=self.start_date,
-            maximal_available_date=self.end_date,
-        )
-
-    def nearby_number(
-        self,
-        latitude: float,
-        longitude: float,
-        num_stations_nearby: int,
-    ) -> pd.DataFrame:
-        """
-        Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
-        nearest stations defined by number.
-
-        Args:
-            latitude: latitude in degrees
-            longitude: longitude in degrees
-            num_stations_nearby: number of stations to be returned, greater 0
-
-        Returns:
-            pandas.DataFrame with station information for the selected stations
-        """
-
-        return get_nearby_stations_by_number(
-            latitude=latitude,
-            longitude=longitude,
-            num_stations_nearby=num_stations_nearby,
-            parameter=self.parameter,
-            time_resolution=self.time_resolution,
-            period_type=self.period_type,
-            minimal_available_date=self.start_date,
-            maximal_available_date=self.end_date,
-        )
+        return metadata
 
 
 class DWDObservationMetadata:

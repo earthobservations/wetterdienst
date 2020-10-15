@@ -10,8 +10,8 @@ DWD
 .. automodule:: wetterdienst.dwd.observations.access
     :members:
 
-.. automodule:: wetterdienst.dwd.mosmix.access
+.. automodule:: wetterdienst.dwd.forecasts.access
     :members:
 
-.. automodule:: wetterdienst.dwd.radolan.access
+.. automodule:: wetterdienst.dwd.radar.access
     :members:

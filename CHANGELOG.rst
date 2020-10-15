@@ -6,6 +6,8 @@ Development
 ===========
 
 - CLI: Obtain "--tidy" argument from command line
+- Extend MOSMIX support to equal the API of observations
+- DWDObservationSites now filters for those stations which have a file on the server
 
 0.9.0 (09.10.2020)
 ==================

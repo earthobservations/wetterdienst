@@ -1,15 +1,15 @@
 # Source:
 # https://github.com/jlewis91/dwdbulk/blob/master/dwdbulk/api/forecasts.py
 import logging
+from enum import Enum
 from io import BytesIO
-from typing import List
+from typing import List, Optional
 from zipfile import ZipFile
 from os.path import basename
 
-from lxml import etree  # noqa:S410
+from lxml.etree import parse, XMLParser  # noqa: S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
-
 import numpy as np
 import pandas as pd
 
@@ -19,11 +19,16 @@ log = logging.getLogger(__name__)
 
 
 class KMLReader:
-    def __init__(self, station_ids: List = None, parameters: List = None):
+    def __init__(
+        self,
+        station_ids: Optional[List[str]] = None,
+        parameters: Optional[List[Enum]] = None,
+    ) -> None:
+        if parameters:
+            parameters = [parameter.value for parameter in parameters]
 
         self.station_ids = station_ids
         self.parameters = parameters
-
         self.metadata = {}
         self.root = None
         self.timesteps = []
@@ -53,7 +58,7 @@ class KMLReader:
 
         return buffer
 
-    def fetch(self, url) -> str:
+    def fetch(self, url) -> bytes:
         """
         Fetch weather forecast file (zipped xml).
         """
@@ -72,7 +77,7 @@ class KMLReader:
 
         log.info("Parsing KML data")
         # TODO: Check if XML parsing performance can be improved by using libxml2.
-        tree = etree.parse(BytesIO(kml))  # noqa:S320
+        tree = parse(BytesIO(kml), parser=XMLParser(huge_tree=True))  # noqa: S320
         self.root = root = tree.getroot()
 
         prod_items = {
@@ -103,7 +108,7 @@ class KMLReader:
         )
 
         # Find all kml:Placemark items.
-        self.items += root.findall("kml:Document/kml:Placemark", root.nsmap)
+        self.items = root.findall("kml:Document/kml:Placemark", root.nsmap)
 
     def iter_items(self):
         for item in self.items:
@@ -115,30 +120,7 @@ class KMLReader:
     def get_metadata(self):
         return pd.DataFrame([self.metadata])
 
-    def get_stations(self):
-        stations = []
-        for station_forecast in self.iter_items():
-            station = {
-                "station_id": station_forecast.find("kml:name", self.root.nsmap).text,
-                "station_name": station_forecast.find(
-                    "kml:description", self.root.nsmap
-                ).text,
-            }
-
-            coordinates = station_forecast.find(
-                "kml:Point/kml:coordinates", self.root.nsmap
-            ).text.split(",")
-
-            station["longitude"] = float(coordinates[0])
-            station["latitude"] = float(coordinates[1])
-            station["height"] = float(coordinates[2])
-
-            stations.append(station)
-
-        return pd.DataFrame(stations)
-
     def get_forecasts(self):
-        df_list = []
         for station_forecast in self.iter_items():
             station_ids = station_forecast.find("kml:name", self.root.nsmap).text
 
@@ -167,8 +149,4 @@ class KMLReader:
 
                     df[measurement_parameter] = measurement_values
 
-                df_list.append(df)
-
-        df = pd.concat(df_list, axis=0)
-
-        return df
+            yield df

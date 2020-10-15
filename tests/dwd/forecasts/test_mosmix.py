@@ -1,5 +1,6 @@
 import pytest
-from wetterdienst.dwd.mosmix.api import MOSMIXRequest
+from wetterdienst.dwd.forecasts.api import DWDMosmixData
+from wetterdienst import PeriodType
 
 
 @pytest.mark.remote
@@ -8,26 +9,28 @@ def test_mosmix_l():
     Test some details of a typical MOSMIX-L response.
     """
 
-    mosmix = MOSMIXRequest(station_ids=["01001", "01008"])
-    response = mosmix.read_mosmix_l_latest()
+    mosmix = DWDMosmixData(
+        station_ids=["01001"], period_type=PeriodType.FORECAST_LONG, tidy_data=False
+    )
+    response = next(mosmix.collect_data())
 
     # Verify metadata.
-    assert response.metadata.loc[0].issuer == "Deutscher Wetterdienst"
-    assert response.metadata.loc[0].product_id == "MOSMIX"
+    assert response.metadata.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
+    assert response.metadata.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = list(response.stations["station_name"].unique())
-    assert station_names == ["JAN MAYEN", "SVALBARD"]
+    station_names = response.metadata["STATION_NAME"].unique().tolist()
+    assert station_names == ["JAN MAYEN"]
 
     # Verify forecast data.
-    station_ids = list(response.forecasts["station_id"].unique())
-    assert station_ids == ["01001", "01008"]
-    assert len(response.forecasts) > 200
+    station_ids = response.forecast["STATION_ID"].unique().tolist()
+    assert station_ids == ["01001"]
+    assert len(response.forecast) > 200
 
-    assert len(response.forecasts.columns) == 116
-    assert list(response.forecasts.columns) == [
-        "station_id",
-        "datetime",
+    assert len(response.forecast.columns) == 116
+    assert list(response.forecast.columns) == [
+        "STATION_ID",
+        "DATETIME",
         "PPPP",
         "E_PPP",
         "TX",
@@ -152,26 +155,28 @@ def test_mosmix_s():
     Test some details of a typical MOSMIX-S response.
     """
 
-    mosmix = MOSMIXRequest(station_ids=["01028", "01092"])
-    response = mosmix.read_mosmix_s_latest()
+    mosmix = DWDMosmixData(
+        station_ids=["01028"], period_type=PeriodType.FORECAST_SHORT, tidy_data=False
+    )
+    response = next(mosmix.collect_data())
 
     # Verify metadata.
-    assert response.metadata.loc[0].issuer == "Deutscher Wetterdienst"
-    assert response.metadata.loc[0].product_id == "MOSMIX"
+    assert response.metadata.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
+    assert response.metadata.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = list(response.stations["station_name"].unique())
-    assert station_names == ["BJORNOYA", "MAKKAUR FYR"]
+    station_names = list(response.metadata["STATION_NAME"].unique())
+    assert station_names == ["BJORNOYA"]
 
     # Verify forecast data.
-    station_ids = list(response.forecasts["station_id"].unique())
-    assert station_ids == ["01028", "01092"]
-    assert len(response.forecasts) > 200
+    station_ids = response.forecast["STATION_ID"].unique().tolist()
+    assert station_ids == ["01028"]
+    assert len(response.forecast) > 200
 
-    assert len(response.forecasts.columns) == 42
-    assert list(response.forecasts.columns) == [
-        "station_id",
-        "datetime",
+    assert len(response.forecast.columns) == 42
+    assert list(response.forecast.columns) == [
+        "STATION_ID",
+        "DATETIME",
         "PPPP",
         "TX",
         "TTT",
@@ -221,21 +226,18 @@ def test_mosmix_l_parameters():
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
 
-    mosmix = MOSMIXRequest(station_ids=["01001", "01008"], parameters=["DD", "ww"])
-    response = mosmix.read_mosmix_l_latest()
+    mosmix = DWDMosmixData(
+        station_ids=["01001"],
+        period_type=PeriodType.FORECAST_LONG,
+        parameters=["DD", "ww"],
+        tidy_data=False,
+    )
+    response = next(mosmix.collect_data())
 
     # Verify forecast data.
-    station_ids = list(response.forecasts["station_id"].unique())
-    assert station_ids == ["01001", "01008"]
-    assert len(response.forecasts) > 200
+    station_ids = response.metadata["WMO_ID"].unique().tolist()
+    assert station_ids == ["01001"]
+    assert len(response.forecast) > 200
 
-    assert len(response.forecasts.columns) == 4
-    assert list(response.forecasts.columns) == ["station_id", "datetime", "DD", "ww"]
-
-
-def test_mosmix_get_url_latest_fails():
-    mosmix = MOSMIXRequest()
-    with pytest.raises(KeyError) as ex:
-        mosmix.get_url_latest("http://example.net")
-
-    assert "Unable to find LATEST file within http://example.net" in str(ex.value)
+    assert len(response.forecast.columns) == 4
+    assert list(response.forecast.columns) == ["STATION_ID", "DATETIME", "DD", "ww"]

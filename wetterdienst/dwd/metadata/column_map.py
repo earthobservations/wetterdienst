@@ -1,13 +1,14 @@
 """ mapping from german column names to english column names"""
+from typing import Type
+
 from numpy import datetime64
 
 from wetterdienst.dwd.metadata import TimeResolution, Parameter
 from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
-    DWDOrigDataColumns,
-    DWDDataColumns,
 )
+from wetterdienst.util.column_names import WDDataColumnBase
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigMetaColumns.STATION_ID.value: DWDMetaColumns.STATION_ID.value,
@@ -38,7 +39,10 @@ METADATA_DTYPE_MAPPING = {
 
 
 def create_humanized_column_names_mapping(
-    time_resolution: TimeResolution, parameter: Parameter
+    time_resolution: TimeResolution,
+    parameter: Parameter,
+    orig_data_columns: Type[WDDataColumnBase],
+    data_columns: Type[WDDataColumnBase],
 ) -> dict:
     """
     Function to create a humanized column names mapping. The function
@@ -48,6 +52,8 @@ def create_humanized_column_names_mapping(
     Args:
         time_resolution: time resolution enumeration
         parameter: parameter enumeration
+        orig_data_columns: original column names in enumeration style
+        data_columns: column names in enumeration style
 
     Returns:
         dictionary with mappings extended by quality columns mappings
@@ -55,8 +61,8 @@ def create_humanized_column_names_mapping(
     column_name_mapping = {
         orig_column.value: humanized_column.value
         for orig_column, humanized_column in zip(
-            DWDOrigDataColumns[time_resolution.name][parameter.name],
-            DWDDataColumns[time_resolution.name][parameter.name],
+            orig_data_columns[time_resolution.name][parameter.name],
+            data_columns[time_resolution.name][parameter.name],
         )
     }
 

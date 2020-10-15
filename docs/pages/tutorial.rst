@@ -51,6 +51,6 @@ Get station list
         period_type=PeriodType.HISTORICAL
     )
 
-    print("Number of stations with available data: ", sites_hdp.all()["HAS_FILE"].sum())
+    print("Number of stations with available data: ", sites_hdp.all().sum())
     print("Some of the stations:")
     sites_hdp.all().head()
