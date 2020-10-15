@@ -43,7 +43,9 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
         assert hdf["/how"].attrs.get("scan_count") == 1
         assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-        assert hdf["/dataset1/data1/data"].shape == (360, 600)
+        shape = hdf["/dataset1/data1/data"].shape
+
+        assert shape == (360, 600) or shape == (361, 600)
 
 
 @pytest.mark.remote
@@ -83,7 +85,9 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
         assert hdf["/how"].attrs.get("scan_count") == 10
         assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-        assert hdf["/dataset1/data1/data"].shape == (360, 180)
+        shape = hdf["/dataset1/data1/data"].shape
+
+        assert shape == (360, 180) or shape == (361, 180)
 
 
 @pytest.mark.remote
