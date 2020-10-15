@@ -12,6 +12,10 @@ from wetterdienst.dwd.metadata import (
 )
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.api import DWDObservationData
+from wetterdienst.dwd.observations.metadata.column_names import (
+    DWDObservationsOrigDataColumns,
+    DWDObservationsDataColumns,
+)
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.exceptions import StartDateEndDateError
 
@@ -155,19 +159,22 @@ def test_observation_data_storing():
 def test_create_humanized_column_names_mapping():
     """ Test for function to create a mapping to humanized column names """
     hcnm = create_humanized_column_names_mapping(
-        TimeResolution.DAILY, Parameter.CLIMATE_SUMMARY
+        TimeResolution.DAILY,
+        Parameter.CLIMATE_SUMMARY,
+        DWDObservationsOrigDataColumns,
+        DWDObservationsDataColumns,
     )
 
     assert hcnm == {
         "QN_3": "QUALITY_WIND",
         "FX": "WIND_GUST_MAX",
-        "FM": "WIND_VELOCITY",
+        "FM": "WIND_SPEED",
         "QN_4": "QUALITY_GENERAL",
         "RSK": "PRECIPITATION_HEIGHT",
         "RSKF": "PRECIPITATION_FORM",
         "SDK": "SUNSHINE_DURATION",
         "SHK_TAG": "SNOW_DEPTH",
-        "NM": "CLOUD_COVERAGE_TOTAL",
+        "NM": "CLOUD_COVER_TOTAL",
         "VPM": "PRESSURE_VAPOR",
         "PM": "PRESSURE_AIR",
         "TMK": "TEMPERATURE_AIR_200",

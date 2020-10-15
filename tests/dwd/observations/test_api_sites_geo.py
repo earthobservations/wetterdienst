@@ -6,8 +6,9 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 import pandas as pd
 
+from wetterdienst.dwd.metadata.column_map import METADATA_DTYPE_MAPPING
 from wetterdienst.dwd.observations.api import DWDObservationSites
-from wetterdienst.dwd.observations.stations import _derive_nearest_neighbours
+from wetterdienst.util.geo import derive_nearest_neighbours
 from wetterdienst.util.geo import Coordinates
 from wetterdienst import TimeResolution
 from wetterdienst.dwd.metadata.parameter import Parameter
@@ -17,22 +18,26 @@ from wetterdienst.exceptions import InvalidParameterCombination
 
 HERE = Path(__file__).parent
 METADATA_FILE = HERE / "FIXED_METADATA.JSON"
+METADATA_DF = pd.read_json(METADATA_FILE)
+METADATA_DF = METADATA_DF.astype(METADATA_DTYPE_MAPPING)
 
 
 @patch(
-    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
-    MagicMock(return_value=pd.read_json(METADATA_FILE)),
+    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
+    MagicMock(return_value=METADATA_DF),
 )
 def test_dwd_observation_sites_nearby_number_success():
 
     # Test for one nearest station
-    nearby_station = DWDObservationSites(
+    sites = DWDObservationSites(
         Parameter.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
-    ).nearby_number(
+    )
+
+    nearby_station = sites.nearby_number(
         50.0,
         8.9,
         1,
@@ -52,7 +57,6 @@ def test_dwd_observation_sites_nearby_number_success():
                     8.9671,
                     "Schaafheim-Schlierbach",
                     "Hessen",
-                    True,
                     11.65302672,
                 ]
             ],
@@ -64,7 +68,6 @@ def test_dwd_observation_sites_nearby_number_success():
                 "LON",
                 "STATION_NAME",
                 "STATE",
-                "HAS_FILE",
                 "DISTANCE_TO_LOCATION",
             ],
         ),
@@ -96,7 +99,6 @@ def test_dwd_observation_sites_nearby_number_success():
                     8.9671,
                     "Schaafheim-Schlierbach",
                     "Hessen",
-                    True,
                     11.653026716750542,
                 ],
                 [
@@ -107,7 +109,6 @@ def test_dwd_observation_sites_nearby_number_success():
                     8.993,
                     "Kahl/Main",
                     "Bayern",
-                    True,
                     12.572153957087247,
                 ],
                 [
@@ -118,7 +119,6 @@ def test_dwd_observation_sites_nearby_number_success():
                     8.7862,
                     "Offenbach-Wetterpark",
                     "Hessen",
-                    True,
                     16.13301589362613,
                 ],
             ],
@@ -130,7 +130,6 @@ def test_dwd_observation_sites_nearby_number_success():
                 "LON",
                 "STATION_NAME",
                 "STATE",
-                "HAS_FILE",
                 "DISTANCE_TO_LOCATION",
             ],
         ),
@@ -138,8 +137,8 @@ def test_dwd_observation_sites_nearby_number_success():
 
 
 @patch(
-    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
-    MagicMock(return_value=pd.read_json(METADATA_FILE)),
+    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
+    MagicMock(return_value=METADATA_DF),
 )
 def test_dwd_observation_sites_nearby_number_fail_1():
 
@@ -158,8 +157,8 @@ def test_dwd_observation_sites_nearby_number_fail_1():
 
 
 @patch(
-    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
-    MagicMock(return_value=pd.read_json(METADATA_FILE)),
+    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
+    MagicMock(return_value=METADATA_DF),
 )
 def test_dwd_observation_sites_nearby_number_fail_2():
 
@@ -178,8 +177,8 @@ def test_dwd_observation_sites_nearby_number_fail_2():
 
 
 @patch(
-    "wetterdienst.dwd.observations.api.metadata_for_climate_observations",
-    MagicMock(return_value=pd.read_json(METADATA_FILE)),
+    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
+    MagicMock(return_value=METADATA_DF),
 )
 def test_dwd_observation_sites_nearby_distance():
     nearby_station = DWDObservationSites(
@@ -201,7 +200,7 @@ def test_derive_nearest_neighbours():
 
     metadata = pd.read_json(METADATA_FILE)
 
-    distances, indices_nearest_neighbours = _derive_nearest_neighbours(
+    distances, indices_nearest_neighbours = derive_nearest_neighbours(
         metadata.LAT.values, metadata.LON.values, coords
     )
 

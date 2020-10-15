@@ -39,8 +39,10 @@ METADATA_DTYPE_MAPPING = {
 
 
 def create_humanized_column_names_mapping(
-    time_resolution: TimeResolution, parameter: Parameter,
-    orig_data_columns: Type[WDDataColumnBase], data_columns: Type[WDDataColumnBase]
+    time_resolution: TimeResolution,
+    parameter: Parameter,
+    orig_data_columns: Type[WDDataColumnBase],
+    data_columns: Type[WDDataColumnBase],
 ) -> dict:
     """
     Function to create a humanized column names mapping. The function

@@ -30,7 +30,7 @@ class PeriodType(Enum):
             "RECENT": 1,
             "NOW": 2,
             "FORECAST_SHORT": 3,
-            "FORECAST_LONG": 4
+            "FORECAST_LONG": 4,
         }
 
     def __lt__(self, other):

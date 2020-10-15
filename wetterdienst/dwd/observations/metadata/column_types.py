@@ -1,9 +1,10 @@
 from wetterdienst.dwd.metadata.column_names import (
     DWDMetaColumns,
 )
-from wetterdienst.dwd.observations.metadata.column_names import \
-    DWDObservationsOrigDataColumns, \
-    DWDObservationsDataColumns
+from wetterdienst.dwd.observations.metadata.column_names import (
+    DWDObservationsOrigDataColumns,
+    DWDObservationsDataColumns,
+)
 
 DATE_FIELDS_REGULAR = (
     DWDMetaColumns.DATE.value,

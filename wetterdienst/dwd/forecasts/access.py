@@ -20,9 +20,9 @@ log = logging.getLogger(__name__)
 
 class KMLReader:
     def __init__(
-            self,
-            station_ids: Optional[List[str]] = None,
-            parameters: Optional[List[Enum]] = None
+        self,
+        station_ids: Optional[List[str]] = None,
+        parameters: Optional[List[Enum]] = None,
     ) -> None:
         if parameters:
             parameters = [parameter.value for parameter in parameters]

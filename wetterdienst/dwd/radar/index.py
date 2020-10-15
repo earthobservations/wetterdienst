@@ -139,7 +139,7 @@ def create_fileindex_radolan_cdc(
         & file_index[DWDMetaColumns.FILENAME.value].str.endswith(
             (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value)
         )
-    ]
+    ].copy()
 
     # Decode datetime of file for filtering.
     file_index[DWDMetaColumns.DATETIME.value] = file_index[

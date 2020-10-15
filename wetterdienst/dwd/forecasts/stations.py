@@ -6,11 +6,23 @@ import requests
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.util.cache import metaindex_cache
 
-MOSMIX_STATION_LIST = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/" \
-                      "mosmix_stationskatalog.cfg?view=nasPublication"
+MOSMIX_STATION_LIST = (
+    "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
+    "mosmix_stationskatalog.cfg?view=nasPublication"
+)
 
-MOSMIX_STATION_LIST_COLSPECS = [(0, 5), (6, 11), (12, 17), (18, 22), (23, 44), (45, 51),
-                                (52, 58), (59, 64), (65, 71), (72, 76)]
+MOSMIX_STATION_LIST_COLSPECS = [
+    (0, 5),
+    (6, 11),
+    (12, 17),
+    (18, 22),
+    (23, 44),
+    (45, 51),
+    (52, 58),
+    (59, 64),
+    (65, 71),
+    (72, 76),
+]
 
 MOSMIX_METADATA_COLUMNS = [
     DWDMetaColumns.WMO_ID.value,
@@ -18,7 +30,7 @@ MOSMIX_METADATA_COLUMNS = [
     DWDMetaColumns.STATION_NAME.value,
     DWDMetaColumns.LATITUDE.value,
     DWDMetaColumns.LONGITUDE.value,
-    DWDMetaColumns.STATION_HEIGHT.value
+    DWDMetaColumns.STATION_HEIGHT.value,
 ]
 
 
@@ -32,7 +44,7 @@ def metadata_for_forecasts() -> pd.DataFrame:
     lines_filtered = []
 
     for start, end in zip(table_lines[:-1], table_lines[1:]):
-        lines_filtered.extend(lines[start + 3:end-1])
+        lines_filtered.extend(lines[start + 3 : end - 1])
 
     data = StringIO("\n".join(lines_filtered))
 
@@ -41,7 +53,7 @@ def metadata_for_forecasts() -> pd.DataFrame:
         colspecs=MOSMIX_STATION_LIST_COLSPECS,
         na_values=["----"],
         header=None,
-        dtype="str"
+        dtype="str",
     )
 
     df = df.iloc[:, [2, 3, 4, 5, 6, 7]]

@@ -11,10 +11,15 @@ from requests import HTTPError
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
 from wetterdienst.core.sites import WDSitesCore
-from wetterdienst.dwd.forecasts.metadata.column_types import DATE_FIELDS_REGULAR, INTEGER_FIELDS
+from wetterdienst.dwd.forecasts.metadata.column_types import (
+    DATE_FIELDS_REGULAR,
+    INTEGER_FIELDS,
+)
 from wetterdienst.dwd.forecasts.metadata.dates import ForecastDate
-from wetterdienst.dwd.forecasts.metadata.column_names import \
-    DWDForecastsOrigDataColumns, DWDForecastsDataColumns
+from wetterdienst.dwd.forecasts.metadata.column_names import (
+    DWDForecastsOrigDataColumns,
+    DWDForecastsDataColumns,
+)
 from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -59,14 +64,14 @@ class DWDMosmixData:
     """
 
     def __init__(
-            self,
-            period_type: PeriodType,
-            station_ids: List[str],
-            parameters: Optional[List[Union[str, Enum]]] = None,
-            start_date: Optional[Union[str, datetime, ForecastDate]] = ForecastDate.LATEST,
-            end_date: Optional[Union[str, datetime, timedelta]] = None,
-            tidy_data: bool = True,
-            humanize_column_names: bool = False,
+        self,
+        period_type: PeriodType,
+        station_ids: List[str],
+        parameters: Optional[List[Union[str, Enum]]] = None,
+        start_date: Optional[Union[str, datetime, ForecastDate]] = ForecastDate.LATEST,
+        end_date: Optional[Union[str, datetime, timedelta]] = None,
+        tidy_data: bool = True,
+        humanize_column_names: bool = False,
     ) -> None:
         """
 
@@ -78,11 +83,19 @@ class DWDMosmixData:
 
         if period_type not in (PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG):
             raise ValueError(
-                "period_type should be one of FORECAST_SHORT or FORECAST_LONG")
+                "period_type should be one of FORECAST_SHORT or FORECAST_LONG"
+            )
         if station_ids:
             station_ids = pd.Series(station_ids).astype(str).tolist()
         if parameters:
-            parameters = pd.Series(parameters).apply(parse_enumeration_from_template, args=(DWDForecastsOrigDataColumns["HOURLY"]["CLIMATE_SUMMARY"],)).tolist()
+            parameters = (
+                pd.Series(parameters)
+                .apply(
+                    parse_enumeration_from_template,
+                    args=(DWDForecastsOrigDataColumns.HOURLY.CLIMATE_SUMMARY,),
+                )
+                .tolist()
+            )
 
         if not start_date and not end_date:
             start_date = ForecastDate.LATEST
@@ -92,14 +105,15 @@ class DWDMosmixData:
             start_date = end_date
 
         if start_date is not ForecastDate.LATEST:
-            start_date = pd.to_datetime(
-                start_date, infer_datetime_format=True).floor("1H")
-            end_date = pd.to_datetime(
-                end_date, infer_datetime_format=True).floor("1H")
+            start_date = pd.to_datetime(start_date, infer_datetime_format=True).floor(
+                "1H"
+            )
+            end_date = pd.to_datetime(end_date, infer_datetime_format=True).floor("1H")
 
             if not start_date <= end_date:
                 raise StartDateEndDateError(
-                    "end_date should be same or later then start_date")
+                    "end_date should be same or later then start_date"
+                )
 
             # Shift dates to 3, 9, 15, 21 hour format
             if period_type == PeriodType.FORECAST_LONG:
@@ -159,17 +173,20 @@ class DWDMosmixData:
             df_forecast = df_forecast.rename(
                 columns={
                     "station_id": DWDMetaColumns.STATION_ID.value,
-                    "datetime": DWDMetaColumns.DATETIME.value
-                })
+                    "datetime": DWDMetaColumns.DATETIME.value,
+                }
+            )
 
             self.coerce_columns(df_forecast)
 
             if self.tidy_data:
                 df_forecast = df_forecast.melt(
-                    id_vars=[DWDMetaColumns.STATION_ID.value,
-                             DWDMetaColumns.DATETIME.value],
+                    id_vars=[
+                        DWDMetaColumns.STATION_ID.value,
+                        DWDMetaColumns.DATETIME.value,
+                    ],
                     var_name=DWDMetaColumns.ELEMENT.value,
-                    value_name=DWDMetaColumns.VALUE.value
+                    value_name=DWDMetaColumns.VALUE.value,
                 )
 
             if self.humanize_column_names:
@@ -177,7 +194,7 @@ class DWDMosmixData:
                     self.time_resolution,
                     self.parameter,
                     DWDForecastsOrigDataColumns,
-                    DWDForecastsDataColumns
+                    DWDForecastsDataColumns,
                 )
 
                 if self.tidy_data:
@@ -191,26 +208,28 @@ class DWDMosmixData:
             station_id = df_forecast[DWDMetaColumns.STATION_ID.value].iloc[0]
 
             station_metadata = self.metadata[
-                self.metadata[DWDMetaColumns.WMO_ID.value] == station_id]
+                self.metadata[DWDMetaColumns.WMO_ID.value] == station_id
+            ].reset_index(drop=True)
 
-            df_metadata = df_metadata.rename(columns=str.upper)
+            df_metadata = df_metadata.rename(columns=str.upper).reset_index(drop=True)
 
-            df_metadata = pd.concat([df_metadata, station_metadata], axis=1)
+            df_metadata = df_metadata.join(station_metadata)
 
-            result = DWDMosmixResult(
-                df_metadata,
-                df_forecast
-            )
+            result = DWDMosmixResult(df_metadata, df_forecast)
 
             yield result
 
-    def _read_mosmix(self, date: Union[ForecastDate, datetime]) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+    def _read_mosmix(
+        self, date: Union[ForecastDate, datetime]
+    ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         if self.period_type == PeriodType.FORECAST_SHORT:
             yield from self.read_mosmix_s(date)
         else:
             yield from self.read_mosmix_l(date)
 
-    def read_mosmix_s(self, date) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+    def read_mosmix_s(
+        self, date
+    ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         url = urljoin(DWD_SERVER, DWD_MOSMIX_S_PATH)
 
         file_url = self.get_url_for_date(url, date)
@@ -220,7 +239,9 @@ class DWDMosmixData:
         for forecast in self.kml.get_forecasts():
             yield self.kml.get_metadata(), forecast
 
-    def read_mosmix_l(self, date) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+    def read_mosmix_l(
+        self, date
+    ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH)
 
         for station_id in self.station_ids:
@@ -250,12 +271,14 @@ class DWDMosmixData:
         df_urls = pd.DataFrame({"URL": urls})
 
         df_urls[DWDMetaColumns.DATETIME.value] = df_urls["URL"].apply(
-            lambda url_: url_.split("/")[-1].split("_")[2].replace(".kmz", ""))
+            lambda url_: url_.split("/")[-1].split("_")[2].replace(".kmz", "")
+        )
 
         df_urls = df_urls[df_urls[DWDMetaColumns.DATETIME.value] != "LATEST"]
 
         df_urls[DWDMetaColumns.DATETIME.value] = pd.to_datetime(
-            df_urls[DWDMetaColumns.DATETIME.value], format=DatetimeFormat.YMDH.value)
+            df_urls[DWDMetaColumns.DATETIME.value], format=DatetimeFormat.YMDH.value
+        )
 
         df_urls = df_urls.loc[df_urls[DWDMetaColumns.DATETIME.value] == date]
 
@@ -267,26 +290,30 @@ class DWDMosmixData:
     @staticmethod
     def coerce_columns(df):
         for column in df.columns:
-            if column in DATE_FIELDS_REGULAR:
-                df[column] = pd.to_datetime(df[column], infer_datetime_format=True, utc=False)
+            if column == DWDMetaColumns.STATION_ID.value:
+                df[column] = df[column].astype(str)
+            elif column in DATE_FIELDS_REGULAR:
+                df[column] = pd.to_datetime(
+                    df[column], infer_datetime_format=True, utc=False
+                )
             elif column in INTEGER_FIELDS:
                 df[column] = df[column].astype(pd.Int64Dtype())
             else:
                 df[column] = df[column].astype(float)
 
 
-class DWDForecastSites(WDSitesCore):
+class DWDMosmixSites(WDSitesCore):
     def __init__(
-            self,
-            start_date: Union[None, str, Timestamp] = None,
-            end_date: Union[None, str, Timestamp] = None,
+        self,
+        start_date: Union[None, str, Timestamp] = None,
+        end_date: Union[None, str, Timestamp] = None,
     ) -> None:
         super().__init__(
             parameter=Parameter.CLIMATE_SUMMARY,
             time_resolution=TimeResolution.HOURLY,
             period_type=[PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG],
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
         )
 
     @staticmethod

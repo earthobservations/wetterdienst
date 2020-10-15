@@ -140,7 +140,6 @@ class PandasDwdExtension:
                         "state": station["state"],
                         "from_date": station["from_date"].isoformat(),
                         "to_date": station["to_date"].isoformat(),
-                        "has_file": station["has_file"],
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees

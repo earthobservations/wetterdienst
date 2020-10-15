@@ -9,7 +9,7 @@ from pandas import Timestamp
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.util import parse_enumeration_from_template,  parse_datetime
+from wetterdienst.dwd.util import parse_enumeration_from_template, parse_datetime
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
@@ -20,25 +20,27 @@ KM_EARTH_RADIUS = 6371
 
 class WDSitesCore:
     def __init__(
-            self,
-            parameter: Union[str, Parameter, List[Union[str, Parameter]]],
-            time_resolution: Union[
-                None, str, TimeResolution, List[Union[str, TimeResolution]]
-            ] = None,
-            period_type: Union[
-                Union[None, str, PeriodType], List[Union[str, PeriodType]]
-            ] = None,
-            start_date: Union[None, str, Timestamp] = None,
-            end_date: Union[None, str, Timestamp] = None,
+        self,
+        parameter: Union[str, Parameter, List[Union[str, Parameter]]],
+        time_resolution: Union[
+            None, str, TimeResolution, List[Union[str, TimeResolution]]
+        ] = None,
+        period_type: Union[
+            Union[None, str, PeriodType], List[Union[str, PeriodType]]
+        ] = None,
+        start_date: Union[None, str, Timestamp] = None,
+        end_date: Union[None, str, Timestamp] = None,
     ) -> None:
         parameter = parse_enumeration_from_template(parameter, Parameter)
-        time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
+        time_resolution = parse_enumeration_from_template(
+            time_resolution, TimeResolution
+        )
         period_type = parse_enumeration_from_template(period_type, PeriodType)
 
         self._check_parameters(
             parameter=parameter,
             time_resolution=time_resolution,
-            period_type=period_type
+            period_type=period_type,
         )
 
         start_date = (
@@ -54,9 +56,7 @@ class WDSitesCore:
 
         if start_date and end_date:
             if start_date > end_date:
-                raise StartDateEndDateError(
-                    "'start_date' has to be before 'end_date'"
-                )
+                raise StartDateEndDateError("'start_date' has to be before 'end_date'")
 
         self.parameter = parameter
         self.time_resolution = time_resolution
@@ -81,12 +81,10 @@ class WDSitesCore:
         if self.start_date:
             metadata = metadata[
                 metadata[DWDMetaColumns.FROM_DATE.value] <= self.start_date
-                ]
+            ]
 
         if self.end_date:
-            metadata = metadata[
-                metadata[DWDMetaColumns.TO_DATE.value] >= self.end_date
-                ]
+            metadata = metadata[metadata[DWDMetaColumns.TO_DATE.value] >= self.end_date]
 
         return metadata
 
@@ -139,8 +137,8 @@ class WDSitesCore:
         # further indices and distances are added which have to be filtered out
         distances = distances[: min(metadata.shape[0], num_stations_nearby)]
         indices_nearest_neighbours = indices_nearest_neighbours[
-                                     : min(metadata.shape[0], num_stations_nearby)
-                                     ]
+            : min(metadata.shape[0], num_stations_nearby)
+        ]
 
         distances_km = np.array(distances * KM_EARTH_RADIUS)
 
@@ -183,17 +181,11 @@ class WDSitesCore:
 
         metadata = self.all()
 
-        all_nearby_stations = self.nearby_number(
-            latitude,
-            longitude,
-            metadata.shape[0]
-        )
+        all_nearby_stations = self.nearby_number(latitude, longitude, metadata.shape[0])
 
         nearby_stations_in_distance = all_nearby_stations[
             all_nearby_stations[DWDMetaColumns.DISTANCE_TO_LOCATION.value]
             <= max_distance_in_km
-            ]
+        ]
 
         return nearby_stations_in_distance.reset_index(drop=True)
-
-

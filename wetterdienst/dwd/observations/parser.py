@@ -10,7 +10,9 @@ from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
-from wetterdienst.dwd.observations.metadata.column_names import DWDObservationsOrigDataColumns
+from wetterdienst.dwd.observations.metadata.column_names import (
+    DWDObservationsOrigDataColumns,
+)
 from wetterdienst.dwd.metadata.parameter import Parameter
 from wetterdienst import TimeResolution
 
@@ -100,8 +102,9 @@ def _parse_climate_observations_data(
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
-                "MESS_DATUM_WOZ": (DWDObservationsOrigDataColumns.HOURLY.SOLAR.
-                                   TRUE_LOCAL_TIME.value),
+                "MESS_DATUM_WOZ": (
+                    DWDObservationsOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                ),
             }
         )
 

@@ -109,10 +109,19 @@ This table and subsets of it can be printed with a function call of
 MOSMIX
 ******
 
-Yet to be implemented...
+MOSMIX is a forecast product of the DWD that is based on global weather models and that
+uses statistical downscaling to stations based on their historical observations to
+provide more precise, local forecast. MOSMIX is available for over 5000 stations
+worldwide and is available in two versions, MOSMIX-S and MOSMIX-L. MOSMIX-S comes with
+a set of
+40 parameters and is published every hour while MOSMIX-L has a set of approx. 115
+parameters and is released every 6 hours (3, 9, 15, 21). Both versions have a forecast
+limit of 240h.
+
+RADAR
+*****
 
 RADOLAN
-*******
 
 The RADOLAN data offers the user radar precipitation measurements that are with
 ground based measurements. The data is offered in hourly and daily versions, both
@@ -120,3 +129,6 @@ being frequently updated for the recent version and data for each concluded year
 stored in the historical version. The daily version offers gliding sums of the last 24
 hours while the hourly version offers hourly sums of precipitation. The precipitation
 amount is given in 1/10 mm.
+
+Data from https://opendata.dwd.de/weather/radar/sites/ is also available but is not
+further explained as of its complexity.

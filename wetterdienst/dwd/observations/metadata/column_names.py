@@ -577,7 +577,9 @@ class DWDObservationsDataColumns(WDDataColumnBase):
             QUALITY_WIND = "QUALITY_WIND"
             WIND_GUST_MAX = "WIND_GUST_MAX"
             WIND_SPEED = "WIND_SPEED"
-            QUALITY_GENERAL = "QUALITY_GENERAL"  # special case here with two quality columns!
+            QUALITY_GENERAL = (
+                "QUALITY_GENERAL"  # special case here with two quality columns!
+            )
             PRECIPITATION_HEIGHT = "PRECIPITATION_HEIGHT"
             PRECIPITATION_FORM = "PRECIPITATION_FORM"
             SUNSHINE_DURATION = "SUNSHINE_DURATION"

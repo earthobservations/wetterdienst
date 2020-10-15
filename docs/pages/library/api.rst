@@ -21,6 +21,14 @@ Observations
 .. autoclass:: wetterdienst.dwd.observations.api.DWDObservationMetadata
     :members:
 
+******************
+Forecasts (MOSMIX)
+******************
+
+.. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixData
+    :members:
+.. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixSites
+    :members:
 
 *****
 RADAR

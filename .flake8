@@ -9,3 +9,5 @@ per-file-ignores =
     wetterdienst/cli.py:E501,B950
     wetterdienst/service.py:B008
     wetterdienst/util/pandas.py:E501,B950
+    wetterdienst/dwd/observations/metadata/column_types.py:E501,B950
+    wetterdienst/dwd/forecasts/metadata/column_types.py:E501,B950

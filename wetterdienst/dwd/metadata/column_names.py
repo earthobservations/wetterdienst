@@ -21,6 +21,7 @@ class DWDOrigMetaColumns(Enum):
 
 class DWDMetaColumns(Enum):
     """ Overhauled column names for metadata fields """
+
     STATION_ID = "STATION_ID"  # change to local id later
     DATE = "DATE"
     FROM_DATE = "FROM_DATE"

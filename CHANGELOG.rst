@@ -6,6 +6,7 @@ Development
 ===========
 
 - CLI: Obtain "--tidy" argument from command line
+- Extend MOSMIX support to equal the API of observations
 
 0.9.0 (09.10.2020)
 ==================

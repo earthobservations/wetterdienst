@@ -17,12 +17,17 @@ from wetterdienst.dwd.metadata import (
     Parameter,
     PeriodType,
 )
+from wetterdienst.dwd.observations.metadata.column_names import (
+    DWDObservationsOrigDataColumns,
+    DWDObservationsDataColumns,
+)
 from wetterdienst.dwd.observations.stations import metadata_for_climate_observations
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.dwd.util import (
     parse_enumeration_from_template,
     parse_enumeration,
-    build_parameter_identifier, check_parameters,
+    build_parameter_identifier,
+    check_parameters,
 )
 from wetterdienst.exceptions import InvalidParameterCombination, StartDateEndDateError
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
@@ -36,6 +41,7 @@ class DWDObservationData:
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
     """
+
     def __init__(
         self,
         station_ids: Union[str, int, List[Union[int, str]]],
@@ -93,7 +99,11 @@ class DWDObservationData:
         # If any date is given, use all period types and filter, else if not period type
         # is given use all period types
         if start_date or end_date or not period_type:
-            self.period_type = [*PeriodType]
+            self.period_type = [
+                PeriodType.HISTORICAL,
+                PeriodType.RECENT,
+                PeriodType.NOW,
+            ]
         # Otherwise period types will be parsed
         else:
             # For the case that a period_type is given, parse the period type(s)
@@ -270,7 +280,10 @@ class DWDObservationData:
         # Assign meaningful column names (humanized).
         if self.humanize_column_names:
             hcnm = create_humanized_column_names_mapping(
-                self.time_resolution, parameter
+                self.time_resolution,
+                parameter,
+                DWDObservationsOrigDataColumns,
+                DWDObservationsDataColumns,
             )
 
             if self.tidy_data:
@@ -319,6 +332,7 @@ class DWDObservationSites(WDSitesCore):
     The DWDObservationSites class represents a request for
     station data as provided by the DWD service.
     """
+
     @staticmethod
     def _check_parameters(**kwargs):
         parameter = kwargs.get("parameter")
@@ -340,6 +354,8 @@ class DWDObservationSites(WDSitesCore):
 
         # Filter only for stations that have a file
         metadata = metadata[metadata[DWDMetaColumns.HAS_FILE.value].values]
+
+        metadata = metadata.drop(columns=[DWDMetaColumns.HAS_FILE.value])
 
         return metadata
 

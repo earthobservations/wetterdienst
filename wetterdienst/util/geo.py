@@ -41,10 +41,10 @@ class Coordinates:
 
 
 def derive_nearest_neighbours(
-        latitudes_stations: np.array,
-        longitudes_stations: np.array,
-        coordinates: Coordinates,
-        num_stations_nearby: int = 1,
+    latitudes_stations: np.array,
+    longitudes_stations: np.array,
+    coordinates: Coordinates,
+    num_stations_nearby: int = 1,
 ) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     """
     A function that uses a k-d tree algorithm to obtain the nearest

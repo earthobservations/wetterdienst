@@ -1,10 +1,7 @@
 import logging
-from datetime import datetime
-from typing import Union, Optional, Tuple
+from typing import Union
 
-import numpy as np
 import pandas as pd
-from scipy.spatial.ckdtree import cKDTree
 
 from wetterdienst import Parameter, TimeResolution, PeriodType
 from wetterdienst.dwd.observations.fileindex import (
@@ -14,13 +11,9 @@ from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,
 )
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.dwd.util import (
-    check_parameters,
     parse_enumeration_from_template,
-    parse_datetime,
 )
-from wetterdienst.util.geo import Coordinates
 
 logger = logging.getLogger(__name__)
 
