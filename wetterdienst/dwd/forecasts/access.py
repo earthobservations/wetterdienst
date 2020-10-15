@@ -58,7 +58,7 @@ class KMLReader:
 
         return buffer
 
-    def fetch(self, url) -> str:
+    def fetch(self, url) -> bytes:
         """
         Fetch weather forecast file (zipped xml).
         """
@@ -77,7 +77,7 @@ class KMLReader:
 
         log.info("Parsing KML data")
         # TODO: Check if XML parsing performance can be improved by using libxml2.
-        tree = etree.parse(BytesIO(kml))  # noqa:S320
+        tree = etree.parse(BytesIO(kml), parser=etree.XMLParser(huge_tree=True))
         self.root = root = tree.getroot()
 
         prod_items = {
