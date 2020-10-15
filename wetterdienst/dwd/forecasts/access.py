@@ -7,7 +7,7 @@ from typing import List, Optional
 from zipfile import ZipFile
 from os.path import basename
 
-from lxml import etree  # noqa:S410
+from lxml.etree import parse, XMLParser
 from pandas import DatetimeIndex
 from tqdm import tqdm
 import numpy as np
@@ -77,7 +77,7 @@ class KMLReader:
 
         log.info("Parsing KML data")
         # TODO: Check if XML parsing performance can be improved by using libxml2.
-        tree = etree.parse(BytesIO(kml), parser=etree.XMLParser(huge_tree=True))
+        tree = parse(BytesIO(kml), parser=XMLParser(huge_tree=True))  # noqa:S320
         self.root = root = tree.getroot()
 
         prod_items = {
