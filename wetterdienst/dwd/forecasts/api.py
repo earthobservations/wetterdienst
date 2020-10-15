@@ -76,9 +76,19 @@ class DWDMosmixData:
         """
 
         Args:
-            period_type:
-            station_ids:
-            parameters:
+            period_type: period type of forecast, either short (MOSMIX-S) or long
+                (MOSMIX-L), as string or enumeration
+            station_ids: station ids which are being queried from the MOSMIX foreacst
+            parameters: optional parameters for which the forecasts are filtered
+            start_date: start date of the MOSMIX forecast, can be used in combination
+                with end date to query multiple MOSMIX forecasts, or instead used with
+                enumeration to only query LATEST MOSMIX forecast
+            end_date: end date of MOSMIX forecast, can be used to query multiple MOSMIX
+                forecasts available on the server
+            tidy_data: boolean if pandas.DataFrame shall be tidied and values put in
+                rows
+            humanize_column_names: boolean if parameters shall be renamed to human
+                readable names
         """
 
         if period_type not in (PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG):
@@ -142,10 +152,22 @@ class DWDMosmixData:
 
     @property
     def metadata(self):
+        """ Wrapper for forecast metadata """
         return metadata_for_forecasts()
 
     @staticmethod
     def adjust_datetime(datetime_: datetime) -> datetime:
+        """
+        Adjust datetime to MOSMIX release frequency, which is required for MOSMIX-L
+        that is only released very 6 hours (3, 9, 15, 21). Datetime is floored
+        to closest release time e.g. if hour is 14, it will be rounded to 9
+
+        Args:
+            datetime_: datetime that is adjusted
+
+        Returns:
+            adjusted datetime with floored hour
+        """
         regular_date = datetime_ + pd.offsets.DateOffset(hour=3)
 
         if regular_date > datetime_:
@@ -158,6 +180,8 @@ class DWDMosmixData:
         return datetime_adjusted
 
     def collect_data(self) -> Generator[DWDMosmixResult, None, None]:
+        """Wrapper of read_mosmix to collect forecast data (either latest or for
+        defined dates)"""
         if self.start_date == ForecastDate.LATEST:
             yield from self.read_mosmix(self.start_date)
         else:
@@ -168,7 +192,17 @@ class DWDMosmixData:
                     log.warning(e)
                     continue
 
-    def read_mosmix(self, date):
+    def read_mosmix(self, date: Union[datetime, ForecastDate]) -> DWDMosmixResult:
+        """
+        Manage data acquisition for a given date that is used to filter the found files
+        on the MOSMIX path of the DWD server.
+
+        Args:
+            date: datetime or enumeration for latest MOSMIX forecast
+
+        Returns:
+            DWDMosmixResult with gathered information
+        """
         for df_metadata, df_forecast in self._read_mosmix(date):
             df_forecast = df_forecast.rename(
                 columns={
@@ -222,14 +256,18 @@ class DWDMosmixData:
     def _read_mosmix(
         self, date: Union[ForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+        """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
+        defined period type"""
         if self.period_type == PeriodType.FORECAST_SHORT:
             yield from self.read_mosmix_s(date)
         else:
             yield from self.read_mosmix_l(date)
 
     def read_mosmix_s(
-        self, date
+        self, date: Union[ForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+        """Reads single MOSMIX-S file with all stations and returns every forecast that
+        matches with one of the defined station ids."""
         url = urljoin(DWD_SERVER, DWD_MOSMIX_S_PATH)
 
         file_url = self.get_url_for_date(url, date)
@@ -240,8 +278,10 @@ class DWDMosmixData:
             yield self.kml.get_metadata(), forecast
 
     def read_mosmix_l(
-        self, date
+        self, date: Union[ForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+        """Reads multiple MOSMIX-L files with one per each station and returns a
+        forecast per file."""
         url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH)
 
         for station_id in self.station_ids:
@@ -258,7 +298,18 @@ class DWDMosmixData:
             yield self.kml.get_metadata(), next(self.kml.get_forecasts())
 
     @staticmethod
-    def get_url_for_date(url, date) -> str:
+    def get_url_for_date(url: str, date: Union[datetime, ForecastDate]) -> str:
+        """
+        Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
+        used for filtering.
+
+        Args:
+            url:    MOSMIX-S/MOSMIX-L path on the dwd server
+            date:   date used for filtering of the available files
+
+        Returns:
+            file url based on the filtering
+        """
         urls = list_remote_files(url, False)
 
         if date == ForecastDate.LATEST:
@@ -289,6 +340,7 @@ class DWDMosmixData:
 
     @staticmethod
     def coerce_columns(df):
+        """ Column type coercion helper """
         for column in df.columns:
             if column == DWDMetaColumns.STATION_ID.value:
                 df[column] = df[column].astype(str)
@@ -303,6 +355,8 @@ class DWDMosmixData:
 
 
 class DWDMosmixSites(WDSitesCore):
+    """ Implementation of sites for MOSMIX forecast sites """
+
     def __init__(
         self,
         start_date: Union[None, str, Timestamp] = None,
