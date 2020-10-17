@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from pandas import Timestamp
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.observations import DWDParameterSet, TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.util import parse_enumeration_from_template, parse_datetime
 from wetterdienst.exceptions import StartDateEndDateError
@@ -21,7 +21,7 @@ KM_EARTH_RADIUS = 6371
 class WDSitesCore:
     def __init__(
         self,
-        parameter: Union[str, Parameter, List[Union[str, Parameter]]],
+        parameter: Union[str, DWDParameterSet, List[Union[str, DWDParameterSet]]],
         time_resolution: Union[
             None, str, TimeResolution, List[Union[str, TimeResolution]]
         ] = None,
@@ -31,7 +31,7 @@ class WDSitesCore:
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
     ) -> None:
-        parameter = parse_enumeration_from_template(parameter, Parameter)
+        parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
         time_resolution = parse_enumeration_from_template(
             time_resolution, TimeResolution
         )

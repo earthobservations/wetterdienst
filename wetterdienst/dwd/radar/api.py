@@ -20,7 +20,7 @@ from wetterdienst.util.datetime import round_minutes, raster_minutes
 log = logging.getLogger(__name__)
 
 
-class DWDRadarRequest:
+class DWDRadarData:
     """
     API for DWD radar data requests.
 
@@ -223,7 +223,7 @@ class DWDRadarRequest:
             and self.start_date == other.start_date
             and self.end_date == other.end_date
             and self.time_resolution == other.time_resolution
-            and self.period_type == other.period_type
+            and self.period_type == other.period_types
         )
 
     def collect_data(self) -> Generator[RadarResult, None, None]:

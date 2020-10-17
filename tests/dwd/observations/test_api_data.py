@@ -7,18 +7,16 @@ from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.metadata import (
     TimeResolution,
-    Parameter,
+    DWDParameterSet,
     PeriodType,
 )
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.api import DWDObservationData
-from wetterdienst.dwd.observations.metadata.column_names import (
-    DWDObservationsOrigDataColumns,
-    DWDObservationsDataColumns,
+from wetterdienst.dwd.observations.metadata.parameter import (
+    DWDObservationParameter,
 )
 from wetterdienst.dwd.observations.store import StorageAdapter
-from wetterdienst.exceptions import StartDateEndDateError
-
+from wetterdienst.exceptions import StartDateEndDateError, NoParametersFound
 
 HERE = Path(__file__).parent
 
@@ -37,12 +35,12 @@ CSV_FILE.seek(0)
 def test_dwd_observation_data():
     assert DWDObservationData(
         station_ids=[1],
-        parameter="kl",
+        parameters=["kl"],
         time_resolution="daily",
-        period_type=["recent", "historical"],
+        period_types=["recent", "historical"],
     ) == [
         [1],
-        [Parameter.CLIMATE_SUMMARY],
+        [(DWDParameterSet.CLIMATE_SUMMARY, DWDParameterSet.CLIMATE_SUMMARY)],
         TimeResolution.DAILY,
         [PeriodType.HISTORICAL, PeriodType.RECENT],
         None,
@@ -51,12 +49,50 @@ def test_dwd_observation_data():
 
     assert DWDObservationData(
         station_ids=[1],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.HISTORICAL,
+        parameters=["precipitation_height"],
+        time_resolution="daily",
+        period_types=["recent", "historical"],
     ) == [
         [1],
-        [Parameter.CLIMATE_SUMMARY],
+        [
+            (
+                DWDObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+                DWDParameterSet.CLIMATE_SUMMARY,
+            )
+        ],
+        TimeResolution.DAILY,
+        [PeriodType.HISTORICAL, PeriodType.RECENT],
+        None,
+        None,
+    ]
+
+    assert DWDObservationData(
+        station_ids=[1],
+        parameters=[DWDParameterSet.CLIMATE_SUMMARY],
+        time_resolution=TimeResolution.DAILY,
+        period_types=[PeriodType.HISTORICAL],
+    ) == [
+        [1],
+        [(DWDParameterSet.CLIMATE_SUMMARY, DWDParameterSet.CLIMATE_SUMMARY)],
+        TimeResolution.DAILY,
+        [PeriodType.HISTORICAL],
+        None,
+        None,
+    ]
+
+    assert DWDObservationData(
+        station_ids=[1],
+        parameters=[DWDObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT],
+        time_resolution=TimeResolution.DAILY,
+        period_types=[PeriodType.HISTORICAL],
+    ) == [
+        [1],
+        [
+            (
+                DWDObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+                DWDParameterSet.CLIMATE_SUMMARY,
+            )
+        ],
         TimeResolution.DAILY,
         [PeriodType.HISTORICAL],
         None,
@@ -66,21 +102,21 @@ def test_dwd_observation_data():
     # station id
     with pytest.raises(ValueError):
         DWDObservationData(
-            station_ids="test",
-            parameter=Parameter.CLIMATE_SUMMARY,
-            period_type=PeriodType.HISTORICAL,
+            station_ids=["test"],
+            parameters=[DWDParameterSet.CLIMATE_SUMMARY],
+            period_types=[PeriodType.HISTORICAL],
             time_resolution=TimeResolution.DAILY,
         )
 
     # time input
     assert DWDObservationData(
         station_ids=[1],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=[DWDParameterSet.CLIMATE_SUMMARY],
         time_resolution=TimeResolution.DAILY,
         start_date="1971-01-01",
     ) == [
         [1],
-        [Parameter.CLIMATE_SUMMARY],
+        [(DWDParameterSet.CLIMATE_SUMMARY, DWDParameterSet.CLIMATE_SUMMARY)],
         TimeResolution.DAILY,
         [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW],
         pd.Timestamp("1971-01-01"),
@@ -89,12 +125,12 @@ def test_dwd_observation_data():
 
     assert DWDObservationData(
         station_ids=[1],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=[DWDParameterSet.CLIMATE_SUMMARY],
         time_resolution=TimeResolution.DAILY,
         end_date="1971-01-01",
     ) == [
         [1],
-        [Parameter.CLIMATE_SUMMARY],
+        [(DWDParameterSet.CLIMATE_SUMMARY, DWDParameterSet.CLIMATE_SUMMARY)],
         TimeResolution.DAILY,
         [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW],
         pd.Timestamp("1971-01-01"),
@@ -103,13 +139,13 @@ def test_dwd_observation_data():
 
     assert DWDObservationData(
         station_ids=[1],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=[DWDParameterSet.CLIMATE_SUMMARY],
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.HISTORICAL,
+        period_types=[PeriodType.HISTORICAL],
         start_date="1971-01-01",
     ) == [
         [1],
-        [Parameter.CLIMATE_SUMMARY],
+        [(DWDParameterSet.CLIMATE_SUMMARY, DWDParameterSet.CLIMATE_SUMMARY)],
         TimeResolution.DAILY,
         [PeriodType.HISTORICAL, PeriodType.RECENT, PeriodType.NOW],
         pd.Timestamp("1971-01-01"),
@@ -119,7 +155,16 @@ def test_dwd_observation_data():
     with pytest.raises(StartDateEndDateError):
         DWDObservationData(
             station_ids=[1],
-            parameter=Parameter.CLIMATE_SUMMARY,
+            parameters=[DWDParameterSet.CLIMATE_SUMMARY],
+            time_resolution=TimeResolution.DAILY,
+            start_date="1971-01-01",
+            end_date="1951-01-01",
+        )
+
+    with pytest.raises(NoParametersFound):
+        DWDObservationData(
+            station_ids=[1],
+            parameters=["abc"],
             time_resolution=TimeResolution.DAILY,
             start_date="1971-01-01",
             end_date="1951-01-01",
@@ -133,16 +178,16 @@ def test_observation_data_storing():
     we can run just another test afterwards as no old data is used
     """
     storage = StorageAdapter(persist=True).hdf5(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
+        DWDParameterSet.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
     )
 
     storage.invalidate()
 
     dwd_obs_data = DWDObservationData(
-        station_ids=1,
-        parameter=Parameter.CLIMATE_SUMMARY,
+        station_ids=[1],
+        parameters=[DWDParameterSet.CLIMATE_SUMMARY],
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.HISTORICAL,
+        period_types=[PeriodType.HISTORICAL],
         storage=StorageAdapter(persist=True),
     )
     df = dwd_obs_data.collect_safe()
@@ -160,9 +205,8 @@ def test_create_humanized_column_names_mapping():
     """ Test for function to create a mapping to humanized column names """
     hcnm = create_humanized_column_names_mapping(
         TimeResolution.DAILY,
-        Parameter.CLIMATE_SUMMARY,
-        DWDObservationsOrigDataColumns,
-        DWDObservationsDataColumns,
+        DWDParameterSet.CLIMATE_SUMMARY,
+        DWDObservationParameter,
     )
 
     assert hcnm == {

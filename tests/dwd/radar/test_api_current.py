@@ -1,7 +1,7 @@
 import h5py
 import pytest
 
-from wetterdienst import DWDRadarRequest, RadarParameter, TimeResolution
+from wetterdienst import DWDRadarData, RadarParameter, TimeResolution
 from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset
 from wetterdienst.dwd.radar.sites import RadarSite
 
@@ -13,7 +13,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=RadarDate.CURRENT,
         site=RadarSite.BOO,
@@ -55,7 +55,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=RadarDate.CURRENT,
         site=RadarSite.BOO,
@@ -97,7 +97,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=RadarDate.CURRENT,
         site=RadarSite.BOO,
@@ -136,7 +136,7 @@ def test_radar_request_radolan_cdc_current(time_resolution):
     available when looking at CURRENT.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
         start_date=RadarDate.CURRENT,
         time_resolution=time_resolution,
@@ -154,7 +154,7 @@ def test_radar_request_radolan_cdc_current_5min():
     FIXME: Does not work as expected yet.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
         time_resolution=TimeResolution.MINUTE_5,
         start_date=RadarDate.CURRENT,

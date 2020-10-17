@@ -1,16 +1,21 @@
-from wetterdienst import DWDObservationMetadata, TimeResolution, Parameter, PeriodType
+from wetterdienst import (
+    DWDObservationMetadata,
+    TimeResolution,
+    DWDParameterSet,
+    PeriodType,
+)
 
 
 def test_dwd_observation_metadata_discover_parameters():
 
     parameters = DWDObservationMetadata(
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameter_set=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
     ).discover_parameters()
 
     assert parameters == {
         str(TimeResolution.DAILY): {
-            str(Parameter.CLIMATE_SUMMARY): [
+            str(DWDParameterSet.CLIMATE_SUMMARY): [
                 str(PeriodType.HISTORICAL),
                 str(PeriodType.RECENT),
             ]
@@ -21,7 +26,7 @@ def test_dwd_observation_metadata_discover_parameters():
 def test_dwd_observation_metadata_describe_fields_kl_daily():
 
     metadata = DWDObservationMetadata(
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameter_set=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,
     )
@@ -51,7 +56,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily():
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
     metadata = DWDObservationMetadata(
-        parameter=Parameter.SOLAR,
+        parameter_set=DWDParameterSet.SOLAR,
         time_resolution=TimeResolution.HOURLY,
         period_type=PeriodType.RECENT,
     )
@@ -71,7 +76,7 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
 
     metadata = DWDObservationMetadata(
-        parameter=Parameter.TEMPERATURE_AIR,
+        parameter_set=DWDParameterSet.TEMPERATURE_AIR,
         time_resolution=TimeResolution.MINUTE_10,
         period_type=PeriodType.RECENT,
     )

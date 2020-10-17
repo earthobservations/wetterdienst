@@ -52,7 +52,7 @@ from wetterdienst.dwd.radar.metadata import RadarParameter
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest, TimeResolution, PeriodType
+from wetterdienst import DWDRadarData, TimeResolution, PeriodType
 
 
 def plot(data: np.ndarray, attributes: dict, label: str):
@@ -125,7 +125,7 @@ def label_by_producttype(producttype: str) -> str:
 def radolan_grid_example():
 
     log.info("Acquiring RADOLAN_CDC data")
-    radolan = DWDRadarRequest(
+    radolan = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,

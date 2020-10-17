@@ -10,7 +10,7 @@ from wetterdienst import (
     __version__,
     TimeResolution,
 )
-from wetterdienst import PeriodType, Parameter
+from wetterdienst import PeriodType, DWDParameterSet
 from wetterdienst import DWDObservationData
 from wetterdienst.dwd.observations.api import DWDObservationSites
 from wetterdienst.dwd.util import parse_enumeration_from_template
@@ -75,7 +75,7 @@ def dwd_stations(
     sql: str = Query(default=None),
 ):
 
-    parameter = parse_enumeration_from_template(parameter, Parameter)
+    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
     resolution = parse_enumeration_from_template(resolution, TimeResolution)
     period = parse_enumeration_from_template(period, PeriodType)
 
@@ -131,16 +131,16 @@ def dwd_readings(
         )
 
     station_ids = map(int, read_list(station))
-    parameter = parse_enumeration_from_template(parameter, Parameter)
+    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
     resolution = parse_enumeration_from_template(resolution, TimeResolution)
     period = parse_enumeration_from_template(period, PeriodType)
 
     # Data acquisition.
     observations = DWDObservationData(
         station_ids=station_ids,
-        parameter=parameter,
+        parameters=parameter,
         time_resolution=resolution,
-        period_type=period,
+        period_types=period,
         tidy_data=True,
         humanize_column_names=True,
     )

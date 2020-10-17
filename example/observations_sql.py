@@ -16,7 +16,7 @@ Setup
 import logging
 
 from wetterdienst import DWDObservationData
-from wetterdienst import TimeResolution, Parameter
+from wetterdienst import TimeResolution, DWDParameterSet
 
 log = logging.getLogger()
 
@@ -25,7 +25,7 @@ def sql_example():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=[Parameter.TEMPERATURE_AIR],
+        parameters=[DWDParameterSet.TEMPERATURE_AIR],
         time_resolution=TimeResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",

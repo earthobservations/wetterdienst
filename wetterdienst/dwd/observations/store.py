@@ -4,13 +4,13 @@ from typing import Union
 
 import pandas as pd
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst import DWDParameterSet, TimeResolution, PeriodType
 from wetterdienst.dwd.observations.metadata.column_types import (
     QUALITY_FIELDS,
     INTEGER_FIELDS,
 )
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DataFormat
-from wetterdienst.dwd.util import build_parameter_identifier
+from wetterdienst.dwd.util import build_parameter_set_identifier
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class StorageAdapter:
 class LocalHDF5Store:
     def __init__(
         self,
-        parameter: Union[Parameter, str],
+        parameter: Union[DWDParameterSet, str],
         time_resolution: Union[TimeResolution, str],
         period_type: Union[PeriodType, str],
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
@@ -68,7 +68,7 @@ class LocalHDF5Store:
         :return:            Key for storing data into HDF5 file.
         """
 
-        return build_parameter_identifier(
+        return build_parameter_set_identifier(
             self.parameter, self.time_resolution, self.period_type, station_id
         )
 

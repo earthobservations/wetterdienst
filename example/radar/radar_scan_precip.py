@@ -35,7 +35,7 @@ from wetterdienst.dwd.radar.sites import RadarSite
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst import DWDRadarData
 
 
 def plot(data: wrl.io.XRadVolume):
@@ -73,14 +73,14 @@ def radar_info(data: dict):
 
 def radar_scan_precip():
 
-    request_velocity = DWDRadarRequest(
+    request_velocity = DWDRadarData(
         parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=RadarDate.MOST_RECENT,
         site=RadarSite.BOO,
         format=RadarDataFormat.HDF5,
         subset=RadarDataSubset.POLARIMETRIC,
     )
-    request_reflectivity = DWDRadarRequest(
+    request_reflectivity = DWDRadarData(
         parameter=RadarParameter.SWEEP_PCP_REFLECTIVITY_H,
         start_date=RadarDate.MOST_RECENT,
         site=RadarSite.BOO,

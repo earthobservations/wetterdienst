@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from wetterdienst import DWDRadarRequest, RadarParameter, TimeResolution, PeriodType
+from wetterdienst import DWDRadarData, RadarParameter, TimeResolution, PeriodType
 from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat
 from wetterdienst.dwd.radar.sites import RadarSite
 
@@ -14,7 +14,7 @@ def test_radar_request_site_historic_pe_wrong_parameters():
     """
 
     with pytest.raises(ValueError) as excinfo:
-        request = DWDRadarRequest(
+        request = DWDRadarData(
             parameter=RadarParameter.PE_ECHO_TOP,
             site=RadarSite.BOO,
             start_date=datetime.utcnow(),
@@ -33,7 +33,7 @@ def test_radar_request_site_historic_pe_future(caplog):
     This time for PE_ECHO_TOP data.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.PE_ECHO_TOP,
         site=RadarSite.BOO,
         format=RadarDataFormat.BUFR,
@@ -52,7 +52,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5():
     """
 
     with pytest.raises(ValueError) as excinfo:
-        request = DWDRadarRequest(
+        request = DWDRadarData(
             parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
             site=RadarSite.BOO,
             format=RadarDataFormat.HDF5,
@@ -71,7 +71,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters():
     """
 
     with pytest.raises(ValueError) as excinfo:
-        request = DWDRadarRequest(
+        request = DWDRadarData(
             parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
             site=RadarSite.BOO,
             start_date=RadarDate.CURRENT,
@@ -89,7 +89,7 @@ def test_radar_request_site_without_site():
     """
 
     with pytest.raises(ValueError) as excinfo:
-        request = DWDRadarRequest(
+        request = DWDRadarData(
             parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
             start_date=RadarDate.LATEST,
         )
@@ -106,7 +106,7 @@ def test_radar_request_hdf5_without_subset():
     """
 
     with pytest.raises(ValueError) as excinfo:
-        request = DWDRadarRequest(
+        request = DWDRadarData(
             parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
             site=RadarSite.BOO,
             format=RadarDataFormat.HDF5,
@@ -134,7 +134,7 @@ def test_radar_request_radolan_cdc_latest(time_resolution):
     """
 
     with pytest.raises(ValueError) as excinfo:
-        request = DWDRadarRequest(
+        request = DWDRadarData(
             parameter=RadarParameter.RADOLAN_CDC,
             time_resolution=time_resolution,
             start_date=RadarDate.LATEST,
@@ -152,7 +152,7 @@ def test_radar_request_radolan_cdc_invalid_time_resolution():
     """
 
     with pytest.raises(ValueError) as excinfo:
-        DWDRadarRequest(
+        DWDRadarData(
             parameter=RadarParameter.RADOLAN_CDC,
             time_resolution=TimeResolution.MINUTE_1,
             period_type=PeriodType.RECENT,
@@ -173,7 +173,7 @@ def test_radar_request_radolan_cdc_future(caplog):
     This time for RADOLAN_CDC data.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,

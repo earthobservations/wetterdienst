@@ -4,5 +4,5 @@ class _GetAttrMeta(type):
         return getattr(cls, x)
 
 
-class WDDataColumnBase(metaclass=_GetAttrMeta):
+class WDParameterStructureBase(metaclass=_GetAttrMeta):
     pass

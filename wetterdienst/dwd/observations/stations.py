@@ -3,7 +3,7 @@ from typing import Union
 
 import pandas as pd
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst import DWDParameterSet, TimeResolution, PeriodType
 from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
 )
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def metadata_for_climate_observations(
-    parameter: Union[Parameter, str],
+    parameter: Union[DWDParameterSet, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
 ) -> pd.DataFrame:
@@ -40,7 +40,7 @@ def metadata_for_climate_observations(
     :return: List of stations for selected parameters
     """
 
-    parameter = parse_enumeration_from_template(parameter, Parameter)
+    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
 

@@ -26,8 +26,8 @@ from wetterdienst.dwd.metadata.column_map import (
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.index import build_path_to_parameter
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.dwd.metadata.period_type import PeriodType
+from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
+from wetterdienst.dwd.observations.metadata.period_type import PeriodType
 from wetterdienst import TimeResolution
 from wetterdienst.exceptions import MetaFileNotFound
 from wetterdienst.util.network import list_remote_files
@@ -63,7 +63,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 
 @metaindex_cache.cache_on_arguments()
 def create_meta_index_for_climate_observations(
-    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
+    parameter: DWDParameterSet, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
     """
     Wrapper function that either calls the regular meta index function for general
@@ -81,7 +81,7 @@ def create_meta_index_for_climate_observations(
     cond = (
         time_resolution == TimeResolution.MINUTE_1
         and period_type == PeriodType.HISTORICAL
-        and parameter == Parameter.PRECIPITATION
+        and parameter == DWDParameterSet.PRECIPITATION
     )
 
     if cond:
@@ -95,7 +95,9 @@ def create_meta_index_for_climate_observations(
     # precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
-            Parameter.PRECIPITATION_MORE, TimeResolution.DAILY, PeriodType.HISTORICAL
+            DWDParameterSet.PRECIPITATION_MORE,
+            TimeResolution.DAILY,
+            PeriodType.HISTORICAL,
         )
 
         meta_index = pd.merge(
@@ -120,7 +122,7 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
+    parameter: DWDParameterSet, time_resolution: TimeResolution, period_type: PeriodType
 ) -> pd.DataFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
@@ -209,7 +211,9 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     """
 
-    parameter_path = f"{TimeResolution.MINUTE_1.value}/{Parameter.PRECIPITATION.value}/"
+    parameter_path = (
+        f"{TimeResolution.MINUTE_1.value}/{DWDParameterSet.PRECIPITATION.value}/"
+    )
 
     url = reduce(
         urljoin,

@@ -12,14 +12,12 @@ quality marks and drop overlapping values from other periods.
 
 
 @functools.total_ordering
-class PeriodType(Enum):
+class DWDObservationPeriodType(Enum):
     """ enumeration for different period types of storage on dwd server"""
 
     HISTORICAL = "historical"
     RECENT = "recent"
     NOW = "now"
-    FORECAST_SHORT = "forecast_short"
-    FORECAST_LONG = "forecast_long"
 
     @property
     def _period_type_order_mapping(self):
@@ -28,9 +26,7 @@ class PeriodType(Enum):
         return {
             "HISTORICAL": 0,
             "RECENT": 1,
-            "NOW": 2,
-            "FORECAST_SHORT": 3,
-            "FORECAST_LONG": 4,
+            "NOW": 2
         }
 
     def __lt__(self, other):

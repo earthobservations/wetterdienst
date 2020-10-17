@@ -10,10 +10,10 @@ from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
-from wetterdienst.dwd.observations.metadata.column_names import (
-    DWDObservationsOrigDataColumns,
+from wetterdienst.dwd.observations.metadata.parameter import (
+    DWDObservationParameter,
 )
-from wetterdienst.dwd.metadata.parameter import Parameter
+from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
 from wetterdienst import TimeResolution
 
 log = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
-    parameter: Parameter,
+    parameter: DWDParameterSet,
     time_resolution: Union[TimeResolution, str],
 ) -> pd.DataFrame:
     """
@@ -52,7 +52,7 @@ def parse_climate_observations_data(
 
 def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
-    parameter: Parameter,
+    parameter: DWDParameterSet,
     time_resolution: TimeResolution,
 ) -> pd.DataFrame:
     """
@@ -97,19 +97,19 @@ def _parse_climate_observations_data(
     data = data.drop(columns=DWDMetaColumns.EOR.value, errors="ignore")
 
     # Special handling for hourly solar data, as it has more date columns
-    if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
+    if time_resolution == TimeResolution.HOURLY and parameter == DWDParameterSet.SOLAR:
         # Rename date column correctly to end of interval, as it has additional minute
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
                 "MESS_DATUM_WOZ": (
-                    DWDObservationsOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                    DWDObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
                 ),
             }
         )
 
         # Duplicate the date column to end of interval column
-        data[DWDObservationsOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
+        data[DWDObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
             DWDOrigMetaColumns.DATE.value
         ]
 

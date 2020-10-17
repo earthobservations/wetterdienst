@@ -11,8 +11,8 @@ from wetterdienst.dwd.observations.api import DWDObservationSites
 from wetterdienst.util.geo import derive_nearest_neighbours
 from wetterdienst.util.geo import Coordinates
 from wetterdienst import TimeResolution
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.dwd.metadata.period_type import PeriodType
+from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
+from wetterdienst.dwd.observations.metadata.period_type import PeriodType
 from wetterdienst.exceptions import InvalidParameterCombination
 
 
@@ -30,7 +30,7 @@ def test_dwd_observation_sites_nearby_number_success():
 
     # Test for one nearest station
     sites = DWDObservationSites(
-        Parameter.TEMPERATURE_AIR,
+        DWDParameterSet.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
@@ -74,7 +74,7 @@ def test_dwd_observation_sites_nearby_number_success():
     )
 
     nearby_station = DWDObservationSites(
-        Parameter.TEMPERATURE_AIR,
+        DWDParameterSet.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),
@@ -144,7 +144,7 @@ def test_dwd_observation_sites_nearby_number_fail_1():
 
     with pytest.raises(ValueError):
         DWDObservationSites(
-            Parameter.TEMPERATURE_AIR,
+            DWDParameterSet.TEMPERATURE_AIR,
             TimeResolution.HOURLY,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
@@ -164,7 +164,7 @@ def test_dwd_observation_sites_nearby_number_fail_2():
 
     with pytest.raises(InvalidParameterCombination):
         DWDObservationSites(
-            Parameter.SOIL,
+            DWDParameterSet.SOIL,
             TimeResolution.MINUTE_10,
             PeriodType.RECENT,
             datetime(2020, 1, 1),
@@ -182,7 +182,7 @@ def test_dwd_observation_sites_nearby_number_fail_2():
 )
 def test_dwd_observation_sites_nearby_distance():
     nearby_station = DWDObservationSites(
-        Parameter.TEMPERATURE_AIR,
+        DWDParameterSet.TEMPERATURE_AIR,
         TimeResolution.HOURLY,
         PeriodType.RECENT,
         datetime(2020, 1, 1),

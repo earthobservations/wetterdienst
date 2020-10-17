@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst import DWDRadarData
 from wetterdienst.util.datetime import round_minutes
 from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
 from wetterdienst.dwd.radar.sites import RadarSite
@@ -15,7 +15,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
     Example for testing radar COMPOSITES latest.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.RX_REFLECTIVITY,
         start_date=RadarDate.LATEST,
     )
@@ -38,7 +38,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.RW_REFLECTIVITY,
         start_date=RadarDate.LATEST,
     )
@@ -62,7 +62,7 @@ def test_radar_request_site_latest_dx_reflectivity():
     Example for testing radar SITES latest.
     """
 
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.DX_REFLECTIVITY,
         start_date=RadarDate.LATEST,
         site=RadarSite.BOO,

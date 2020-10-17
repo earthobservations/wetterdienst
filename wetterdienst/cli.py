@@ -16,7 +16,7 @@ from wetterdienst.dwd.observations.api import (
     DWDObservationSites,
     DWDObservationMetadata,
 )
-from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.metadata import DWDParameterSet, TimeResolution, PeriodType
 
 log = logging.getLogger(__name__)
 
@@ -238,9 +238,9 @@ def run():
         # Funnel all parameters to the workhorse.
         observations = DWDObservationData(
             station_ids=station_ids,
-            parameter=read_list(options.parameter),
+            parameters=read_list(options.parameter),
             time_resolution=options.resolution,
-            period_type=read_list(options.period),
+            period_types=read_list(options.period),
             storage=storage,
             humanize_column_names=True,
             tidy_data=options.tidy,
@@ -365,7 +365,7 @@ def about(options: Munch):
                 print("-", value)
 
     if options.parameters:
-        output(Parameter)
+        output(DWDParameterSet)
 
     elif options.resolutions:
         output(TimeResolution)

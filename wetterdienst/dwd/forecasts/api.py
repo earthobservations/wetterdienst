@@ -2,24 +2,22 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Union, Optional, Generator, Tuple
+from typing import List, Union, Optional, Generator, Tuple, Dict
 from urllib.parse import urljoin
 
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
 from requests import HTTPError
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst import DWDParameterSet, TimeResolution, PeriodType
+from wetterdienst.core.data import WDDataCore
 from wetterdienst.core.sites import WDSitesCore
 from wetterdienst.dwd.forecasts.metadata.column_types import (
     DATE_FIELDS_REGULAR,
     INTEGER_FIELDS,
 )
 from wetterdienst.dwd.forecasts.metadata.dates import ForecastDate
-from wetterdienst.dwd.forecasts.metadata.column_names import (
-    DWDForecastsOrigDataColumns,
-    DWDForecastsDataColumns,
-)
+from wetterdienst.dwd.forecasts.metadata.column_names import DWDForecastParameters
 from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -47,7 +45,7 @@ class DWDMosmixResult:
     forecast: pd.DataFrame
 
 
-class DWDMosmixData:
+class DWDMosmixData(WDDataCore):
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
@@ -102,7 +100,7 @@ class DWDMosmixData:
                 pd.Series(parameters)
                 .apply(
                     parse_enumeration_from_template,
-                    args=(DWDForecastsOrigDataColumns.HOURLY.CLIMATE_SUMMARY,),
+                    args=(DWDForecastParameters,),
                 )
                 .tolist()
             )
@@ -146,7 +144,7 @@ class DWDMosmixData:
         # Add fixed attributes
         self.time_resolution = TimeResolution.HOURLY
         # Take climate summary as it matches best to MOSMIX
-        self.parameter = Parameter.CLIMATE_SUMMARY
+        self.parameter = DWDParameterSet.CLIMATE_SUMMARY
 
         self.kml = KMLReader(station_ids=self.station_ids, parameters=self.parameters)
 
@@ -224,12 +222,7 @@ class DWDMosmixData:
                 )
 
             if self.humanize_column_names:
-                hcnm = create_humanized_column_names_mapping(
-                    self.time_resolution,
-                    self.parameter,
-                    DWDForecastsOrigDataColumns,
-                    DWDForecastsDataColumns,
-                )
+                hcnm = self._create_humanized_column_names_mapping()
 
                 if self.tidy_data:
                     df_forecast[DWDMetaColumns.ELEMENT.value] = df_forecast[
@@ -353,6 +346,16 @@ class DWDMosmixData:
             else:
                 df[column] = df[column].astype(float)
 
+    def _create_humanized_column_names_mapping(self) -> Dict[str, str]:
+        """Create humanized column names mapping from DWDForecastParameters
+        enumeration"""
+        hcnm = {
+            forecast_parameter.name: forecast_parameter.value
+            for forecast_parameter in DWDForecastParameters
+        }
+
+        return hcnm
+
 
 class DWDMosmixSites(WDSitesCore):
     """ Implementation of sites for MOSMIX forecast sites """
@@ -363,7 +366,7 @@ class DWDMosmixSites(WDSitesCore):
         end_date: Union[None, str, Timestamp] = None,
     ) -> None:
         super().__init__(
-            parameter=Parameter.CLIMATE_SUMMARY,
+            parameter=DWDParameterSet.CLIMATE_SUMMARY,
             time_resolution=TimeResolution.HOURLY,
             period_type=[PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG],
             start_date=start_date,

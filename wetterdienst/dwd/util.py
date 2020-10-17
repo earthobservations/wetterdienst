@@ -6,7 +6,7 @@ import pandas as pd
 from dateutil.relativedelta import relativedelta
 from numpy.distutils.misc_util import as_list
 
-from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.metadata import DWDParameterSet, TimeResolution, PeriodType
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metadata.column_types import (
     DATE_FIELDS_REGULAR,
@@ -16,15 +16,17 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     STRING_FIELDS,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.metadata.parameter import TIME_RESOLUTION_PARAMETER_MAPPING
+from wetterdienst.dwd.observations.metadata.parameter_set import (
+    TIME_RESOLUTION_PARAMETER_MAPPING,
+)
 from wetterdienst.dwd.metadata.time_resolution import (
     TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
-from wetterdienst.exceptions import InvalidParameter
+from wetterdienst.exceptions import InvalidEnumeration
 
 
 def check_parameters(
-    parameter: Parameter, time_resolution: TimeResolution, period_type: PeriodType
+    parameter: DWDParameterSet, time_resolution: TimeResolution, period_type: PeriodType
 ) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
@@ -40,14 +42,15 @@ def check_parameters(
     return True
 
 
-def build_parameter_identifier(
-    parameter: Parameter,
+def build_parameter_set_identifier(
+    parameter_set: DWDParameterSet,
     time_resolution: TimeResolution,
     period_type: PeriodType,
     station_id: int,
 ) -> str:
+    """ Create parameter set identifier that is used for storage interactions """
     return (
-        f"{parameter.value}/{time_resolution.value}/"
+        f"{parameter_set.value}/{time_resolution.value}/"
         f"{period_type.value}/station_id_{str(station_id)}"
     )
 
@@ -95,9 +98,9 @@ def coerce_field_types(
 
 
 def parse_enumeration_from_template(
-    enum_: Union[str, Parameter, TimeResolution, PeriodType],
-    enum_template: Union[Parameter, TimeResolution, PeriodType, Callable],
-) -> Optional[Union[Parameter, TimeResolution, PeriodType]]:
+    enum_: Union[str, DWDParameterSet, TimeResolution, PeriodType],
+    enum_template: Union[DWDParameterSet, TimeResolution, PeriodType, Callable],
+) -> Optional[Union[DWDParameterSet, TimeResolution, PeriodType]]:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template
 
@@ -116,7 +119,7 @@ def parse_enumeration_from_template(
         try:
             return enum_template(enum_)
         except ValueError:
-            raise InvalidParameter(
+            raise InvalidEnumeration(
                 f"{enum_} could not be parsed from {enum_template.__name__}."
             )
 

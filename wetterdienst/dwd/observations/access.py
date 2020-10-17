@@ -18,10 +18,10 @@ from wetterdienst.dwd.util import (
     check_parameters,
     parse_enumeration_from_template,
     coerce_field_types,
-    build_parameter_identifier,
+    build_parameter_set_identifier,
 )
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.dwd.metadata.period_type import PeriodType
+from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
+from wetterdienst.dwd.observations.metadata.period_type import PeriodType
 from wetterdienst import TimeResolution
 from wetterdienst.exceptions import (
     InvalidParameterCombination,
@@ -40,7 +40,7 @@ PRODUCT_FILE_IDENTIFIER = "produkt"
 
 def collect_climate_observations_data(
     station_id: int,
-    parameter: Union[Parameter, str],
+    parameter: Union[DWDParameterSet, str],
     time_resolution: Union[TimeResolution, str],
     period_type: Union[PeriodType, str],
 ) -> pd.DataFrame:
@@ -58,7 +58,7 @@ def collect_climate_observations_data(
 
     :return:                        All the data given by the station ids.
     """
-    parameter = parse_enumeration_from_template(parameter, Parameter)
+    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
     time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
     period_type = parse_enumeration_from_template(period_type, PeriodType)
 
@@ -73,7 +73,7 @@ def collect_climate_observations_data(
     )
 
     if len(remote_files) == 0:
-        parameter_identifier = build_parameter_identifier(
+        parameter_identifier = build_parameter_set_identifier(
             parameter, time_resolution, period_type, station_id
         )
         log.info(f"No files found for {parameter_identifier}. Station will be skipped.")

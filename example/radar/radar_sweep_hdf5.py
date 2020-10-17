@@ -33,7 +33,7 @@ from wetterdienst.dwd.radar.sites import RadarSite
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst import DWDRadarData
 
 
 def plot(data: np.ndarray):
@@ -59,7 +59,7 @@ def radar_info(data: dict):
 def radar_hdf5_example():
 
     log.info("Acquiring radar sweep data in HDF5")
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=RadarDate.MOST_RECENT,
         site=RadarSite.BOO,

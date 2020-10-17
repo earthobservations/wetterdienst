@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from surrogate import surrogate
 
-from wetterdienst import DWDObservationData, Parameter, TimeResolution, PeriodType
+from wetterdienst import DWDObservationData, DWDParameterSet, TimeResolution, PeriodType
 from wetterdienst.dwd.util import parse_datetime
 
 df_station = pd.DataFrame.from_dict(
@@ -180,9 +180,9 @@ def test_request():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        period_types=PeriodType.RECENT,
     )
 
     df = observations.collect_safe()
@@ -193,9 +193,9 @@ def test_export_sqlite():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        period_types=PeriodType.RECENT,
     )
 
     with mock.patch(
@@ -219,9 +219,9 @@ def test_export_crate():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        period_types=PeriodType.RECENT,
     )
 
     with mock.patch(
@@ -246,9 +246,9 @@ def test_export_duckdb():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        period_types=PeriodType.RECENT,
     )
 
     mock_connection = mock.MagicMock()
@@ -272,9 +272,9 @@ def test_export_influxdb():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
+        parameters=DWDParameterSet.CLIMATE_SUMMARY,
         time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        period_types=PeriodType.RECENT,
     )
 
     mock_client = mock.MagicMock()

@@ -52,7 +52,7 @@ from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest, TimeResolution
+from wetterdienst import DWDRadarData, TimeResolution
 
 
 def plot(data: np.ndarray, attributes: dict, label: str):
@@ -124,7 +124,7 @@ def label_by_producttype(producttype: str) -> str:
 def radolan_rw_example():
 
     log.info("Acquiring RADOLAN RW composite data")
-    radolan = DWDRadarRequest(
+    radolan = DWDRadarData(
         parameter=RadarParameter.RW_REFLECTIVITY,
         start_date=RadarDate.LATEST,
     )

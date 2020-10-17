@@ -37,7 +37,7 @@ from wetterdienst.dwd.radar.sites import RadarSite
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst import DWDRadarData
 
 
 def plot(data: np.ndarray):
@@ -64,7 +64,7 @@ def radar_info(data: np.ndarray, metadata: dict):
 def radar_dx_example():
 
     log.info("Acquiring radar DX data")
-    request = DWDRadarRequest(
+    request = DWDRadarData(
         parameter=RadarParameter.DX_REFLECTIVITY,
         start_date=RadarDate.LATEST,
         site=RadarSite.BOO,
