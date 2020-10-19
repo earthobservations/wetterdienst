@@ -3,7 +3,11 @@ from typing import List
 
 import pandas as pd
 
-from wetterdienst import DWDParameterSet, TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
     STATION_ID_REGEX,
@@ -16,9 +20,9 @@ from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 def create_file_list_for_climate_observations(
     station_id: int,
-    parameter_set: DWDParameterSet,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
 ) -> List[str]:
     """
     Function for selecting datafiles (links to archives) for given
@@ -44,9 +48,9 @@ def create_file_list_for_climate_observations(
 
 @fileindex_cache_twelve_hours.cache_on_arguments()
 def create_file_index_for_climate_observations(
-    parameter_set: DWDParameterSet,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
 ) -> pd.DataFrame:
     """
     Function (cached) to create a file index of the DWD station data. The file index

@@ -26,9 +26,11 @@ from wetterdienst.dwd.metadata.column_map import (
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.index import build_path_to_parameter
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
-from wetterdienst.dwd.observations.metadata.period_type import PeriodType
-from wetterdienst import TimeResolution
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsPeriodType,
+    DWDObsTimeResolution,
+)
 from wetterdienst.exceptions import MetaFileNotFound
 from wetterdienst.util.network import list_remote_files
 
@@ -63,7 +65,9 @@ METADATA_FIXED_COLUMN_WIDTH = [
 
 @metaindex_cache.cache_on_arguments()
 def create_meta_index_for_climate_observations(
-    parameter: DWDParameterSet, time_resolution: TimeResolution, period_type: PeriodType
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
 ) -> pd.DataFrame:
     """
     Wrapper function that either calls the regular meta index function for general
@@ -79,25 +83,25 @@ def create_meta_index_for_climate_observations(
         pandas.DataFrame with meta index for the selected set of arguments
     """
     cond = (
-        time_resolution == TimeResolution.MINUTE_1
-        and period_type == PeriodType.HISTORICAL
-        and parameter == DWDParameterSet.PRECIPITATION
+        time_resolution == DWDObsTimeResolution.MINUTE_1
+        and period_type == DWDObsPeriodType.HISTORICAL
+        and parameter_set == DWDObsParameterSet.PRECIPITATION
     )
 
     if cond:
         meta_index = _create_meta_index_for_1minute_historical_precipitation()
     else:
         meta_index = _create_meta_index_for_climate_observations(
-            parameter, time_resolution, period_type
+            parameter_set, time_resolution, period_type
         )
 
     # If no state column available, take state information from daily historical
     # precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
-            DWDParameterSet.PRECIPITATION_MORE,
-            TimeResolution.DAILY,
-            PeriodType.HISTORICAL,
+            DWDObsParameterSet.PRECIPITATION_MORE,
+            DWDObsTimeResolution.DAILY,
+            DWDObsPeriodType.HISTORICAL,
         )
 
         meta_index = pd.merge(
@@ -122,13 +126,15 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    parameter: DWDParameterSet, time_resolution: TimeResolution, period_type: PeriodType
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
 ) -> pd.DataFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
 
     Args:
-        parameter: observation measure
+        parameter_set: observation measure
         time_resolution: frequency/granularity of measurement interval
         period_type: current, recent or historical files
     Return:
@@ -137,7 +143,9 @@ def _create_meta_index_for_climate_observations(
         not checked.
 
     """
-    parameter_path = build_path_to_parameter(parameter, time_resolution, period_type)
+    parameter_path = build_path_to_parameter(
+        parameter_set, time_resolution, period_type
+    )
 
     url = reduce(
         urljoin,
@@ -211,9 +219,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     """
 
-    parameter_path = (
-        f"{TimeResolution.MINUTE_1.value}/{DWDParameterSet.PRECIPITATION.value}/"
-    )
+    parameter_path = f"{DWDObsTimeResolution.MINUTE_1.value}/{DWDObsParameterSet.PRECIPITATION.value}/"
 
     url = reduce(
         urljoin,

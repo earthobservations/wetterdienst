@@ -1,4 +1,4 @@
-from wetterdienst import DWDRadarData
+from wetterdienst.dwd.radar import DWDRadarData
 
 
 def test_radar_sites():

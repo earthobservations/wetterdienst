@@ -4,7 +4,7 @@ from typing import Dict
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 
 
-class DWDObservationTimeResolution(Enum):
+class DWDObsTimeResolution(Enum):
     """
     enumeration for granularity/resolution of the weather
     observations stored on dwd server
@@ -21,12 +21,12 @@ class DWDObservationTimeResolution(Enum):
     ANNUAL = "annual"
 
 
-TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[DWDObservationTimeResolution, str] = {
-    DWDObservationTimeResolution.MINUTE_1: DatetimeFormat.YMDHM.value,
-    DWDObservationTimeResolution.MINUTE_10: DatetimeFormat.YMDHM.value,
-    DWDObservationTimeResolution.HOURLY: DatetimeFormat.YMDH.value,
-    DWDObservationTimeResolution.SUBDAILY: DatetimeFormat.YMDH.value,
-    DWDObservationTimeResolution.DAILY: DatetimeFormat.YMD.value,
-    DWDObservationTimeResolution.MONTHLY: DatetimeFormat.YMD.value,
-    DWDObservationTimeResolution.ANNUAL: DatetimeFormat.YMD.value,
+TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[DWDObsTimeResolution, str] = {
+    DWDObsTimeResolution.MINUTE_1: DatetimeFormat.YMDHM.value,
+    DWDObsTimeResolution.MINUTE_10: DatetimeFormat.YMDHM.value,
+    DWDObsTimeResolution.HOURLY: DatetimeFormat.YMDH.value,
+    DWDObsTimeResolution.SUBDAILY: DatetimeFormat.YMDH.value,
+    DWDObsTimeResolution.DAILY: DatetimeFormat.YMD.value,
+    DWDObsTimeResolution.MONTHLY: DatetimeFormat.YMD.value,
+    DWDObsTimeResolution.ANNUAL: DatetimeFormat.YMD.value,
 }

@@ -16,7 +16,11 @@ from wetterdienst.dwd.observations.api import (
     DWDObservationSites,
     DWDObservationMetadata,
 )
-from wetterdienst.dwd.metadata import DWDParameterSet, TimeResolution, PeriodType
+from wetterdienst.dwd.observations import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 
 log = logging.getLogger(__name__)
 
@@ -365,13 +369,13 @@ def about(options: Munch):
                 print("-", value)
 
     if options.parameters:
-        output(DWDParameterSet)
+        output(DWDObsParameterSet)
 
     elif options.resolutions:
-        output(TimeResolution)
+        output(DWDObsTimeResolution)
 
     elif options.periods:
-        output(PeriodType)
+        output(DWDObsPeriodType)
 
     elif options.coverage:
         output = json.dumps(

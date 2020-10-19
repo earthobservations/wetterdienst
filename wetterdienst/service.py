@@ -5,15 +5,15 @@ import logging
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
-from wetterdienst import (
-    __appname__,
-    __version__,
-    TimeResolution,
+from wetterdienst import __appname__, __version__
+from wetterdienst.dwd.observations import (
+    DWDObsPeriodType,
+    DWDObsParameterSet,
+    DWDObservationData,
+    DWDObsTimeResolution,
 )
-from wetterdienst import PeriodType, DWDParameterSet
-from wetterdienst import DWDObservationData
 from wetterdienst.dwd.observations.api import DWDObservationSites
-from wetterdienst.dwd.util import parse_enumeration_from_template
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.cli import read_list
 
 app = FastAPI(debug=False)
@@ -75,9 +75,9 @@ def dwd_stations(
     sql: str = Query(default=None),
 ):
 
-    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
-    resolution = parse_enumeration_from_template(resolution, TimeResolution)
-    period = parse_enumeration_from_template(period, PeriodType)
+    parameter = parse_enumeration_from_template(parameter, DWDObsParameterSet)
+    resolution = parse_enumeration_from_template(resolution, DWDObsTimeResolution)
+    period = parse_enumeration_from_template(period, DWDObsPeriodType)
 
     # Data acquisition.
     df = DWDObservationSites(
@@ -131,9 +131,9 @@ def dwd_readings(
         )
 
     station_ids = map(int, read_list(station))
-    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
-    resolution = parse_enumeration_from_template(resolution, TimeResolution)
-    period = parse_enumeration_from_template(period, PeriodType)
+    parameter = parse_enumeration_from_template(parameter, DWDObsParameterSet)
+    resolution = parse_enumeration_from_template(resolution, DWDObsTimeResolution)
+    period = parse_enumeration_from_template(period, DWDObsPeriodType)
 
     # Data acquisition.
     observations = DWDObservationData(

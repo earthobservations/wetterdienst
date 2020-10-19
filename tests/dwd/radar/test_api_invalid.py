@@ -2,7 +2,11 @@ from datetime import datetime
 
 import pytest
 
-from wetterdienst import DWDRadarData, RadarParameter, TimeResolution, PeriodType
+from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat
 from wetterdienst.dwd.radar.sites import RadarSite
 
@@ -123,9 +127,9 @@ def test_radar_request_hdf5_without_subset():
 @pytest.mark.parametrize(
     "time_resolution",
     [
-        TimeResolution.DAILY,
-        TimeResolution.HOURLY,
-        TimeResolution.MINUTE_5,
+        DWDObsTimeResolution.DAILY,
+        DWDObsTimeResolution.HOURLY,
+        DWDObsTimeResolution.MINUTE_5,
     ],
 )
 def test_radar_request_radolan_cdc_latest(time_resolution):
@@ -154,8 +158,8 @@ def test_radar_request_radolan_cdc_invalid_time_resolution():
     with pytest.raises(ValueError) as excinfo:
         DWDRadarData(
             parameter=RadarParameter.RADOLAN_CDC,
-            time_resolution=TimeResolution.MINUTE_1,
-            period_type=PeriodType.RECENT,
+            time_resolution=DWDObsTimeResolution.MINUTE_1,
+            period_type=DWDObsPeriodType.RECENT,
             start_date="2019-08-08 00:50:00",
         )
 
@@ -175,8 +179,8 @@ def test_radar_request_radolan_cdc_future(caplog):
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        time_resolution=DWDObsTimeResolution.DAILY,
+        period_type=DWDObsPeriodType.RECENT,
         start_date="2099-01-01 00:50:00",
     )
 

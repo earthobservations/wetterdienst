@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 import h5py
 import pytest
 
-from wetterdienst import DWDRadarData, RadarParameter
+from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
 from wetterdienst.dwd.radar.metadata import RadarDataFormat, RadarDataSubset
 from wetterdienst.dwd.radar.sites import RadarSite
 

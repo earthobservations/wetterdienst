@@ -5,7 +5,10 @@ from urllib.parse import urljoin
 import pandas as pd
 from dateparser import parse
 
-from wetterdienst import TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.metadata.constants import ArchiveFormat, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
@@ -48,8 +51,8 @@ def create_fileindex_radar(
     site: Optional[RadarSite] = None,
     format: Optional[RadarDataFormat] = None,
     subset: Optional[RadarDataSubset] = None,
-    time_resolution: Optional[TimeResolution] = None,
-    period_type: Optional[PeriodType] = None,
+    time_resolution: Optional[DWDObsTimeResolution] = None,
+    period_type: Optional[DWDObsPeriodType] = None,
     parse_datetime: bool = False,
 ) -> pd.DataFrame:
     """
@@ -114,7 +117,7 @@ def create_fileindex_radar(
 
 @fileindex_cache_five_minutes.cache_on_arguments()
 def create_fileindex_radolan_cdc(
-    time_resolution: TimeResolution, period_type: PeriodType
+    time_resolution: DWDObsTimeResolution, period_type: DWDObsPeriodType
 ) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
@@ -159,8 +162,8 @@ def build_path_to_parameter(
     site: Optional[RadarSite] = None,
     format: Optional[RadarDataFormat] = None,
     subset: Optional[RadarDataSubset] = None,
-    time_resolution: Optional[TimeResolution] = None,
-    period_type: Optional[PeriodType] = None,
+    time_resolution: Optional[DWDObsTimeResolution] = None,
+    period_type: Optional[DWDObsPeriodType] = None,
 ) -> str:
     """
     Compute URL path to data product.
@@ -192,7 +195,7 @@ def build_path_to_parameter(
     :return:                URL path to data product
     """
     if parameter == RadarParameter.RADOLAN_CDC:
-        if time_resolution == TimeResolution.MINUTE_5:
+        if time_resolution == DWDObsTimeResolution.MINUTE_5:
             # See also page 4 on
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf  # noqa:E501,B950
             parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950

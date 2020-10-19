@@ -3,7 +3,11 @@ from urllib.parse import urljoin
 
 import pandas as pd
 
-from wetterdienst import DWDParameterSet, TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.metadata.constants import DWDCDCBase, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.util.cache import (
@@ -14,9 +18,9 @@ from wetterdienst.util.network import list_remote_files
 
 
 def _create_file_index_for_dwd_server(
-    parameter_set: DWDParameterSet,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
     cdc_base: DWDCDCBase,
 ) -> pd.DataFrame:
     """
@@ -52,9 +56,9 @@ def reset_file_index_cache() -> None:
 
 
 def build_path_to_parameter(
-    parameter_set: DWDParameterSet,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
 ) -> str:
     """
     Function to build a indexing file path
@@ -66,9 +70,9 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter_set == DWDParameterSet.SOLAR and time_resolution in (
-        TimeResolution.HOURLY,
-        TimeResolution.DAILY,
+    if parameter_set == DWDObsParameterSet.SOLAR and time_resolution in (
+        DWDObsTimeResolution.HOURLY,
+        DWDObsTimeResolution.DAILY,
     ):
         return f"{time_resolution.value}/{parameter_set.value}/"
 

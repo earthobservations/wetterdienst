@@ -9,9 +9,11 @@ from mock import MagicMock, patch
 from wetterdienst.dwd.observations.access import (
     collect_climate_observations_data,
 )
-from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
-from wetterdienst import TimeResolution
-from wetterdienst.dwd.observations.metadata.period_type import PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 
 HERE = Path(__file__).parent
 
@@ -36,9 +38,9 @@ def test_collect_dwd_data_empty():
 
     assert collect_climate_observations_data(
         station_id=1048,
-        parameter=DWDParameterSet.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameter_set=DWDObsParameterSet.CLIMATE_SUMMARY,
+        time_resolution=DWDObsTimeResolution.DAILY,
+        period_type=DWDObsPeriodType.RECENT,
     ).empty
 
 
@@ -48,9 +50,9 @@ def test_collect_daily_vanilla():
 
     data = collect_climate_observations_data(
         station_id=1048,
-        parameter=DWDParameterSet.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameter_set=DWDObsParameterSet.CLIMATE_SUMMARY,
+        time_resolution=DWDObsTimeResolution.DAILY,
+        period_type=DWDObsPeriodType.RECENT,
     )
 
     assert list(data.columns.values) == [
@@ -81,9 +83,9 @@ def test_collect_hourly_vanilla():
 
     data = collect_climate_observations_data(
         station_id=1048,
-        parameter=DWDParameterSet.TEMPERATURE_AIR,
-        time_resolution=TimeResolution.HOURLY,
-        period_type=PeriodType.RECENT,
+        parameter_set=DWDObsParameterSet.TEMPERATURE_AIR,
+        time_resolution=DWDObsTimeResolution.HOURLY,
+        period_type=DWDObsPeriodType.RECENT,
     )
 
     assert list(data.columns.values) == [

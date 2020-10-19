@@ -1,12 +1,15 @@
 from datetime import datetime
-from typing import Union, Callable, Tuple, Optional
+from typing import Union, Tuple
 
 import dateparser
 import pandas as pd
 from dateutil.relativedelta import relativedelta
-from numpy.distutils.misc_util import as_list
 
-from wetterdienst.dwd.metadata import DWDParameterSet, TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metadata.column_types import (
     DATE_FIELDS_REGULAR,
@@ -16,36 +19,15 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     STRING_FIELDS,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.metadata.parameter_set import (
-    TIME_RESOLUTION_PARAMETER_MAPPING,
-)
 from wetterdienst.dwd.metadata.time_resolution import (
     TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
-from wetterdienst.exceptions import InvalidEnumeration
-
-
-def check_parameters(
-    parameter: DWDParameterSet, time_resolution: TimeResolution, period_type: PeriodType
-) -> bool:
-    """
-    Function to check for element (alternative name) and if existing return it
-    Differs from foldername e.g. air_temperature -> tu
-    """
-    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, {}).get(
-        parameter, []
-    )
-
-    if period_type not in check:
-        return False
-
-    return True
 
 
 def build_parameter_set_identifier(
-    parameter_set: DWDParameterSet,
-    time_resolution: TimeResolution,
-    period_type: PeriodType,
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
     station_id: int,
 ) -> str:
     """ Create parameter set identifier that is used for storage interactions """
@@ -56,7 +38,7 @@ def build_parameter_set_identifier(
 
 
 def coerce_field_types(
-    df: pd.DataFrame, time_resolution: TimeResolution
+    df: pd.DataFrame, time_resolution: DWDObsTimeResolution
 ) -> pd.DataFrame:
     """
     A function used to create a unique dtype mapping for a given list of column names.
@@ -97,39 +79,6 @@ def coerce_field_types(
     return df
 
 
-def parse_enumeration_from_template(
-    enum_: Union[str, DWDParameterSet, TimeResolution, PeriodType],
-    enum_template: Union[DWDParameterSet, TimeResolution, PeriodType, Callable],
-) -> Optional[Union[DWDParameterSet, TimeResolution, PeriodType]]:
-    """
-    Function used to parse an enumeration(string) to a enumeration based on a template
-
-    :param enum_:           Enumeration as string or Enum
-    :param enum_template:   Base enumeration from which the enumeration is parsed
-
-    :return:                Parsed enumeration from template
-    :raises InvalidParameter: if no matching enumeration found
-    """
-    if enum_ is None:
-        return None
-
-    try:
-        return enum_template[enum_.upper()]
-    except (KeyError, AttributeError):
-        try:
-            return enum_template(enum_)
-        except ValueError:
-            raise InvalidEnumeration(
-                f"{enum_} could not be parsed from {enum_template.__name__}."
-            )
-
-
-def parse_enumeration(template, values):
-    return list(
-        map(lambda x: parse_enumeration_from_template(x, template), as_list(values))
-    )
-
-
 def parse_datetime(date_string: str) -> datetime:
     """
     Function used mostly for client to parse given date
@@ -147,7 +96,7 @@ def parse_datetime(date_string: str) -> datetime:
 
 
 def mktimerange(
-    time_resolution: TimeResolution,
+    time_resolution: DWDObsTimeResolution,
     date_from: Union[datetime, str],
     date_to: Union[datetime, str] = None,
 ) -> Tuple[datetime, datetime]:
@@ -168,11 +117,11 @@ def mktimerange(
     if date_to is None:
         date_to = date_from
 
-    if time_resolution == TimeResolution.ANNUAL:
+    if time_resolution == DWDObsTimeResolution.ANNUAL:
         date_from = pd.to_datetime(date_from) + relativedelta(month=1, day=1)
         date_to = pd.to_datetime(date_to) + relativedelta(month=12, day=31)
 
-    elif time_resolution == TimeResolution.MONTHLY:
+    elif time_resolution == DWDObsTimeResolution.MONTHLY:
         date_from = pd.to_datetime(date_from) + relativedelta(day=1)
         date_to = pd.to_datetime(date_to) + relativedelta(day=31)
 

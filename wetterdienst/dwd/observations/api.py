@@ -1,34 +1,38 @@
 import logging
-from typing import List, Union, Generator, Dict, Optional, Type
+from datetime import datetime
+from typing import List, Union, Generator, Dict, Optional
 
+import dateparser
 import pandas as pd
 from pandas import Timestamp
-import dateparser
 
 from wetterdienst.core.data import WDDataCore
 from wetterdienst.core.sites import WDSitesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
+from wetterdienst.dwd.observations.metadata.parameter import DWDObsParameterSetStructure
 from wetterdienst.dwd.observations.metadata.parameter_set import (
     TIME_RESOLUTION_PARAMETER_MAPPING,
 )
 from wetterdienst.dwd.observations.metadata import (
-    DWDObservationPeriodType,
-    DWDObservationParameter,
-    DWDParameterSet,
-    DWDObservationTimeResolution
+    DWDObsPeriodType,
+    DWDObsParameter,
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
 )
 from wetterdienst.dwd.observations.stations import metadata_for_climate_observations
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.dwd.observations.util.parameter import (
     create_parameter_to_parameter_set_combination,
+    check_dwd_observations_parameter_set,
 )
 from wetterdienst.dwd.util import (
+    build_parameter_set_identifier,
+)
+from wetterdienst.util.enumeration import (
     parse_enumeration_from_template,
     parse_enumeration,
-    build_parameter_set_identifier,
-    check_parameters,
 )
 from wetterdienst.exceptions import (
     InvalidParameterCombination,
@@ -51,11 +55,11 @@ class DWDObservationData(WDDataCore):
     def __init__(
         self,
         station_ids: List[Union[int, str]],
-        parameters: List[Union[str, DWDObservationParameter, DWDParameterSet]],
-        time_resolution: Union[str, DWDObservationTimeResolution],
-        period_types: Optional[List[Union[str, DWDObservationPeriodType]]] = None,
-        start_date: Union[None, str, Timestamp] = None,
-        end_date: Union[None, str, Timestamp] = None,
+        parameters: List[Union[str, DWDObsParameter, DWDObsParameterSet]],
+        time_resolution: Union[str, DWDObsTimeResolution],
+        period_types: Optional[List[Union[str, DWDObsPeriodType]]] = None,
+        start_date: Union[None, str, Timestamp, datetime] = None,
+        end_date: Union[None, str, Timestamp, datetime] = None,
         storage: StorageAdapter = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
@@ -91,7 +95,7 @@ class DWDObservationData(WDDataCore):
             raise ValueError("List of station id's can not be parsed to integers.")
 
         self.time_resolution = parse_enumeration_from_template(
-            time_resolution, DWDObservationTimeResolution
+            time_resolution, DWDObsTimeResolution
         )
 
         self.parameters = []
@@ -114,13 +118,13 @@ class DWDObservationData(WDDataCore):
         # If any date is given, use all period types and filter, else if not period type
         # is given use all period types
         if start_date or end_date or not period_types:
-            self.period_types = [*DWDObservationPeriodType]
+            self.period_types = [*DWDObsPeriodType]
         # Otherwise period types will be parsed
         else:
             # For the case that a period_type is given, parse the period type(s)
             self.period_types = (
                 pd.Series(period_types)
-                .apply(parse_enumeration_from_template, args=(DWDObservationPeriodType,))
+                .apply(parse_enumeration_from_template, args=(DWDObsPeriodType,))
                 .sort_values()
                 .tolist()
             )
@@ -133,8 +137,8 @@ class DWDObservationData(WDDataCore):
             if not end_date:
                 end_date = start_date
 
-            self.start_date = Timestamp(dateparser.parse(start_date))
-            self.end_date = Timestamp(dateparser.parse(end_date))
+            self.start_date = Timestamp(dateparser.parse(str(start_date)))
+            self.end_date = Timestamp(dateparser.parse(str(end_date)))
 
             if not self.start_date <= self.end_date:
                 raise StartDateEndDateError(
@@ -151,7 +155,7 @@ class DWDObservationData(WDDataCore):
             len(self.parameters) > 1
             or any(
                 [
-                    not isinstance(parameter, DWDParameterSet)
+                    not isinstance(parameter, DWDObsParameterSet)
                     for parameter, parameter_set in self.parameters
                 ]
             )
@@ -161,12 +165,12 @@ class DWDObservationData(WDDataCore):
 
     def __eq__(self, other):
         return (
-            self.station_ids == other.station_ids and
-            self.parameters == other.parameters and
-            self.time_resolution == other.time_resolution and
-            self.period_types == other.period_types and
-            self.start_date == other.start_date and
-            self.end_date == other.end_date
+            self.station_ids == other.station_ids
+            and self.parameters == other.parameters
+            and self.time_resolution == other.time_resolution
+            and self.period_types == other.period_types
+            and self.start_date == other.start_date
+            and self.end_date == other.end_date
         )
 
     def __str__(self):
@@ -176,8 +180,9 @@ class DWDObservationData(WDDataCore):
         return ", ".join(
             [
                 f"station_ids {station_ids_joined}",
-                "& ".join([parameter.value
-                           for parameter, parameter_set in self.parameters]),
+                "& ".join(
+                    [parameter.value for parameter, parameter_set in self.parameters]
+                ),
                 self.time_resolution.value,
                 "& ".join([period_type.value for period_type in self.period_types]),
                 self.start_date.value,
@@ -204,7 +209,7 @@ class DWDObservationData(WDDataCore):
             for parameter, parameter_set in self.parameters:
                 df_parameter = self._collect_data(station_id, parameter_set)
 
-                if not isinstance(parameter, DWDParameterSet):
+                if not isinstance(parameter, DWDObsParameterSet):
                     df_parameter = df_parameter[
                         df_parameter[DWDMetaColumns.ELEMENT.value] == parameter.value
                     ]
@@ -232,7 +237,7 @@ class DWDObservationData(WDDataCore):
             yield df_station
 
     def _collect_data(
-        self, station_id: int, parameter_set: DWDParameterSet
+        self, station_id: int, parameter_set: DWDObsParameterSet
     ) -> pd.DataFrame:
         """
         Method to collect data for one specified parameter. Manages restoring,
@@ -349,10 +354,10 @@ class DWDObservationData(WDDataCore):
 
     @staticmethod
     def _create_humanized_column_names_mapping(
-        time_resolution: DWDObservationTimeResolution, parameter: DWDParameterSet
+        time_resolution: DWDObsTimeResolution, parameter: DWDObsParameterSet
     ) -> Dict[str, str]:
         return create_humanized_column_names_mapping(
-            time_resolution, parameter, DWDObservationParameter
+            time_resolution, parameter, DWDObsParameterSetStructure
         )
 
 
@@ -362,21 +367,37 @@ class DWDObservationSites(WDSitesCore):
     station data as provided by the DWD service.
     """
 
-    @staticmethod
-    def _check_parameters(**kwargs):
-        parameter = kwargs.get("parameter")
-        time_resolution = kwargs.get("time_resolution")
-        period_type = kwargs.get("period_type")
+    def __init__(
+        self,
+        parameter: Union[str, DWDObsParameterSet],
+        time_resolution: Union[str, DWDObsTimeResolution],
+        period_type: Union[str, DWDObsPeriodType] = None,
+        start_date: Union[None, str, Timestamp] = None,
+        end_date: Union[None, str, Timestamp] = None,
+    ):
+        super().__init__(start_date=start_date, end_date=end_date)
 
-        if not check_parameters(parameter, time_resolution, period_type):
+        parameter = parse_enumeration_from_template(parameter, DWDObsParameterSet)
+        time_resolution = parse_enumeration_from_template(
+            time_resolution, DWDObsTimeResolution
+        )
+        period_type = parse_enumeration_from_template(period_type, DWDObsPeriodType)
+
+        if not check_dwd_observations_parameter_set(
+            parameter, time_resolution, period_type
+        ):
             raise InvalidParameterCombination(
                 f"The combination of {parameter.value}, {time_resolution.value}, "
                 f"{period_type.value} is invalid."
             )
 
+        self.parameter = parameter
+        self.time_resolution = time_resolution
+        self.period_type = period_type
+
     def _all(self) -> pd.DataFrame:
         metadata = metadata_for_climate_observations(
-            parameter=self.parameter,
+            parameter_set=self.parameter,
             time_resolution=self.time_resolution,
             period_type=self.period_type,
         )
@@ -397,15 +418,17 @@ class DWDObservationMetadata:
 
     def __init__(
         self,
-        parameter_set: Union[
-            None, str, DWDParameterSet, List[Union[str, DWDParameterSet]]
+        parameter: Union[
+            None, str, DWDObsParameterSet, List[Union[str, DWDObsParameterSet]]
         ] = None,
         time_resolution: Union[
-            None, str, DWDObservationTimeResolution, List[Union[str, DWDObservationTimeResolution]]
+            None, str, DWDObsTimeResolution, List[Union[str, DWDObsTimeResolution]]
         ] = None,
-        period_type: Union[None, str, DWDObservationPeriodType, List[Union[str, DWDObservationPeriodType]]] = None,
+        period_type: Union[
+            None, str, DWDObsPeriodType, List[Union[str, DWDObsPeriodType]]
+        ] = None,
     ):
-        self.parameter_set = parameter_set
+        self.parameter = parameter
         self.time_resolution = time_resolution
         self.period_type = period_type
 
@@ -417,26 +440,26 @@ class DWDObservationMetadata:
         :return:                        Available parameter combinations.
         """
 
-        parameter_set = self.parameter_set
+        parameter = self.parameter
         time_resolution = self.time_resolution
         period_type = self.period_type
 
-        if not parameter_set:
-            parameter_set = [*DWDParameterSet]
+        if not parameter:
+            parameter = [*DWDObsParameterSet]
         if not time_resolution:
-            time_resolution = [*DWDObservationTimeResolution]
+            time_resolution = [*DWDObsTimeResolution]
         if not period_type:
-            period_type = [*DWDObservationPeriodType]
+            period_type = [*DWDObsPeriodType]
 
-        time_resolution = parse_enumeration(DWDObservationTimeResolution, time_resolution)
-        parameter_set = parse_enumeration(DWDParameterSet, parameter_set)
-        period_type = parse_enumeration(DWDObservationPeriodType, period_type)
+        time_resolution = parse_enumeration(DWDObsTimeResolution, time_resolution)
+        parameter = parse_enumeration(DWDObsParameterSet, parameter)
+        period_type = parse_enumeration(DWDObsPeriodType, period_type)
 
         trp_mapping_filtered = {
             ts: {
                 par: [p for p in pt if p in period_type]
                 for par, pt in parameters_and_period_types.items()
-                if par in parameter_set
+                if par in parameter
             }
             for ts, parameters_and_period_types in TIME_RESOLUTION_PARAMETER_MAPPING.items()  # noqa:E501,B950
             if ts in time_resolution
@@ -457,7 +480,7 @@ class DWDObservationMetadata:
     def describe_fields(self) -> dict:
 
         file_index = _create_file_index_for_dwd_server(
-            parameter_set=self.parameter_set,
+            parameter_set=self.parameter,
             time_resolution=self.time_resolution,
             period_type=self.period_type,
             cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,

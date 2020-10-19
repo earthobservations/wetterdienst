@@ -13,16 +13,19 @@ from wetterdienst.dwd.observations.fileindex import (
     create_file_list_for_climate_observations,
 )
 from wetterdienst.util.cache import payload_cache_five_minutes
-
 from wetterdienst.dwd.util import (
-    check_parameters,
-    parse_enumeration_from_template,
     coerce_field_types,
     build_parameter_set_identifier,
 )
-from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
-from wetterdienst.dwd.observations.metadata.period_type import PeriodType
-from wetterdienst import TimeResolution
+from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.dwd.observations.util.parameter import (
+    check_dwd_observations_parameter_set,
+)
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsPeriodType,
+    DWDObsTimeResolution,
+)
 from wetterdienst.exceptions import (
     InvalidParameterCombination,
     FailedDownload,
@@ -40,9 +43,9 @@ PRODUCT_FILE_IDENTIFIER = "produkt"
 
 def collect_climate_observations_data(
     station_id: int,
-    parameter: Union[DWDParameterSet, str],
-    time_resolution: Union[TimeResolution, str],
-    period_type: Union[PeriodType, str],
+    parameter_set: DWDObsParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    period_type: DWDObsPeriodType,
 ) -> pd.DataFrame:
     """
     Function that organizes the complete pipeline of data collection, either
@@ -52,29 +55,33 @@ def collect_climate_observations_data(
     it will try to store the data in a hdf file.
 
     :param station_id:              station id that is being loaded
-    :param parameter:               Parameter as enumeration
+    :param parameter_set:               Parameter as enumeration
     :param time_resolution:         Time resolution as enumeration
     :param period_type:             Period type as enumeration
 
     :return:                        All the data given by the station ids.
     """
-    parameter = parse_enumeration_from_template(parameter, DWDParameterSet)
-    time_resolution = parse_enumeration_from_template(time_resolution, TimeResolution)
-    period_type = parse_enumeration_from_template(period_type, PeriodType)
+    parameter_set = parse_enumeration_from_template(parameter_set, DWDObsParameterSet)
+    time_resolution = parse_enumeration_from_template(
+        time_resolution, DWDObsTimeResolution
+    )
+    period_type = parse_enumeration_from_template(period_type, DWDObsPeriodType)
 
-    if not check_parameters(parameter, time_resolution, period_type):
+    if not check_dwd_observations_parameter_set(
+        parameter_set, time_resolution, period_type
+    ):
         raise InvalidParameterCombination(
-            f"Invalid combination: {parameter.value} / {time_resolution.value} / "
+            f"Invalid combination: {parameter_set.value} / {time_resolution.value} / "
             f"{period_type.value}"
         )
 
     remote_files = create_file_list_for_climate_observations(
-        station_id, parameter, time_resolution, period_type
+        station_id, parameter_set, time_resolution, period_type
     )
 
     if len(remote_files) == 0:
         parameter_identifier = build_parameter_set_identifier(
-            parameter, time_resolution, period_type, station_id
+            parameter_set, time_resolution, period_type, station_id
         )
         log.info(f"No files found for {parameter_identifier}. Station will be skipped.")
         return pd.DataFrame()
@@ -82,7 +89,7 @@ def collect_climate_observations_data(
     filenames_and_files = download_climate_observations_data_parallel(remote_files)
 
     obs_df = parse_climate_observations_data(
-        filenames_and_files, parameter, time_resolution
+        filenames_and_files, parameter_set, time_resolution
     )
 
     obs_df = coerce_field_types(obs_df, time_resolution)

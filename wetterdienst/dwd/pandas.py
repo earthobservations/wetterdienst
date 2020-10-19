@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 
-from wetterdienst.dwd.observations.metadata import DWDObservationTimeResolution
+from wetterdienst.dwd.observations.metadata import DWDObsTimeResolution
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.util import parse_datetime, mktimerange
 
@@ -44,7 +44,7 @@ class PandasDwdExtension:
         return df
 
     def filter_by_date(
-        self, date: str, time_resolution: DWDObservationTimeResolution
+        self, date: str, time_resolution: DWDObsTimeResolution
     ) -> pd.DataFrame:
         """
         Filter Pandas DataFrame by date or date interval.
@@ -70,8 +70,8 @@ class PandasDwdExtension:
             date_from = parse_datetime(date_from)
             date_to = parse_datetime(date_to)
             if time_resolution in (
-                DWDObservationTimeResolution.ANNUAL,
-                DWDObservationTimeResolution.MONTHLY,
+                DWDObsTimeResolution.ANNUAL,
+                DWDObsTimeResolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(time_resolution, date_from, date_to)
                 expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
@@ -87,8 +87,8 @@ class PandasDwdExtension:
         else:
             date = parse_datetime(date)
             if time_resolution in (
-                DWDObservationTimeResolution.ANNUAL,
-                DWDObservationTimeResolution.MONTHLY,
+                DWDObsTimeResolution.ANNUAL,
+                DWDObsTimeResolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(time_resolution, date)
                 expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (

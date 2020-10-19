@@ -4,7 +4,11 @@ from typing import Union
 
 import pandas as pd
 
-from wetterdienst import DWDParameterSet, TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.observations.metadata.column_types import (
     QUALITY_FIELDS,
     INTEGER_FIELDS,
@@ -28,7 +32,7 @@ class StorageAdapter:
 
     def hdf5(self, parameter, time_resolution, period_type):
         return LocalHDF5Store(
-            parameter=parameter,
+            parameter_set=parameter,
             time_resolution=time_resolution,
             period_type=period_type,
             folder=self.folder,
@@ -38,12 +42,12 @@ class StorageAdapter:
 class LocalHDF5Store:
     def __init__(
         self,
-        parameter: Union[DWDParameterSet, str],
-        time_resolution: Union[TimeResolution, str],
-        period_type: Union[PeriodType, str],
+        parameter_set: DWDObsParameterSet,
+        time_resolution: DWDObsTimeResolution,
+        period_type: DWDObsPeriodType,
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
     ):
-        self.parameter = parameter
+        self.parameter_set = parameter_set
         self.time_resolution = time_resolution
         self.period_type = period_type
         self.folder = folder
@@ -51,7 +55,7 @@ class LocalHDF5Store:
     @property
     def filename(self) -> str:
         return (
-            f"{self.parameter.value}-{self.time_resolution.value}-"
+            f"{self.parameter_set.value}-{self.time_resolution.value}-"
             f"{self.period_type.value}.{DataFormat.H5.value}"
         )
 
@@ -69,7 +73,7 @@ class LocalHDF5Store:
         """
 
         return build_parameter_set_identifier(
-            self.parameter, self.time_resolution, self.period_type, station_id
+            self.parameter_set, self.time_resolution, self.period_type, station_id
         )
 
     def invalidate(self):

@@ -3,7 +3,10 @@ from typing import Type, Dict
 
 from numpy import datetime64
 
-from wetterdienst.dwd.metadata import TimeResolution, DWDParameterSet
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsTimeResolution,
+    DWDObsParameterSet,
+)
 from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
@@ -39,8 +42,8 @@ METADATA_DTYPE_MAPPING = {
 
 
 def create_humanized_column_names_mapping(
-    time_resolution: TimeResolution,
-    parameter: DWDParameterSet,
+    time_resolution: DWDObsTimeResolution,
+    parameter_set: DWDObsParameterSet,
     parameter_structure: Type[WDParameterStructureBase],
 ) -> Dict[str, str]:
     """
@@ -50,15 +53,15 @@ def create_humanized_column_names_mapping(
 
     Args:
         time_resolution: time resolution enumeration
-        parameter: parameter enumeration
+        parameter_set: parameter enumeration
         parameter_structure: original column names in enumeration style
 
     Returns:
         dictionary with mappings extended by quality columns mappings
     """
     hcnm = {
-        parameter.name: parameter.value
-        for parameter in parameter_structure[time_resolution.name][parameter.name]
+        parameter.value: parameter.name
+        for parameter in parameter_structure[time_resolution.name][parameter_set.name]
     }
 
     return hcnm

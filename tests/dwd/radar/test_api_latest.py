@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from wetterdienst import DWDRadarData
+from wetterdienst.dwd.radar import DWDRadarData
 from wetterdienst.util.datetime import round_minutes
 from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
 from wetterdienst.dwd.radar.sites import RadarSite

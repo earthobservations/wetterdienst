@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class ForecastDate(Enum):
+class DWDFcstDate(Enum):
     """
     Enumeration for pointing to different forecast dates.
     """

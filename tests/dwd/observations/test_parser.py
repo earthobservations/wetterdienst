@@ -4,8 +4,10 @@ from io import StringIO, BytesIO
 from pathlib import Path
 import pandas as pd
 
-from wetterdienst.dwd.observations.metadata.parameter_set import DWDParameterSet
-from wetterdienst import TimeResolution
+from wetterdienst.dwd.observations.metadata.parameter_set import (
+    DWDObsParameterSet,
+    DWDObsTimeResolution,
+)
 from wetterdienst.dwd.observations.parser import (
     parse_climate_observations_data,
 )
@@ -23,8 +25,8 @@ def test_parse_dwd_data():
 
     station_data = parse_climate_observations_data(
         filenames_and_files=[(filename, BytesIO(file_in_bytes.read().encode()))],
-        parameter=DWDParameterSet.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
+        parameter=DWDObsParameterSet.CLIMATE_SUMMARY,
+        time_resolution=DWDObsTimeResolution.DAILY,
     )
 
     station_data.equals(station_data_original)

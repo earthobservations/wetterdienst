@@ -8,6 +8,9 @@ Development
 - CLI: Obtain "--tidy" argument from command line
 - Extend MOSMIX support to equal the API of observations
 - DWDObservationSites now filters for those stations which have a file on the server
+- DWDObservationData now also takes an individual parameter independent of the
+  pre-configured DWD datasets by using DWDObservationParameter or similar names e.g.
+  "precipitation_height"
 
 0.9.0 (09.10.2020)
 ==================

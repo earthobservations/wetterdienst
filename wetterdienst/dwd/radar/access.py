@@ -9,7 +9,10 @@ from typing import Optional, Generator
 
 import pandas as pd
 
-from wetterdienst import TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObsTimeResolution,
+    DWDObsPeriodType,
+)
 from wetterdienst.dwd.metadata.constants import ArchiveFormat
 
 from wetterdienst.dwd.network import download_file_from_dwd
@@ -67,8 +70,8 @@ class RadarResult:
 
 def collect_radar_data(
     parameter: RadarParameter,
-    time_resolution: Optional[TimeResolution] = None,
-    period_type: Optional[PeriodType] = None,
+    time_resolution: Optional[DWDObsTimeResolution] = None,
+    period_type: Optional[DWDObsPeriodType] = None,
     site: Optional[RadarSite] = None,
     format: Optional[RadarDataFormat] = None,
     subset: Optional[RadarDataSubset] = None,
@@ -84,6 +87,7 @@ def collect_radar_data(
                             RADAR_PARAMETERS_SITES
     :param format:          Data format (BINARY, BUFR, HDF5)
     :param subset:          The subset (simple or polarimetric) for HDF5 data.
+    :param elevation:
     :param start_date:      Start date
     :param end_date:        End date
     :param time_resolution: Time resolution for RadarParameter.RADOLAN_CDC,
@@ -118,7 +122,7 @@ def collect_radar_data(
             if period_type:
                 period_types = [period_type]
             else:
-                period_types = [PeriodType.RECENT, PeriodType.HISTORICAL]
+                period_types = [DWDObsPeriodType.RECENT, DWDObsPeriodType.HISTORICAL]
 
             results = []
             for period_type in period_types:
@@ -128,7 +132,7 @@ def collect_radar_data(
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                if period_type == PeriodType.RECENT:
+                if period_type == DWDObsPeriodType.RECENT:
                     file_index = file_index[
                         (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
                         & (file_index[DWDMetaColumns.DATETIME.value] < end_date)

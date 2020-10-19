@@ -1,4 +1,4 @@
 # Load Pandas DataFrame extension.
-import wetterdienst.dwd.pandas  # noqa:F401
+import wetterdienst.dwd.pandas
 
 from wetterdienst.dwd import observations, forecasts, radar

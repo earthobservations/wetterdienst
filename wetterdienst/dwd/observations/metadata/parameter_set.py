@@ -2,11 +2,11 @@
 from enum import Enum
 from typing import Dict, List
 
-from wetterdienst.dwd.metadata.time_resolution import DWDObservationTimeResolution
-from wetterdienst.dwd.observations.metadata.period_type import PeriodType
+from wetterdienst.dwd.metadata.time_resolution import DWDObsTimeResolution
+from wetterdienst.dwd.observations.metadata.period_type import DWDObsPeriodType
 
 
-class DWDParameterSet(Enum):
+class DWDObsParameterSet(Enum):
     """
 
     enumeration for different parameter/variables
@@ -41,86 +41,167 @@ class DWDParameterSet(Enum):
 
 
 TIME_RESOLUTION_PARAMETER_MAPPING: Dict[
-    DWDObservationTimeResolution, Dict[DWDParameterSet, List[PeriodType]]
+    DWDObsTimeResolution, Dict[DWDObsParameterSet, List[DWDObsPeriodType]]
 ] = {
-    DWDObservationTimeResolution.MINUTE_1: {
-        DWDParameterSet.PRECIPITATION: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+    DWDObsTimeResolution.MINUTE_1: {
+        DWDObsParameterSet.PRECIPITATION: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
     },
-    DWDObservationTimeResolution.MINUTE_10: {
-        DWDParameterSet.PRECIPITATION: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+    DWDObsTimeResolution.MINUTE_10: {
+        DWDObsParameterSet.PRECIPITATION: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
-        DWDParameterSet.TEMPERATURE_AIR: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+        DWDObsParameterSet.TEMPERATURE_AIR: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
-        DWDParameterSet.TEMPERATURE_EXTREME: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+        DWDObsParameterSet.TEMPERATURE_EXTREME: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
-        DWDParameterSet.WIND_EXTREME: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+        DWDObsParameterSet.WIND_EXTREME: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
-        DWDParameterSet.SOLAR: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+        DWDObsParameterSet.SOLAR: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
-        DWDParameterSet.WIND: [
-            PeriodType.HISTORICAL,
-            PeriodType.RECENT,
-            PeriodType.NOW,
+        DWDObsParameterSet.WIND: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+            DWDObsPeriodType.NOW,
         ],
     },
-    DWDObservationTimeResolution.HOURLY: {
-        DWDParameterSet.TEMPERATURE_AIR: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.CLOUD_TYPE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.CLOUDINESS: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.DEW_POINT: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.PRECIPITATION: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.PRESSURE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.TEMPERATURE_SOIL: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.SOLAR: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.SUNSHINE_DURATION: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.VISIBILITY: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.WIND: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.WIND_SYNOPTIC: [PeriodType.HISTORICAL, PeriodType.RECENT],
+    DWDObsTimeResolution.HOURLY: {
+        DWDObsParameterSet.TEMPERATURE_AIR: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.CLOUD_TYPE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.CLOUDINESS: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.DEW_POINT: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.PRECIPITATION: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.PRESSURE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.TEMPERATURE_SOIL: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.SOLAR: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.SUNSHINE_DURATION: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.VISIBILITY: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.WIND: [DWDObsPeriodType.HISTORICAL, DWDObsPeriodType.RECENT],
+        DWDObsParameterSet.WIND_SYNOPTIC: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
     },
-    DWDObservationTimeResolution.SUBDAILY: {
-        DWDParameterSet.TEMPERATURE_AIR: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.CLOUDINESS: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.MOISTURE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.PRESSURE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.SOIL: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.VISIBILITY: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.WIND: [PeriodType.HISTORICAL, PeriodType.RECENT],
+    DWDObsTimeResolution.SUBDAILY: {
+        DWDObsParameterSet.TEMPERATURE_AIR: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.CLOUDINESS: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.MOISTURE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.PRESSURE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.SOIL: [DWDObsPeriodType.HISTORICAL, DWDObsPeriodType.RECENT],
+        DWDObsParameterSet.VISIBILITY: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.WIND: [DWDObsPeriodType.HISTORICAL, DWDObsPeriodType.RECENT],
     },
-    DWDObservationTimeResolution.DAILY: {
-        DWDParameterSet.CLIMATE_SUMMARY: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.PRECIPITATION_MORE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.TEMPERATURE_SOIL: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.SOLAR: [PeriodType.RECENT],
-        DWDParameterSet.WATER_EQUIVALENT: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.WEATHER_PHENOMENA: [PeriodType.HISTORICAL, PeriodType.RECENT],
+    DWDObsTimeResolution.DAILY: {
+        DWDObsParameterSet.CLIMATE_SUMMARY: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.PRECIPITATION_MORE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.TEMPERATURE_SOIL: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.SOLAR: [DWDObsPeriodType.RECENT],
+        DWDObsParameterSet.WATER_EQUIVALENT: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.WEATHER_PHENOMENA: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
     },
-    DWDObservationTimeResolution.MONTHLY: {
-        DWDParameterSet.CLIMATE_SUMMARY: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.PRECIPITATION_MORE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.WEATHER_PHENOMENA: [PeriodType.HISTORICAL, PeriodType.RECENT],
+    DWDObsTimeResolution.MONTHLY: {
+        DWDObsParameterSet.CLIMATE_SUMMARY: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.PRECIPITATION_MORE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.WEATHER_PHENOMENA: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
     },
-    DWDObservationTimeResolution.ANNUAL: {
-        DWDParameterSet.CLIMATE_SUMMARY: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.PRECIPITATION_MORE: [PeriodType.HISTORICAL, PeriodType.RECENT],
-        DWDParameterSet.WEATHER_PHENOMENA: [PeriodType.HISTORICAL, PeriodType.RECENT],
+    DWDObsTimeResolution.ANNUAL: {
+        DWDObsParameterSet.CLIMATE_SUMMARY: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.PRECIPITATION_MORE: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
+        DWDObsParameterSet.WEATHER_PHENOMENA: [
+            DWDObsPeriodType.HISTORICAL,
+            DWDObsPeriodType.RECENT,
+        ],
     },
 }
