@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Dict, List
 
-from wetterdienst.dwd.metadata.time_resolution import DWDObsTimeResolution
+from wetterdienst.dwd.observations.metadata.time_resolution import DWDObsTimeResolution
 from wetterdienst.dwd.observations.metadata.period_type import DWDObsPeriodType
 
 

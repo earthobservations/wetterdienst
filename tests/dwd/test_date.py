@@ -15,27 +15,28 @@ def test_parse_datetime():
 
 
 def test_mktimerange_annual():
+    assert mktimerange(DWDObsTimeResolution.ANNUAL, dateparser.parse("2019")) == (
+        Timestamp("2019-01-01 00:00:00"),
+        Timestamp("2019-12-31 00:00:00"),
+    )
     assert mktimerange(
-        DWDObsTimeResolution.ANNUAL,
-        dateparser.parse("2019")
-    ) == (Timestamp("2019-01-01 00:00:00"), Timestamp("2019-12-31 00:00:00"))
-    assert mktimerange(
-        DWDObsTimeResolution.ANNUAL,
-        dateparser.parse("2010"),
-        dateparser.parse("2020")
+        DWDObsTimeResolution.ANNUAL, dateparser.parse("2010"), dateparser.parse("2020")
     ) == (Timestamp("2010-01-01 00:00:00"), Timestamp("2020-12-31 00:00:00"))
 
 
 def test_mktimerange_monthly():
-    assert mktimerange(
-        DWDObsTimeResolution.MONTHLY,
-        dateparser.parse("2020-05")
-    ) == (Timestamp("2020-05-01 00:00:00"),Timestamp("2020-05-31 00:00:00"))
-    assert mktimerange(
-        DWDObsTimeResolution.MONTHLY,
-        dateparser.parse("2017-01"),
-        dateparser.parse("2019-12")
-    ) == (Timestamp("2017-01-01 00:00:00"), Timestamp("2019-12-31 00:00:00"))
+    assert mktimerange(DWDObsTimeResolution.MONTHLY, dateparser.parse("2020-05")) == (
+        Timestamp("2020-05-01 00:00:00"),
+        Timestamp("2020-05-31 00:00:00"),
+    )
+    assert (
+        mktimerange(
+            DWDObsTimeResolution.MONTHLY,
+            dateparser.parse("2017-01"),
+            dateparser.parse("2019-12"),
+        )
+        == (Timestamp("2017-01-01 00:00:00"), Timestamp("2019-12-31 00:00:00"))
+    )
 
 
 def test_mktimerange_invalid():

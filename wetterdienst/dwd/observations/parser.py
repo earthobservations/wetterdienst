@@ -104,7 +104,9 @@ def _parse_climate_observations_data(
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
-                "MESS_DATUM_WOZ": DWDObsParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+                "MESS_DATUM_WOZ": (
+                    DWDObsParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                ),
             }
         )
 

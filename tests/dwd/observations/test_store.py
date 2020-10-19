@@ -1,5 +1,5 @@
 from wetterdienst.dwd.observations.metadata.parameter_set import DWDObsParameterSet
-from wetterdienst.dwd.metadata.time_resolution import DWDObsTimeResolution
+from wetterdienst.dwd.observations.metadata.time_resolution import DWDObsTimeResolution
 from wetterdienst.dwd.observations.metadata import DWDObsPeriodType
 from wetterdienst.dwd.observations.store import StorageAdapter
 

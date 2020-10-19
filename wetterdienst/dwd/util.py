@@ -19,7 +19,7 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     STRING_FIELDS,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.metadata.time_resolution import (
+from wetterdienst.dwd.observations.metadata.time_resolution import (
     TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
 

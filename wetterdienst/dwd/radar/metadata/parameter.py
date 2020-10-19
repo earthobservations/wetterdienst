@@ -1,37 +1,6 @@
 from enum import Enum
 
 
-class RadarDate(Enum):
-    """
-    Enumeration for pointing to different radar dates.
-    """
-
-    LATEST = "latest"
-    CURRENT = "current"
-    MOST_RECENT = "most_recent"
-
-
-class RadarDataFormat(Enum):
-    """
-    Radar data formats.
-    """
-
-    BINARY = "binary"
-    BUFR = "bufr"
-    HDF5 = "hdf5"
-
-
-class RadarDataSubset(Enum):
-    """
-    HDF5 subset types for radar sweep data.
-
-    https://opendata.dwd.de/weather/radar/sites/sweep_pcp_v/boo/hdf5/
-    """
-
-    SIMPLE = "simple"
-    POLARIMETRIC = "polarimetric"
-
-
 class RadarParameter(Enum):
     """
     All available radar moments.
@@ -121,3 +90,34 @@ RADAR_PARAMETERS_SWEEPS = [
     RadarParameter.SWEEP_VOL_VELOCITY_H,
     RadarParameter.SWEEP_VOL_REFLECTIVITY_H,
 ]
+
+
+class RadarDate(Enum):
+    """
+    Enumeration for pointing to different radar dates.
+    """
+
+    LATEST = "latest"
+    CURRENT = "current"
+    MOST_RECENT = "most_recent"
+
+
+class RadarDataFormat(Enum):
+    """
+    Radar data formats.
+    """
+
+    BINARY = "binary"
+    BUFR = "bufr"
+    HDF5 = "hdf5"
+
+
+class RadarDataSubset(Enum):
+    """
+    HDF5 subset types for radar sweep data.
+
+    https://opendata.dwd.de/weather/radar/sites/sweep_pcp_v/boo/hdf5/
+    """
+
+    SIMPLE = "simple"
+    POLARIMETRIC = "polarimetric"

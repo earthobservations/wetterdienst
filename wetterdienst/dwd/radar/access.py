@@ -9,10 +9,6 @@ from typing import Optional, Generator
 
 import pandas as pd
 
-from wetterdienst.dwd.observations.metadata import (
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
-)
 from wetterdienst.dwd.metadata.constants import ArchiveFormat
 
 from wetterdienst.dwd.network import download_file_from_dwd
@@ -26,6 +22,8 @@ from wetterdienst.dwd.radar.metadata import (
     RadarDate,
     RadarDataFormat,
     RadarDataSubset,
+    DWDRadarPeriodType,
+    DWDRadarTimeResolution,
 )
 from wetterdienst.dwd.radar.sites import RadarSite
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -70,8 +68,8 @@ class RadarResult:
 
 def collect_radar_data(
     parameter: RadarParameter,
-    time_resolution: Optional[DWDObsTimeResolution] = None,
-    period_type: Optional[DWDObsPeriodType] = None,
+    time_resolution: Optional[DWDRadarTimeResolution] = None,
+    period_type: Optional[DWDRadarPeriodType] = None,
     site: Optional[RadarSite] = None,
     format: Optional[RadarDataFormat] = None,
     subset: Optional[RadarDataSubset] = None,
@@ -122,7 +120,10 @@ def collect_radar_data(
             if period_type:
                 period_types = [period_type]
             else:
-                period_types = [DWDObsPeriodType.RECENT, DWDObsPeriodType.HISTORICAL]
+                period_types = [
+                    DWDRadarPeriodType.RECENT,
+                    DWDRadarPeriodType.HISTORICAL,
+                ]
 
             results = []
             for period_type in period_types:
@@ -132,7 +133,7 @@ def collect_radar_data(
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                if period_type == DWDObsPeriodType.RECENT:
+                if period_type == DWDRadarPeriodType.RECENT:
                     file_index = file_index[
                         (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
                         & (file_index[DWDMetaColumns.DATETIME.value] < end_date)

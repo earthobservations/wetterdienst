@@ -219,7 +219,10 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     """
 
-    parameter_path = f"{DWDObsTimeResolution.MINUTE_1.value}/{DWDObsParameterSet.PRECIPITATION.value}/"
+    parameter_path = (
+        f"{DWDObsTimeResolution.MINUTE_1.value}/"
+        f"{DWDObsParameterSet.PRECIPITATION.value}/"
+    )
 
     url = reduce(
         urljoin,

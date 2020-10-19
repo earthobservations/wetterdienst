@@ -4,5 +4,7 @@ from wetterdienst.dwd.radar.metadata import (
     RadarDataFormat,
     RadarDataSubset,
     RadarDate,
+    DWDRadarPeriodType,
+    DWDRadarTimeResolution,
 )
 from wetterdienst.dwd.radar.sites import RadarSite

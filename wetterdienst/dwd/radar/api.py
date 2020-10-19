@@ -4,10 +4,6 @@ from typing import Union, Optional
 
 import pandas as pd
 
-from wetterdienst.dwd.observations.metadata import (
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
-)
 from wetterdienst.dwd.radar.access import collect_radar_data, RadarResult
 from wetterdienst.dwd.radar.metadata import (
     RadarParameter,
@@ -15,6 +11,8 @@ from wetterdienst.dwd.radar.metadata import (
     RadarDate,
     RadarDataSubset,
     RADAR_PARAMETERS_RADOLAN,
+    DWDRadarTimeResolution,
+    DWDRadarPeriodType,
 )
 from wetterdienst.dwd.radar.sites import RadarSite, RADAR_LOCATIONS
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -45,8 +43,8 @@ class DWDRadarData:
         elevation: Optional[int] = None,
         start_date: Optional[Union[str, datetime, RadarDate]] = None,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
-        time_resolution: Optional[Union[str, DWDObsTimeResolution]] = None,
-        period_type: Optional[DWDObsPeriodType] = None,
+        time_resolution: Optional[Union[str, DWDRadarTimeResolution]] = None,
+        period_type: Optional[Union[str, DWDRadarPeriodType]] = None,
     ) -> None:
         """
         :param parameter:       The radar moment to request
@@ -69,19 +67,19 @@ class DWDRadarData:
         self.subset = parse_enumeration_from_template(subset, RadarDataSubset)
         self.elevation = elevation and int(elevation)
         self.time_resolution = parse_enumeration_from_template(
-            time_resolution, DWDObsTimeResolution
+            time_resolution, DWDRadarTimeResolution
         )
         self.period_type = parse_enumeration_from_template(
-            period_type, DWDObsPeriodType
+            period_type, DWDRadarPeriodType
         )
 
         # Sanity checks.
         if self.parameter == RadarParameter.RADOLAN_CDC:
 
             if time_resolution not in (
-                DWDObsTimeResolution.DAILY,
-                DWDObsTimeResolution.HOURLY,
-                DWDObsTimeResolution.MINUTE_5,
+                DWDRadarTimeResolution.DAILY,
+                DWDRadarTimeResolution.HOURLY,
+                DWDRadarTimeResolution.MINUTE_5,
             ):
                 raise ValueError(
                     "RADOLAN_CDC only supports daily, hourly and 5 minutes resolutions"
@@ -107,7 +105,7 @@ class DWDRadarData:
                 raise ValueError("HDF5 data has no '-latest-' files")
 
         if start_date == RadarDate.CURRENT and not self.period_type:
-            self.period_type = DWDObsPeriodType.RECENT
+            self.period_type = DWDRadarPeriodType.RECENT
 
         # Evaluate "RadarDate.MOST_RECENT" for "start_date".
         #
