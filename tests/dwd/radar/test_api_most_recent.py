@@ -4,8 +4,8 @@ import h5py
 import pytest
 
 from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
-from wetterdienst.dwd.observations import DWDObsTimeResolution
-from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset
+from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset, \
+    DWDRadarTimeResolution
 from wetterdienst.dwd.radar.sites import RadarSite
 
 
@@ -104,7 +104,7 @@ def test_radar_request_radolan_cdc_most_recent():
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.DAILY,
+        time_resolution=DWDRadarTimeResolution.DAILY,
         start_date=RadarDate.MOST_RECENT,
     )
 

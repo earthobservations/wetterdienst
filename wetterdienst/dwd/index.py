@@ -71,8 +71,8 @@ def build_path_to_parameter(
         indexing file path relative to climate observations path
     """
     if parameter_set == DWDObsParameterSet.SOLAR and time_resolution in (
-        DWDObsTimeResolution.HOURLY,
-        DWDObsTimeResolution.DAILY,
+            DWDObsTimeResolution.HOURLY,
+            DWDObsTimeResolution.DAILY,
     ):
         return f"{time_resolution.value}/{parameter_set.value}/"
 

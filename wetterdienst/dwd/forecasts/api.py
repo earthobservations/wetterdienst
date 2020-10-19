@@ -17,7 +17,7 @@ from wetterdienst.dwd.forecasts.metadata.column_types import (
 from wetterdienst.dwd.forecasts.metadata import (
     DWDFcstDate,
     DWDFcstParameter,
-    DWDFcstPeriodType,
+    DWDFcstType,
 )
 from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -63,7 +63,7 @@ class DWDMosmixData(WDDataCore):
 
     def __init__(
         self,
-        period_type: DWDFcstPeriodType,
+        forecast_type: DWDFcstType,
         station_ids: List[str],
         parameters: Optional[List[Union[str, DWDFcstParameter]]] = None,
         start_date: Optional[Union[str, datetime, DWDFcstDate]] = DWDFcstDate.LATEST,
@@ -74,7 +74,7 @@ class DWDMosmixData(WDDataCore):
         """
 
         Args:
-            period_type: period type of forecast, either short (MOSMIX-S) or long
+            forecast_type: period type of forecast, either small (MOSMIX-S) or large
                 (MOSMIX-L), as string or enumeration
             station_ids: station ids which are being queried from the MOSMIX foreacst
             parameters: optional parameters for which the forecasts are filtered
@@ -89,7 +89,7 @@ class DWDMosmixData(WDDataCore):
                 readable names
         """
 
-        if period_type not in DWDFcstPeriodType:
+        if forecast_type not in DWDFcstType:
             raise ValueError(
                 "period_type should be one of FORECAST_SHORT or FORECAST_LONG"
             )
@@ -124,11 +124,11 @@ class DWDMosmixData(WDDataCore):
                 )
 
             # Shift dates to 3, 9, 15, 21 hour format
-            if period_type == DWDFcstPeriodType.FORECAST_LONG:
+            if forecast_type == DWDFcstType.FORECAST_LARGE:
                 start_date = self.adjust_datetime(start_date)
                 end_date = self.adjust_datetime(end_date)
 
-        self.period_type = period_type
+        self.forecast_type = forecast_type
         self.station_ids = station_ids
         self.parameters = parameters
         self.start_date = start_date
@@ -136,7 +136,7 @@ class DWDMosmixData(WDDataCore):
         self.tidy_data = tidy_data
         self.humanize_column_names = humanize_column_names
 
-        if period_type == DWDFcstPeriodType.FORECAST_SHORT:
+        if forecast_type == DWDFcstType.FORECAST_SMALL:
             self.freq = "1H"  # short forecasts released every hour
         else:
             self.freq = "6H"
@@ -246,12 +246,12 @@ class DWDMosmixData(WDDataCore):
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type"""
-        if self.period_type == DWDFcstPeriodType.FORECAST_SHORT:
-            yield from self.read_mosmix_s(date)
+        if self.forecast_type == DWDFcstType.FORECAST_SMALL:
+            yield from self.read_mosmix_small(date)
         else:
-            yield from self.read_mosmix_l(date)
+            yield from self.read_mosmix_large(date)
 
-    def read_mosmix_s(
+    def read_mosmix_small(
         self, date: Union[DWDFcstDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads single MOSMIX-S file with all stations and returns every forecast that
@@ -265,7 +265,7 @@ class DWDMosmixData(WDDataCore):
         for forecast in self.kml.get_forecasts():
             yield self.kml.get_metadata(), forecast
 
-    def read_mosmix_l(
+    def read_mosmix_large(
         self, date: Union[DWDFcstDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads multiple MOSMIX-L files with one per each station and returns a

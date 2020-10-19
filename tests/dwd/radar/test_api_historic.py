@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 
 from wetterdienst.dwd.radar import DWDRadarData
-from wetterdienst.dwd.observations import DWDObsTimeResolution, DWDObsPeriodType
+from wetterdienst.dwd.radar import DWDRadarTimeResolution, DWDRadarPeriodType
 from wetterdienst.util.datetime import round_minutes
 from wetterdienst.dwd.radar.metadata import (
     RadarParameter,
@@ -31,8 +31,8 @@ def test_radar_request_radolan_cdc_hourly_alignment_1():
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.HOURLY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.HOURLY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
         start_date="2019-08-08 00:53:53",
     )
 
@@ -52,8 +52,8 @@ def test_radar_request_radolan_cdc_hourly_alignment_2():
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.HOURLY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.HOURLY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
         start_date="2019-08-08 00:42:42",
     )
 
@@ -70,15 +70,15 @@ def test_radar_request_radolan_cdc_historic_hourly_data():
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.HOURLY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.HOURLY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
         start_date="2019-08-08 00:50:00",
     )
 
     assert request == DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.HOURLY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.HOURLY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
         start_date=datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0),
     )
 
@@ -98,15 +98,15 @@ def test_radar_request_radolan_cdc_historic_daily_data():
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.DAILY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.DAILY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
         start_date="2019-08-08 00:50:00",
     )
 
     assert request == DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.DAILY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.DAILY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
         start_date=datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0),
     )
 

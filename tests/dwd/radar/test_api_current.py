@@ -2,8 +2,8 @@ import h5py
 import pytest
 
 from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
-from wetterdienst.dwd.observations import DWDObsTimeResolution
-from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset
+from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset, \
+    DWDRadarTimeResolution
 from wetterdienst.dwd.radar.sites import RadarSite
 
 
@@ -125,8 +125,8 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
 @pytest.mark.parametrize(
     "time_resolution",
     [
-        DWDObsTimeResolution.DAILY,
-        DWDObsTimeResolution.HOURLY,
+        DWDRadarTimeResolution.DAILY,
+        DWDRadarTimeResolution.HOURLY,
     ],
 )
 def test_radar_request_radolan_cdc_current(time_resolution):
@@ -157,7 +157,7 @@ def test_radar_request_radolan_cdc_current_5min():
 
     request = DWDRadarData(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.MINUTE_5,
+        time_resolution=DWDRadarTimeResolution.MINUTE_5,
         start_date=RadarDate.CURRENT,
     )
 

@@ -1,6 +1,6 @@
 import pytest
 from wetterdienst.dwd.forecasts.api import DWDMosmixData
-from wetterdienst.dwd.forecasts.metadata import DWDFcstPeriodType
+from wetterdienst.dwd.forecasts.metadata import DWDFcstType
 
 
 @pytest.mark.remote
@@ -11,7 +11,7 @@ def test_mosmix_l():
 
     mosmix = DWDMosmixData(
         station_ids=["01001"],
-        period_type=DWDFcstPeriodType.FORECAST_LONG,
+        forecast_type=DWDFcstType.FORECAST_LARGE,
         tidy_data=False,
     )
     response = next(mosmix.collect_data())
@@ -159,7 +159,7 @@ def test_mosmix_s():
 
     mosmix = DWDMosmixData(
         station_ids=["01028"],
-        period_type=DWDFcstPeriodType.FORECAST_SHORT,
+        forecast_type=DWDFcstType.FORECAST_SMALL,
         tidy_data=False,
     )
     response = next(mosmix.collect_data())
@@ -232,7 +232,7 @@ def test_mosmix_l_parameters():
 
     mosmix = DWDMosmixData(
         station_ids=["01001"],
-        period_type=DWDFcstPeriodType.FORECAST_LONG,
+        forecast_type=DWDFcstType.FORECAST_LARGE,
         parameters=["DD", "ww"],
         tidy_data=False,
     )

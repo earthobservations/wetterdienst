@@ -83,9 +83,9 @@ def create_meta_index_for_climate_observations(
         pandas.DataFrame with meta index for the selected set of arguments
     """
     cond = (
-        time_resolution == DWDObsTimeResolution.MINUTE_1
-        and period_type == DWDObsPeriodType.HISTORICAL
-        and parameter_set == DWDObsParameterSet.PRECIPITATION
+            time_resolution == DWDObsTimeResolution.MINUTE_1
+            and period_type == DWDObsPeriodType.HISTORICAL
+            and parameter_set == DWDObsParameterSet.PRECIPITATION
     )
 
     if cond:

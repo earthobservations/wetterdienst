@@ -57,18 +57,20 @@ Station list
 Get station information for a given set of *parameter*, *time resolution*
 and *period type* options.
 
-.. code-block:: python
+.. ipython:: python
 
-    from wetterdienst import DWDObservationSites
-    from wetterdienst import Parameter, PeriodType, TimeResolution
+    from wetterdienst.dwd.observations import DWDObservationSites, DWDObsParameterSet,
+        DWDObsPeriodType, DWDObsTimeResolution
 
     sites = DWDObservationSites(
-        parameter=Parameter.PRECIPITATION_MORE,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.HISTORICAL
+        parameter=DWDObsParameterSet.PRECIPITATION_MORE,
+        time_resolution=DWDObsTimeResolution.DAILY,
+        period_type=DWDObsPeriodType.HISTORICAL
     )
 
     df = sites.all()
+
+    print(df)
 
 The function returns a Pandas DataFrame with information about the available stations.
 The column ``HAS_FILE`` indicates whether the station actually has a file with data on
@@ -79,15 +81,15 @@ Measurements
 ============
 Use the ``DWDObservationData`` class in order to get hold of measurement information.
 
-.. code-block:: python
+.. ipython:: python
 
-    from wetterdienst import DWDObservationData
-    from wetterdienst import Parameter, PeriodType, TimeResolution
+    from wetterdienst.dwd.observations import DWDObservationData, DWDObsParameterSet,
+        DWDObsPeriodType, DWDObsTimeResolution
 
     observations = DWDObservationData(
         station_ids=[3, 1048],
-        parameter=[Parameter.CLIMATE_SUMMARY, Parameter.SOLAR],
-        time_resolution=TimeResolution.DAILY,
+        parameter=[DWDObsParameterSet.CLIMATE_SUMMARY, DWDObsParameterSet.SOLAR],
+        time_resolution=DWDObsTimeResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -96,6 +98,7 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
 
     for df in observations.collect_data():
         # analyse the station here
+        print(df)
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names and stored
@@ -110,16 +113,16 @@ Inquire the list of stations by geographic coordinates.
 - Calculate weather stations close to the given coordinates and set of parameters.
 - Either select by rank (n stations) or by distance in km.
 
-.. code-block:: python
+.. ipython:: python
 
     from datetime import datetime
-    from wetterdienst import DWDObservationSites
-    from wetterdienst import Parameter, PeriodType, TimeResolution
+    from wetterdienst.dwd.observations import DWDObservationSites, DWDObsParameterSet,
+        DWDObsPeriodType, DWDObsTimeResolution
 
     sites = DWDObservationSites(
-        Parameter.TEMPERATURE_AIR,
-        TimeResolution.HOURLY,
-        PeriodType.RECENT,
+        DWDObsParameterSet.TEMPERATURE_AIR,
+        DWDObsTimeResolution.HOURLY,
+        DWDObsPeriodType.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20)
     )
@@ -130,23 +133,25 @@ Inquire the list of stations by geographic coordinates.
         max_distance_in_km=30
     )
 
+    print(df)
+
 The function returns a DataFrame with the list of stations with distances [in km]
 to the given coordinates.
 
 The station ids within the DataFrame:
 
-.. code-block:: python
+.. ipython:: python
 
     station_ids = stations.STATION_ID.unique()
 
 can be used to download the observation data:
 
-.. code-block:: python
+.. ipython:: python
 
     observations = DWDObservationData(
         station_ids=station_ids,
-        parameter=[Parameter.TEMPERATURE_AIR, Parameter.SOLAR],
-        time_resolution=TimeResolution.HOURLY,
+        parameter=[DWDObsParameterSet.TEMPERATURE_AIR, DWDObsParameterSet.SOLAR],
+        DWDObsTimeResolution=TimeResolution.HOURLY,
         start_date="1990-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -155,6 +160,7 @@ can be used to download the observation data:
 
     for df in observations.collect_data():
         # analyse the station here
+        print(df)
 
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
@@ -167,15 +173,15 @@ In order to explore what is possible, please have a look at the `DuckDB SQL intr
 
 The result data is provided through a virtual table called ``data``.
 
-.. code-block:: python
+.. ipython:: python
 
-    from wetterdienst import DWDObservationData
-    from wetterdienst import Parameter, PeriodType, TimeResolution
+    from wetterdienst.dwd.observations import DWDObservationData, DWDObsParameterSet,
+        DWDObsPeriodType, DWDObsTimeResolution
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=[Parameter.TEMPERATURE_AIR],
-        time_resolution=TimeResolution.HOURLY,
+        parameter=[DWDObsParameterSet.TEMPERATURE_AIR],
+        time_resolution=DWDObsTimeResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -195,15 +201,15 @@ To use that feature, pass a ``StorageAdapter`` instance to
 
 .. code-block:: python
 
-    from wetterdienst import DWDObservationData
-    from wetterdienst import Parameter, PeriodType, TimeResolution
+    from wetterdienst.dwd.observations import DWDObservationData, DWDObsParameterSet,
+        DWDObsPeriodType, DWDObsTimeResolution, StorageAdapter
 
     storage = StorageAdapter(persist=True, folder="/path/to/dwd-archive")
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=[Parameter.TEMPERATURE_AIR],
-        time_resolution=TimeResolution.HOURLY,
+        parameter=[DWDObsParameterSet.TEMPERATURE_AIR],
+        time_resolution=DWDObsTimeResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -229,13 +235,13 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst import DWDObservationData
-    from wetterdienst import Parameter, PeriodType, TimeResolution
+    from wetterdienst.dwd.observations import DWDObservationData, DWDObsParameterSet,
+        DWDObsPeriodType, DWDObsTimeResolution, StorageAdapter
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=[Parameter.TEMPERATURE_AIR],
-        time_resolution=TimeResolution.HOURLY,
+        parameter=[DWDObsParameterSet.TEMPERATURE_AIR],
+        time_resolution=DWDObsTimeResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -249,27 +255,30 @@ Examples:
 ******
 MOSMIX
 ******
-::
+MOSMIX-S - less parameters:
+.. code-block:: python
 
-    from wetterdienst.mosmix.api import MOSMIXRequest
+    from wetterdienst.dwd.forecasts import DWDMosmixData, DWDFcstPeriodType
 
-    # MOSMIX-L, all parameters
-    mosmix = MOSMIXRequest(station_ids=["01001", "01008"])
-    response = mosmix.read_mosmix_l_latest()
+    mosmix = DWDMosmixData(
+        station_ids=["01001", "01008"],
+        period_type=DWDFcstPeriodType.FORECAST_LONG
+    )
+    response = mosmix.collect_data()
 
     print(response.metadata)
-    print(response.stations)
-    print(response.forecasts)
+    print(response.forecast)
 
-Other variants::
+MOSMIX-L - more parameters:
+.. code-block:: python
+    mosmix = DWDMosmixData(
+        station_ids=["01001", "01008"],
+        period_type=DWDFcstPeriodType.FORECAST_LONG
+    )
+    response = mosmix.collect_data()
 
-    # MOSMIX-L, specific parameters
-    mosmix = MOSMIXRequest(station_ids=["01001", "01008"], parameters=["DD", "ww"])
-    response = mosmix.read_mosmix_l_latest()
-
-    # MOSMIX-S, all parameters
-    mosmix = MOSMIXRequest(station_ids=["01028", "01092"])
-    response = mosmix.read_mosmix_s_latest()
+    print(response.metadata)
+    print(response.forecast)
 
 
 *****

@@ -9,3 +9,4 @@ from wetterdienst.dwd.observations.metadata import (
     DWDObsPeriodType,
     DWDObsTimeResolution,
 )
+from wetterdienst.dwd.observations.store import StorageAdapter

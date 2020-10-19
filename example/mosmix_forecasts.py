@@ -22,7 +22,7 @@ def mosmix_example():
         station_ids=['01001', '01008'],
         parameters=['DD', 'ww'],
         start_date=DWDFcstDate.LATEST,  # automatically set if left empty
-        period_type=PeriodType.FORECAST_LONG,
+        forecast_type=PeriodType.FORECAST_LONG,
         tidy_data=True,
         humanize_column_names=True
     )
@@ -37,7 +37,7 @@ def mosmix_example():
         station_ids=['01028', '01092'],
         parameters=['DD', 'ww'],
         start_date=DWDFcstDate.LATEST,  # automatically set if left empty
-        period_type=PeriodType.FORECAST_SHORT,
+        forecast_type=PeriodType.FORECAST_SHORT,
         tidy_data=True,
         humanize_column_names=True
     )
