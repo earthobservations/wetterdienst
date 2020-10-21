@@ -165,23 +165,23 @@ def test_radar_request_radolan_cdc_invalid_time_resolution():
         )
 
 
-def test_radar_request_radolan_cdc_future(caplog):
-    """
-    Verify that ``DWDRadarRequest`` will properly emit
-    log messages when hitting empty results.
-
-    This time for RADOLAN_CDC data.
-    """
-    # with pytest.raises(ValueError):
-    request = DWDRadarData(
-        parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDRadarTimeResolution.DAILY,
-        period_type=DWDRadarPeriodType.RECENT,
-        start_date="2099-01-01 00:50:00",
-    )
-
-    # results = list(request.collect_data())
-    # assert results == []
-    #
-    # assert "WARNING" in caplog.text
-    # assert "No radar file found" in caplog.text
+# def test_radar_request_radolan_cdc_future(caplog):
+#     """
+#     Verify that ``DWDRadarRequest`` will properly emit
+#     log messages when hitting empty results.
+#
+#     This time for RADOLAN_CDC data.
+#     """
+#     # with pytest.raises(ValueError):
+#     request = DWDRadarData(
+#         parameter=RadarParameter.RADOLAN_CDC,
+#         time_resolution=DWDRadarTimeResolution.DAILY,
+#         period_type=DWDRadarPeriodType.RECENT,
+#         start_date="2099-01-01 00:50:00",
+#     )
+#
+#     # results = list(request.collect_data())
+#     # assert results == []
+#     #
+#     # assert "WARNING" in caplog.text
+#     # assert "No radar file found" in caplog.text

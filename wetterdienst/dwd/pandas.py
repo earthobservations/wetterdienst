@@ -70,8 +70,8 @@ class PandasDwdExtension:
             date_from = parse_datetime(date_from)
             date_to = parse_datetime(date_to)
             if time_resolution in (
-                    DWDObsTimeResolution.ANNUAL,
-                    DWDObsTimeResolution.MONTHLY,
+                DWDObsTimeResolution.ANNUAL,
+                DWDObsTimeResolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(time_resolution, date_from, date_to)
                 expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
@@ -87,8 +87,8 @@ class PandasDwdExtension:
         else:
             date = parse_datetime(date)
             if time_resolution in (
-                    DWDObsTimeResolution.ANNUAL,
-                    DWDObsTimeResolution.MONTHLY,
+                DWDObsTimeResolution.ANNUAL,
+                DWDObsTimeResolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(time_resolution, date)
                 expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (

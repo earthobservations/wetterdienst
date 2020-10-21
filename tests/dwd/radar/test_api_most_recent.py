@@ -4,8 +4,12 @@ import h5py
 import pytest
 
 from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
-from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset, \
-    DWDRadarTimeResolution
+from wetterdienst.dwd.radar.metadata import (
+    RadarDate,
+    RadarDataFormat,
+    RadarDataSubset,
+    DWDRadarTimeResolution,
+)
 from wetterdienst.dwd.radar.sites import RadarSite
 
 

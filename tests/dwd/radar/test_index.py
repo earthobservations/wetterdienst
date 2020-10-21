@@ -5,7 +5,7 @@ from wetterdienst.dwd.radar.metadata import (
     RadarDataFormat,
     RadarDataSubset,
     DWDRadarTimeResolution,
-    DWDRadarPeriodType
+    DWDRadarPeriodType,
 )
 from wetterdienst.dwd.radar.sites import RadarSite
 from wetterdienst.dwd.radar.index import create_fileindex_radar
