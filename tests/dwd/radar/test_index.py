@@ -1,10 +1,11 @@
 import pytest
 from pathlib import PurePath
-from wetterdienst.dwd.observations import DWDObsTimeResolution, DWDObsPeriodType
 from wetterdienst.dwd.radar.metadata import (
     RadarParameter,
     RadarDataFormat,
     RadarDataSubset,
+    DWDRadarTimeResolution,
+    DWDRadarPeriodType
 )
 from wetterdienst.dwd.radar.sites import RadarSite
 from wetterdienst.dwd.radar.index import create_fileindex_radar
@@ -160,8 +161,8 @@ def test_radar_fileindex_radolan_cdc_daily_recent():
 
     file_index = create_fileindex_radar(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.DAILY,
-        period_type=DWDObsPeriodType.RECENT,
+        time_resolution=DWDRadarTimeResolution.DAILY,
+        period_type=DWDRadarPeriodType.RECENT,
     )
 
     urls = file_index["FILENAME"].tolist()
@@ -178,8 +179,8 @@ def test_radar_fileindex_radolan_cdc_daily_historical():
 
     file_index = create_fileindex_radar(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.DAILY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.DAILY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
     )
 
     urls = file_index["FILENAME"].tolist()
@@ -196,8 +197,8 @@ def test_radar_fileindex_radolan_cdc_hourly_recent():
 
     file_index = create_fileindex_radar(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.HOURLY,
-        period_type=DWDObsPeriodType.RECENT,
+        time_resolution=DWDRadarTimeResolution.HOURLY,
+        period_type=DWDRadarPeriodType.RECENT,
     )
 
     urls = file_index["FILENAME"].tolist()
@@ -214,8 +215,8 @@ def test_radar_fileindex_radolan_cdc_hourly_historical():
 
     file_index = create_fileindex_radar(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.HOURLY,
-        period_type=DWDObsPeriodType.HISTORICAL,
+        time_resolution=DWDRadarTimeResolution.HOURLY,
+        period_type=DWDRadarPeriodType.HISTORICAL,
     )
 
     urls = file_index["FILENAME"].tolist()
@@ -232,7 +233,7 @@ def test_radar_fileindex_radolan_cdc_5minutes():
 
     file_index = create_fileindex_radar(
         parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDObsTimeResolution.MINUTE_5,
+        time_resolution=DWDRadarTimeResolution.MINUTE_5,
     )
 
     urls = file_index["FILENAME"].tolist()
