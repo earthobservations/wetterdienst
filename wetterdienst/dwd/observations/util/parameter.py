@@ -1,29 +1,29 @@
 from typing import Tuple, Union
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsTimeResolution,
-    DWDObsParameter,
-    DWDObsParameterSet,
-    DWDObsPeriodType,
+    DWDObservationResolution,
+    DWDObservationParameter,
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
 )
-from wetterdienst.dwd.observations.metadata.parameter import DWDObsParameterSetStructure
+from wetterdienst.dwd.observations.metadata.parameter import DWDObservationParameterSetStructure
 from wetterdienst.dwd.observations.metadata.parameter_set import (
-    TIME_RESOLUTION_PARAMETER_MAPPING,
+    RESOLUTION_PARAMETER_MAPPING,
 )
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.exceptions import InvalidEnumeration, InvalidParameter
 
 
 def create_parameter_to_parameter_set_combination(
-    parameter: Union[DWDObsParameter, DWDObsParameterSet],
-    time_resolution: DWDObsTimeResolution,
-) -> Tuple[Union[DWDObsParameter, DWDObsParameterSet], DWDObsParameterSet]:
+    parameter: Union[DWDObservationParameter, DWDObservationParameterSet],
+    resolution: DWDObservationResolution,
+) -> Tuple[Union[DWDObservationParameter, DWDObservationParameterSet], DWDObservationParameterSet]:
     """Function to create a mapping from a requested parameter to a provided parameter
     set which has to be downloaded first to extract the parameter from it"""
     parameter_set_enums = [
         value
-        for key, value in DWDObsParameterSetStructure[
-            time_resolution.name
+        for key, value in DWDObservationParameterSetStructure[
+            resolution.name
         ].__dict__.items()
         if not key.startswith("_")
     ]
@@ -32,13 +32,13 @@ def create_parameter_to_parameter_set_combination(
         try:
             parameter_ = parse_enumeration_from_template(
                 parameter,
-                DWDObsParameterSetStructure[time_resolution.name][
+                DWDObservationParameterSetStructure[resolution.name][
                     parameter_set_enum.__name__
                 ],
             )
 
             parameter_set = parse_enumeration_from_template(
-                parameter_set_enum.__name__, DWDObsParameterSet
+                parameter_set_enum.__name__, DWDObservationParameterSet
             )
 
             return parameter_, parameter_set
@@ -46,31 +46,31 @@ def create_parameter_to_parameter_set_combination(
             pass
 
     try:
-        parameter_set = parse_enumeration_from_template(parameter, DWDObsParameterSet)
+        parameter_set = parse_enumeration_from_template(parameter, DWDObservationParameterSet)
         return parameter_set, parameter_set
     except InvalidEnumeration:
         pass
 
     raise InvalidParameter(
         f"parameter {parameter} could not be parsed for "
-        f"time resolution {time_resolution}"
+        f"time resolution {resolution}"
     )
 
 
 def check_dwd_observations_parameter_set(
-    parameter_set: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
-    period_type: DWDObsPeriodType,
+    parameter_set: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
 ) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
     """
-    check = TIME_RESOLUTION_PARAMETER_MAPPING.get(time_resolution, {}).get(
+    check = RESOLUTION_PARAMETER_MAPPING.get(resolution, {}).get(
         parameter_set, []
     )
 
-    if period_type not in check:
+    if period not in check:
         return False
 
     return True
@@ -79,7 +79,7 @@ def check_dwd_observations_parameter_set(
 if __name__ == "__main__":
     print(
         create_parameter_to_parameter_set_combination(
-            time_resolution=DWDObsTimeResolution.DAILY,
-            parameter=DWDObsParameter.DAILY.PRECIPITATION_HEIGHT,
+            resolution=DWDObservationResolution.DAILY,
+            parameter=DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT,
         )
     )

@@ -5,9 +5,9 @@ from typing import Union
 import pandas as pd
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
 )
 from wetterdienst.dwd.observations.metadata.column_types import (
     QUALITY_FIELDS,
@@ -30,11 +30,11 @@ class StorageAdapter:
         self.invalidate = invalidate
         self.folder = folder
 
-    def hdf5(self, parameter, time_resolution, period_type):
+    def hdf5(self, parameter, resolution, period):
         return LocalHDF5Store(
             parameter_set=parameter,
-            time_resolution=time_resolution,
-            period_type=period_type,
+            resolution=resolution,
+            period=period,
             folder=self.folder,
         )
 
@@ -42,21 +42,21 @@ class StorageAdapter:
 class LocalHDF5Store:
     def __init__(
         self,
-        parameter_set: DWDObsParameterSet,
-        time_resolution: DWDObsTimeResolution,
-        period_type: DWDObsPeriodType,
+        parameter_set: DWDObservationParameterSet,
+        resolution: DWDObservationResolution,
+        period: DWDObservationPeriod,
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
     ):
         self.parameter_set = parameter_set
-        self.time_resolution = time_resolution
-        self.period_type = period_type
+        self.resolution = resolution
+        self.period = period
         self.folder = folder
 
     @property
     def filename(self) -> str:
         return (
-            f"{self.parameter_set.value}-{self.time_resolution.value}-"
-            f"{self.period_type.value}.{DataFormat.H5.value}"
+            f"{self.parameter_set.value}-{self.resolution.value}-"
+            f"{self.period.value}.{DataFormat.H5.value}"
         )
 
     @property
@@ -73,7 +73,7 @@ class LocalHDF5Store:
         """
 
         return build_parameter_set_identifier(
-            self.parameter_set, self.time_resolution, self.period_type, station_id
+            self.parameter_set, self.resolution, self.period, station_id
         )
 
     def invalidate(self):

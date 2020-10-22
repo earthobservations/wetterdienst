@@ -7,10 +7,10 @@ from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
 )
-from wetterdienst.dwd.observations.metadata import (
-    DWDObsTimeResolution,
-    DWDObsParameterSet,
-    DWDObsPeriodType,
+from wetterdienst.dwd.observations import (
+    DWDObservationResolution,
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
 )
 
 
@@ -19,9 +19,9 @@ def test_file_index_creation():
 
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
-        DWDObsParameterSet.CLIMATE_SUMMARY,
-        DWDObsTimeResolution.DAILY,
-        DWDObsPeriodType.RECENT,
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.RECENT,
     )
 
     assert not file_index.empty
@@ -36,18 +36,18 @@ def test_file_index_creation():
 
     with pytest.raises(requests.exceptions.HTTPError):
         create_file_index_for_climate_observations(
-            DWDObsParameterSet.CLIMATE_SUMMARY,
-            DWDObsTimeResolution.MINUTE_1,
-            DWDObsPeriodType.HISTORICAL,
+            DWDObservationParameterSet.CLIMATE_SUMMARY,
+            DWDObservationResolution.MINUTE_1,
+            DWDObservationPeriod.HISTORICAL,
         )
 
 
 def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
         station_id=1048,
-        parameter_set=DWDObsParameterSet.CLIMATE_SUMMARY,
-        time_resolution=DWDObsTimeResolution.DAILY,
-        period_type=DWDObsPeriodType.RECENT,
+        parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        period=DWDObservationPeriod.RECENT,
     )
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"

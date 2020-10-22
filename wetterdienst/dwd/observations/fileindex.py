@@ -4,9 +4,9 @@ from typing import List
 import pandas as pd
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
 )
 from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
@@ -20,9 +20,9 @@ from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 def create_file_list_for_climate_observations(
     station_id: int,
-    parameter_set: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
-    period_type: DWDObsPeriodType,
+    parameter_set: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
 ) -> List[str]:
     """
     Function for selecting datafiles (links to archives) for given
@@ -32,13 +32,13 @@ def create_file_list_for_climate_observations(
     Args:
         station_id: station id for the weather station to ask for data
         parameter_set: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
+        resolution: frequency/granularity of measurement interval
+        period: recent or historical files
     Returns:
         List of path's to file
     """
     file_index = create_file_index_for_climate_observations(
-        parameter_set, time_resolution, period_type
+        parameter_set, resolution, period
     )
 
     file_index = file_index[file_index[DWDMetaColumns.STATION_ID.value] == station_id]
@@ -48,22 +48,22 @@ def create_file_list_for_climate_observations(
 
 @fileindex_cache_twelve_hours.cache_on_arguments()
 def create_file_index_for_climate_observations(
-    parameter_set: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
-    period_type: DWDObsPeriodType,
+    parameter_set: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
 ) -> pd.DataFrame:
     """
     Function (cached) to create a file index of the DWD station data. The file index
     is created for an individual set of parameters.
     Args:
         parameter_set: parameter of Parameter enumeration
-        time_resolution: time resolution of TimeResolution enumeration
-        period_type: period type of PeriodType enumeration
+        resolution: time resolution of TimeResolution enumeration
+        period: period type of PeriodType enumeration
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
     file_index = _create_file_index_for_dwd_server(
-        parameter_set, time_resolution, period_type, DWDCDCBase.CLIMATE_OBSERVATIONS
+        parameter_set, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
     file_index = file_index[

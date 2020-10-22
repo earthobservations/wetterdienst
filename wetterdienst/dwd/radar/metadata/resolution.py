@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class DWDRadarTimeResolution(Enum):
+class DWDRadarResolution(Enum):
     """
     enumeration for granularity/resolution of the weather
     observations stored on dwd server

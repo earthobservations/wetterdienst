@@ -1,5 +1,5 @@
-from wetterdienst.dwd.forecasts.metadata.dates import DWDFcstDate
-from wetterdienst.dwd.forecasts.metadata.parameter import DWDFcstParameter
-from wetterdienst.dwd.forecasts.metadata.period_type import (
-    DWDFcstType,
+from wetterdienst.dwd.forecasts.metadata.dates import DWDForecastDate
+from wetterdienst.dwd.forecasts.metadata.parameter import DWDForecastParameter
+from wetterdienst.dwd.forecasts.metadata.mosmix_type import (
+    DWDMosmixType,
 )

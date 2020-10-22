@@ -1,10 +1,10 @@
-from wetterdienst.dwd.observations.metadata.period_type import (
-    DWDObsPeriodType,
+from wetterdienst.dwd.observations.metadata.period import (
+    DWDObservationPeriod,
 )
-from wetterdienst.dwd.observations.metadata.time_resolution import DWDObsTimeResolution
+from wetterdienst.dwd.observations.metadata.resolution import DWDObservationResolution
 from wetterdienst.dwd.observations.metadata.parameter import (
-    DWDObsParameter,
+    DWDObservationParameter,
 )
 from wetterdienst.dwd.observations.metadata.parameter_set import (
-    DWDObsParameterSet,
+    DWDObservationParameterSet,
 )

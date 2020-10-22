@@ -1,16 +1,18 @@
-from wetterdienst.dwd.observations.metadata.parameter_set import DWDObsParameterSet
-from wetterdienst.dwd.observations.metadata.time_resolution import DWDObsTimeResolution
-from wetterdienst.dwd.observations.metadata import DWDObsPeriodType
-from wetterdienst.dwd.observations.store import StorageAdapter
+from wetterdienst.dwd.observations import (
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
+    StorageAdapter
+)
 
 
 def test_storage_adapter():
     storage_adapter = StorageAdapter()
 
     storage = storage_adapter.hdf5(
-        DWDObsParameterSet.CLIMATE_SUMMARY,
-        DWDObsTimeResolution.DAILY,
-        DWDObsPeriodType.HISTORICAL,
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.HISTORICAL,
     )
 
     assert storage.hdf5_key(1) == "kl/daily/historical/station_id_1"

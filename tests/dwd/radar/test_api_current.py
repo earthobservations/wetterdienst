@@ -1,14 +1,15 @@
 import h5py
 import pytest
 
-from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
-from wetterdienst.dwd.radar.metadata import (
-    RadarDate,
-    RadarDataFormat,
-    RadarDataSubset,
-    DWDRadarTimeResolution,
+from wetterdienst.dwd.radar import (
+    DWDRadarData,
+    DWDRadarParameter,
+    DWDRadarDate,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarResolution,
 )
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 
 @pytest.mark.remote
@@ -19,11 +20,11 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=RadarDate.CURRENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+        start_date=DWDRadarDate.CURRENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -61,11 +62,11 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=RadarDate.CURRENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+        start_date=DWDRadarDate.CURRENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -103,11 +104,11 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=RadarDate.CURRENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+        start_date=DWDRadarDate.CURRENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
         elevation=1,
     )
 
@@ -129,8 +130,8 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
 @pytest.mark.parametrize(
     "time_resolution",
     [
-        DWDRadarTimeResolution.DAILY,
-        DWDRadarTimeResolution.HOURLY,
+        DWDRadarResolution.DAILY,
+        DWDRadarResolution.HOURLY,
     ],
 )
 def test_radar_request_radolan_cdc_current(time_resolution):
@@ -142,9 +143,9 @@ def test_radar_request_radolan_cdc_current(time_resolution):
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.RADOLAN_CDC,
-        start_date=RadarDate.CURRENT,
-        time_resolution=time_resolution,
+        parameter=DWDRadarParameter.RADOLAN_CDC,
+        start_date=DWDRadarDate.CURRENT,
+        resolution=time_resolution,
     )
 
     list(request.collect_data())
@@ -160,9 +161,9 @@ def test_radar_request_radolan_cdc_current_5min():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDRadarTimeResolution.MINUTE_5,
-        start_date=RadarDate.CURRENT,
+        parameter=DWDRadarParameter.RADOLAN_CDC,
+        resolution=DWDRadarResolution.MINUTE_5,
+        start_date=DWDRadarDate.CURRENT,
     )
 
     list(request.collect_data())

@@ -4,9 +4,9 @@ from wetterdienst.dwd.observations.api import (
     DWDObservationData,
 )
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameter,
-    DWDObsParameterSet,
-    DWDObsPeriodType,
-    DWDObsTimeResolution,
+    DWDObservationParameter,
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.store import StorageAdapter

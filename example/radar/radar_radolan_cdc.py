@@ -47,7 +47,7 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import RadarParameter
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
@@ -126,7 +126,7 @@ def radolan_grid_example():
 
     log.info("Acquiring RADOLAN_CDC data")
     radolan = DWDRadarData(
-        parameter=RadarParameter.RADOLAN_CDC,
+        parameter=DWDRadarParameter.RADOLAN_CDC,
         time_resolution=TimeResolution.DAILY,
         period_type=PeriodType.RECENT,
         start_date="2020-09-04T12:00:00",

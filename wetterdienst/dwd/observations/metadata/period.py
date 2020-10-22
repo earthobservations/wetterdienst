@@ -12,7 +12,7 @@ quality marks and drop overlapping values from other periods.
 
 
 @functools.total_ordering
-class DWDObsPeriodType(Enum):
+class DWDObservationPeriod(Enum):
     """ enumeration for different period types of storage on dwd server"""
 
     HISTORICAL = "historical"

@@ -36,8 +36,11 @@ MOSMIX_METADATA_COLUMNS = [
 
 @metaindex_cache.cache_on_arguments()
 def metadata_for_forecasts() -> pd.DataFrame:
+    """ Create meta data DataFrame from available station list """
     payload = requests.get(MOSMIX_STATION_LIST, headers={"User-Agent": ""})
 
+    # List is unsorted with repeating interruptions with "TABLE" string in the beginning
+    # of the line
     lines = payload.text.split("\n")
     table_lines = [i for i, line in enumerate(lines) if line.startswith("TABLE")]
 

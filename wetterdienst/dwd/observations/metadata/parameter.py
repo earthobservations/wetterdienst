@@ -1,9 +1,9 @@
 from enum import Enum
 
-from wetterdienst.util.column_names import WDParameterStructureBase
+from wetterdienst.util.parameter import WDParameterStructureBase
 
 
-class DWDObsParameter(WDParameterStructureBase):
+class DWDObservationParameter(WDParameterStructureBase):
     # Following DWDObsParameterSetStructure
     # 1_minute
     class MINUTE_1(Enum):  # noqa
@@ -270,7 +270,7 @@ class DWDObsParameter(WDParameterStructureBase):
         DEW = "JA_TAU"  # int
 
 
-class DWDObsParameterSetStructure(WDParameterStructureBase):
+class DWDObservationParameterSetStructure(WDParameterStructureBase):
     """
     Original data column names from DWD data
     Two anomalies:

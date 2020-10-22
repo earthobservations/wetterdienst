@@ -15,9 +15,9 @@ from wetterdienst.dwd.forecasts.metadata.column_types import (
     INTEGER_FIELDS,
 )
 from wetterdienst.dwd.forecasts.metadata import (
-    DWDFcstDate,
-    DWDFcstParameter,
-    DWDFcstType,
+    DWDForecastDate,
+    DWDForecastParameter,
+    DWDMosmixType,
 )
 from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -63,10 +63,10 @@ class DWDMosmixData(WDDataCore):
 
     def __init__(
         self,
-        forecast_type: DWDFcstType,
+        mosmix_type: DWDMosmixType,
         station_ids: List[str],
-        parameters: Optional[List[Union[str, DWDFcstParameter]]] = None,
-        start_date: Optional[Union[str, datetime, DWDFcstDate]] = DWDFcstDate.LATEST,
+        parameters: Optional[List[Union[str, DWDForecastParameter]]] = None,
+        start_date: Optional[Union[str, datetime, DWDForecastDate]] = DWDForecastDate.LATEST,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
@@ -74,7 +74,7 @@ class DWDMosmixData(WDDataCore):
         """
 
         Args:
-            forecast_type: period type of forecast, either small (MOSMIX-S) or large
+            mosmix_type: type of forecast, either small (MOSMIX-S) or large
                 (MOSMIX-L), as string or enumeration
             station_ids: station ids which are being queried from the MOSMIX foreacst
             parameters: optional parameters for which the forecasts are filtered
@@ -89,7 +89,7 @@ class DWDMosmixData(WDDataCore):
                 readable names
         """
 
-        if forecast_type not in DWDFcstType:
+        if mosmix_type not in DWDMosmixType:
             raise ValueError(
                 "period_type should be one of FORECAST_SHORT or FORECAST_LONG"
             )
@@ -100,19 +100,19 @@ class DWDMosmixData(WDDataCore):
                 pd.Series(parameters)
                 .apply(
                     parse_enumeration_from_template,
-                    args=(DWDFcstParameter,),
+                    args=(DWDForecastParameter,),
                 )
                 .tolist()
             )
 
         if not start_date and not end_date:
-            start_date = DWDFcstDate.LATEST
+            start_date = DWDForecastDate.LATEST
         elif not end_date:
             end_date = start_date
         elif not start_date:
             start_date = end_date
 
-        if start_date is not DWDFcstDate.LATEST:
+        if start_date is not DWDForecastDate.LATEST:
             start_date = pd.to_datetime(start_date, infer_datetime_format=True).floor(
                 "1H"
             )
@@ -124,11 +124,11 @@ class DWDMosmixData(WDDataCore):
                 )
 
             # Shift dates to 3, 9, 15, 21 hour format
-            if forecast_type == DWDFcstType.FORECAST_LARGE:
+            if mosmix_type == DWDMosmixType.LARGE:
                 start_date = self.adjust_datetime(start_date)
                 end_date = self.adjust_datetime(end_date)
 
-        self.forecast_type = forecast_type
+        self.forecast_type = mosmix_type
         self.station_ids = station_ids
         self.parameters = parameters
         self.start_date = start_date
@@ -136,7 +136,7 @@ class DWDMosmixData(WDDataCore):
         self.tidy_data = tidy_data
         self.humanize_column_names = humanize_column_names
 
-        if forecast_type == DWDFcstType.FORECAST_SMALL:
+        if mosmix_type == DWDMosmixType.SMALL:
             self.freq = "1H"  # short forecasts released every hour
         else:
             self.freq = "6H"
@@ -175,7 +175,7 @@ class DWDMosmixData(WDDataCore):
     def collect_data(self) -> Generator[DWDMosmixResult, None, None]:
         """Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)"""
-        if self.start_date == DWDFcstDate.LATEST:
+        if self.start_date == DWDForecastDate.LATEST:
             yield from self.read_mosmix(self.start_date)
         else:
             for date in pd.date_range(self.start_date, self.end_date, freq=self.freq):
@@ -185,7 +185,7 @@ class DWDMosmixData(WDDataCore):
                     log.warning(e)
                     continue
 
-    def read_mosmix(self, date: Union[datetime, DWDFcstDate]) -> DWDMosmixResult:
+    def read_mosmix(self, date: Union[datetime, DWDForecastDate]) -> DWDMosmixResult:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -242,17 +242,17 @@ class DWDMosmixData(WDDataCore):
             yield result
 
     def _read_mosmix(
-        self, date: Union[DWDFcstDate, datetime]
+        self, date: Union[DWDForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type"""
-        if self.forecast_type == DWDFcstType.FORECAST_SMALL:
+        if self.forecast_type == DWDMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
         else:
             yield from self.read_mosmix_large(date)
 
     def read_mosmix_small(
-        self, date: Union[DWDFcstDate, datetime]
+        self, date: Union[DWDForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads single MOSMIX-S file with all stations and returns every forecast that
         matches with one of the defined station ids."""
@@ -266,7 +266,7 @@ class DWDMosmixData(WDDataCore):
             yield self.kml.get_metadata(), forecast
 
     def read_mosmix_large(
-        self, date: Union[DWDFcstDate, datetime]
+        self, date: Union[DWDForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads multiple MOSMIX-L files with one per each station and returns a
         forecast per file."""
@@ -286,7 +286,7 @@ class DWDMosmixData(WDDataCore):
             yield self.kml.get_metadata(), next(self.kml.get_forecasts())
 
     @staticmethod
-    def get_url_for_date(url: str, date: Union[datetime, DWDFcstDate]) -> str:
+    def get_url_for_date(url: str, date: Union[datetime, DWDForecastDate]) -> str:
         """
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
@@ -300,7 +300,7 @@ class DWDMosmixData(WDDataCore):
         """
         urls = list_remote_files(url, False)
 
-        if date == DWDFcstDate.LATEST:
+        if date == DWDForecastDate.LATEST:
             try:
                 url = list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
                 return url
@@ -346,7 +346,7 @@ class DWDMosmixData(WDDataCore):
         enumeration"""
         hcnm = {
             forecast_parameter.name: forecast_parameter.value
-            for forecast_parameter in DWDFcstParameter
+            for forecast_parameter in DWDForecastParameter
         }
 
         return hcnm

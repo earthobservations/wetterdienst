@@ -1,5 +1,6 @@
 from wetterdienst.dwd.forecasts.api import DWDMosmixSites, DWDMosmixData
 from wetterdienst.dwd.forecasts.metadata import (
-    DWDFcstDate,
-    DWDFcstParameter,
+    DWDForecastDate,
+    DWDForecastParameter,
+    DWDMosmixType
 )

@@ -5,12 +5,11 @@ import tarfile
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from typing import Optional, Generator
+from typing import Optional, Generator, Tuple
 
 import pandas as pd
 
 from wetterdienst.dwd.metadata.constants import ArchiveFormat
-
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.radar.index import (
     create_fileindex_radolan_cdc,
@@ -18,14 +17,14 @@ from wetterdienst.dwd.radar.index import (
 )
 from wetterdienst.dwd.radar.util import get_date_from_filename
 from wetterdienst.dwd.radar.metadata import (
-    RadarParameter,
-    RadarDate,
-    RadarDataFormat,
-    RadarDataSubset,
-    DWDRadarPeriodType,
-    DWDRadarTimeResolution,
+    DWDRadarParameter,
+    DWDRadarDate,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarPeriod,
+    DWDRadarResolution,
 )
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.util.cache import (
@@ -67,12 +66,12 @@ class RadarResult:
 
 
 def collect_radar_data(
-    parameter: RadarParameter,
-    time_resolution: Optional[DWDRadarTimeResolution] = None,
-    period_type: Optional[DWDRadarPeriodType] = None,
-    site: Optional[RadarSite] = None,
-    format: Optional[RadarDataFormat] = None,
-    subset: Optional[RadarDataSubset] = None,
+    parameter: DWDRadarParameter,
+    resolution: Optional[DWDRadarResolution] = None,
+    period: Optional[DWDRadarPeriod] = None,
+    site: Optional[DWDRadarSite] = None,
+    fmt: Optional[DWDRadarDataFormat] = None,
+    subset: Optional[DWDRadarDataSubset] = None,
     elevation: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -83,25 +82,25 @@ def collect_radar_data(
     :param parameter:       The radar moment to request
     :param site:            Site/station if parameter is one of
                             RADAR_PARAMETERS_SITES
-    :param format:          Data format (BINARY, BUFR, HDF5)
+    :param fmt:          Data format (BINARY, BUFR, HDF5)
     :param subset:          The subset (simple or polarimetric) for HDF5 data.
     :param elevation:
     :param start_date:      Start date
     :param end_date:        End date
-    :param time_resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                             either daily or hourly or 5 minutes.
-    :param period_type:     Period type for RadarParameter.RADOLAN_CDC
+    :param period:     Period type for RadarParameter.RADOLAN_CDC
 
     :return:                ``RadarResult`` item
     """
 
     # Find latest file.
-    if start_date == RadarDate.LATEST:
+    if start_date == DWDRadarDate.LATEST:
 
         file_index = create_fileindex_radar(
             parameter=parameter,
             site=site,
-            format=format,
+            fmt=fmt,
             parse_datetime=False,
         )
 
@@ -115,25 +114,25 @@ def collect_radar_data(
 
     else:
 
-        if parameter == RadarParameter.RADOLAN_CDC:
+        if parameter == DWDRadarParameter.RADOLAN_CDC:
 
-            if period_type:
-                period_types = [period_type]
+            if period:
+                period_types = [period]
             else:
                 period_types = [
-                    DWDRadarPeriodType.RECENT,
-                    DWDRadarPeriodType.HISTORICAL,
+                    DWDRadarPeriod.RECENT,
+                    DWDRadarPeriod.HISTORICAL,
                 ]
 
             results = []
-            for period_type in period_types:
+            for period in period_types:
 
                 file_index = create_fileindex_radolan_cdc(
-                    time_resolution=time_resolution, period_type=period_type
+                    resolution=resolution, period=period
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                if period_type == DWDRadarPeriodType.RECENT:
+                if period == DWDRadarPeriod.RECENT:
                     file_index = file_index[
                         (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
                         & (file_index[DWDMetaColumns.DATETIME.value] < end_date)
@@ -158,7 +157,7 @@ def collect_radar_data(
 
             if file_index.empty:
                 # TODO: Extend this log message.
-                log.warning(f"No radar file found for {parameter}, {site}, {format}")
+                log.warning(f"No radar file found for {parameter}, {site}, {fmt}")
                 return
 
             # Iterate list of files and yield "RadarResult" items.
@@ -170,7 +169,7 @@ def collect_radar_data(
             file_index = create_fileindex_radar(
                 parameter=parameter,
                 site=site,
-                format=format,
+                fmt=fmt,
                 subset=subset,
                 parse_datetime=True,
             )
@@ -192,7 +191,7 @@ def collect_radar_data(
                 ]
 
             if file_index.empty:
-                log.warning(f"No radar file found for {parameter}, {site}, {format}")
+                log.warning(f"No radar file found for {parameter}, {site}, {fmt}")
                 return
 
             # Iterate list of files and yield "RadarResult" items.
@@ -223,7 +222,7 @@ def should_cache_download(*args, **kwargs) -> bool:  # pragma: no cover
 
 
 @payload_cache_five_minutes.cache_on_arguments(should_cache_fn=should_cache_download)
-def _download_generic_data_cached(url: str) -> BytesIO:
+def _download_generic_data_cached(url: str) -> Tuple[str, BytesIO]:
     return url, download_file_from_dwd(url)
 
 

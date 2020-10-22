@@ -7,10 +7,10 @@ from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,
 )
-from wetterdienst.dwd.observations.metadata.parameter_set import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
+from wetterdienst.dwd.observations import (
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
 )
 
 
@@ -19,9 +19,9 @@ def test_meta_index_creation():
 
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
-        DWDObsParameterSet.CLIMATE_SUMMARY,
-        DWDObsTimeResolution.DAILY,
-        DWDObsPeriodType.HISTORICAL,
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.HISTORICAL,
     )
 
     assert not meta_index.empty
@@ -29,9 +29,9 @@ def test_meta_index_creation():
     # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(requests.exceptions.HTTPError):
         create_meta_index_for_climate_observations(
-            DWDObsParameterSet.CLIMATE_SUMMARY,
-            DWDObsTimeResolution.MINUTE_1,
-            DWDObsPeriodType.HISTORICAL,
+            DWDObservationParameterSet.CLIMATE_SUMMARY,
+            DWDObservationResolution.MINUTE_1,
+            DWDObservationPeriod.HISTORICAL,
         )
 
 
@@ -39,9 +39,9 @@ def test_meta_index_creation():
 def test_meta_index_1mph_creation():
 
     meta_index_1mph = create_meta_index_for_climate_observations(
-        DWDObsParameterSet.PRECIPITATION,
-        DWDObsTimeResolution.MINUTE_1,
-        DWDObsPeriodType.HISTORICAL,
+        DWDObservationParameterSet.PRECIPITATION,
+        DWDObservationResolution.MINUTE_1,
+        DWDObservationPeriod.HISTORICAL,
     )
 
     assert meta_index_1mph.loc[

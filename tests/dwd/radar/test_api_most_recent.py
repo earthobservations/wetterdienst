@@ -3,14 +3,14 @@ import re
 import h5py
 import pytest
 
-from wetterdienst.dwd.radar import DWDRadarData, RadarParameter
+from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter
 from wetterdienst.dwd.radar.metadata import (
-    RadarDate,
-    RadarDataFormat,
-    RadarDataSubset,
-    DWDRadarTimeResolution,
+    DWDRadarDate,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarResolution,
 )
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 
 @pytest.mark.remote
@@ -21,11 +21,11 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -62,11 +62,11 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -107,9 +107,9 @@ def test_radar_request_radolan_cdc_most_recent():
     """
 
     request = DWDRadarData(
-        parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=DWDRadarTimeResolution.DAILY,
-        start_date=RadarDate.MOST_RECENT,
+        parameter=DWDRadarParameter.RADOLAN_CDC,
+        resolution=DWDRadarResolution.DAILY,
+        start_date=DWDRadarDate.MOST_RECENT,
     )
 
     results = list(request.collect_data())

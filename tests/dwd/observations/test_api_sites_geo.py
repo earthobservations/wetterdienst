@@ -7,13 +7,13 @@ from unittest.mock import patch, MagicMock
 import pandas as pd
 
 from wetterdienst.dwd.metadata.column_map import METADATA_DTYPE_MAPPING
-from wetterdienst.dwd.observations.api import DWDObservationSites
 from wetterdienst.util.geo import derive_nearest_neighbours
 from wetterdienst.util.geo import Coordinates
-from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameterSet,
-    DWDObsPeriodType,
-    DWDObsTimeResolution,
+from wetterdienst.dwd.observations import (
+    DWDObservationSites,
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.exceptions import InvalidParameterCombination
 
@@ -32,9 +32,9 @@ def test_dwd_observation_sites_nearby_number_success():
 
     # Test for one nearest station
     sites = DWDObservationSites(
-        DWDObsParameterSet.TEMPERATURE_AIR,
-        DWDObsTimeResolution.HOURLY,
-        DWDObsPeriodType.RECENT,
+        DWDObservationParameterSet.TEMPERATURE_AIR,
+        DWDObservationResolution.HOURLY,
+        DWDObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -76,9 +76,9 @@ def test_dwd_observation_sites_nearby_number_success():
     )
 
     nearby_station = DWDObservationSites(
-        DWDObsParameterSet.TEMPERATURE_AIR,
-        DWDObsTimeResolution.HOURLY,
-        DWDObsPeriodType.RECENT,
+        DWDObservationParameterSet.TEMPERATURE_AIR,
+        DWDObservationResolution.HOURLY,
+        DWDObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     ).nearby_radius(
@@ -146,9 +146,9 @@ def test_dwd_observation_sites_nearby_number_fail_1():
 
     with pytest.raises(ValueError):
         DWDObservationSites(
-            DWDObsParameterSet.TEMPERATURE_AIR,
-            DWDObsTimeResolution.HOURLY,
-            DWDObsPeriodType.RECENT,
+            DWDObservationParameterSet.TEMPERATURE_AIR,
+            DWDObservationResolution.HOURLY,
+            DWDObservationPeriod.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).nearby_number(
@@ -166,9 +166,9 @@ def test_dwd_observation_sites_nearby_number_fail_2():
 
     with pytest.raises(InvalidParameterCombination):
         DWDObservationSites(
-            DWDObsParameterSet.SOIL,
-            DWDObsTimeResolution.MINUTE_10,
-            DWDObsPeriodType.RECENT,
+            DWDObservationParameterSet.SOIL,
+            DWDObservationResolution.MINUTE_10,
+            DWDObservationPeriod.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).nearby_number(
@@ -184,9 +184,9 @@ def test_dwd_observation_sites_nearby_number_fail_2():
 )
 def test_dwd_observation_sites_nearby_distance():
     nearby_station = DWDObservationSites(
-        DWDObsParameterSet.TEMPERATURE_AIR,
-        DWDObsTimeResolution.HOURLY,
-        DWDObsPeriodType.RECENT,
+        DWDObservationParameterSet.TEMPERATURE_AIR,
+        DWDObservationResolution.HOURLY,
+        DWDObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     ).nearby_radius(

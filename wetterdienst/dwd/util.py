@@ -6,9 +6,9 @@ import pandas as pd
 from dateutil.relativedelta import relativedelta
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
 )
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metadata.column_types import (
@@ -19,26 +19,26 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     STRING_FIELDS,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.metadata.time_resolution import (
-    TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
+from wetterdienst.dwd.observations.metadata.resolution import (
+    RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
 
 
 def build_parameter_set_identifier(
-    parameter_set: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
-    period_type: DWDObsPeriodType,
+    parameter_set: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
     station_id: int,
 ) -> str:
     """ Create parameter set identifier that is used for storage interactions """
     return (
-        f"{parameter_set.value}/{time_resolution.value}/"
-        f"{period_type.value}/station_id_{str(station_id)}"
+        f"{parameter_set.value}/{resolution.value}/"
+        f"{period.value}/station_id_{str(station_id)}"
     )
 
 
 def coerce_field_types(
-    df: pd.DataFrame, time_resolution: DWDObsTimeResolution
+    df: pd.DataFrame, resolution: DWDObservationResolution
 ) -> pd.DataFrame:
     """
     A function used to create a unique dtype mapping for a given list of column names.
@@ -49,7 +49,7 @@ def coerce_field_types(
 
     Args:
         df: the station_data gathered in a pandas.DataFrame
-        time_resolution: time resolution of the data as enumeration
+        resolution: time resolution of the data as enumeration
     Return:
          station data with converted dtypes
     """
@@ -61,7 +61,7 @@ def coerce_field_types(
         elif column in DATE_FIELDS_REGULAR:
             df[column] = pd.to_datetime(
                 df[column],
-                format=TIME_RESOLUTION_TO_DATETIME_FORMAT_MAPPING[time_resolution],
+                format=RESOLUTION_TO_DATETIME_FORMAT_MAPPING[resolution],
             )
         elif column in DATE_FIELDS_IRREGULAR:
             df[column] = pd.to_datetime(
@@ -96,7 +96,7 @@ def parse_datetime(date_string: str) -> datetime:
 
 
 def mktimerange(
-    time_resolution: DWDObsTimeResolution,
+    resolution: DWDObservationResolution,
     date_from: Union[datetime, str],
     date_to: Union[datetime, str] = None,
 ) -> Tuple[datetime, datetime]:
@@ -106,7 +106,7 @@ def mktimerange(
     values to respective "begin of month/year" and "end of month/year" values.
 
     Args:
-        time_resolution: time resolution as enumeration
+        resolution: time resolution as enumeration
         date_from: datetime string or object
         date_to: datetime string or object
 
@@ -117,11 +117,11 @@ def mktimerange(
     if date_to is None:
         date_to = date_from
 
-    if time_resolution == DWDObsTimeResolution.ANNUAL:
+    if resolution == DWDObservationResolution.ANNUAL:
         date_from = pd.to_datetime(date_from) + relativedelta(month=1, day=1)
         date_to = pd.to_datetime(date_to) + relativedelta(month=12, day=31)
 
-    elif time_resolution == DWDObsTimeResolution.MONTHLY:
+    elif resolution == DWDObservationResolution.MONTHLY:
         date_from = pd.to_datetime(date_from) + relativedelta(day=1)
         date_to = pd.to_datetime(date_to) + relativedelta(day=31)
 

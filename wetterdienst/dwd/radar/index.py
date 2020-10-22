@@ -8,18 +8,18 @@ from dateparser import parse
 from wetterdienst.dwd.metadata.constants import ArchiveFormat, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 from wetterdienst.dwd.radar.metadata import (
-    RadarParameter,
-    RadarDataFormat,
+    DWDRadarParameter,
+    DWDRadarDataFormat,
     RADAR_PARAMETERS_COMPOSITES,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_SWEEPS,
     RADAR_PARAMETERS_RADOLAN,
-    RadarDataSubset,
+    DWDRadarDataSubset,
     RADAR_PARAMETERS_RADVOR,
-    DWDRadarPeriodType,
-    DWDRadarTimeResolution,
+    DWDRadarPeriod,
+    DWDRadarResolution,
 )
 from wetterdienst.dwd.radar.util import get_date_from_filename, RADOLAN_DT_PATTERN
 from wetterdienst.util.cache import fileindex_cache_five_minutes
@@ -45,12 +45,12 @@ def use_cache() -> int:  # pragma: no cover
 
 @fileindex_cache_five_minutes.cache_on_arguments(expiration_time=use_cache)
 def create_fileindex_radar(
-    parameter: RadarParameter,
-    site: Optional[RadarSite] = None,
-    format: Optional[RadarDataFormat] = None,
-    subset: Optional[RadarDataSubset] = None,
-    time_resolution: Optional[DWDRadarTimeResolution] = None,
-    period_type: Optional[DWDRadarPeriodType] = None,
+    parameter: DWDRadarParameter,
+    site: Optional[DWDRadarSite] = None,
+    fmt: Optional[DWDRadarDataFormat] = None,
+    subset: Optional[DWDRadarDataSubset] = None,
+    resolution: Optional[DWDRadarResolution] = None,
+    period: Optional[DWDRadarPeriod] = None,
     parse_datetime: bool = False,
 ) -> pd.DataFrame:
     """
@@ -60,11 +60,11 @@ def create_fileindex_radar(
     :param parameter:       The radar moment to request
     :param site:            Site/station if parameter is one of
                             RADAR_PARAMETERS_SITES
-    :param format:          Data format (BINARY, BUFR, HDF5)
+    :param fmt:          Data format (BINARY, BUFR, HDF5)
     :param subset:          The subset (simple or polarimetric) for HDF5 data.
-    :param time_resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                             either daily or hourly or 5 minutes.
-    :param period_type:     Period type for RadarParameter.RADOLAN_CDC
+    :param period:     Period type for RadarParameter.RADOLAN_CDC
     :param parse_datetime:  Whether to parse datetimes from file names
 
     :return:                File index as pandas.DataFrame with FILENAME
@@ -74,10 +74,10 @@ def create_fileindex_radar(
     parameter_path = build_path_to_parameter(
         parameter=parameter,
         site=site,
-        format=format,
+        fmt=fmt,
         subset=subset,
-        time_resolution=time_resolution,
-        period_type=period_type,
+        resolution=resolution,
+        period=period,
     )
 
     url = urljoin(DWD_SERVER, parameter_path)
@@ -91,12 +91,12 @@ def create_fileindex_radar(
     # Some directories have both "---bin" and "---bufr" files within the same directory,
     # so we need to filter here by designated RadarDataFormat. Example:
     # https://opendata.dwd.de/weather/radar/sites/px/boo/
-    if format is not None:
-        if format == RadarDataFormat.BINARY:
+    if fmt is not None:
+        if fmt == DWDRadarDataFormat.BINARY:
             files_server = files_server[
                 files_server[DWDMetaColumns.FILENAME.value].str.contains("--bin")
             ]
-        elif format == RadarDataFormat.BUFR:
+        elif fmt == DWDRadarDataFormat.BUFR:
             files_server = files_server[
                 files_server[DWDMetaColumns.FILENAME.value].str.contains("--buf")
             ]
@@ -115,7 +115,7 @@ def create_fileindex_radar(
 
 @fileindex_cache_five_minutes.cache_on_arguments()
 def create_fileindex_radolan_cdc(
-    time_resolution: DWDRadarTimeResolution, period_type: DWDRadarPeriodType
+    resolution: DWDRadarResolution, period: DWDRadarPeriod
 ) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
@@ -123,16 +123,16 @@ def create_fileindex_radolan_cdc(
     from the filenames which contain some datetime formats. This datetime column is
     required for later filtering for the requested file.
 
-    :param time_resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                             either daily or hourly or 5 minutes.
-    :param period_type:     Period type for RadarParameter.RADOLAN_CDC
+    :param period:     Period type for RadarParameter.RADOLAN_CDC
 
     :return:                File index as DataFrame
     """
     file_index = create_fileindex_radar(
-        parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=time_resolution,
-        period_type=period_type,
+        parameter=DWDRadarParameter.RADOLAN_CDC,
+        resolution=resolution,
+        period=period,
     )
 
     file_index = file_index[
@@ -156,12 +156,12 @@ def create_fileindex_radolan_cdc(
 
 
 def build_path_to_parameter(
-    parameter: RadarParameter,
-    site: Optional[RadarSite] = None,
-    format: Optional[RadarDataFormat] = None,
-    subset: Optional[RadarDataSubset] = None,
-    time_resolution: Optional[DWDRadarTimeResolution] = None,
-    period_type: Optional[DWDRadarPeriodType] = None,
+    parameter: DWDRadarParameter,
+    site: Optional[DWDRadarSite] = None,
+    fmt: Optional[DWDRadarDataFormat] = None,
+    subset: Optional[DWDRadarDataSubset] = None,
+    resolution: Optional[DWDRadarResolution] = None,
+    period: Optional[DWDRadarPeriod] = None,
 ) -> str:
     """
     Compute URL path to data product.
@@ -184,21 +184,21 @@ def build_path_to_parameter(
     :param parameter:       The radar moment to request
     :param site:            Site/station if parameter is one of
                             RADAR_PARAMETERS_SITES
-    :param format:          Data format (BINARY, BUFR, HDF5)
+    :param fmt:          Data format (BINARY, BUFR, HDF5)
     :param subset:          The subset (simple or polarimetric) for HDF5 data.
-    :param time_resolution: Time resolution for RadarParameter.RADOLAN_CDC,
+    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                             either daily or hourly or 5 minutes.
-    :param period_type:     Period type for RadarParameter.RADOLAN_CDC
+    :param period:     Period type for RadarParameter.RADOLAN_CDC
 
     :return:                URL path to data product
     """
-    if parameter == RadarParameter.RADOLAN_CDC:
-        if time_resolution == DWDRadarTimeResolution.MINUTE_5:
+    if parameter == DWDRadarParameter.RADOLAN_CDC:
+        if resolution == DWDRadarResolution.MINUTE_5:
             # See also page 4 on
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf  # noqa:E501,B950
-            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950
+            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950
         else:
-            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{time_resolution.value}/radolan/{period_type.value}/bin"  # noqa:E501,B950
+            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/{period.value}/bin"  # noqa:E501,B950
 
     elif parameter in RADAR_PARAMETERS_COMPOSITES:
         parameter_path = f"weather/radar/composit/{parameter.value}"
@@ -215,21 +215,21 @@ def build_path_to_parameter(
         if site is None:
             raise ValueError("Argument 'site' is missing")
 
-        if format is None:
+        if fmt is None:
 
             ambiguous_parameters = [
-                RadarParameter.PE_ECHO_TOP,
-                RadarParameter.PL_VOLUME_SCAN,
-                RadarParameter.PR_VELOCITY,
-                RadarParameter.PX_REFLECTIVITY,
-                RadarParameter.PZ_CAPPI,
+                DWDRadarParameter.PE_ECHO_TOP,
+                DWDRadarParameter.PL_VOLUME_SCAN,
+                DWDRadarParameter.PR_VELOCITY,
+                DWDRadarParameter.PX_REFLECTIVITY,
+                DWDRadarParameter.PZ_CAPPI,
             ]
 
             candidates = None
             if parameter in ambiguous_parameters:
-                candidates = [RadarDataFormat.BINARY, RadarDataFormat.BUFR]
+                candidates = [DWDRadarDataFormat.BINARY, DWDRadarDataFormat.BUFR]
             if parameter in RADAR_PARAMETERS_SWEEPS:
-                candidates = [RadarDataFormat.BUFR, RadarDataFormat.HDF5]
+                candidates = [DWDRadarDataFormat.BUFR, DWDRadarDataFormat.HDF5]
 
             if candidates:
                 raise ValueError(
@@ -238,13 +238,13 @@ def build_path_to_parameter(
 
         # Compute path to BINARY/BUFR vs. HDF5.
         parameter_path = f"weather/radar/sites/{parameter.value}/{site.value}"
-        if format == RadarDataFormat.HDF5:
+        if fmt == DWDRadarDataFormat.HDF5:
             if subset is None:
-                candidates = [RadarDataSubset.SIMPLE, RadarDataSubset.POLARIMETRIC]
+                candidates = [DWDRadarDataSubset.SIMPLE, DWDRadarDataSubset.POLARIMETRIC]
                 raise ValueError(
                     f"Argument 'subset' is missing, use one of {candidates}"
                 )
-            parameter_path = f"{parameter_path}/{format.value}/filter_{subset.value}/"
+            parameter_path = f"{parameter_path}/{fmt.value}/filter_{subset.value}/"
 
     else:  # pragma: no cover
         raise NotImplementedError(f"Acquisition for {parameter} not implemented yet")

@@ -5,7 +5,7 @@ import dateparser
 from pandas import Timestamp
 
 from wetterdienst.dwd.util import parse_datetime, mktimerange
-from wetterdienst.dwd.observations import DWDObsTimeResolution
+from wetterdienst.dwd.observations import DWDObservationResolution
 
 
 def test_parse_datetime():
@@ -15,23 +15,23 @@ def test_parse_datetime():
 
 
 def test_mktimerange_annual():
-    assert mktimerange(DWDObsTimeResolution.ANNUAL, dateparser.parse("2019")) == (
+    assert mktimerange(DWDObservationResolution.ANNUAL, dateparser.parse("2019")) == (
         Timestamp("2019-01-01 00:00:00"),
         Timestamp("2019-12-31 00:00:00"),
     )
     assert mktimerange(
-        DWDObsTimeResolution.ANNUAL, dateparser.parse("2010"), dateparser.parse("2020")
+        DWDObservationResolution.ANNUAL, dateparser.parse("2010"), dateparser.parse("2020")
     ) == (Timestamp("2010-01-01 00:00:00"), Timestamp("2020-12-31 00:00:00"))
 
 
 def test_mktimerange_monthly():
-    assert mktimerange(DWDObsTimeResolution.MONTHLY, dateparser.parse("2020-05")) == (
+    assert mktimerange(DWDObservationResolution.MONTHLY, dateparser.parse("2020-05")) == (
         Timestamp("2020-05-01 00:00:00"),
         Timestamp("2020-05-31 00:00:00"),
     )
     assert (
         mktimerange(
-            DWDObsTimeResolution.MONTHLY,
+            DWDObservationResolution.MONTHLY,
             dateparser.parse("2017-01"),
             dateparser.parse("2019-12"),
         )
@@ -41,4 +41,4 @@ def test_mktimerange_monthly():
 
 def test_mktimerange_invalid():
     with pytest.raises(NotImplementedError):
-        mktimerange(DWDObsTimeResolution.DAILY, dateparser.parse("2020-05-01"))
+        mktimerange(DWDObservationResolution.DAILY, dateparser.parse("2020-05-01"))

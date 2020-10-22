@@ -10,7 +10,7 @@ stations 01001 and 01008 and parameters DD and ww.
 Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
-from wetterdienst.dwd.forecasts.metadata.dates import DWDFcstDate
+from wetterdienst.dwd.forecasts.metadata.dates import DWDForecastDate
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.dwd.forecasts.api import DWDMosmixData, PeriodType
 
@@ -21,8 +21,8 @@ def mosmix_example():
     mosmix = DWDMosmixData(
         station_ids=['01001', '01008'],
         parameters=['DD', 'ww'],
-        start_date=DWDFcstDate.LATEST,  # automatically set if left empty
-        forecast_type=PeriodType.FORECAST_LONG,
+        start_date=DWDForecastDate.LATEST,  # automatically set if left empty
+        mosmix_type=PeriodType.FORECAST_LONG,
         tidy_data=True,
         humanize_column_names=True
     )
@@ -36,8 +36,8 @@ def mosmix_example():
     mosmix = DWDMosmixData(
         station_ids=['01028', '01092'],
         parameters=['DD', 'ww'],
-        start_date=DWDFcstDate.LATEST,  # automatically set if left empty
-        forecast_type=PeriodType.FORECAST_SHORT,
+        start_date=DWDForecastDate.LATEST,  # automatically set if left empty
+        mosmix_type=PeriodType.FORECAST_SHORT,
         tidy_data=True,
         humanize_column_names=True
     )

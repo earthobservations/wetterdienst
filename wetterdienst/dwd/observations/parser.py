@@ -12,18 +12,18 @@ from wetterdienst.dwd.metadata.column_names import (
     DWDMetaColumns,
 )
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
 )
-from wetterdienst.dwd.observations.metadata.parameter import DWDObsParameterSetStructure
+from wetterdienst.dwd.observations.metadata.parameter import DWDObservationParameterSetStructure
 
 log = logging.getLogger(__name__)
 
 
 def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
-    parameter: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
+    parameter: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
 ) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
@@ -32,7 +32,7 @@ def parse_climate_observations_data(
         filenames_and_files: list of tuples of a filename and its local stored file
         that should be read
         parameter: enumeration of parameter used to correctly parse the date field
-        time_resolution: enumeration of time resolution used to correctly parse the
+        resolution: enumeration of time resolution used to correctly parse the
         date field
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is
@@ -40,7 +40,7 @@ def parse_climate_observations_data(
     """
 
     data = [
-        _parse_climate_observations_data(filename_and_file, parameter, time_resolution)
+        _parse_climate_observations_data(filename_and_file, parameter, resolution)
         for filename_and_file in filenames_and_files
     ]
 
@@ -51,8 +51,8 @@ def parse_climate_observations_data(
 
 def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
-    parameter: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
+    parameter: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
 ) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to
@@ -60,7 +60,7 @@ def _parse_climate_observations_data(
     the DataFrame that is stored should obviously only handle one station at a time.
     Args:
         filename_and_file: the files belonging to one station
-        time_resolution: enumeration of time resolution used to correctly parse the
+        resolution: enumeration of time resolution used to correctly parse the
         date field
     Returns:
         pandas.DataFrame with data from that station, acn be empty if no data is
@@ -97,21 +97,21 @@ def _parse_climate_observations_data(
 
     # Special handling for hourly solar data, as it has more date columns
     if (
-        time_resolution == DWDObsTimeResolution.HOURLY
-        and parameter == DWDObsParameterSet.SOLAR
+        resolution == DWDObservationResolution.HOURLY
+        and parameter == DWDObservationParameterSet.SOLAR
     ):
         # Rename date column correctly to end of interval, as it has additional minute
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
                 "MESS_DATUM_WOZ": (
-                    DWDObsParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
                 ),
             }
         )
 
         # Duplicate the date column to end of interval column
-        data[DWDObsParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
+        data[DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
             DWDOrigMetaColumns.DATE.value
         ]
 

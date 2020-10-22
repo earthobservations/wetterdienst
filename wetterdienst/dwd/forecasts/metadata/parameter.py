@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class DWDFcstParameter(Enum):
+class DWDForecastParameter(Enum):
     # https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
     TEMPERATURE_AIR_200 = "TTT"
     TEMPERATURE_DEW_POINT_200 = "Td"

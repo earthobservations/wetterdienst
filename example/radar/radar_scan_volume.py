@@ -29,8 +29,8 @@ from tempfile import NamedTemporaryFile
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate, RadarDataFormat, RadarDataSubset
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate, DWDRadarDataFormat, DWDRadarDataSubset
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
@@ -74,21 +74,21 @@ def radar_info(data: dict):
 def radar_scan_volume():
 
     request_velocity = DWDRadarData(
-        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.POLARIMETRIC,
+        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        format=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.POLARIMETRIC,
     )
     request_reflectivity = DWDRadarData(
-        parameter=RadarParameter.SWEEP_VOL_REFLECTIVITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.POLARIMETRIC,
+        parameter=DWDRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        format=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.POLARIMETRIC,
     )
 
-    log.info(f"Acquiring radar SWEEP_VOL data for {RadarSite.BOO} at {request_velocity.start_date}")
+    log.info(f"Acquiring radar SWEEP_VOL data for {DWDRadarSite.BOO} at {request_velocity.start_date}")
 
     # Submit requests.
     results = chain(request_velocity.collect_data(), request_reflectivity.collect_data())

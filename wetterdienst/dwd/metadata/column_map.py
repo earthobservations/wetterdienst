@@ -4,14 +4,14 @@ from typing import Type, Dict
 from numpy import datetime64
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsTimeResolution,
-    DWDObsParameterSet,
+    DWDObservationResolution,
+    DWDObservationParameterSet,
 )
 from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
-from wetterdienst.util.column_names import WDParameterStructureBase
+from wetterdienst.util.parameter import WDParameterStructureBase
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigMetaColumns.STATION_ID.value: DWDMetaColumns.STATION_ID.value,
@@ -42,8 +42,8 @@ METADATA_DTYPE_MAPPING = {
 
 
 def create_humanized_column_names_mapping(
-    time_resolution: DWDObsTimeResolution,
-    parameter_set: DWDObsParameterSet,
+    resolution: DWDObservationResolution,
+    parameter_set: DWDObservationParameterSet,
     parameter_structure: Type[WDParameterStructureBase],
 ) -> Dict[str, str]:
     """
@@ -52,7 +52,7 @@ def create_humanized_column_names_mapping(
     time resolution and parameter.
 
     Args:
-        time_resolution: time resolution enumeration
+        resolution: time resolution enumeration
         parameter_set: parameter enumeration
         parameter_structure: original column names in enumeration style
 
@@ -61,7 +61,7 @@ def create_humanized_column_names_mapping(
     """
     hcnm = {
         parameter.value: parameter.name
-        for parameter in parameter_structure[time_resolution.name][parameter_set.name]
+        for parameter in parameter_structure[resolution.name][parameter_set.name]
     }
 
     return hcnm

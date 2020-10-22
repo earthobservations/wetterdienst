@@ -1,12 +1,12 @@
 from functools import reduce
-from urllib.parse import urljoin
 
+from urllib.parse import urljoin
 import pandas as pd
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
 )
 from wetterdienst.dwd.metadata.constants import DWDCDCBase, DWD_SERVER, DWD_CDC_PATH
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -18,9 +18,9 @@ from wetterdienst.util.network import list_remote_files
 
 
 def _create_file_index_for_dwd_server(
-    parameter_set: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
-    period_type: DWDObsPeriodType,
+    parameter_set: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
     cdc_base: DWDCDCBase,
 ) -> pd.DataFrame:
     """
@@ -28,14 +28,14 @@ def _create_file_index_for_dwd_server(
     zipped/archived data. The file index is created for an individual set of parameters.
     Args:
         parameter_set: parameter set of Parameter enumeration
-        time_resolution: time resolution of TimeResolution enumeration
-        period_type: period type of PeriodType enumeration
+        resolution: time resolution of TimeResolution enumeration
+        period: period type of PeriodType enumeration
         cdc_base: base path e.g. climate_observations/germany
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
     parameter_path = build_path_to_parameter(
-        parameter_set, time_resolution, period_type
+        parameter_set, resolution, period
     )
 
     url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
@@ -56,24 +56,24 @@ def reset_file_index_cache() -> None:
 
 
 def build_path_to_parameter(
-    parameter_set: DWDObsParameterSet,
-    time_resolution: DWDObsTimeResolution,
-    period_type: DWDObsPeriodType,
+    parameter_set: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
 ) -> str:
     """
     Function to build a indexing file path
     Args:
         parameter_set: observation measure
-        time_resolution: frequency/granularity of measurement interval
-        period_type: recent or historical files
+        resolution: frequency/granularity of measurement interval
+        period: recent or historical files
 
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter_set == DWDObsParameterSet.SOLAR and time_resolution in (
-        DWDObsTimeResolution.HOURLY,
-        DWDObsTimeResolution.DAILY,
+    if parameter_set == DWDObservationParameterSet.SOLAR and resolution in (
+        DWDObservationResolution.HOURLY,
+        DWDObservationResolution.DAILY,
     ):
-        return f"{time_resolution.value}/{parameter_set.value}/"
+        return f"{resolution.value}/{parameter_set.value}/"
 
-    return f"{time_resolution.value}/{parameter_set.value}/{period_type.value}/"
+    return f"{resolution.value}/{parameter_set.value}/{period.value}/"

@@ -17,9 +17,9 @@ from wetterdienst.dwd.observations.api import (
     DWDObservationMetadata,
 )
 from wetterdienst.dwd.observations import (
-    DWDObsParameterSet,
-    DWDObsTimeResolution,
-    DWDObsPeriodType,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
 )
 
 log = logging.getLogger(__name__)
@@ -207,8 +207,8 @@ def run():
     if options.stations:
         df = DWDObservationSites(
             parameter=options.parameter,
-            time_resolution=options.resolution,
-            period_type=options.period,
+            resolution=options.resolution,
+            period=options.period,
         ).all()
 
         if options.station:
@@ -243,8 +243,8 @@ def run():
         observations = DWDObservationData(
             station_ids=station_ids,
             parameters=read_list(options.parameter),
-            time_resolution=options.resolution,
-            period_types=read_list(options.period),
+            resolution=options.resolution,
+            periods=read_list(options.period),
             storage=storage,
             humanize_column_names=True,
             tidy_data=options.tidy,
@@ -265,7 +265,7 @@ def run():
 
     # Filter readings by datetime expression.
     if options.readings and options.date:
-        df = df.dwd.filter_by_date(options.date, observations.time_resolution)
+        df = df.dwd.filter_by_date(options.date, observations.resolution)
 
     # Make column names lowercase.
     df = df.dwd.lower()
@@ -322,8 +322,8 @@ def get_nearby(options: Munch) -> pd.DataFrame:
 
     nearby_baseline_args = dict(
         parameter=options.parameter,
-        time_resolution=options.resolution,
-        period_type=options.period,
+        resolution=options.resolution,
+        period=options.period,
         start_date=minimal_date,
         end_date=maximal_date,
     )
@@ -369,21 +369,21 @@ def about(options: Munch):
                 print("-", value)
 
     if options.parameters:
-        output(DWDObsParameterSet)
+        output(DWDObservationParameterSet)
 
     elif options.resolutions:
-        output(DWDObsTimeResolution)
+        output(DWDObservationResolution)
 
     elif options.periods:
-        output(DWDObsPeriodType)
+        output(DWDObservationPeriod)
 
     elif options.coverage:
         output = json.dumps(
             DWDObservationMetadata(
-                time_resolution=options.resolution,
-                parameter=read_list(options.parameter),
-                period_type=read_list(options.period),
-            ).discover_parameters(),
+                resolution=options.resolution,
+                parameter_set=read_list(options.parameter),
+                period=read_list(options.period),
+            ).discover_parameter_sets(),
             indent=4,
         )
         print(output)

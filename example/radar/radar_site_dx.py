@@ -31,8 +31,8 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
@@ -65,9 +65,9 @@ def radar_dx_example():
 
     log.info("Acquiring radar DX data")
     request = DWDRadarData(
-        parameter=RadarParameter.DX_REFLECTIVITY,
-        start_date=RadarDate.LATEST,
-        site=RadarSite.BOO,
+        parameter=DWDRadarParameter.DX_REFLECTIVITY,
+        start_date=DWDRadarDate.LATEST,
+        site=DWDRadarSite.BOO,
     )
 
     for item in request.collect_data():

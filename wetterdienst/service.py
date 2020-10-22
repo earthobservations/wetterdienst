@@ -7,10 +7,10 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
 from wetterdienst.dwd.observations import (
-    DWDObsPeriodType,
-    DWDObsParameterSet,
+    DWDObservationPeriod,
+    DWDObservationParameterSet,
     DWDObservationData,
-    DWDObsTimeResolution,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.api import DWDObservationSites
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -75,15 +75,15 @@ def dwd_stations(
     sql: str = Query(default=None),
 ):
 
-    parameter = parse_enumeration_from_template(parameter, DWDObsParameterSet)
-    resolution = parse_enumeration_from_template(resolution, DWDObsTimeResolution)
-    period = parse_enumeration_from_template(period, DWDObsPeriodType)
+    parameter = parse_enumeration_from_template(parameter, DWDObservationParameterSet)
+    resolution = parse_enumeration_from_template(resolution, DWDObservationResolution)
+    period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
     # Data acquisition.
     df = DWDObservationSites(
         parameter=parameter,
-        time_resolution=resolution,
-        period_type=period,
+        resolution=resolution,
+        period=period,
     ).all()
 
     # Postprocessing.
@@ -131,16 +131,16 @@ def dwd_readings(
         )
 
     station_ids = map(int, read_list(station))
-    parameter = parse_enumeration_from_template(parameter, DWDObsParameterSet)
-    resolution = parse_enumeration_from_template(resolution, DWDObsTimeResolution)
-    period = parse_enumeration_from_template(period, DWDObsPeriodType)
+    parameter = parse_enumeration_from_template(parameter, DWDObservationParameterSet)
+    resolution = parse_enumeration_from_template(resolution, DWDObservationResolution)
+    period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
     # Data acquisition.
     observations = DWDObservationData(
         station_ids=station_ids,
         parameters=parameter,
-        time_resolution=resolution,
-        period_types=period,
+        resolution=resolution,
+        periods=period,
         tidy_data=True,
         humanize_column_names=True,
     )

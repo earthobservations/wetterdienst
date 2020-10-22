@@ -8,26 +8,26 @@ from wetterdienst.dwd.util import (
     build_parameter_set_identifier,
 )
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.dwd.observations.metadata import (
-    DWDObsPeriodType,
-    DWDObsTimeResolution,
-    DWDObsParameterSet,
+from wetterdienst.dwd.observations import (
+    DWDObservationPeriod,
+    DWDObservationResolution,
+    DWDObservationParameterSet,
 )
 from wetterdienst.exceptions import InvalidEnumeration
 
 
 def test_parse_enumeration_from_template():
     assert (
-        parse_enumeration_from_template("climate_summary", DWDObsParameterSet)
-        == DWDObsParameterSet.CLIMATE_SUMMARY
+            parse_enumeration_from_template("climate_summary", DWDObservationParameterSet)
+            == DWDObservationParameterSet.CLIMATE_SUMMARY
     )
     assert (
-        parse_enumeration_from_template("kl", DWDObsParameterSet)
-        == DWDObsParameterSet.CLIMATE_SUMMARY
+            parse_enumeration_from_template("kl", DWDObservationParameterSet)
+            == DWDObservationParameterSet.CLIMATE_SUMMARY
     )
 
     with pytest.raises(InvalidEnumeration):
-        parse_enumeration_from_template("climate", DWDObsParameterSet)
+        parse_enumeration_from_template("climate", DWDObservationParameterSet)
 
 
 def test_coerce_field_types():
@@ -51,7 +51,7 @@ def test_coerce_field_types():
         }
     )
 
-    df = coerce_field_types(df, DWDObsTimeResolution.HOURLY)
+    df = coerce_field_types(df, DWDObservationResolution.HOURLY)
 
     assert_frame_equal(df, expected_df)
 
@@ -73,15 +73,15 @@ def test_coerce_field_types_with_nans():
         }
     )
 
-    df = coerce_field_types(df, DWDObsTimeResolution.HOURLY)
+    df = coerce_field_types(df, DWDObservationResolution.HOURLY)
     assert_frame_equal(df, expected_df)
 
 
 def test_build_parameter_identifier():
     parameter_identifier = build_parameter_set_identifier(
-        DWDObsParameterSet.CLIMATE_SUMMARY,
-        DWDObsTimeResolution.DAILY,
-        DWDObsPeriodType.HISTORICAL,
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.HISTORICAL,
         1,
     )
 
