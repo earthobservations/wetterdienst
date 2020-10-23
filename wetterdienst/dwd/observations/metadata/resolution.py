@@ -11,8 +11,6 @@ class DWDObservationResolution(Enum):
     """
 
     MINUTE_1 = "1_minute"
-    MINUTE_5 = "5_minutes"
-    MINUTE_15 = "15_minutes"
     MINUTE_10 = "10_minutes"
     HOURLY = "hourly"
     SUBDAILY = "subdaily"

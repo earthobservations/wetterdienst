@@ -104,7 +104,18 @@ how the DWD calls the parameter e.g. "precipitation".
 .. |cross| unicode:: - .. cross
 
 This table and subsets of it can be printed with a function call of
-``discover_climate_observations`` as described in the API section.
+``discover_climate_observations`` as described in the API section. Furthermore individual
+parameters can be queried. Take a look at the massive amount of data:
+
+.. ipython:: python
+    from wetterdienst.dwd.observations import DWDObservationMetadata
+
+    observations_meta = DWDObservationMetadata()
+
+    # Selection of daily historical data
+    print(
+        observations_meta.discover_parameters()
+    )
 
 MOSMIX
 ******

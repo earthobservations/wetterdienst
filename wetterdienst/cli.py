@@ -206,7 +206,7 @@ def run():
     # Acquire station list.
     if options.stations:
         df = DWDObservationSites(
-            parameter=options.parameter,
+            parameter_set=options.parameter,
             resolution=options.resolution,
             period=options.period,
         ).all()

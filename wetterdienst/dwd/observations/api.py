@@ -209,10 +209,15 @@ class DWDObservationData(WDDataCore):
             for parameter, parameter_set in self.parameters:
                 df_parameter = self._collect_data(station_id, parameter_set)
 
-                if not isinstance(parameter, DWDObservationParameterSet):
-                    df_parameter = df_parameter[
-                        df_parameter[DWDMetaColumns.ELEMENT.value] == parameter.value
-                    ]
+                if parameter not in DWDObservationParameterSet:
+                    if not self.humanize_column_names:
+                        df_parameter = df_parameter[
+                            df_parameter[DWDMetaColumns.ELEMENT.value] == parameter.value
+                        ]
+                    else:
+                        df_parameter = df_parameter[
+                            df_parameter[DWDMetaColumns.ELEMENT.value] == parameter.name
+                        ]
 
                 df_station.append(df_parameter)
 
@@ -364,12 +369,12 @@ class DWDObservationData(WDDataCore):
 class DWDObservationSites(WDSitesCore):
     """
     The DWDObservationSites class represents a request for
-    station data as provided by the DWD service.
+    a station list as provided by the DWD service.
     """
 
     def __init__(
         self,
-        parameter: Union[str, DWDObservationParameterSet],
+        parameter_set: Union[str, DWDObservationParameterSet],
         resolution: Union[str, DWDObservationResolution],
         period: Union[str, DWDObservationPeriod] = None,
         start_date: Union[None, str, Timestamp] = None,
@@ -377,21 +382,21 @@ class DWDObservationSites(WDSitesCore):
     ):
         super().__init__(start_date=start_date, end_date=end_date)
 
-        parameter = parse_enumeration_from_template(parameter, DWDObservationParameterSet)
+        parameter_set = parse_enumeration_from_template(parameter_set, DWDObservationParameterSet)
         resolution = parse_enumeration_from_template(
             resolution, DWDObservationResolution
         )
         period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
         if not check_dwd_observations_parameter_set(
-            parameter, resolution, period
+            parameter_set, resolution, period
         ):
             raise InvalidParameterCombination(
-                f"The combination of {parameter.value}, {resolution.value}, "
+                f"The combination of {parameter_set.value}, {resolution.value}, "
                 f"{period.value} is invalid."
             )
 
-        self.parameter = parameter
+        self.parameter = parameter_set
         self.resolution = resolution
         self.period = period
 

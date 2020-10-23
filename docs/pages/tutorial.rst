@@ -13,8 +13,8 @@ Import modules necessary for general functioning.
     import warnings
     warnings.filterwarnings("ignore")
     from wetterdienst.dwd.observations import DWDObservationMetadata,
-        DWDObservationSites, DWDObservationData, DWDObsPeriodType, DWDObsTimeResolution,
-        DWDObsParameterSet, DWDObsParameter
+        DWDObservationSites, DWDObservationData, DWDObservationPeriod, DWDObservationResolution,
+        DWDObservationParameterSet, DWDObservationParameter
     import matplotlib as mpl
     import matplotlib.pyplot as plt
     from matplotlib import cm
@@ -32,11 +32,16 @@ Daily historical data
 .. ipython:: python
 
     observations_meta = DWDObservationMetadata(
-        time_resolution=DWDObsTimeResolution.DAILY,
-        period_type=DWDObsPeriodType.HISTORICAL
+        resolution=DWDObservationResolution.DAILY,
+        period=DWDObservationPeriod.HISTORICAL
     )
 
     # Selection of daily historical data
+    print(
+        observations_meta.discover_parameter_sets()
+    )
+
+    # Individual parameters
     print(
         observations_meta.discover_parameters()
     )
@@ -48,9 +53,9 @@ Get station list
 .. ipython:: python
 
     sites_hdp = DWDObservationSites(
-        parameter=DWDObsParameterSet.PRECIPITATION_MORE,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.HISTORICAL
+        parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
+        resolution=DWDObservationResolution.DAILY,
+        period=PeriodType.HISTORICAL
     )
 
     print("Number of stations with available data: ", sites_hdp.all().sum())
@@ -60,12 +65,24 @@ Get station list
 ==========
 Query data
 ==========
+For a parameter set
 .. ipython:: python
     observation_data = DWDObservationData(
         station_ids=[sites_hdp.all()["STATION_ID"][0])
-        parameter=DWDObsParameterSet.PRECIPITATION_MORE,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.HISTORICAL
+        parameters=DWDObservationParameterSet.PRECIPITATION_MORE,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.HISTORICAL
+    )
+
+    print(observation_data.collect_safe())
+
+For a parameter
+.. ipython:: python
+    observation_data = DWDObservationData(
+        station_ids=[sites_hdp.all()["STATION_ID"][0])
+        parameters=DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.HISTORICAL
     )
 
     print(observation_data.collect_safe())

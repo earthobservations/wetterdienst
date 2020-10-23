@@ -119,6 +119,7 @@ def test_radar_request_radolan_cdc_historic_daily_data():
     assert radolan_hourly.getvalue() == radolan_hourly_test.getvalue()
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_composite_historic_fx_yesterday():
     """
@@ -152,6 +153,7 @@ def test_radar_request_composite_historic_fx_yesterday():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_composite_historic_fx_timerange():
     """

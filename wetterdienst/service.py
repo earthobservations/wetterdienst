@@ -81,7 +81,7 @@ def dwd_stations(
 
     # Data acquisition.
     df = DWDObservationSites(
-        parameter=parameter,
+        parameter_set=parameter,
         resolution=resolution,
         period=period,
     ).all()
