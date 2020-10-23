@@ -34,9 +34,7 @@ def _create_file_index_for_dwd_server(
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    parameter_path = build_path_to_parameter(
-        parameter_set, resolution, period
-    )
+    parameter_path = build_path_to_parameter(parameter_set, resolution, period)
 
     url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
 

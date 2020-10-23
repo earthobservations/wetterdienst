@@ -1,8 +1,5 @@
 import pytest
-from wetterdienst.dwd.forecasts import (
-    DWDMosmixData,
-    DWDMosmixType
-)
+from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
 
 
 @pytest.mark.remote

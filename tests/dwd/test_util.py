@@ -18,12 +18,12 @@ from wetterdienst.exceptions import InvalidEnumeration
 
 def test_parse_enumeration_from_template():
     assert (
-            parse_enumeration_from_template("climate_summary", DWDObservationParameterSet)
-            == DWDObservationParameterSet.CLIMATE_SUMMARY
+        parse_enumeration_from_template("climate_summary", DWDObservationParameterSet)
+        == DWDObservationParameterSet.CLIMATE_SUMMARY
     )
     assert (
-            parse_enumeration_from_template("kl", DWDObservationParameterSet)
-            == DWDObservationParameterSet.CLIMATE_SUMMARY
+        parse_enumeration_from_template("kl", DWDObservationParameterSet)
+        == DWDObservationParameterSet.CLIMATE_SUMMARY
     )
 
     with pytest.raises(InvalidEnumeration):

@@ -14,7 +14,7 @@ from wetterdienst.dwd.radar import (
     DWDRadarDataFormat,
     DWDRadarDataSubset,
     DWDRadarResolution,
-    DWDRadarPeriod
+    DWDRadarPeriod,
 )
 from wetterdienst.dwd.radar.sites import DWDRadarSite
 

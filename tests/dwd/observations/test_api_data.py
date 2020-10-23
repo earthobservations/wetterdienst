@@ -51,7 +51,10 @@ def test_dwd_observation_data_parameter_set():
     )
 
     assert request.parameters == [
-        (DWDObservationParameterSet.CLIMATE_SUMMARY, DWDObservationParameterSet.CLIMATE_SUMMARY)
+        (
+            DWDObservationParameterSet.CLIMATE_SUMMARY,
+            DWDObservationParameterSet.CLIMATE_SUMMARY,
+        )
     ]
 
     request = DWDObservationData(
@@ -99,7 +102,7 @@ def test_dwd_observation_data_parameter():
 
     assert request.parameters == [
         (
-            DWDObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+            DWDObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,  # Noqa: E501
             DWDObservationParameterSet.CLIMATE_SUMMARY,
         )
     ]

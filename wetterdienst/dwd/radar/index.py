@@ -240,7 +240,10 @@ def build_path_to_parameter(
         parameter_path = f"weather/radar/sites/{parameter.value}/{site.value}"
         if fmt == DWDRadarDataFormat.HDF5:
             if subset is None:
-                candidates = [DWDRadarDataSubset.SIMPLE, DWDRadarDataSubset.POLARIMETRIC]
+                candidates = [
+                    DWDRadarDataSubset.SIMPLE,
+                    DWDRadarDataSubset.POLARIMETRIC,
+                ]
                 raise ValueError(
                     f"Argument 'subset' is missing, use one of {candidates}"
                 )

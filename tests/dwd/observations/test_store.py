@@ -2,7 +2,7 @@ from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationResolution,
     DWDObservationPeriod,
-    StorageAdapter
+    StorageAdapter,
 )
 
 

@@ -11,7 +11,9 @@ from wetterdienst.core.sites import WDSitesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
-from wetterdienst.dwd.observations.metadata.parameter import DWDObservationParameterSetStructure
+from wetterdienst.dwd.observations.metadata.parameter import (
+    DWDObservationParameterSetStructure,
+)
 from wetterdienst.dwd.observations.metadata.parameter_set import (
     RESOLUTION_PARAMETER_MAPPING,
 )
@@ -55,7 +57,9 @@ class DWDObservationData(WDDataCore):
     def __init__(
         self,
         station_ids: List[Union[int, str]],
-        parameters: List[Union[str, DWDObservationParameter, DWDObservationParameterSet]],
+        parameters: List[
+            Union[str, DWDObservationParameter, DWDObservationParameterSet]
+        ],
         resolution: Union[str, DWDObservationResolution],
         periods: Optional[List[Union[str, DWDObservationPeriod]]] = None,
         start_date: Union[None, str, Timestamp, datetime] = None,
@@ -165,12 +169,12 @@ class DWDObservationData(WDDataCore):
 
     def __eq__(self, other):
         return (
-                self.station_ids == other.station_ids
-                and self.parameters == other.parameters
-                and self.resolution == other.resolution
-                and self.periods == other.periods
-                and self.start_date == other.start_date
-                and self.end_date == other.end_date
+            self.station_ids == other.station_ids
+            and self.parameters == other.parameters
+            and self.resolution == other.resolution
+            and self.periods == other.periods
+            and self.start_date == other.start_date
+            and self.end_date == other.end_date
         )
 
     def __str__(self):
@@ -212,7 +216,8 @@ class DWDObservationData(WDDataCore):
                 if parameter not in DWDObservationParameterSet:
                     if not self.humanize_column_names:
                         df_parameter = df_parameter[
-                            df_parameter[DWDMetaColumns.ELEMENT.value] == parameter.value
+                            df_parameter[DWDMetaColumns.ELEMENT.value]
+                            == parameter.value
                         ]
                     else:
                         df_parameter = df_parameter[
@@ -382,15 +387,15 @@ class DWDObservationSites(WDSitesCore):
     ):
         super().__init__(start_date=start_date, end_date=end_date)
 
-        parameter_set = parse_enumeration_from_template(parameter_set, DWDObservationParameterSet)
+        parameter_set = parse_enumeration_from_template(
+            parameter_set, DWDObservationParameterSet
+        )
         resolution = parse_enumeration_from_template(
             resolution, DWDObservationResolution
         )
         period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
-        if not check_dwd_observations_parameter_set(
-            parameter_set, resolution, period
-        ):
+        if not check_dwd_observations_parameter_set(parameter_set, resolution, period):
             raise InvalidParameterCombination(
                 f"The combination of {parameter_set.value}, {resolution.value}, "
                 f"{period.value} is invalid."
@@ -475,12 +480,11 @@ class DWDObservationMetadata:
         return time_resolution_parameter_mapping
 
     def discover_parameters(self) -> Dict[str, List[str]]:
-        """ Return available parameters for the given time resolution, independent of
-        source parameter set """
+        """Return available parameters for the given time resolution, independent of
+        source parameter set"""
         available_parameters = {
             resolution.name: [
-                parameter.name
-                for parameter in DWDObservationParameter[resolution.name]
+                parameter.name for parameter in DWDObservationParameter[resolution.name]
             ]
             for resolution in self.resolution
         }
@@ -489,8 +493,10 @@ class DWDObservationMetadata:
 
     def describe_fields(self) -> dict:
         if len(self.parameter) > 1 or len(self.resolution) > 1 or len(self.period) > 1:
-            raise NotImplementedError("'describe_fields is only available for a single"
-                                      "parameter, resolution and period")
+            raise NotImplementedError(
+                "'describe_fields is only available for a single"
+                "parameter, resolution and period"
+            )
 
         file_index = _create_file_index_for_dwd_server(
             parameter_set=self.parameter[0],

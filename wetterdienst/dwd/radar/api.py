@@ -69,9 +69,7 @@ class DWDRadarData:
         self.resolution = parse_enumeration_from_template(
             resolution, DWDRadarResolution
         )
-        self.period = parse_enumeration_from_template(
-            period, DWDRadarPeriod
-        )
+        self.period = parse_enumeration_from_template(period, DWDRadarPeriod)
 
         # Sanity checks.
         if self.parameter == DWDRadarParameter.RADOLAN_CDC:
@@ -219,14 +217,14 @@ class DWDRadarData:
 
     def __eq__(self, other):
         return (
-                self.parameter == other.parameter
-                and self.site == other.site
-                and self.format == other.format
-                and self.subset == other.subset
-                and self.start_date == other.start_date
-                and self.end_date == other.end_date
-                and self.resolution == other.resolution
-                and self.period == other.period
+            self.parameter == other.parameter
+            and self.site == other.site
+            and self.format == other.format
+            and self.subset == other.subset
+            and self.start_date == other.start_date
+            and self.end_date == other.end_date
+            and self.resolution == other.resolution
+            and self.period == other.period
         )
 
     def collect_data(self) -> RadarResult:

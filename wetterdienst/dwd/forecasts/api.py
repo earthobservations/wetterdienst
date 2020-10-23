@@ -66,7 +66,9 @@ class DWDMosmixData(WDDataCore):
         mosmix_type: DWDMosmixType,
         station_ids: List[str],
         parameters: Optional[List[Union[str, DWDForecastParameter]]] = None,
-        start_date: Optional[Union[str, datetime, DWDForecastDate]] = DWDForecastDate.LATEST,
+        start_date: Optional[
+            Union[str, datetime, DWDForecastDate]
+        ] = DWDForecastDate.LATEST,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,

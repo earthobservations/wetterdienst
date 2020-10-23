@@ -60,9 +60,7 @@ def collect_climate_observations_data(
 
     :return:                        All the data given by the station ids.
     """
-    if not check_dwd_observations_parameter_set(
-        parameter_set, resolution, period
-    ):
+    if not check_dwd_observations_parameter_set(parameter_set, resolution, period):
         raise InvalidParameterCombination(
             f"Invalid combination: {parameter_set.value} / {resolution.value} / "
             f"{period.value}"

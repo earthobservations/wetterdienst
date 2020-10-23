@@ -41,7 +41,8 @@ class DWDObservationParameterSet(Enum):
 
 
 RESOLUTION_PARAMETER_MAPPING: Dict[
-    DWDObservationResolution, Dict[DWDObservationParameterSet, List[DWDObservationPeriod]]
+    DWDObservationResolution,
+    Dict[DWDObservationParameterSet, List[DWDObservationPeriod]],
 ] = {
     DWDObservationResolution.MINUTE_1: {
         DWDObservationParameterSet.PRECIPITATION: [
@@ -123,7 +124,10 @@ RESOLUTION_PARAMETER_MAPPING: Dict[
             DWDObservationPeriod.HISTORICAL,
             DWDObservationPeriod.RECENT,
         ],
-        DWDObservationParameterSet.WIND: [DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        DWDObservationParameterSet.WIND: [
+            DWDObservationPeriod.HISTORICAL,
+            DWDObservationPeriod.RECENT,
+        ],
         DWDObservationParameterSet.WIND_SYNOPTIC: [
             DWDObservationPeriod.HISTORICAL,
             DWDObservationPeriod.RECENT,
@@ -146,12 +150,18 @@ RESOLUTION_PARAMETER_MAPPING: Dict[
             DWDObservationPeriod.HISTORICAL,
             DWDObservationPeriod.RECENT,
         ],
-        DWDObservationParameterSet.SOIL: [DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        DWDObservationParameterSet.SOIL: [
+            DWDObservationPeriod.HISTORICAL,
+            DWDObservationPeriod.RECENT,
+        ],
         DWDObservationParameterSet.VISIBILITY: [
             DWDObservationPeriod.HISTORICAL,
             DWDObservationPeriod.RECENT,
         ],
-        DWDObservationParameterSet.WIND: [DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        DWDObservationParameterSet.WIND: [
+            DWDObservationPeriod.HISTORICAL,
+            DWDObservationPeriod.RECENT,
+        ],
     },
     DWDObservationResolution.DAILY: {
         DWDObservationParameterSet.CLIMATE_SUMMARY: [

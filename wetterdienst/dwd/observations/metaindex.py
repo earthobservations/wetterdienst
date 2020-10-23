@@ -83,9 +83,9 @@ def create_meta_index_for_climate_observations(
         pandas.DataFrame with meta index for the selected set of arguments
     """
     cond = (
-            resolution == DWDObservationResolution.MINUTE_1
-            and period == DWDObservationPeriod.HISTORICAL
-            and parameter_set == DWDObservationParameterSet.PRECIPITATION
+        resolution == DWDObservationResolution.MINUTE_1
+        and period == DWDObservationPeriod.HISTORICAL
+        and parameter_set == DWDObservationParameterSet.PRECIPITATION
     )
 
     if cond:
@@ -143,9 +143,7 @@ def _create_meta_index_for_climate_observations(
         not checked.
 
     """
-    parameter_path = build_path_to_parameter(
-        parameter_set, resolution, period
-    )
+    parameter_path = build_path_to_parameter(parameter_set, resolution, period)
 
     url = reduce(
         urljoin,

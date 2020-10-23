@@ -15,7 +15,9 @@ from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
     DWDObservationResolution,
 )
-from wetterdienst.dwd.observations.metadata.parameter import DWDObservationParameterSetStructure
+from wetterdienst.dwd.observations.metadata.parameter import (
+    DWDObservationParameterSetStructure,
+)
 
 log = logging.getLogger(__name__)
 
@@ -105,15 +107,15 @@ def _parse_climate_observations_data(
         data = data.rename(
             columns={
                 "MESS_DATUM_WOZ": (
-                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501
                 ),
             }
         )
 
         # Duplicate the date column to end of interval column
-        data[DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
-            DWDOrigMetaColumns.DATE.value
-        ]
+        data[
+            DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value
+        ] = data[DWDOrigMetaColumns.DATE.value]
 
         # Fix real date column by cutting of minutes
         data[DWDOrigMetaColumns.DATE.value] = data[DWDOrigMetaColumns.DATE.value].str[
