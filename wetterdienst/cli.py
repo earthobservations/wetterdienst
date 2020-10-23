@@ -321,7 +321,7 @@ def get_nearby(options: Munch) -> pd.DataFrame:
     maximal_date = datetime(now.year, now.month, now.day)
 
     nearby_baseline_args = dict(
-        parameter=options.parameter,
+        parameter_set=options.parameter,
         resolution=options.resolution,
         period=options.period,
         start_date=minimal_date,

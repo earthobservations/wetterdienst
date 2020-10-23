@@ -12,9 +12,7 @@ Import modules necessary for general functioning.
 
     import warnings
     warnings.filterwarnings("ignore")
-    from wetterdienst.dwd.observations import DWDObservationMetadata,
-        DWDObservationSites, DWDObservationData, DWDObservationPeriod, DWDObservationResolution,
-        DWDObservationParameterSet, DWDObservationParameter
+    from wetterdienst.dwd.observations import DWDObservationMetadata, DWDObservationSites, DWDObservationData, DWDObservationPeriod, DWDObservationResolution, DWDObservationParameterSet, DWDObservationParameter
     import matplotlib as mpl
     import matplotlib.pyplot as plt
     from matplotlib import cm
@@ -53,9 +51,9 @@ Get station list
 .. ipython:: python
 
     sites_hdp = DWDObservationSites(
-        parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
+        parameter_set=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
-        period=PeriodType.HISTORICAL
+        period=DWDObservationPeriod.HISTORICAL
     )
 
     print("Number of stations with available data: ", sites_hdp.all().sum())

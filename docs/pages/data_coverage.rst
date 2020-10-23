@@ -108,6 +108,7 @@ This table and subsets of it can be printed with a function call of
 parameters can be queried. Take a look at the massive amount of data:
 
 .. ipython:: python
+
     from wetterdienst.dwd.observations import DWDObservationMetadata
 
     observations_meta = DWDObservationMetadata()
