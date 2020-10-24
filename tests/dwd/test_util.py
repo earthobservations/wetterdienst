@@ -4,35 +4,30 @@ import pandas as pd
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.util import (
-    check_parameters,
     coerce_field_types,
-    parse_enumeration_from_template,
-    build_parameter_identifier,
+    build_parameter_set_identifier,
 )
-from wetterdienst.dwd.metadata.period_type import PeriodType
-from wetterdienst.dwd.metadata.time_resolution import TimeResolution
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.exceptions import InvalidParameter
-
-
-def test_check_parameters():
-    assert check_parameters(
-        Parameter.PRECIPITATION, TimeResolution.MINUTE_10, PeriodType.HISTORICAL
-    )
-    assert not check_parameters(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.MINUTE_1, PeriodType.HISTORICAL
-    )
+from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.dwd.observations import (
+    DWDObservationPeriod,
+    DWDObservationResolution,
+    DWDObservationParameterSet,
+)
+from wetterdienst.exceptions import InvalidEnumeration
 
 
 def test_parse_enumeration_from_template():
     assert (
-        parse_enumeration_from_template("climate_summary", Parameter)
-        == Parameter.CLIMATE_SUMMARY
+        parse_enumeration_from_template("climate_summary", DWDObservationParameterSet)
+        == DWDObservationParameterSet.CLIMATE_SUMMARY
     )
-    assert parse_enumeration_from_template("kl", Parameter) == Parameter.CLIMATE_SUMMARY
+    assert (
+        parse_enumeration_from_template("kl", DWDObservationParameterSet)
+        == DWDObservationParameterSet.CLIMATE_SUMMARY
+    )
 
-    with pytest.raises(InvalidParameter):
-        parse_enumeration_from_template("climate", Parameter)
+    with pytest.raises(InvalidEnumeration):
+        parse_enumeration_from_template("climate", DWDObservationParameterSet)
 
 
 def test_coerce_field_types():
@@ -56,7 +51,7 @@ def test_coerce_field_types():
         }
     )
 
-    df = coerce_field_types(df, TimeResolution.HOURLY)
+    df = coerce_field_types(df, DWDObservationResolution.HOURLY)
 
     assert_frame_equal(df, expected_df)
 
@@ -78,13 +73,16 @@ def test_coerce_field_types_with_nans():
         }
     )
 
-    df = coerce_field_types(df, TimeResolution.HOURLY)
+    df = coerce_field_types(df, DWDObservationResolution.HOURLY)
     assert_frame_equal(df, expected_df)
 
 
 def test_build_parameter_identifier():
-    parameter_identifier = build_parameter_identifier(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL, 1
+    parameter_identifier = build_parameter_set_identifier(
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.HISTORICAL,
+        1,
     )
 
     assert parameter_identifier == "kl/daily/historical/station_id_1"

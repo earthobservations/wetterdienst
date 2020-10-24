@@ -8,6 +8,16 @@ Development
 - CLI: Obtain "--tidy" argument from command line
 - Extend MOSMIX support to equal the API of observations
 - DWDObservationSites now filters for those stations which have a file on the server
+- DWDObservationData now also takes an individual parameter
+  independent of the pre-configured DWD datasets by using DWDObservationParameter or
+  similar names e.g. "precipitation_height"
+- Newly introduced coexistence of DWDObservationParameter and DWDObservationParameterSet
+  to address parameter sets as well as individual parameters
+- Imports are changed to submodule thus now one has to import everything from
+  wetterdienst.dwd
+- Renaming of time_resolution to resolution, period_type to period, several other
+  relabels
+
 
 0.9.0 (09.10.2020)
 ==================

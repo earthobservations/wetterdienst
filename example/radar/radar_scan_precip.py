@@ -29,13 +29,13 @@ from tempfile import NamedTemporaryFile
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate, RadarDataFormat, RadarDataSubset
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate, DWDRadarDataFormat, DWDRadarDataSubset
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst import DWDRadarData
 
 
 def plot(data: wrl.io.XRadVolume):
@@ -73,22 +73,22 @@ def radar_info(data: dict):
 
 def radar_scan_precip():
 
-    request_velocity = DWDRadarRequest(
-        parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.POLARIMETRIC,
+    request_velocity = DWDRadarData(
+        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        format=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.POLARIMETRIC,
     )
-    request_reflectivity = DWDRadarRequest(
-        parameter=RadarParameter.SWEEP_PCP_REFLECTIVITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.POLARIMETRIC,
+    request_reflectivity = DWDRadarData(
+        parameter=DWDRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        format=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.POLARIMETRIC,
     )
 
-    log.info(f"Acquiring radar SWEEP_PCP data for {RadarSite.BOO} at {request_velocity.start_date}")
+    log.info(f"Acquiring radar SWEEP_PCP data for {DWDRadarSite.BOO} at {request_velocity.start_date}")
 
     # Submit requests.
     results = chain(request_velocity.collect_data(), request_reflectivity.collect_data())

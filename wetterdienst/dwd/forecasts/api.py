@@ -1,27 +1,25 @@
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
-from typing import List, Union, Optional, Generator, Tuple
-from urllib.parse import urljoin
+from typing import List, Union, Optional, Generator, Tuple, Dict
+from dataclasses import dataclass
 
+from urllib.parse import urljoin
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
 from requests import HTTPError
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst.core.data import WDDataCore
 from wetterdienst.core.sites import WDSitesCore
 from wetterdienst.dwd.forecasts.metadata.column_types import (
     DATE_FIELDS_REGULAR,
     INTEGER_FIELDS,
 )
-from wetterdienst.dwd.forecasts.metadata.dates import ForecastDate
-from wetterdienst.dwd.forecasts.metadata.column_names import (
-    DWDForecastsOrigDataColumns,
-    DWDForecastsDataColumns,
+from wetterdienst.dwd.forecasts.metadata import (
+    DWDForecastDate,
+    DWDForecastParameter,
+    DWDMosmixType,
 )
 from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
-from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import (
     DWD_SERVER,
@@ -30,7 +28,7 @@ from wetterdienst.dwd.metadata.constants import (
 )
 from wetterdienst.dwd.forecasts.access import KMLReader
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.util import parse_enumeration_from_template
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.util.network import list_remote_files
 
@@ -47,7 +45,7 @@ class DWDMosmixResult:
     forecast: pd.DataFrame
 
 
-class DWDMosmixData:
+class DWDMosmixData(WDDataCore):
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
@@ -65,10 +63,12 @@ class DWDMosmixData:
 
     def __init__(
         self,
-        period_type: PeriodType,
+        mosmix_type: DWDMosmixType,
         station_ids: List[str],
-        parameters: Optional[List[Union[str, Enum]]] = None,
-        start_date: Optional[Union[str, datetime, ForecastDate]] = ForecastDate.LATEST,
+        parameters: Optional[List[Union[str, DWDForecastParameter]]] = None,
+        start_date: Optional[
+            Union[str, datetime, DWDForecastDate]
+        ] = DWDForecastDate.LATEST,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
@@ -76,7 +76,7 @@ class DWDMosmixData:
         """
 
         Args:
-            period_type: period type of forecast, either short (MOSMIX-S) or long
+            mosmix_type: type of forecast, either small (MOSMIX-S) or large
                 (MOSMIX-L), as string or enumeration
             station_ids: station ids which are being queried from the MOSMIX foreacst
             parameters: optional parameters for which the forecasts are filtered
@@ -91,7 +91,7 @@ class DWDMosmixData:
                 readable names
         """
 
-        if period_type not in (PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG):
+        if mosmix_type not in DWDMosmixType:
             raise ValueError(
                 "period_type should be one of FORECAST_SHORT or FORECAST_LONG"
             )
@@ -102,19 +102,19 @@ class DWDMosmixData:
                 pd.Series(parameters)
                 .apply(
                     parse_enumeration_from_template,
-                    args=(DWDForecastsOrigDataColumns.HOURLY.CLIMATE_SUMMARY,),
+                    args=(DWDForecastParameter,),
                 )
                 .tolist()
             )
 
         if not start_date and not end_date:
-            start_date = ForecastDate.LATEST
+            start_date = DWDForecastDate.LATEST
         elif not end_date:
             end_date = start_date
         elif not start_date:
             start_date = end_date
 
-        if start_date is not ForecastDate.LATEST:
+        if start_date is not DWDForecastDate.LATEST:
             start_date = pd.to_datetime(start_date, infer_datetime_format=True).floor(
                 "1H"
             )
@@ -126,11 +126,11 @@ class DWDMosmixData:
                 )
 
             # Shift dates to 3, 9, 15, 21 hour format
-            if period_type == PeriodType.FORECAST_LONG:
+            if mosmix_type == DWDMosmixType.LARGE:
                 start_date = self.adjust_datetime(start_date)
                 end_date = self.adjust_datetime(end_date)
 
-        self.period_type = period_type
+        self.forecast_type = mosmix_type
         self.station_ids = station_ids
         self.parameters = parameters
         self.start_date = start_date
@@ -138,15 +138,10 @@ class DWDMosmixData:
         self.tidy_data = tidy_data
         self.humanize_column_names = humanize_column_names
 
-        if period_type == PeriodType.FORECAST_SHORT:
+        if mosmix_type == DWDMosmixType.SMALL:
             self.freq = "1H"  # short forecasts released every hour
         else:
             self.freq = "6H"
-
-        # Add fixed attributes
-        self.time_resolution = TimeResolution.HOURLY
-        # Take climate summary as it matches best to MOSMIX
-        self.parameter = Parameter.CLIMATE_SUMMARY
 
         self.kml = KMLReader(station_ids=self.station_ids, parameters=self.parameters)
 
@@ -182,7 +177,7 @@ class DWDMosmixData:
     def collect_data(self) -> Generator[DWDMosmixResult, None, None]:
         """Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)"""
-        if self.start_date == ForecastDate.LATEST:
+        if self.start_date == DWDForecastDate.LATEST:
             yield from self.read_mosmix(self.start_date)
         else:
             for date in pd.date_range(self.start_date, self.end_date, freq=self.freq):
@@ -192,7 +187,7 @@ class DWDMosmixData:
                     log.warning(e)
                     continue
 
-    def read_mosmix(self, date: Union[datetime, ForecastDate]) -> DWDMosmixResult:
+    def read_mosmix(self, date: Union[datetime, DWDForecastDate]) -> DWDMosmixResult:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -224,12 +219,7 @@ class DWDMosmixData:
                 )
 
             if self.humanize_column_names:
-                hcnm = create_humanized_column_names_mapping(
-                    self.time_resolution,
-                    self.parameter,
-                    DWDForecastsOrigDataColumns,
-                    DWDForecastsDataColumns,
-                )
+                hcnm = self._create_humanized_column_names_mapping()
 
                 if self.tidy_data:
                     df_forecast[DWDMetaColumns.ELEMENT.value] = df_forecast[
@@ -254,17 +244,17 @@ class DWDMosmixData:
             yield result
 
     def _read_mosmix(
-        self, date: Union[ForecastDate, datetime]
+        self, date: Union[DWDForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type"""
-        if self.period_type == PeriodType.FORECAST_SHORT:
-            yield from self.read_mosmix_s(date)
+        if self.forecast_type == DWDMosmixType.SMALL:
+            yield from self.read_mosmix_small(date)
         else:
-            yield from self.read_mosmix_l(date)
+            yield from self.read_mosmix_large(date)
 
-    def read_mosmix_s(
-        self, date: Union[ForecastDate, datetime]
+    def read_mosmix_small(
+        self, date: Union[DWDForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads single MOSMIX-S file with all stations and returns every forecast that
         matches with one of the defined station ids."""
@@ -277,8 +267,8 @@ class DWDMosmixData:
         for forecast in self.kml.get_forecasts():
             yield self.kml.get_metadata(), forecast
 
-    def read_mosmix_l(
-        self, date: Union[ForecastDate, datetime]
+    def read_mosmix_large(
+        self, date: Union[DWDForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads multiple MOSMIX-L files with one per each station and returns a
         forecast per file."""
@@ -298,7 +288,7 @@ class DWDMosmixData:
             yield self.kml.get_metadata(), next(self.kml.get_forecasts())
 
     @staticmethod
-    def get_url_for_date(url: str, date: Union[datetime, ForecastDate]) -> str:
+    def get_url_for_date(url: str, date: Union[datetime, DWDForecastDate]) -> str:
         """
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
@@ -312,7 +302,7 @@ class DWDMosmixData:
         """
         urls = list_remote_files(url, False)
 
-        if date == ForecastDate.LATEST:
+        if date == DWDForecastDate.LATEST:
             try:
                 url = list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
                 return url
@@ -353,6 +343,16 @@ class DWDMosmixData:
             else:
                 df[column] = df[column].astype(float)
 
+    def _create_humanized_column_names_mapping(self) -> Dict[str, str]:
+        """Create humanized column names mapping from DWDForecastParameters
+        enumeration"""
+        hcnm = {
+            forecast_parameter.name: forecast_parameter.value
+            for forecast_parameter in DWDForecastParameter
+        }
+
+        return hcnm
+
 
 class DWDMosmixSites(WDSitesCore):
     """ Implementation of sites for MOSMIX forecast sites """
@@ -363,17 +363,9 @@ class DWDMosmixSites(WDSitesCore):
         end_date: Union[None, str, Timestamp] = None,
     ) -> None:
         super().__init__(
-            parameter=Parameter.CLIMATE_SUMMARY,
-            time_resolution=TimeResolution.HOURLY,
-            period_type=[PeriodType.FORECAST_SHORT, PeriodType.FORECAST_LONG],
             start_date=start_date,
             end_date=end_date,
         )
-
-    @staticmethod
-    def _check_parameters(**kwargs):
-        """ No checks needed as only one parameter exists for MOSMIX """
-        pass
 
     def _all(self):
         return metadata_for_forecasts()

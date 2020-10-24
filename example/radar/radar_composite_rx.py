@@ -26,12 +26,12 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest, TimeResolution
+from wetterdienst import DWDRadarData, TimeResolution
 
 
 def plot(data: np.ndarray, attributes: dict, label: str = None):
@@ -88,9 +88,9 @@ def radar_info(data: np.ndarray, attributes: dict):
 def radar_rx_example():
 
     log.info("Acquiring radar RX composite data")
-    radolan = DWDRadarRequest(
-        parameter=RadarParameter.RX_REFLECTIVITY,
-        start_date=RadarDate.LATEST,
+    radolan = DWDRadarData(
+        parameter=DWDRadarParameter.RX_REFLECTIVITY,
+        start_date=DWDRadarDate.LATEST,
     )
 
     for item in radolan.collect_data():

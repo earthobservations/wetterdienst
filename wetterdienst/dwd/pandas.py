@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 
-from wetterdienst.dwd.metadata import TimeResolution
+from wetterdienst.dwd.observations.metadata import DWDObservationResolution
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.util import parse_datetime, mktimerange
 
@@ -44,7 +44,7 @@ class PandasDwdExtension:
         return df
 
     def filter_by_date(
-        self, date: str, time_resolution: TimeResolution
+        self, date: str, resolution: DWDObservationResolution
     ) -> pd.DataFrame:
         """
         Filter Pandas DataFrame by date or date interval.
@@ -60,7 +60,7 @@ class PandasDwdExtension:
         - 2010/2020
 
         :param date:
-        :param time_resolution:
+        :param resolution:
         :return: Filtered DataFrame
         """
 
@@ -69,11 +69,11 @@ class PandasDwdExtension:
             date_from, date_to = date.split("/")
             date_from = parse_datetime(date_from)
             date_to = parse_datetime(date_to)
-            if time_resolution in (
-                TimeResolution.ANNUAL,
-                TimeResolution.MONTHLY,
+            if resolution in (
+                DWDObservationResolution.ANNUAL,
+                DWDObservationResolution.MONTHLY,
             ):
-                date_from, date_to = mktimerange(time_resolution, date_from, date_to)
+                date_from, date_to = mktimerange(resolution, date_from, date_to)
                 expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
                     self.df[DWDMetaColumns.TO_DATE.value] <= date_to
                 )
@@ -86,11 +86,11 @@ class PandasDwdExtension:
         # Filter by specific date.
         else:
             date = parse_datetime(date)
-            if time_resolution in (
-                TimeResolution.ANNUAL,
-                TimeResolution.MONTHLY,
+            if resolution in (
+                DWDObservationResolution.ANNUAL,
+                DWDObservationResolution.MONTHLY,
             ):
-                date_from, date_to = mktimerange(time_resolution, date)
+                date_from, date_to = mktimerange(resolution, date)
                 expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
                     self.df[DWDMetaColumns.TO_DATE.value] <= date_to
                 )

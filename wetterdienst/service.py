@@ -5,15 +5,15 @@ import logging
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
-from wetterdienst import (
-    __appname__,
-    __version__,
-    TimeResolution,
+from wetterdienst import __appname__, __version__
+from wetterdienst.dwd.observations import (
+    DWDObservationPeriod,
+    DWDObservationParameterSet,
+    DWDObservationData,
+    DWDObservationResolution,
 )
-from wetterdienst import PeriodType, Parameter
-from wetterdienst import DWDObservationData
 from wetterdienst.dwd.observations.api import DWDObservationSites
-from wetterdienst.dwd.util import parse_enumeration_from_template
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.cli import read_list
 
 app = FastAPI(debug=False)
@@ -75,15 +75,15 @@ def dwd_stations(
     sql: str = Query(default=None),
 ):
 
-    parameter = parse_enumeration_from_template(parameter, Parameter)
-    resolution = parse_enumeration_from_template(resolution, TimeResolution)
-    period = parse_enumeration_from_template(period, PeriodType)
+    parameter = parse_enumeration_from_template(parameter, DWDObservationParameterSet)
+    resolution = parse_enumeration_from_template(resolution, DWDObservationResolution)
+    period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
     # Data acquisition.
     df = DWDObservationSites(
-        parameter=parameter,
-        time_resolution=resolution,
-        period_type=period,
+        parameter_set=parameter,
+        resolution=resolution,
+        period=period,
     ).all()
 
     # Postprocessing.
@@ -131,16 +131,16 @@ def dwd_readings(
         )
 
     station_ids = map(int, read_list(station))
-    parameter = parse_enumeration_from_template(parameter, Parameter)
-    resolution = parse_enumeration_from_template(resolution, TimeResolution)
-    period = parse_enumeration_from_template(period, PeriodType)
+    parameter = parse_enumeration_from_template(parameter, DWDObservationParameterSet)
+    resolution = parse_enumeration_from_template(resolution, DWDObservationResolution)
+    period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
     # Data acquisition.
     observations = DWDObservationData(
         station_ids=station_ids,
-        parameter=parameter,
-        time_resolution=resolution,
-        period_type=period,
+        parameters=parameter,
+        resolution=resolution,
+        periods=period,
         tidy_data=True,
         humanize_column_names=True,
     )

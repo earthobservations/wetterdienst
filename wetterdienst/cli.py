@@ -16,7 +16,11 @@ from wetterdienst.dwd.observations.api import (
     DWDObservationSites,
     DWDObservationMetadata,
 )
-from wetterdienst.dwd.metadata import Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.observations import (
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
+)
 
 log = logging.getLogger(__name__)
 
@@ -202,9 +206,9 @@ def run():
     # Acquire station list.
     if options.stations:
         df = DWDObservationSites(
-            parameter=options.parameter,
-            time_resolution=options.resolution,
-            period_type=options.period,
+            parameter_set=options.parameter,
+            resolution=options.resolution,
+            period=options.period,
         ).all()
 
         if options.station:
@@ -238,9 +242,9 @@ def run():
         # Funnel all parameters to the workhorse.
         observations = DWDObservationData(
             station_ids=station_ids,
-            parameter=read_list(options.parameter),
-            time_resolution=options.resolution,
-            period_type=read_list(options.period),
+            parameters=read_list(options.parameter),
+            resolution=options.resolution,
+            periods=read_list(options.period),
             storage=storage,
             humanize_column_names=True,
             tidy_data=options.tidy,
@@ -261,7 +265,7 @@ def run():
 
     # Filter readings by datetime expression.
     if options.readings and options.date:
-        df = df.dwd.filter_by_date(options.date, observations.time_resolution)
+        df = df.dwd.filter_by_date(options.date, observations.resolution)
 
     # Make column names lowercase.
     df = df.dwd.lower()
@@ -317,9 +321,9 @@ def get_nearby(options: Munch) -> pd.DataFrame:
     maximal_date = datetime(now.year, now.month, now.day)
 
     nearby_baseline_args = dict(
-        parameter=options.parameter,
-        time_resolution=options.resolution,
-        period_type=options.period,
+        parameter_set=options.parameter,
+        resolution=options.resolution,
+        period=options.period,
         start_date=minimal_date,
         end_date=maximal_date,
     )
@@ -365,21 +369,21 @@ def about(options: Munch):
                 print("-", value)
 
     if options.parameters:
-        output(Parameter)
+        output(DWDObservationParameterSet)
 
     elif options.resolutions:
-        output(TimeResolution)
+        output(DWDObservationResolution)
 
     elif options.periods:
-        output(PeriodType)
+        output(DWDObservationPeriod)
 
     elif options.coverage:
         output = json.dumps(
             DWDObservationMetadata(
-                time_resolution=options.resolution,
-                parameter=read_list(options.parameter),
-                period_type=read_list(options.period),
-            ).discover_parameters(),
+                resolution=options.resolution,
+                parameter_set=read_list(options.parameter),
+                period=read_list(options.period),
+            ).discover_parameter_sets(),
             indent=4,
         )
         print(output)

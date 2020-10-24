@@ -12,7 +12,6 @@ import logging
 import pandas as pd
 from urllib.parse import urlparse, parse_qs
 
-
 log = logging.getLogger(__name__)
 
 

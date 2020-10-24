@@ -1,7 +1,8 @@
 """ function to read data from dwd server """
 import logging
-from typing import List, Tuple, Union
+from typing import List, Tuple
 from io import BytesIO
+
 import pandas as pd
 
 from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
@@ -10,19 +11,21 @@ from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
-from wetterdienst.dwd.observations.metadata.column_names import (
-    DWDObservationsOrigDataColumns,
+from wetterdienst.dwd.observations.metadata import (
+    DWDObservationParameterSet,
+    DWDObservationResolution,
 )
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst import TimeResolution
+from wetterdienst.dwd.observations.metadata.parameter import (
+    DWDObservationParameterSetStructure,
+)
 
 log = logging.getLogger(__name__)
 
 
 def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
-    parameter: Parameter,
-    time_resolution: Union[TimeResolution, str],
+    parameter: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
 ) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
@@ -31,17 +34,15 @@ def parse_climate_observations_data(
         filenames_and_files: list of tuples of a filename and its local stored file
         that should be read
         parameter: enumeration of parameter used to correctly parse the date field
-        time_resolution: enumeration of time resolution used to correctly parse the
+        resolution: enumeration of time resolution used to correctly parse the
         date field
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
 
-    time_resolution = TimeResolution(time_resolution)
-
     data = [
-        _parse_climate_observations_data(filename_and_file, parameter, time_resolution)
+        _parse_climate_observations_data(filename_and_file, parameter, resolution)
         for filename_and_file in filenames_and_files
     ]
 
@@ -52,8 +53,8 @@ def parse_climate_observations_data(
 
 def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
-    parameter: Parameter,
-    time_resolution: TimeResolution,
+    parameter: DWDObservationParameterSet,
+    resolution: DWDObservationResolution,
 ) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to
@@ -61,7 +62,7 @@ def _parse_climate_observations_data(
     the DataFrame that is stored should obviously only handle one station at a time.
     Args:
         filename_and_file: the files belonging to one station
-        time_resolution: enumeration of time resolution used to correctly parse the
+        resolution: enumeration of time resolution used to correctly parse the
         date field
     Returns:
         pandas.DataFrame with data from that station, acn be empty if no data is
@@ -97,21 +98,24 @@ def _parse_climate_observations_data(
     data = data.drop(columns=DWDMetaColumns.EOR.value, errors="ignore")
 
     # Special handling for hourly solar data, as it has more date columns
-    if time_resolution == TimeResolution.HOURLY and parameter == Parameter.SOLAR:
+    if (
+        resolution == DWDObservationResolution.HOURLY
+        and parameter == DWDObservationParameterSet.SOLAR
+    ):
         # Rename date column correctly to end of interval, as it has additional minute
         # information. Also rename column with true local time to english one
         data = data.rename(
             columns={
                 "MESS_DATUM_WOZ": (
-                    DWDObservationsOrigDataColumns.HOURLY.SOLAR.TRUE_LOCAL_TIME.value
+                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501
                 ),
             }
         )
 
         # Duplicate the date column to end of interval column
-        data[DWDObservationsOrigDataColumns.HOURLY.SOLAR.END_OF_INTERVAL.value] = data[
-            DWDOrigMetaColumns.DATE.value
-        ]
+        data[
+            DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value
+        ] = data[DWDOrigMetaColumns.DATE.value]
 
         # Fix real date column by cutting of minutes
         data[DWDOrigMetaColumns.DATE.value] = data[DWDOrigMetaColumns.DATE.value].str[

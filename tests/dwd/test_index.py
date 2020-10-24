@@ -1,9 +1,11 @@
 import pytest
 
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
-from wetterdienst.dwd.metadata.parameter import Parameter
-from wetterdienst.dwd.metadata.period_type import PeriodType
-from wetterdienst import TimeResolution
+from wetterdienst.dwd.observations import (
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
+    DWDObservationResolution,
+)
 from wetterdienst.util.network import list_remote_files
 from wetterdienst.dwd.index import (
     build_path_to_parameter,
@@ -13,7 +15,9 @@ from wetterdienst.dwd.index import (
 
 def test_build_index_path():
     path = build_path_to_parameter(
-        Parameter.CLIMATE_SUMMARY, TimeResolution.DAILY, PeriodType.HISTORICAL
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.HISTORICAL,
     )
     assert path == "daily/kl/historical/"
 
@@ -35,9 +39,9 @@ def test_list_files_of_climate_observations():
 def test_fileindex():
 
     file_index = _create_file_index_for_dwd_server(
-        Parameter.CLIMATE_SUMMARY,
-        TimeResolution.DAILY,
-        PeriodType.RECENT,
+        DWDObservationParameterSet.CLIMATE_SUMMARY,
+        DWDObservationResolution.DAILY,
+        DWDObservationPeriod.RECENT,
         DWDCDCBase.CLIMATE_OBSERVATIONS,
     )
 

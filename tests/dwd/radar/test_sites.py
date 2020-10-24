@@ -1,9 +1,9 @@
-from wetterdienst import DWDRadarRequest
+from wetterdienst.dwd.radar import DWDRadarData
 
 
 def test_radar_sites():
 
-    sites = DWDRadarRequest.get_sites()
+    sites = DWDRadarData.get_sites()
 
     assert len(sites) == 17
     assert sites["ASB"]["name"] == "ASR Borkum"

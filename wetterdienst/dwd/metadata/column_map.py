@@ -1,14 +1,17 @@
 """ mapping from german column names to english column names"""
-from typing import Type
+from typing import Type, Dict
 
 from numpy import datetime64
 
-from wetterdienst.dwd.metadata import TimeResolution, Parameter
+from wetterdienst.dwd.observations.metadata import (
+    DWDObservationResolution,
+    DWDObservationParameterSet,
+)
 from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
-from wetterdienst.util.column_names import WDDataColumnBase
+from wetterdienst.util.parameter import WDParameterStructureBase
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigMetaColumns.STATION_ID.value: DWDMetaColumns.STATION_ID.value,
@@ -39,31 +42,26 @@ METADATA_DTYPE_MAPPING = {
 
 
 def create_humanized_column_names_mapping(
-    time_resolution: TimeResolution,
-    parameter: Parameter,
-    orig_data_columns: Type[WDDataColumnBase],
-    data_columns: Type[WDDataColumnBase],
-) -> dict:
+    resolution: DWDObservationResolution,
+    parameter_set: DWDObservationParameterSet,
+    parameter_structure: Type[WDParameterStructureBase],
+) -> Dict[str, str]:
     """
     Function to create a humanized column names mapping. The function
     takes care of the special cases of quality columns. Therefore it requires the
     time resolution and parameter.
 
     Args:
-        time_resolution: time resolution enumeration
-        parameter: parameter enumeration
-        orig_data_columns: original column names in enumeration style
-        data_columns: column names in enumeration style
+        resolution: time resolution enumeration
+        parameter_set: parameter enumeration
+        parameter_structure: original column names in enumeration style
 
     Returns:
         dictionary with mappings extended by quality columns mappings
     """
-    column_name_mapping = {
-        orig_column.value: humanized_column.value
-        for orig_column, humanized_column in zip(
-            orig_data_columns[time_resolution.name][parameter.name],
-            data_columns[time_resolution.name][parameter.name],
-        )
+    hcnm = {
+        parameter.value: parameter.name
+        for parameter in parameter_structure[resolution.name][parameter_set.name]
     }
 
-    return column_name_mapping
+    return hcnm

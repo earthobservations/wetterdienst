@@ -4,7 +4,12 @@ import pandas as pd
 import pytest
 from surrogate import surrogate
 
-from wetterdienst import DWDObservationData, Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.observations import (
+    DWDObservationData,
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
+)
 from wetterdienst.dwd.util import parse_datetime
 
 df_station = pd.DataFrame.from_dict(
@@ -56,19 +61,21 @@ def test_lowercase():
 
 def test_filter_by_date():
 
-    df = df_data.dwd.filter_by_date("2019-12-28Z", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-28Z", DWDObservationResolution.HOURLY)
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2019-12-27Z", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-27Z", DWDObservationResolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_interval():
 
-    df = df_data.dwd.filter_by_date("2019-12-27Z/2019-12-29Z", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date(
+        "2019-12-27Z/2019-12-29Z", DWDObservationResolution.HOURLY
+    )
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2020Z/2022Z", TimeResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2020Z/2022Z", DWDObservationResolution.HOURLY)
     assert df.empty
 
 
@@ -88,13 +95,13 @@ def test_filter_by_date_monthly():
         ]
     )
 
-    df = result.dwd.filter_by_date("2019-12/2020-01", TimeResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2019-12/2020-01", DWDObservationResolution.MONTHLY)
     assert not df.empty
 
-    df = result.dwd.filter_by_date("2020/2022", TimeResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2020/2022", DWDObservationResolution.MONTHLY)
     assert df.empty
 
-    df = result.dwd.filter_by_date("2020", TimeResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2020", DWDObservationResolution.MONTHLY)
     assert df.empty
 
 
@@ -114,13 +121,13 @@ def test_filter_by_date_annual():
         ]
     )
 
-    df = result.dwd.filter_by_date("2019-05/2019-09", TimeResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2019-05/2019-09", DWDObservationResolution.ANNUAL)
     assert not df.empty
 
-    df = result.dwd.filter_by_date("2020/2022", TimeResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2020/2022", DWDObservationResolution.ANNUAL)
     assert df.empty
 
-    df = result.dwd.filter_by_date("2020", TimeResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2020", DWDObservationResolution.ANNUAL)
     assert df.empty
 
 
@@ -180,9 +187,9 @@ def test_request():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.RECENT,
     )
 
     df = observations.collect_safe()
@@ -193,9 +200,9 @@ def test_export_sqlite():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.RECENT,
     )
 
     with mock.patch(
@@ -219,9 +226,9 @@ def test_export_crate():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.RECENT,
     )
 
     with mock.patch(
@@ -246,9 +253,9 @@ def test_export_duckdb():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.RECENT,
     )
 
     mock_connection = mock.MagicMock()
@@ -272,9 +279,9 @@ def test_export_influxdb():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameter=Parameter.CLIMATE_SUMMARY,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.RECENT,
     )
 
     mock_client = mock.MagicMock()

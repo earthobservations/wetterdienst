@@ -3,10 +3,10 @@ from datetime import datetime
 
 import pytest
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst.dwd.radar import DWDRadarData
 from wetterdienst.util.datetime import round_minutes
-from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 
 @pytest.mark.remote
@@ -15,9 +15,9 @@ def test_radar_request_composite_latest_rx_reflectivity():
     Example for testing radar COMPOSITES latest.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.RX_REFLECTIVITY,
-        start_date=RadarDate.LATEST,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.RX_REFLECTIVITY,
+        start_date=DWDRadarDate.LATEST,
     )
 
     buffer = next(request.collect_data())[1]
@@ -38,9 +38,9 @@ def test_radar_request_composite_latest_rw_reflectivity():
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.RW_REFLECTIVITY,
-        start_date=RadarDate.LATEST,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.RW_REFLECTIVITY,
+        start_date=DWDRadarDate.LATEST,
     )
 
     buffer = next(request.collect_data())[1]
@@ -62,10 +62,10 @@ def test_radar_request_site_latest_dx_reflectivity():
     Example for testing radar SITES latest.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.DX_REFLECTIVITY,
-        start_date=RadarDate.LATEST,
-        site=RadarSite.BOO,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.DX_REFLECTIVITY,
+        start_date=DWDRadarDate.LATEST,
+        site=DWDRadarSite.BOO,
     )
 
     buffer = next(request.collect_data())[1]

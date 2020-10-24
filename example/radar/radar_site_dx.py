@@ -31,13 +31,13 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import RadarParameter, RadarDate
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
-from wetterdienst import DWDRadarRequest
+from wetterdienst import DWDRadarData
 
 
 def plot(data: np.ndarray):
@@ -64,10 +64,10 @@ def radar_info(data: np.ndarray, metadata: dict):
 def radar_dx_example():
 
     log.info("Acquiring radar DX data")
-    request = DWDRadarRequest(
-        parameter=RadarParameter.DX_REFLECTIVITY,
-        start_date=RadarDate.LATEST,
-        site=RadarSite.BOO,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.DX_REFLECTIVITY,
+        start_date=DWDRadarDate.LATEST,
+        site=DWDRadarSite.BOO,
     )
 
     for item in request.collect_data():

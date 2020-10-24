@@ -4,13 +4,17 @@ from typing import Union
 
 import pandas as pd
 
-from wetterdienst import Parameter, TimeResolution, PeriodType
+from wetterdienst.dwd.observations.metadata import (
+    DWDObservationParameterSet,
+    DWDObservationResolution,
+    DWDObservationPeriod,
+)
 from wetterdienst.dwd.observations.metadata.column_types import (
     QUALITY_FIELDS,
     INTEGER_FIELDS,
 )
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DataFormat
-from wetterdienst.dwd.util import build_parameter_identifier
+from wetterdienst.dwd.util import build_parameter_set_identifier
 
 log = logging.getLogger(__name__)
 
@@ -26,11 +30,11 @@ class StorageAdapter:
         self.invalidate = invalidate
         self.folder = folder
 
-    def hdf5(self, parameter, time_resolution, period_type):
+    def hdf5(self, parameter, resolution, period):
         return LocalHDF5Store(
-            parameter=parameter,
-            time_resolution=time_resolution,
-            period_type=period_type,
+            parameter_set=parameter,
+            resolution=resolution,
+            period=period,
             folder=self.folder,
         )
 
@@ -38,21 +42,21 @@ class StorageAdapter:
 class LocalHDF5Store:
     def __init__(
         self,
-        parameter: Union[Parameter, str],
-        time_resolution: Union[TimeResolution, str],
-        period_type: Union[PeriodType, str],
+        parameter_set: DWDObservationParameterSet,
+        resolution: DWDObservationResolution,
+        period: DWDObservationPeriod,
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
     ):
-        self.parameter = parameter
-        self.time_resolution = time_resolution
-        self.period_type = period_type
+        self.parameter_set = parameter_set
+        self.resolution = resolution
+        self.period = period
         self.folder = folder
 
     @property
     def filename(self) -> str:
         return (
-            f"{self.parameter.value}-{self.time_resolution.value}-"
-            f"{self.period_type.value}.{DataFormat.H5.value}"
+            f"{self.parameter_set.value}-{self.resolution.value}-"
+            f"{self.period.value}.{DataFormat.H5.value}"
         )
 
     @property
@@ -68,8 +72,8 @@ class LocalHDF5Store:
         :return:            Key for storing data into HDF5 file.
         """
 
-        return build_parameter_identifier(
-            self.parameter, self.time_resolution, self.period_type, station_id
+        return build_parameter_set_identifier(
+            self.parameter_set, self.resolution, self.period, station_id
         )
 
     def invalidate(self):

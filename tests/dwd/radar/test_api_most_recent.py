@@ -3,9 +3,14 @@ import re
 import h5py
 import pytest
 
-from wetterdienst import DWDRadarRequest, RadarParameter, TimeResolution
-from wetterdienst.dwd.radar.metadata import RadarDate, RadarDataFormat, RadarDataSubset
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter
+from wetterdienst.dwd.radar.metadata import (
+    DWDRadarDate,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarResolution,
+)
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 
 @pytest.mark.remote
@@ -15,12 +20,12 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -56,12 +61,12 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=RadarDate.MOST_RECENT,
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+        start_date=DWDRadarDate.MOST_RECENT,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -101,10 +106,10 @@ def test_radar_request_radolan_cdc_most_recent():
     Example for testing radar sites most recent RADOLAN_CDC.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.RADOLAN_CDC,
-        time_resolution=TimeResolution.DAILY,
-        start_date=RadarDate.MOST_RECENT,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.RADOLAN_CDC,
+        resolution=DWDRadarResolution.DAILY,
+        start_date=DWDRadarDate.MOST_RECENT,
     )
 
     results = list(request.collect_data())

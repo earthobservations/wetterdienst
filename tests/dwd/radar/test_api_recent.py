@@ -3,9 +3,9 @@ from datetime import timedelta, datetime
 import h5py
 import pytest
 
-from wetterdienst import DWDRadarRequest, RadarParameter
-from wetterdienst.dwd.radar.metadata import RadarDataFormat, RadarDataSubset
-from wetterdienst.dwd.radar.sites import RadarSite
+from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter
+from wetterdienst.dwd.radar.metadata import DWDRadarDataFormat, DWDRadarDataSubset
+from wetterdienst.dwd.radar.sites import DWDRadarSite
 
 
 @pytest.mark.remote
@@ -14,13 +14,13 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
     Example for testing radar sites SWEEP_PCP with timerange.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.SWEEP_PCP_VELOCITY_H,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=datetime.utcnow() - timedelta(hours=1),
         end_date=datetime.utcnow(),
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())
@@ -55,13 +55,13 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5():
     Example for testing radar sites SWEEP_VOL with timerange.
     """
 
-    request = DWDRadarRequest(
-        parameter=RadarParameter.SWEEP_VOL_VELOCITY_H,
+    request = DWDRadarData(
+        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=datetime.utcnow() - timedelta(minutes=20),
         end_date=datetime.utcnow(),
-        site=RadarSite.BOO,
-        format=RadarDataFormat.HDF5,
-        subset=RadarDataSubset.SIMPLE,
+        site=DWDRadarSite.BOO,
+        fmt=DWDRadarDataFormat.HDF5,
+        subset=DWDRadarDataSubset.SIMPLE,
     )
 
     results = list(request.collect_data())

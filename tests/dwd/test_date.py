@@ -5,7 +5,7 @@ import dateparser
 from pandas import Timestamp
 
 from wetterdienst.dwd.util import parse_datetime, mktimerange
-from wetterdienst import TimeResolution
+from wetterdienst.dwd.observations import DWDObservationResolution
 
 
 def test_parse_datetime():
@@ -15,30 +15,37 @@ def test_parse_datetime():
 
 
 def test_mktimerange_annual():
-
-    assert mktimerange(TimeResolution.ANNUAL, dateparser.parse("2019")) == (
+    assert mktimerange(DWDObservationResolution.ANNUAL, dateparser.parse("2019")) == (
         Timestamp("2019-01-01 00:00:00"),
         Timestamp("2019-12-31 00:00:00"),
     )
-
-    assert mktimerange(
-        TimeResolution.ANNUAL, dateparser.parse("2010"), dateparser.parse("2020")
-    ) == (Timestamp("2010-01-01 00:00:00"), Timestamp("2020-12-31 00:00:00"))
+    assert (
+        mktimerange(
+            DWDObservationResolution.ANNUAL,
+            dateparser.parse("2010"),
+            dateparser.parse("2020"),
+        )
+        == (Timestamp("2010-01-01 00:00:00"), Timestamp("2020-12-31 00:00:00"))
+    )
 
 
 def test_mktimerange_monthly():
-
-    assert mktimerange(TimeResolution.MONTHLY, dateparser.parse("2020-05")) == (
+    assert mktimerange(
+        DWDObservationResolution.MONTHLY, dateparser.parse("2020-05")
+    ) == (
         Timestamp("2020-05-01 00:00:00"),
         Timestamp("2020-05-31 00:00:00"),
     )
-
-    assert mktimerange(
-        TimeResolution.MONTHLY, dateparser.parse("2017-01"), dateparser.parse("2019-12")
-    ) == (Timestamp("2017-01-01 00:00:00"), Timestamp("2019-12-31 00:00:00"))
+    assert (
+        mktimerange(
+            DWDObservationResolution.MONTHLY,
+            dateparser.parse("2017-01"),
+            dateparser.parse("2019-12"),
+        )
+        == (Timestamp("2017-01-01 00:00:00"), Timestamp("2019-12-31 00:00:00"))
+    )
 
 
 def test_mktimerange_invalid():
-
     with pytest.raises(NotImplementedError):
-        mktimerange(TimeResolution.DAILY, dateparser.parse("2020-05-01"))
+        mktimerange(DWDObservationResolution.DAILY, dateparser.parse("2020-05-01"))
