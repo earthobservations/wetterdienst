@@ -170,7 +170,7 @@ In order to explore what is possible, please have a look at the `DuckDB SQL intr
 
 The result data is provided through a virtual table called ``data``.
 
-.. ipython:: python
+.. code-block:: python
 
     from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
@@ -214,6 +214,7 @@ To use that feature, pass a ``StorageAdapter`` instance to
     )
 
     df = observations.collect_safe().dwd.lower()
+
     print(df)
 
 
