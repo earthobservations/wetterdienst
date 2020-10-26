@@ -253,6 +253,7 @@ Examples:
 MOSMIX
 ******
 MOSMIX-S - less parameters:
+
 .. code-block:: python
 
     from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
@@ -267,7 +268,9 @@ MOSMIX-S - less parameters:
     print(response.forecast)
 
 MOSMIX-L - more parameters:
+
 .. code-block:: python
+
     mosmix = DWDMosmixData(
         station_ids=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
