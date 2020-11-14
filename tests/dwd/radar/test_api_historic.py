@@ -462,7 +462,7 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_yesterday():
     request = DWDRadarData(
         parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
+        site=DWDRadarSite.ASB,
         fmt=DWDRadarDataFormat.BUFR,
     )
 
@@ -498,7 +498,7 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_timerange():
         parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=timestamp,
         end_date=timedelta(hours=1),
-        site=DWDRadarSite.BOO,
+        site=DWDRadarSite.ASB,
         fmt=DWDRadarDataFormat.BUFR,
     )
 
@@ -521,7 +521,7 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_yesterday():
     request = DWDRadarData(
         parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
+        site=DWDRadarSite.ASB,
         fmt=DWDRadarDataFormat.BUFR,
     )
 
@@ -557,7 +557,7 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_timerange():
         parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=timestamp,
         end_date=timedelta(hours=0.5),
-        site=DWDRadarSite.BOO,
+        site=DWDRadarSite.ASB,
         fmt=DWDRadarDataFormat.BUFR,
     )
 
