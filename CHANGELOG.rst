@@ -6,6 +6,14 @@ Development
 ===========
 
 
+0.10.1 (14.11.2020)
+===================
+
+- Upgrade to dateparser-1.0.0. Thanks, @steffen746, @noviluni and @Gallaecio!
+  This fixes a problem with timezones on Windows. The reason is that
+  Windows has no zoneinfo database and ``tzlocal`` switched from ``pytz`` to ``tzinfo``.
+  https://github.com/earthobservations/wetterdienst/issues/222
+
 0.10.0 (26.10.2020)
 ===================
 
