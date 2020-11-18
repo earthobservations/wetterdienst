@@ -16,6 +16,7 @@ About
    Introduction <pages/welcome>
    pages/installation
    pages/data_coverage
+   pages/dwd_quality
    pages/license_and_citation
 
 

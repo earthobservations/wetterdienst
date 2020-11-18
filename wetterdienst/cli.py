@@ -3,6 +3,7 @@ import json
 import sys
 import logging
 from datetime import datetime, timedelta
+from pprint import pformat
 
 from docopt import docopt
 from munch import Munch
@@ -36,6 +37,7 @@ def run():
       wetterdienst dwd forecasts readings --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
+      wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
       wetterdienst service [--listen=<listen>]
       wetterdienst --version
       wetterdienst (-h | --help)
@@ -56,6 +58,7 @@ def run():
       --sql=<sql>                   SQL query to apply to DataFrame.
       --format=<format>             Output format. [Default: json]
       --target=<target>             Output target for storing data into different data sinks.
+      --language=<language>         Output language. [Default: en]
       --version                     Show version information
       --debug                       Enable debug messages
       --listen=<listen>             HTTP server listen address. [Default: localhost:7890]
@@ -392,14 +395,21 @@ def about(options: Munch):
         output(DWDObservationPeriod)
 
     elif options.coverage:
-        output = json.dumps(
-            DWDObservationMetadata(
-                resolution=options.resolution,
-                parameter_set=read_list(options.parameter),
-                period=read_list(options.period),
-            ).discover_parameter_sets(),
-            indent=4,
+        metadata = DWDObservationMetadata(
+            resolution=options.resolution,
+            parameter_set=read_list(options.parameter),
+            period=read_list(options.period),
         )
+        output = json.dumps(metadata.discover_parameter_sets(), indent=4)
+        print(output)
+
+    elif options.fields:
+        metadata = DWDObservationMetadata(
+            resolution=options.resolution,
+            parameter_set=read_list(options.parameter),
+            period=read_list(options.period),
+        )
+        output = pformat(dict(metadata.describe_fields(language=options.language)))
         print(output)
 
     else:

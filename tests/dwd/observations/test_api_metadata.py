@@ -23,7 +23,7 @@ def test_dwd_observation_metadata_discover_parameters():
     }
 
 
-def test_dwd_observation_metadata_describe_fields_kl_daily():
+def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 
     metadata = DWDObservationMetadata(
         parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
@@ -32,6 +32,46 @@ def test_dwd_observation_metadata_describe_fields_kl_daily():
     )
 
     assert list(metadata.describe_fields().keys()) == [
+        "parameters",
+        "quality_information",
+    ]
+
+    assert list(metadata.describe_fields()["parameters"].keys()) == [
+        "STATIONS_ID",
+        "MESS_DATUM",
+        "QN_3",
+        "FX",
+        "FM",
+        "QN_4",
+        "RSK",
+        "RSKF",
+        "SDK",
+        "SHK_TAG",
+        "NM",
+        "VPM",
+        "PM",
+        "TMK",
+        "UPM",
+        "TXK",
+        "TNK",
+        "TGK",
+    ]
+
+
+def test_dwd_observation_metadata_describe_fields_kl_daily_german():
+
+    metadata = DWDObservationMetadata(
+        parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        period=DWDObservationPeriod.RECENT,
+    )
+
+    assert list(metadata.describe_fields().keys()) == [
+        "parameters",
+        "quality_information",
+    ]
+
+    assert list(metadata.describe_fields(language="de")["parameters"].keys()) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN_3",
@@ -62,6 +102,11 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
     )
 
     assert list(metadata.describe_fields().keys()) == [
+        "parameters",
+        "quality_information",
+    ]
+
+    assert list(metadata.describe_fields()["parameters"].keys()) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN_592",
@@ -82,6 +127,11 @@ def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
     )
 
     assert list(metadata.describe_fields().keys()) == [
+        "parameters",
+        "quality_information",
+    ]
+
+    assert list(metadata.describe_fields()["parameters"].keys()) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN",

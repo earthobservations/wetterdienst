@@ -630,7 +630,7 @@ class DWDObservationMetadata:
 
         return available_parameters
 
-    def describe_fields(self) -> dict:
+    def describe_fields(self, language: str = "en") -> dict:
         if len(self.parameter) > 1 or len(self.resolution) > 1 or len(self.period) > 1:
             raise NotImplementedError(
                 "'describe_fields is only available for a single"
@@ -644,16 +644,24 @@ class DWDObservationMetadata:
             cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
         )
 
+        if language == "en":
+            file_prefix = "DESCRIPTION_"
+        elif language == "de":
+            file_prefix = "BESCHREIBUNG_"
+        else:
+            raise ValueError("Only language 'en' or 'de' supported")
+
         file_index = file_index[
-            file_index[DWDMetaColumns.FILENAME.value].str.contains("DESCRIPTION_")
+            file_index[DWDMetaColumns.FILENAME.value].str.contains(file_prefix)
         ]
 
         description_file_url = str(
             file_index[DWDMetaColumns.FILENAME.value].tolist()[0]
         )
+        log.info(f"Acquiring field information from {description_file_url}")
 
         from wetterdienst.dwd.observations.fields import read_description
 
-        document = read_description(description_file_url)
+        document = read_description(description_file_url, language=language)
 
         return document
