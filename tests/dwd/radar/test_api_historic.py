@@ -833,7 +833,7 @@ def test_radar_request_radvor_rq_yesterday():
     month_year = request.start_date.strftime("%m%y")
     header = (
         f"RQ{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
-        f"..<asb,boo,drs,eis,ess,fbg,fld,hnr,(isn,)?mem(,neu,nhb,oft,pro,ros(,tur)?(,umd)?)?>"
+        f"..<asb,boo,drs,eis,ess,fbg,fld,hnr,(isn,)?mem(,neu,nhb,oft,pro,ros(,tur)?(,umd)?)?>"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:180])
