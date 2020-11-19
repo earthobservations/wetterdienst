@@ -26,7 +26,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
         f"RX......10000{month_year}BY 8101..VS 3SW   2.28.1PR E\\+00INT   5GP 900x 900MS "  # noqa:E501,B950
-        f"..<asb,boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,tur,(isn,)?fbg(,mem)?>"  # noqa:E501,B950
+        f"..<(asb,)?boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,tur,(isn,)?fbg(,mem)?>"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
