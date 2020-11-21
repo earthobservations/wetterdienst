@@ -329,6 +329,9 @@ class DWDObservationData(WDDataCore):
             else:
                 df_parameter = df_parameter.rename(columns=hcnm)
 
+        # Store metadata information within dataframe.
+        df_parameter.attrs["tidy"] = self.tidy_data
+
         return df_parameter
 
     def collect_safe(self) -> pd.DataFrame:
@@ -341,7 +344,12 @@ class DWDObservationData(WDDataCore):
         if not data:
             raise ValueError("No data available for given constraints")
 
-        return pd.concat(data)
+        df = pd.concat(data)
+
+        # Store metadata information within dataframe.
+        df.attrs["tidy"] = self.tidy_data
+
+        return df
 
     def _invalidate_storage(self) -> None:
         """

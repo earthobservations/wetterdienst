@@ -275,13 +275,14 @@ def test_export_duckdb():
 
 
 @surrogate("influxdb.dataframe_client.DataFrameClient")
-def test_export_influxdb():
+def test_export_influxdb_tabular():
 
     observations = DWDObservationData(
         station_ids=[1048],
         parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         periods=DWDObservationPeriod.RECENT,
+        tidy_data=False,
     )
 
     mock_client = mock.MagicMock()
@@ -297,3 +298,41 @@ def test_export_influxdb():
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
+
+        mock_client.write_points.assert_called_with(
+            dataframe=mock.ANY,
+            measurement="weather",
+            tag_columns=["station_id", "quality"],
+        )
+
+
+@surrogate("influxdb.dataframe_client.DataFrameClient")
+def test_export_influxdb_tidy():
+
+    observations = DWDObservationData(
+        station_ids=[1048],
+        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DWDObservationResolution.DAILY,
+        periods=DWDObservationPeriod.RECENT,
+        tidy_data=True,
+    )
+
+    mock_client = mock.MagicMock()
+    with mock.patch(
+        "influxdb.dataframe_client.DataFrameClient",
+        side_effect=[mock_client],
+        create=True,
+    ) as mock_connect:
+
+        df = observations.collect_safe()
+        df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
+
+        mock_connect.assert_called_once_with(database="dwd")
+        mock_client.create_database.assert_called_once_with("dwd")
+        mock_client.write_points.assert_called_once()
+
+        mock_client.write_points.assert_called_with(
+            dataframe=mock.ANY,
+            measurement="weather",
+            tag_columns=["station_id", "quality", "parameter", "element"],
+        )
