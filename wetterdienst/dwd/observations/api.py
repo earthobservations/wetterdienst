@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Union, Generator, Dict, Optional
 
 import dateparser
@@ -133,8 +133,10 @@ class DWDObservationData(WDDataCore):
             )
 
             if start_date or end_date:
-                log.warning(f"start_date and end_date filtering limited to defined "
-                            f"periods {periods}")
+                log.warning(
+                    f"start_date and end_date filtering limited to defined "
+                    f"periods {periods}"
+                )
 
         if start_date or end_date:
             # If only one date given, make the other one equal
