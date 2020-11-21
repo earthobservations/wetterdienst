@@ -100,7 +100,11 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names and stored
-automatically on the drive if wanted.
+automatically on the drive if wanted. Instead of ``start_date`` and ``end_date`` you may
+as well want to use periods to update your database once in a while with a fixed set of
+records. You can also define start_date and end_date in order to reduce the amount of
+data loaded for a request. Just make sure that you are really meeting the date range with
+the specified periods.
 
 
 Geospatial support

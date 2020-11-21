@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Union, Generator, Dict, Optional
 
 import dateparser
@@ -62,9 +62,9 @@ class DWDObservationData(WDDataCore):
         ],
         resolution: Union[str, DWDObservationResolution],
         periods: Optional[List[Union[str, DWDObservationPeriod]]] = None,
-        start_date: Union[None, str, Timestamp, datetime] = None,
-        end_date: Union[None, str, Timestamp, datetime] = None,
-        storage: StorageAdapter = None,
+        start_date: Optional[Union[None, str, Timestamp, datetime]] = None,
+        end_date: Optional[Union[None, str, Timestamp, datetime]] = None,
+        storage: Optional[StorageAdapter] = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
     ) -> None:
@@ -121,9 +121,8 @@ class DWDObservationData(WDDataCore):
 
         # If any date is given, use all period types and filter, else if not period type
         # is given use all period types
-        if start_date or end_date or not periods:
+        if not periods:
             self.periods = [*DWDObservationPeriod]
-        # Otherwise period types will be parsed
         else:
             # For the case that a period_type is given, parse the period type(s)
             self.periods = (
@@ -132,6 +131,10 @@ class DWDObservationData(WDDataCore):
                 .sort_values()
                 .tolist()
             )
+
+            if start_date or end_date:
+                log.warning(f"start_date and end_date filtering limited to defined "
+                            f"periods {periods}")
 
         if start_date or end_date:
             # If only one date given, make the other one equal
