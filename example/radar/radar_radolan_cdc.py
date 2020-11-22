@@ -35,11 +35,11 @@ spatially and temporally high-resolution quantitative precipitation data in
 real-time for Germany.
 
 - https://www.dwd.de/EN/Home/_functions/aktuelles/2019/20190820_radolan.html
-- https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2
+- https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2  # noqa
 - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
-- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite
-- Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product
-- Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product
+- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite # noqa
+- Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product # noqa
+- Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product # noqa
 """
 import logging
 
@@ -47,12 +47,15 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import DWDRadarParameter
+from wetterdienst.dwd.radar import (
+    DWDRadarData,
+    DWDRadarResolution,
+    DWDRadarPeriod,
+    DWDRadarParameter,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
-
-from wetterdienst import DWDRadarData, TimeResolution, PeriodType
 
 
 def plot(data: np.ndarray, attributes: dict, label: str):
@@ -79,20 +82,21 @@ def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = N
 
     Thanks!
     """
-    fig = pl.figure(figsize=(10,8))
-    ax = fig.add_subplot(111, aspect='equal')
-    x = grid[:,:,0]
-    y = grid[:,:,1]
-    pm = ax.pcolormesh(x, y, data, cmap='viridis', shading='auto')
+    fig = pl.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, aspect="equal")
+    x = grid[:, :, 0]
+    y = grid[:, :, 1]
+    pm = ax.pcolormesh(x, y, data, cmap="viridis", shading="auto")
     cb = fig.colorbar(pm, shrink=0.75)
     cb.set_label(clabel)
     pl.xlabel("x [km]")
     pl.ylabel("y [km]")
-    pl.title('{0} Product\n{1}'.format(attrs['producttype'],
-                                       attrs['datetime'].isoformat()))
-    pl.xlim((x[0,0],x[-1,-1]))
-    pl.ylim((y[0,0],y[-1,-1]))
-    pl.grid(color='r')
+    pl.title(
+        "{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat())
+    )
+    pl.xlim((x[0, 0], x[-1, -1]))
+    pl.ylim((y[0, 0], y[-1, -1]))
+    pl.grid(color="r")
 
 
 def radolan_info(data: np.ndarray, attributes: dict):
@@ -127,8 +131,8 @@ def radolan_grid_example():
     log.info("Acquiring RADOLAN_CDC data")
     radolan = DWDRadarData(
         parameter=DWDRadarParameter.RADOLAN_CDC,
-        time_resolution=TimeResolution.DAILY,
-        period_type=PeriodType.RECENT,
+        resolution=DWDRadarResolution.DAILY,
+        period=DWDRadarPeriod.RECENT,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00",
     )

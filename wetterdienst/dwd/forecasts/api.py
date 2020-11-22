@@ -347,7 +347,7 @@ class DWDMosmixData(WDDataCore):
         """Create humanized column names mapping from DWDForecastParameters
         enumeration"""
         hcnm = {
-            forecast_parameter.name: forecast_parameter.value
+            forecast_parameter.value: forecast_parameter.name
             for forecast_parameter in DWDForecastParameter
         }
 

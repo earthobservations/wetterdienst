@@ -5,7 +5,7 @@ About
 Example for DWD radar sites OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5)
+- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5) # noqa
 
 This program will request the latest RADAR SWEEP_PCP_VELOCITY_H data
 for Boostedt and plot the outcome with matplotlib.
@@ -27,13 +27,17 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate, DWDRadarDataFormat, DWDRadarDataSubset
-from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.dwd.radar import (
+    DWDRadarData,
+    DWDRadarParameter,
+    DWDRadarDate,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarSite,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
-
-from wetterdienst import DWDRadarData
 
 
 def plot(data: np.ndarray):
@@ -42,7 +46,7 @@ def plot(data: np.ndarray):
     """
 
     fig = pl.figure(figsize=(10, 8))
-    im = wrl.vis.plot_ppi(data['dataset1/data1/data'], fig=fig, proj='cg')
+    wrl.vis.plot_ppi(data["dataset1/data1/data"], fig=fig, proj="cg")
 
 
 def radar_info(data: dict):
@@ -77,7 +81,7 @@ def radar_hdf5_example():
         data = wrl.io.read_opera_hdf5(tempfile.name)
 
         # FIXME: Make this work.
-        #data = wrl.io.read_opera_hdf5(buffer.read())
+        # data = wrl.io.read_opera_hdf5(buffer.read())
 
         # Output debug information.
         radar_info(data)

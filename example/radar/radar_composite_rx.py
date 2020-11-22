@@ -26,12 +26,11 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
+from wetterdienst.dwd.radar import DWDRadarData
 from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
-
-from wetterdienst import DWDRadarData, TimeResolution
 
 
 def plot(data: np.ndarray, attributes: dict, label: str = None):
@@ -58,20 +57,21 @@ def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = N
 
     Thanks!
     """
-    fig = pl.figure(figsize=(10,8))
-    ax = fig.add_subplot(111, aspect='equal')
-    x = grid[:,:,0]
-    y = grid[:,:,1]
-    pm = ax.pcolormesh(x, y, data, cmap='viridis', shading='auto')
+    fig = pl.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, aspect="equal")
+    x = grid[:, :, 0]
+    y = grid[:, :, 1]
+    pm = ax.pcolormesh(x, y, data, cmap="viridis", shading="auto")
     cb = fig.colorbar(pm, shrink=0.75)
     cb.set_label(clabel)
     pl.xlabel("x [km]")
     pl.ylabel("y [km]")
-    pl.title('{0} Product\n{1}'.format(attrs['producttype'],
-                                       attrs['datetime'].isoformat()))
-    pl.xlim((x[0,0],x[-1,-1]))
-    pl.ylim((y[0,0],y[-1,-1]))
-    pl.grid(color='r')
+    pl.title(
+        "{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat())
+    )
+    pl.xlim((x[0, 0], x[-1, -1]))
+    pl.ylim((y[0, 0], y[-1, -1]))
+    pl.grid(color="r")
 
 
 def radar_info(data: np.ndarray, attributes: dict):

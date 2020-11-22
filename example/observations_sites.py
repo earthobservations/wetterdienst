@@ -8,8 +8,12 @@ Acquire station information from DWD.
 import logging
 
 from datetime import datetime
-from wetterdienst import DWDObservationSites
-from wetterdienst import DWDParameterSet, PeriodType, TimeResolution
+from wetterdienst.dwd.observations import (
+    DWDObservationSites,
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
+    DWDObservationResolution,
+)
 
 log = logging.getLogger()
 
@@ -17,18 +21,14 @@ log = logging.getLogger()
 def station_example():
 
     sites = DWDObservationSites(
-        parameter=DWDParameterSet.TEMPERATURE_AIR,
-        time_resolution=TimeResolution.HOURLY,
-        period_type=PeriodType.RECENT,
+        parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
+        resolution=DWDObservationResolution.HOURLY,
+        period=DWDObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
-        end_date=datetime(2020, 1, 20)
+        end_date=datetime(2020, 1, 20),
     )
 
-    df = sites.nearby_radius(
-        latitude=50.0,
-        longitude=8.9,
-        max_distance_in_km=30
-    )
+    df = sites.nearby_radius(latitude=50.0, longitude=8.9, max_distance_in_km=30)
 
     print(df)
 

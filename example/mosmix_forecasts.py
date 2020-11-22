@@ -11,20 +11,20 @@ Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
 from wetterdienst.dwd.forecasts.metadata.dates import DWDForecastDate
+from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.dwd.forecasts.api import DWDMosmixData, PeriodType
 
 
 def mosmix_example():
 
     # A. MOSMIX-L -- Specific stations - each station with own file
     mosmix = DWDMosmixData(
-        station_ids=['01001', '01008'],
-        parameters=['DD', 'ww'],
+        station_ids=["01001", "01008"],
+        parameters=["DD", "ww"],
         start_date=DWDForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=PeriodType.FORECAST_LONG,
+        mosmix_type=DWDMosmixType.LARGE,
         tidy_data=True,
-        humanize_column_names=True
+        humanize_column_names=True,
     )
     response = next(mosmix.collect_data())
 
@@ -34,12 +34,12 @@ def mosmix_example():
 
     # B. MOSMIX-S -- All stations - specified stations are extracted.
     mosmix = DWDMosmixData(
-        station_ids=['01028', '01092'],
-        parameters=['DD', 'ww'],
+        station_ids=["01028", "01092"],
+        parameters=["DD", "ww"],
         start_date=DWDForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=PeriodType.FORECAST_SHORT,
+        mosmix_type=DWDMosmixType.SMALL,
         tidy_data=True,
-        humanize_column_names=True
+        humanize_column_names=True,
     )
     response = next(mosmix.collect_data())
 
