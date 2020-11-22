@@ -63,7 +63,7 @@ class DWDMosmixData(WDDataCore):
 
     def __init__(
         self,
-        mosmix_type: DWDMosmixType,
+        mosmix_type: Union[str, DWDMosmixType],
         station_ids: List[str],
         parameters: Optional[List[Union[str, DWDForecastParameter]]] = None,
         start_date: Optional[
@@ -90,13 +90,13 @@ class DWDMosmixData(WDDataCore):
             humanize_column_names: boolean if parameters shall be renamed to human
                 readable names
         """
+        self.mosmix_type = parse_enumeration_from_template(mosmix_type, DWDMosmixType)
 
-        if mosmix_type not in DWDMosmixType:
-            raise ValueError(
-                "period_type should be one of FORECAST_SHORT or FORECAST_LONG"
-            )
         if station_ids:
-            station_ids = pd.Series(station_ids).astype(str).tolist()
+            self.station_ids = pd.Series(station_ids).astype(str).tolist()
+        else:
+            self.station_ids = None
+
         if parameters:
             parameters = (
                 pd.Series(parameters)
@@ -130,7 +130,6 @@ class DWDMosmixData(WDDataCore):
                 start_date = self.adjust_datetime(start_date)
                 end_date = self.adjust_datetime(end_date)
 
-        self.forecast_type = mosmix_type
         self.station_ids = station_ids
         self.parameters = parameters
         self.start_date = start_date
@@ -138,7 +137,7 @@ class DWDMosmixData(WDDataCore):
         self.tidy_data = tidy_data
         self.humanize_column_names = humanize_column_names
 
-        if mosmix_type == DWDMosmixType.SMALL:
+        if self.mosmix_type == DWDMosmixType.SMALL:
             self.freq = "1H"  # short forecasts released every hour
         else:
             self.freq = "6H"
@@ -186,6 +185,16 @@ class DWDMosmixData(WDDataCore):
                 except IndexError as e:
                     log.warning(e)
                     continue
+
+    def collect_safe(self):
+        data = list(map(lambda x: x.forecast, self.collect_data()))
+
+        if not data:
+            raise ValueError("No data available for given constraints")
+
+        df = pd.concat(data)
+
+        return df
 
     def read_mosmix(self, date: Union[datetime, DWDForecastDate]) -> DWDMosmixResult:
         """
@@ -248,7 +257,7 @@ class DWDMosmixData(WDDataCore):
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type"""
-        if self.forecast_type == DWDMosmixType.SMALL:
+        if self.mosmix_type == DWDMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
         else:
             yield from self.read_mosmix_large(date)
@@ -357,14 +366,10 @@ class DWDMosmixData(WDDataCore):
 class DWDMosmixSites(WDSitesCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
-    def __init__(
-        self,
-        start_date: Union[None, str, Timestamp] = None,
-        end_date: Union[None, str, Timestamp] = None,
-    ) -> None:
+    def __init__(self) -> None:
         super().__init__(
-            start_date=start_date,
-            end_date=end_date,
+            start_date=None,
+            end_date=None,
         )
 
     def _all(self):
