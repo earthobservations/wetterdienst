@@ -108,7 +108,7 @@ class IoAccessor:
 
             Acquire data::
 
-                wetterdienst readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
+                wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
 
             Example queries::
 
@@ -145,11 +145,11 @@ class IoAccessor:
 
             Run database::
 
-                docker run --publish "8086:8086" influxdb/influxdb:1.8.2
+                docker run --publish "8086:8086" influxdb:1.8.3
 
             Acquire data::
 
-                wetterdienst readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="influxdb://localhost/?database=dwd&table=weather"
+                wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
 
@@ -203,7 +203,7 @@ class IoAccessor:
 
             Acquire data::
 
-                wetterdienst readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://localhost/?database=dwd&table=weather"
+                wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://localhost/?database=dwd&table=weather"
 
             Example queries::
 
@@ -236,7 +236,7 @@ class IoAccessor:
             Examples::
 
                 # Prepare
-                alias fetch='wetterdienst readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
+                alias fetch='wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
 
                 # Acquire data.
                 fetch --target="sqlite:///dwd.sqlite?table=weather"
