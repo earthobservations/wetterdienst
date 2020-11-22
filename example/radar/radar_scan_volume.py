@@ -2,11 +2,11 @@
 =====
 About
 =====
-Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib.
+Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib. # noqa
 Derived from https://gist.github.com/kmuehlbauer/ac990569e6ad38a49412fc74a2035c37.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5)
+- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5) # noqa
 
 This program will request the most recent complete SWEEP_VOL data
 for Boostedt and plot the outcome with matplotlib.
@@ -29,13 +29,17 @@ from tempfile import NamedTemporaryFile
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate, DWDRadarDataFormat, DWDRadarDataSubset
-from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.dwd.radar import (
+    DWDRadarData,
+    DWDRadarParameter,
+    DWDRadarDate,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarSite,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
-
-from wetterdienst import DWDRadarData
 
 
 def plot(data: wrl.io.XRadVolume):
@@ -51,10 +55,10 @@ def plot(data: wrl.io.XRadVolume):
 
     # Plot and display data using cartopy.
     fig = pl.figure(figsize=(20, 8))
-    ax1 = fig.add_subplot(121, aspect='equal')
-    swp0.DBZH[0].plot(x='x', y='y', ax=ax1)
-    ax2 = fig.add_subplot(122, aspect='equal')
-    swp0.VRADH[0].plot(x='x', y='y', ax=ax2)
+    ax1 = fig.add_subplot(121, aspect="equal")
+    swp0.DBZH[0].plot(x="x", y="y", ax=ax1)
+    ax2 = fig.add_subplot(122, aspect="equal")
+    swp0.VRADH[0].plot(x="x", y="y", ax=ax2)
 
 
 def radar_info(data: dict):
@@ -77,21 +81,26 @@ def radar_scan_volume():
         parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,
-        format=DWDRadarDataFormat.HDF5,
+        fmt=DWDRadarDataFormat.HDF5,
         subset=DWDRadarDataSubset.POLARIMETRIC,
     )
     request_reflectivity = DWDRadarData(
         parameter=DWDRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,
-        format=DWDRadarDataFormat.HDF5,
+        fmt=DWDRadarDataFormat.HDF5,
         subset=DWDRadarDataSubset.POLARIMETRIC,
     )
 
-    log.info(f"Acquiring radar SWEEP_VOL data for {DWDRadarSite.BOO} at {request_velocity.start_date}")
+    log.info(
+        f"Acquiring radar SWEEP_VOL data for {DWDRadarSite.BOO} at "
+        f"{request_velocity.start_date}"
+    )
 
     # Submit requests.
-    results = chain(request_velocity.collect_data(), request_reflectivity.collect_data())
+    results = chain(
+        request_velocity.collect_data(), request_reflectivity.collect_data()
+    )
 
     # Collect list of filenames.
     files = []

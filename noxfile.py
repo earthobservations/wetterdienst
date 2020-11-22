@@ -60,7 +60,7 @@ def coverage(session: Session) -> None:
     session.run("coverage", "xml")
 
 
-locations = "wetterdienst", "tests", "noxfile.py"
+locations = "wetterdienst", "example", "tests", "noxfile.py"
 
 
 @nox.session(python=["3.6", "3.7", "3.8"])

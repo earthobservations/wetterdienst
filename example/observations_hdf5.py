@@ -15,9 +15,12 @@ Setup
 """
 import logging
 
-from wetterdienst import DWDObservationData
-from wetterdienst import TimeResolution, DWDParameterSet
-from wetterdienst.dwd.observations.store import StorageAdapter
+from wetterdienst.dwd.observations import (
+    DWDObservationData,
+    DWDObservationResolution,
+    DWDObservationParameterSet,
+    StorageAdapter,
+)
 
 log = logging.getLogger()
 
@@ -28,8 +31,8 @@ def hdf5_example():
 
     observations = DWDObservationData(
         station_ids=[1048],
-        parameters=[DWDParameterSet.TEMPERATURE_AIR],
-        time_resolution=TimeResolution.HOURLY,
+        parameters=[DWDObservationParameterSet.TEMPERATURE_AIR],
+        resolution=DWDObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,

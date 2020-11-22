@@ -8,7 +8,7 @@ The German Weather Service uses the DX file format to encode
 local radar sweeps. DX data are in polar coordinates.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format
+- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format # noqa
 - https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_reading_dx.html
 
 This program will request the latest RADAR DX data
@@ -31,13 +31,15 @@ import numpy as np
 import wradlib as wrl
 import matplotlib.pyplot as pl
 
-from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
-from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.dwd.radar import (
+    DWDRadarData,
+    DWDRadarParameter,
+    DWDRadarDate,
+    DWDRadarSite,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
-
-from wetterdienst import DWDRadarData
 
 
 def plot(data: np.ndarray):
@@ -46,7 +48,7 @@ def plot(data: np.ndarray):
     """
 
     fig = pl.figure(figsize=(10, 8))
-    im = wrl.vis.plot_ppi(data, fig=fig, proj='cg')
+    wrl.vis.plot_ppi(data, fig=fig, proj="cg")
 
 
 def radar_info(data: np.ndarray, metadata: dict):
@@ -54,7 +56,7 @@ def radar_info(data: np.ndarray, metadata: dict):
     Display metadata from radara request.
     """
     log.info("Data shape: %s", data.shape)
-    #log.info("Metadata: %s", metadata)
+    # log.info("Metadata: %s", metadata)
 
     log.info("Metadata")
     for key, value in metadata.items():
@@ -80,7 +82,7 @@ def radar_dx_example():
         data, metadata = wrl.io.read_dx(tempfile.name)
 
         # FIXME: Make this work.
-        #data, metadata = wrl.io.read_dx(buffer.read())
+        # data, metadata = wrl.io.read_dx(buffer.read())
 
         # Output debug information.
         radar_info(data, metadata)
