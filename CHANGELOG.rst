@@ -7,6 +7,7 @@ Development
 
 - InfluxDB export: Fix export in non-tidy format (#230). Thanks, @wetterfrosch!
 - InfluxDB export: Use "quality" column as tag (#234). Thanks, @wetterfrosch!
+- InfluxDB export: Use a batch size of 50000 to handle larger amounts of data (#235). Thanks, @wetterfrosch!
 
 0.10.1 (14.11.2020)
 ===================
