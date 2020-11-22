@@ -168,11 +168,22 @@ class IoAccessor:
             df = df.drop(["date"], axis=1)
             df = df.dropna()
 
+            # Compute designated tag fields.
+
+            # Always use the fields "station_id" and
+            # "quality" as InfluxDB tags.
+            tag_columns = ["station_id", "quality"]
+
+            # When the "tidy" format has been requested, also use
+            # the fields "parameter" and "element" as InfluxDB tags.
+            if df.attrs.get("tidy"):
+                tag_columns += ["parameter", "element"]
+
             # Write to InfluxDB.
             c.write_points(
                 dataframe=df,
                 measurement=tablename,
-                tag_columns=["station_id", "parameter", "element"],
+                tag_columns=tag_columns,
             )
             log.info("Writing to InfluxDB finished")
 
