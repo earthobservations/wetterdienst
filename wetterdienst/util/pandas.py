@@ -184,6 +184,7 @@ class IoAccessor:
                 dataframe=df,
                 measurement=tablename,
                 tag_columns=tag_columns,
+                batch_size=50000,
             )
             log.info("Writing to InfluxDB finished")
 
