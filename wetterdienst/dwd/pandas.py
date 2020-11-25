@@ -64,6 +64,8 @@ class PandasDwdExtension:
         :return: Filtered DataFrame
         """
 
+        # TODO: resolution is not necessarily available and ideally filtering does not
+        #  depend on it
         # Filter by date interval.
         if "/" in date:
             date_from, date_to = date.split("/")

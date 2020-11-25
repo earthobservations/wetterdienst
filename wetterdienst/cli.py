@@ -33,7 +33,7 @@ def run():
       wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--persist] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd forecasts sites [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd forecasts readings --parameter=<parameter> --mosmix_type=<mosmix_type> --station=<station> [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecasts readings --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst service [--listen=<listen>]
@@ -52,7 +52,7 @@ def run():
       --persist                     Save and restore data to filesystem w/o going to the network
       --date=<date>                 Date for filtering data. Can be either a single date(time) or
                                     an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
-      --mosmix_type=<mosmix_type>   type of mosmix, either 'small' or 'large'
+      --mosmix-type=<mosmix-type>   type of mosmix, either 'small' or 'large'
       --sql=<sql>                   SQL query to apply to DataFrame.
       --format=<format>             Output format. [Default: json]
       --target=<target>             Output target for storing data into different data sinks.
@@ -247,7 +247,7 @@ def run():
             readings = DWDMosmixData(
                 station_ids=station_ids,
                 parameters=read_list(options.parameter),
-                mosmix_type=options.type,
+                mosmix_type=options.mosmix_type,
                 humanize_column_names=True,
                 tidy_data=options.tidy,
             )
@@ -255,7 +255,6 @@ def run():
         # Collect data and merge together.
         try:
             df = readings.collect_safe()
-
         except ValueError as ex:
             log.exception(ex)
             sys.exit(1)
@@ -267,7 +266,11 @@ def run():
 
     # Filter readings by datetime expression.
     if options.readings and options.date:
-        df = df.dwd.filter_by_date(options.date, readings.resolution)
+        resolution = None
+        if options.observations:
+            resolution = readings.resolution
+
+        df = df.dwd.filter_by_date(options.date, resolution)
 
     # Make column names lowercase.
     df = df.dwd.lower()

@@ -136,7 +136,7 @@ def dwd_readings(
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
-    mosmix_type: str = Query(default=None),
+    mosmix_type: str = Query(default=None, alias="mosmix-type"),
     date: str = Query(default=None),
     sql: str = Query(default=None),
 ):

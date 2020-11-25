@@ -13,6 +13,11 @@ SETTINGS_SITES = [
     "forecasts sites"
 ]
 
+SETTINGS_READINGS = [
+    "observations readings --resolution=daily --parameter=kl --period=recent",
+    "forecasts readings --mosmix-type=large"
+]
+
 SETTINGS_STATION = [
     "4411,7341",  # observation stations
     "10488,67743"  # mosmix forecast stations
@@ -223,7 +228,10 @@ def test_cli_stations_excel(setting, station, expected_station_names, capsys):
         # assert b"Offenbach-Wetterpark" in payload
 
 
-@pytest.mark.parametrize("setting,station", zip(SETTINGS_SITES[:1], SETTINGS_STATION[:1]))
+@pytest.mark.parametrize(
+    "setting,station",
+    zip(SETTINGS_READINGS[:1], SETTINGS_STATION[:1])
+)
 def test_cli_readings_json(setting, station, capsys):
 
     invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="json")
@@ -233,8 +241,10 @@ def test_cli_readings_json(setting, station, capsys):
 
     station_ids = list(set([reading["station_id"] for reading in response]))
 
-    assert 4411 in station_ids
-    assert 7341 in station_ids
+    for s in station.split(","):
+        assert int(s) in station_ids
+    # assert 4411 in station_ids
+    # assert 7341 in station_ids
 
     first = response[0]
     assert list(first.keys()) == [
@@ -259,7 +269,10 @@ def test_cli_readings_json(setting, station, capsys):
     ]
 
 
-@pytest.mark.parametrize("setting,station", zip(SETTINGS_SITES, SETTINGS_STATION))
+@pytest.mark.parametrize(
+    "setting,station",
+    zip(SETTINGS_READINGS, SETTINGS_STATION)
+)
 def test_cli_readings_json_tidy(setting, station, capsys):
 
     invoke_wetterdienst_readings_static_tidy(setting=setting, station=station, fmt="json")
@@ -268,8 +281,11 @@ def test_cli_readings_json_tidy(setting, station, capsys):
     response = json.loads(stdout)
 
     station_ids = list(set([reading["station_id"] for reading in response]))
-    assert 4411 in station_ids
-    assert 7341 in station_ids
+
+    for s in station.split(","):
+        assert int(s) in station_ids
+    # assert 4411 in station_ids
+    # assert 7341 in station_ids
 
     first = response[0]
     assert list(first.keys()) == [
@@ -288,8 +304,11 @@ def test_cli_readings_json_tidy(setting, station, capsys):
     ]
 
 
-@pytest.mark.parametrize("setting,station", zip(SETTINGS_SITES, SETTINGS_STATION))
-def test_cli_readings_geojson(setting, station, capsys):
+@pytest.mark.parametrize(
+    "setting,station",
+    zip(SETTINGS_READINGS, SETTINGS_STATION)
+)
+def test_cli_readings_geojson(setting, station):
 
     with pytest.raises(KeyError) as excinfo:
         invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="geojson")
@@ -300,7 +319,7 @@ def test_cli_readings_geojson(setting, station, capsys):
 
 @pytest.mark.parametrize(
     "setting,station",
-    zip(SETTINGS_SITES, SETTINGS_STATION)
+    zip(SETTINGS_READINGS, SETTINGS_STATION)
 )
 def test_cli_readings_csv(setting, station, capsys):
 
@@ -316,9 +335,9 @@ def test_cli_readings_csv(setting, station, capsys):
 
 @pytest.mark.parametrize(
     "setting,station",
-    zip(SETTINGS_SITES, SETTINGS_STATION)
+    zip(SETTINGS_READINGS, SETTINGS_STATION)
 )
-def test_cli_readings_excel(setting, station, capsys):
+def test_cli_readings_excel(setting, station):
 
     invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="excel")
 
@@ -336,7 +355,7 @@ def test_cli_readings_excel(setting, station, capsys):
 
 @pytest.mark.parametrize(
     "setting,station",
-    zip(SETTINGS_SITES, SETTINGS_STATION)
+    zip(SETTINGS_READINGS, SETTINGS_STATION)
 )
 def test_cli_readings_format_unknown(setting, station, caplog):
 
@@ -372,7 +391,7 @@ def test_cli_stations_geospatial(setting, capsys):
 
 @pytest.mark.parametrize(
     "setting,station",
-    zip(SETTINGS_SITES[:1], SETTINGS_STATION[:1])
+    zip(SETTINGS_READINGS[:1], SETTINGS_STATION[:1])
 )
 def test_cli_readings_geospatial(setting, station, capsys):
 
