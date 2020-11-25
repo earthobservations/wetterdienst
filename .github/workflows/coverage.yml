@@ -27,7 +27,7 @@ jobs:
       run: poetry install --extras=http --extras=sql --extras=export
     - name: Generate coverage report
       run: |
-        poetry run pytest --cov=wetterdienst tests/
+        poetry run poe coverage-parallel
         poetry run coverage xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1

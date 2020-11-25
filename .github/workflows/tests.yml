@@ -53,4 +53,4 @@ jobs:
       run: poetry install --no-interaction
 
     - name: Test
-      run: poetry run poe test
+      run: poetry run poe test-parallel

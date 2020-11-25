@@ -127,6 +127,7 @@ pytest = "^6.0.2"
 pytest-cov = "^2.10.1"
 pytest-notebook = "^0.6.1"
 pytest-dictsdiff = "^0.5.8"
+pytest-xdist = {version = "^2.2.1", extras = ["psutil"]}
 nbconvert = ">=5.0, <6.0"
 mock = "^4.0.2"
 surrogate = "^0.1"
@@ -214,6 +215,9 @@ pycodestyle = ["-E501", "-B950"]
 format = "black wetterdienst example tests && isort wetterdienst example tests"  # black code formatting
 lint = "flakehell lint wetterdienst example tests"
 test = "pytest tests"
+coverage = "pytest --cov=wetterdienst tests"
+test-parallel = "pytest --numprocesses=auto tests"
+coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto tests"
 export_requirements = "dephell deps convert"
 export_licenses = "pip-licenses --from=mixed --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 export = ["export_requirements", "export_licenses"]
