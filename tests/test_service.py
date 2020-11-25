@@ -20,7 +20,7 @@ def test_robots():
 def test_dwd_stations():
 
     response = client.get(
-        "/api/dwd/stations",
+        "/api/dwd/observations/sites",
         params={
             "parameter": "kl",
             "resolution": "daily",
@@ -35,7 +35,7 @@ def test_dwd_stations():
 def test_dwd_stations_sql():
 
     response = client.get(
-        "/api/dwd/stations",
+        "/api/dwd/observations/sites",
         params={
             "parameter": "kl",
             "resolution": "daily",
@@ -52,7 +52,7 @@ def test_dwd_stations_sql():
 def test_dwd_readings_success(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/readings",
+        "/api/dwd/observations/readings",
         params={
             "station": "1359",
             "parameter": "kl",
@@ -79,7 +79,7 @@ def test_dwd_readings_success(dicts_are_same):
 def test_dwd_readings_no_station():
 
     response = client.get(
-        "/api/dwd/readings",
+        "/api/dwd/observations/readings",
         params={
             "parameter": "kl",
             "resolution": "daily",
@@ -94,7 +94,7 @@ def test_dwd_readings_no_station():
 def test_dwd_readings_no_parameter():
 
     response = client.get(
-        "/api/dwd/readings",
+        "/api/dwd/observations/readings",
         params={
             "station": "1048,4411",
             "resolution": "daily",
@@ -111,7 +111,7 @@ def test_dwd_readings_no_parameter():
 def test_dwd_readings_no_resolution():
 
     response = client.get(
-        "/api/dwd/readings",
+        "/api/dwd/observations/readings",
         params={
             "station": "1048,4411",
             "parameter": "kl",
@@ -128,7 +128,7 @@ def test_dwd_readings_no_resolution():
 def test_dwd_readings_no_period():
 
     response = client.get(
-        "/api/dwd/readings",
+        "/api/dwd/observations/readings",
         params={
             "station": "1048,4411",
             "parameter": "kl",
@@ -146,7 +146,7 @@ def test_dwd_readings_no_period():
 def test_dwd_readings_sql(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/readings",
+        "/api/dwd/observations/readings",
         params={
             "station": "1048,4411",
             "parameter": "kl",
