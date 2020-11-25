@@ -107,7 +107,7 @@ def _parse_climate_observations_data(
         data = data.rename(
             columns={
                 "MESS_DATUM_WOZ": (
-                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501
+                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # noqa: B950, E501
                 ),
             }
         )
