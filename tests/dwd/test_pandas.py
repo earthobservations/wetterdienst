@@ -303,6 +303,7 @@ def test_export_influxdb_tabular():
             dataframe=mock.ANY,
             measurement="weather",
             tag_columns=["station_id", "quality"],
+            batch_size=50000,
         )
 
 
@@ -335,4 +336,5 @@ def test_export_influxdb_tidy():
             dataframe=mock.ANY,
             measurement="weather",
             tag_columns=["station_id", "quality", "parameter", "element"],
+            batch_size=50000,
         )
