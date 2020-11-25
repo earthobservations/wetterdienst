@@ -24,7 +24,6 @@ Setup
 import logging
 import os
 from itertools import chain
-from tempfile import NamedTemporaryFile
 
 import wradlib as wrl
 import matplotlib.pyplot as pl
@@ -102,12 +101,8 @@ def radar_scan_precip():
         request_velocity.collect_data(), request_reflectivity.collect_data()
     )
 
-    # Collect list of filenames.
-    files = []
-    for item in results:
-        tempfile = NamedTemporaryFile(delete=False)
-        tempfile.write(item.data.read())
-        files.append(tempfile.name)
+    # Collect list of buffers.
+    files = list(map(lambda item: item.data, results))
 
     # Decode data using wradlib.
     data = wrl.io.open_odim(files)

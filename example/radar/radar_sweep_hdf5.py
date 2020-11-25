@@ -21,7 +21,6 @@ Setup
 
 """
 import logging
-from tempfile import NamedTemporaryFile
 
 import numpy as np
 import wradlib as wrl
@@ -67,7 +66,7 @@ def radar_hdf5_example():
         parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,
-        format=DWDRadarDataFormat.HDF5,
+        fmt=DWDRadarDataFormat.HDF5,
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
@@ -75,13 +74,7 @@ def radar_hdf5_example():
 
         # Decode data using wradlib.
         log.info(f"Parsing radar data for {request.site} at '{item.timestamp}'")
-
-        tempfile = NamedTemporaryFile()
-        tempfile.write(item.data.read())
-        data = wrl.io.read_opera_hdf5(tempfile.name)
-
-        # FIXME: Make this work.
-        # data = wrl.io.read_opera_hdf5(buffer.read())
+        data = wrl.io.read_opera_hdf5(item.data)
 
         # Output debug information.
         radar_info(data)
