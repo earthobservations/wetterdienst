@@ -25,7 +25,6 @@ Setup
 
 """
 import logging
-from tempfile import NamedTemporaryFile
 
 import numpy as np
 import wradlib as wrl
@@ -76,13 +75,7 @@ def radar_dx_example():
 
         # Decode data using wradlib.
         log.info(f"Parsing radar data for {request.site} at '{item.timestamp}'")
-
-        tempfile = NamedTemporaryFile()
-        tempfile.write(item.data.read())
-        data, metadata = wrl.io.read_dx(tempfile.name)
-
-        # FIXME: Make this work.
-        # data, metadata = wrl.io.read_dx(buffer.read())
+        data, metadata = wrl.io.read_dx(item.data)
 
         # Output debug information.
         radar_info(data, metadata)
