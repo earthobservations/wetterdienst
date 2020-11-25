@@ -12,6 +12,7 @@ def install_test_packages(session):
     install_with_constraints(
         session,
         "pytest",
+        "pytest-xdist[psutil]",
         "pytest-notebook",
         "pytest-dictsdiff",
         "matplotlib",
@@ -35,7 +36,7 @@ def tests(session):
         external=True,
     )
     install_test_packages(session)
-    session.run("pytest")
+    session.run("pytest", "--numprocesses=auto")
 
 
 @nox.session(python=["3.7"])
@@ -56,7 +57,7 @@ def coverage(session: Session) -> None:
         "coverage[toml]",
         "pytest-cov",
     )
-    session.run("pytest", "--cov=wetterdienst", "tests/")
+    session.run("pytest", "--numprocesses=auto", "--cov=wetterdienst", "tests/")
     session.run("coverage", "xml")
 
 

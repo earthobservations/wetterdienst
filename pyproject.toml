@@ -147,6 +147,7 @@ pytest = "^6.0.2"
 pytest-cov = "^2.10.1"
 pytest-notebook = "^0.6.1"
 pytest-dictsdiff = "^0.5.8"
+pytest-xdist = {version = "^2.1.0", extras = ["psutil"]}
 nbconvert = ">=5.0, <6.0"
 mock = "^4.0.2"
 surrogate = "^0.1"
