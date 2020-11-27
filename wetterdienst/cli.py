@@ -29,10 +29,10 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst dwd observations sites --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
       wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--persist] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecasts sites [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
       wetterdienst dwd forecasts readings --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
@@ -46,7 +46,7 @@ def run():
       --period=<period>             Dataset period: "historical", "recent", "now"
       --station=<station>           Comma-separated list of station identifiers
       --latitude=<latitude>         Latitude for filtering by geoposition.
-      --lon=<longitude>             Longitude for filtering by geoposition.
+      --longitude=<longitude>       Longitude for filtering by geoposition.
       --number=<number>             Number of nearby stations when filtering by geoposition.
       --distance=<distance>         Maximum distance in km when filtering by geoposition.
       --persist                     Save and restore data to filesystem w/o going to the network
@@ -65,16 +65,16 @@ def run():
     Examples requesting stations:
 
       # Get list of all stations for daily climate summary data in JSON format
-      wetterdienst dwd sites --parameter=kl --resolution=daily --period=recent
+      wetterdienst dwd stations --parameter=kl --resolution=daily --period=recent
 
       # Get list of all stations in CSV format
-      wetterdienst dwd sites --parameter=kl --resolution=daily --period=recent --format=csv
+      wetterdienst dwd stations --parameter=kl --resolution=daily --period=recent --format=csv
 
       # Get list of specific stations
-      wetterdienst dwd sites --resolution=daily --parameter=kl --period=recent --station=1,1048,4411
+      wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411
 
       # Get list of specific stations in GeoJSON format
-      wetterdienst dwd sites --resolution=daily --parameter=kl --period=recent --station=1,1048,4411 --format=geojson
+      wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411 --format=geojson
 
     Examples requesting readings:
 
@@ -111,23 +111,23 @@ def run():
     Examples using geospatial features:
 
       # Acquire stations and readings by geoposition, request specific number of nearby stations.
-      wetterdienst dwd sites --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5
+      wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5
       wetterdienst dwd readings --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30
 
       # Acquire stations and readings by geoposition, request stations within specific radius.
-      wetterdienst dwd sites --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
+      wetterdienst dwd stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
       wetterdienst dwd readings --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25 --date=2020-06-30
 
     Examples using SQL filtering:
 
       # Find stations by state.
-      wetterdienst dwd sites --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
+      wetterdienst dwd stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
 
       # Find stations by name (LIKE query).
-      wetterdienst dwd sites --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
+      wetterdienst dwd stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
 
       # Find stations by name (regexp query).
-      wetterdienst dwd sites --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
+      wetterdienst dwd stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
 
       # Filter measurements: Display daily climate observation readings where the maximum temperature is below two degrees.
       wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 2.0;"
@@ -210,9 +210,9 @@ def run():
 
     # Acquire station list, also used for readings if required.
     # Filtering applied for distance (a.k.a. nearby) and pre-selected stations
-    df = get_sites(options)
+    df = get_stations(options)
 
-    if options.sites and df.empty:
+    if options.stations and df.empty:
         log.error("No data available for given constraints")
         sys.exit(1)
 
@@ -297,7 +297,7 @@ def run():
     print(output)
 
 
-def get_sites(options: Munch) -> pd.DataFrame:
+def get_stations(options: Munch) -> pd.DataFrame:
     """
     Convenience utility function to dispatch command
     line options related to geospatial requests.
@@ -324,10 +324,10 @@ def get_sites(options: Munch) -> pd.DataFrame:
     start_date = datetime(days500.year, days500.month, days500.day)
     end_date = datetime(now.year, now.month, now.day)
 
-    sites = None
-    if options.sites or (options.latitude and options.longitude):
+    stations = None
+    if options.stations or (options.latitude and options.longitude):
         if options.observations:
-            sites = DWDObservationSites(
+            stations = DWDObservationSites(
                 parameter_set=options.parameter,
                 resolution=options.resolution,
                 period=options.period,
@@ -335,33 +335,33 @@ def get_sites(options: Munch) -> pd.DataFrame:
                 end_date=end_date,
             )
         elif options.forecasts:
-            sites = DWDMosmixSites()
+            stations = DWDMosmixSites()
 
         if options.latitude and options.longitude:
             if options.number:
-                sites = sites.nearby_number(
+                stations = stations.nearby_number(
                     latitude=float(options.latitude),
                     longitude=float(options.longitude),
                     num_stations_nearby=int(options.number),
                 )
             elif options.distance:
-                sites = sites.nearby_radius(
+                stations = stations.nearby_radius(
                     latitude=float(options.latitude),
                     longitude=float(options.longitude),
                     max_distance_in_km=int(options.distance),
                 )
         else:
-            sites = sites.all()
+            stations = stations.all()
 
         if options.station:
             station_ids = read_list(options.station)
 
             if options.observations:
-                sites = sites[sites.STATION_ID.isin(station_ids)]
+                stations = stations[stations.STATION_ID.isin(station_ids)]
             else:
-                sites = sites[sites.WMO_ID.isin(station_ids)]
+                stations = stations[stations.WMO_ID.isin(station_ids)]
 
-        return sites
+        return stations
     return pd.DataFrame()
 
 

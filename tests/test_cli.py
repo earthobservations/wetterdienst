@@ -9,9 +9,9 @@ import docopt
 from wetterdienst import cli
 
 # Individual settings for observations and forecasts
-SETTINGS_SITES = [
-    "observations sites --resolution=daily --parameter=kl --period=recent",
-    "forecasts sites",
+SETTINGS_STATIONS = [
+    "observations stations --resolution=daily --parameter=kl --period=recent",
+    "forecasts stations",
 ]
 
 SETTINGS_READINGS = [
@@ -38,9 +38,9 @@ def test_cli_help():
         cli.run()
 
     response = str(excinfo.value)
-    assert "wetterdienst dwd observations sites" in response
+    assert "wetterdienst dwd observations stations" in response
     assert "wetterdienst dwd observations readings" in response
-    assert "wetterdienst dwd forecasts sites" in response
+    assert "wetterdienst dwd forecasts stations" in response
     assert "wetterdienst dwd forecasts readings" in response
     assert "wetterdienst dwd about" in response
 
@@ -143,7 +143,7 @@ def invoke_wetterdienst_readings_geo(setting, fmt="json"):
 
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES),
+    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAMES),
 )
 def test_cli_stations_json(setting, station, expected_station_names, capsys):
 
@@ -158,7 +158,7 @@ def test_cli_stations_json(setting, station, expected_station_names, capsys):
         assert station_name in station_names
 
 
-@pytest.mark.parametrize("setting", SETTINGS_SITES)
+@pytest.mark.parametrize("setting", SETTINGS_STATIONS)
 def test_cli_stations_empty(setting, caplog):
 
     with pytest.raises(SystemExit):
@@ -171,7 +171,7 @@ def test_cli_stations_empty(setting, caplog):
 # TODO: make forecasts formattable as GEOJSON/make to_geojson compatible with WMO_ID
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES[:1], SETTINGS_STATION[:1], EXPECTED_STATION_NAMES[:1]),
+    zip(SETTINGS_STATIONS[:1], SETTINGS_STATION[:1], EXPECTED_STATION_NAMES[:1]),
 )
 def test_cli_stations_geojson(setting, station, expected_station_names, capsys):
 
@@ -192,7 +192,7 @@ def test_cli_stations_geojson(setting, station, expected_station_names, capsys):
 
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES),
+    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAMES),
 )
 def test_cli_stations_csv(setting, station, expected_station_names, capsys):
 
@@ -208,7 +208,7 @@ def test_cli_stations_csv(setting, station, expected_station_names, capsys):
 
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES),
+    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAMES),
 )
 def test_cli_stations_excel(setting, station, expected_station_names, capsys):
 
@@ -354,7 +354,7 @@ def test_cli_readings_format_unknown(setting, station, caplog):
     assert "Unknown output format" in caplog.text
 
 
-@pytest.mark.parametrize("setting", SETTINGS_SITES[:1])
+@pytest.mark.parametrize("setting", SETTINGS_STATIONS[:1])
 def test_cli_stations_geospatial(setting, capsys):
 
     invoke_wetterdienst_stations_geo(setting=setting, fmt="json")
