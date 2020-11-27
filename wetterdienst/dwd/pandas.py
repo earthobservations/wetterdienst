@@ -88,6 +88,7 @@ class PandasDwdExtension:
         # Filter by specific date.
         else:
             date = parse_datetime(date)
+
             if resolution in (
                 DWDObservationResolution.ANNUAL,
                 DWDObservationResolution.MONTHLY,
@@ -97,7 +98,10 @@ class PandasDwdExtension:
                     self.df[DWDMetaColumns.TO_DATE.value] <= date_to
                 )
             else:
-                expression = date == self.df[DWDMetaColumns.DATE.value]
+                try:
+                    expression = date == self.df[DWDMetaColumns.DATE.value]
+                except KeyError:
+                    expression = date == self.df[DWDMetaColumns.DATETIME.value]
             df = self.df[expression]
 
         return df
@@ -119,6 +123,7 @@ class PandasDwdExtension:
 
         return output
 
+    # TODO make compatible with forecasts (instead of station_id, use wmo_id)
     def to_geojson(self) -> dict:
         """
         Convert DWD station information into GeoJSON format.

@@ -2,6 +2,7 @@ import json
 import shlex
 import sys
 import zipfile
+from datetime import timedelta, datetime
 
 import pytest
 import docopt
@@ -10,22 +11,24 @@ from wetterdienst import cli
 # Individual settings for observations and forecasts
 SETTINGS_SITES = [
     "observations sites --resolution=daily --parameter=kl --period=recent",
-    "forecasts sites"
+    "forecasts sites",
 ]
 
 SETTINGS_READINGS = [
-    "observations readings --resolution=daily --parameter=kl --period=recent",
-    "forecasts readings --mosmix-type=large"
+    "observations readings --resolution=daily --parameter=kl --period=recent "
+    "--date=2020-06-30",
+    f"forecasts readings --mosmix-type=large --parameter=DD "
+    f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
 ]
 
 SETTINGS_STATION = [
     "4411,7341",  # observation stations
-    "10488,67743"  # mosmix forecast stations
+    "10488,67743",  # mosmix forecast stations
 ]
 
 EXPECTED_STATION_NAMES = [
     ["Schaafheim-Schlierbach", "Offenbach-Wetterpark"],
-    ["DRESDEN", "LIVINGSTONE"]
+    ["DRESDEN", "LIVINGSTONE"],
 ]
 
 
@@ -95,42 +98,35 @@ def test_cli_about_coverage(capsys):
 
 
 def invoke_wetterdienst_stations_empty(setting, fmt="json"):
-    argv = shlex.split(
-        f"wetterdienst dwd {setting} --station=123456 --format={fmt}"
-    )
+    argv = shlex.split(f"wetterdienst dwd {setting} --station=123456 --format={fmt}")
     sys.argv = argv
     cli.run()
 
 
 def invoke_wetterdienst_stations_static(setting, station, fmt="json"):
-    argv = shlex.split(
-        f"wetterdienst dwd {setting} --station={station} --format={fmt}"
-    )
+    argv = shlex.split(f"wetterdienst dwd {setting} --station={station} --format={fmt}")
     sys.argv = argv
     cli.run()
 
 
 def invoke_wetterdienst_stations_geo(setting, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --lat=49.9195 --lon=8.9671 --num=5 --format={fmt}"
-    )
-    sys.argv = argv
-    cli.run()
-
-
-def invoke_wetterdienst_readings_static(setting, station, fmt="json"):
-    argv = shlex.split(
-        f"wetterdienst dwd {setting} --station={station} --date=2020-06-30 "
+        f"wetterdienst dwd {setting} --latitude=49.9195 --longitude=8.9671 --number=5 "
         f"--format={fmt}"
     )
     sys.argv = argv
     cli.run()
 
 
+def invoke_wetterdienst_readings_static(setting, station, fmt="json"):
+    argv = shlex.split(f"wetterdienst dwd {setting} --station={station} --format={fmt}")
+    sys.argv = argv
+    cli.run()
+
+
 def invoke_wetterdienst_readings_static_tidy(setting, station, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --station={station} --date=2020-06-30 "
-        f"--format={fmt} --tidy"
+        f"wetterdienst dwd {setting} --station={station} --format={fmt} --tidy"
     )
     sys.argv = argv
     cli.run()
@@ -138,8 +134,8 @@ def invoke_wetterdienst_readings_static_tidy(setting, station, fmt="json"):
 
 def invoke_wetterdienst_readings_geo(setting, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --lat=49.9195 --lon=8.9671 --num=5 "
-        f"--date=2020-06-30 --format={fmt}"
+        f"wetterdienst dwd {setting} --latitude=49.9195 --longitude=8.9671 --number=5 "
+        f"--format={fmt}"
     )
     sys.argv = argv
     cli.run()
@@ -147,7 +143,7 @@ def invoke_wetterdienst_readings_geo(setting, fmt="json"):
 
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES)
+    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES),
 )
 def test_cli_stations_json(setting, station, expected_station_names, capsys):
 
@@ -172,9 +168,10 @@ def test_cli_stations_empty(setting, caplog):
     assert "No data available for given constraints" in caplog.text
 
 
+# TODO: make forecasts formattable as GEOJSON/make to_geojson compatible with WMO_ID
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES)
+    zip(SETTINGS_SITES[:1], SETTINGS_STATION[:1], EXPECTED_STATION_NAMES[:1]),
 )
 def test_cli_stations_geojson(setting, station, expected_station_names, capsys):
 
@@ -195,7 +192,7 @@ def test_cli_stations_geojson(setting, station, expected_station_names, capsys):
 
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES)
+    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES),
 )
 def test_cli_stations_csv(setting, station, expected_station_names, capsys):
 
@@ -211,7 +208,7 @@ def test_cli_stations_csv(setting, station, expected_station_names, capsys):
 
 @pytest.mark.parametrize(
     "setting,station,expected_station_names",
-    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES)
+    zip(SETTINGS_SITES, SETTINGS_STATION, EXPECTED_STATION_NAMES),
 )
 def test_cli_stations_excel(setting, station, expected_station_names, capsys):
 
@@ -223,14 +220,13 @@ def test_cli_stations_excel(setting, station, expected_station_names, capsys):
         payload = zip_file.read("xl/worksheets/sheet1.xml")
 
         for station_name in expected_station_names:
-            assert bytes(station_name) in payload
+            assert bytes(station_name, encoding="utf8") in payload
         # assert b"Schaafheim-Schlierbach" in payload
         # assert b"Offenbach-Wetterpark" in payload
 
 
 @pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS[:1], SETTINGS_STATION[:1])
+    "setting,station", zip(SETTINGS_READINGS[:1], SETTINGS_STATION[:1])
 )
 def test_cli_readings_json(setting, station, capsys):
 
@@ -269,13 +265,12 @@ def test_cli_readings_json(setting, station, capsys):
     ]
 
 
-@pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS, SETTINGS_STATION)
-)
+@pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_json_tidy(setting, station, capsys):
 
-    invoke_wetterdienst_readings_static_tidy(setting=setting, station=station, fmt="json")
+    invoke_wetterdienst_readings_static_tidy(
+        setting=setting, station=station, fmt="json"
+    )
 
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)
@@ -283,11 +278,13 @@ def test_cli_readings_json_tidy(setting, station, capsys):
     station_ids = list(set([reading["station_id"] for reading in response]))
 
     for s in station.split(","):
-        assert int(s) in station_ids
+        assert int(s) in station_ids or s in station_ids
     # assert 4411 in station_ids
     # assert 7341 in station_ids
 
     first = response[0]
+
+    # TODO: align/unify this after setting up a data model
     assert list(first.keys()) == [
         "station_id",
         "date",
@@ -297,30 +294,25 @@ def test_cli_readings_json_tidy(setting, station, capsys):
         "quality",
     ] or list(first.keys()) == [
         "station_id",
-        "date",
-        "parameter",
+        "datetime",
+        "element",
         "value",
-        "quality",
     ]
 
 
-@pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS, SETTINGS_STATION)
-)
+@pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_geojson(setting, station):
 
     with pytest.raises(KeyError) as excinfo:
-        invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="geojson")
+        invoke_wetterdienst_readings_static(
+            setting=setting, station=station, fmt="geojson"
+        )
 
     assert excinfo.typename == "KeyError"
     assert str(excinfo.value) == "'GeoJSON format only available for stations output'"
 
 
-@pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS, SETTINGS_STATION)
-)
+@pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_csv(setting, station, capsys):
 
     invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="csv")
@@ -333,10 +325,7 @@ def test_cli_readings_csv(setting, station, capsys):
     # assert str(7341) in stdout
 
 
-@pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS, SETTINGS_STATION)
-)
+@pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_excel(setting, station):
 
     invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="excel")
@@ -347,20 +336,19 @@ def test_cli_readings_excel(setting, station):
         payload = zip_file.read("xl/worksheets/sheet1.xml")
 
         for s in station.split(","):
-            assert bytes(s) in payload
+            assert bytes(s, encoding="utf8") in payload
 
         # assert b"4411" in payload
         # assert b"7341" in payload
 
 
-@pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS, SETTINGS_STATION)
-)
+@pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_format_unknown(setting, station, caplog):
 
     with pytest.raises(SystemExit):
-        invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="foobar")
+        invoke_wetterdienst_readings_static(
+            setting=setting, station=station, fmt="foobar"
+        )
 
     assert "ERROR" in caplog.text
     assert "Unknown output format" in caplog.text
@@ -390,18 +378,18 @@ def test_cli_stations_geospatial(setting, capsys):
 
 
 @pytest.mark.parametrize(
-    "setting,station",
-    zip(SETTINGS_READINGS[:1], SETTINGS_STATION[:1])
+    "setting,station", zip(SETTINGS_READINGS[:1], SETTINGS_STATION[:1])
 )
 def test_cli_readings_geospatial(setting, station, capsys):
 
     invoke_wetterdienst_readings_geo(setting=setting, fmt="json")
 
     stdout, stderr = capsys.readouterr()
+    print(stdout)
     response = json.loads(stdout)
 
     station_ids = list(set([reading["station_id"] for reading in response]))
 
-    for s in station:
+    for s in station.split(","):
         assert int(s) in station_ids
         assert int(s) in station_ids

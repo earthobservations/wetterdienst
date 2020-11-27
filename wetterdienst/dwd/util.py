@@ -92,7 +92,7 @@ def parse_datetime(date_string: str) -> datetime:
     # Tries out any given format of DatetimeFormat enumeration
     return dateparser.parse(
         date_string, date_formats=[dt_format.value for dt_format in DatetimeFormat]
-    )
+    ).replace(tzinfo=None)
 
 
 def mktimerange(

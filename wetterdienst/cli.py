@@ -46,7 +46,7 @@ def run():
       --period=<period>             Dataset period: "historical", "recent", "now"
       --station=<station>           Comma-separated list of station identifiers
       --latitude=<latitude>         Latitude for filtering by geoposition.
-      --longitude=<longitude>       Longitude for filtering by geoposition.
+      --lon=<longitude>             Longitude for filtering by geoposition.
       --number=<number>             Number of nearby stations when filtering by geoposition.
       --distance=<distance>         Maximum distance in km when filtering by geoposition.
       --persist                     Save and restore data to filesystem w/o going to the network
@@ -205,30 +205,29 @@ def run():
         return
 
     # Sanity checks.
-    if options.readings and options.format == "geojson":
+    if (options.readings or options.forecasts) and options.format == "geojson":
         raise KeyError("GeoJSON format only available for stations output")
 
     # Acquire station list, also used for readings if required.
     # Filtering applied for distance (a.k.a. nearby) and pre-selected stations
-    df = None
-    if options.sites:
-        df = get_sites(options)
+    df = get_sites(options)
 
-        if df.empty:
-            log.error("No data available for given constraints")
-            sys.exit(1)
+    if options.sites and df.empty:
+        log.error("No data available for given constraints")
+        sys.exit(1)
 
     # Acquire observations.
     if options.readings:
         # Use list of station identifiers.
-        if options.station or (options.lat and options.lon):
-            station_ids = (
-                read_list(options.station)
-                or df.STATION_ID.unique()
-                or df.WMO_ID.unique()
-            )
+        if options.station:
+            station_ids = read_list(options.station)
+        elif options.latitude and options.longitude:
+            try:
+                station_ids = df.STATION_ID.unique()
+            except AttributeError:
+                station_ids = df.WMO_ID.unique()
         else:
-            raise KeyError("Either --station or --lat, --lon required")
+            raise KeyError("Either --station or --latitude, --longitude required")
 
         storage = StorageAdapter(persist=options.persist)
 
@@ -260,7 +259,7 @@ def run():
             sys.exit(1)
 
     # Sanity checks.
-    if df is None:
+    if df.empty:
         log.error("No data available")
         sys.exit(1)
 
@@ -326,7 +325,7 @@ def get_sites(options: Munch) -> pd.DataFrame:
     end_date = datetime(now.year, now.month, now.day)
 
     sites = None
-    if options.sites:
+    if options.sites or (options.latitude and options.longitude):
         if options.observations:
             sites = DWDObservationSites(
                 parameter_set=options.parameter,

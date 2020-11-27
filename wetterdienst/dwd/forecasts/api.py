@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from urllib.parse import urljoin
 import pandas as pd
-from pandas._libs.tslibs.timestamps import Timestamp
 from requests import HTTPError
 
 from wetterdienst.core.data import WDDataCore
@@ -340,13 +339,14 @@ class DWDMosmixData(WDDataCore):
     @staticmethod
     def coerce_columns(df):
         """ Column type coercion helper """
+        # TODO: eventually make datetime timezone aware
         for column in df.columns:
             if column == DWDMetaColumns.STATION_ID.value:
                 df[column] = df[column].astype(str)
             elif column in DATE_FIELDS_REGULAR:
                 df[column] = pd.to_datetime(
                     df[column], infer_datetime_format=True, utc=False
-                )
+                ).dt.tz_convert(None)
             elif column in INTEGER_FIELDS:
                 df[column] = df[column].astype(pd.Int64Dtype())
             else:
