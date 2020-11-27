@@ -314,4 +314,10 @@ def test_tidy_up_data():
         }
     )
 
+    df_tidy = df_tidy.astype({
+        "STATION_ID": "category",
+        "ELEMENT": "category",
+        "QUALITY": "category",
+    })
+
     assert_frame_equal(df.dwd.tidy_up_data(), df_tidy)

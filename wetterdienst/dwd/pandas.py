@@ -203,8 +203,17 @@ class PandasDwdExtension:
             value_name=DWDMetaColumns.VALUE.value,
         )
 
-        df_tidy[DWDMetaColumns.QUALITY.value] = quality.reset_index(drop=True).astype(
-            pd.Int64Dtype()
+        df_tidy[DWDMetaColumns.QUALITY.value] = (
+            quality.reset_index(drop=True).astype(pd.Int64Dtype()).astype("category")
+        )
+
+        # TODO: move into coercing field types function after OOP refactoring
+        # Convert other columns to categorical
+        df_tidy = df_tidy.astype(
+            {
+                DWDMetaColumns.STATION_ID.value: "category",
+                DWDMetaColumns.ELEMENT.value: "category",
+            }
         )
 
         return df_tidy

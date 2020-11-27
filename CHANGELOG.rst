@@ -9,6 +9,7 @@ Development
 - InfluxDB export: Use "quality" column as tag (#234). Thanks, @wetterfrosch!
 - InfluxDB export: Use a batch size of 50000 to handle larger amounts of data (#235). Thanks, @wetterfrosch!
 - Update radar examples to use ``wradlib>=1.9.0``. Thanks, @kmuehlbauer!
+- Change wherever possible column type to category
 
 0.10.1 (14.11.2020)
 ===================
