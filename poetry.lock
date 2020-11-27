@@ -1082,7 +1082,7 @@ jdcal = "*"
 
 [[package]]
 name = "packaging"
-version = "20.4"
+version = "20.5"
 description = "Core utilities for Python packages"
 category = "main"
 optional = false
@@ -1090,7 +1090,6 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [package.dependencies]
 pyparsing = ">=2.0.2"
-six = "*"
 
 [[package]]
 name = "pandas"
@@ -2740,8 +2739,8 @@ openpyxl = [
     {file = "openpyxl-3.0.5.tar.gz", hash = "sha256:18e11f9a650128a12580a58e3daba14e00a11d9e907c554a17ea016bf1a2c71b"},
 ]
 packaging = [
-    {file = "packaging-20.4-py2.py3-none-any.whl", hash = "sha256:998416ba6962ae7fbd6596850b80e17859a5753ba17c32284f67bfff33784181"},
-    {file = "packaging-20.4.tar.gz", hash = "sha256:4357f74f47b9c12db93624a82154e9b120fa8293699949152b22065d556079f8"},
+    {file = "packaging-20.5-py2.py3-none-any.whl", hash = "sha256:1a67848015ca7e7879eee30a7ae1053bc04d031e31eccbde6082820150f08621"},
+    {file = "packaging-20.5.tar.gz", hash = "sha256:5d21ed3d936beb102850195eadaa1371bfb4b93da6ad63d231410c6dca25a665"},
 ]
 pandas = [
     {file = "pandas-1.1.4-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:e2b8557fe6d0a18db4d61c028c6af61bfed44ef90e419ed6fadbdc079eba141e"},
