@@ -175,5 +175,5 @@ omit =[
     "wetterdienst/dwd/radar/cli.py",
 ]
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry_core>=1.1.4"]
+build-backend = "poetry.core.masonry.api"
