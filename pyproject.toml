@@ -86,7 +86,7 @@ deprecation = "^2.1.0"
 
 # Conditionally installed for backward compatibility with older Python versions
 importlib_metadata              = { version = "^1.7.0", python = "<3.8" }
-dataclasses                     = { version = "^0.7", python = "^3.6,<3.7" }
+dataclasses                     = { version = "^0.7", python = "~3.6" }
 
 # Optional dependencies aka. "extras"
 ipython                         = { version = "^7.10.1", optional = true }
