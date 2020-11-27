@@ -2029,7 +2029,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "16a27add5095ab4fe1cdddefc3bd553d4cb1394b30bec361d2460d551813080f"
+content-hash = "7173962219ca7c694fe6e3726d5d523d60b00113d86ba9c1a17be7bad94b5b17"
 
 [metadata.files]
 alabaster = [
