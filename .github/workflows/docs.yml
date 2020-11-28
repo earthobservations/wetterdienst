@@ -13,6 +13,6 @@ jobs:
       with:
         python-version: 3.8
         architecture: x64
-    - run: pip install poetry==1.0.10
+    - run: pip install poetry==1.1.4
     - run: poetry install --extras=docs
     - run: cd docs && poetry run make html
