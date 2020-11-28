@@ -66,7 +66,7 @@ classifiers = [
 python = "^3.6.1"
 pandas = "^1.1.2"
 tables = "^3.6.1"
-numpy = "^1.19.2"
+numpy = "^1.19.2,!=1.19.4"
 scipy = "^1.5.2"
 h5py = "^2.10.0"
 cachetools = "^4.1.1"
@@ -86,7 +86,7 @@ deprecation = "^2.1.0"
 
 # Conditionally installed for backward compatibility with older Python versions
 importlib_metadata              = { version = "^1.7.0", python = "<3.8" }
-dataclasses                     = { version = "^0.7", python = "^3.6, <3.7" }
+dataclasses                     = { version = "^0.7", python = "~3.6" }
 
 # Optional dependencies aka. "extras"
 ipython                         = { version = "^7.10.1", optional = true }
@@ -175,5 +175,5 @@ omit =[
     "wetterdienst/dwd/radar/cli.py",
 ]
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry_core>=1.0"]
+build-backend = "poetry.core.masonry.api"

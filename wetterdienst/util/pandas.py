@@ -54,7 +54,6 @@ class IoAccessor:
         # Output as JSON.
         if fmt == "json":
             output = self.df.to_json(orient="records", date_format="iso", indent=4)
-
         # Output as CSV.
         elif fmt == "csv":
             output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")

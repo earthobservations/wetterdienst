@@ -18,7 +18,7 @@ jobs:
     - name: Install test automation tools
       run: |
         pip install nox==2020.8.22
-        pip install poetry==1.0.10
+        pip install poetry==1.1.4
     - name: Generate coverage report
       run: nox -s coverage
     - name: Upload coverage to Codecov
