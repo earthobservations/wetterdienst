@@ -63,7 +63,7 @@ jobs:
           python-version: 3.8
 
       - name: Install Poetry
-        run: pip install poetry==1.0.10
+        run: pip install poetry==1.1.4
 
       - name: Build wheel package
         run: poetry build --format=wheel
