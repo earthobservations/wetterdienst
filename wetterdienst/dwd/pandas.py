@@ -238,4 +238,8 @@ class PandasDwdExtension:
             }
         )
 
+        df_tidy.loc[
+            df_tidy[DWDMetaColumns.VALUE.value].isna(), DWDMetaColumns.QUALITY.value
+        ] = pd.NA
+
         return df_tidy

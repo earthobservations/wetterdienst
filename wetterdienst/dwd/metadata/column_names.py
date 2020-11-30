@@ -36,6 +36,8 @@ class DWDMetaColumns(Enum):
     FILENAME = "FILENAME"
     HAS_FILE = "HAS_FILE"
     FILEID = "FILEID"
+    DATE_RANGE = "DATE_RANGE"
+    INTERVAL = "INTERVAL"
     # Columns used for tidy data
     # Column for quality
     PARAMETER = "PARAMETER"

@@ -1,8 +1,8 @@
-import re
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 
+from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
     DWDObservationResolution,
@@ -12,9 +12,11 @@ from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
     STATION_ID_REGEX,
     ArchiveFormat,
+    DATE_RANGE_REGEX,
 )
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.observations.metadata.resolution import HIGH_RESOLUTIONS
 from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 
@@ -23,6 +25,7 @@ def create_file_list_for_climate_observations(
     parameter_set: DWDObservationParameterSet,
     resolution: DWDObservationResolution,
     period: DWDObservationPeriod,
+    date_range: Optional[str] = None,
 ) -> List[str]:
     """
     Function for selecting datafiles (links to archives) for given
@@ -34,6 +37,7 @@ def create_file_list_for_climate_observations(
         parameter_set: observation measure
         resolution: frequency/granularity of measurement interval
         period: recent or historical files
+        date_range:
     Returns:
         List of path's to file
     """
@@ -42,6 +46,11 @@ def create_file_list_for_climate_observations(
     )
 
     file_index = file_index[file_index[DWDMetaColumns.STATION_ID.value] == station_id]
+
+    if date_range:
+        file_index = file_index[
+            file_index[DWDMetaColumns.DATE_RANGE.value] == date_range
+        ]
 
     return file_index[DWDMetaColumns.FILENAME.value].values.tolist()
 
@@ -70,12 +79,8 @@ def create_file_index_for_climate_observations(
         file_index[DWDMetaColumns.FILENAME.value].str.endswith(ArchiveFormat.ZIP.value)
     ]
 
-    r = re.compile(STATION_ID_REGEX)
-
     file_index[DWDMetaColumns.STATION_ID.value] = (
-        file_index[DWDMetaColumns.FILENAME.value]
-        .apply(lambda filename: r.findall(filename.split("/")[-1]))
-        .apply(lambda station_id: station_id[0] if station_id else pd.NA)
+        file_index[DWDMetaColumns.FILENAME.value].str.findall(STATION_ID_REGEX).str[0]
     )
 
     file_index = file_index.dropna().reset_index(drop=True)
@@ -84,10 +89,37 @@ def create_file_index_for_climate_observations(
         DWDMetaColumns.STATION_ID.value
     ].astype(int)
 
+    if resolution in HIGH_RESOLUTIONS and period == DWDObservationPeriod.HISTORICAL:
+        # Date range string for additional filtering of historical files
+        file_index[DWDMetaColumns.DATE_RANGE.value] = (
+            file_index[DWDMetaColumns.FILENAME.value]
+            .str.findall(DATE_RANGE_REGEX)
+            .str[0]
+        )
+
+        file_index[
+            [DWDMetaColumns.FROM_DATE.value, DWDMetaColumns.TO_DATE.value]
+        ] = file_index[DWDMetaColumns.DATE_RANGE.value].str.split("_", expand=True)
+
+        file_index[DWDMetaColumns.FROM_DATE.value] = pd.to_datetime(
+            file_index[DWDMetaColumns.FROM_DATE.value], format=DatetimeFormat.YMD.value
+        )
+
+        file_index[DWDMetaColumns.TO_DATE.value] = pd.to_datetime(
+            file_index[DWDMetaColumns.TO_DATE.value], format=DatetimeFormat.YMD.value
+        )
+
+        file_index[DWDMetaColumns.INTERVAL.value] = file_index.apply(
+            lambda x: pd.Interval(
+                left=x[DWDMetaColumns.FROM_DATE.value],
+                right=x[DWDMetaColumns.TO_DATE.value],
+                closed="both",
+            ),
+            axis=1,
+        )
+
     file_index = file_index.sort_values(
         by=[DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value]
     )
 
-    return file_index.loc[
-        :, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.FILENAME.value]
-    ]
+    return file_index

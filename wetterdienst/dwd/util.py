@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import dateparser
 import pandas as pd
@@ -29,12 +29,18 @@ def build_parameter_set_identifier(
     resolution: DWDObservationResolution,
     period: DWDObservationPeriod,
     station_id: int,
+    date_range_string: Optional[str] = None,
 ) -> str:
     """ Create parameter set identifier that is used for storage interactions """
-    return (
+    identifier = (
         f"{parameter_set.value}/{resolution.value}/"
         f"{period.value}/station_id_{str(station_id)}"
     )
+
+    if date_range_string:
+        identifier = f"{identifier}/{date_range_string}"
+
+    return identifier
 
 
 def coerce_field_types(

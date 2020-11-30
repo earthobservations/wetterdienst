@@ -3,7 +3,7 @@ import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Optional
 from zipfile import ZipFile, BadZipFile
 
 import pandas as pd
@@ -45,6 +45,7 @@ def collect_climate_observations_data(
     parameter_set: DWDObservationParameterSet,
     resolution: DWDObservationResolution,
     period: DWDObservationPeriod,
+    date_range: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Function that organizes the complete pipeline of data collection, either
@@ -57,6 +58,7 @@ def collect_climate_observations_data(
     :param parameter_set:               Parameter as enumeration
     :param resolution:         Time resolution as enumeration
     :param period:             Period type as enumeration
+    :param date_range:          date range string for filtering for historical data
 
     :return:                        All the data given by the station ids.
     """
@@ -67,25 +69,25 @@ def collect_climate_observations_data(
         )
 
     remote_files = create_file_list_for_climate_observations(
-        station_id, parameter_set, resolution, period
+        station_id, parameter_set, resolution, period, date_range
     )
 
     if len(remote_files) == 0:
         parameter_identifier = build_parameter_set_identifier(
-            parameter_set, resolution, period, station_id
+            parameter_set, resolution, period, station_id, date_range
         )
         log.info(f"No files found for {parameter_identifier}. Station will be skipped.")
         return pd.DataFrame()
 
     filenames_and_files = download_climate_observations_data_parallel(remote_files)
 
-    obs_df = parse_climate_observations_data(
-        filenames_and_files, parameter_set, resolution
+    observations_df = parse_climate_observations_data(
+        filenames_and_files, parameter_set, resolution, period
     )
 
-    obs_df = coerce_field_types(obs_df, resolution)
+    observations_df = coerce_field_types(observations_df, resolution)
 
-    return obs_df
+    return observations_df
 
 
 def download_climate_observations_data_parallel(

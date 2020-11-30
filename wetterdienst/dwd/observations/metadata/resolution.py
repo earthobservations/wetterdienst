@@ -19,6 +19,12 @@ class DWDObservationResolution(Enum):
     ANNUAL = "annual"
 
 
+HIGH_RESOLUTIONS = (
+    DWDObservationResolution.MINUTE_1,
+    DWDObservationResolution.MINUTE_10,
+)
+
+
 RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[DWDObservationResolution, str] = {
     DWDObservationResolution.MINUTE_1: DatetimeFormat.YMDHM.value,
     DWDObservationResolution.MINUTE_10: DatetimeFormat.YMDHM.value,

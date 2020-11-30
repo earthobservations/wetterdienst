@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional
 
 import pandas as pd
 
@@ -30,12 +30,13 @@ class StorageAdapter:
         self.invalidate = invalidate
         self.folder = folder
 
-    def hdf5(self, parameter, resolution, period):
+    def hdf5(self, parameter, resolution, period, date_range=None):
         return LocalHDF5Store(
             parameter_set=parameter,
             resolution=resolution,
             period=period,
             folder=self.folder,
+            date_range=date_range,
         )
 
 
@@ -46,11 +47,13 @@ class LocalHDF5Store:
         resolution: DWDObservationResolution,
         period: DWDObservationPeriod,
         folder: Union[str, Path] = DWD_FOLDER_MAIN,
+        date_range: Optional[str] = None,
     ):
         self.parameter_set = parameter_set
         self.resolution = resolution
         self.period = period
         self.folder = folder
+        self.date_range = date_range
 
     @property
     def filename(self) -> str:
@@ -73,7 +76,11 @@ class LocalHDF5Store:
         """
 
         return build_parameter_set_identifier(
-            self.parameter_set, self.resolution, self.period, station_id
+            self.parameter_set,
+            self.resolution,
+            self.period,
+            station_id,
+            self.date_range,
         )
 
     def invalidate(self):

@@ -10,6 +10,8 @@ Development
 - InfluxDB export: Use a batch size of 50000 to handle larger amounts of data (#235). Thanks, @wetterfrosch!
 - Update radar examples to use ``wradlib>=1.9.0``. Thanks, @kmuehlbauer!
 - Change wherever possible column type to category
+- Increase efficiency by downloading only historical files with overlapping dates if start_date and end_date are given
+- Fix inconsistency within 1 minute precipitation data where historical files have more columns
 
 0.10.1 (14.11.2020)
 ===================

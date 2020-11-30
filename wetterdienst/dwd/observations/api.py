@@ -11,6 +11,9 @@ from wetterdienst.core.sites import WDSitesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
+from wetterdienst.dwd.observations.fileindex import (
+    create_file_index_for_climate_observations,
+)
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
 )
@@ -23,6 +26,7 @@ from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
     DWDObservationResolution,
 )
+from wetterdienst.dwd.observations.metadata.resolution import HIGH_RESOLUTIONS
 from wetterdienst.dwd.observations.stations import metadata_for_climate_observations
 from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.dwd.observations.util.parameter import (
@@ -266,9 +270,24 @@ class DWDObservationData(WDDataCore):
         """
         df_parameter = pd.DataFrame()
 
-        for period_type in self.periods:
+        periods_and_date_ranges = []
+        for period in self.periods:
+            if (
+                self.resolution in HIGH_RESOLUTIONS
+                and period == DWDObservationPeriod.HISTORICAL
+            ):
+                date_ranges = self._get_historical_date_ranges(
+                    station_id, parameter_set
+                )
+
+                for date_range in date_ranges:
+                    periods_and_date_ranges.append((period, date_range))
+            else:
+                periods_and_date_ranges.append((period, None))
+
+        for period, date_range in periods_and_date_ranges:
             parameter_identifier = build_parameter_set_identifier(
-                parameter_set, self.resolution, period_type, station_id
+                parameter_set, self.resolution, period, station_id, date_range
             )
 
             storage = None
@@ -276,7 +295,8 @@ class DWDObservationData(WDDataCore):
                 storage = self.storage.hdf5(
                     parameter=parameter_set,
                     resolution=self.resolution,
-                    period=period_type,
+                    period=period,
+                    date_range=date_range,
                 )
 
                 df_period = storage.restore(station_id)
@@ -289,12 +309,12 @@ class DWDObservationData(WDDataCore):
 
             try:
                 df_period = collect_climate_observations_data(
-                    station_id, parameter_set, self.resolution, period_type
+                    station_id, parameter_set, self.resolution, period, date_range
                 )
             except InvalidParameterCombination:
                 log.info(
                     f"Invalid combination {parameter_set.value}/"
-                    f"{self.resolution.value}/{period_type} is skipped."
+                    f"{self.resolution.value}/{period} is skipped."
                 )
 
                 df_period = pd.DataFrame()
@@ -341,6 +361,26 @@ class DWDObservationData(WDDataCore):
         df_parameter.attrs["tidy"] = self.tidy_data
 
         return df_parameter
+
+    def _get_historical_date_ranges(
+        self, station_id: int, parameter_set: DWDObservationParameterSet
+    ) -> List[str]:
+
+        date_interval = pd.Interval(self.start_date, self.end_date, closed="both")
+
+        file_index = create_file_index_for_climate_observations(
+            parameter_set, self.resolution, DWDObservationPeriod.HISTORICAL
+        )
+
+        # Filter for from date and end date
+        file_index_filtered = file_index[
+            (file_index[DWDMetaColumns.STATION_ID.value] == station_id)
+            & file_index[DWDMetaColumns.INTERVAL.value].apply(
+                lambda x: x.overlaps(date_interval)
+            )
+        ]
+
+        return file_index_filtered[DWDMetaColumns.DATE_RANGE.value].tolist()
 
     def collect_safe(self) -> pd.DataFrame:
         """
