@@ -209,11 +209,11 @@ class PandasDwdExtension:
 
         # TODO: move into coercing field types function after OOP refactoring
         # Convert other columns to categorical
-        df_tidy = df_tidy.astype(
-            {
-                DWDMetaColumns.STATION_ID.value: "category",
-                DWDMetaColumns.ELEMENT.value: "category",
-            }
-        )
+
+        for column in (DWDMetaColumns.STATION_ID.value, DWDMetaColumns.ELEMENT.value):
+            try:
+                df_tidy = df_tidy.astype({column: "category"})
+            except KeyError:
+                pass
 
         return df_tidy
