@@ -354,6 +354,16 @@ class DWDObservationData(WDDataCore):
 
         df = pd.concat(data)
 
+        # Have to reapply category dtype after concatenation
+        if self.tidy_data:
+            df = df.astype(
+                {
+                    DWDMetaColumns.STATION_ID.value: "category",
+                    DWDMetaColumns.ELEMENT.value: "category",
+                    DWDMetaColumns.QUALITY.value: "category",
+                }
+            )
+
         # Store metadata information within dataframe.
         df.attrs["tidy"] = self.tidy_data
 

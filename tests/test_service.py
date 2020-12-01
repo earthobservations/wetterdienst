@@ -142,7 +142,6 @@ def test_dwd_readings_no_period():
     }
 
 
-@pytest.mark.xfail
 @pytest.mark.sql
 def test_dwd_readings_sql(dicts_are_same):
 

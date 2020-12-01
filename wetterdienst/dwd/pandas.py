@@ -175,6 +175,27 @@ class PandasDwdExtension:
 
         :return:            The tidied DataFrame
         """
+        if self.df.empty:
+            df = pd.DataFrame(
+                columns=[
+                    DWDMetaColumns.STATION_ID.value,
+                    DWDMetaColumns.DATE.value,
+                    DWDMetaColumns.ELEMENT.value,
+                    DWDMetaColumns.VALUE.value,
+                    DWDMetaColumns.QUALITY.value,
+                ]
+            )
+
+            df = df.astype(
+                {
+                    DWDMetaColumns.STATION_ID.value: "category",
+                    DWDMetaColumns.ELEMENT.value: "category",
+                    DWDMetaColumns.QUALITY.value: "category",
+                }
+            )
+
+            return df
+
         id_vars = []
         date_vars = []
 
@@ -203,17 +224,18 @@ class PandasDwdExtension:
             value_name=DWDMetaColumns.VALUE.value,
         )
 
-        df_tidy[DWDMetaColumns.QUALITY.value] = (
-            quality.reset_index(drop=True).astype(pd.Int64Dtype()).astype("category")
+        df_tidy[DWDMetaColumns.QUALITY.value] = quality.reset_index(drop=True).astype(
+            pd.Int64Dtype()
         )
 
         # TODO: move into coercing field types function after OOP refactoring
         # Convert other columns to categorical
-
-        for column in (DWDMetaColumns.STATION_ID.value, DWDMetaColumns.ELEMENT.value):
-            try:
-                df_tidy = df_tidy.astype({column: "category"})
-            except KeyError:
-                pass
+        df_tidy = df_tidy.astype(
+            {
+                DWDMetaColumns.STATION_ID.value: "category",
+                DWDMetaColumns.ELEMENT.value: "category",
+                DWDMetaColumns.QUALITY.value: "category",
+            }
+        )
 
         return df_tidy

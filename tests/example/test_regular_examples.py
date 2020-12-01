@@ -22,9 +22,6 @@ EXAMPLES = (
 
 @pytest.mark.parametrize("example", EXAMPLES)
 def test_regular_examples(example):
-    if example == observations_sql:
-        pytest.xfail("DuckDB currently not working ")
-
     assert example.main() is None
 
 

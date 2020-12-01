@@ -79,12 +79,3 @@ def check_dwd_observations_parameter_set(
         return False
 
     return True
-
-
-if __name__ == "__main__":
-    print(
-        create_parameter_to_parameter_set_combination(
-            resolution=DWDObservationResolution.DAILY,
-            parameter=DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT,
-        )
-    )
