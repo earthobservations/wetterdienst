@@ -66,7 +66,7 @@ Query data
 For a parameter set
 .. ipython:: python
     observation_data = DWDObservationData(
-        station_ids=[sites_hdp.all()["STATION_ID"][0])
+        station_ids=[sites_hdp.all().STATION_ID.first())
         parameters=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
         periods=DWDObservationPeriod.HISTORICAL

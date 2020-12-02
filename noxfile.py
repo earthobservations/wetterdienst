@@ -35,7 +35,7 @@ def tests(session):
         external=True,
     )
     install_test_packages(session)
-    session.run("pytest")
+    session.run("pytest", *session.posargs)
 
 
 @nox.session(python=["3.7"])

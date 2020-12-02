@@ -34,5 +34,5 @@ Forecasts (MOSMIX)
 RADAR
 *****
 
-.. autoclass:: wetterdienst.dwd.radar.api.DWDRadarRequest
+.. autoclass:: wetterdienst.dwd.radar.api.DWDRadarData
     :members:

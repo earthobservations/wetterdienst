@@ -1,21 +1,28 @@
 from pathlib import Path
 
+import pytest
+
+from example import (
+    mosmix_forecasts,
+    observations_hdf5,
+    observations_sites,
+    observations_sql,
+)
+
 THIS = Path(__name__).parent.absolute()
 EXAMPLES_DIR = THIS.parent.parent / "example"
 
+EXAMPLES = (
+    mosmix_forecasts,
+    observations_hdf5,
+    observations_sites,
+    observations_sql,
+)
 
-def test_regular_examples():
-    from example import (
-        mosmix_forecasts,
-        observations_hdf5,
-        observations_sites,
-        observations_sql,
-    )
 
-    assert mosmix_forecasts.main() is None
-    assert observations_hdf5.main() is None
-    assert observations_sites.main() is None
-    assert observations_sql.main() is None
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_regular_examples(example):
+    assert example.main() is None
 
 
 """ Testing radar currently not possible as GDAL is required """

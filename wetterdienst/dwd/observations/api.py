@@ -219,15 +219,13 @@ class DWDObservationData(WDDataCore):
                 df_parameter = self._collect_data(station_id, parameter_set)
 
                 if parameter not in DWDObservationParameterSet:
+                    parameter_name = parameter.name
                     if not self.humanize_column_names:
-                        df_parameter = df_parameter[
-                            df_parameter[DWDMetaColumns.ELEMENT.value]
-                            == parameter.value
-                        ]
-                    else:
-                        df_parameter = df_parameter[
-                            df_parameter[DWDMetaColumns.ELEMENT.value] == parameter.name
-                        ]
+                        parameter_name = parameter.value
+
+                    df_parameter = df_parameter[
+                        df_parameter[DWDMetaColumns.ELEMENT.value] == parameter_name
+                    ]
 
                 df_station.append(df_parameter)
 
@@ -319,7 +317,12 @@ class DWDObservationData(WDDataCore):
         if self.tidy_data:
             df_parameter = df_parameter.dwd.tidy_up_data()
 
+            # TODO: remove this column and rather move it into metadata of resulting
+            #  data model
             df_parameter.insert(2, DWDMetaColumns.PARAMETER.value, parameter_set.name)
+            df_parameter[DWDMetaColumns.PARAMETER.value] = df_parameter[
+                DWDMetaColumns.PARAMETER.value
+            ].astype("category")
 
         # Assign meaningful column names (humanized).
         if self.humanize_column_names:
@@ -330,7 +333,7 @@ class DWDObservationData(WDDataCore):
             if self.tidy_data:
                 df_parameter[DWDMetaColumns.ELEMENT.value] = df_parameter[
                     DWDMetaColumns.ELEMENT.value
-                ].apply(lambda x: hcnm[x])
+                ].cat.rename_categories(hcnm)
             else:
                 df_parameter = df_parameter.rename(columns=hcnm)
 
@@ -350,6 +353,16 @@ class DWDObservationData(WDDataCore):
             raise ValueError("No data available for given constraints")
 
         df = pd.concat(data)
+
+        # Have to reapply category dtype after concatenation
+        if self.tidy_data:
+            df = df.astype(
+                {
+                    DWDMetaColumns.STATION_ID.value: "category",
+                    DWDMetaColumns.ELEMENT.value: "category",
+                    DWDMetaColumns.QUALITY.value: "category",
+                }
+            )
 
         # Store metadata information within dataframe.
         df.attrs["tidy"] = self.tidy_data
