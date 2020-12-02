@@ -72,7 +72,7 @@ def test_radar_request_site_latest_dx_reflectivity():
     payload = buffer.getvalue()
 
     timestamp_aligned = round_minutes(datetime.utcnow(), 5)
-    day_hour = timestamp_aligned.strftime("%d%H")
+    day = timestamp_aligned.strftime("%d")
     month_year = timestamp_aligned.strftime("%m%y")
-    header = f"DX{day_hour}..10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
+    header = f"DX{day}....10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
