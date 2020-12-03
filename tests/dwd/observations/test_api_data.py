@@ -132,8 +132,6 @@ def test_dwd_observation_data_time_input():
         resolution=DWDObservationResolution.DAILY,
         periods=[
             DWDObservationPeriod.HISTORICAL,
-            DWDObservationPeriod.RECENT,
-            DWDObservationPeriod.NOW,
         ],
         start_date=pd.Timestamp("1971-01-01"),
         end_date=pd.Timestamp("1971-01-01"),

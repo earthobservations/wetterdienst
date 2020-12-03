@@ -96,6 +96,7 @@ class DWDObservationData(WDDataCore):
                                     and row-based version of data
         :param humanize_column_names: Replace column names by more meaningful ones
         """
+        self._now = datetime.utcnow()
 
         try:
             self.station_ids = pd.Series(station_ids).astype(int).tolist()
@@ -123,25 +124,6 @@ class DWDObservationData(WDDataCore):
         if not self.parameters:
             raise NoParametersFound(f"No parameters could be parsed from {parameters}")
 
-        # If any date is given, use all period types and filter, else if not period type
-        # is given use all period types
-        if not periods:
-            self.periods = [*DWDObservationPeriod]
-        else:
-            # For the case that a period_type is given, parse the period type(s)
-            self.periods = (
-                pd.Series(periods)
-                .apply(parse_enumeration_from_template, args=(DWDObservationPeriod,))
-                .sort_values()
-                .tolist()
-            )
-
-            if start_date or end_date:
-                log.warning(
-                    f"start_date and end_date filtering limited to defined "
-                    f"periods {periods}"
-                )
-
         if start_date or end_date:
             # If only one date given, make the other one equal
             if not start_date:
@@ -160,6 +142,28 @@ class DWDObservationData(WDDataCore):
         else:
             self.start_date = start_date
             self.end_date = end_date
+
+        # If any date is given, use all period types and filter, else if not period type
+        # is given use all period types
+        if not periods:
+            if self.start_date:
+                self.periods = self._get_periods()
+            else:
+                self.periods = [*DWDObservationPeriod]
+        else:
+            # For the case that a period_type is given, parse the period type(s)
+            self.periods = (
+                pd.Series(periods)
+                .apply(parse_enumeration_from_template, args=(DWDObservationPeriod,))
+                .sort_values()
+                .tolist()
+            )
+
+            if start_date or end_date:
+                log.warning(
+                    f"start_date and end_date filtering limited to defined "
+                    f"periods {periods}"
+                )
 
         self.storage = storage
 
@@ -202,6 +206,76 @@ class DWDObservationData(WDDataCore):
                 self.end_date.value,
             ]
         )
+
+    @property
+    def _interval(self) -> Optional[pd.Interval]:
+        if self.start_date:
+            return pd.Interval(
+                pd.Timestamp(self.start_date), pd.Timestamp(self.end_date), "both"
+            )
+
+        return None
+
+    @property
+    def _historical_interval(self) -> pd.Interval:
+        now = self._now.date()
+
+        historical_end = pd.Timestamp(datetime(now.year, 1, 1))
+
+        if self.start_date < historical_end:
+            historical_begin = self.start_date
+        else:
+            historical_begin = historical_end - pd.Timedelta(years=1)
+
+        historical_interval = pd.Interval(historical_begin, historical_end, "both")
+
+        return historical_interval
+
+    @property
+    def _recent_interval(self) -> pd.Interval:
+        now = self._now.date()
+
+        recent_end = pd.Timestamp(datetime(now.year, now.month, now.day))
+        recent_begin = recent_end - pd.Timedelta(days=500)
+
+        recent_interval = pd.Interval(recent_begin, recent_end, "both")
+
+        return recent_interval
+
+    @property
+    def _now_interval(self) -> pd.Interval:
+        now = self._now.date()
+
+        now_end = pd.Timestamp(now)
+        now_begin = pd.Timestamp(datetime(now.year, now.month, now.day)) - pd.Timedelta(
+            days=1
+        )
+
+        now_interval = pd.Interval(now_begin, now_end, "both")
+
+        return now_interval
+
+    def _get_periods(self) -> List[DWDObservationPeriod]:
+        """Set periods automatically depending on the given start date and end date.
+        Overlapping of historical and recent interval will cause both periods to appear
+        if values from last year are queried within the 500 day range of recent. This is
+        okay as we'd prefer historical values with quality checks, but may encounter
+        that in the beginning of a new year historical data is not yet updated and only
+        recent periods cover this data."""
+        periods = []
+
+        interval = self._interval
+
+        if interval.overlaps(self._historical_interval):
+            periods.append(DWDObservationPeriod.HISTORICAL)
+
+        if interval.overlaps(self._recent_interval):
+            periods.append(DWDObservationPeriod.RECENT)
+
+        if interval.overlaps(self._now_interval):
+            periods.append(DWDObservationPeriod.NOW)
+
+        return periods
 
     def collect_data(self) -> Generator[pd.DataFrame, None, None]:
         """

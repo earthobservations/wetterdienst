@@ -142,6 +142,8 @@ def _parse_climate_observations_data(
         resolution == DWDObservationResolution.MINUTE_1
         and parameter_set == DWDObservationParameterSet.PRECIPITATION
     ):
+        # Need to unfold historical data, as it is encoded in its run length e.g.
+        # from time X to time Y precipitation is 0
         if period == DWDObservationPeriod.HISTORICAL:
             df[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value] = pd.to_datetime(
                 df[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value],
@@ -152,6 +154,7 @@ def _parse_climate_observations_data(
                 format=DatetimeFormat.YMDHM.value,
             )
 
+            # Insert date range column over the given from and to dates
             df.insert(
                 1,
                 DWDOrigMetaColumns.DATE.value,
@@ -172,6 +175,7 @@ def _parse_climate_observations_data(
                 ]
             )
 
+            # Expand dataframe over calculated date ranges -> one datetime per row
             df = df.explode(DWDOrigMetaColumns.DATE.value)
         else:
             for parameter in PRECIPITATION_PARAMETERS:
@@ -180,12 +184,5 @@ def _parse_climate_observations_data(
 
     # Assign meaningful column names (baseline).
     df = df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-
-    df = df.astype(
-        {
-            DWDMetaColumns.STATION_ID.value: "category",
-            PRECIPITATION_MINUTE_1_QUALITY.value: "category",
-        }
-    )
 
     return df

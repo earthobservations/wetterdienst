@@ -8,6 +8,7 @@ import pandas as pd
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationResolution,
+    DWDObservationPeriod,
 )
 from wetterdienst.dwd.observations.parser import (
     parse_climate_observations_data,
@@ -28,6 +29,7 @@ def test_parse_dwd_data():
         filenames_and_files=[(filename, BytesIO(file_in_bytes.read().encode()))],
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
+        period=DWDObservationPeriod.HISTORICAL,
     )
 
     station_data.equals(station_data_original)
