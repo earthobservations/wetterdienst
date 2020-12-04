@@ -4,6 +4,10 @@ Changelog
 
 Development
 ===========
+...
+
+0.11.0 (04.12.2020)
+===================
 
 - InfluxDB export: Fix export in non-tidy format (#230). Thanks, @wetterfrosch!
 - InfluxDB export: Use "quality" column as tag (#234). Thanks, @wetterfrosch!
