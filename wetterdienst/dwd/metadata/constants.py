@@ -17,6 +17,7 @@ DWD_FOLDER_MAIN = "./dwd_data"
 DWD_FOLDER_STATION_DATA = "station_data"
 DWD_FILE_STATION_DATA = "dwd_station_data"
 STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
+DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
 NA_STRING = "-999"
 STATION_DATA_SEP = ";"
 

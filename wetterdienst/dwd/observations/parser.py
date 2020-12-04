@@ -11,9 +11,11 @@ from wetterdienst.dwd.metadata.column_names import (
     DWDOrigMetaColumns,
     DWDMetaColumns,
 )
+from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
     DWDObservationResolution,
+    DWDObservationPeriod,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
@@ -21,11 +23,23 @@ from wetterdienst.dwd.observations.metadata.parameter import (
 
 log = logging.getLogger(__name__)
 
+# Parameter names used to create full 1 minute precipitation dataset wherever those
+# columns are missing (which is the case for non historical data)
+PRECIPITATION_PARAMETERS = (
+    DWDObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,  # Noqa: E501, B950
+    DWDObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,  # Noqa: E501, B950
+)
+
+PRECIPITATION_MINUTE_1_QUALITY = (
+    DWDObservationParameterSetStructure.MINUTE_1.PRECIPITATION.QUALITY
+)
+
 
 def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
     parameter: DWDObservationParameterSet,
     resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
 ) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
@@ -36,25 +50,29 @@ def parse_climate_observations_data(
         parameter: enumeration of parameter used to correctly parse the date field
         resolution: enumeration of time resolution used to correctly parse the
         date field
+        period: enumeration of period of data
     Returns:
         pandas.DataFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
 
     data = [
-        _parse_climate_observations_data(filename_and_file, parameter, resolution)
+        _parse_climate_observations_data(
+            filename_and_file, parameter, resolution, period
+        )
         for filename_and_file in filenames_and_files
     ]
 
-    data = pd.concat(data).reset_index(drop=True)
+    df = pd.concat(data).reset_index(drop=True)
 
-    return data
+    return df
 
 
 def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
-    parameter: DWDObservationParameterSet,
+    parameter_set: DWDObservationParameterSet,
     resolution: DWDObservationResolution,
+    period: DWDObservationPeriod,
 ) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to
@@ -71,7 +89,7 @@ def _parse_climate_observations_data(
     filename, file = filename_and_file
 
     try:
-        data = pd.read_csv(
+        df = pd.read_csv(
             filepath_or_buffer=BytesIO(
                 file.read().replace(b" ", b"")
             ),  # prevent leading/trailing whitespace
@@ -89,22 +107,22 @@ def _parse_climate_observations_data(
         return pd.DataFrame()
 
     # Column names contain spaces, so strip them away.
-    data = data.rename(columns=str.strip)
+    df = df.rename(columns=str.strip)
 
     # Make column names uppercase.
-    data = data.rename(columns=str.upper)
+    df = df.rename(columns=str.upper)
 
     # End of record (EOR) has no value, so drop it right away.
-    data = data.drop(columns=DWDMetaColumns.EOR.value, errors="ignore")
+    df = df.drop(columns=DWDMetaColumns.EOR.value, errors="ignore")
 
     # Special handling for hourly solar data, as it has more date columns
     if (
         resolution == DWDObservationResolution.HOURLY
-        and parameter == DWDObservationParameterSet.SOLAR
+        and parameter_set == DWDObservationParameterSet.SOLAR
     ):
         # Rename date column correctly to end of interval, as it has additional minute
         # information. Also rename column with true local time to english one
-        data = data.rename(
+        df = df.rename(
             columns={
                 "MESS_DATUM_WOZ": (
                     DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501, B950
@@ -113,16 +131,58 @@ def _parse_climate_observations_data(
         )
 
         # Duplicate the date column to end of interval column
-        data[
-            DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value
-        ] = data[DWDOrigMetaColumns.DATE.value]
-
-        # Fix real date column by cutting of minutes
-        data[DWDOrigMetaColumns.DATE.value] = data[DWDOrigMetaColumns.DATE.value].str[
-            :-3
+        df[DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[
+            DWDOrigMetaColumns.DATE.value
         ]
 
-    # Assign meaningful column names (baseline).
-    data = data.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+        # Fix real date column by cutting of minutes
+        df[DWDOrigMetaColumns.DATE.value] = df[DWDOrigMetaColumns.DATE.value].str[:-3]
 
-    return data
+    if (
+        resolution == DWDObservationResolution.MINUTE_1
+        and parameter_set == DWDObservationParameterSet.PRECIPITATION
+    ):
+        # Need to unfold historical data, as it is encoded in its run length e.g.
+        # from time X to time Y precipitation is 0
+        if period == DWDObservationPeriod.HISTORICAL:
+            df[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value] = pd.to_datetime(
+                df[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value],
+                format=DatetimeFormat.YMDHM.value,
+            )
+            df[DWDOrigMetaColumns.TO_DATE_ALTERNATIVE.value] = pd.to_datetime(
+                df[DWDOrigMetaColumns.TO_DATE_ALTERNATIVE.value],
+                format=DatetimeFormat.YMDHM.value,
+            )
+
+            # Insert date range column over the given from and to dates
+            df.insert(
+                1,
+                DWDOrigMetaColumns.DATE.value,
+                df.apply(
+                    lambda x: pd.date_range(
+                        x[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value],
+                        x[DWDOrigMetaColumns.TO_DATE_ALTERNATIVE.value],
+                        freq="1min",
+                    ),
+                    axis=1,
+                ),
+            )
+
+            df = df.drop(
+                columns=[
+                    DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value,
+                    DWDOrigMetaColumns.TO_DATE_ALTERNATIVE.value,
+                ]
+            )
+
+            # Expand dataframe over calculated date ranges -> one datetime per row
+            df = df.explode(DWDOrigMetaColumns.DATE.value)
+        else:
+            for parameter in PRECIPITATION_PARAMETERS:
+                if parameter not in df:
+                    df[parameter] = pd.NA
+
+    # Assign meaningful column names (baseline).
+    df = df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+
+    return df
