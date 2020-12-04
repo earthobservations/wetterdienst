@@ -109,6 +109,21 @@ def create_file_index_for_climate_observations(
             file_index[DWDMetaColumns.TO_DATE.value], format=DatetimeFormat.YMD.value
         )
 
+        # Temporary fix for filenames with wrong ordered/faulty dates
+        # Fill those cases with minimum/maximum date to ensure that they are loaded as
+        # we don't know what exact date range the included data has
+        wrong_date_order_index = (
+            file_index[DWDMetaColumns.FROM_DATE.value]
+            > file_index[DWDMetaColumns.TO_DATE.value]
+        )
+
+        file_index.loc[
+            wrong_date_order_index, DWDMetaColumns.FROM_DATE.value
+        ] = file_index[DWDMetaColumns.FROM_DATE.value].min()
+        file_index.loc[
+            wrong_date_order_index, DWDMetaColumns.TO_DATE.value
+        ] = file_index[DWDMetaColumns.TO_DATE.value].max()
+
         file_index[DWDMetaColumns.INTERVAL.value] = file_index.apply(
             lambda x: pd.Interval(
                 left=x[DWDMetaColumns.FROM_DATE.value],

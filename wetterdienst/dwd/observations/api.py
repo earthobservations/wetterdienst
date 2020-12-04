@@ -96,7 +96,7 @@ class DWDObservationData(WDDataCore):
                                     and row-based version of data
         :param humanize_column_names: Replace column names by more meaningful ones
         """
-        self._now = datetime.utcnow()
+        self._now = datetime.now()
 
         try:
             self.station_ids = pd.Series(station_ids).astype(int).tolist()
@@ -225,7 +225,7 @@ class DWDObservationData(WDDataCore):
         if self.start_date < historical_end:
             historical_begin = self.start_date
         else:
-            historical_begin = historical_end - pd.Timedelta(years=1)
+            historical_begin = historical_end + pd.tseries.offsets.DateOffset(years=-1)
 
         historical_interval = pd.Interval(historical_begin, historical_end, "both")
 
@@ -244,12 +244,10 @@ class DWDObservationData(WDDataCore):
 
     @property
     def _now_interval(self) -> pd.Interval:
-        now = self._now.date()
-
-        now_end = pd.Timestamp(now)
-        now_begin = pd.Timestamp(datetime(now.year, now.month, now.day)) - pd.Timedelta(
-            days=1
-        )
+        now_end = pd.Timestamp(self._now)
+        now_begin = pd.Timestamp(
+            datetime(self._now.year, self._now.month, self._now.day, hour=0, minute=0)
+        ) - pd.Timedelta(days=1)
 
         now_interval = pd.Interval(now_begin, now_end, "both")
 
@@ -286,6 +284,12 @@ class DWDObservationData(WDDataCore):
 
         :return: A generator yielding a pandas.DataFrame per station.
         """
+        # For requests with start date and end date set in the future, we wont expect
+        # any periods to be selected
+        if not self.periods:
+            log.warning("start date and end date are out of range of any period.")
+            yield pd.DataFrame()
+
         # Remove HDF file for given parameters and period_types if defined by storage
         if self.storage and self.storage.invalidate:
             self._invalidate_storage()
@@ -439,9 +443,6 @@ class DWDObservationData(WDDataCore):
     def _get_historical_date_ranges(
         self, station_id: int, parameter_set: DWDObservationParameterSet
     ) -> List[str]:
-
-        date_interval = pd.Interval(self.start_date, self.end_date, closed="both")
-
         file_index = create_file_index_for_climate_observations(
             parameter_set, self.resolution, DWDObservationPeriod.HISTORICAL
         )
@@ -449,9 +450,7 @@ class DWDObservationData(WDDataCore):
         # Filter for from date and end date
         file_index_filtered = file_index[
             (file_index[DWDMetaColumns.STATION_ID.value] == station_id)
-            & file_index[DWDMetaColumns.INTERVAL.value].apply(
-                lambda x: x.overlaps(date_interval)
-            )
+            & file_index[DWDMetaColumns.INTERVAL.value].array.overlaps(self._interval)
         ]
 
         return file_index_filtered[DWDMetaColumns.DATE_RANGE.value].tolist()

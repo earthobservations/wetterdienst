@@ -11,6 +11,7 @@ Development
 - Update radar examples to use ``wradlib>=1.9.0``. Thanks, @kmuehlbauer!
 - Change wherever possible column type to category
 - Increase efficiency by downloading only historical files with overlapping dates if start_date and end_date are given
+- Use periods dynamically depending on start and end date
 - Fix inconsistency within 1 minute precipitation data where historical files have more columns
 
 0.10.1 (14.11.2020)

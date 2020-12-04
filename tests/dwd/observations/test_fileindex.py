@@ -53,3 +53,18 @@ def test_create_file_list_for_dwd_server():
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "daily/kl/recent/tageswerte_KL_01048_akt.zip"
     ]
+
+    # with date range
+    remote_file_path = create_file_list_for_climate_observations(
+        station_id=3,
+        parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
+        resolution=DWDObservationResolution.MINUTE_10,
+        period=DWDObservationPeriod.HISTORICAL,
+        date_range="19930428_19991231",
+    )
+
+    assert remote_file_path == [
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
+        "10_minutes/air_temperature/historical/"
+        "10minutenwerte_TU_00003_19930428_19991231_hist.zip"
+    ]

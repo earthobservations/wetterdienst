@@ -129,7 +129,6 @@ class PandasDwdExtension:
         Convert DWD station information into GeoJSON format.
 
         Args:
-            df: Input DataFrame containing station information.
 
         Return:
              Dictionary in GeoJSON FeatureCollection format.
@@ -175,27 +174,6 @@ class PandasDwdExtension:
 
         :return:            The tidied DataFrame
         """
-        if self.df.empty:
-            df = pd.DataFrame(
-                columns=[
-                    DWDMetaColumns.STATION_ID.value,
-                    DWDMetaColumns.DATE.value,
-                    DWDMetaColumns.ELEMENT.value,
-                    DWDMetaColumns.VALUE.value,
-                    DWDMetaColumns.QUALITY.value,
-                ]
-            )
-
-            df = df.astype(
-                {
-                    DWDMetaColumns.STATION_ID.value: "category",
-                    DWDMetaColumns.ELEMENT.value: "category",
-                    DWDMetaColumns.QUALITY.value: "category",
-                }
-            )
-
-            return df
-
         id_vars = []
         date_vars = []
 
@@ -223,6 +201,9 @@ class PandasDwdExtension:
             var_name=DWDMetaColumns.ELEMENT.value,
             value_name=DWDMetaColumns.VALUE.value,
         )
+
+        if DWDMetaColumns.STATION_ID.value not in df_tidy:
+            df_tidy[DWDMetaColumns.STATION_ID.value] = pd.NA
 
         df_tidy[DWDMetaColumns.QUALITY.value] = quality.reset_index(drop=True).astype(
             pd.Int64Dtype()
