@@ -11,6 +11,7 @@ Synopsis::
     python dwd_description_pdf.py
 """
 import re
+from collections import OrderedDict
 from io import StringIO
 from tabulate import tabulate
 
@@ -21,7 +22,7 @@ def parse_section(text, headline):
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
-        if headline in line:
+        if line.startswith(headline):
             capture = True
         if line == " ":
             capture = False
@@ -44,7 +45,16 @@ def parse_parameters(text):
                 more = buffer.getvalue()
                 if more and "eor" not in more:
                     more = more.strip()
-                    if parameter not in ["RSKF"]:
+                    if parameter == "RSKF":
+                        # Remove some anomaly.
+                        more = more.replace("0\n1\n", "1\n")
+                        # Replace newlines after digits with "-".
+                        more = re.sub(
+                            r"^(\d+)\n(.*)", r"\g<1>- \g<2>", more, flags=re.MULTILINE
+                        )
+                        # Remove all newlines _within_ text descriptions, per item.
+                        more = re.sub(r"\n(?!\d+)", " ", more, flags=re.DOTALL)
+                    else:
                         more = more.replace("\n", " ")
                     data[parameter] = more
                 buffer.truncate(0)
@@ -59,12 +69,36 @@ def parse_parameters(text):
     return data
 
 
-def read_description(url) -> dict:
+def read_description(url, language: str = "en") -> dict:
+
+    if language == "en":
+        sections = {
+            "parameters": "Parameters",
+            "quality_information": "Quality information",
+        }
+    elif language == "de":
+        sections = {
+            "parameters": "Parameter",
+            "quality_information": "Qualitätsinformation",
+        }
+    else:
+        raise ValueError("Only language 'en' or 'de' supported")
+
+    data = OrderedDict()
+
+    # Read "Parameters" section.
     document = read_pdf(url)
+
     document = re.sub(r"www\.dwd\.de\n-\n\d+\n-\n", "", document)
-    parameters_text = parse_section(document, "Parameters")
-    parameters = parse_parameters(parameters_text)
-    return parameters
+    parameters_text = parse_section(document, sections["parameters"])
+    data["parameters"] = parse_parameters(parameters_text)
+
+    # Read "Quality information" section.
+    data["quality_information"] = parse_section(
+        document, sections["quality_information"]
+    )
+
+    return data
 
 
 def process(url) -> None:  # pragma: no cover

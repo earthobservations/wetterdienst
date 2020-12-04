@@ -13,6 +13,9 @@ Development
 - Increase efficiency by downloading only historical files with overlapping dates if start_date and end_date are given
 - Use periods dynamically depending on start and end date
 - Fix inconsistency within 1 minute precipitation data where historical files have more columns
+- Improve DWD PDF parser to extract quality information and select language.
+  Also, add an example at ``example/dwd_describe_fields.py`` as well as
+  respective documentation.
 
 0.10.1 (14.11.2020)
 ===================
