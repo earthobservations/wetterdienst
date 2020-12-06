@@ -15,7 +15,7 @@ Observations
 .. autoclass:: wetterdienst.dwd.observations.api.DWDObservationData
     :members:
 
-.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationSites
+.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationStations
     :members:
 
 .. autoclass:: wetterdienst.dwd.observations.api.DWDObservationMetadata
@@ -27,7 +27,7 @@ Forecasts (MOSMIX)
 
 .. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixData
     :members:
-.. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixSites
+.. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixStations
     :members:
 
 *****

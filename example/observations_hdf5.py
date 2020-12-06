@@ -36,7 +36,7 @@ def hdf5_example():
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
         storage=storage,
     )
 

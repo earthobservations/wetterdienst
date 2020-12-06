@@ -21,30 +21,30 @@ def mosmix_example():
     mosmix = DWDMosmixData(
         station_ids=["01001", "01008"],
         parameters=["DD", "ww"],
-        start_date=DWDForecastDate.LATEST,  # automatically set if left empty
+        start_issue=DWDForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DWDMosmixType.LARGE,
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
     response = next(mosmix.collect_data())
 
     # meta data enriched with information from metadata_for_forecasts()
     output_section("Metadata", response.metadata)
-    output_section("Forecasts", response.forecast)
+    output_section("Forecasts", response.data)
 
     # B. MOSMIX-S -- All stations - specified stations are extracted.
     mosmix = DWDMosmixData(
         station_ids=["01028", "01092"],
         parameters=["DD", "ww"],
-        start_date=DWDForecastDate.LATEST,  # automatically set if left empty
+        start_issue=DWDForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DWDMosmixType.SMALL,
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
     response = next(mosmix.collect_data())
 
     output_section("Metadata", response.metadata)
-    output_section("Forecasts", response.forecast)
+    output_section("Forecasts", response.data)
 
 
 def output_section(title, data):  # pragma: no cover

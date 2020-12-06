@@ -6,11 +6,10 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 import pandas as pd
 
-from wetterdienst.dwd.metadata.column_map import METADATA_DTYPE_MAPPING
 from wetterdienst.util.geo import derive_nearest_neighbours
 from wetterdienst.util.geo import Coordinates
 from wetterdienst.dwd.observations import (
-    DWDObservationSites,
+    DWDObservationStations,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
@@ -21,7 +20,7 @@ from wetterdienst.exceptions import InvalidParameterCombination
 HERE = Path(__file__).parent
 METADATA_FILE = HERE / "FIXED_METADATA.JSON"
 METADATA_DF = pd.read_json(METADATA_FILE)
-METADATA_DF = METADATA_DF.astype(METADATA_DTYPE_MAPPING)
+METADATA_DF = METADATA_DF.astype(DWDObservationStations._dtype_mapping)
 
 
 @patch(
@@ -31,7 +30,7 @@ METADATA_DF = METADATA_DF.astype(METADATA_DTYPE_MAPPING)
 def test_dwd_observation_sites_nearby_number_success():
 
     # Test for one nearest station
-    sites = DWDObservationSites(
+    sites = DWDObservationStations(
         DWDObservationParameterSet.TEMPERATURE_AIR,
         DWDObservationResolution.HOURLY,
         DWDObservationPeriod.RECENT,
@@ -53,7 +52,7 @@ def test_dwd_observation_sites_nearby_number_success():
             [
                 [
                     np.int64(4411),
-                    np.datetime64("2002-01-24"),
+                    pd.to_datetime("2002-01-24").tz_localize("UTC"),
                     155.0,
                     49.9195,
                     8.9671,
@@ -75,7 +74,7 @@ def test_dwd_observation_sites_nearby_number_success():
         ),
     )
 
-    nearby_station = DWDObservationSites(
+    nearby_station = DWDObservationStations(
         DWDObservationParameterSet.TEMPERATURE_AIR,
         DWDObservationResolution.HOURLY,
         DWDObservationPeriod.RECENT,
@@ -95,7 +94,7 @@ def test_dwd_observation_sites_nearby_number_success():
             [
                 [
                     np.int64(4411),
-                    np.datetime64("2002-01-24 00:00:00"),
+                    pd.to_datetime("2002-01-24 00:00:00").tz_localize("UTC"),
                     155.0,
                     49.9195,
                     8.9671,
@@ -105,7 +104,7 @@ def test_dwd_observation_sites_nearby_number_success():
                 ],
                 [
                     np.int64(2480),
-                    np.datetime64("2004-09-01 00:00:00"),
+                    pd.to_datetime("2004-09-01 00:00:00").tz_localize("UTC"),
                     108.0,
                     50.0643,
                     8.993,
@@ -115,7 +114,7 @@ def test_dwd_observation_sites_nearby_number_success():
                 ],
                 [
                     np.int64(7341),
-                    np.datetime64("2005-07-16 00:00:00"),
+                    pd.to_datetime("2005-07-16 00:00:00").tz_localize("UTC"),
                     119.0,
                     50.09,
                     8.7862,
@@ -145,7 +144,7 @@ def test_dwd_observation_sites_nearby_number_success():
 def test_dwd_observation_sites_nearby_number_fail_1():
 
     with pytest.raises(ValueError):
-        DWDObservationSites(
+        DWDObservationStations(
             DWDObservationParameterSet.TEMPERATURE_AIR,
             DWDObservationResolution.HOURLY,
             DWDObservationPeriod.RECENT,
@@ -165,7 +164,7 @@ def test_dwd_observation_sites_nearby_number_fail_1():
 def test_dwd_observation_sites_nearby_number_fail_2():
 
     with pytest.raises(InvalidParameterCombination):
-        DWDObservationSites(
+        DWDObservationStations(
             DWDObservationParameterSet.SOIL,
             DWDObservationResolution.MINUTE_10,
             DWDObservationPeriod.RECENT,
@@ -183,7 +182,7 @@ def test_dwd_observation_sites_nearby_number_fail_2():
     MagicMock(return_value=METADATA_DF),
 )
 def test_dwd_observation_sites_nearby_distance():
-    nearby_station = DWDObservationSites(
+    nearby_station = DWDObservationStations(
         DWDObservationParameterSet.TEMPERATURE_AIR,
         DWDObservationResolution.HOURLY,
         DWDObservationPeriod.RECENT,

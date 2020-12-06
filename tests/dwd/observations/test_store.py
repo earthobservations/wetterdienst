@@ -15,6 +15,6 @@ def test_storage_adapter():
         DWDObservationPeriod.HISTORICAL,
     )
 
-    assert storage.hdf5_key(1) == "kl/daily/historical/station_id_1"
+    assert storage.hdf5_key("00001") == "kl/daily/historical/00001"
 
     assert storage.filename == "kl-daily-historical.h5"

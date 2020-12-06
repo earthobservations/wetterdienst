@@ -5,7 +5,6 @@ description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
     "Andreas Motl <andreas.motl@panodata.org>",
-    "Daniel Lassahn <daniel.lassahn@meteointelligence.de>"
 ]
 license = "MIT"
 readme = "README.rst"

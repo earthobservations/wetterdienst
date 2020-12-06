@@ -28,7 +28,7 @@ def test_dwd_stations():
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"][0]["station_id"] == 11
+    assert response.json()["data"][0]["station_id"] == "00011"
     assert response.json()["data"][0]["station_name"] == "Donaueschingen (Landeplatz)"
 
 
@@ -45,7 +45,7 @@ def test_dwd_stations_sql():
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"][0]["station_id"] == 1048
+    assert response.json()["data"][0]["station_id"] == "01048"
     assert response.json()["data"][0]["station_name"] == "Dresden-Klotzsche"
 
 
@@ -54,7 +54,7 @@ def test_dwd_readings_success(dicts_are_same):
     response = client.get(
         "/api/dwd/observations/readings",
         params={
-            "station": "1359",
+            "station": "01359",
             "parameter": "kl",
             "resolution": "daily",
             "period": "historical",
@@ -66,11 +66,11 @@ def test_dwd_readings_success(dicts_are_same):
     assert dicts_are_same(
         response.json()["data"][0],
         {
-            "station_id": 1359,
-            "parameter": "climate_summary",
-            "element": "wind_gust_max",
+            "station_id": "01359",
+            "parameter_set": "climate_summary",
+            "parameter": "wind_speed",
             "date": "1982-01-01T00:00:00.000Z",
-            "value": 4.2,
+            "value": 0.9,
             "quality": 10,
         },
     )
@@ -96,7 +96,7 @@ def test_dwd_readings_no_parameter():
     response = client.get(
         "/api/dwd/observations/readings",
         params={
-            "station": "1048,4411",
+            "station": "01048,4411",
             "resolution": "daily",
             "period": "recent",
         },
@@ -113,7 +113,7 @@ def test_dwd_readings_no_resolution():
     response = client.get(
         "/api/dwd/observations/readings",
         params={
-            "station": "1048,4411",
+            "station": "01048,4411",
             "parameter": "kl",
             "period": "recent",
         },
@@ -130,7 +130,7 @@ def test_dwd_readings_no_period():
     response = client.get(
         "/api/dwd/observations/readings",
         params={
-            "station": "1048,4411",
+            "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
         },
@@ -148,12 +148,12 @@ def test_dwd_readings_sql(dicts_are_same):
     response = client.get(
         "/api/dwd/observations/readings",
         params={
-            "station": "1048,4411",
+            "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
             "sql": "SELECT * FROM data "
-            "WHERE element='temperature_air_max_200' AND value < 1.5",
+            "WHERE parameter='temperature_air_max_200' AND value < 1.5",
         },
     )
 
@@ -161,9 +161,9 @@ def test_dwd_readings_sql(dicts_are_same):
     assert dicts_are_same(
         response.json()["data"][0],
         {
-            "station_id": 1048,
-            "parameter": "climate_summary",
-            "element": "temperature_air_max_200",
+            "station_id": "01048",
+            "parameter_set": "climate_summary",
+            "parameter": "temperature_air_max_200",
             "date": "2019-12-28T00:00:00.000Z",
             "value": 1.3,
             "quality": 3,

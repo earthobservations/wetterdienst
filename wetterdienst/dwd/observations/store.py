@@ -10,8 +10,8 @@ from wetterdienst.dwd.observations.metadata import (
     DWDObservationPeriod,
 )
 from wetterdienst.dwd.observations.metadata.column_types import (
-    QUALITY_FIELDS,
-    INTEGER_FIELDS,
+    QUALITY_PARAMETERS,
+    INTEGER_PARAMETERS,
 )
 from wetterdienst.dwd.metadata.constants import DWD_FOLDER_MAIN, DataFormat
 from wetterdienst.dwd.util import build_parameter_set_identifier
@@ -66,7 +66,7 @@ class LocalHDF5Store:
     def filepath(self) -> Path:
         return Path(self.folder, self.filename).absolute()
 
-    def hdf5_key(self, station_id: int) -> str:
+    def hdf5_key(self, station_id: str) -> str:
         """
         Builds a HDF5 key string from defined parameters including a single station id.
 
@@ -109,7 +109,7 @@ class LocalHDF5Store:
 
         # Replace IntegerArrays by float64
         for column in df:
-            if column in QUALITY_FIELDS or column in INTEGER_FIELDS:
+            if column in QUALITY_PARAMETERS or column in INTEGER_PARAMETERS:
                 df[column] = df[column].astype("float64")
 
         log.info(f"Storing HDF5 data to {self.filepath}")
@@ -135,7 +135,7 @@ class LocalHDF5Store:
         df = pd.DataFrame(df)
 
         for column in df:
-            if column in QUALITY_FIELDS or column in INTEGER_FIELDS:
+            if column in QUALITY_PARAMETERS or column in INTEGER_PARAMETERS:
                 df[column] = df[column].astype(pd.Int64Dtype())
 
         return df

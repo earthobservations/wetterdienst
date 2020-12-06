@@ -21,6 +21,7 @@ from wetterdienst.util.datetime import round_minutes, raster_minutes
 log = logging.getLogger(__name__)
 
 
+# TODO: add core class information
 class DWDRadarData:
     """
     API for DWD radar data requests.

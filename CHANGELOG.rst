@@ -5,6 +5,17 @@ Changelog
 Development
 ===========
 
+- Move more functionality into core classes
+- Add more attributes to the core e.g. source and timezone
+- Make dates of internal data timezone aware, set start date and end date to UTC
+- Add issue date to Mosmix class that actually refers to the Mosmix run instead of start
+  date and end date
+- Use Result object for every data related return
+- In accordance with typical naming conventions, DWDObservationSites is renamed to
+  DWDObservationStations, the same is applied to DWDMosmixSites
+- The name ELEMENT is removed and replaced by parameter while the acutal parameter set
+  e.g. CLIMATE_SUMMARY is now found under PARAMETER_SET
+
 0.11.1 (10.12.2020)
 ===================
 

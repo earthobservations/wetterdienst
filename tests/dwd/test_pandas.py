@@ -13,32 +13,28 @@ from wetterdienst.dwd.observations import (
 from wetterdienst.dwd.util import parse_datetime
 
 df_station = pd.DataFrame.from_dict(
-    [
-        {
-            "STATION_ID": 19087,
-            "FROM_DATE": parse_datetime("1957-05-01T00:00:00.000Z"),
-            "TO_DATE": parse_datetime("1995-11-30T00:00:00.000Z"),
-            "STATION_HEIGHT": 645.0,
-            "LAT": 48.8049,
-            "LON": 13.5528,
-            "STATION_NAME": "Freyung vorm Wald",
-            "STATE": "Bayern",
-            "HAS_FILE": False,
-        }
-    ]
+    {
+        "STATION_ID": ["19087"],
+        "FROM_DATE": [parse_datetime("1957-05-01T00:00:00.000Z")],
+        "TO_DATE": [parse_datetime("1995-11-30T00:00:00.000Z")],
+        "STATION_HEIGHT": [645.0],
+        "LAT": [48.8049],
+        "LON": [13.5528],
+        "STATION_NAME": ["Freyung vorm Wald"],
+        "STATE": ["Bayern"],
+        "HAS_FILE": [False],
+    }
 )
 
 df_data = pd.DataFrame.from_dict(
-    [
-        {
-            "STATION_ID": 1048,
-            "PARAMETER": "CLIMATE_SUMMARY",
-            "ELEMENT": "TEMPERATURE_AIR_MAX_200",
-            "DATE": parse_datetime("2019-12-28T00:00:00.000Z"),
-            "VALUE": 1.3,
-            "QUALITY": None,
-        }
-    ]
+    {
+        "STATION_ID": ["01048"],
+        "PARAMETER_SET": ["CLIMATE_SUMMARY"],
+        "PARAMETER": ["TEMPERATURE_AIR_MAX_200"],
+        "DATE": [parse_datetime("2019-12-28T00:00:00.000Z")],
+        "VALUE": [1.3],
+        "QUALITY": [None],
+    }
 )
 
 
@@ -48,15 +44,15 @@ def test_lowercase():
 
     assert list(df.columns) == [
         "station_id",
+        "parameter_set",
         "parameter",
-        "element",
         "date",
         "value",
         "quality",
     ]
 
-    assert df.iloc[0]["parameter"] == "climate_summary"
-    assert df.iloc[0]["element"] == "temperature_air_max_200"
+    assert df.iloc[0]["parameter_set"] == "climate_summary"
+    assert df.iloc[0]["parameter"] == "temperature_air_max_200"
 
 
 def test_filter_by_date():
@@ -84,7 +80,7 @@ def test_filter_by_date_monthly():
     result = pd.DataFrame.from_dict(
         [
             {
-                "STATION_ID": 1048,
+                "STATION_ID": "01048",
                 "PARAMETER": "climate_summary",
                 "ELEMENT": "temperature_air_max_200",
                 "FROM_DATE": parse_datetime("2019-12-28T00:00:00.000"),
@@ -108,17 +104,15 @@ def test_filter_by_date_monthly():
 def test_filter_by_date_annual():
 
     result = pd.DataFrame.from_dict(
-        [
-            {
-                "STATION_ID": 1048,
-                "PARAMETER": "climate_summary",
-                "ELEMENT": "temperature_air_max_200",
-                "FROM_DATE": parse_datetime("2019-01-01T00:00:00.000"),
-                "TO_DATE": parse_datetime("2019-12-31T00:00:00.000"),
-                "VALUE": 1.3,
-                "QUALITY": None,
-            }
-        ]
+        {
+            "STATION_ID": ["01048"],
+            "PARAMETER_SET": ["climate_summary"],
+            "PARAMETER": ["temperature_air_max_200"],
+            "FROM_DATE": [parse_datetime("2019-01-01T00:00:00.000")],
+            "TO_DATE": [parse_datetime("2019-12-31T00:00:00.000")],
+            "VALUE": [1.3],
+            "QUALITY": [None],
+        }
     )
 
     df = result.dwd.filter_by_date("2019-05/2019-09", DWDObservationResolution.ANNUAL)
@@ -133,14 +127,14 @@ def test_filter_by_date_annual():
 
 @pytest.mark.sql
 def test_filter_by_sql():
-
+    # TODO: change this to a test of historical data
     df = df_data.dwd.lower().io.sql(
-        "SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 1.5"
+        "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
     )
     assert not df.empty
 
     df = df_data.dwd.lower().io.sql(
-        "SELECT * FROM data WHERE element='temperature_air_max_200' AND value > 1.5"
+        "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 1.5"
     )
     assert df.empty
 
@@ -152,7 +146,7 @@ def test_format_json():
     response = json.loads(output)
     station_ids = list(set([reading["station_id"] for reading in response]))
 
-    assert 1048 in station_ids
+    assert "01048" in station_ids
 
 
 def test_format_geojson():
@@ -170,9 +164,9 @@ def test_format_csv():
 
     output = df_data.dwd.lower().io.format("csv").strip()
 
-    assert "station_id,parameter,element,date,value,quality" in output
+    assert "station_id,parameter_set,parameter,date,value,quality" in output
     assert (
-        "1048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3,"
+        "01048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3,"
         in output
     )
 
@@ -335,6 +329,6 @@ def test_export_influxdb_tidy():
         mock_client.write_points.assert_called_with(
             dataframe=mock.ANY,
             measurement="weather",
-            tag_columns=["station_id", "quality", "parameter", "element"],
+            tag_columns=["station_id", "quality", "parameter_set", "parameter"],
             batch_size=50000,
         )

@@ -11,7 +11,6 @@ from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
 )
-from wetterdienst.dwd.metadata.column_map import create_humanized_column_names_mapping
 from wetterdienst.dwd.observations.api import DWDObservationData
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameter,
@@ -186,7 +185,7 @@ def test_dwd_observation_data_dynamic_period():
         parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1971-01-01",
-        end_date=pd.Timestamp(datetime.now()) - pd.Timedelta(days=400),
+        end_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(days=400),
     )
 
     assert request.periods == [
@@ -200,7 +199,7 @@ def test_dwd_observation_data_dynamic_period():
         parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1971-01-01",
-        end_date=pd.Timestamp(datetime.now()),
+        end_date=pd.Timestamp(datetime.utcnow()),
     )
 
     assert request.periods == [
@@ -217,17 +216,16 @@ def test_dwd_observation_data_dynamic_period():
         station_ids=[1],
         parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.now()),
+        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
     )
-
-    assert request.periods == [DWDObservationPeriod.NOW]
+    assert DWDObservationPeriod.NOW in request.periods
 
     # No period (for example in future)
     request = DWDObservationData(
         station_ids=[1],
         parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.now()) + pd.Timedelta(days=720),
+        start_date=pd.Timestamp(datetime.utcnow()) + pd.Timedelta(days=720),
     )
 
     assert request.periods == []
@@ -267,17 +265,11 @@ def test_observation_data_storing():
 
 def test_create_humanized_column_names_mapping():
     """ Test for function to create a mapping to humanized column names """
-    hcnm = create_humanized_column_names_mapping(
-        DWDObservationResolution.DAILY,
-        DWDObservationParameterSet.CLIMATE_SUMMARY,
-        DWDObservationParameterSetStructure,
-    )
-
-    assert hcnm == {
-        "QN_3": "QUALITY_WIND",
+    kl_daily_hcnm = {
+        # "QN_3": "QUALITY_WIND",
         "FX": "WIND_GUST_MAX",
         "FM": "WIND_SPEED",
-        "QN_4": "QUALITY_GENERAL",
+        # "QN_4": "QUALITY_GENERAL",
         "RSK": "PRECIPITATION_HEIGHT",
         "RSKF": "PRECIPITATION_FORM",
         "SDK": "SUNSHINE_DURATION",
@@ -291,6 +283,14 @@ def test_create_humanized_column_names_mapping():
         "TNK": "TEMPERATURE_AIR_MIN_200",
         "TGK": "TEMPERATURE_AIR_MIN_005",
     }
+    hcnm = DWDObservationData(
+        [0],
+        [DWDObservationParameterSet.CLIMATE_SUMMARY],
+        DWDObservationResolution.DAILY,
+        [DWDObservationPeriod.RECENT],
+    )._create_humanized_parameters_mapping()
+
+    assert set(kl_daily_hcnm.items()).issubset(set(hcnm.items()))
 
 
 def test_tidy_up_data():
@@ -322,7 +322,7 @@ def test_tidy_up_data():
         {
             "STATION_ID": [1048] * 14,
             "DATE": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
-            "ELEMENT": [
+            "PARAMETER": [
                 "FX",
                 "FM",
                 "RSK",
@@ -363,7 +363,7 @@ def test_tidy_up_data():
     df_tidy = df_tidy.astype(
         {
             "STATION_ID": "category",
-            "ELEMENT": "category",
+            "PARAMETER": "category",
             "QUALITY": "category",
         }
     )
