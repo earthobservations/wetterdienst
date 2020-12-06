@@ -4,8 +4,9 @@ import pytest
 
 from example import (
     mosmix_forecasts,
-    observations_sites,
     observations_sql,
+    observations_stations,
+    dwd_describe_fields,
 )
 
 THIS = Path(__name__).parent.absolute()
@@ -13,8 +14,9 @@ EXAMPLES_DIR = THIS.parent.parent / "example"
 
 EXAMPLES = (
     mosmix_forecasts,
-    observations_sites,
     observations_sql,
+    observations_stations,
+    dwd_describe_fields,
 )
 
 

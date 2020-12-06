@@ -21,7 +21,6 @@ from wetterdienst.dwd.metadata.constants import (
 )
 from wetterdienst.dwd.metadata.column_map import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
-    METADATA_DTYPE_MAPPING,
 )
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.index import build_path_to_parameter
@@ -75,7 +74,7 @@ def create_meta_index_for_climate_observations(
     index is created in a more complex way.
 
     Args:
-        parameter: observation measure
+        parameter_set: observation measure
         resolution: frequency/granularity of measurement interval
         period: current, recent or historical files
 
@@ -111,14 +110,6 @@ def create_meta_index_for_climate_observations(
             ],
             how="left",
         )
-
-    meta_index[DWDMetaColumns.FROM_DATE.value] = pd.to_datetime(
-        meta_index[DWDMetaColumns.FROM_DATE.value], format="%Y%m%d"
-    )
-
-    meta_index[DWDMetaColumns.TO_DATE.value] = pd.to_datetime(
-        meta_index[DWDMetaColumns.TO_DATE.value], format="%Y%m%d"
-    )
 
     return meta_index.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(
         drop=True
@@ -182,7 +173,7 @@ def _create_meta_index_for_climate_observations(
 
     meta_index = meta_index.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    return meta_index.astype(METADATA_DTYPE_MAPPING)
+    return meta_index  # .astype(METADATA_DTYPE_MAPPING)
 
 
 def _find_meta_file(files: List[str], url: str) -> str:
@@ -259,10 +250,13 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
         missing_to_date_index, DWDMetaColumns.TO_DATE.value
     ] = pd.Timestamp(dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
 
-    meta_index_df = meta_index_df.astype(METADATA_DTYPE_MAPPING)
-
     # Drop empty state column again as it will be merged later on
     meta_index_df = meta_index_df.drop(labels=DWDMetaColumns.STATE.value, axis=1)
+
+    # Make station id str
+    meta_index_df[DWDMetaColumns.STATION_ID.value] = meta_index_df[
+        DWDMetaColumns.STATION_ID.value
+    ].str.pad(5, "left", "0")
 
     return meta_index_df
 

@@ -10,11 +10,11 @@ from munch import Munch
 import pandas as pd
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixSites, DWDMosmixData
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixData
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
 from wetterdienst.dwd.observations.api import (
     DWDObservationData,
-    DWDObservationSites,
+    DWDObservationStations,
     DWDObservationMetadata,
 )
 from wetterdienst.dwd.observations import (
@@ -237,7 +237,7 @@ def run():
                 parameters=read_list(options.parameter),
                 resolution=options.resolution,
                 periods=read_list(options.period),
-                humanize_column_names=True,
+                humanize_parameters=True,
                 tidy_data=options.tidy,
             )
         elif options.forecasts:
@@ -245,7 +245,7 @@ def run():
                 station_ids=station_ids,
                 parameters=read_list(options.parameter),
                 mosmix_type=options.mosmix_type,
-                humanize_column_names=True,
+                humanize_parameters=True,
                 tidy_data=options.tidy,
             )
 
@@ -325,7 +325,7 @@ def get_stations(options: Munch) -> pd.DataFrame:
     stations = None
     if options.stations or (options.latitude and options.longitude):
         if options.observations:
-            stations = DWDObservationSites(
+            stations = DWDObservationStations(
                 parameter_set=options.parameter,
                 resolution=options.resolution,
                 period=options.period,
@@ -333,7 +333,7 @@ def get_stations(options: Munch) -> pd.DataFrame:
                 end_date=end_date,
             )
         elif options.forecasts:
-            stations = DWDMosmixSites()
+            stations = DWDMosmixStations()
 
         if options.latitude and options.longitude:
             if options.number:

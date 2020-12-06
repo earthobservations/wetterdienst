@@ -12,6 +12,8 @@ import logging
 import pandas as pd
 from urllib.parse import urlparse, parse_qs
 
+from wetterdienst.metadata.columns import Columns
+
 log = logging.getLogger(__name__)
 
 
@@ -64,7 +66,18 @@ class IoAccessor:
             # TODO: Obtain output file name from command line.
             output_filename = "output.xlsx"
             log.info(f"Writing {output_filename}")
-            self.df.to_excel(output_filename, index=False)
+            df = self.df.copy()
+            for column in (
+                Columns.DATE.value,
+                Columns.FROM_DATE.value,
+                Columns.TO_DATE.value,
+            ):
+                column = column if column in df else column.lower()
+                try:
+                    df[column] = df[column].astype(str)
+                except KeyError:
+                    pass
+            df.to_excel(output_filename, index=False)
             output = None
 
         else:
@@ -174,9 +187,9 @@ class IoAccessor:
             tag_columns = ["station_id", "quality"]
 
             # When the "tidy" format has been requested, also use
-            # the fields "parameter" and "element" as InfluxDB tags.
+            # the fields "parameter_set" and "parameter" as InfluxDB tags.
             if df.attrs.get("tidy"):
-                tag_columns += ["parameter", "element"]
+                tag_columns += ["parameter_set", "parameter"]
 
             # Write to InfluxDB.
             c.write_points(

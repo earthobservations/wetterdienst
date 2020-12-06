@@ -21,7 +21,7 @@ from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 
 def create_file_list_for_climate_observations(
-    station_id: int,
+    station_id: str,
     parameter_set: DWDObservationParameterSet,
     resolution: DWDObservationResolution,
     period: DWDObservationPeriod,
@@ -87,7 +87,7 @@ def create_file_index_for_climate_observations(
 
     file_index[DWDMetaColumns.STATION_ID.value] = file_index[
         DWDMetaColumns.STATION_ID.value
-    ].astype(int)
+    ].astype(str)
 
     if resolution in HIGH_RESOLUTIONS and period == DWDObservationPeriod.HISTORICAL:
         # Date range string for additional filtering of historical files

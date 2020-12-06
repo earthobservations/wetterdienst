@@ -1,6 +1,8 @@
 MIT License
 
-Copyright (c) 2018 earthobservations, Benjamin Gutzmann, Daniel Lassahn, Andreas Motl
+Copyright (C) 2018-2020 earthobservations
+Copyright (C) 2018-2020 Andreas Motl <andreas.motl@panodata.org>
+Copyright (C) 2018-2020 Benjamin Gutzmann <gutzemann@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

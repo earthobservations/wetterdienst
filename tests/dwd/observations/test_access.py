@@ -49,7 +49,7 @@ def test_collect_daily_vanilla():
     """ Test for data collection with real data """
 
     data = collect_climate_observations_data(
-        station_id=1048,
+        station_id="01048",
         parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
@@ -82,7 +82,7 @@ def test_collect_hourly_vanilla():
     """ Test for data collection with real data """
 
     data = collect_climate_observations_data(
-        station_id=1048,
+        station_id="01048",
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,

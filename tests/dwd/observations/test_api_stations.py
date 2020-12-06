@@ -7,7 +7,7 @@ from wetterdienst.dwd.observations import (
     DWDObservationPeriod,
     DWDObservationResolution,
 )
-from wetterdienst.dwd.observations.api import DWDObservationSites
+from wetterdienst.dwd.observations.api import DWDObservationStations
 from wetterdienst.exceptions import InvalidParameterCombination
 
 
@@ -15,7 +15,7 @@ from wetterdienst.exceptions import InvalidParameterCombination
 def test_dwd_observation_sites_success():
 
     # Existing combination of parameters
-    sites = DWDObservationSites(
+    sites = DWDObservationStations(
         DWDObservationParameterSet.CLIMATE_SUMMARY,
         DWDObservationResolution.DAILY,
         DWDObservationPeriod.HISTORICAL,
@@ -24,12 +24,12 @@ def test_dwd_observation_sites_success():
     assert not sites.empty
 
     assert sites.loc[
-        sites[DWDMetaColumns.STATION_ID.value] == 1, :
+        sites[DWDMetaColumns.STATION_ID.value] == "00001", :
     ].values.tolist() == [
         [
-            1,
-            Timestamp("19370101"),
-            Timestamp("19860630"),
+            "00001",
+            Timestamp("19370101").tz_localize("UTC"),
+            Timestamp("19860630").tz_localize("UTC"),
             478.0,
             47.8413,
             8.8493,
@@ -41,7 +41,7 @@ def test_dwd_observation_sites_success():
 
 def test_dwd_observation_sites_fail():
     with pytest.raises(InvalidParameterCombination):
-        DWDObservationSites(
+        DWDObservationStations(
             DWDObservationParameterSet.CLIMATE_SUMMARY,
             DWDObservationResolution.MINUTE_1,
             DWDObservationPeriod.HISTORICAL,
@@ -52,7 +52,7 @@ def test_dwd_observation_sites_fail():
 def test_dwd_observation_sites_geojson():
 
     # Existing combination of parameters
-    df = DWDObservationSites(
+    df = DWDObservationStations(
         DWDObservationParameterSet.CLIMATE_SUMMARY,
         DWDObservationResolution.DAILY,
         DWDObservationPeriod.HISTORICAL,
@@ -60,7 +60,7 @@ def test_dwd_observation_sites_geojson():
 
     assert not df.empty
 
-    df = df[df[DWDMetaColumns.STATION_ID.value] == 1]
+    df = df[df[DWDMetaColumns.STATION_ID.value] == "00001"]
 
     geojson = df.dwd.to_geojson()
 

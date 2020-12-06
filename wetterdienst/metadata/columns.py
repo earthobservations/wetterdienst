@@ -1,27 +1,11 @@
 from enum import Enum
 
 
-class DWDOrigMetaColumns(Enum):
-    """ Original meta column names from DWD data """
-
-    STATION_ID = "STATIONS_ID"
-    DATE = "MESS_DATUM"
-    FROM_DATE = "VON_DATUM"
-    TO_DATE = "BIS_DATUM"
-    FROM_DATE_ALTERNATIVE = "MESS_DATUM_BEGINN"
-    TO_DATE_ALTERNATIVE = "MESS_DATUM_ENDE"
-    STATION_HEIGHT = "STATIONSHOEHE"
-    LATITUDE = "GEOBREITE"
-    LATITUDE_ALTERNATIVE = "GEOGR.BREITE"
-    LONGITUDE = "GEOLAENGE"
-    LONGITUDE_ALTERNATIVE = "GEOGR.LAENGE"
-    STATION_NAME = "STATIONSNAME"
-    STATE = "BUNDESLAND"
-
-
-class DWDMetaColumns(Enum):
+class Columns(Enum):
     """ Overhauled column names for metadata fields """
 
+    # TODO: remove columns which are only used in context of data wrangling of one of
+    #  the weather services e.g. EOR or FILENAME
     STATION_ID = "STATION_ID"  # change to local id later
     DATE = "DATE"
     FROM_DATE = "FROM_DATE"
@@ -40,8 +24,8 @@ class DWDMetaColumns(Enum):
     INTERVAL = "INTERVAL"
     # Columns used for tidy data
     # Column for quality
-    PARAMETER_SET = "PARAMETER_SET"
     PARAMETER = "PARAMETER"
+    ELEMENT = "ELEMENT"
     VALUE = "VALUE"
     QUALITY = "QUALITY"
     # Columns used for RADOLAN

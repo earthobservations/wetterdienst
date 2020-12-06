@@ -9,7 +9,7 @@ import logging
 
 from datetime import datetime
 from wetterdienst.dwd.observations import (
-    DWDObservationSites,
+    DWDObservationStations,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
@@ -20,7 +20,7 @@ log = logging.getLogger()
 
 def station_example():
 
-    sites = DWDObservationSites(
+    sites = DWDObservationStations(
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,
