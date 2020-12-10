@@ -770,7 +770,7 @@ def test_radar_request_radvor_re_yesterday():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"RE{date_time}10000{month_year}BY.......VS 3SW P100004HPR E-03INT  60GP 900x 900VV 000MF 00000008QN "  # noqa:E501,B950
+        f"RE{date_time}10000{month_year}BY.......VS 3SW P10000.HPR E-03INT  60GP 900x 900VV 000MF 00000008QN "  # noqa:E501,B950
         f"016MS...<deasb,deboo,dedrs,deeis,deess,(defbg,)?defld,dehnr,(deisn,)?demem(,deneu,denhb,deoft,depro,deros(,detur)?(,deumd)?)?"  # noqa:E501,B950
     )
 
