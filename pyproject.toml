@@ -72,7 +72,7 @@ pandas = "^1.1.2"
 tables = "^3.6.1"
 numpy = "^1.19.2,!=1.19.4"  # Temporary windows error with 1.19.4
 scipy = "^1.5.2"
-h5py = "^2.10.0"
+h5py = "^3.1.0"
 cachetools = "^4.1.1"
 docopt = "^0.6.2"
 munch = "^2.5.0"
@@ -173,11 +173,12 @@ source = ["wetterdienst"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 0
-omit =[
+omit = [
     "tests/*",
     "noxfile.py",
     "wetterdienst/dwd/radar/cli.py",
 ]
+
 [build-system]
-requires = ["poetry_core>=1.1.4"]
+requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
