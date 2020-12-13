@@ -4,7 +4,6 @@ import pytest
 
 from example import (
     mosmix_forecasts,
-    observations_hdf5,
     observations_sites,
     observations_sql,
 )
@@ -14,7 +13,6 @@ EXAMPLES_DIR = THIS.parent.parent / "example"
 
 EXAMPLES = (
     mosmix_forecasts,
-    observations_hdf5,
     observations_sites,
     observations_sql,
 )

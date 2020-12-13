@@ -28,7 +28,6 @@ from wetterdienst.dwd.observations.metadata import (
 )
 from wetterdienst.dwd.observations.metadata.resolution import HIGH_RESOLUTIONS
 from wetterdienst.dwd.observations.stations import metadata_for_climate_observations
-from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.dwd.observations.util.parameter import (
     create_parameter_to_parameter_set_combination,
     check_dwd_observations_parameter_set,
@@ -68,7 +67,6 @@ class DWDObservationData(WDDataCore):
         periods: Optional[List[Union[str, DWDObservationPeriod]]] = None,
         start_date: Optional[Union[None, str, Timestamp, datetime]] = None,
         end_date: Optional[Union[None, str, Timestamp, datetime]] = None,
-        storage: Optional[StorageAdapter] = None,
         tidy_data: bool = True,
         humanize_column_names: bool = False,
     ) -> None:
@@ -91,7 +89,6 @@ class DWDObservationData(WDDataCore):
         :param end_date:            Replacement for period type to define exact time
                                     of requested data, if used, period type will be set
                                     to all period types (hist, recent, now)
-        :param storage:             Storage adapter.
         :param tidy_data:           Reshape DataFrame to a more tidy
                                     and row-based version of data
         :param humanize_column_names: Replace column names by more meaningful ones
@@ -164,8 +161,6 @@ class DWDObservationData(WDDataCore):
                     f"start_date and end_date filtering limited to defined "
                     f"periods {periods}"
                 )
-
-        self.storage = storage
 
         # If more then one parameter requested, automatically tidy data
         self.tidy_data = (
@@ -290,10 +285,6 @@ class DWDObservationData(WDDataCore):
             log.warning("start date and end date are out of range of any period.")
             yield pd.DataFrame()
 
-        # Remove HDF file for given parameters and period_types if defined by storage
-        if self.storage and self.storage.invalidate:
-            self._invalidate_storage()
-
         for station_id in self.station_ids:
             df_station = []
 
@@ -368,21 +359,6 @@ class DWDObservationData(WDDataCore):
                 parameter_set, self.resolution, period, station_id, date_range
             )
 
-            storage = None
-            if self.storage:
-                storage = self.storage.hdf5(
-                    parameter=parameter_set,
-                    resolution=self.resolution,
-                    period=period,
-                    date_range=date_range,
-                )
-
-                df_period = storage.restore(station_id)
-
-                if not df_period.empty:
-                    df_parameter = df_parameter.append(df_period)
-                    continue
-
             log.info(f"Acquiring observations data for {parameter_identifier}.")
 
             try:
@@ -396,9 +372,6 @@ class DWDObservationData(WDDataCore):
                 )
 
                 df_period = pd.DataFrame()
-
-            if self.storage and self.storage.persist:
-                storage.store(station_id=station_id, df=df_period)
 
             # Filter out values which already are in the DataFrame
             try:
