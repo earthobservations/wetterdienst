@@ -1,9 +1,9 @@
 name: Linter
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -15,9 +15,10 @@ jobs:
       with:
         python-version: 3.9
         architecture: x64
+    - name: Setup Poetry
+      uses: Gr1N/setup-poetry@v4
     - name: Install test automation tools
       run: |
         pip install nox==2020.8.22
-        pip install poetry==1.1.4
     - name: Run lint on code
       run: nox -s lint

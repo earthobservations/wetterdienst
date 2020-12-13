@@ -1,7 +1,7 @@
 name: Release
 on:
   release:
-    types: [published]
+    types: [ published ]
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -11,8 +11,13 @@ jobs:
       with:
         python-version: 3.9
         architecture: x64
-    - run: pip install nox==2020.8.22
-    - run: pip install poetry==1.1.4
-    - run: nox -s tests-3.9
-    - run: poetry build
-    - run: poetry publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
+    - name: Setup Poetry
+      uses: Gr1N/setup-poetry@v4
+    - name: Install test automation tools
+      run: pip install nox==2020.8.22
+    - name: Test
+      run: nox -s tests-3.9
+    - name: Build
+      run: poetry build
+    - name: Publish
+      run: poetry publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
