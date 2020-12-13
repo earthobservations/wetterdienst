@@ -22,7 +22,7 @@ def install_test_packages(session):
     )
 
 
-@nox.session(python=["3.6", "3.7", "3.8"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
 def tests(session):
     """Run tests."""
     session.run(
@@ -38,7 +38,7 @@ def tests(session):
     session.run("pytest", *session.posargs)
 
 
-@nox.session(python=["3.7"])
+@nox.session(python=["3.9"])
 def coverage(session: Session) -> None:
     """Run tests and upload coverage data."""
     session.run(
@@ -63,14 +63,14 @@ def coverage(session: Session) -> None:
 locations = "wetterdienst", "example", "tests", "noxfile.py"
 
 
-@nox.session(python=["3.6", "3.7", "3.8"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
 def black(session):
     args = session.posargs or locations
     session.install("black")
     session.run("black", *args)
 
 
-@nox.session(python=["3.6", "3.7", "3.8"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
 def lint(session):
     args = session.posargs or locations
     session.install("flake8", "flake8-bandit", "flake8-black", "flake8-bugbear")

@@ -3,9 +3,8 @@ name = "wetterdienst"
 version = "0.11.1"
 description = "Open weather data for humans"
 authors = [
-    "Benjamin Gutzmann <gutzemann@gmail.com>",
     "Andreas Motl <andreas.motl@panodata.org>",
-    "Daniel Lassahn <daniel.lassahn@meteointelligence.de>"
+    "Benjamin Gutzmann <gutzemann@gmail.com>"
 ]
 license = "MIT"
 readme = "README.rst"
@@ -36,6 +35,7 @@ classifiers = [
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Environment :: Console",
