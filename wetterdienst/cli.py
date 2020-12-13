@@ -11,7 +11,6 @@ import pandas as pd
 
 from wetterdienst import __appname__, __version__
 from wetterdienst.dwd.forecasts import DWDMosmixSites, DWDMosmixData
-from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.util.cli import normalize_options, setup_logging, read_list
 from wetterdienst.dwd.observations.api import (
     DWDObservationData,
@@ -30,11 +29,11 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--persist] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd forecasts readings --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd forecasts readings --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
@@ -51,7 +50,6 @@ def run():
       --longitude=<longitude>       Longitude for filtering by geoposition.
       --number=<number>             Number of nearby stations when filtering by geoposition.
       --distance=<distance>         Maximum distance in km when filtering by geoposition.
-      --persist                     Save and restore data to filesystem w/o going to the network
       --date=<date>                 Date for filtering data. Can be either a single date(time) or
                                     an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
       --mosmix-type=<mosmix-type>   type of mosmix, either 'small' or 'large'
@@ -85,7 +83,7 @@ def run():
       wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent
 
       # Optionally save/restore to/from disk in order to avoid asking upstream servers each time
-      wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --persist
+      wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent
 
       # Limit output to specific date
       wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
@@ -232,8 +230,6 @@ def run():
         else:
             raise KeyError("Either --station or --latitude, --longitude required")
 
-        storage = StorageAdapter(persist=options.persist)
-
         # Funnel all parameters to the workhorse.
         if options.observations:
             readings = DWDObservationData(
@@ -241,7 +237,6 @@ def run():
                 parameters=read_list(options.parameter),
                 resolution=options.resolution,
                 periods=read_list(options.period),
-                storage=storage,
                 humanize_column_names=True,
                 tidy_data=options.tidy,
             )

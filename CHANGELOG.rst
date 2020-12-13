@@ -9,6 +9,7 @@ Development
 ===================
 
 - Bump ``h5py`` to version 3.1.0 in order to satisfy installation on Python 3.9
+- Remove StorageAdapter and its dependencies
 
 0.11.0 (04.12.2020)
 ===================

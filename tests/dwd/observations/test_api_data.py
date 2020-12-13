@@ -17,7 +17,6 @@ from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameter,
     DWDObservationParameterSetStructure,
 )
-from wetterdienst.dwd.observations.store import StorageAdapter
 from wetterdienst.exceptions import StartDateEndDateError, NoParametersFound
 
 HERE = Path(__file__).parent
@@ -231,38 +230,6 @@ def test_dwd_observation_data_dynamic_period():
     )
 
     assert request.periods == []
-
-
-def test_observation_data_storing():
-    """
-    1. Scenario
-    This scenario makes sure we take fresh data and write it to the given folder, thus
-    we can run just another test afterwards as no old data is used
-    """
-    storage = StorageAdapter(persist=True).hdf5(
-        DWDObservationParameterSet.CLIMATE_SUMMARY,
-        DWDObservationResolution.DAILY,
-        DWDObservationPeriod.HISTORICAL,
-    )
-
-    storage.invalidate()
-
-    dwd_obs_data = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
-        resolution=DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL],
-        storage=StorageAdapter(persist=True),
-    )
-    df = dwd_obs_data.collect_safe()
-
-    df_stored = dwd_obs_data.collect_safe()
-
-    assert_frame_equal(df, df_stored, check_column_type=False)
-
-    storage.invalidate()
-
-    assert True
 
 
 def test_create_humanized_column_names_mapping():
