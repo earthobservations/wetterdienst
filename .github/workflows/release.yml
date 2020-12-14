@@ -13,10 +13,10 @@ jobs:
         architecture: x64
     - name: Setup Poetry
       uses: Gr1N/setup-poetry@v4
-    - name: Install test automation tools
-      run: pip install nox==2020.8.22
+    - name: Install library
+      run: poetry install --extras=http --extras=sql --extras=excel
     - name: Test
-      run: nox -s tests-3.9
+      run: poetry run pytest tests
     - name: Build
       run: poetry build
     - name: Publish
