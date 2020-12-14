@@ -24,6 +24,8 @@ Wetterdienst - Open weather data for humans
    :target: https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.rst
 .. image:: https://zenodo.org/badge/160953150.svg
    :target: https://zenodo.org/badge/latestdoi/160953150
+.. image:: https://img.shields.io/discord/704622099750191174.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2
+   :target: https://discord.gg/8sCb978a
 
 
 Introduction
