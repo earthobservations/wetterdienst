@@ -1,9 +1,9 @@
 name: Tests
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
@@ -23,9 +23,16 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         architecture: x64
+    - name: Setup Poetry
+      uses: Gr1N/setup-poetry@v4
+    - name: Load cached dependencies
+      uses: actions/cache@v1
+      with:
+        path: ~/.cache/pypoetry/virtualenvs
+        key: ${{ matrix.os }}-poetry-${{ hashFiles('poetry.lock') }}
+        restore-keys: |
+          ${{ matrix.os }}-poetry-
     - name: Install test automation tools
-      run: |
-        pip install nox==2020.8.22
-        pip install poetry==1.1.4
+      run: pip install nox==2020.8.22
     - name: Run tests
       run: nox -s tests-${{ matrix.python-version }}

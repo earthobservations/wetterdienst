@@ -1,9 +1,9 @@
 name: Docs
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -13,6 +13,9 @@ jobs:
       with:
         python-version: 3.9
         architecture: x64
-    - run: pip install poetry==1.1.4
-    - run: poetry install --extras=docs
-    - run: cd docs && poetry run make html
+    - name: Setup Poetry
+      uses: Gr1N/setup-poetry@v4
+    - name: Install library
+      run: poetry install --extras=docs
+    - name: Build docs
+      run: cd docs && poetry run make html
