@@ -71,7 +71,6 @@ python = "^3.6.1"
 pandas = "^1.1.2"
 numpy = "^1.19.2,!=1.19.4"  # Temporary windows error with 1.19.4
 scipy = "^1.5.2"
-h5py = "^3.1.0"
 cachetools = "^4.1.1"
 docopt = "^0.6.2"
 munch = "^2.5.0"
@@ -92,16 +91,7 @@ importlib_metadata              = { version = "^1.7.0", python = "<3.8" }
 dataclasses                     = { version = "^0.7", python = "^3.6, <3.7" }
 
 # Optional dependencies aka. "extras"
-ipython                         = { version = "^7.10.1", optional = true }
-ipython-genutils                = { version = "^0.2.0", optional = true }
-matplotlib                      = { version = "^3.3.2", optional = true }
 openpyxl                        = { version = "^3.0.5", optional = true }
-
-sphinx                          = { version = "^3.2.1", optional = true }
-sphinx-material                 = { version = "^0.0.30", optional = true }
-sphinx-autodoc-typehints        = { version = "^1.11.0", optional = true }
-sphinxcontrib-svg2pdfconverter  = { version = "^1.1.0", optional = true }
-tomlkit                         = { version = "^0.7.0", optional = true }
 
 duckdb                          = { version = "^0.2.3", optional = true }
 influxdb                        = { version = "^5.3.0", optional = true }
@@ -113,8 +103,6 @@ fastapi                         = { version = "^0.61.1", optional = true }
 uvicorn                         = { version = "^0.11.8", optional = true }
 
 wradlib                         = { version = "^1.9.0", optional = true }
-pybufrkit                       = { version = "^0.2.17", optional = true }
-
 
 [tool.poetry.extras]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
@@ -135,7 +123,7 @@ influxdb = ["influxdb"]
 cratedb = ["crate"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
-radar = ["wradlib", "pybufrkit"]
+radar = ["wradlib", "pybufrkit", "h5py"]
 bufr = ["pybufrkit"]
 
 [tool.poetry.dev-dependencies]
@@ -153,6 +141,18 @@ pytest-dictsdiff = "^0.5.8"
 nbconvert = ">=5.0, <6.0"
 mock = "^4.0.2"
 surrogate = "^0.1"
+pybufrkit = "^0.2.17"
+h5py = "^3.1.0"
+
+sphinx                          = "^3.2.1"
+sphinx-material                 = "^0.0.30"
+sphinx-autodoc-typehints        = "^1.11.0"
+sphinxcontrib-svg2pdfconverter  = "^1.1.0"
+tomlkit                         = "^0.7.0"
+
+ipython                         = "^7.10.1"
+ipython-genutils                = "^0.2.0"
+matplotlib                      = "^3.3.2"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
@@ -174,7 +174,6 @@ show_missing = true
 fail_under = 0
 omit = [
     "tests/*",
-    "noxfile.py",
     "wetterdienst/dwd/radar/cli.py",
 ]
 

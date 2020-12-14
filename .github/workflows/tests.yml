@@ -25,14 +25,20 @@ jobs:
         architecture: x64
     - name: Setup Poetry
       uses: Gr1N/setup-poetry@v4
+    - name: Configure poetry
+      # FROM https://github.com/northtree/poetry-github-actions/actions/runs/170795796/workflow
+      run: |
+        poetry config virtualenvs.in-project false
+        poetry config cache-dir ~/.poetry
+        poetry config virtualenvs.path ~/.poetry/venv
     - name: Load cached dependencies
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
-        path: ~/.cache/pypoetry/virtualenvs
-        key: ${{ matrix.os }}-poetry-${{ hashFiles('poetry.lock') }}
+        path: ~/.poetry
+        key: ${{ matrix.os }}-${{ matrix.python-version }}-poetry-${{ hashFiles('poetry.lock') }}
         restore-keys: |
-          ${{ matrix.os }}-poetry-
-    - name: Install test automation tools
-      run: pip install nox==2020.8.22
-    - name: Run tests
-      run: nox -s tests-${{ matrix.python-version }}
+          ${{ matrix.os }}-${{ matrix.python-version }}-poetry-
+    - name: Install library
+      run: poetry install --extras=http --extras=sql --extras=excel
+    - name: Test
+      run: poetry run pytest tests
