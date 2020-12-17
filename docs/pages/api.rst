@@ -94,7 +94,7 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
         humanize_parameters=True,
     )
 
-    for df in observations.collect_data():
+    for df in observations.query():
         # analyse the station here
         df.data.head()
 
@@ -159,7 +159,7 @@ can be used to download the observation data:
         humanize_parameters=True,
     )
 
-    for df in observations.collect_data():
+    for df in observations.query():
         # analyse the station here
         df.data.head()
 
@@ -188,7 +188,7 @@ The result data is provided through a virtual table called ``data``.
         humanize_parameters=True,
     )
 
-    df = observations.collect_safe().dwd.lower()
+    df = observations.all().dwd.lower()
     df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
     print(df)
 
@@ -217,7 +217,7 @@ To use that feature, pass a ``StorageAdapter`` instance to
         storage=storage,
     )
 
-    df = observations.collect_safe().dwd.lower()
+    df = observations.all().dwd.lower()
 
     print(df)
 
@@ -249,7 +249,7 @@ Examples:
         humanize_parameters=True,
     )
 
-    df = observations.collect_safe().dwd.lower()
+    df = observations.all().dwd.lower()
     df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 
@@ -266,7 +266,7 @@ MOSMIX-S - less parameters:
         station_ids=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
     )
-    response = mosmix.collect_data()
+    response = next(mosmix.query())
 
     print(response.metadata)
     print(response.data)
@@ -279,7 +279,7 @@ MOSMIX-L - more parameters:
         station_ids=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
     )
-    response = mosmix.collect_data()
+    response =  next(mosmix.query())
 
     print(response.metadata)
     print(response.data)
@@ -328,7 +328,7 @@ For more examples, please have a look at `example/radar/`_.
         end_date="2020-09-04T12:00:00"
     )
 
-    for item in radar.collect_data():
+    for item in radar.query():
 
         # Decode item.
         timestamp, buffer = item

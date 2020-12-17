@@ -26,7 +26,7 @@ def mosmix_example():
         tidy_data=True,
         humanize_parameters=True,
     )
-    response = next(mosmix.collect_data())
+    response = next(mosmix.query())
 
     # meta data enriched with information from metadata_for_forecasts()
     output_section("Metadata", response.metadata)
@@ -41,7 +41,7 @@ def mosmix_example():
         tidy_data=True,
         humanize_parameters=True,
     )
-    response = next(mosmix.collect_data())
+    response = next(mosmix.query())
 
     output_section("Metadata", response.metadata)
     output_section("Forecasts", response.data)

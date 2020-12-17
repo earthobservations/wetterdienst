@@ -16,6 +16,8 @@ Development
 - The name ELEMENT is removed and replaced by parameter while the acutal parameter set
   e.g. CLIMATE_SUMMARY is now found under PARAMETER_SET
 - Remove StorageAdapter and its dependencies
+- Methods self.collect_data() and self.collect_safe() are replaced by self.query() and
+  self.all() and will deprecate at some point
 
 0.11.1 (10.12.2020)
 ===================

@@ -201,9 +201,9 @@ class DWDMosmixData(PointDataCore):
 
         return datetime_adjusted
 
-    def collect_data(self) -> Generator[Result, None, None]:
+    def query(self) -> Generator[Result, None, None]:
         """Replace collect data method as all information is read once from kml file"""
-        for metadata_df, forecast_df in self._collect_data():
+        for metadata_df, forecast_df in self._collect_station_parameter():
             forecast_df = self._coerce_meta_fields(forecast_df)
             forecast_df = self._coerce_parameter_types(forecast_df)
 
@@ -225,7 +225,7 @@ class DWDMosmixData(PointDataCore):
 
             yield result
 
-    def _collect_data(self) -> Generator[Result, None, None]:
+    def _collect_station_parameter(self) -> Generator[Result, None, None]:
         """Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)"""
         if self.start_issue == DWDForecastDate.LATEST:

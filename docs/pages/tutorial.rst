@@ -72,7 +72,7 @@ For a parameter set
         periods=DWDObservationPeriod.HISTORICAL
     )
 
-    print(observation_data.collect_safe())
+    print(observation_data.all())
 
 For a parameter
 .. ipython:: python
@@ -83,4 +83,4 @@ For a parameter
         periods=DWDObservationPeriod.HISTORICAL
     )
 
-    print(observation_data.collect_safe())
+    print(observation_data.all())

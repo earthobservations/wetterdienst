@@ -320,7 +320,7 @@ class DWDObservationData(PointDataCore):
 
         return periods
 
-    def _collect_data(
+    def _collect_station_parameter(
         self,
         station_id: str,
         parameter: Tuple[

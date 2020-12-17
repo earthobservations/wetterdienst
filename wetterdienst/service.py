@@ -201,7 +201,7 @@ def dwd_readings(
         readings = DWDMosmixData(station_ids=station_ids, mosmix_type=mosmix_type)
 
     # Postprocessing.
-    df = readings.collect_safe()
+    df = readings.all()
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)

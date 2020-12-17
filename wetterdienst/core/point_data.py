@@ -3,6 +3,7 @@ from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
 from typing import Tuple, Union, Optional, List, Generator, Dict
+from logging import getLogger
 
 import dateparser
 import pandas as pd
@@ -16,6 +17,9 @@ from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.result import Result
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+
+
+log = getLogger(__name__)
 
 
 class PointDataCore(Core):
@@ -189,7 +193,7 @@ class PointDataCore(Core):
             .tolist()
         )
 
-    def collect_data(self) -> Generator[Result, None, None]:
+    def query(self) -> Generator[Result, None, None]:
         """Core method for data collection, iterating of station ids and yielding a
         DataFrame for each station with all found parameters. Takes care of type
         coercion of data, date filtering and humanizing of parameters."""
@@ -197,7 +201,7 @@ class PointDataCore(Core):
             station_data = []
 
             for parameter in self.parameters:
-                parameter_df = self._collect_data(station_id, parameter)
+                parameter_df = self._collect_station_parameter(station_id, parameter)
 
                 station_data.append(parameter_df)
 
@@ -229,8 +233,14 @@ class PointDataCore(Core):
             # TODO: add meaningful metadata here
             yield Result(pd.DataFrame(), station_df)
 
+    def collect_data(self):
+        # TODO: remove method at some point
+        log.warning("method self.collect_data() will deprecate. change to self.query()")
+
+        yield from self.all()
+
     @abstractmethod
-    def _collect_data(self, station_id: str, parameter) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter) -> pd.DataFrame:
         """
         Implementation of data collection for a station id plus parameter from the
         specified weather service. Takes care of the gathering of the data and putting
@@ -363,9 +373,9 @@ class PointDataCore(Core):
 
         return df
 
-    def collect_safe(self) -> pd.DataFrame:
+    def all(self) -> pd.DataFrame:
         """ Collect all data from self.collect_data """
-        data = list(map(lambda x: x.data, self.collect_data()))
+        data = list(map(lambda x: x.data, self.query()))
 
         if not data:
             raise ValueError("No data available for given constraints")
@@ -386,6 +396,12 @@ class PointDataCore(Core):
         df.attrs["tidy"] = self._tidy
 
         return df
+
+    def collect_safe(self):
+        # TODO: remove method at some point
+        log.warning("method self.collect_safe() will deprecate. change to self.all()")
+
+        return self.all()
 
     def _humanize(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Method for humanizing parameters. """

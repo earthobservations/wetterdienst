@@ -228,7 +228,7 @@ class DWDRadarData:
             and self.period == other.period
         )
 
-    def collect_data(self) -> RadarResult:
+    def query(self) -> RadarResult:
         """
         Send request(s) and return generator of ``RadarResult`` instances.
 
@@ -245,6 +245,14 @@ class DWDRadarData:
             resolution=self.resolution,
             period=self.period,
         )
+
+    def collect_data(self):
+        log.warning(
+            "method self.collect_data() will deprecate at some point. "
+            "use self.query() instead"
+        )
+
+        yield from self.query()
 
     @staticmethod
     def get_sites():

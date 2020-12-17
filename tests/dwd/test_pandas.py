@@ -186,7 +186,7 @@ def test_request():
         periods=DWDObservationPeriod.RECENT,
     )
 
-    df = observations.collect_safe()
+    df = observations.all()
     assert not df.empty
 
 
@@ -203,7 +203,7 @@ def test_export_sqlite():
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        df = observations.collect_safe()
+        df = observations.all()
         df.io.export("sqlite:///test.sqlite?table=testdrive")
 
         mock_to_sql.assert_called_once_with(
@@ -229,7 +229,7 @@ def test_export_crate():
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        df = observations.collect_safe()
+        df = observations.all()
         df.io.export("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
@@ -257,7 +257,7 @@ def test_export_duckdb():
         "duckdb.connect", side_effect=[mock_connection], create=True
     ) as mock_connect:
 
-        df = observations.collect_safe()
+        df = observations.all()
         df.io.export("duckdb:///test.duckdb?table=testdrive")
 
         mock_connect.assert_called_once_with(database="test.duckdb", read_only=False)
@@ -286,7 +286,7 @@ def test_export_influxdb_tabular():
         create=True,
     ) as mock_connect:
 
-        df = observations.collect_safe()
+        df = observations.all()
         df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
@@ -319,7 +319,7 @@ def test_export_influxdb_tidy():
         create=True,
     ) as mock_connect:
 
-        df = observations.collect_safe()
+        df = observations.all()
         df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")

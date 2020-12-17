@@ -12,7 +12,7 @@ def test_mosmix_l():
         station_ids=["01001"],
         mosmix_type=DWDMosmixType.LARGE,
     )
-    response = next(mosmix.collect_data())
+    response = next(mosmix.query())
 
     # Verify metadata.
     assert response.metadata.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
@@ -161,7 +161,7 @@ def test_mosmix_s():
         station_ids=["01028"],
         mosmix_type=DWDMosmixType.SMALL,
     )
-    response = next(mosmix.collect_data())
+    response = next(mosmix.query())
 
     # Verify metadata.
     assert response.metadata.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
@@ -236,7 +236,7 @@ def test_mosmix_l_parameters():
         mosmix_type=DWDMosmixType.LARGE,
         parameters=["DD", "ww"],
     )
-    response = next(mosmix.collect_data())
+    response = next(mosmix.query())
 
     # Verify forecast data.
     station_ids = response.metadata["WMO_ID"].unique().tolist()

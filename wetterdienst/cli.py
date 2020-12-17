@@ -251,7 +251,7 @@ def run():
 
         # Collect data and merge together.
         try:
-            df = readings.collect_safe()
+            df = readings.all()
         except ValueError as ex:
             log.exception(ex)
             sys.exit(1)
