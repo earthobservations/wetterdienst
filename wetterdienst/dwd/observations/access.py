@@ -14,7 +14,6 @@ from wetterdienst.dwd.observations.fileindex import (
 )
 from wetterdienst.util.cache import payload_cache_five_minutes
 from wetterdienst.dwd.util import (
-    coerce_field_types,
     build_parameter_set_identifier,
 )
 from wetterdienst.dwd.observations.util.parameter import (
@@ -41,7 +40,7 @@ PRODUCT_FILE_IDENTIFIER = "produkt"
 
 
 def collect_climate_observations_data(
-    station_id: int,
+    station_id: str,
     parameter_set: DWDObservationParameterSet,
     resolution: DWDObservationResolution,
     period: DWDObservationPeriod,
@@ -84,8 +83,6 @@ def collect_climate_observations_data(
     observations_df = parse_climate_observations_data(
         filenames_and_files, parameter_set, resolution, period
     )
-
-    observations_df = coerce_field_types(observations_df, resolution)
 
     return observations_df
 

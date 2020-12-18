@@ -33,13 +33,13 @@ def sql_example():
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
 
-    sql = "SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;"
+    sql = "SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
 
-    df = observations.collect_safe()
+    df = observations.all()
     df = df.dwd.lower().io.sql(sql)
 
     print(df)

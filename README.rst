@@ -103,7 +103,7 @@ Get historical data for specific stations, using Python:
     )
 
     # Collect and analyse data here.
-    for df in observations.collect_data():
+    for df in observations.query():
         print(df)
 
 Get data for specific stations from the command line:

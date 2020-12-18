@@ -1,10 +1,12 @@
+from unittest.mock import patch
+
+import mock
 import pytest
 import numpy as np
 import pandas as pd
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.util import (
-    coerce_field_types,
     build_parameter_set_identifier,
 )
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -12,6 +14,7 @@ from wetterdienst.dwd.observations import (
     DWDObservationPeriod,
     DWDObservationResolution,
     DWDObservationParameterSet,
+    DWDObservationData,
 )
 from wetterdienst.exceptions import InvalidEnumeration
 
@@ -33,6 +36,7 @@ def test_parse_enumeration_from_template():
 def test_coerce_field_types():
     df = pd.DataFrame(
         {
+            "STATION_ID": ["00001"],
             "QN": ["1"],
             "RS_IND_01": ["1"],
             "DATE": ["1970010100"],
@@ -41,17 +45,25 @@ def test_coerce_field_types():
         }
     )
 
+    def __init__(self):
+        self.tidy_data = False
+        self.resolution = DWDObservationResolution.HOURLY
+
+    with patch.object(DWDObservationData, "__init__", __init__):
+        observations = DWDObservationData()
+        df = observations._coerce_meta_fields(df)
+        df = observations._coerce_parameter_types(df)
+
     expected_df = pd.DataFrame(
         {
+            "STATION_ID": pd.Series(["00001"], dtype="category"),
             "QN": pd.Series([1], dtype=pd.Int64Dtype()),
             "RS_IND_01": pd.Series([1], dtype=pd.Int64Dtype()),
-            "DATE": [pd.Timestamp("1970-01-01")],
+            "DATE": [pd.Timestamp("1970-01-01").tz_localize("UTC")],
             "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
             "V_VV_I": pd.Series(["P"], dtype=pd.StringDtype()),
         }
     )
-
-    df = coerce_field_types(df, DWDObservationResolution.HOURLY)
 
     assert_frame_equal(df, expected_df)
 
@@ -73,7 +85,13 @@ def test_coerce_field_types_with_nans():
         }
     )
 
-    df = coerce_field_types(df, DWDObservationResolution.HOURLY)
+    def __init__(self):
+        self.tidy_data = False
+
+    with mock.patch.object(DWDObservationData, "__init__", new=__init__):
+
+        df = DWDObservationData()._coerce_parameter_types(df)
+
     assert_frame_equal(df, expected_df)
 
 
@@ -82,7 +100,7 @@ def test_build_parameter_identifier():
         DWDObservationParameterSet.CLIMATE_SUMMARY,
         DWDObservationResolution.DAILY,
         DWDObservationPeriod.HISTORICAL,
-        1,
+        "00001",
     )
 
-    assert parameter_identifier == "kl/daily/historical/station_id_1"
+    assert parameter_identifier == "kl/daily/historical/00001"

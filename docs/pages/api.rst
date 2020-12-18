@@ -59,15 +59,15 @@ and *period type* options.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationSites, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
-    sites = DWDObservationSites(
+    stations = DWDObservationStations(
         parameter_set=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.HISTORICAL
     )
 
-    df = sites.all()
+    df = stations.all()
 
     df.head()
 
@@ -91,12 +91,12 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
         start_date="1990-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
 
-    for df in observations.collect_data():
+    for df in observations.query():
         # analyse the station here
-        df.head()
+        df.data.head()
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names and stored
@@ -118,9 +118,9 @@ Inquire the list of stations by geographic coordinates.
 .. ipython:: python
 
     from datetime import datetime
-    from wetterdienst.dwd.observations import DWDObservationSites, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
-    sites = DWDObservationSites(
+    stations = DWDObservationStations(
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,
@@ -128,7 +128,7 @@ Inquire the list of stations by geographic coordinates.
         end_date=datetime(2020, 1, 20)
     )
 
-    df = sites.nearby_radius(
+    df = stations.nearby_radius(
         latitude=50.0,
         longitude=8.9,
         max_distance_in_km=30
@@ -156,12 +156,12 @@ can be used to download the observation data:
         start_date="1990-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
 
-    for df in observations.collect_data():
+    for df in observations.query():
         # analyse the station here
-        df.head()
+        df.data.head()
 
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
@@ -185,10 +185,10 @@ The result data is provided through a virtual table called ``data``.
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
 
-    df = observations.collect_safe().dwd.lower()
+    df = observations.all().dwd.lower()
     df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
     print(df)
 
@@ -213,11 +213,11 @@ To use that feature, pass a ``StorageAdapter`` instance to
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
         storage=storage,
     )
 
-    df = observations.collect_safe().dwd.lower()
+    df = observations.all().dwd.lower()
 
     print(df)
 
@@ -246,10 +246,10 @@ Examples:
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
-        humanize_column_names=True,
+        humanize_parameters=True,
     )
 
-    df = observations.collect_safe().dwd.lower()
+    df = observations.all().dwd.lower()
     df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 
@@ -266,10 +266,10 @@ MOSMIX-S - less parameters:
         station_ids=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
     )
-    response = mosmix.collect_data()
+    response = next(mosmix.query())
 
     print(response.metadata)
-    print(response.forecast)
+    print(response.data)
 
 MOSMIX-L - more parameters:
 
@@ -279,10 +279,10 @@ MOSMIX-L - more parameters:
         station_ids=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
     )
-    response = mosmix.collect_data()
+    response =  next(mosmix.query())
 
     print(response.metadata)
-    print(response.forecast)
+    print(response.data)
 
 
 *****
@@ -328,7 +328,7 @@ For more examples, please have a look at `example/radar/`_.
         end_date="2020-09-04T12:00:00"
     )
 
-    for item in radar.collect_data():
+    for item in radar.query():
 
         # Decode item.
         timestamp, buffer = item

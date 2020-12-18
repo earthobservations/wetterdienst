@@ -22,7 +22,7 @@ SETTINGS_READINGS = [
 ]
 
 SETTINGS_STATION = [
-    "4411,7341",  # observation stations
+    "04411,07341",  # observation stations
     "10488,67743",  # mosmix forecast stations
 ]
 
@@ -186,8 +186,6 @@ def test_cli_stations_geojson(setting, station, expected_station_names, capsys):
 
     for station_name in expected_station_names:
         assert station_name in station_names
-    # assert "Schaafheim-Schlierbach" in station_names
-    # assert "Offenbach-Wetterpark" in station_names
 
 
 @pytest.mark.parametrize(
@@ -202,8 +200,6 @@ def test_cli_stations_csv(setting, station, expected_station_names, capsys):
 
     for station_name in expected_station_names:
         assert station_name in stdout
-    # assert "Schaafheim-Schlierbach" in stdout
-    # assert "Offenbach-Wetterpark" in stdout
 
 
 @pytest.mark.parametrize(
@@ -221,8 +217,6 @@ def test_cli_stations_excel(setting, station, expected_station_names, capsys):
 
         for station_name in expected_station_names:
             assert bytes(station_name, encoding="utf8") in payload
-        # assert b"Schaafheim-Schlierbach" in payload
-        # assert b"Offenbach-Wetterpark" in payload
 
 
 @pytest.mark.parametrize(
@@ -238,31 +232,31 @@ def test_cli_readings_json(setting, station, capsys):
     station_ids = list(set([reading["station_id"] for reading in response]))
 
     for s in station.split(","):
-        assert int(s) in station_ids
-    # assert 4411 in station_ids
-    # assert 7341 in station_ids
+        assert s in station_ids
 
     first = response[0]
-    assert list(first.keys()) == [
-        "station_id",
-        "date",
-        "quality_wind",
-        "wind_gust_max",
-        "wind_speed",
-        "quality_general",
-        "precipitation_height",
-        "precipitation_form",
-        "sunshine_duration",
-        "snow_depth",
-        "cloud_cover_total",
-        "pressure_vapor",
-        "pressure_air",
-        "temperature_air_200",
-        "humidity",
-        "temperature_air_max_200",
-        "temperature_air_min_200",
-        "temperature_air_min_005",
-    ]
+    assert set(first.keys()).issuperset(
+        (
+            "station_id",
+            "date",
+            # "quality_wind",
+            "wind_gust_max",
+            "wind_speed",
+            # "quality_general",
+            "precipitation_height",
+            "precipitation_form",
+            "sunshine_duration",
+            "snow_depth",
+            "cloud_cover_total",
+            "pressure_vapor",
+            "pressure_air",
+            "temperature_air_200",
+            "humidity",
+            "temperature_air_max_200",
+            "temperature_air_min_200",
+            "temperature_air_min_005",
+        )
+    )
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
@@ -278,9 +272,7 @@ def test_cli_readings_json_tidy(setting, station, capsys):
     station_ids = list(set([reading["station_id"] for reading in response]))
 
     for s in station.split(","):
-        assert int(s) in station_ids or s in station_ids
-    # assert 4411 in station_ids
-    # assert 7341 in station_ids
+        assert s in station_ids
 
     first = response[0]
 
@@ -288,14 +280,14 @@ def test_cli_readings_json_tidy(setting, station, capsys):
     assert list(first.keys()) == [
         "station_id",
         "date",
+        "parameter_set",
         "parameter",
-        "element",
         "value",
         "quality",
     ] or list(first.keys()) == [
         "station_id",
-        "datetime",
-        "element",
+        "date",
+        "parameter",
         "value",
     ]
 
@@ -321,8 +313,6 @@ def test_cli_readings_csv(setting, station, capsys):
 
     for s in station.split(","):
         assert s in stdout
-    # assert str(4411) in stdout
-    # assert str(7341) in stdout
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
@@ -337,9 +327,6 @@ def test_cli_readings_excel(setting, station):
 
         for s in station.split(","):
             assert bytes(s, encoding="utf8") in payload
-
-        # assert b"4411" in payload
-        # assert b"7341" in payload
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
@@ -385,11 +372,10 @@ def test_cli_readings_geospatial(setting, station, capsys):
     invoke_wetterdienst_readings_geo(setting=setting, fmt="json")
 
     stdout, stderr = capsys.readouterr()
-    print(stdout)
     response = json.loads(stdout)
 
     station_ids = list(set([reading["station_id"] for reading in response]))
 
     for s in station.split(","):
-        assert int(s) in station_ids
-        assert int(s) in station_ids
+        assert s in station_ids
+        assert s in station_ids

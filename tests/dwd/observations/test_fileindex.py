@@ -27,7 +27,7 @@ def test_file_index_creation():
     assert not file_index.empty
 
     assert file_index.loc[
-        file_index[DWDMetaColumns.STATION_ID.value] == 1048,
+        file_index[DWDMetaColumns.STATION_ID.value] == "01048",
         DWDMetaColumns.FILENAME.value,
     ].values.tolist() == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
@@ -44,7 +44,7 @@ def test_file_index_creation():
 
 def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
-        station_id=1048,
+        station_id="01048",
         parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
@@ -56,7 +56,7 @@ def test_create_file_list_for_dwd_server():
 
     # with date range
     remote_file_path = create_file_list_for_climate_observations(
-        station_id=3,
+        station_id="00003",
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.MINUTE_10,
         period=DWDObservationPeriod.HISTORICAL,

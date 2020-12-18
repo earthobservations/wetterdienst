@@ -1,7 +1,6 @@
 """ tests for file index creation """
 import requests
 import pytest
-from pandas import Timestamp
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metaindex import (
@@ -45,15 +44,15 @@ def test_meta_index_1mph_creation():
     )
 
     assert meta_index_1mph.loc[
-        meta_index_1mph[DWDMetaColumns.STATION_ID.value] == 3, :
+        meta_index_1mph[DWDMetaColumns.STATION_ID.value] == "00003", :
     ].values.tolist() == [
         [
-            3,
-            Timestamp("18910101"),
-            Timestamp("20120406"),
-            202.00,
-            50.7827,
-            6.0941,
+            "00003",
+            "18910101",
+            "20120406",
+            "202.00",
+            "50.7827",
+            "6.0941",
             "Aachen",
             "Nordrhein-Westfalen",
         ]

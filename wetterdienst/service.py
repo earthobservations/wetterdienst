@@ -6,14 +6,14 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixSites, DWDMosmixData, DWDMosmixType
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixData, DWDMosmixType
 from wetterdienst.dwd.observations import (
     DWDObservationPeriod,
     DWDObservationParameterSet,
     DWDObservationData,
     DWDObservationResolution,
 )
-from wetterdienst.dwd.observations.api import DWDObservationSites
+from wetterdienst.dwd.observations.api import DWDObservationStations
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.cli import read_list
 
@@ -100,13 +100,13 @@ def dwd_sites(
         )
         period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
-        sites = DWDObservationSites(
+        sites = DWDObservationStations(
             parameter_set=parameter,
             resolution=resolution,
             period=period,
         )
     else:
-        sites = DWDMosmixSites()
+        sites = DWDMosmixStations()
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
@@ -163,7 +163,7 @@ def dwd_readings(
             status_code=400, detail="Query argument 'station' is required"
         )
 
-    station_ids = map(int, read_list(station))
+    station_ids = map(str, read_list(station))
 
     if product == "observations":
         if parameter is None or resolution is None or period is None:
@@ -188,7 +188,7 @@ def dwd_readings(
             resolution=resolution,
             periods=period,
             tidy_data=True,
-            humanize_column_names=True,
+            humanize_parameters=True,
         )
     else:
         if mosmix_type is None:
@@ -201,7 +201,7 @@ def dwd_readings(
         readings = DWDMosmixData(station_ids=station_ids, mosmix_type=mosmix_type)
 
     # Postprocessing.
-    df = readings.collect_safe()
+    df = readings.all()
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)
