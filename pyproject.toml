@@ -153,10 +153,16 @@ tomlkit                         = "^0.7.0"
 ipython                         = "^7.10.1"
 ipython-genutils                = "^0.2.0"
 matplotlib                      = "^3.3.2"
+poethepoet = "^0.9.0"
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.cli:run'
 wddump = 'wetterdienst.dwd.radar.cli:wddump'
+
+[tool.poe.tasks]
+black = "black wetterdienst example tests"  # black code formatting
+lint = "flake8 wetterdienst example tests"
+test = "pytest tests"
 
 [tool.pytest.ini_options]
 markers = [
