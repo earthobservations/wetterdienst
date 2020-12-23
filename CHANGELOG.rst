@@ -5,6 +5,11 @@ Changelog
 Development
 ===========
 
+
+
+0.12.0 (23.12.2020)
+===================
+
 - Move more functionality into core classes
 - Add more attributes to the core e.g. source and timezone
 - Make dates of internal data timezone aware, set start date and end date to UTC
