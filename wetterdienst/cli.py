@@ -2,7 +2,6 @@
 import json
 import sys
 import logging
-from datetime import datetime, timedelta
 from pprint import pformat
 
 from docopt import docopt
@@ -310,18 +309,7 @@ def get_stations(options: Munch) -> pd.DataFrame:
     :return: nearby_stations
     """
 
-    # Obtain DWIM date range for station liveness.
-    # TODO: Obtain from user.
-    #   However, some dates will not work and Pandas will croak with:
-    #   KeyError: "None of [Int64Index([0, 0, 0, 0, 0], dtype='int64')] are in the [index]"
-    # See also https://github.com/earthobservations/wetterdienst/pull/145#discussion_r487698588.
-
-    days500 = datetime.utcnow() + timedelta(days=-500)
-    now = datetime.utcnow() + timedelta(days=-2)
-
-    start_date = datetime(days500.year, days500.month, days500.day)
-    end_date = datetime(now.year, now.month, now.day)
-
+    # TODO: Obtain DWIM date range for station liveness.
     stations = None
     if options.stations or (options.latitude and options.longitude):
         if options.observations:
@@ -329,8 +317,6 @@ def get_stations(options: Munch) -> pd.DataFrame:
                 parameter_set=options.parameter,
                 resolution=options.resolution,
                 period=options.period,
-                start_date=start_date,
-                end_date=end_date,
             )
         elif options.forecasts:
             stations = DWDMosmixStations()
