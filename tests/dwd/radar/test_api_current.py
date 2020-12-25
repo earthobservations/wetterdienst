@@ -27,7 +27,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     if results:
 
@@ -69,7 +69,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     if results:
 
@@ -112,7 +112,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
         elevation=1,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     assert len(results) <= 1
 
@@ -148,7 +148,7 @@ def test_radar_request_radolan_cdc_current(time_resolution):
         resolution=time_resolution,
     )
 
-    list(request.collect_data())
+    list(request.query())
 
 
 @pytest.mark.xfail
@@ -166,4 +166,4 @@ def test_radar_request_radolan_cdc_current_5min():
         start_date=DWDRadarDate.CURRENT,
     )
 
-    list(request.collect_data())
+    list(request.query())

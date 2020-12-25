@@ -24,7 +24,7 @@ def test_radar_request_site_historic_pe_wrong_parameters():
             site=DWDRadarSite.BOO,
             start_date=datetime.utcnow(),
         )
-        next(request.collect_data())
+        next(request.query())
 
     assert excinfo.typename == "ValueError"
     assert str(excinfo.value).startswith("Argument 'format' is missing")
@@ -44,7 +44,7 @@ def test_radar_request_site_historic_pe_future(caplog):
         fmt=DWDRadarDataFormat.BUFR,
         start_date="2099-01-01 00:00:00",
     )
-    results = list(request.collect_data())
+    results = list(request.query())
     assert results == []
 
     assert "WARNING" in caplog.text
@@ -64,7 +64,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5():
             start_date=DWDRadarDate.LATEST,
         )
 
-        list(request.collect_data())
+        list(request.query())
 
     assert excinfo.typename == "ValueError"
     assert str(excinfo.value).startswith("HDF5 data has no '-latest-' files")
@@ -82,7 +82,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters():
             start_date=DWDRadarDate.CURRENT,
         )
 
-        list(request.collect_data())
+        list(request.query())
 
     assert excinfo.typename == "ValueError"
     assert str(excinfo.value).startswith("Argument 'format' is missing")
@@ -99,7 +99,7 @@ def test_radar_request_site_without_site():
             start_date=DWDRadarDate.LATEST,
         )
 
-        list(request.collect_data())
+        list(request.query())
 
     assert excinfo.typename == "ValueError"
     assert str(excinfo.value).startswith("Argument 'site' is missing")
@@ -118,7 +118,7 @@ def test_radar_request_hdf5_without_subset():
             start_date=DWDRadarDate.MOST_RECENT,
         )
 
-        list(request.collect_data())
+        list(request.query())
 
     assert excinfo.typename == "ValueError"
     assert str(excinfo.value).startswith("Argument 'subset' is missing")
@@ -145,7 +145,7 @@ def test_radar_request_radolan_cdc_latest(time_resolution):
             start_date=DWDRadarDate.LATEST,
         )
 
-        list(request.collect_data())
+        list(request.query())
 
     assert excinfo.typename == "ValueError"
     assert str(excinfo.value).startswith("RADOLAN_CDC data has no '-latest-' files")

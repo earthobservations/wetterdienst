@@ -33,10 +33,8 @@ def _get_project_meta():
 pkg_meta = _get_project_meta()
 
 project = str(pkg_meta["name"])
-copyright = (
-    "2020, earthobservations including Benjamin Gutzmann, Daniel Lassahn, Andreas Motl"
-)
-author = "Benjamin Gutzmann, Daniel Lassahn, Andreas Motl"
+copyright = "Copyright (c) 2018-2020 earthobservations"
+author = str(pkg_meta["authors"])
 
 # The full version, including alpha/beta/rc tags
 version = str(pkg_meta["version"])

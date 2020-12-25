@@ -28,7 +28,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) == 1
@@ -70,7 +70,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) == 10
@@ -113,7 +113,7 @@ def test_radar_request_radolan_cdc_most_recent():
         start_date=DWDRadarDate.MOST_RECENT,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     assert len(results) == 1
 

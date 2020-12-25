@@ -20,7 +20,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
         start_date=DWDRadarDate.LATEST,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     month_year = datetime.utcnow().strftime("%m%y")
@@ -43,7 +43,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
         start_date=DWDRadarDate.LATEST,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     month_year = datetime.utcnow().strftime("%m%y")
@@ -68,7 +68,7 @@ def test_radar_request_site_latest_dx_reflectivity():
         site=DWDRadarSite.BOO,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     timestamp_aligned = round_minutes(datetime.utcnow(), 5)
