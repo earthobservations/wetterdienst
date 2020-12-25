@@ -86,7 +86,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data():
     with Path(HERE, "radolan_hourly_201908080050").open("rb") as f:
         radolan_hourly = BytesIO(f.read())
 
-    radolan_hourly_test = next(request.collect_data()).data
+    radolan_hourly_test = next(request.query()).data
 
     assert radolan_hourly.getvalue() == radolan_hourly_test.getvalue()
 
@@ -114,7 +114,7 @@ def test_radar_request_radolan_cdc_historic_daily_data():
     with Path(HERE, "radolan_daily_201908080050").open("rb") as f:
         radolan_hourly = BytesIO(f.read())
 
-    radolan_hourly_test = next(request.collect_data()).data
+    radolan_hourly_test = next(request.query()).data
 
     assert radolan_hourly.getvalue() == radolan_hourly_test.getvalue()
 
@@ -133,7 +133,7 @@ def test_radar_request_composite_historic_fx_yesterday():
         start_date=timestamp,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) == 25
@@ -168,7 +168,7 @@ def test_radar_request_composite_historic_fx_timerange():
         end_date=timedelta(minutes=10),
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) == 50
@@ -195,7 +195,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         start_date=timestamp,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -225,7 +225,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
         start_date=timestamp,
         end_date=timedelta(hours=3),
     )
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) == 3
@@ -248,7 +248,7 @@ def test_radar_request_site_historic_dx_yesterday():
         site=DWDRadarSite.BOO,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -279,7 +279,7 @@ def test_radar_request_site_historic_dx_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 6
 
     # TODO: Verify data.
@@ -304,7 +304,7 @@ def test_radar_request_site_historic_pe_binary_yesterday():
         fmt=DWDRadarDataFormat.BINARY,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -339,7 +339,7 @@ def test_radar_request_site_historic_pe_bufr():
         fmt=DWDRadarDataFormat.BUFR,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -385,7 +385,7 @@ def test_radar_request_site_historic_pe_timerange(format):
     assert request.start_date.minute % 5 == 0
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -405,7 +405,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday():
         site=DWDRadarSite.BOO,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -444,7 +444,7 @@ def test_radar_request_site_historic_px250_bufr_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -466,7 +466,7 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_yesterday():
         fmt=DWDRadarDataFormat.BUFR,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Read BUFR file.
@@ -503,7 +503,7 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -525,7 +525,7 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_yesterday():
         fmt=DWDRadarDataFormat.BUFR,
     )
 
-    buffer = next(request.collect_data())[1]
+    buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
     # Read BUFR file.
@@ -562,7 +562,7 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 60
 
     # TODO: Verify data.
@@ -584,7 +584,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
         fmt=DWDRadarDataFormat.HDF5,
         subset=DWDRadarDataSubset.SIMPLE,
     )
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of elements.
     assert len(results) == 1
@@ -640,7 +640,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -662,7 +662,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
         fmt=DWDRadarDataFormat.HDF5,
         subset=DWDRadarDataSubset.SIMPLE,
     )
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of elements.
     assert len(results) == 10
@@ -734,7 +734,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 60
 
     # TODO: Verify data.
@@ -758,7 +758,7 @@ def test_radar_request_radvor_re_yesterday():
         start_date=timestamp,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     assert len(results) == 25
 
@@ -796,7 +796,7 @@ def test_radar_request_radvor_re_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 3 * 25
 
     # TODO: Verify data.
@@ -820,7 +820,7 @@ def test_radar_request_radvor_rq_yesterday():
         start_date=timestamp,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     assert len(results) == 3
 
@@ -858,7 +858,7 @@ def test_radar_request_radvor_rq_timerange():
     )
 
     # Verify number of elements.
-    results = list(request.collect_data())
+    results = list(request.query())
     assert len(results) == 3 * 3
 
     # TODO: Verify data.

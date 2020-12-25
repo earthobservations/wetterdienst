@@ -23,7 +23,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) >= 12
@@ -64,7 +64,7 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5():
         subset=DWDRadarDataSubset.SIMPLE,
     )
 
-    results = list(request.collect_data())
+    results = list(request.query())
 
     # Verify number of results.
     assert len(results) >= 20

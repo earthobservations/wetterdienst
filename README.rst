@@ -88,23 +88,23 @@ Get historical data for specific stations, using Python:
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet,
-        DWDObservationPeriod, DWDObservationResolution
-
-    observations = DWDObservationData(
-        station_ids=[1048,4411],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY,
-                    DWDObservationParameterSet.SOLAR],
-        resolution=DWDObservationResolution.DAILY,
-        start_date="1990-01-01",
-        end_date="2020-01-01",
-        tidy_data=True,
-        humanize_column_names=True,
-    )
-
-    # Collect and analyse data here.
-    for df in observations.query():
-        print(df)
+    >>> from wetterdienst.dwd.observations import (
+    ...     DWDObservationData,
+    ...     DWDObservationParameterSet,
+    ...     DWDObservationPeriod,
+    ...     DWDObservationResolution
+    ... )
+    >>> observations = DWDObservationData(
+    ...    station_ids=[1048,4411],
+    ...    parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY,
+    ...                DWDObservationParameterSet.SOLAR],
+    ...    resolution=DWDObservationResolution.DAILY,
+    ...    start_date="1990-01-01",
+    ...    end_date="2020-01-01",
+    ...    tidy_data=True,
+    ...    humanize_parameters=True,
+    ... )
+    >>> df = observations.all()
 
 Get data for specific stations from the command line:
 
