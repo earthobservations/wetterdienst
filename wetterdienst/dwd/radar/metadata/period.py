@@ -1,8 +1,8 @@
 from enum import Enum
 
+from wetterdienst.metadata.period import Period
+
 
 class DWDRadarPeriod(Enum):
-    """ enumeration for different period types of storage on dwd server"""
-
-    HISTORICAL = "historical"
-    RECENT = "recent"
+    HISTORICAL = Period.HISTORICAL.value
+    RECENT = Period.RECENT.value

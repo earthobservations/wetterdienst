@@ -9,15 +9,16 @@ from dateutil.relativedelta import relativedelta
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
-    DWDObservationPeriod,
     DWDObservationResolution,
 )
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 
 def build_parameter_set_identifier(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
     station_id: str,
     date_range_string: Optional[str] = None,
 ) -> str:

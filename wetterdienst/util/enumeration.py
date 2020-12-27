@@ -7,14 +7,15 @@ from wetterdienst.exceptions import InvalidEnumeration
 
 
 def parse_enumeration_from_template(
-    enum_: Union[str, Enum],
-    enum_template: Type[Enum],
+    enum_: Union[str, Enum], intermediate: Type[Enum], base: Optional[Type[Enum]] = None
 ) -> Optional[Enum]:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template
 
     :param enum_:           Enumeration as string or Enum
-    :param enum_template:   Base enumeration from which the enumeration is parsed
+    :param intermediate:    intermediate enumeration from which the enumeration is
+                            parsed
+    :param base:            base enumeration to which the intermediate one is casted
 
     :return:                Parsed enumeration from template
     :raises InvalidParameter: if no matching enumeration found
@@ -33,17 +34,33 @@ def parse_enumeration_from_template(
             pass
 
     try:
-        return enum_template[enum_name]
+        enum_parsed = intermediate[enum_name]
     except (KeyError, AttributeError):
         try:
-            return enum_template(enum_)
+            enum_parsed = intermediate(enum_)
         except ValueError:
             raise InvalidEnumeration(
-                f"{enum_} could not be parsed from {enum_template.__name__}."
+                f"{enum_} could not be parsed from {intermediate.__name__}."
             )
 
+    if base:
+        try:
+            enum_parsed = base[enum_parsed.name]
+        except (KeyError, AttributeError):
+            try:
+                enum_parsed = base(enum_parsed)
+            except ValueError:
+                raise InvalidEnumeration(
+                    f"{enum_parsed} could not be parsed from {base.__name__}."
+                )
 
-def parse_enumeration(template, values):
+    return enum_parsed
+
+
+def parse_enumeration(values, intermediate, base=None):
     return list(
-        map(lambda x: parse_enumeration_from_template(x, template), as_list(values))
+        map(
+            lambda x: parse_enumeration_from_template(x, intermediate, base),
+            as_list(values),
+        )
     )

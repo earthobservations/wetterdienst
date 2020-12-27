@@ -9,14 +9,12 @@ from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPI
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns, DWDOrigMetaColumns
 from wetterdienst.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
 )
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 log = logging.getLogger(__name__)
 
@@ -35,8 +33,8 @@ PRECIPITATION_MINUTE_1_QUALITY = (
 def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
     parameter: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> pd.DataFrame:
     """
     This function is used to read the station data from given bytes object.
@@ -68,8 +66,8 @@ def parse_climate_observations_data(
 def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> pd.DataFrame:
     """
     A wrapping function that only handles data for one station id. The files passed to
@@ -114,7 +112,7 @@ def _parse_climate_observations_data(
 
     # Special handling for hourly solar data, as it has more date columns
     if (
-        resolution == DWDObservationResolution.HOURLY
+        resolution == Resolution.HOURLY
         and parameter_set == DWDObservationParameterSet.SOLAR
     ):
         # Rename date column correctly to end of interval, as it has additional minute
@@ -136,12 +134,12 @@ def _parse_climate_observations_data(
         df[DWDOrigMetaColumns.DATE.value] = df[DWDOrigMetaColumns.DATE.value].str[:-3]
 
     if (
-        resolution == DWDObservationResolution.MINUTE_1
+        resolution == Resolution.MINUTE_1
         and parameter_set == DWDObservationParameterSet.PRECIPITATION
     ):
         # Need to unfold historical data, as it is encoded in its run length e.g.
         # from time X to time Y precipitation is 0
-        if period == DWDObservationPeriod.HISTORICAL:
+        if period == Period.HISTORICAL:
             df[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value] = pd.to_datetime(
                 df[DWDOrigMetaColumns.FROM_DATE_ALTERNATIVE.value],
                 format=DatetimeFormat.YMDHM.value,

@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
 from pytz import timezone
@@ -7,7 +7,7 @@ from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
 
 
-class Core:
+class Core(metaclass=ABCMeta):
     """ Core class for any related requests of wetterdienst """
 
     # Time of request

@@ -13,12 +13,13 @@ from wetterdienst.dwd.observations.metadata.parameter_set import (
     RESOLUTION_PARAMETER_MAPPING,
 )
 from wetterdienst.exceptions import InvalidEnumeration, InvalidParameter
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
 def create_parameter_to_parameter_set_combination(
     parameter: Union[DWDObservationParameter, DWDObservationParameterSet],
-    resolution: DWDObservationResolution,
+    resolution: Resolution,
 ) -> Tuple[
     Union[DWDObservationParameter, DWDObservationParameterSet],
     DWDObservationParameterSet,

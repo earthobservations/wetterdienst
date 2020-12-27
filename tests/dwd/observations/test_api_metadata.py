@@ -4,6 +4,8 @@ from wetterdienst.dwd.observations import (
     DWDObservationPeriod,
     DWDObservationResolution,
 )
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 
 def test_dwd_observation_metadata_discover_parameters():
@@ -14,10 +16,10 @@ def test_dwd_observation_metadata_discover_parameters():
     ).discover_parameter_sets()
 
     assert parameters == {
-        str(DWDObservationResolution.DAILY): {
+        str(Resolution.DAILY): {
             str(DWDObservationParameterSet.CLIMATE_SUMMARY): [
-                str(DWDObservationPeriod.HISTORICAL),
-                str(DWDObservationPeriod.RECENT),
+                str(Period.HISTORICAL),
+                str(Period.RECENT),
             ]
         }
     }

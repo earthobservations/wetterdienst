@@ -5,6 +5,9 @@ Changelog
 Development
 ===========
 
+- Create general Resolution and Period enumerations that can be used anywhere
+- Create a full dataframe even if no values exist at requested time
+- Add further attributes to the class structure
 
 0.12.1 (29.12.2020)
 ===================

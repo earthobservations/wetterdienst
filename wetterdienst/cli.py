@@ -340,10 +340,7 @@ def get_stations(options: Munch) -> pd.DataFrame:
         if options.station:
             station_ids = read_list(options.station)
 
-            if options.observations:
-                stations = stations[stations.STATION_ID.isin(station_ids)]
-            else:
-                stations = stations[stations.WMO_ID.isin(station_ids)]
+            stations = stations[stations.STATION_ID.isin(station_ids)]
 
         return stations
     return pd.DataFrame()

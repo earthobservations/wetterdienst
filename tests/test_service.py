@@ -156,7 +156,6 @@ def test_dwd_readings_sql(dicts_are_same):
             "WHERE parameter='temperature_air_max_200' AND value < 1.5",
         },
     )
-
     assert response.status_code == 200
     assert dicts_are_same(
         response.json()["data"][0],
