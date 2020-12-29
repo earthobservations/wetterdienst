@@ -482,7 +482,7 @@ class DWDObservationStations(StationsCore):
         self,
         parameter_set: Union[str, DWDObservationParameterSet],
         resolution: Union[str, DWDObservationResolution],
-        period: Union[str, DWDObservationPeriod] = None,
+        period: Union[str, DWDObservationPeriod],
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
     ):

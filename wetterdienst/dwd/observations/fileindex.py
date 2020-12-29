@@ -102,11 +102,15 @@ def create_file_index_for_climate_observations(
         ] = file_index[DWDMetaColumns.DATE_RANGE.value].str.split("_", expand=True)
 
         file_index[DWDMetaColumns.FROM_DATE.value] = pd.to_datetime(
-            file_index[DWDMetaColumns.FROM_DATE.value], format=DatetimeFormat.YMD.value
+            file_index[DWDMetaColumns.FROM_DATE.value],
+            format=DatetimeFormat.YMD.value,
+            utc=True,
         )
 
         file_index[DWDMetaColumns.TO_DATE.value] = pd.to_datetime(
-            file_index[DWDMetaColumns.TO_DATE.value], format=DatetimeFormat.YMD.value
+            file_index[DWDMetaColumns.TO_DATE.value],
+            format=DatetimeFormat.YMD.value,
+            utc=True,
         )
 
         # Temporary fix for filenames with wrong ordered/faulty dates
