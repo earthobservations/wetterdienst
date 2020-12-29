@@ -5,6 +5,10 @@ Changelog
 Development
 ===========
 
+
+0.12.1 (29.12.2020)
+===================
+
 - Fix 10minutes file index interval range by adding timezone information
 
 0.12.0 (23.12.2020)
