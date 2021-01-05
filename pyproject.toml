@@ -87,7 +87,7 @@ tabulate = "^0.8.7"
 deprecation = "^2.1.0"
 
 # Conditionally installed for backward compatibility with older Python versions
-importlib_metadata              = { version = "^1.7.0", python = "<3.8" }
+importlib_metadata              = { version = ">=1.7,<4.0", python = "<3.8" }
 dataclasses                     = { version = "^0.7", python = "^3.6, <3.7" }
 
 # Optional dependencies aka. "extras"
