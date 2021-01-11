@@ -4,9 +4,9 @@ from datetime import datetime
 import pytest
 
 from wetterdienst.dwd.radar import DWDRadarData
-from wetterdienst.util.datetime import round_minutes
-from wetterdienst.dwd.radar.metadata import DWDRadarParameter, DWDRadarDate
+from wetterdienst.dwd.radar.metadata import DWDRadarDate, DWDRadarParameter
 from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.util.datetime import round_minutes
 
 
 @pytest.mark.remote

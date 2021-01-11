@@ -1,22 +1,22 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Union, Optional
+from typing import Optional, Union
 
 import pandas as pd
 
-from wetterdienst.dwd.radar.access import collect_radar_data, RadarResult
+from wetterdienst.dwd.radar.access import RadarResult, collect_radar_data
 from wetterdienst.dwd.radar.metadata import (
-    DWDRadarParameter,
-    DWDRadarDataFormat,
-    DWDRadarDate,
-    DWDRadarDataSubset,
     RADAR_PARAMETERS_RADOLAN,
-    DWDRadarResolution,
+    DWDRadarDataFormat,
+    DWDRadarDataSubset,
+    DWDRadarDate,
+    DWDRadarParameter,
     DWDRadarPeriod,
+    DWDRadarResolution,
 )
-from wetterdienst.dwd.radar.sites import DWDRadarSite, RADAR_LOCATIONS
+from wetterdienst.dwd.radar.sites import RADAR_LOCATIONS, DWDRadarSite
+from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.datetime import round_minutes, raster_minutes
 
 log = logging.getLogger(__name__)
 

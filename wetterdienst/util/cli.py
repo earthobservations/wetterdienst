@@ -1,6 +1,6 @@
 """ A set of utility functions """
-import sys
 import logging
+import sys
 from typing import List
 
 from munch import Munch, munchify

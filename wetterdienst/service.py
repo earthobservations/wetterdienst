@@ -2,20 +2,20 @@
 import json
 import logging
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixData, DWDMosmixType
+from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixStations, DWDMosmixType
 from wetterdienst.dwd.observations import (
-    DWDObservationPeriod,
-    DWDObservationParameterSet,
     DWDObservationData,
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
     DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.api import DWDObservationStations
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.cli import read_list
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 app = FastAPI(debug=False)
 

@@ -1,22 +1,22 @@
 import re
+from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
-from datetime import datetime, timedelta
 
 import h5py
 import pybufrkit
 import pytest
 
-from wetterdienst.util.datetime import round_minutes
 from wetterdienst.dwd.radar import (
     DWDRadarData,
-    DWDRadarParameter,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
-    DWDRadarResolution,
+    DWDRadarParameter,
     DWDRadarPeriod,
+    DWDRadarResolution,
 )
 from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.util.datetime import round_minutes
 
 HERE = Path(__file__).parent
 

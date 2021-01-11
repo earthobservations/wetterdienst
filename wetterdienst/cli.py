@@ -1,26 +1,26 @@
 # -*- coding: utf-8 -*-
 import json
-import sys
 import logging
+import sys
 from pprint import pformat
 
+import pandas as pd
 from docopt import docopt
 from munch import Munch
-import pandas as pd
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixData
-from wetterdienst.util.cli import normalize_options, setup_logging, read_list
-from wetterdienst.dwd.observations.api import (
-    DWDObservationData,
-    DWDObservationStations,
-    DWDObservationMetadata,
-)
+from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixStations
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
+from wetterdienst.dwd.observations.api import (
+    DWDObservationData,
+    DWDObservationMetadata,
+    DWDObservationStations,
+)
+from wetterdienst.util.cli import normalize_options, read_list, setup_logging
 
 log = logging.getLogger(__name__)
 

@@ -6,13 +6,13 @@ Acquire station information from DWD.
 
 """
 import logging
-
 from datetime import datetime
+
 from wetterdienst.dwd.observations import (
-    DWDObservationStations,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
+    DWDObservationStations,
 )
 
 log = logging.getLogger()

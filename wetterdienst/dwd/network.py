@@ -7,7 +7,6 @@ from requests.adapters import HTTPAdapter
 
 from wetterdienst.dwd.metadata.constants import DWD_SERVER
 
-
 logger = logging.getLogger(__name__)
 
 

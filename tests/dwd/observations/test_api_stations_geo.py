@@ -1,21 +1,19 @@
-from pathlib import Path
-
-import pytest
-import numpy as np
 from datetime import datetime
-from unittest.mock import patch, MagicMock
-import pandas as pd
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from wetterdienst.util.geo import derive_nearest_neighbours
-from wetterdienst.util.geo import Coordinates
+import numpy as np
+import pandas as pd
+import pytest
+
 from wetterdienst.dwd.observations import (
-    DWDObservationStations,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
+    DWDObservationStations,
 )
 from wetterdienst.exceptions import InvalidParameterCombination
-
+from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
 HERE = Path(__file__).parent
 METADATA_FILE = HERE / "FIXED_METADATA.JSON"

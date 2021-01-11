@@ -1,7 +1,7 @@
 import pytest
+from fastapi.testclient import TestClient
 
 from wetterdienst.service import app
-from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

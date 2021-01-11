@@ -1,17 +1,17 @@
 from datetime import datetime
-from typing import Union, Tuple, Optional
+from typing import Optional, Tuple, Union
 
 import dateparser
 import pandas as pd
 import pytz
 from dateutil.relativedelta import relativedelta
 
+from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
-from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 
 
 def build_parameter_set_identifier(

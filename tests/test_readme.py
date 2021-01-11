@@ -2,8 +2,8 @@
 # Copyright (c) 2018-2020 earthobservations
 # Copyright (c) 2018-2020 Andreas Motl <andreas.motl@panodata.org>
 # Copyright (c) 2018-2020 Benjamin Gutzmann <gutzemann@gmail.com>
-from pathlib import Path
 import doctest
+from pathlib import Path
 
 
 def test_readme():

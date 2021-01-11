@@ -1,6 +1,6 @@
 """ enumeration for period_type """
-from enum import Enum
 import functools
+from enum import Enum
 
 """
 Source: https://stackoverflow.com/questions/39268052/how-to-compare-enums-in-python

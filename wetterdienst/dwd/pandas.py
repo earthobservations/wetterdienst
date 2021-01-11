@@ -4,10 +4,9 @@ import json
 
 import pandas as pd
 
-from wetterdienst.dwd.observations.metadata import DWDObservationResolution
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.util import parse_datetime, mktimerange
-
+from wetterdienst.dwd.observations.metadata import DWDObservationResolution
+from wetterdienst.dwd.util import mktimerange, parse_datetime
 
 POSSIBLE_ID_VARS = (
     DWDMetaColumns.STATION_ID.value,

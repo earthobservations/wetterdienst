@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Union, Optional, Type
+from typing import Optional, Type, Union
 
 from numpy.distutils.misc_util import as_list
 

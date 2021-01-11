@@ -36,9 +36,7 @@ jobs:
       with:
         path: ~/.poetry
         key: ${{ matrix.os }}-${{ matrix.python-version }}-poetry-${{ hashFiles('poetry.lock') }}
-        restore-keys: |
-          ${{ matrix.os }}-${{ matrix.python-version }}-poetry-
     - name: Install library
       run: poetry install --extras=http --extras=sql --extras=excel
     - name: Test
-      run: poetry run pytest tests
+      run: poetry run poe test

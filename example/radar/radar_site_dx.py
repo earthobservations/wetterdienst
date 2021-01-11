@@ -26,14 +26,14 @@ Setup
 """
 import logging
 
+import matplotlib.pyplot as pl
 import numpy as np
 import wradlib as wrl
-import matplotlib.pyplot as pl
 
 from wetterdienst.dwd.radar import (
     DWDRadarData,
-    DWDRadarParameter,
     DWDRadarDate,
+    DWDRadarParameter,
     DWDRadarSite,
 )
 

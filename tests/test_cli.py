@@ -2,10 +2,11 @@ import json
 import shlex
 import sys
 import zipfile
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
-import pytest
 import docopt
+import pytest
+
 from wetterdienst import cli
 
 # Individual settings for observations and forecasts

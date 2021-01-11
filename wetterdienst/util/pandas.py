@@ -9,8 +9,9 @@ Extending pandas
 - https://pandas.pydata.org/pandas-docs/stable/development/extending.html
 """
 import logging
+from urllib.parse import parse_qs, urlparse
+
 import pandas as pd
-from urllib.parse import urlparse, parse_qs
 
 from wetterdienst.metadata.columns import Columns
 

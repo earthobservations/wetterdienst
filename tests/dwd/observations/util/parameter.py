@@ -1,12 +1,12 @@
 from wetterdienst.dwd.observations.metadata import (
-    DWDObsTimeResolution,
-    DWDObservationParameterSet,
     DWDObservationParameter,
+    DWDObservationParameterSet,
     DWDObsPeriodType,
+    DWDObsTimeResolution,
 )
 from wetterdienst.dwd.observations.util.parameter import (
-    create_parameter_to_parameter_set_combination,
     check_dwd_observations_parameter_set,
+    create_parameter_to_parameter_set_combination,
 )
 
 

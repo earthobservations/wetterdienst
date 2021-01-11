@@ -1,19 +1,17 @@
 """ Tests for data_collection """
-import pytest
-from pathlib import Path
 from io import StringIO
+from pathlib import Path
 
 import pandas as pd
+import pytest
 from mock import MagicMock, patch
 
-from wetterdienst.dwd.observations.access import (
-    collect_climate_observations_data,
-)
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
+from wetterdienst.dwd.observations.access import collect_climate_observations_data
 
 HERE = Path(__file__).parent
 

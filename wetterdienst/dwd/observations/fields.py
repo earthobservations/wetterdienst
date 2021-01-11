@@ -13,6 +13,7 @@ Synopsis::
 import re
 from collections import OrderedDict
 from io import StringIO
+
 from tabulate import tabulate
 
 from wetterdienst.util.pdf import read_pdf

@@ -4,10 +4,11 @@ import pytest
 
 from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter
 from wetterdienst.dwd.radar.metadata import (
-    DWDRadarResolution,
+    DWDRadarDataFormat,
+    DWDRadarDate,
     DWDRadarPeriod,
+    DWDRadarResolution,
 )
-from wetterdienst.dwd.radar.metadata import DWDRadarDate, DWDRadarDataFormat
 from wetterdienst.dwd.radar.sites import DWDRadarSite
 from wetterdienst.exceptions import InvalidEnumeration
 

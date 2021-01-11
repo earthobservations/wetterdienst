@@ -1,4 +1,3 @@
 # Load Pandas DataFrame extension.
 import wetterdienst.dwd.pandas
-
-from wetterdienst.dwd import observations, forecasts, radar
+from wetterdienst.dwd import forecasts, observations, radar

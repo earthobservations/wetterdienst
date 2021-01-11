@@ -17,7 +17,18 @@ jobs:
         architecture: x64
     - name: Setup Poetry
       uses: Gr1N/setup-poetry@v4
+    - name: Configure poetry
+      # FROM https://github.com/northtree/poetry-github-actions/actions/runs/170795796/workflow
+      run: |
+        poetry config virtualenvs.in-project false
+        poetry config cache-dir ~/.poetry
+        poetry config virtualenvs.path ~/.poetry/venv
+    - name: Load cached dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.poetry
+        key: ${{ runner.os }}-${{ runner.python-version }}-poetry-${{ hashFiles('poetry.lock') }}
     - name: Install library
       run: poetry install
     - name: Run lint on code
-      run: poetry run flake8 wetterdienst example tests
+      run: poetry run poe lint

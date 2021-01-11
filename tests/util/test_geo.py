@@ -1,5 +1,6 @@
-from wetterdienst.util.geo import Coordinates
 import numpy as np
+
+from wetterdienst.util.geo import Coordinates
 
 
 def test_get_coordinates():

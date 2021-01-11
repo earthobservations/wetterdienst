@@ -115,12 +115,13 @@ ipython = { version = "^7.10.1", optional = true }
 ipython-genutils = { version = "^0.2.0", optional = true }
 
 [tool.poetry.dev-dependencies]
-nox = "^2020.8.22"
 black = "^20.8b1"
-flake8 = "^3.8.3"
+flakehell = "^0.7.1"
+isort = "^5.7.0"
 flake8-black = "^0.2.1"
 flake8-bugbear = "^20.1.4"
 flake8-bandit = "^2.1.2"
+flake8-isort = "^4.0.0"
 coverage = {extras = ["toml"], version = "^5.3"}
 pytest = "^6.0.2"
 pytest-cov = "^2.10.1"
@@ -165,9 +166,47 @@ wddump = 'wetterdienst.dwd.radar.cli:wddump'
 from = {format = "poetry", path = "pyproject.toml"}
 to = {format = "pip", path = "requirements.txt"}
 
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.flakehell]
+exclude = [
+    "example/climate_observations.ipynb"
+]
+ignore = ["W503"]
+max-line-length = 88
+
+[tool.flakehell.plugins]
+flake8-bandit = ["+*"]
+flake8-black = ["+*"]
+flake8-bugbear = ["+*"]
+flake8-isort = ["+*"]
+
+[tool.flakehell.exceptions."__init__.py"]
+pycodestyle = ["-F401"]
+
+[tool.flakehell.exceptions."tests/"]
+flake8-bandit = ["-S101"]
+[tool.flakehell.exceptions."tests/dwd/radar/test_index.py"]
+flake8-bugbear = ["-E501", "-B950"]
+
+
+[tool.flakehell.exceptions."wetterdienst/cli.py"]
+flake8-bugbear = ["-E501", "-B950"]
+[tool.flakehell.exceptions."wetterdienst/service.py"]
+flake8-bugbear = ["-B008"]
+[tool.flakehell.exceptions."wetterdienst/util/pandas.py"]
+flake8-bugbear = ["-E501", "-B950"]
+[tool.flakehell.exceptions."wetterdienst/dwd/observations/metadata/column_types.py"]
+flake8-bugbear = ["-E501", "-B950"]
+[tool.flakehell.exceptions."wetterdienst/dwd/forecasts/metadata/column_types.py"]
+flake8-bugbear = ["-E501", "-B950"]
+
+
 [tool.poe.tasks]
-black = "black wetterdienst example tests"  # black code formatting
-lint = "flake8 wetterdienst example tests"
+format = "black wetterdienst example tests && isort wetterdienst example tests"  # black code formatting
+lint = "flakehell lint wetterdienst example tests"
 test = "pytest tests"
 export = "dephell deps convert"
 

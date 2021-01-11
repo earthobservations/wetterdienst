@@ -1,6 +1,4 @@
-from wetterdienst.dwd.metadata.column_names import (
-    DWDMetaColumns,
-)
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
 )

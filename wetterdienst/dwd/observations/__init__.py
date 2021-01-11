@@ -1,7 +1,7 @@
 from wetterdienst.dwd.observations.api import (
+    DWDObservationData,
     DWDObservationMetadata,
     DWDObservationStations,
-    DWDObservationData,
 )
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameter,

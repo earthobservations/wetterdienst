@@ -1,5 +1,9 @@
 import pytest
 
+from wetterdienst.dwd.index import (
+    _create_file_index_for_dwd_server,
+    build_path_to_parameter,
+)
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
@@ -7,10 +11,6 @@ from wetterdienst.dwd.observations import (
     DWDObservationResolution,
 )
 from wetterdienst.util.network import list_remote_files
-from wetterdienst.dwd.index import (
-    build_path_to_parameter,
-    _create_file_index_for_dwd_server,
-)
 
 
 def test_build_index_path():

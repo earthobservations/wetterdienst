@@ -1,12 +1,12 @@
 from datetime import datetime
 
-import pytest
 import dateparser
+import pytest
 from pandas import Timestamp
 from pytz import timezone
 
-from wetterdienst.dwd.util import parse_datetime, mktimerange
 from wetterdienst.dwd.observations import DWDObservationResolution
+from wetterdienst.dwd.util import mktimerange, parse_datetime
 
 # TODO: differentiate between no given timezone and given timezone
 

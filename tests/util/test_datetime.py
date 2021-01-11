@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from wetterdienst.util.datetime import round_minutes, raster_minutes
+from wetterdienst.util.datetime import raster_minutes, round_minutes
 
 
 def test_raster_50min_regular():

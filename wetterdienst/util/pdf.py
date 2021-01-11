@@ -1,6 +1,7 @@
-from io import StringIO, BytesIO
-import requests
+from io import BytesIO, StringIO
+
 import PyPDF2
+import requests
 
 
 def read_pdf(url):

@@ -22,8 +22,6 @@ jobs:
       with:
         path: ~/.poetry
         key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-poetry-
     - name: Install library
       run: poetry install --extras=http --extras=sql --extras=excel
     - name: Generate coverage report

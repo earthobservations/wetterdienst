@@ -1,4 +1,5 @@
 import json
+
 import mock
 import pandas as pd
 import pytest
@@ -7,8 +8,8 @@ from surrogate import surrogate
 from wetterdienst.dwd.observations import (
     DWDObservationData,
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.util import parse_datetime
 

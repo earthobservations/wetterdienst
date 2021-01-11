@@ -3,36 +3,32 @@ import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
-from typing import List, Union, Tuple, Optional
-from zipfile import ZipFile, BadZipFile
+from typing import List, Optional, Tuple, Union
+from zipfile import BadZipFile, ZipFile
 
 import pandas as pd
 from requests.exceptions import InvalidURL
 
+from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.observations.fileindex import (
     create_file_list_for_climate_observations,
-)
-from wetterdienst.util.cache import payload_cache_five_minutes
-from wetterdienst.dwd.util import (
-    build_parameter_set_identifier,
-)
-from wetterdienst.dwd.observations.util.parameter import (
-    check_dwd_observations_parameter_set,
 )
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
 )
+from wetterdienst.dwd.observations.parser import parse_climate_observations_data
+from wetterdienst.dwd.observations.util.parameter import (
+    check_dwd_observations_parameter_set,
+)
+from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import (
-    InvalidParameterCombination,
     FailedDownload,
+    InvalidParameterCombination,
     ProductFileNotFound,
 )
-from wetterdienst.dwd.observations.parser import (
-    parse_climate_observations_data,
-)
-from wetterdienst.dwd.network import download_file_from_dwd
+from wetterdienst.util.cache import payload_cache_five_minutes
 
 log = logging.getLogger(__name__)
 

@@ -1,8 +1,5 @@
 """ mapping from german column names to english column names"""
-from wetterdienst.dwd.metadata.column_names import (
-    DWDOrigMetaColumns,
-    DWDMetaColumns,
-)
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns, DWDOrigMetaColumns
 
 GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DWDOrigMetaColumns.STATION_ID.value: DWDMetaColumns.STATION_ID.value,

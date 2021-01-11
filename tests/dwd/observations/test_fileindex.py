@@ -3,14 +3,14 @@ import pytest
 import requests
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.observations import (
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
+    DWDObservationResolution,
+)
 from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
-)
-from wetterdienst.dwd.observations import (
-    DWDObservationResolution,
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
 )
 
 

@@ -1,22 +1,22 @@
+from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from datetime import datetime
 
-import pytest
 import pandas as pd
+import pytest
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
-    DWDObservationResolution,
     DWDObservationParameterSet,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.api import DWDObservationData
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameter,
     DWDObservationParameterSetStructure,
 )
-from wetterdienst.exceptions import StartDateEndDateError, NoParametersFound
+from wetterdienst.exceptions import NoParametersFound, StartDateEndDateError
 
 HERE = Path(__file__).parent
 

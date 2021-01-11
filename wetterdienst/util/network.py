@@ -1,6 +1,7 @@
-import requests
 from typing import List
 from urllib.parse import urljoin
+
+import requests
 from bs4 import BeautifulSoup
 
 session = requests.Session()
