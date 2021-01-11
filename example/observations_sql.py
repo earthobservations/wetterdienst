@@ -17,8 +17,8 @@ import logging
 
 from wetterdienst.dwd.observations import (
     DWDObservationData,
-    DWDObservationResolution,
     DWDObservationParameterSet,
+    DWDObservationResolution,
 )
 
 log = logging.getLogger()

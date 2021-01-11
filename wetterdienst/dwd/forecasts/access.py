@@ -3,15 +3,15 @@
 import logging
 from enum import Enum
 from io import BytesIO
+from os.path import basename
 from typing import List, Optional
 from zipfile import ZipFile
-from os.path import basename
 
-from lxml.etree import parse, XMLParser  # noqa: S410
-from pandas import DatetimeIndex
-from tqdm import tqdm
 import numpy as np
 import pandas as pd
+from lxml.etree import XMLParser, parse  # noqa: S410
+from pandas import DatetimeIndex
+from tqdm import tqdm
 
 from wetterdienst.dwd.network import create_dwd_session
 

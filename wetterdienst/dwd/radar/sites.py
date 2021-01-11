@@ -5,11 +5,10 @@ List of DWD radar sites.
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
 - https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
 """
+import warnings
 from enum import Enum
 
 import pandas as pd
-import warnings
-
 
 """ Information about all radar sites """
 RADAR_LOCATIONS = {
@@ -281,8 +280,8 @@ def get_dwd_radar_sites() -> dict:
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 if __name__ == "__main__":
-    import pout
     import black
+    import pout
 
     locations = get_dwd_radar_sites()
     print(black.format_str(pout.ss(locations), mode=black.Mode()))

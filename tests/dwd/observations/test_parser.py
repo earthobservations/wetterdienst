@@ -1,18 +1,16 @@
 """ Tests for parse_dwd_data function """
-from typing import Union
-from io import StringIO, BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
+from typing import Union
 
 import pandas as pd
 
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
-from wetterdienst.dwd.observations.parser import (
-    parse_climate_observations_data,
-)
+from wetterdienst.dwd.observations.parser import parse_climate_observations_data
 
 HERE = Path(__file__).parent
 

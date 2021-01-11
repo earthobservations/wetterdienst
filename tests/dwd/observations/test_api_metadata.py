@@ -1,8 +1,8 @@
 from wetterdienst.dwd.observations import (
     DWDObservationMetadata,
+    DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
-    DWDObservationParameterSet,
 )
 
 

@@ -8,7 +8,6 @@ import pandas as pd
 import pytz
 from pandas import Timestamp
 
-
 from wetterdienst.core.core import Core
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.util import parse_datetime

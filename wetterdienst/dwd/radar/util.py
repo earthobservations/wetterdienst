@@ -1,7 +1,8 @@
 import re
-import dateparser
-from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 
+import dateparser
+
+from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 
 # 6-character timestamps are used for data within "RADOLAN_CDC/historical".
 # Examples:

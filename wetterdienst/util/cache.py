@@ -1,10 +1,9 @@
-import os
 import logging
+import os
 import platform
 
 import appdirs
 from dogpile.cache import make_region
-
 
 log = logging.getLogger()
 

@@ -1,15 +1,15 @@
 from functools import reduce
-
 from urllib.parse import urljoin
+
 import pandas as pd
 
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER, DWDCDCBase
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
-from wetterdienst.dwd.metadata.constants import DWDCDCBase, DWD_SERVER, DWD_CDC_PATH
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.util.cache import (
     fileindex_cache_five_minutes,
     fileindex_cache_one_hour,

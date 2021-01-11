@@ -1,15 +1,15 @@
 """ tests for file index creation """
-import requests
 import pytest
+import requests
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.observations.metaindex import (
-    create_meta_index_for_climate_observations,
-)
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
+)
+from wetterdienst.dwd.observations.metaindex import (
+    create_meta_index_for_climate_observations,
 )
 
 

@@ -1,21 +1,18 @@
 """ function to read data from dwd server """
 import logging
-from typing import List, Tuple
 from io import BytesIO
+from typing import List, Tuple
 
 import pandas as pd
 
 from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns, DWDOrigMetaColumns
 from wetterdienst.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
-from wetterdienst.dwd.metadata.column_names import (
-    DWDOrigMetaColumns,
-    DWDMetaColumns,
-)
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,

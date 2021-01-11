@@ -2,8 +2,8 @@
 from enum import Enum
 from typing import Dict, List
 
-from wetterdienst.dwd.observations.metadata.resolution import DWDObservationResolution
 from wetterdienst.dwd.observations.metadata.period import DWDObservationPeriod
+from wetterdienst.dwd.observations.metadata.resolution import DWDObservationResolution
 
 
 class DWDObservationParameterSet(Enum):

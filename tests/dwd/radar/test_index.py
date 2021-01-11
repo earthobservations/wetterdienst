@@ -1,14 +1,16 @@
-import pytest
 from pathlib import PurePath
+
+import pytest
+
+from wetterdienst.dwd.radar.index import create_fileindex_radar
 from wetterdienst.dwd.radar.metadata import (
-    DWDRadarParameter,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
-    DWDRadarResolution,
+    DWDRadarParameter,
     DWDRadarPeriod,
+    DWDRadarResolution,
 )
 from wetterdienst.dwd.radar.sites import DWDRadarSite
-from wetterdienst.dwd.radar.index import create_fileindex_radar
 
 
 def test_radar_fileindex_composite_pg_reflectivity_bin():

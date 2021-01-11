@@ -3,10 +3,10 @@ from pathlib import Path
 import pytest
 
 from example import (
+    dwd_describe_fields,
     mosmix_forecasts,
     observations_sql,
     observations_stations,
-    dwd_describe_fields,
 )
 
 THIS = Path(__name__).parent.absolute()

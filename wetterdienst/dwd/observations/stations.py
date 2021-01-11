@@ -2,18 +2,18 @@ import logging
 
 import pandas as pd
 
-from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameterSet,
-    DWDObservationResolution,
-    DWDObservationPeriod,
-)
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
+)
+from wetterdienst.dwd.observations.metadata import (
+    DWDObservationParameterSet,
+    DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,
 )
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 
 logger = logging.getLogger(__name__)
 

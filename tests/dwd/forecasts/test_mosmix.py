@@ -1,4 +1,5 @@
 import pytest
+
 from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
 
 

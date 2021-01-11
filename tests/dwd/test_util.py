@@ -1,22 +1,20 @@
 from unittest.mock import patch
 
 import mock
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 from pandas._testing import assert_frame_equal
 
-from wetterdienst.dwd.util import (
-    build_parameter_set_identifier,
-)
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.dwd.observations import (
+    DWDObservationData,
+    DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
-    DWDObservationParameterSet,
-    DWDObservationData,
 )
+from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidEnumeration
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
 def test_parse_enumeration_from_template():

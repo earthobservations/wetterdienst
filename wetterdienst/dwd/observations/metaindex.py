@@ -1,36 +1,34 @@
+import datetime as dt
 import re
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
 from io import BytesIO
-from typing import Tuple, List
-from concurrent.futures import ThreadPoolExecutor
-import datetime as dt
-
+from typing import List, Tuple
 from urllib.parse import urljoin
+
 import pandas as pd
 from requests.exceptions import InvalidURL
 
-from wetterdienst.util.cache import metaindex_cache
+from wetterdienst.dwd.index import build_path_to_parameter
+from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import (
-    DWDCDCBase,
-    DWD_SERVER,
     DWD_CDC_PATH,
-    STATION_ID_REGEX,
+    DWD_SERVER,
     NA_STRING,
     STATION_DATA_SEP,
-)
-from wetterdienst.dwd.metadata.column_map import (
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
+    STATION_ID_REGEX,
+    DWDCDCBase,
 )
 from wetterdienst.dwd.network import download_file_from_dwd
-from wetterdienst.dwd.index import build_path_to_parameter
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
 )
 from wetterdienst.exceptions import MetaFileNotFound
+from wetterdienst.util.cache import metaindex_cache
 from wetterdienst.util.network import list_remote_files
 
 METADATA_COLUMNS = [

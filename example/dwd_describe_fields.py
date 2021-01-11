@@ -8,12 +8,11 @@ Acquire information about the data fields from DWD.
 import logging
 from pprint import pprint
 
-
-from wetterdienst.dwd.observations import DWDObservationMetadata
 from wetterdienst.dwd.observations import (
+    DWDObservationMetadata,
     DWDObservationParameterSet,
-    DWDObservationResolution,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
 
 log = logging.getLogger()

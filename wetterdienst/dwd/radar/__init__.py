@@ -1,9 +1,9 @@
 from wetterdienst.dwd.radar.api import DWDRadarData
 from wetterdienst.dwd.radar.metadata import (
-    DWDRadarParameter,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
     DWDRadarDate,
+    DWDRadarParameter,
     DWDRadarPeriod,
     DWDRadarResolution,
 )

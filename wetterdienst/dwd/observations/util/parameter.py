@@ -1,10 +1,10 @@
 from typing import Tuple, Union
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObservationResolution,
     DWDObservationParameter,
     DWDObservationParameterSet,
     DWDObservationPeriod,
+    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
@@ -12,8 +12,8 @@ from wetterdienst.dwd.observations.metadata.parameter import (
 from wetterdienst.dwd.observations.metadata.parameter_set import (
     RESOLUTION_PARAMETER_MAPPING,
 )
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.exceptions import InvalidEnumeration, InvalidParameter
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
 def create_parameter_to_parameter_set_combination(

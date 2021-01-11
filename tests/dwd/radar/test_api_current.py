@@ -3,10 +3,10 @@ import pytest
 
 from wetterdienst.dwd.radar import (
     DWDRadarData,
-    DWDRadarParameter,
-    DWDRadarDate,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
+    DWDRadarDate,
+    DWDRadarParameter,
     DWDRadarResolution,
 )
 from wetterdienst.dwd.radar.sites import DWDRadarSite

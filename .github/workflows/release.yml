@@ -16,7 +16,7 @@ jobs:
     - name: Install library
       run: poetry install --extras=http --extras=sql --extras=excel
     - name: Test
-      run: poetry run pytest tests
+      run: poetry run poe test
     - name: Build
       run: poetry build
     - name: Publish

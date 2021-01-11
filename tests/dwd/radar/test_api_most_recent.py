@@ -5,9 +5,9 @@ import pytest
 
 from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter
 from wetterdienst.dwd.radar.metadata import (
-    DWDRadarDate,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
+    DWDRadarDate,
     DWDRadarResolution,
 )
 from wetterdienst.dwd.radar.sites import DWDRadarSite
