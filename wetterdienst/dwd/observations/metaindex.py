@@ -22,12 +22,10 @@ from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
 )
 from wetterdienst.dwd.network import download_file_from_dwd
-from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
 from wetterdienst.exceptions import MetaFileNotFound
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import metaindex_cache
 from wetterdienst.util.network import list_remote_files
 
@@ -63,8 +61,8 @@ METADATA_FIXED_COLUMN_WIDTH = [
 @metaindex_cache.cache_on_arguments()
 def create_meta_index_for_climate_observations(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> pd.DataFrame:
     """
     Wrapper function that either calls the regular meta index function for general
@@ -80,8 +78,8 @@ def create_meta_index_for_climate_observations(
         pandas.DataFrame with meta index for the selected set of arguments
     """
     cond = (
-        resolution == DWDObservationResolution.MINUTE_1
-        and period == DWDObservationPeriod.HISTORICAL
+        resolution == Resolution.MINUTE_1
+        and period == Period.HISTORICAL
         and parameter_set == DWDObservationParameterSet.PRECIPITATION
     )
 
@@ -97,8 +95,8 @@ def create_meta_index_for_climate_observations(
     if DWDMetaColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
             DWDObservationParameterSet.PRECIPITATION_MORE,
-            DWDObservationResolution.DAILY,
-            DWDObservationPeriod.HISTORICAL,
+            Resolution.DAILY,
+            Period.HISTORICAL,
         )
 
         meta_index = pd.merge(
@@ -116,8 +114,8 @@ def create_meta_index_for_climate_observations(
 
 def _create_meta_index_for_climate_observations(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> pd.DataFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
@@ -171,7 +169,7 @@ def _create_meta_index_for_climate_observations(
 
     meta_index = meta_index.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    return meta_index  # .astype(METADATA_DTYPE_MAPPING)
+    return meta_index
 
 
 def _find_meta_file(files: List[str], url: str) -> str:
@@ -207,7 +205,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     """
 
     parameter_path = (
-        f"{DWDObservationResolution.MINUTE_1.value}/"
+        f"{Resolution.MINUTE_1.value}/"
         f"{DWDObservationParameterSet.PRECIPITATION.value}/"
     )
 

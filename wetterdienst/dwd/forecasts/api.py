@@ -7,8 +7,7 @@ from urllib.parse import urljoin
 import pandas as pd
 from requests import HTTPError
 
-from wetterdienst.core.point_data import PointDataCore
-from wetterdienst.core.stations import StationsCore
+from wetterdienst.core.point_data import PointDataStationsCore, PointDataValuesCore
 from wetterdienst.dwd.forecasts.access import KMLReader
 from wetterdienst.dwd.forecasts.metadata import (
     DWDForecastDate,
@@ -24,6 +23,9 @@ from wetterdienst.dwd.metadata.constants import (
     DWD_SERVER,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.result import Result
 from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
@@ -33,7 +35,7 @@ from wetterdienst.util.network import list_remote_files
 log = logging.getLogger(__name__)
 
 
-class DWDMosmixData(PointDataCore):
+class DWDMosmixData(PointDataValuesCore):
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
@@ -85,6 +87,11 @@ class DWDMosmixData(PointDataCore):
     def _string_parameters(self) -> Tuple[str]:
         return tuple()
 
+    _resolution_type = ResolutionType.FIXED
+    _resolution_base = None
+    _period_type = PeriodType.FIXED
+    _period_base = None
+
     def __init__(
         self,
         station_ids: Tuple[str],
@@ -123,9 +130,12 @@ class DWDMosmixData(PointDataCore):
         super(DWDMosmixData, self).__init__(
             station_ids=station_ids,
             parameters=parameters,
+            resolution=Resolution.HOURLY,
+            period=Period.FUTURE,
             start_date=start_date,
             end_date=end_date,
             humanize_parameters=humanize_parameters,
+            tidy_data=tidy_data,
         )
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DWDMosmixType)
 
@@ -212,7 +222,7 @@ class DWDMosmixData(PointDataCore):
             station_id = forecast_df[DWDMetaColumns.STATION_ID.value].iloc[0]
 
             station_metadata = self.metadata[
-                self.metadata[DWDMetaColumns.WMO_ID.value] == station_id
+                self.metadata[DWDMetaColumns.STATION_ID.value] == station_id
             ].reset_index(drop=True)
 
             metadata_df = metadata_df.rename(columns=str.upper).reset_index(drop=True)
@@ -350,7 +360,7 @@ class DWDMosmixData(PointDataCore):
         return df_urls["URL"].item()
 
 
-class DWDMosmixStations(StationsCore):
+class DWDMosmixStations(PointDataStationsCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
     @property
@@ -361,10 +371,29 @@ class DWDMosmixStations(StationsCore):
     def _tz(self) -> Timezone:
         return Timezone.GERMANY
 
+    _base_columns = [
+        Columns.STATION_ID.value,
+        Columns.ICAO_ID.value,
+        Columns.FROM_DATE.value,
+        Columns.TO_DATE.value,
+        Columns.STATION_HEIGHT.value,
+        Columns.LATITUDE.value,
+        Columns.LONGITUDE.value,
+        Columns.STATION_NAME.value,
+        Columns.STATE.value,
+    ]
+
+    _resolution_type = ResolutionType.FIXED
+    _resolution_base = None
+    _period_type = PeriodType.FIXED
+    _period_base = None
+
     def __init__(self) -> None:
         super().__init__(
             start_date=None,
             end_date=None,
+            resolution=Resolution.HOURLY,
+            period=Period.FUTURE,
         )
 
     def _all(self):

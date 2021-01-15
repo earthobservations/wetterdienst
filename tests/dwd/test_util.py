@@ -14,6 +14,7 @@ from wetterdienst.dwd.observations import (
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidEnumeration
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
@@ -45,10 +46,11 @@ def test_coerce_field_types():
 
     def __init__(self):
         self.tidy_data = False
-        self.resolution = DWDObservationResolution.HOURLY
+        self.resolution = Resolution.HOURLY
 
     with patch.object(DWDObservationData, "__init__", __init__):
         observations = DWDObservationData()
+        df = observations._coerce_dates(df)
         df = observations._coerce_meta_fields(df)
         df = observations._coerce_parameter_types(df)
 

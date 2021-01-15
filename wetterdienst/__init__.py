@@ -2,6 +2,8 @@
 __appname__ = "wetterdienst"
 
 from wetterdienst import dwd
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/

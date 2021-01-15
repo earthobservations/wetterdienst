@@ -12,6 +12,8 @@ from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
 )
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 
 @pytest.mark.remote
@@ -58,8 +60,8 @@ def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
         station_id="00003",
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
-        resolution=DWDObservationResolution.MINUTE_10,
-        period=DWDObservationPeriod.HISTORICAL,
+        resolution=Resolution.MINUTE_10,
+        period=Period.HISTORICAL,
         date_range="19930428_19991231",
     )
 

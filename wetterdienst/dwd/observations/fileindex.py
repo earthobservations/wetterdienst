@@ -11,20 +11,18 @@ from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
 from wetterdienst.dwd.observations.metadata.resolution import HIGH_RESOLUTIONS
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 
 def create_file_list_for_climate_observations(
     station_id: str,
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
     date_range: Optional[str] = None,
 ) -> List[str]:
     """
@@ -58,8 +56,8 @@ def create_file_list_for_climate_observations(
 @fileindex_cache_twelve_hours.cache_on_arguments()
 def create_file_index_for_climate_observations(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> pd.DataFrame:
     """
     Function (cached) to create a file index of the DWD station data. The file index
@@ -89,7 +87,7 @@ def create_file_index_for_climate_observations(
         DWDMetaColumns.STATION_ID.value
     ].astype(str)
 
-    if resolution in HIGH_RESOLUTIONS and period == DWDObservationPeriod.HISTORICAL:
+    if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
         file_index[DWDMetaColumns.DATE_RANGE.value] = (
             file_index[DWDMetaColumns.FILENAME.value]

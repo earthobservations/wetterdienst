@@ -28,6 +28,8 @@ from wetterdienst.exceptions import (
     InvalidParameterCombination,
     ProductFileNotFound,
 )
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import payload_cache_five_minutes
 
 log = logging.getLogger(__name__)
@@ -38,8 +40,8 @@ PRODUCT_FILE_IDENTIFIER = "produkt"
 def collect_climate_observations_data(
     station_id: str,
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
     date_range: Optional[str] = None,
 ) -> pd.DataFrame:
     """

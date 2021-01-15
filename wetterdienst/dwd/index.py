@@ -5,11 +5,9 @@ import pandas as pd
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER, DWDCDCBase
-from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import (
     fileindex_cache_five_minutes,
     fileindex_cache_one_hour,
@@ -19,8 +17,8 @@ from wetterdienst.util.network import list_remote_files
 
 def _create_file_index_for_dwd_server(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
     cdc_base: DWDCDCBase,
 ) -> pd.DataFrame:
     """
@@ -55,8 +53,8 @@ def reset_file_index_cache() -> None:
 
 def build_path_to_parameter(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> str:
     """
     Function to build a indexing file path
@@ -69,8 +67,8 @@ def build_path_to_parameter(
         indexing file path relative to climate observations path
     """
     if parameter_set == DWDObservationParameterSet.SOLAR and resolution in (
-        DWDObservationResolution.HOURLY,
-        DWDObservationResolution.DAILY,
+        Resolution.HOURLY,
+        Resolution.DAILY,
     ):
         return f"{resolution.value}/{parameter_set.value}/"
 

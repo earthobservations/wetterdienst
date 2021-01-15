@@ -1,27 +1,108 @@
 # -*- coding: utf-8 -*-
 from abc import abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from enum import Enum
 from logging import getLogger
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import dateparser
+import numpy as np
 import pandas as pd
 import pytz
 from pandas._libs.tslibs.timestamps import Timestamp
 from pytz import timezone
+from tqdm import tqdm
 
 from wetterdienst.core.core import Core
+from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.util import parse_datetime
 from wetterdienst.exceptions import NoParametersFound, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.metadata.result import Result
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
 log = getLogger(__name__)
 
 
+EARTH_RADIUS_KM = 6371
+
+# TODO: move more attributes to __init__
+
+
 class PointDataCore(Core):
+    """Core for resolution based classes, not part of PointDataCore as it may not be
+    needed for metadata"""
+
+    @property
+    def resolution(self) -> Optional[Resolution]:
+        """ Resolution accessor"""
+        return self._resolution
+
+    @resolution.setter
+    def resolution(self, res) -> None:
+        # TODO: add functionality to parse arbitrary resolutions for cases where
+        #  resolution has to be determined based on returned data
+        if self._resolution_type in (ResolutionType.FIXED, ResolutionType.UNDEFINED):
+            self._resolution = res
+        else:
+            self._resolution = parse_enumeration_from_template(
+                res, self._resolution_base, Resolution
+            )
+
+    @property
+    @abstractmethod
+    def _resolution_base(self) -> Optional[Resolution]:
+        """ Optional enumeration for multiple resolutions """
+        pass
+
+    @property
+    @abstractmethod
+    def _resolution_type(self) -> ResolutionType:
+        """ Resolution type, multi, fixed, ..."""
+        pass
+
+    # TODO: implement for source with dynamic resolution
+    @staticmethod
+    def _determine_resolution(dates: pd.Series) -> Resolution:
+        """ Function to determine resolution from a pandas Series of dates """
+        pass
+
+    @property
+    def frequency(self) -> Frequency:
+        """Frequency for the given resolution, used to create a full date range for
+        mering"""
+        return Frequency[self.resolution.name]
+
+    @property
+    @abstractmethod
+    def _period_type(self) -> PeriodType:
+        """ Period type, fixed, multi, ..."""
+        pass
+
+    @property
+    @abstractmethod
+    def _period_base(self) -> Optional[Period]:
+        """ Period base enumeration from which a period string can be parsed """
+        pass
+
+    @abstractmethod
+    def _parse_period(self, period: List[Period]):
+        """ Method for parsing period depending on if multiple are given """
+        pass
+
+    def __init__(
+        self, resolution: Resolution, period: Union[Period, List[Period]]
+    ) -> None:
+        self.resolution = resolution
+        self.period = self._parse_period(period)
+
+
+class PointDataValuesCore(PointDataCore):
     """ Core for sources of point data where data is related to a station """
 
     # Fields for type coercion, needed for separation from fields with actual data
@@ -41,16 +122,6 @@ class PointDataCore(Core):
     #  data
 
     # TODO: add data type (forecast, observation, ...)
-
-    # TODO: think about adding untidy/tidy tabular/row-based attribute as we already
-    #  have two sources of data with both schemes
-
-    @property
-    @abstractmethod
-    def _tidy(self) -> bool:
-        """Attribute that tells if data is tidy or has a tidy argument meaning that it
-        may have two different shapes (column-based/tabular vs row-based)"""
-        pass
 
     @property
     @abstractmethod
@@ -96,13 +167,58 @@ class PointDataCore(Core):
         DWDObservationParameter"""
         pass
 
+    @property
+    def _complete_dates(self) -> pd.DatetimeIndex:
+        return pd.date_range(
+            self.start_date, self.end_date, freq=self.frequency.value, tz=self.data_tz
+        )
+
+    @property
+    def _base_df(self) -> pd.DataFrame:
+        """Base dataframe which is used for creating empty dataframes if no data is
+        found or for merging other dataframes on the full dates"""
+        return pd.DataFrame({Columns.DATE.value: self._complete_dates})
+
+    # TODO: change either _base_df to contain parameter and station id or _add_meta to
+    #  work with parameter sets such as seen at the DWD (where a parameter could also be
+    #  something more complex then precipitation but climate_summary
+    # def _add_meta(self, df, station_id: str, parameter: Enum) -> pd.DataFrame:
+    #     df[Columns.STATION_ID.value] = station_id
+    #
+    #     if self.tidy_data:
+    #         if parameter in self._parameter_base:
+    #             df[Columns.PARAMETER.value] = parameter.value
+    #         df[Columns.VALUE.value] = pd.NA
+    #         df[Columns.QUALITY.value] = pd.NA
+    #
+    #     return df
+
+    def _parse_period(self, period: List[Period]):
+        """ Parsing method for period, depending on the type of period"""
+        if not period:
+            return None
+        elif self._period_type == PeriodType.FIXED:
+            return period
+        else:
+            return (
+                pd.Series(period)
+                .apply(
+                    parse_enumeration_from_template, args=(self._period_base, Period)
+                )
+                .sort_values()
+                .tolist()
+            )
+
     def __init__(
         self,
         station_ids: Tuple[str],
         parameters: Tuple[Union[str, Enum]],
-        start_date: Optional[Union[str, Timestamp, datetime]] = None,
-        end_date: Optional[Union[str, Timestamp, datetime]] = None,
-        humanize_parameters: bool = False,
+        resolution: Resolution,
+        period: Period,
+        start_date: Optional[Union[str, Timestamp, datetime]],
+        end_date: Optional[Union[str, Timestamp, datetime]],
+        humanize_parameters: bool,
+        tidy_data: bool,
     ) -> None:
         """
 
@@ -116,6 +232,8 @@ class PointDataCore(Core):
         :param humanize_parameters: bool if parameters should be renamed to meaningful
         names
         """
+        super(PointDataValuesCore, self).__init__(resolution=resolution, period=period)
+
         # Make sure we receive a list of ids
         self.station_ids = pd.Series(station_ids).astype(str).tolist()
         self.parameters = self._parse_parameters(parameters)
@@ -147,6 +265,7 @@ class PointDataCore(Core):
         self.start_date = start_date
         self.end_date = end_date
         self.humanize_parameters = humanize_parameters
+        self.tidy_data = tidy_data
 
     def __eq__(self, other):
         """ Equal method of request object """
@@ -192,15 +311,90 @@ class PointDataCore(Core):
             .tolist()
         )
 
+    def _get_empty_station_parameter_df(
+        self, station_id: str, parameter: Union[Enum, List[Enum]]
+    ) -> pd.DataFrame:
+        parameter = pd.Series(parameter).apply(lambda x: x.value).tolist()
+        df = self._base_df
+
+        # Base columns
+        columns = [Columns.STATION_ID.value, Columns.DATE.value]
+
+        if self.tidy_data:
+            columns.extend(
+                [Columns.PARAMETER.value, Columns.VALUE.value, Columns.QUALITY.value]
+            )
+        else:
+            columns.extend(parameter)
+
+        df = df.reindex(columns=columns)
+
+        df[Columns.STATION_ID.value] = station_id
+
+        if self.tidy_data:
+            if len(parameter) == 1:
+                parameter = parameter[0]
+            df[Columns.PARAMETER.value] = parameter
+
+        return df
+
+    def _build_complete_df(
+        self, df: pd.DataFrame, station_id: str, parameter: Enum
+    ) -> pd.DataFrame:
+        # For cases where requests are not defined by start and end date but rather by
+        # periods, use the returned df without modifications
+        # We may put a standard date range here if no data is found
+        if not self.start_date:
+            return df
+
+        df = pd.merge(
+            left=self._base_df,
+            right=df,
+            left_on=Columns.DATE.value,
+            right_on=Columns.DATE.value,
+            how="left",
+        )
+
+        if self.tidy_data:
+            df[Columns.STATION_ID.value] = station_id
+            df[Columns.PARAMETER.value] = parameter.value
+
+        return df
+
     def query(self) -> Generator[Result, None, None]:
         """Core method for data collection, iterating of station ids and yielding a
         DataFrame for each station with all found parameters. Takes care of type
         coercion of data, date filtering and humanizing of parameters."""
         for station_id in self.station_ids:
+
+            # TODO: add method to return empty result with correct response string e.g.
+            #  station id not available
             station_data = []
 
             for parameter in self.parameters:
                 parameter_df = self._collect_station_parameter(station_id, parameter)
+
+                # TODO: solve exceptional case where empty df and dynamic resolution
+                if self._resolution_type == ResolutionType.DYNAMIC:
+                    self.resolution = self._determine_resolution(
+                        parameter_df[Columns.DATE.value]
+                    )
+
+                # TODO: move tidying of data outside collect method to apply it here
+                #  after collecting data/ if data is empty "tidy" the created base_df
+                #  instead
+                if parameter_df.empty:
+                    parameter_df = self._get_empty_station_parameter_df(
+                        station_id, parameter
+                    )
+                else:
+                    # Merge on full date range if values are found to ensure result
+                    # even if no actual values exist
+                    self._coerce_dates(parameter_df)
+
+                    parameter_df = self._build_complete_df(
+                        parameter_df, station_id, parameter
+                    )
 
                 station_data.append(parameter_df)
 
@@ -236,7 +430,7 @@ class PointDataCore(Core):
         # TODO: remove method at some point
         log.warning("method self.collect_data() will deprecate. change to self.query()")
 
-        yield from self.all()
+        yield from self.query()
 
     @abstractmethod
     def _collect_station_parameter(self, station_id: str, parameter) -> pd.DataFrame:
@@ -254,6 +448,19 @@ class PointDataCore(Core):
         """
         pass
 
+    def _coerce_dates(self, df: pd.DataFrame) -> pd.DataFrame:
+        for column in (
+            Columns.DATE.value,
+            Columns.FROM_DATE.value,
+            Columns.TO_DATE.value,
+        ):
+            try:
+                df[column] = self._parse_datetimes(df[column])
+            except KeyError:
+                pass
+
+        return df
+
     def _coerce_meta_fields(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Method that coerces meta fields. Those fields are expected to be found in the
@@ -265,21 +472,11 @@ class PointDataCore(Core):
         :param df: pandas.DataFrame with the "fresh" data
         :return: pandas.DataFrame with meta fields being coerced
         """
-        df[Columns.STATION_ID.value] = self._parse_strings(
+        df[Columns.STATION_ID.value] = self._parse_station_ids(
             df[Columns.STATION_ID.value]
         ).astype("category")
 
-        for column in (
-            Columns.DATE.value,
-            Columns.FROM_DATE.value,
-            Columns.TO_DATE.value,
-        ):
-            try:
-                df[column] = self._parse_datetimes(df[column])
-            except KeyError:
-                pass
-
-        if self._tidy:
+        if self.tidy_data:
             df[Columns.PARAMETER.value] = self._parse_strings(
                 df[Columns.PARAMETER.value]
             ).astype("category")
@@ -290,6 +487,11 @@ class PointDataCore(Core):
                 ).astype("category")
 
         return df
+
+    def _parse_station_ids(self, series: pd.Series) -> pd.Series:
+        """Dedicated method for parsing station ids, by default uses the same method as
+        parse_strings but could be modified by the implementation class"""
+        return self._parse_strings(series)
 
     def _parse_datetimes(self, series: pd.Series) -> pd.Series:
         """Method to parse dates in the pandas.DataFrame. Leverages the data timezone
@@ -332,7 +534,7 @@ class PointDataCore(Core):
 
     def _coerce_parameter_types(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Method for parameter type coercion. Depending on the shape of the data. """
-        if not self._tidy:
+        if not self.tidy_data:
             for column in df.columns:
                 if column in self._meta_fields:
                     continue
@@ -374,7 +576,10 @@ class PointDataCore(Core):
 
     def all(self) -> pd.DataFrame:
         """ Collect all data from self.collect_data """
-        data = list(map(lambda x: x.data, self.query()))
+        data = []
+
+        for result in tqdm(self.query(), total=len(self.station_ids)):
+            data.append(result.data)
 
         if not data:
             raise ValueError("No data available for given constraints")
@@ -384,7 +589,7 @@ class PointDataCore(Core):
         # Have to reapply category dtype after concatenation
         for column in (
             Columns.STATION_ID.value,
-            Columns.ELEMENT.value,
+            Columns.PARAMETER.value,
             Columns.QUALITY.value,
         ):
             try:
@@ -392,7 +597,7 @@ class PointDataCore(Core):
             except KeyError:
                 pass
 
-        df.attrs["tidy"] = self._tidy
+        df.attrs["tidy"] = self.tidy_data
 
         return df
 
@@ -406,7 +611,7 @@ class PointDataCore(Core):
         """ Method for humanizing parameters. """
         hcnm = self._create_humanized_parameters_mapping()
 
-        if not self._tidy:
+        if not self.tidy_data:
             df = df.rename(columns=hcnm)
         else:
             df[Columns.PARAMETER.value] = df[
@@ -421,3 +626,207 @@ class PointDataCore(Core):
         hcnm = {parameter.value: parameter.name for parameter in self._parameter_base}
 
         return hcnm
+
+
+class PointDataStationsCore(PointDataCore):
+    """ Core for stations information of a source """
+
+    # Columns that should be contained within any stations information
+    _base_columns = (
+        Columns.STATION_ID.value,
+        Columns.FROM_DATE.value,
+        Columns.TO_DATE.value,
+        Columns.STATION_HEIGHT.value,
+        Columns.LATITUDE.value,
+        Columns.LONGITUDE.value,
+        Columns.STATION_NAME.value,
+        Columns.STATE.value,
+    )
+    # TODO: eventually this can be matched with the type coercion of station data to get
+    #  similar types of floats and strings
+    # Dtype mapping for stations
+    _dtype_mapping = {
+        Columns.STATION_ID.value: str,
+        Columns.STATION_HEIGHT.value: float,
+        Columns.LATITUDE.value: float,
+        Columns.LONGITUDE.value: float,
+        Columns.STATION_NAME.value: str,
+        Columns.STATE.value: str,
+    }
+
+    def _parse_period(self, period: Period):
+        if not period:
+            return None
+        elif self._period_type == PeriodType.FIXED:
+            return period
+        else:
+            return parse_enumeration_from_template(period, self._period_base, Period)
+
+    def __init__(
+        self,
+        resolution: Resolution,
+        period: Period,
+        start_date: Union[None, str, Timestamp] = None,
+        end_date: Union[None, str, Timestamp] = None,
+    ) -> None:
+        """
+
+        :param start_date: start date for filtering stations for their available data
+        :param end_date: end date for filtering stations for their available data
+        """
+        super(PointDataStationsCore, self).__init__(
+            resolution=resolution, period=period
+        )
+
+        # TODO: make datetimes timezone sensible
+        start_date = (
+            start_date
+            if not start_date or isinstance(start_date, datetime)
+            else parse_datetime(start_date)
+        )
+        end_date = (
+            end_date
+            if not end_date or isinstance(end_date, datetime)
+            else parse_datetime(end_date)
+        )
+
+        start_date = start_date.replace(tzinfo=self.tz) if start_date else None
+        end_date = end_date.replace(tzinfo=self.tz) if end_date else None
+
+        if start_date and end_date:
+            if start_date > end_date:
+                raise StartDateEndDateError("'start_date' has to be before 'end_date'")
+
+        self.start_date = start_date
+        self.end_date = end_date
+
+    def all(self) -> pd.DataFrame:
+        """
+        Wraps the _all method and applies date filters.
+
+        :return: pandas.DataFrame with the information of different available stations
+        """
+        metadata_df = self._all().copy()
+
+        metadata_df = metadata_df.reindex(columns=self._base_columns)
+
+        metadata_df = self._coerce_meta_fields(metadata_df)
+
+        if self.start_date:
+            metadata_df = metadata_df[
+                metadata_df[DWDMetaColumns.FROM_DATE.value] <= self.start_date
+            ]
+
+        if self.end_date:
+            metadata_df = metadata_df[
+                metadata_df[DWDMetaColumns.TO_DATE.value] >= self.end_date
+            ]
+
+        return metadata_df
+
+    def _coerce_meta_fields(self, df) -> pd.DataFrame:
+        """ Method for filed coercion. """
+        df = df.astype(self._dtype_mapping)
+
+        df[Columns.FROM_DATE.value] = pd.to_datetime(
+            df[Columns.FROM_DATE.value], infer_datetime_format=True
+        ).dt.tz_localize(pytz.UTC)
+        df[Columns.TO_DATE.value] = pd.to_datetime(
+            df[Columns.TO_DATE.value], infer_datetime_format=True
+        ).dt.tz_localize(pytz.UTC)
+
+        return df
+
+    @abstractmethod
+    def _all(self) -> pd.DataFrame:
+        """
+        Abstract method for gathering of sites information for a given implementation.
+        Information consist of a DataFrame with station ids, location, name, etc
+
+        :return: pandas.DataFrame with the information of different available sites
+        """
+        pass
+
+    def nearby_number(
+        self,
+        latitude: float,
+        longitude: float,
+        num_stations_nearby: int,
+    ) -> pd.DataFrame:
+        """
+        Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
+        nearest stations defined by number.
+
+        :param latitude: latitude in degrees
+        :param longitude: longitude in degrees
+        :param num_stations_nearby: number of stations to be returned, greater 0
+        :return: pandas.DataFrame with station information for the selected stations
+        """
+        if num_stations_nearby <= 0:
+            raise ValueError("'num_stations_nearby' has to be at least 1.")
+
+        coords = Coordinates(np.array(latitude), np.array(longitude))
+
+        metadata = self.all()
+
+        metadata = metadata.reset_index(drop=True)
+
+        distances, indices_nearest_neighbours = derive_nearest_neighbours(
+            metadata.LAT.values, metadata.LON.values, coords, num_stations_nearby
+        )
+
+        distances = pd.Series(distances)
+        indices_nearest_neighbours = pd.Series(indices_nearest_neighbours)
+
+        # If num_stations_nearby is higher then the actual amount of stations
+        # further indices and distances are added which have to be filtered out
+        distances = distances[: min(metadata.shape[0], num_stations_nearby)]
+        indices_nearest_neighbours = indices_nearest_neighbours[
+            : min(metadata.shape[0], num_stations_nearby)
+        ]
+
+        distances_km = np.array(distances * EARTH_RADIUS_KM)
+
+        metadata_location = metadata.iloc[indices_nearest_neighbours, :].reset_index(
+            drop=True
+        )
+
+        metadata_location[DWDMetaColumns.DISTANCE_TO_LOCATION.value] = distances_km
+
+        if metadata_location.empty:
+            log.warning(
+                f"No weather stations were found for coordinate "
+                f"{latitude}°N and {longitude}°E "
+            )
+
+        return metadata_location
+
+    def nearby_radius(
+        self,
+        latitude: float,
+        longitude: float,
+        max_distance_in_km: int,
+    ) -> pd.DataFrame:
+        """
+        Wrapper for get_nearby_stations_by_distance using the given parameter set.
+        Returns nearest stations defined by distance (km).
+
+        :param latitude: latitude in degrees
+        :param longitude: longitude in degrees
+        :param max_distance_in_km: distance (km) for which stations will be selected
+        :return: pandas.DataFrame with station information for the selected stations
+        """
+        # Theoretically a distance of 0 km is possible
+        if max_distance_in_km < 0:
+            raise ValueError("'max_distance_in_km' has to be at least 0.0.")
+
+        metadata = self.all()
+
+        all_nearby_stations = self.nearby_number(latitude, longitude, metadata.shape[0])
+
+        nearby_stations_in_distance = all_nearby_stations[
+            all_nearby_stations[DWDMetaColumns.DISTANCE_TO_LOCATION.value]
+            <= max_distance_in_km
+        ]
+
+        return nearby_stations_in_distance.reset_index(drop=True)

@@ -1,9 +1,10 @@
 from datetime import datetime
-from io import StringIO
-from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
+from numpy.testing import assert_array_equal
+from pandas import Timestamp
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
@@ -17,19 +18,8 @@ from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
 )
 from wetterdienst.exceptions import NoParametersFound, StartDateEndDateError
-
-HERE = Path(__file__).parent
-
-# Set filename for mock
-filename = "tageswerte_KL_00001_19370101_19860630_hist.zip"
-
-# Loading test data
-TEST_FILE = pd.read_json(HERE / "FIXED_STATIONDATA.JSON")
-
-# Prepare csv for regular "downloading" test
-CSV_FILE = StringIO()
-TEST_FILE.to_csv(CSV_FILE, sep=";", index=False)
-CSV_FILE.seek(0)
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 
 def test_dwd_observation_data_parameter_set():
@@ -93,8 +83,8 @@ def test_dwd_observation_data_parameter():
     assert request == DWDObservationData(
         station_ids=[1],
         parameters=[DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT],
-        resolution=DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        resolution=Resolution.DAILY,
+        periods=[Period.HISTORICAL, Period.RECENT],
         start_date=None,
         end_date=None,
     )
@@ -174,8 +164,8 @@ def test_dwd_observation_data_dynamic_period():
         start_date="1971-01-01",
     )
 
-    assert request.periods == [
-        DWDObservationPeriod.HISTORICAL,
+    assert request.period == [
+        Period.HISTORICAL,
     ]
 
     # Historical and recent period expected
@@ -187,9 +177,9 @@ def test_dwd_observation_data_dynamic_period():
         end_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(days=400),
     )
 
-    assert request.periods == [
-        DWDObservationPeriod.HISTORICAL,
-        DWDObservationPeriod.RECENT,
+    assert request.period == [
+        Period.HISTORICAL,
+        Period.RECENT,
     ]
 
     # Historical, recent and now period expected
@@ -201,10 +191,10 @@ def test_dwd_observation_data_dynamic_period():
         end_date=pd.Timestamp(datetime.utcnow()),
     )
 
-    assert request.periods == [
-        DWDObservationPeriod.HISTORICAL,
-        DWDObservationPeriod.RECENT,
-        DWDObservationPeriod.NOW,
+    assert request.period == [
+        Period.HISTORICAL,
+        Period.RECENT,
+        Period.NOW,
     ]
 
     # !!!Recent and now period cant be tested dynamically
@@ -217,7 +207,7 @@ def test_dwd_observation_data_dynamic_period():
         resolution=DWDObservationResolution.DAILY,
         start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
     )
-    assert DWDObservationPeriod.NOW in request.periods
+    assert Period.NOW in request.period
 
     # No period (for example in future)
     request = DWDObservationData(
@@ -227,7 +217,52 @@ def test_dwd_observation_data_dynamic_period():
         start_date=pd.Timestamp(datetime.utcnow()) + pd.Timedelta(days=720),
     )
 
-    assert request.periods == []
+    assert request.period == []
+
+
+def test_dwd_observation_data_result():
+    """Test for DataFrame having empty values for dates where the station should not
+    have values"""
+    request = DWDObservationData(
+        station_ids=[1048],
+        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+        resolution=DWDObservationResolution.DAILY,
+        start_date="1933-12-27",  # few days before official start
+        end_date="1934-01-04",  # few days after official start,
+        tidy_data=True,
+    )
+
+    # Leave only one column to potentially contain NaN which is VALUE
+    df = request.all().drop("QUALITY", axis=1)
+
+    df_1933 = df[df["DATE"].dt.year == 1933]
+    df_1934 = df[df["DATE"].dt.year == 1934]
+
+    assert not df_1933.empty and df_1933.dropna().empty
+    assert not df_1934.empty and not df_1934.dropna().empty
+
+    observations = DWDObservationData(
+        station_ids=["03348"],
+        parameters=DWDObservationParameter.HOURLY.TEMPERATURE_AIR_200,
+        resolution=DWDObservationResolution.HOURLY,
+        start_date="2020-06-09 12:00:00",
+        end_date="2020-06-09 12:00:00",
+    )
+
+    df = observations.all().drop("QUALITY", axis=1)
+
+    assert_frame_equal(
+        df,
+        pd.DataFrame(
+            {
+                "DATE": [pd.Timestamp("2020-06-09 12:00:00+0000", tz="UTC")],
+                "STATION_ID": pd.Categorical(["03348"]),
+                "PARAMETER_SET": ["TEMPERATURE_AIR"],
+                "PARAMETER": pd.Categorical(["TEMPERATURE_AIR_200"]),
+                "VALUE": [np.nan],
+            }
+        ),
+    )
 
 
 def test_create_humanized_column_names_mapping():

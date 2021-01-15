@@ -9,12 +9,13 @@ from wetterdienst.dwd.radar.metadata import (
     RADAR_PARAMETERS_RADOLAN,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
-    DWDRadarDate,
-    DWDRadarParameter,
     DWDRadarPeriod,
     DWDRadarResolution,
 )
+from wetterdienst.dwd.radar.metadata.parameter import DWDRadarDate, DWDRadarParameter
 from wetterdienst.dwd.radar.sites import RADAR_LOCATIONS, DWDRadarSite
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -44,8 +45,8 @@ class DWDRadarData:
         elevation: Optional[int] = None,
         start_date: Optional[Union[str, datetime, DWDRadarDate]] = None,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
-        resolution: Optional[Union[str, DWDRadarResolution]] = None,
-        period: Optional[Union[str, DWDRadarPeriod]] = None,
+        resolution: Optional[Union[str, Resolution, DWDRadarResolution]] = None,
+        period: Optional[Union[str, Period, DWDRadarPeriod]] = None,
     ) -> None:
         """
         :param parameter:       The radar moment to request
@@ -68,17 +69,17 @@ class DWDRadarData:
         self.subset = parse_enumeration_from_template(subset, DWDRadarDataSubset)
         self.elevation = elevation and int(elevation)
         self.resolution = parse_enumeration_from_template(
-            resolution, DWDRadarResolution
+            resolution, DWDRadarResolution, Resolution
         )
-        self.period = parse_enumeration_from_template(period, DWDRadarPeriod)
+        self.period = parse_enumeration_from_template(period, DWDRadarPeriod, Period)
 
         # Sanity checks.
         if self.parameter == DWDRadarParameter.RADOLAN_CDC:
 
-            if resolution not in (
-                DWDRadarResolution.DAILY,
-                DWDRadarResolution.HOURLY,
-                DWDRadarResolution.MINUTE_5,
+            if self.resolution not in (
+                Resolution.MINUTE_5,
+                Resolution.HOURLY,
+                Resolution.DAILY,
             ):
                 raise ValueError(
                     "RADOLAN_CDC only supports daily, hourly and 5 minutes resolutions"
@@ -153,8 +154,6 @@ class DWDRadarData:
             f"{self.format}, {self.resolution} "
             f"for {self.start_date}/{self.end_date}"
         )
-
-        # print(self.start_date, self.end_date)
 
     def adjust_datetimes(self):
         """
@@ -252,7 +251,7 @@ class DWDRadarData:
             "use self.query() instead"
         )
 
-        yield from self.query()
+        return self.query()
 
     @staticmethod
     def get_sites():

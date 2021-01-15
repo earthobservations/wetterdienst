@@ -240,7 +240,7 @@ def test_mosmix_l_parameters():
     response = next(mosmix.query())
 
     # Verify forecast data.
-    station_ids = response.metadata["WMO_ID"].unique().tolist()
+    station_ids = response.metadata["STATION_ID"].unique().tolist()
     assert station_ids == ["01001"]
     assert len(response.data) > 200
 

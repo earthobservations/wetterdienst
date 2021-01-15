@@ -6,12 +6,10 @@ import pandas as pd
 import pytest
 from mock import MagicMock, patch
 
-from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations import DWDObservationParameterSet
 from wetterdienst.dwd.observations.access import collect_climate_observations_data
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 HERE = Path(__file__).parent
 
@@ -35,10 +33,10 @@ def test_collect_dwd_data_empty():
     """ Test for data collection with no available data """
 
     assert collect_climate_observations_data(
-        station_id=1048,
+        station_id="01048",
         parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
-        resolution=DWDObservationResolution.DAILY,
-        period=DWDObservationPeriod.RECENT,
+        resolution=Resolution.DAILY,
+        period=Period.RECENT,
     ).empty
 
 
@@ -49,8 +47,8 @@ def test_collect_daily_vanilla():
     data = collect_climate_observations_data(
         station_id="01048",
         parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
-        resolution=DWDObservationResolution.DAILY,
-        period=DWDObservationPeriod.RECENT,
+        resolution=Resolution.DAILY,
+        period=Period.RECENT,
     )
 
     assert list(data.columns.values) == [
@@ -82,8 +80,8 @@ def test_collect_hourly_vanilla():
     data = collect_climate_observations_data(
         station_id="01048",
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
-        resolution=DWDObservationResolution.HOURLY,
-        period=DWDObservationPeriod.RECENT,
+        resolution=Resolution.HOURLY,
+        period=Period.RECENT,
     )
 
     assert list(data.columns.values) == [

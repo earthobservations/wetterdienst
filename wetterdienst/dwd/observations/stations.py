@@ -6,22 +6,20 @@ from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
 )
-from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
 from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,
 )
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 
 logger = logging.getLogger(__name__)
 
 
 def metadata_for_climate_observations(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> pd.DataFrame:
     """
     A main function to retrieve metadata for a set of parameters that creates a

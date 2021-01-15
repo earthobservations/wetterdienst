@@ -25,7 +25,7 @@ class Columns(Enum):
     # Columns used for tidy data
     # Column for quality
     PARAMETER = "PARAMETER"
-    ELEMENT = "ELEMENT"
+    PARAMETER_SET = "PARAMETER_SET"
     VALUE = "VALUE"
     QUALITY = "QUALITY"
     # Columns used for RADOLAN
