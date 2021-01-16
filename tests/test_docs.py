@@ -8,7 +8,6 @@ from pathlib import Path
 
 def test_readme():
     readme_file = Path(__name__).parent / "README.rst"
-
     failures, _ = doctest.testfile(
         filename=str(readme_file),
         module_relative=False,
