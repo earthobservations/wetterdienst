@@ -69,7 +69,7 @@ and *period type* options.
 
     df = stations.all()
 
-    df.head()
+    print(df.head())
 
 The function returns a Pandas DataFrame with information about the available stations.
 The column ``HAS_FILE`` indicates whether the station actually has a file with data on
@@ -94,9 +94,9 @@ Use the ``DWDObservationData`` class in order to get hold of measurement informa
         humanize_parameters=True,
     )
 
-    for df in observations.query():
+    for result in observations.query():
         # analyse the station here
-        df.data.head()
+        print(result.data.head())
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names and stored
@@ -134,7 +134,7 @@ Inquire the list of stations by geographic coordinates.
         max_distance_in_km=30
     )
 
-    df.head()
+    print(df.head())
 
 The function returns a DataFrame with the list of stations with distances [in km]
 to the given coordinates.
@@ -159,9 +159,9 @@ can be used to download the observation data:
         humanize_parameters=True,
     )
 
-    for df in observations.query():
+    for result in observations.query():
         # analyse the station here
-        df.data.head()
+        print(result.data.head())
 
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
@@ -189,37 +189,8 @@ The result data is provided through a virtual table called ``data``.
     )
 
     df = observations.all().dwd.lower()
-    df = df.io.sql("SELECT * FROM data WHERE element='temperature_air_200' AND value < -7.0;")
-    print(df)
-
-
-HDF5 storage
-============
-Wetterdienst can optionally persist acquired data to HDF5 files.
-To use that feature, pass a ``StorageAdapter`` instance to
-``DWDObservationData``.
-
-.. code-block:: python
-
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet,
-        DWDObservationPeriod, DWDObservationResolution, StorageAdapter
-
-    storage = StorageAdapter(persist=True, folder="/path/to/dwd-archive")
-
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=[DWDObservationParameterSet.TEMPERATURE_AIR],
-        resolution=DWDObservationResolution.HOURLY,
-        start_date="2019-01-01",
-        end_date="2020-01-01",
-        tidy_data=True,
-        humanize_parameters=True,
-        storage=storage,
-    )
-
-    df = observations.all().dwd.lower()
-
-    print(df)
+    df = df.io.sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
+    print(df.head())
 
 
 Data export
@@ -258,7 +229,7 @@ MOSMIX
 ******
 MOSMIX-S - less parameters:
 
-.. code-block:: python
+.. ipython:: python
 
     from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
 
@@ -273,7 +244,7 @@ MOSMIX-S - less parameters:
 
 MOSMIX-L - more parameters:
 
-.. code-block:: python
+.. ipython:: python
 
     mosmix = DWDMosmixData(
         station_ids=["01001", "01008"],
