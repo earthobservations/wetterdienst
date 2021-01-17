@@ -1,21 +1,20 @@
-*********
 Changelog
-*********
+#########
 
 Development
-===========
+***********
 
 - Create general Resolution and Period enumerations that can be used anywhere
 - Create a full dataframe even if no values exist at requested time
 - Add further attributes to the class structure
 
 0.12.1 (29.12.2020)
-===================
+*******************
 
 - Fix 10minutes file index interval range by adding timezone information
 
 0.12.0 (23.12.2020)
-===================
+*******************
 
 - Move more functionality into core classes
 - Add more attributes to the core e.g. source and timezone
@@ -32,12 +31,12 @@ Development
   self.all() and will deprecate at some point
 
 0.11.1 (10.12.2020)
-===================
+*******************
 
 - Bump ``h5py`` to version 3.1.0 in order to satisfy installation on Python 3.9
 
 0.11.0 (04.12.2020)
-===================
+*******************
 
 - InfluxDB export: Fix export in non-tidy format (#230). Thanks, @wetterfrosch!
 - InfluxDB export: Use "quality" column as tag (#234). Thanks, @wetterfrosch!
@@ -52,7 +51,7 @@ Development
   respective documentation.
 
 0.10.1 (14.11.2020)
-===================
+*******************
 
 - Upgrade to dateparser-1.0.0. Thanks, @steffen746, @noviluni and @Gallaecio!
   This fixes a problem with timezones on Windows. The reason is that
@@ -60,7 +59,7 @@ Development
   https://github.com/earthobservations/wetterdienst/issues/222
 
 0.10.0 (26.10.2020)
-===================
+*******************
 
 - CLI: Obtain "--tidy" argument from command line
 - Extend MOSMIX support to equal the API of observations
@@ -76,7 +75,7 @@ Development
   relabels
 
 0.9.0 (09.10.2020)
-==================
+*******************
 
 - Large refactoring
 - Make period type in DWDObservationData and cli optional
@@ -93,7 +92,7 @@ Development
 - Radar data: Add non-RADOLAN data acquisition
 
 0.8.0 (25.09.2020)
-==================
+*******************
 
 - Add TTL-based persistent caching using dogpile.cache
 - Add ``example/radolan.py`` and adjust documentation
@@ -105,7 +104,7 @@ Development
 - Add basic HTTP API
 
 0.7.0 (16.09.2020)
-==================
+*******************
 
 - Add test for Jupyter notebook
 - Add function to discover available climate observations
@@ -118,26 +117,26 @@ Development
   (time resolution, parameter, period type)
 
 0.6.0 (07.09.2020)
-==================
+*******************
 
 - enhance usage of get_nearby_stations to check for availability
 - output of get_nearby_stations is now a slice of meta_data DataFrame output
 
 0.5.0 (27.08.2020)
-==================
+*******************
 
 - add RADOLAN support
 - change module and function naming in accordance with RADOLAN
 
 0.4.0 (03.08.2020)
-==================
+*******************
 
 - extend DWDObservationData to take multiple parameters as request
 - add documentation at readthedocs.io
 - [cli] Adjust methods to work with multiple parameters
 
 0.3.0 (26.07.2020)
-==================
+*******************
 
 - establish code style black
 - setup nox session that can be used to run black via nox -s black for one of the supported
@@ -148,7 +147,7 @@ Development
 - fix humanizing of column names for tidy data
 
 0.2.0 (23.07.2020)
-==================
+*******************
 
 - [cli] Add geospatial filtering by distance.
 - [cli] Filter stations by station identifiers.
@@ -160,7 +159,7 @@ Development
 - more specific type casting for integer fields and string fields
 
 0.1.1 (05.07.2020)
-==================
+*******************
 
 - [cli] Add geospatial filtering by number of nearby stations.
 - Simplify release pipeline
@@ -173,7 +172,7 @@ Development
 - enable selecting nearby stations by distance rather then by number of stations
 
 0.1.0 (02.07.2020)
-==================
+*******************
 
 - initial release
 - update README.md

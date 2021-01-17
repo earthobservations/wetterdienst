@@ -1,8 +1,7 @@
 .. _cli:
 
-######################
-Command line interface
-######################
+Command Line Interface
+**********************
 
 ::
 

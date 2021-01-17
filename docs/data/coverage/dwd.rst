@@ -1,27 +1,35 @@
-.. _data-coverage:
+DWD (German Weather Service)
+****************************
 
-#############
-Data coverage
-#############
+The data as offered by the DWD through ``wetterdienst`` includes:
 
-The DWD offers various datasets including but not only:
+- Historical Weather Observations
+    - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
+    - every minute to yearly resolution
+    - Time series of stations in Germany
+- Mosmix - statistical optimized scalar forecasts extracted from weather models
+    - Point forecast
+    - 5400 stations worldwide
+    - Both MOSMIX-L and MOSMIX-S is supported
+    - Up to 115 parameters
+- Radar
+    - 16 locations in Germany
+    - All of composite, radolan, radvor, sites and radolan_cdc
+    - Radolan: calibrated radar precipitation
+    - Radvor: radar precipitation forecast
 
-- historical weather data
-- MOSMIX -  forecasts for selected stations derived from weather models
-- RADOLAN - radar based precipitation measuring system
+For a quick overview of the work of the DWD check the current `dwd report`_ (only in
+german language).
 
-For a quick overview of the work of the DWD check the current
-`report <https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14>`_
-(only in german).
+.. _dwd report: https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14
 
-Wetterdienst currently supports historical weather data
-as well as MOSMIX and RADOLAN data.
+Historical Weather Observations
+===============================
 
-Historical Weather Data
-***********************
+Overview
+________
 
-The big treasure of the DWD is buried under a clutter of a
-`file server <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/>`_.
+The big treasure of the DWD is buried under a clutter of a file_server_.
 The data you find here can reach back to 19th century and is represented by over 1000
 stations in Germany according to the report referenced above. The amount of stations
 that cover a specific parameter may differ strongly, so don't expect the amount of data
@@ -59,7 +67,7 @@ The two parameter strings reflect on how we call a parameter e.g. "PRECIPITATION
 how the DWD calls the parameter e.g. "precipitation".
 
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
-|Parameter/Granularity                              | 1_minute              | 10_minutes            | hourly                | subdaily              | daily                 | monthly               | annual                |
+|Parameter\Granularity                              | 1_minute              | 10_minutes            | hourly                | subdaily              | daily                 | monthly               | annual                |
 +===================================================+=======================+=======================+=======================+=======================+=======================+=======================+=======================+
 | `PRECIPITATION = "precipitation"`                 | |check|               | |check|               | |cross|               | |cross|               | |cross|               | |cross|               | |cross|               |
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
@@ -118,29 +126,153 @@ parameters can be queried. Take a look at the massive amount of data:
         observations_meta.discover_parameters()
     )
 
-MOSMIX
-******
+.. _file_server: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/
 
-MOSMIX is a forecast product of the DWD that is based on global weather models and that
-uses statistical downscaling to stations based on their historical observations to
-provide more precise, local forecast. MOSMIX is available for over 5000 stations
-worldwide and is available in two versions, MOSMIX-S and MOSMIX-L. MOSMIX-S comes with
-a set of
-40 parameters and is published every hour while MOSMIX-L has a set of approx. 115
-parameters and is released every 6 hours (3, 9, 15, 21). Both versions have a forecast
-limit of 240h.
+Quality
+_______
 
-RADAR
-*****
+The DWD designates its data points with specific quality levels expressed as "quality bytes".
 
-RADOLAN
+- The "recent" data have not completed quality control yet.
+- The "historical" data are quality controlled measurements and observations.
 
-The RADOLAN data offers the user radar precipitation measurements that are with
+The following information has been taken from PDF documents on the DWD open data
+server like `data set description for historical hourly station observations of precipitation for Germany <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/precipitation/historical/DESCRIPTION_obsgermany_climate_hourly_precipitation_historical_en.pdf>`_.
+Wetterdienst provides convenient access to the relevant details
+by using routines to parse specific sections of the PDF documents.
+
+For example, use commands like these for accessing this information::
+
+    # Historical hourly station observations of precipitation for Germany.
+    # English language.
+    wetterdienst dwd about fields --parameter=precipitation --resolution=hourly --period=historical
+
+    # Historical 10-minute station observations of pressure, air temperature (at 5cm and 2m height), humidity and dew point for Germany.
+    # German language.
+    wetterdienst dwd about fields --parameter=air_temperature --resolution=10_minutes --period=historical --language=de
+
+or have a look at the example program `dwd_describe_fields.py <https://github.com/earthobservations/wetterdienst/blob/master/example/dwd_describe_fields.py>`_.
+
+Details
+^^^^^^^
+
+Validation and uncertainty estimate
+"""""""""""""""""""""""""""""""""""
+Considerations of quality assurance are explained in Kaspar et al., 2013.
+
+Several steps of quality control, including automatic tests for completeness,
+temporal and internal consistency, and against statistical thresholds based
+on the software QualiMet (see Spengler, 2002) and manual inspection had been
+applied.
+
+Data are provided "as observed", no homogenization has been carried out.
+
+The history of instrumental design, observation practice, and possibly changing
+representativity has to be considered for the individual stations when interpreting
+changes in the statistical properties of the time series. It is strongly suggested
+to investigate the records of the station history which are provided together with
+the data. Note that in the 1990s many stations had the transition from manual to
+automated stations, entailing possible changes in certain statistical properties.
+
+Additional information
+""""""""""""""""""""""
+When data from both directories "historical" and "recent" are used together,
+the difference in the quality control procedure should be considered.
+There are still issues to be discovered in the historical data.
+The DWD welcomes any hints to improve the data basis (see contact).
+
+
+Examples
+^^^^^^^^
+As an example, these sections display different means of
+quality designations related to ``daily``/``hourly`` and
+``10_minutes`` resolutions/products.
+
+Daily and hourly quality
+""""""""""""""""""""""""
+
+The quality levels "Qualitätsniveau" (QN) given here
+apply for the respective following columns. The values
+are the minima of the QN of the respective daily
+values. QN denotes the method of quality control,
+with which erroneous values are identified and apply
+for the whole set of parameters at a certain time.
+
+For the individual parameters there exist quality bytes
+in the internal DWD data base, which are not published here.
+Values identified as wrong are not published.
+
+Various methods of quality control (at different levels) are
+employed to decide which value is identified as wrong. In the
+past, different procedures have been employed.
+The quality procedures are coded as following.
+
+Quality level (column header: ``QN_``):
+
+.. code-block:: text
+
+    1- Only formal control during decoding and import
+    2- Controlled with individually defined criteria
+    3- ROUTINE control with QUALIMET and QCSY
+    5- Historic, subjective procedures
+    7- ROUTINE control, not yet corrected
+    8- Quality control outside ROUTINE
+    9- ROUTINE control, not all parameters corrected
+    10- ROUTINE control finished, respective corrections finished
+
+10 minutes quality
+""""""""""""""""""
+
+The quality level "Qualitätsniveau" (QN) given here
+applies for the following columns. QN describes
+the method of quality control applied to a complete
+set of parameters, reported at a common time.
+
+The individual parameters of the set are connected with
+individual quality bytes in the DWD data base, which are
+not given here. Values marked as wrong are not given here.
+
+Different quality control procedures (and at different
+levels) have been applied to detect which values are
+identified as erroneous or suspicious. Over time,
+these procedures have changed.
+
+Quality level (column header: ``QN``):
+
+.. code-block:: text
+
+    1- Only formal control during decoding and import
+    2- Controlled with individually defined criteria
+    3- ROUTINE automatic control and correction with QUALIMET
+
+Mosmix
+======
+
+Mosmix_ is a forecast product of the DWD that is based on global weather models and that
+uses statistical downscaling for land-based climate stations based on their historical
+observations to provide more precise, local forecast. Mosmix is available for over 5000
+stations worldwide and is available in two versions, Mosmix-S and Mosmix-L. Mosmix-S
+comes with a set of 40 parameters and is published every hour while MOSMIX-L has a set
+of about 115 parameters and is released every 6 hours (3am, 9am, 3pm, 9pm). Both
+versions have a forecast limit of 240h.
+
+.. _Mosmix: https://www.dwd.de/EN/ourservices/met_application_mosmix/met_application_mosmix.html
+
+Radar
+=====
+
+The DWD provides several data products produced by radar for different `radar sites`_.
+Those are not further explained as of their complexity. The DWD also offers Radolan_,
+an advanced radar product with calibrated areal precipitation.
+
+Radolan
+
+Radolan offers the user radar precipitation measurements that are calibrated with
 ground based measurements. The data is offered in hourly and daily versions, both
 being frequently updated for the recent version and data for each concluded year is
 stored in the historical version. The daily version offers gliding sums of the last 24
 hours while the hourly version offers hourly sums of precipitation. The precipitation
 amount is given in 1/10 mm.
 
-Data from https://opendata.dwd.de/weather/radar/sites/ is also available but is not
-further explained as of its complexity.
+.. _radar sites: https://opendata.dwd.de/weather/radar/sites/
+.. _Radolan: https://www.dwd.de/DE/leistungen/radolan/radolan.html

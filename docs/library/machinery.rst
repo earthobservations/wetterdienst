@@ -1,10 +1,8 @@
-#########
 Machinery
-#########
+*********
 
-****
-DWD
-****
+DWD (German Weather Service)
+============================
 
 
 .. automodule:: wetterdienst.dwd.observations.access

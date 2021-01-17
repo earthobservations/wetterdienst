@@ -123,6 +123,7 @@ class DWDMosmixData(PointDataValuesCore):
         readable names
         :param tidy_data: boolean if pandas.DataFrame shall be tidied and
         values put in rows
+
         """
         # Use all parameters if none are given
         parameters = parameters or [*self._parameter_base]

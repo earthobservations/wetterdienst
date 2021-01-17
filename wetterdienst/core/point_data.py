@@ -231,6 +231,7 @@ class PointDataValuesCore(PointDataCore):
         if not end_date: end_date = start_date
         :param humanize_parameters: bool if parameters should be renamed to meaningful
         names
+
         """
         super(PointDataValuesCore, self).__init__(resolution=resolution, period=period)
 
@@ -751,7 +752,7 @@ class PointDataStationsCore(PointDataCore):
         self,
         latitude: float,
         longitude: float,
-        num_stations_nearby: int,
+        number: int,
     ) -> pd.DataFrame:
         """
         Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
@@ -759,10 +760,10 @@ class PointDataStationsCore(PointDataCore):
 
         :param latitude: latitude in degrees
         :param longitude: longitude in degrees
-        :param num_stations_nearby: number of stations to be returned, greater 0
+        :param number: number of stations to be returned, greater 0
         :return: pandas.DataFrame with station information for the selected stations
         """
-        if num_stations_nearby <= 0:
+        if number <= 0:
             raise ValueError("'num_stations_nearby' has to be at least 1.")
 
         coords = Coordinates(np.array(latitude), np.array(longitude))
@@ -772,7 +773,7 @@ class PointDataStationsCore(PointDataCore):
         metadata = metadata.reset_index(drop=True)
 
         distances, indices_nearest_neighbours = derive_nearest_neighbours(
-            metadata.LAT.values, metadata.LON.values, coords, num_stations_nearby
+            metadata.LAT.values, metadata.LON.values, coords, number
         )
 
         distances = pd.Series(distances)
@@ -780,9 +781,9 @@ class PointDataStationsCore(PointDataCore):
 
         # If num_stations_nearby is higher then the actual amount of stations
         # further indices and distances are added which have to be filtered out
-        distances = distances[: min(metadata.shape[0], num_stations_nearby)]
+        distances = distances[: min(metadata.shape[0], number)]
         indices_nearest_neighbours = indices_nearest_neighbours[
-            : min(metadata.shape[0], num_stations_nearby)
+            : min(metadata.shape[0], number)
         ]
 
         distances_km = np.array(distances * EARTH_RADIUS_KM)
