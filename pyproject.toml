@@ -69,7 +69,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.6.1"
 pandas = "^1.1.2"
-numpy = "^1.19.2,!=1.19.4"  # Temporary windows error with 1.19.4
+numpy = "^1.19.5"
 scipy = "^1.5.2"
 cachetools = "^4.1.1"
 docopt = "^0.6.2"
@@ -136,6 +136,7 @@ h5py = "^3.1.0"
 
 poethepoet = "^0.9.0"
 dephell = "^0.8.3"
+sphinx-autobuild = "^2020.9.1"
 
 [tool.poetry.extras]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]

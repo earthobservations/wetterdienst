@@ -450,6 +450,7 @@ def test_radar_request_site_historic_px250_bufr_timerange():
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_pcp_v_bufr_yesterday():
     """
@@ -485,6 +486,7 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_yesterday():
     assert timestamp_aligned == bufr_timestamp
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_pcp_v_bufr_timerange():
     """
@@ -509,6 +511,7 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_timerange():
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_bufr_yesterday():
     """
@@ -544,6 +547,7 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_yesterday():
     assert timestamp_aligned == bufr_timestamp
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_bufr_timerange():
     """
@@ -646,6 +650,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     """

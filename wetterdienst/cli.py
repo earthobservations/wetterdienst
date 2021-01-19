@@ -326,7 +326,7 @@ def get_stations(options: Munch) -> pd.DataFrame:
                 stations = stations.nearby_number(
                     latitude=float(options.latitude),
                     longitude=float(options.longitude),
-                    num_stations_nearby=int(options.number),
+                    number=int(options.number),
                 )
             elif options.distance:
                 stations = stations.nearby_radius(

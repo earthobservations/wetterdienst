@@ -1,6 +1,5 @@
-##############
-Module library
-##############
+Library
+#######
 
 
 * :ref:`genindex`

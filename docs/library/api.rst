@@ -1,6 +1,5 @@
-###
 API
-###
+***
 
 .. contents::
     :local:
@@ -8,9 +7,11 @@ API
 
 ----
 
-************
-Observations
-************
+DWD (German Weather Service)
+============================
+
+Historical Weather Data
+-----------------------
 
 .. autoclass:: wetterdienst.dwd.observations.api.DWDObservationData
     :members:
@@ -21,18 +22,16 @@ Observations
 .. autoclass:: wetterdienst.dwd.observations.api.DWDObservationMetadata
     :members:
 
-******************
-Forecasts (MOSMIX)
-******************
+Mosmix
+------
 
 .. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixData
     :members:
 .. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixStations
     :members:
 
-*****
-RADAR
-*****
+Radar
+-----
 
 .. autoclass:: wetterdienst.dwd.radar.api.DWDRadarData
     :members:

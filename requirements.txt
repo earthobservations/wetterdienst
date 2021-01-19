@@ -30,7 +30,7 @@ mock==4.*,>=4.0.2
 munch==2.*,>=2.5.0
 mysqlclient==2.*,>=2.0.1
 nbconvert<6.0,>=5.0
-numpy!=1.19.4,==1.*,>=1.19.2
+numpy==1.*,>=1.19.5
 openpyxl==3.*,>=3.0.5
 pandas==1.*,>=1.1.2
 poethepoet==0.*,>=0.9.0
@@ -45,6 +45,7 @@ python-dateutil==2.*,>=2.8.0
 requests==2.*,>=2.24.0
 scipy==1.*,>=1.5.2
 sphinx==3.*,>=3.2.1
+sphinx-autobuild==2020.*,>=2020.9.1
 sphinx-autodoc-typehints==1.*,>=1.11.0
 sphinx-material==0.*,>=0.0.30
 sphinxcontrib-svg2pdfconverter==1.*,>=1.1.0

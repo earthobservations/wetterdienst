@@ -110,9 +110,7 @@ def dwd_sites(
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
-            df = sites.nearby_number(
-                latitude=lat, longitude=lon, num_stations_nearby=number_nearby
-            )
+            df = sites.nearby_number(latitude=lat, longitude=lon, number=number_nearby)
         else:
             df = sites.nearby_radius(
                 latitude=lat, longitude=lon, max_distance_in_km=max_distance_in_km
