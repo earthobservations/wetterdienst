@@ -290,10 +290,20 @@ Examples:
 Mosmix
 ======
 
+Get stations for Mosmix:
+
+.. ipython:: python
+
+    from wetterdienst.dwd.forecasts import DWDMosmixStations
+
+    stations = DWDMosmixStations()
+
+    print(stations.all().head())
+
 Mosmix forecasts require us to define ``station_ids`` and ``mosmix_type``. Furthermore
 we can also define explicitly the requested parameters.
 
-Get Mosmix-S data:
+Get Mosmix-L data:
 
 .. ipython:: python
 
@@ -303,24 +313,10 @@ Get Mosmix-S data:
         station_ids=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
     )
-    response = next(mosmix.query())
-
-    print(response.metadata)
-    print(response.data)
-
-Get Mosmix-L data:
-
-.. ipython:: python
-
-    mosmix = DWDMosmixData(
-        station_ids=["01001", "01008"],
-        mosmix_type=DWDMosmixType.LARGE
-    )
     response =  next(mosmix.query())
 
     print(response.metadata)
     print(response.data)
-
 
 Radar
 =====
@@ -383,8 +379,3 @@ For more examples, please have a look at `example/radar/`_.
 .. _DuckDB SQL introduction: https://duckdb.org/docs/sql/introduction
 .. _InfluxDB: https://github.com/influxdata/influxdb
 .. _CrateDB: https://github.com/crate/crate
-
-.. ipython::
-   :suppress:
-
-   In [1]: %reset -f
