@@ -77,12 +77,11 @@ class DWDRadarData:
         if self.parameter == DWDRadarParameter.RADOLAN_CDC:
 
             if self.resolution not in (
-                Resolution.MINUTE_5,
                 Resolution.HOURLY,
                 Resolution.DAILY,
             ):
                 raise ValueError(
-                    "RADOLAN_CDC only supports daily, hourly and 5 minutes resolutions"
+                    "RADOLAN_CDC only supports daily and hourly resolutions"
                 )
 
         elevation_parameters = [

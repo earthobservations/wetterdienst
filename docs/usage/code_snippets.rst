@@ -99,3 +99,8 @@ Get data for Mosmix-S:
     )
 
     print(forecast_data.all().head())
+
+.. ipython::
+   :suppress:
+
+   In [1]: %reset -f

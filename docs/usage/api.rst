@@ -383,3 +383,8 @@ For more examples, please have a look at `example/radar/`_.
 .. _DuckDB SQL introduction: https://duckdb.org/docs/sql/introduction
 .. _InfluxDB: https://github.com/influxdata/influxdb
 .. _CrateDB: https://github.com/crate/crate
+
+.. ipython::
+   :suppress:
+
+   In [1]: %reset -f

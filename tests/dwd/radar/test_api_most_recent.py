@@ -54,7 +54,6 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     assert hdf["/dataset1/data1/data"].shape == (360, 600)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     """
