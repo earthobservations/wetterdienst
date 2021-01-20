@@ -1,6 +1,10 @@
 Code Snippets
 *************
 
+.. contents::
+    :local:
+    :depth: 1
+
 DWD (German Weather Service)
 ============================
 
@@ -77,7 +81,7 @@ Get data for a parameter:
 Mosmix
 ------
 
-Get stations for Mosmix-S:
+Get stations for Mosmix:
 
 .. ipython:: python
 
@@ -87,7 +91,7 @@ Get stations for Mosmix-S:
 
     print(stations.all().head())
 
-Get data for Mosmix-S:
+Get data for Mosmix-L:
 
 .. ipython:: python
 
@@ -95,12 +99,7 @@ Get data for Mosmix-S:
 
     forecast_data = DWDMosmixData(
         station_ids=stations.all().STATION_ID[0],
-        mosmix_type=DWDMosmixType.SMALL
+        mosmix_type=DWDMosmixType.LARGE
     )
 
     print(forecast_data.all().head())
-
-.. ipython::
-   :suppress:
-
-   In [1]: %reset -f
