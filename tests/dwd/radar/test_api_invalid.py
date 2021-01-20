@@ -131,7 +131,6 @@ def test_radar_request_hdf5_without_subset():
     [
         DWDRadarResolution.DAILY,
         DWDRadarResolution.HOURLY,
-        DWDRadarResolution.MINUTE_5,
     ],
 )
 def test_radar_request_radolan_cdc_latest(time_resolution):

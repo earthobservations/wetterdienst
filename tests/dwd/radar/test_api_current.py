@@ -151,19 +151,15 @@ def test_radar_request_radolan_cdc_current(time_resolution):
     list(request.query())
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_radolan_cdc_current_5min():
     """
-    Verify data acquisition for RADOLAN_CDC/5 minutes.
+    Verify failure for RADOLAN_CDC/5 minutes.
 
-    FIXME: Does not work as expected yet.
     """
-
-    request = DWDRadarData(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.MINUTE_5,
-        start_date=DWDRadarDate.CURRENT,
-    )
-
-    list(request.query())
+    with pytest.raises(ValueError):
+        DWDRadarData(
+            parameter=DWDRadarParameter.RADOLAN_CDC,
+            resolution=DWDRadarResolution.MINUTE_5,
+            start_date=DWDRadarDate.CURRENT,
+        )

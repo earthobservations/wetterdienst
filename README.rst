@@ -77,8 +77,8 @@ library that make it better and better every day.
 .. _Jetbrains: https://www.jetbrains.com/
 .. _open source team: https://github.com/JetBrains
 
-Content
-*******
+Coverage
+********
 
 DWD (German Weather Service / Deutscher Wetterdienst / Germany)
     - Historical Weather Observations
