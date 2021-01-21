@@ -96,13 +96,22 @@ def test_dwd_observation_data_parameter():
         )
     ]
 
-    with pytest.raises(NoParametersFound):
+    with pytest.raises(StartDateEndDateError):
         DWDObservationData(
             station_ids=[1],
             parameters=["abc"],
             resolution=DWDObservationResolution.DAILY,
             start_date="1971-01-01",
             end_date="1951-01-01",
+        )
+
+    with pytest.raises(NoParametersFound):
+        DWDObservationData(
+            station_ids=[1],
+            parameters=["abc"],
+            resolution=DWDObservationResolution.DAILY,
+            start_date="1951-01-01",
+            end_date="1961-01-01",
         )
 
 

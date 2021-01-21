@@ -1,22 +1,19 @@
 # -*- coding: utf-8 -*-
 from abc import abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from enum import Enum
 from logging import getLogger
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
-import dateparser
+import dateutil.parser
 import numpy as np
 import pandas as pd
 import pytz
-from pandas._libs.tslibs.timestamps import Timestamp
 from pytz import timezone
 from tqdm import tqdm
 
 from wetterdienst.core.core import Core
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.util import parse_datetime
 from wetterdienst.exceptions import NoParametersFound, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
@@ -34,9 +31,8 @@ EARTH_RADIUS_KM = 6371
 # TODO: move more attributes to __init__
 
 
-class PointDataCore(Core):
-    """Core for resolution based classes, not part of PointDataCore as it may not be
-    needed for metadata"""
+class ScalarCore(Core):
+    """Core for time series related classes """
 
     @property
     def resolution(self) -> Optional[Resolution]:
@@ -96,13 +92,42 @@ class PointDataCore(Core):
         pass
 
     def __init__(
-        self, resolution: Resolution, period: Union[Period, List[Period]]
+        self,
+        resolution: Resolution,
+        period: Union[Period, List[Period]],
+        start_date: Optional[Union[str, datetime]],
+        end_date: Optional[Union[str, datetime]],
     ) -> None:
         self.resolution = resolution
         self.period = self._parse_period(period)
 
+        if start_date or end_date:
+            # If only one date given, set the other one to equal
+            if not start_date:
+                start_date = end_date
 
-class PointDataValuesCore(PointDataCore):
+            if not end_date:
+                end_date = start_date
+
+            start_date = dateutil.parser.isoparse(str(start_date))
+            if not start_date.tzinfo:
+                start_date = start_date.replace(tzinfo=pytz.UTC)
+
+            end_date = dateutil.parser.isoparse(str(end_date))
+            if not end_date.tzinfo:
+                end_date = end_date.replace(tzinfo=pytz.UTC)
+
+            # TODO: replace this with a response + logging
+            if not start_date <= end_date:
+                raise StartDateEndDateError(
+                    "Error: 'start_date' must be smaller or equal to 'end_date'."
+                )
+
+        self.start_date = start_date
+        self.end_date = end_date
+
+
+class ScalarValuesCore(ScalarCore):
     """ Core for sources of point data where data is related to a station """
 
     # Fields for type coercion, needed for separation from fields with actual data
@@ -179,20 +204,6 @@ class PointDataValuesCore(PointDataCore):
         found or for merging other dataframes on the full dates"""
         return pd.DataFrame({Columns.DATE.value: self._complete_dates})
 
-    # TODO: change either _base_df to contain parameter and station id or _add_meta to
-    #  work with parameter sets such as seen at the DWD (where a parameter could also be
-    #  something more complex then precipitation but climate_summary
-    # def _add_meta(self, df, station_id: str, parameter: Enum) -> pd.DataFrame:
-    #     df[Columns.STATION_ID.value] = station_id
-    #
-    #     if self.tidy_data:
-    #         if parameter in self._parameter_base:
-    #             df[Columns.PARAMETER.value] = parameter.value
-    #         df[Columns.VALUE.value] = pd.NA
-    #         df[Columns.QUALITY.value] = pd.NA
-    #
-    #     return df
-
     def _parse_period(self, period: List[Period]):
         """ Parsing method for period, depending on the type of period"""
         if not period:
@@ -215,8 +226,8 @@ class PointDataValuesCore(PointDataCore):
         parameters: Tuple[Union[str, Enum]],
         resolution: Resolution,
         period: Period,
-        start_date: Optional[Union[str, Timestamp, datetime]],
-        end_date: Optional[Union[str, Timestamp, datetime]],
+        start_date: Optional[Union[str, datetime]],
+        end_date: Optional[Union[str, datetime]],
         humanize_parameters: bool,
         tidy_data: bool,
     ) -> None:
@@ -233,7 +244,12 @@ class PointDataValuesCore(PointDataCore):
         names
 
         """
-        super(PointDataValuesCore, self).__init__(resolution=resolution, period=period)
+        super(ScalarValuesCore, self).__init__(
+            resolution=resolution,
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         # Make sure we receive a list of ids
         self.station_ids = pd.Series(station_ids).astype(str).tolist()
@@ -244,27 +260,6 @@ class PointDataValuesCore(PointDataCore):
         if not self.parameters:
             raise NoParametersFound(f"No parameters could be parsed from {parameters}")
 
-        if start_date or end_date:
-            # If only one date given, set the other one to equal
-            if not start_date:
-                start_date = end_date
-
-            if not end_date:
-                end_date = start_date
-
-            # TODO: use dynamic parsing that accepts entered timestamps with given
-            #  timezone
-            start_date = Timestamp(dateparser.parse(str(start_date)), tz=pytz.UTC)
-            end_date = Timestamp(dateparser.parse(str(end_date)), tz=pytz.UTC)
-
-            # TODO: replace this with a response + logging
-            if not start_date <= end_date:
-                raise StartDateEndDateError(
-                    "Error: 'start_date' must be smaller or equal to 'end_date'."
-                )
-
-        self.start_date = start_date
-        self.end_date = end_date
         self.humanize_parameters = humanize_parameters
         self.tidy_data = tidy_data
 
@@ -293,8 +288,8 @@ class PointDataValuesCore(PointDataCore):
             [
                 f"station_ids {station_ids_joined}",
                 f"parameters {parameters_joined}",
-                self.start_date.value,
-                self.end_date.value,
+                str(self.start_date),
+                str(self.end_date),
             ]
         )
 
@@ -456,7 +451,7 @@ class PointDataValuesCore(PointDataCore):
             Columns.TO_DATE.value,
         ):
             try:
-                df[column] = self._parse_datetimes(df[column])
+                df[column] = self._parse_dates(df[column])
             except KeyError:
                 pass
 
@@ -494,10 +489,11 @@ class PointDataValuesCore(PointDataCore):
         parse_strings but could be modified by the implementation class"""
         return self._parse_strings(series)
 
-    def _parse_datetimes(self, series: pd.Series) -> pd.Series:
+    def _parse_dates(self, series: pd.Series) -> pd.Series:
         """Method to parse dates in the pandas.DataFrame. Leverages the data timezone
         attribute to ensure correct comparison of dates."""
         series = pd.to_datetime(series, infer_datetime_format=True)
+
         try:
             series = series.dt.tz_localize(self.data_tz)
         except TypeError:
@@ -629,7 +625,7 @@ class PointDataValuesCore(PointDataCore):
         return hcnm
 
 
-class PointDataStationsCore(PointDataCore):
+class ScalarStationsCore(ScalarCore):
     """ Core for stations information of a source """
 
     # Columns that should be contained within any stations information
@@ -667,39 +663,20 @@ class PointDataStationsCore(PointDataCore):
         self,
         resolution: Resolution,
         period: Period,
-        start_date: Union[None, str, Timestamp] = None,
-        end_date: Union[None, str, Timestamp] = None,
+        start_date: Union[None, str, datetime] = None,
+        end_date: Union[None, str, datetime] = None,
     ) -> None:
         """
 
         :param start_date: start date for filtering stations for their available data
         :param end_date: end date for filtering stations for their available data
         """
-        super(PointDataStationsCore, self).__init__(
-            resolution=resolution, period=period
+        super(ScalarStationsCore, self).__init__(
+            resolution=resolution,
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
         )
-
-        # TODO: make datetimes timezone sensible
-        start_date = (
-            start_date
-            if not start_date or isinstance(start_date, datetime)
-            else parse_datetime(start_date)
-        )
-        end_date = (
-            end_date
-            if not end_date or isinstance(end_date, datetime)
-            else parse_datetime(end_date)
-        )
-
-        start_date = start_date.replace(tzinfo=self.tz) if start_date else None
-        end_date = end_date.replace(tzinfo=self.tz) if end_date else None
-
-        if start_date and end_date:
-            if start_date > end_date:
-                raise StartDateEndDateError("'start_date' has to be before 'end_date'")
-
-        self.start_date = start_date
-        self.end_date = end_date
 
     def all(self) -> pd.DataFrame:
         """

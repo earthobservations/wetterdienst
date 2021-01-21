@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import pandas as pd
 from pandas import Timestamp
 
-from wetterdienst.core.point_data import PointDataStationsCore, PointDataValuesCore
+from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
@@ -59,7 +59,7 @@ log = logging.getLogger(__name__)
 # TODO: change to DWDObservationValues
 
 
-class DWDObservationData(PointDataValuesCore):
+class DWDObservationData(ScalarValuesCore):
     """
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
@@ -262,10 +262,12 @@ class DWDObservationData(PointDataValuesCore):
         """Interval of historical data release schedule. Historical data is typically
         release once in a year somewhere in the first few months with updated quality
         """
+        start_date = Timestamp(self.start_date)
+
         historical_end = pd.Timestamp(self._now_local.replace(month=1, day=1))
 
-        if self.start_date < historical_end:
-            historical_begin = self.start_date.tz_convert(historical_end.tz)
+        if start_date < historical_end:
+            historical_begin = start_date.tz_convert(historical_end.tz)
         else:
             historical_begin = historical_end + pd.tseries.offsets.DateOffset(years=-1)
 
@@ -489,7 +491,7 @@ class DWDObservationData(PointDataValuesCore):
 
         return super(DWDObservationData, self)._parse_station_ids(series)
 
-    def _parse_datetimes(self, series: pd.Series) -> pd.Series:
+    def _parse_dates(self, series: pd.Series) -> pd.Series:
         """Use predefined datetime format for given resolution to reduce processing
         time."""
         return pd.to_datetime(series, format=self._datetime_format).dt.tz_localize(
@@ -529,7 +531,7 @@ class DWDObservationData(PointDataValuesCore):
         return file_index_filtered[DWDMetaColumns.DATE_RANGE.value].tolist()
 
 
-class DWDObservationStations(PointDataStationsCore):
+class DWDObservationStations(ScalarStationsCore):
     """
     The DWDObservationStations class represents a request for
     a station list as provided by the DWD service.
