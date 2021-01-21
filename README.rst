@@ -3,7 +3,7 @@ Wetterdienst - Open weather data for humans
 
 .. container:: align-center
 
-    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/docs-overhaul/docs/img/temperature_ts.png
+    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
         :alt: temperature timeseries of Hohenpeissenberg/Germany
 
     *"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
