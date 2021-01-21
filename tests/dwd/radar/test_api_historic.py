@@ -181,6 +181,7 @@ def test_radar_request_composite_historic_fx_timerange():
     )
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday():
     """
@@ -744,6 +745,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_radvor_re_yesterday():
     """
@@ -806,6 +808,7 @@ def test_radar_request_radvor_re_timerange():
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday():
     """
