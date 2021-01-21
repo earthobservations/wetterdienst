@@ -1,4 +1,11 @@
 from datetime import datetime, timedelta
+from typing import Tuple, Union
+
+import pandas as pd
+import pytz
+from dateutil.relativedelta import relativedelta
+
+from wetterdienst.metadata.resolution import Resolution
 
 
 def round_minutes(timestamp: datetime, step: int):
@@ -36,3 +43,41 @@ def raster_minutes(timestamp: datetime, value: int):
     timestamp = timestamp.replace(minute=value)
 
     return timestamp
+
+
+def mktimerange(
+    resolution: Resolution,
+    date_from: datetime,
+    date_to: datetime = None,
+) -> Tuple[datetime, datetime]:
+    """
+    Compute appropriate time ranges for monthly and annual time resolutions.
+    This takes into account to properly floor/ceil the date_from/date_to
+    values to respective "begin of month/year" and "end of month/year" values.
+
+    Args:
+        resolution: time resolution as enumeration
+        date_from: datetime string or object
+        date_to: datetime string or object
+
+    Returns:
+        Tuple of two Timestamps: "date_from" and "date_to"
+    """
+
+    if date_to is None:
+        date_to = date_from
+
+    if resolution == Resolution.ANNUAL:
+        date_from = date_from + relativedelta(month=1, day=1)
+        date_to = date_to + relativedelta(month=12, day=31)
+
+    elif resolution == Resolution.MONTHLY:
+        date_from = date_from + relativedelta(day=1)
+        date_to = date_to + relativedelta(day=31)
+
+    else:
+        raise NotImplementedError(
+            "mktimerange only implemented for annual and monthly time ranges"
+        )
+
+    return date_from, date_to

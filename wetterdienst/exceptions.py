@@ -36,3 +36,7 @@ class StartDateEndDateError(Exception):
 
 class DatetimeOutOfRangeError(Exception):
     pass
+
+
+class InvalidTimeInterval(ValueError):
+    pass

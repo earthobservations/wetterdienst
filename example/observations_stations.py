@@ -19,8 +19,7 @@ log = logging.getLogger()
 
 
 def station_example():
-
-    sites = DWDObservationStations(
+    stations = DWDObservationStations(
         parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,
@@ -28,7 +27,7 @@ def station_example():
         end_date=datetime(2020, 1, 20),
     )
 
-    df = sites.nearby_radius(latitude=50.0, longitude=8.9, max_distance_in_km=30)
+    df = stations.nearby_radius(latitude=50.0, longitude=8.9, max_distance_in_km=30)
 
     print(df)
 

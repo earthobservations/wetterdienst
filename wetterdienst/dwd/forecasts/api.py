@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 import pandas as pd
 from requests import HTTPError
 
-from wetterdienst.core.point_data import PointDataStationsCore, PointDataValuesCore
+from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
 from wetterdienst.dwd.forecasts.access import KMLReader
 from wetterdienst.dwd.forecasts.metadata import (
     DWDForecastDate,
@@ -35,7 +35,7 @@ from wetterdienst.util.network import list_remote_files
 log = logging.getLogger(__name__)
 
 
-class DWDMosmixData(PointDataValuesCore):
+class DWDMosmixData(ScalarValuesCore):
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
@@ -361,7 +361,7 @@ class DWDMosmixData(PointDataValuesCore):
         return df_urls["URL"].item()
 
 
-class DWDMosmixStations(PointDataStationsCore):
+class DWDMosmixStations(ScalarStationsCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
     @property

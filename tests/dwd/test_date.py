@@ -1,60 +1,45 @@
-from datetime import datetime
-
-import dateparser
+import dateutil.parser
 import pytest
-from pandas import Timestamp
-from pytz import timezone
+import pytz
 
-from wetterdienst.dwd.observations import DWDObservationResolution
-from wetterdienst.dwd.util import mktimerange, parse_datetime
-
-# TODO: differentiate between no given timezone and given timezone
-
-
-def test_parse_datetime():
-    assert parse_datetime("2020-05-01") == datetime(2020, 5, 1, 0, 0).replace(
-        tzinfo=timezone("UTC")
-    )
-    assert parse_datetime("2020-05-01T13:14:15") == datetime(
-        2020, 5, 1, 13, 14, 15
-    ).replace(tzinfo=timezone("UTC"))
-    assert parse_datetime("2020-05-01T13") == datetime(2020, 5, 1, 13, 0).replace(
-        tzinfo=timezone("UTC")
-    )
+from wetterdienst import Resolution
+from wetterdienst.util.datetime import mktimerange
 
 
 def test_mktimerange_annual():
-    assert mktimerange(DWDObservationResolution.ANNUAL, dateparser.parse("2019")) == (
-        Timestamp("2019-01-01 00:00:00").tz_localize("UTC"),
-        Timestamp("2019-12-31 00:00:00").tz_localize("UTC"),
+    assert mktimerange(
+        Resolution.ANNUAL, dateutil.parser.isoparse("2019").replace(tzinfo=pytz.UTC)
+    ) == (
+        dateutil.parser.isoparse("2019-01-01 00:00:00Z"),
+        dateutil.parser.isoparse("2019-12-31 00:00:00Z"),
     )
     assert mktimerange(
-        DWDObservationResolution.ANNUAL,
-        dateparser.parse("2010"),
-        dateparser.parse("2020"),
+        Resolution.ANNUAL,
+        dateutil.parser.isoparse("2010").replace(tzinfo=pytz.UTC),
+        dateutil.parser.isoparse("2020").replace(tzinfo=pytz.UTC),
     ) == (
-        Timestamp("2010-01-01 00:00:00").tz_localize("UTC"),
-        Timestamp("2020-12-31 00:00:00").tz_localize("UTC"),
+        dateutil.parser.isoparse("2010-01-01 00:00:00Z"),
+        dateutil.parser.isoparse("2020-12-31 00:00:00Z"),
     )
 
 
 def test_mktimerange_monthly():
     assert mktimerange(
-        DWDObservationResolution.MONTHLY, dateparser.parse("2020-05")
+        Resolution.MONTHLY, dateutil.parser.isoparse("2020-05").replace(tzinfo=pytz.UTC)
     ) == (
-        Timestamp("2020-05-01 00:00:00").tz_localize("UTC"),
-        Timestamp("2020-05-31 00:00:00").tz_localize("UTC"),
+        dateutil.parser.isoparse("2020-05-01 00:00:00Z"),
+        dateutil.parser.isoparse("2020-05-31 00:00:00Z"),
     )
     assert mktimerange(
-        DWDObservationResolution.MONTHLY,
-        dateparser.parse("2017-01"),
-        dateparser.parse("2019-12"),
+        Resolution.MONTHLY,
+        dateutil.parser.isoparse("2017-01").replace(tzinfo=pytz.UTC),
+        dateutil.parser.isoparse("2019-12").replace(tzinfo=pytz.UTC),
     ) == (
-        Timestamp("2017-01-01 00:00:00").tz_localize("UTC"),
-        Timestamp("2019-12-31 00:00:00").tz_localize("UTC"),
+        dateutil.parser.isoparse("2017-01-01 00:00:00Z"),
+        dateutil.parser.isoparse("2019-12-31 00:00:00Z"),
     )
 
 
 def test_mktimerange_invalid():
     with pytest.raises(NotImplementedError):
-        mktimerange(DWDObservationResolution.DAILY, dateparser.parse("2020-05-01"))
+        mktimerange(Resolution.DAILY, dateutil.parser.isoparse("2020-05-01"))

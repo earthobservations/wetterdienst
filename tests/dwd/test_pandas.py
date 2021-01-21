@@ -1,5 +1,6 @@
 import json
 
+import dateutil.parser
 import mock
 import pandas as pd
 import pytest
@@ -11,13 +12,13 @@ from wetterdienst.dwd.observations import (
     DWDObservationPeriod,
     DWDObservationResolution,
 )
-from wetterdienst.dwd.util import parse_datetime
+from wetterdienst.metadata.resolution import Resolution
 
 df_station = pd.DataFrame.from_dict(
     {
         "STATION_ID": ["19087"],
-        "FROM_DATE": [parse_datetime("1957-05-01T00:00:00.000Z")],
-        "TO_DATE": [parse_datetime("1995-11-30T00:00:00.000Z")],
+        "FROM_DATE": [dateutil.parser.isoparse("1957-05-01T00:00:00.000Z")],
+        "TO_DATE": [dateutil.parser.isoparse("1995-11-30T00:00:00.000Z")],
         "STATION_HEIGHT": [645.0],
         "LAT": [48.8049],
         "LON": [13.5528],
@@ -32,7 +33,7 @@ df_data = pd.DataFrame.from_dict(
         "STATION_ID": ["01048"],
         "PARAMETER_SET": ["CLIMATE_SUMMARY"],
         "PARAMETER": ["TEMPERATURE_AIR_MAX_200"],
-        "DATE": [parse_datetime("2019-12-28T00:00:00.000Z")],
+        "DATE": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
         "VALUE": [1.3],
         "QUALITY": [None],
     }
@@ -58,47 +59,43 @@ def test_lowercase():
 
 def test_filter_by_date():
 
-    df = df_data.dwd.filter_by_date("2019-12-28Z", DWDObservationResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-28", Resolution.HOURLY)
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2019-12-27Z", DWDObservationResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2019-12-27", Resolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_interval():
 
-    df = df_data.dwd.filter_by_date(
-        "2019-12-27Z/2019-12-29Z", DWDObservationResolution.HOURLY
-    )
+    df = df_data.dwd.filter_by_date("2019-12-27/2019-12-29", Resolution.HOURLY)
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2020Z/2022Z", DWDObservationResolution.HOURLY)
+    df = df_data.dwd.filter_by_date("2020/2022", Resolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_monthly():
 
     result = pd.DataFrame.from_dict(
-        [
-            {
-                "STATION_ID": "01048",
-                "PARAMETER": "climate_summary",
-                "ELEMENT": "temperature_air_max_200",
-                "FROM_DATE": parse_datetime("2019-12-28T00:00:00.000"),
-                "TO_DATE": parse_datetime("2020-01-28T00:00:00.000"),
-                "VALUE": 1.3,
-                "QUALITY": None,
-            }
-        ]
+        {
+            "STATION_ID": ["01048"],
+            "PARAMETER": ["climate_summary"],
+            "ELEMENT": ["temperature_air_max_200"],
+            "FROM_DATE": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
+            "TO_DATE": [dateutil.parser.isoparse("2020-01-28T00:00:00.000Z")],
+            "VALUE": [1.3],
+            "QUALITY": [None],
+        }
     )
 
-    df = result.dwd.filter_by_date("2019-12/2020-01", DWDObservationResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2019-12/2020-01", Resolution.MONTHLY)
     assert not df.empty
 
-    df = result.dwd.filter_by_date("2020/2022", DWDObservationResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2020/2022", Resolution.MONTHLY)
     assert df.empty
 
-    df = result.dwd.filter_by_date("2020", DWDObservationResolution.MONTHLY)
+    df = result.dwd.filter_by_date("2020", Resolution.MONTHLY)
     assert df.empty
 
 
@@ -109,20 +106,20 @@ def test_filter_by_date_annual():
             "STATION_ID": ["01048"],
             "PARAMETER_SET": ["climate_summary"],
             "PARAMETER": ["temperature_air_max_200"],
-            "FROM_DATE": [parse_datetime("2019-01-01T00:00:00.000")],
-            "TO_DATE": [parse_datetime("2019-12-31T00:00:00.000")],
+            "FROM_DATE": [dateutil.parser.isoparse("2019-01-01T00:00:00.000Z")],
+            "TO_DATE": [dateutil.parser.isoparse("2019-12-31T00:00:00.000Z")],
             "VALUE": [1.3],
             "QUALITY": [None],
         }
     )
 
-    df = result.dwd.filter_by_date("2019-05/2019-09", DWDObservationResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2019-05/2019-09", Resolution.ANNUAL)
     assert not df.empty
 
-    df = result.dwd.filter_by_date("2020/2022", DWDObservationResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2020/2022", Resolution.ANNUAL)
     assert df.empty
 
-    df = result.dwd.filter_by_date("2020", DWDObservationResolution.ANNUAL)
+    df = result.dwd.filter_by_date("2020", Resolution.ANNUAL)
     assert df.empty
 
 
