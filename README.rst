@@ -17,7 +17,7 @@ Overview
 
 .. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
-.. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/earthobservations/wetterdienst
 .. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
    :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
@@ -34,7 +34,7 @@ Overview
 .. image:: https://pepy.tech/badge/wetterdienst/month
    :target: https://pepy.tech/project/wetterdienst/month
 .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
-   :target: https://github.com/earthobservations/wetterdienst/blob/master/LICENSE.rst
+   :target: https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.rst
 .. image:: https://zenodo.org/badge/160953150.svg
    :target: https://zenodo.org/badge/latestdoi/160953150
 .. image:: https://img.shields.io/discord/704622099750191174.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2

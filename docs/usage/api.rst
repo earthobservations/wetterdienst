@@ -17,7 +17,7 @@ Please also check out complete examples about how to use the API in the example_
 In order to explore all features interactively,
 you might want to try the :ref:`cli`.
 
-.. _example: https://github.com/earthobservations/wetterdienst/tree/master/example
+.. _example: https://github.com/earthobservations/wetterdienst/tree/main/example
 
 Request arguments
 =================
@@ -372,7 +372,7 @@ For more examples, please have a look at `example/radar/`_.
 
 
 .. _wradlib: https://wradlib.org/
-.. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/master/example/radar
+.. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/main/example/radar
 
 .. _SQLite: https://www.sqlite.org/
 .. _DuckDB: https://duckdb.org/docs/sql/introduction
