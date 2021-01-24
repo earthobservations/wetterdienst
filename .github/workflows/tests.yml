@@ -14,29 +14,43 @@ jobs:
     env:
       OS: ${{ matrix.os }}
       PYTHON: ${{ matrix.python-version }}
+      POETRY_CACHE_DIR: ~/.cache/pypoetry
+
+    defaults:
+      run:
+        shell: bash
+
     name: Python ${{ matrix.python-version }} on OS ${{ matrix.os }}
     steps:
+
     - name: Acquire sources
       uses: actions/checkout@v2
+
     - name: Setup Python
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
         architecture: x64
+
     - name: Setup Poetry
-      uses: Gr1N/setup-poetry@v4
-    - name: Configure poetry
-      # FROM https://github.com/northtree/poetry-github-actions/actions/runs/170795796/workflow
-      run: |
-        poetry config virtualenvs.in-project false
-        poetry config cache-dir ~/.poetry
-        poetry config virtualenvs.path ~/.poetry/venv
-    - name: Load cached dependencies
-      uses: actions/cache@v2
+      uses: snok/install-poetry@v1.1.1
       with:
-        path: ~/.poetry
-        key: ${{ matrix.os }}-${{ matrix.python-version }}-poetry-${{ hashFiles('poetry.lock') }}
+        virtualenvs-in-project: true
+
+    - name: Apply cache
+      uses: actions/cache@v2
+      env:
+        # Increase this value to reset cache if `poetry.lock` has not changed.
+        CACHE_NUMBER: 1
+      with:
+        path: ~/.cache
+        key: ${{ matrix.os }}-${{ matrix.python-version }}-poetry-${{ env.CACHE_NUMBER }}-${{ hashFiles('poetry.lock') }}
+
+    - name: Install dependencies
+      run: poetry install --no-interaction --no-root --extras=http --extras=sql --extras=excel
+
     - name: Install library
-      run: poetry install --extras=http --extras=sql --extras=excel
+      run: poetry install --no-interaction
+
     - name: Test
       run: poetry run poe test
