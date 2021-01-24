@@ -99,7 +99,7 @@ class WDSitesCore:
         metadata = metadata.reset_index(drop=True)
 
         distances, indices_nearest_neighbours = derive_nearest_neighbours(
-            metadata.LAT.values, metadata.LON.values, coords, num_stations_nearby
+            metadata.LATITUDE.values, metadata.LONGITUDE.values, coords, num_stations_nearby
         )
 
         distances = pd.Series(distances)

@@ -57,7 +57,7 @@ class DWDMosmixData(WDDataCore):
     parameters: List
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per MOSMIX definition, see
-          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:E501,B950
+          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile  # noqa:E501,B950
     """
 
     def __init__(
@@ -246,6 +246,11 @@ class DWDMosmixData(WDDataCore):
             df_metadata = df_metadata.rename(columns=str.upper).reset_index(drop=True)
 
             df_metadata = df_metadata.join(station_metadata)
+
+            lowercase_columns = True
+            if lowercase_columns:
+                df_forecast = df_forecast.rename(columns=str.lower)
+                df_metadata = df_metadata.rename(columns=str.lower)
 
             result = DWDMosmixResult(df_metadata, df_forecast)
 
