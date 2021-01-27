@@ -44,6 +44,16 @@ RADAR_LOCATIONS = {
         "longitude": 12.402788,
         "altitude": 799,
     },
+    # Emden is missing in `koordinaten-radarverbund.pdf`.
+    # https://github.com/wradlib/wradlib-notebooks/issues/49#issuecomment-768262146
+    "EMD": {
+        "name": "Emden",
+        "dwd_id": "EMD",
+        "wmo_id": 10204,
+        "latitude": 53.33872,
+        "longitude": 7.02377,
+        "altitude": 58,
+    },
     "ESS": {
         "name": "Essen",
         "dwd_id": "ESS",
@@ -160,6 +170,7 @@ class DWDRadarSite(Enum):
     BOO = "boo"
     DRS = "drs"
     EIS = "eis"
+    EMD = "emd"
     ESS = "ess"
     FBG = "fbg"
     FLD = "fld"
