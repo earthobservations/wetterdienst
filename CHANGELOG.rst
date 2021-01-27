@@ -3,6 +3,7 @@ Changelog
 
 Development
 ***********
+- DWD: Add missing radar site "Emden" (EMD, wmo=10204)
 
 0.13.0 (21.01.2021)
 *******************
