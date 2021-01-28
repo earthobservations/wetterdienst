@@ -351,8 +351,9 @@ class ScalarValuesCore(ScalarCore):
             how="left",
         )
 
+        df[Columns.STATION_ID.value] = station_id
+
         if self.tidy_data:
-            df[Columns.STATION_ID.value] = station_id
             df[Columns.PARAMETER.value] = parameter.value
 
         return df
@@ -394,7 +395,7 @@ class ScalarValuesCore(ScalarCore):
 
                 station_data.append(parameter_df)
 
-            station_df = pd.concat(station_data)
+            station_df = pd.concat(station_data, ignore_index=True)
 
             station_df = self._coerce_meta_fields(station_df)
             station_df = self._coerce_parameter_types(station_df)
@@ -547,7 +548,7 @@ class ScalarValuesCore(ScalarCore):
             return df
 
         data = []
-        for parameter, group in df.groupby(Columns.PARAMETER.value):
+        for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
             if parameter in self._irregular_parameters:
                 group[Columns.VALUE.value] = self._parse_irregular_parameter(
                     group[Columns.VALUE.value]
@@ -581,7 +582,7 @@ class ScalarValuesCore(ScalarCore):
         if not data:
             raise ValueError("No data available for given constraints")
 
-        df = pd.concat(data)
+        df = pd.concat(data, ignore_index=True)
 
         # Have to reapply category dtype after concatenation
         for column in (

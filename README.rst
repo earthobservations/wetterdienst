@@ -135,12 +135,6 @@ Via Github (most recent):
 
     pip install git+https://github.com/earthobservations/wetterdienst
 
-Via Docker:
-
-.. code-block:: bash
-
-    docker pull ghcr.io/earthobservations/wetterdienst-standard
-
 There are some extras available for ``wetterdienst``. Use them like:
 
 .. code-block:: bash
@@ -176,6 +170,12 @@ There are images in two variants, ``wetterdienst-standard`` and ``wetterdienst-f
 ``wetterdienst-standard`` will contain a minimum set of 3rd-party packages,
 while ``wetterdienst-full`` will try to serve a full environment by also
 including packages like GDAL and wradlib.
+
+Pull the Docker image:
+
+.. code-block:: bash
+
+    docker pull ghcr.io/earthobservations/wetterdienst-standard
 
 Library
 -------

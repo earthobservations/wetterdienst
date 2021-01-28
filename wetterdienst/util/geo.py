@@ -41,29 +41,29 @@ class Coordinates:
 
 
 def derive_nearest_neighbours(
-    latitudes_stations: np.array,
-    longitudes_stations: np.array,
+    latitudes: np.array,
+    longitudes: np.array,
     coordinates: Coordinates,
-    num_stations_nearby: int = 1,
+    number_nearby: int = 1,
 ) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     """
     A function that uses a k-d tree algorithm to obtain the nearest
     neighbours to coordinate pairs
 
     Args:
-        latitudes_stations (np.array): latitude values of stations being compared to
+        latitudes (np.array): latitude values of stations being compared to
         the coordinates
-        longitudes_stations (np.array): longitude values of stations being compared to
+        longitudes (np.array): longitude values of stations being compared to
         the coordinates
         coordinates (Coordinates): the coordinates for which the nearest neighbour
         is searched
-        num_stations_nearby: Number of stations that should be nearby
+        number_nearby: Number of stations that should be nearby
 
     Returns:
         Tuple of distances and ranks of nearest to most distant stations
     """
-    points = np.c_[np.radians(latitudes_stations), np.radians(longitudes_stations)]
+    points = np.c_[np.radians(latitudes), np.radians(longitudes)]
     distance_tree = cKDTree(points)
     return distance_tree.query(
-        coordinates.get_coordinates_in_radians(), k=num_stations_nearby
+        coordinates.get_coordinates_in_radians(), k=number_nearby
     )

@@ -68,9 +68,9 @@ def test_dwd_readings_success(dicts_are_same):
         {
             "station_id": "01359",
             "parameter_set": "climate_summary",
-            "parameter": "wind_speed",
+            "parameter": "wind_gust_max",
             "date": "1982-01-01T00:00:00.000Z",
-            "value": 0.9,
+            "value": 4.2,
             "quality": 10,
         },
     )

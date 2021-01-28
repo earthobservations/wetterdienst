@@ -1,4 +1,7 @@
+from datetime import datetime
+
 import pytest
+import pytz
 from pandas import Timestamp
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -12,7 +15,7 @@ from wetterdienst.exceptions import InvalidParameterCombination
 
 
 @pytest.mark.remote
-def test_dwd_observation_sites_success():
+def test_dwd_observation_stations_success():
 
     # Existing combination of parameters
     sites = DWDObservationStations(
@@ -28,8 +31,8 @@ def test_dwd_observation_sites_success():
     ].values.tolist() == [
         [
             "00001",
-            Timestamp("19370101").tz_localize("UTC"),
-            Timestamp("19860630").tz_localize("UTC"),
+            datetime(1937, 1, 1, tzinfo=pytz.UTC),
+            datetime(1986, 6, 30, tzinfo=pytz.UTC),
             478.0,
             47.8413,
             8.8493,
@@ -37,15 +40,6 @@ def test_dwd_observation_sites_success():
             "Baden-Württemberg",
         ]
     ]
-
-
-def test_dwd_observation_sites_fail():
-    with pytest.raises(InvalidParameterCombination):
-        DWDObservationStations(
-            DWDObservationParameterSet.CLIMATE_SUMMARY,
-            DWDObservationResolution.MINUTE_1,
-            DWDObservationPeriod.HISTORICAL,
-        ).all()
 
 
 @pytest.mark.remote

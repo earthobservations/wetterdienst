@@ -23,7 +23,6 @@ def test_meta_index_creation():
 
     assert not meta_index.empty
 
-    # todo: replace IndexError with UrlError/WrongSetOfParametersError
     with pytest.raises(requests.exceptions.HTTPError):
         create_meta_index_for_climate_observations(
             DWDObservationParameterSet.CLIMATE_SUMMARY,

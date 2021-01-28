@@ -1,10 +1,10 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2020 earthobservations
 from typing import Tuple, Union
 
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameter,
     DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
@@ -13,6 +13,7 @@ from wetterdienst.dwd.observations.metadata.parameter_set import (
     RESOLUTION_PARAMETER_MAPPING,
 )
 from wetterdienst.exceptions import InvalidEnumeration, InvalidParameter
+from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -67,8 +68,8 @@ def create_parameter_to_parameter_set_combination(
 
 def check_dwd_observations_parameter_set(
     parameter_set: DWDObservationParameterSet,
-    resolution: DWDObservationResolution,
-    period: DWDObservationPeriod,
+    resolution: Resolution,
+    period: Period,
 ) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
