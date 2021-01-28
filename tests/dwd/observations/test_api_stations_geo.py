@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
+import pytz
+from pandas._libs.tslibs.timestamps import Timestamp
 
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
@@ -12,23 +14,14 @@ from wetterdienst.dwd.observations import (
     DWDObservationResolution,
     DWDObservationStations,
 )
-from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
-HERE = Path(__file__).parent
-METADATA_FILE = HERE / "FIXED_METADATA.JSON"
-METADATA_DF = pd.read_json(METADATA_FILE)
-METADATA_DF = METADATA_DF.astype(DWDObservationStations._dtype_mapping)
 
-
-@patch(
-    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
-    MagicMock(return_value=METADATA_DF),
-)
-def test_dwd_observation_sites_nearby_number_success():
+@pytest.mark.remote
+def test_dwd_observation_stations_nearby_number_success():
 
     # Test for one nearest station
-    sites = DWDObservationStations(
+    request = DWDObservationStations(
         DWDObservationParameterSet.TEMPERATURE_AIR,
         DWDObservationResolution.HOURLY,
         DWDObservationPeriod.RECENT,
@@ -36,21 +29,21 @@ def test_dwd_observation_sites_nearby_number_success():
         datetime(2020, 1, 20),
     )
 
-    nearby_station = sites.nearby_number(
+    nearby_station = request.nearby_number(
         50.0,
         8.9,
         1,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
-    nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
+    nearby_station.STATION_ID = nearby_station.STATION_ID
 
     pd.testing.assert_frame_equal(
         nearby_station,
         pd.DataFrame(
             [
                 [
-                    np.int64(4411),
-                    pd.to_datetime("2002-01-24").tz_localize("UTC"),
+                    "04411",
+                    Timestamp("2002-01-24", tzinfo=pytz.UTC),
                     155.0,
                     49.9195,
                     8.9671,
@@ -72,27 +65,28 @@ def test_dwd_observation_sites_nearby_number_success():
         ),
     )
 
-    nearby_station = DWDObservationStations(
+    request = DWDObservationStations(
         DWDObservationParameterSet.TEMPERATURE_AIR,
         DWDObservationResolution.HOURLY,
         DWDObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
-    ).nearby_radius(
+    )
+    nearby_station = request.nearby_number(
         50.0,
         8.9,
-        20,
+        3,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
-    nearby_station.STATION_ID = nearby_station.STATION_ID.astype(np.int64)
+    nearby_station.STATION_ID = nearby_station.STATION_ID
 
     pd.testing.assert_frame_equal(
         nearby_station,
         pd.DataFrame(
             [
                 [
-                    np.int64(4411),
-                    pd.to_datetime("2002-01-24 00:00:00").tz_localize("UTC"),
+                    "04411",
+                    Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
                     155.0,
                     49.9195,
                     8.9671,
@@ -101,8 +95,8 @@ def test_dwd_observation_sites_nearby_number_success():
                     11.653026716750542,
                 ],
                 [
-                    np.int64(2480),
-                    pd.to_datetime("2004-09-01 00:00:00").tz_localize("UTC"),
+                    "02480",
+                    Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
                     108.0,
                     50.0643,
                     8.993,
@@ -111,8 +105,8 @@ def test_dwd_observation_sites_nearby_number_success():
                     12.572153957087247,
                 ],
                 [
-                    np.int64(7341),
-                    pd.to_datetime("2005-07-16 00:00:00").tz_localize("UTC"),
+                    "07341",
+                    Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
                     119.0,
                     50.09,
                     8.7862,
@@ -135,12 +129,23 @@ def test_dwd_observation_sites_nearby_number_success():
     )
 
 
-@patch(
-    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
-    MagicMock(return_value=METADATA_DF),
-)
-def test_dwd_observation_sites_nearby_number_fail_1():
+def test_dwd_observation_stations_nearby_distance_success():
+    request = DWDObservationStations(
+        DWDObservationParameterSet.TEMPERATURE_AIR,
+        DWDObservationResolution.HOURLY,
+        DWDObservationPeriod.RECENT,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
+    )
+    nearby_station = request.nearby_radius(
+        50.0,
+        8.9,
+        10,
+    )
+    assert nearby_station.empty is True
 
+
+def test_dwd_observation_stations_nearby_number_fail_1():
     with pytest.raises(ValueError):
         DWDObservationStations(
             DWDObservationParameterSet.TEMPERATURE_AIR,
@@ -155,56 +160,24 @@ def test_dwd_observation_sites_nearby_number_fail_1():
         )
 
 
-@patch(
-    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
-    MagicMock(return_value=METADATA_DF),
-)
-def test_dwd_observation_sites_nearby_number_fail_2():
-
-    with pytest.raises(InvalidParameterCombination):
-        DWDObservationStations(
-            DWDObservationParameterSet.SOIL,
-            DWDObservationResolution.MINUTE_10,
-            DWDObservationPeriod.RECENT,
-            datetime(2020, 1, 1),
-            datetime(2020, 1, 20),
-        ).nearby_number(
-            51.4,
-            9.3,
-            1,
-        )
-
-
-@patch(
-    "wetterdienst.dwd.observations.stations.metadata_for_climate_observations",
-    MagicMock(return_value=METADATA_DF),
-)
-def test_dwd_observation_sites_nearby_distance():
-    nearby_station = DWDObservationStations(
-        DWDObservationParameterSet.TEMPERATURE_AIR,
-        DWDObservationResolution.HOURLY,
-        DWDObservationPeriod.RECENT,
-        datetime(2020, 1, 1),
-        datetime(2020, 1, 20),
-    ).nearby_radius(
-        50.0,
-        8.9,
-        10,
-    )
-    assert nearby_station.empty is True
-
-
 def test_derive_nearest_neighbours():
     coords = Coordinates(np.array([50.0, 51.4]), np.array([8.9, 9.3]))
 
-    metadata = pd.read_json(METADATA_FILE)
+    metadata = pd.DataFrame(
+        {
+            "STATION_ID": [4371, 4373, 4411, 13904, 13965, 15207],
+            "LAT": [52.1042, 52.8568, 49.9195, 55.0, 48.2639, 51.2835],
+            "LON": [8.7521, 11.1319, 8.9671, 6.3333, 8.8134, 9.359],
+        }
+    )
 
     distances, indices_nearest_neighbours = derive_nearest_neighbours(
-        metadata.LAT.values, metadata.LON.values, coords
+        latitudes=metadata.LAT.values,
+        longitudes=metadata.LON.values,
+        coordinates=coords,
+        number_nearby=1,
     )
 
     np.testing.assert_array_almost_equal(distances, np.array([0.00182907, 0.00227919]))
 
-    np.testing.assert_array_almost_equal(
-        indices_nearest_neighbours, np.array([432, 655])
-    )
+    np.testing.assert_array_almost_equal(indices_nearest_neighbours, np.array([2, 5]))

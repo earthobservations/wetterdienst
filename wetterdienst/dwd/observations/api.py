@@ -1,19 +1,30 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2020 earthobservations
 import logging
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from enum import Enum
+from io import BytesIO
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+from zipfile import BadZipFile, ZipFile
 
 import pandas as pd
 from pandas import Timestamp
+from requests.exceptions import InvalidURL
 
 from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.access import collect_climate_observations_data
+from wetterdienst.dwd.network import download_file_from_dwd
+from wetterdienst.dwd.observations.download import (
+    download_climate_observations_data_parallel,
+)
 from wetterdienst.dwd.observations.fileindex import (
     create_file_index_for_climate_observations,
+    create_file_list_for_climate_observations,
 )
 from wetterdienst.dwd.observations.metadata import (
     DWDObservationParameter,
@@ -36,18 +47,27 @@ from wetterdienst.dwd.observations.metadata.resolution import (
     HIGH_RESOLUTIONS,
     RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
-from wetterdienst.dwd.observations.stations import metadata_for_climate_observations
+from wetterdienst.dwd.observations.metaindex import (
+    create_meta_index_for_climate_observations,
+)
+from wetterdienst.dwd.observations.parser import parse_climate_observations_data
 from wetterdienst.dwd.observations.util.parameter import (
     check_dwd_observations_parameter_set,
     create_parameter_to_parameter_set_combination,
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
-from wetterdienst.exceptions import InvalidParameter, InvalidParameterCombination
+from wetterdienst.exceptions import (
+    FailedDownload,
+    InvalidParameter,
+    InvalidParameterCombination,
+    ProductFileNotFound,
+)
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
+from wetterdienst.util.cache import payload_cache_five_minutes
 from wetterdienst.util.enumeration import (
     parse_enumeration,
     parse_enumeration_from_template,
@@ -56,14 +76,13 @@ from wetterdienst.util.enumeration import (
 log = logging.getLogger(__name__)
 
 
-# TODO: change to DWDObservationValues
-
-
 class DWDObservationData(ScalarValuesCore):
     """
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
     """
+
+    # TODO: change to DWDObservationValues
 
     @property
     def _source(self) -> Source:
@@ -374,28 +393,30 @@ class DWDObservationData(ScalarValuesCore):
             df = super(DWDObservationData, self)._build_complete_df(
                 df, station_id, parameter
             )
+        else:
 
-            if self.tidy_data:
-                df[Columns.PARAMETER_SET.value] = parameter_set.name
-
-            return df
-
-        data = []
-        for parameter, group in df.groupby(Columns.PARAMETER.value):
-            parameter = parse_enumeration_from_template(
-                parameter,
-                DWDObservationParameterSetStructure[self.resolution.name][
-                    parameter_set.name
-                ],
-            )
-
-            data.append(
-                super(DWDObservationData, self)._build_complete_df(
-                    group, station_id, parameter
+            data = []
+            for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
+                parameter = parse_enumeration_from_template(
+                    parameter,
+                    DWDObservationParameterSetStructure[self.resolution.name][
+                        parameter_set.name
+                    ],
                 )
-            )
 
-        df = pd.concat(data)
+                data.append(
+                    super(DWDObservationData, self)._build_complete_df(
+                        group, station_id, parameter
+                    )
+                )
+
+            df = pd.concat(data)
+
+        if self.tidy_data:
+            df[Columns.PARAMETER_SET.value] = parameter_set.name
+            df[Columns.PARAMETER_SET.value] = pd.Categorical(
+                df[Columns.PARAMETER_SET.value]
+            )
 
         return df
 
@@ -442,18 +463,37 @@ class DWDObservationData(ScalarValuesCore):
 
             log.info(f"Acquiring observations data for {parameter_identifier}.")
 
-            # TODO: integrate collect_climate_observations_data in class
-            try:
-                period_df = collect_climate_observations_data(
-                    station_id, parameter_set, self.resolution, period, date_range
-                )
-            except InvalidParameterCombination:
+            if not check_dwd_observations_parameter_set(
+                parameter_set, self.resolution, period
+            ):
                 log.info(
                     f"Invalid combination {parameter_set.value}/"
                     f"{self.resolution.value}/{period} is skipped."
                 )
 
-                period_df = pd.DataFrame()
+                return pd.DataFrame()
+
+            remote_files = create_file_list_for_climate_observations(
+                station_id, parameter_set, self.resolution, period, date_range
+            )
+
+            if len(remote_files) == 0:
+                parameter_identifier = build_parameter_set_identifier(
+                    parameter_set, self.resolution, period, station_id, date_range
+                )
+                log.info(
+                    f"No files found for {parameter_identifier}. Station will be skipped."
+                )
+                return pd.DataFrame()
+
+            # TODO: replace with FSSPEC caching
+            filenames_and_files = download_climate_observations_data_parallel(
+                remote_files
+            )
+
+            period_df = parse_climate_observations_data(
+                filenames_and_files, parameter_set, self.resolution, period
+            )
 
             # Filter out values which already are in the DataFrame
             try:
@@ -553,8 +593,8 @@ class DWDObservationStations(ScalarStationsCore):
     def __init__(
         self,
         parameter_set: Union[str, DWDObservationParameterSet],
-        resolution: Union[str, Resolution],
-        period: Union[str, Period],
+        resolution: Union[str, Resolution, DWDObservationResolution],
+        period: Union[str, Period, DWDObservationPeriod],
         start_date: Union[None, str, Timestamp] = None,
         end_date: Union[None, str, Timestamp] = None,
     ):
@@ -580,30 +620,46 @@ class DWDObservationStations(ScalarStationsCore):
             parameter_set, DWDObservationParameterSet
         )
 
-        # TODO: move to _all and replace error with logging + empty dataframe
-        if not check_dwd_observations_parameter_set(
-            parameter_set, self.resolution, self.period
-        ):
-            raise InvalidParameterCombination(
-                f"The combination of {parameter_set.value}, {resolution.value}, "
-                f"{period.value} is invalid."
-            )
-
         self.parameter = parameter_set
 
     def _all(self) -> pd.DataFrame:
-        metadata = metadata_for_climate_observations(
-            parameter_set=self.parameter,
-            resolution=self.resolution,
-            period=self.period,
+        # TODO: move to _all and replace error with logging + empty dataframe
+        if not check_dwd_observations_parameter_set(
+            self.parameter, self.resolution, self.period
+        ):
+            log.warning(
+                f"The combination of {self.parameter.value}, {self.resolution.value}, "
+                f"{self.period.value} is invalid."
+            )
+
+            return pd.DataFrame()
+
+        df = create_meta_index_for_climate_observations(
+            self.parameter, self.resolution, self.period
         )
 
+        df[DWDMetaColumns.HAS_FILE.value] = False
+
+        file_index = create_file_index_for_climate_observations(
+            self.parameter, self.resolution, self.period
+        )
+
+        df.loc[
+            df.loc[:, DWDMetaColumns.STATION_ID.value].isin(
+                file_index[DWDMetaColumns.STATION_ID.value]
+            ),
+            DWDMetaColumns.HAS_FILE.value,
+        ] = True
+
+        # TODO: we may eventually still return those stations which have no file on the
+        #  server for the sake of completeness and rather return empty values later on
+        #  with a corresponding report e.g. "data not provided"
         # Filter only for stations that have a file
-        metadata = metadata[metadata[DWDMetaColumns.HAS_FILE.value].values]
+        df = df[df[DWDMetaColumns.HAS_FILE.value].values]
 
-        metadata = metadata.drop(columns=[DWDMetaColumns.HAS_FILE.value])
+        df = df.drop(columns=[DWDMetaColumns.HAS_FILE.value])
 
-        return metadata
+        return df
 
 
 class DWDObservationMetadata:

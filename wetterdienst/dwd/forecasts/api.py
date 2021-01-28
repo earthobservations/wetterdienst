@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime
 from enum import Enum
+from io import StringIO
 from typing import Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import pandas as pd
+import requests
 from requests import HTTPError
 
 from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
@@ -15,7 +17,6 @@ from wetterdienst.dwd.forecasts.metadata import (
     DWDMosmixType,
 )
 from wetterdienst.dwd.forecasts.metadata.column_types import INTEGER_PARAMETERS
-from wetterdienst.dwd.forecasts.stations import metadata_for_forecasts
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import (
     DWD_MOSMIX_L_SINGLE_PATH,
@@ -33,6 +34,32 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import list_remote_files
 
 log = logging.getLogger(__name__)
+
+
+MOSMIX_STATION_LIST = (
+    "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
+    "mosmix_stationskatalog.cfg?view=nasPublication"
+)
+MOSMIX_STATION_LIST_COLSPECS = [
+    (0, 5),
+    (6, 11),
+    (12, 17),
+    (18, 22),
+    (23, 44),
+    (45, 51),
+    (52, 58),
+    (59, 64),
+    (65, 71),
+    (72, 76),
+]
+MOSMIX_METADATA_COLUMNS = [
+    Columns.STATION_ID.value,
+    Columns.ICAO_ID.value,
+    Columns.STATION_NAME.value,
+    Columns.LATITUDE.value,
+    Columns.LONGITUDE.value,
+    Columns.STATION_HEIGHT.value,
+]
 
 
 class DWDMosmixData(ScalarValuesCore):
@@ -110,20 +137,20 @@ class DWDMosmixData(ScalarValuesCore):
 
         :param station_ids: station ids which are being queried from the MOSMIX foreacst
         :param mosmix_type: type of forecast, either small (MOSMIX-S) or large
-        (MOSMIX-L), as string or enumeration
+                            (MOSMIX-L), as string or enumeration
         :param parameters: optional parameters for which the forecasts are filtered
         :param start_issue: start date of the MOSMIX forecast, can be used in
-        combination with end_issue to query multiple MOSMIX forecasts, or instead used
-        with enumeration to only query LATEST MOSMIX forecast
+                            combination with end_issue to query multiple MOSMIX
+                            forecasts, or instead used with enumeration to only query
+                            LATEST MOSMIX forecast
         :param end_issue: end issue of MOSMIX forecast, can be used to query multiple
-        MOSMIX forecasts available on the server
+                          MOSMIX forecasts available on the server
         :param start_date: start date to limit the returned data to specified datetimes
         :param end_date: end date to limit the returned data to specified datetimes
         :param humanize_parameters: boolean if parameters shall be renamed to human
-        readable names
+                                    readable names
         :param tidy_data: boolean if pandas.DataFrame shall be tidied and
-        values put in rows
-
+                            values put in rows
         """
         # Use all parameters if none are given
         parameters = parameters or [*self._parameter_base]
@@ -398,4 +425,32 @@ class DWDMosmixStations(ScalarStationsCore):
         )
 
     def _all(self):
-        return metadata_for_forecasts()
+        """ Create meta data DataFrame from available station list """
+        # TODO: Cache payload with FSSPEC
+        payload = requests.get(MOSMIX_STATION_LIST, headers={"User-Agent": ""})
+
+        # List is unsorted with repeating interruptions with "TABLE" string in the beginning
+        # of the line
+        lines = payload.text.split("\n")
+        table_lines = [i for i, line in enumerate(lines) if line.startswith("TABLE")]
+
+        lines_filtered = []
+
+        for start, end in zip(table_lines[:-1], table_lines[1:]):
+            lines_filtered.extend(lines[start + 3 : end - 1])
+
+        data = StringIO("\n".join(lines_filtered))
+
+        df = pd.read_fwf(
+            data,
+            colspecs=MOSMIX_STATION_LIST_COLSPECS,
+            na_values=["----"],
+            header=None,
+            dtype="str",
+        )
+
+        df = df.iloc[:, [2, 3, 4, 5, 6, 7]]
+
+        df.columns = MOSMIX_METADATA_COLUMNS
+
+        return df
