@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 import pytz
 from pandas._libs.tslibs.timestamps import Timestamp
+from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
@@ -35,9 +36,8 @@ def test_dwd_observation_stations_nearby_number_success():
         1,
     )
     nearby_station = nearby_station.drop("TO_DATE", axis="columns")
-    nearby_station.STATION_ID = nearby_station.STATION_ID
 
-    pd.testing.assert_frame_equal(
+    assert_frame_equal(
         nearby_station,
         pd.DataFrame(
             [
@@ -55,9 +55,9 @@ def test_dwd_observation_stations_nearby_number_success():
             columns=[
                 "STATION_ID",
                 "FROM_DATE",
-                "STATION_HEIGHT",
-                "LAT",
-                "LON",
+                "HEIGHT",
+                "LATITUDE",
+                "LONGITUDE",
                 "STATION_NAME",
                 "STATE",
                 "DISTANCE_TO_LOCATION",
@@ -118,9 +118,9 @@ def test_dwd_observation_stations_nearby_number_success():
             columns=[
                 "STATION_ID",
                 "FROM_DATE",
-                "STATION_HEIGHT",
-                "LAT",
-                "LON",
+                "HEIGHT",
+                "LATITUDE",
+                "LONGITUDE",
                 "STATION_NAME",
                 "STATE",
                 "DISTANCE_TO_LOCATION",

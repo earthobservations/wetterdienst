@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2020 earthobservations
+# Copyright (c) 2018-2020, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
@@ -638,26 +640,26 @@ class DWDObservationStations(ScalarStationsCore):
             self.parameter, self.resolution, self.period
         )
 
-        df[DWDMetaColumns.HAS_FILE.value] = False
+        df[Columns.HAS_FILE.value] = False
 
         file_index = create_file_index_for_climate_observations(
             self.parameter, self.resolution, self.period
         )
 
         df.loc[
-            df.loc[:, DWDMetaColumns.STATION_ID.value].isin(
-                file_index[DWDMetaColumns.STATION_ID.value]
+            df.loc[:, Columns.STATION_ID.value].isin(
+                file_index[Columns.STATION_ID.value]
             ),
-            DWDMetaColumns.HAS_FILE.value,
+            Columns.HAS_FILE.value,
         ] = True
 
         # TODO: we may eventually still return those stations which have no file on the
         #  server for the sake of completeness and rather return empty values later on
         #  with a corresponding report e.g. "data not provided"
         # Filter only for stations that have a file
-        df = df[df[DWDMetaColumns.HAS_FILE.value].values]
+        df = df[df[Columns.HAS_FILE.value].values]
 
-        df = df.drop(columns=[DWDMetaColumns.HAS_FILE.value])
+        df = df.drop(columns=[Columns.HAS_FILE.value])
 
         return df
 

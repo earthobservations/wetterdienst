@@ -1,10 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2020, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 import pytest
 
 from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
 
 
 @pytest.mark.remote
-def test_mosmix_l():
+def test_dwd_mosmix_l():
     """
     Test some details of a typical MOSMIX-L response.
     """
@@ -153,7 +157,7 @@ def test_mosmix_l():
 
 @pytest.mark.remote
 @pytest.mark.slow
-def test_mosmix_s():
+def test_dwd_mosmix_s():
     """
     Test some details of a typical MOSMIX-S response.
     """

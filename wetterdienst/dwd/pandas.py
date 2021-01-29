@@ -165,9 +165,9 @@ class PandasDwdExtension:
                         # -- http://wiki.geojson.org/RFC-001
                         "type": "Point",
                         "coordinates": [
-                            station["lon"],
-                            station["lat"],
-                            station["station_height"],
+                            station["longitude"],
+                            station["latitude"],
+                            station["height"],
                         ],
                     },
                 }

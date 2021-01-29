@@ -1,6 +1,6 @@
 import numpy as np
 
-from wetterdienst.util.geo import Coordinates
+from wetterdienst.util.geo import Coordinates, convert_dm_to_dd
 
 
 def test_get_coordinates():
@@ -23,3 +23,11 @@ def test_get_coordinates_in_radians():
             ]
         ),
     )
+
+
+def test_dms_to_dd():
+    """ Test conversion from degree minute second to decimal degree """
+
+    # test Mosmix station Muenster/Osnabrueck
+    assert convert_dm_to_dd(7.7) == 7.42
+    assert convert_dm_to_dd(52.13) == 52.08
