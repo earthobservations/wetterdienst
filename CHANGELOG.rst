@@ -3,7 +3,11 @@ Changelog
 
 Development
 ***********
+
 - DWD: Add missing radar site "Emden" (EMD, wmo=10204)
+- Mosmix stations: fix longitudes/latitudes to be decimal degrees (before they were
+  degrees and minutes)
+- Change key STATION_HEIGHT to HEIGHT, LAT to LATITUDE, LON to LONGITUDE
 
 0.13.0 (21.01.2021)
 *******************

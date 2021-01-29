@@ -67,3 +67,12 @@ def derive_nearest_neighbours(
     return distance_tree.query(
         coordinates.get_coordinates_in_radians(), k=number_nearby
     )
+
+
+def convert_dm_to_dd(dms: float) -> float:
+    """ Convert degree minutes to decimal degree """
+    degrees, minutes = divmod(dms, 1)
+
+    decimals = round(minutes * (60 / 100), 2)
+
+    return degrees + decimals

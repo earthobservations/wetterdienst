@@ -7,6 +7,7 @@ from wetterdienst.dwd.observations import DWDObservationParameterSet
 from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,
 )
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 
@@ -41,7 +42,7 @@ def test_meta_index_1mph_creation():
     )
 
     assert meta_index_1mph.loc[
-        meta_index_1mph[DWDMetaColumns.STATION_ID.value] == "00003", :
+        meta_index_1mph[Columns.STATION_ID.value] == "00003", :
     ].values.tolist() == [
         [
             "00003",

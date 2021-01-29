@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2020, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 import datetime as dt
 import re
 import zipfile
@@ -24,20 +28,21 @@ from wetterdienst.dwd.metadata.constants import (
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
 from wetterdienst.exceptions import MetaFileNotFound
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import metaindex_cache
 from wetterdienst.util.network import list_remote_files
 
 METADATA_COLUMNS = [
-    DWDMetaColumns.STATION_ID.value,
-    DWDMetaColumns.FROM_DATE.value,
-    DWDMetaColumns.TO_DATE.value,
-    DWDMetaColumns.STATION_HEIGHT.value,
-    DWDMetaColumns.LATITUDE.value,
-    DWDMetaColumns.LONGITUDE.value,
-    DWDMetaColumns.STATION_NAME.value,
-    DWDMetaColumns.STATE.value,
+    Columns.STATION_ID.value,
+    Columns.FROM_DATE.value,
+    Columns.TO_DATE.value,
+    Columns.HEIGHT.value,
+    Columns.LATITUDE.value,
+    Columns.LONGITUDE.value,
+    Columns.STATION_NAME.value,
+    Columns.STATE.value,
 ]
 
 META_FILE_IDENTIFIERS = ["beschreibung", "txt"]
@@ -101,15 +106,11 @@ def create_meta_index_for_climate_observations(
 
         meta_index = pd.merge(
             left=meta_index,
-            right=mdp.loc[
-                :, [DWDMetaColumns.STATION_ID.value, DWDMetaColumns.STATE.value]
-            ],
+            right=mdp.loc[:, [Columns.STATION_ID.value, Columns.STATE.value]],
             how="left",
         )
 
-    return meta_index.sort_values(DWDMetaColumns.STATION_ID.value).reset_index(
-        drop=True
-    )
+    return meta_index.sort_values(Columns.STATION_ID.value).reset_index(drop=True)
 
 
 def _create_meta_index_for_climate_observations(
@@ -247,11 +248,11 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     ] = pd.Timestamp(dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
 
     # Drop empty state column again as it will be merged later on
-    meta_index_df = meta_index_df.drop(labels=DWDMetaColumns.STATE.value, axis=1)
+    meta_index_df = meta_index_df.drop(labels=Columns.STATE.value, axis=1)
 
     # Make station id str
-    meta_index_df[DWDMetaColumns.STATION_ID.value] = meta_index_df[
-        DWDMetaColumns.STATION_ID.value
+    meta_index_df[Columns.STATION_ID.value] = meta_index_df[
+        Columns.STATION_ID.value
     ].str.pad(5, "left", "0")
 
     return meta_index_df
@@ -308,8 +309,8 @@ def _parse_geo_metadata(
 
     metadata_geo_df = metadata_geo_df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    metadata_geo_df[DWDMetaColumns.FROM_DATE.value] = metadata_geo_df.loc[
-        0, DWDMetaColumns.FROM_DATE.value
+    metadata_geo_df[Columns.FROM_DATE.value] = metadata_geo_df.loc[
+        0, Columns.FROM_DATE.value
     ]
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]

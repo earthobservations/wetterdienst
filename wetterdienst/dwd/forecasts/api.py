@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2020, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 import logging
 from datetime import datetime
 from enum import Enum
@@ -31,6 +35,7 @@ from wetterdienst.metadata.result import Result
 from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import list_remote_files
 
 log = logging.getLogger(__name__)
@@ -55,10 +60,13 @@ MOSMIX_STATION_LIST_COLSPECS = [
 MOSMIX_METADATA_COLUMNS = [
     Columns.STATION_ID.value,
     Columns.ICAO_ID.value,
-    Columns.STATION_NAME.value,
+    Columns.FROM_DATE.value,
+    Columns.TO_DATE.value,
+    Columns.HEIGHT.value,
     Columns.LATITUDE.value,
     Columns.LONGITUDE.value,
-    Columns.STATION_HEIGHT.value,
+    Columns.STATION_NAME.value,
+    Columns.STATE.value,
 ]
 
 
@@ -404,7 +412,7 @@ class DWDMosmixStations(ScalarStationsCore):
         Columns.ICAO_ID.value,
         Columns.FROM_DATE.value,
         Columns.TO_DATE.value,
-        Columns.STATION_HEIGHT.value,
+        Columns.HEIGHT.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
         Columns.STATION_NAME.value,
@@ -451,6 +459,24 @@ class DWDMosmixStations(ScalarStationsCore):
 
         df = df.iloc[:, [2, 3, 4, 5, 6, 7]]
 
-        df.columns = MOSMIX_METADATA_COLUMNS
+        df.columns = [
+            Columns.STATION_ID.value,
+            Columns.ICAO_ID.value,
+            Columns.STATION_NAME.value,
+            Columns.LATITUDE.value,
+            Columns.LONGITUDE.value,
+            Columns.HEIGHT.value,
+        ]
+
+        # Convert coordinates from degree minutes to decimal degrees
+        df[Columns.LATITUDE.value] = (
+            df[Columns.LATITUDE.value].astype(float).apply(convert_dm_to_dd)
+        )
+
+        df[Columns.LONGITUDE.value] = (
+            df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
+        )
+
+        df = df.reindex(columns=MOSMIX_METADATA_COLUMNS)
 
         return df

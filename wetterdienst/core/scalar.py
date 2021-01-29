@@ -634,7 +634,7 @@ class ScalarStationsCore(ScalarCore):
         Columns.STATION_ID.value,
         Columns.FROM_DATE.value,
         Columns.TO_DATE.value,
-        Columns.STATION_HEIGHT.value,
+        Columns.HEIGHT.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
         Columns.STATION_NAME.value,
@@ -645,7 +645,7 @@ class ScalarStationsCore(ScalarCore):
     # Dtype mapping for stations
     _dtype_mapping = {
         Columns.STATION_ID.value: str,
-        Columns.STATION_HEIGHT.value: float,
+        Columns.HEIGHT.value: float,
         Columns.LATITUDE.value: float,
         Columns.LONGITUDE.value: float,
         Columns.STATION_NAME.value: str,
@@ -751,7 +751,10 @@ class ScalarStationsCore(ScalarCore):
         metadata = metadata.reset_index(drop=True)
 
         distances, indices_nearest_neighbours = derive_nearest_neighbours(
-            metadata.LAT.values, metadata.LON.values, coords, number
+            metadata[Columns.LATITUDE.value].values,
+            metadata[Columns.LONGITUDE.value].values,
+            coords,
+            number,
         )
 
         distances = pd.Series(distances)
