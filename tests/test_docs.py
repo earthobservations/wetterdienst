@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2020 earthobservations
-# Copyright (c) 2018-2020 Andreas Motl <andreas.motl@panodata.org>
-# Copyright (c) 2018-2020 Benjamin Gutzmann <gutzemann@gmail.com>
+# Copyright (c) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 import doctest
 from pathlib import Path
 

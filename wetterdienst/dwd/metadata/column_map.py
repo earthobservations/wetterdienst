@@ -1,4 +1,6 @@
-""" mapping from german column names to english column names"""
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 from wetterdienst.dwd.metadata.column_names import DWDOrigMetaColumns
 from wetterdienst.metadata.columns import Columns
 
