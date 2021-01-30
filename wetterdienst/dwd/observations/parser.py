@@ -1,4 +1,6 @@
-""" function to read data from dwd server """
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE.rst for more info.
 import logging
 from io import BytesIO
 from typing import List, Tuple
