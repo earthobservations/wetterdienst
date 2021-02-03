@@ -12,6 +12,6 @@ Wetterdienst - Open weather data for humans
    data/index
    usage/index
    library/index
-   license
+   license/index
    development
    changelog

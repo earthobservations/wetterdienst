@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
-# Distributed under the MIT License. See LICENSE.rst for more info.
+# Distributed under the MIT License. See LICENSE for more info.
 import re
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -694,7 +694,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape == (360, 180)
+    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (361, 180))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(

@@ -33,6 +33,7 @@ nbconvert<6.0,>=5.0
 numpy==1.*,>=1.19.5
 openpyxl==3.*,>=3.0.5
 pandas==1.*,>=1.1.2
+pip-licenses==3.*,>=3.3.0
 poethepoet==0.*,>=0.9.0
 psycopg2-binary==2.*,>=2.8.6
 pybufrkit==0.*,>=0.2.17

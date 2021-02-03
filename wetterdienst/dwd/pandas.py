@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
-# Distributed under the MIT License. See LICENSE.rst for more info.
+# Distributed under the MIT License. See LICENSE for more info.
 """
 Extending pandas
 - https://pandas.pydata.org/pandas-docs/stable/development/extending.html

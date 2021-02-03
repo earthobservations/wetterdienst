@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
-# Distributed under the MIT License. See LICENSE.rst for more info.
+# Distributed under the MIT License. See LICENSE for more info.
 from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
@@ -237,13 +237,13 @@ class ScalarValuesCore(ScalarCore):
 
         :param station_ids: station ids for which data is requested
         :param parameters: parameters either as strings or enumerations for which data
-        is requested
+            is requested
         :param start_date: start date of the resulting data,
-        if not start_date: start_date = end_date
+            if not start_date: start_date = end_date
         :param end_date: end date of the resulting data
-        if not end_date: end_date = start_date
+            if not end_date: end_date = start_date
         :param humanize_parameters: bool if parameters should be renamed to meaningful
-        names
+            names
 
         """
         super(ScalarValuesCore, self).__init__(
