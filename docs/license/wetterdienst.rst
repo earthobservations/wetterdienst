@@ -1,7 +1,8 @@
-License
-#######
+wetterdienst
+************
 
-.. include:: ../LICENSE.rst
+.. include:: ../../LICENSE
+   :literal:
 
 Cite us with
 

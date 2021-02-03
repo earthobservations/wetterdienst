@@ -15,7 +15,7 @@ Core
 .. automodule:: wetterdienst.core.core
     :members:
 
-.. automodule:: wetterdienst.core.point_data
+.. automodule:: wetterdienst.core.scalar
     :members:
 
 Data models

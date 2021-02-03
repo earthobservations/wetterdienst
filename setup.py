@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
-# Distributed under the MIT License. See LICENSE.rst for more info.
+# Distributed under the MIT License. See LICENSE for more info.
 
 # This is a shim to hopefully allow GitHub to detect the package.
 # The build is done with Poetry.
