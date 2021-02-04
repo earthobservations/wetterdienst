@@ -11,16 +11,16 @@ from docopt import docopt
 from munch import Munch
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixStations
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixValues
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.api import (
-    DWDObservationData,
     DWDObservationMetadata,
     DWDObservationStations,
+    DWDObservationValues,
 )
 from wetterdienst.util.cli import normalize_options, read_list, setup_logging
 
@@ -31,10 +31,10 @@ def run():
     """
     Usage:
       wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd observations readings --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observations values --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observations values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd forecasts readings --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecasts values --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
@@ -207,7 +207,7 @@ def run():
         return
 
     # Sanity checks.
-    if (options.readings or options.forecasts) and options.format == "geojson":
+    if (options["values"] or options.forecasts) and options.format == "geojson":
         raise KeyError("GeoJSON format only available for stations output")
 
     # Acquire station list, also used for readings if required.
@@ -219,32 +219,30 @@ def run():
         sys.exit(1)
 
     # Acquire observations.
-    if options.readings:
+    # TODO: remove error prone attribute
+    if options["values"]:
         # Use list of station identifiers.
         if options.station:
             station_ids = read_list(options.station)
         elif options.latitude and options.longitude:
-            try:
-                station_ids = df.STATION_ID.unique()
-            except AttributeError:
-                station_ids = df.WMO_ID.unique()
+            station_ids = df.STATION_ID.unique()
         else:
             raise KeyError("Either --station or --latitude, --longitude required")
 
         # Funnel all parameters to the workhorse.
         if options.observations:
-            readings = DWDObservationData(
-                station_ids=station_ids,
-                parameters=read_list(options.parameter),
+            values = DWDObservationValues(
+                station_id=station_ids,
+                parameter=read_list(options.parameter),
                 resolution=options.resolution,
-                periods=read_list(options.period),
+                period=read_list(options.period),
                 humanize_parameters=True,
                 tidy_data=options.tidy,
             )
         elif options.forecasts:
-            readings = DWDMosmixData(
-                station_ids=station_ids,
-                parameters=read_list(options.parameter),
+            values = DWDMosmixValues(
+                station_id=station_ids,
+                parameter=read_list(options.parameter),
                 mosmix_type=options.mosmix_type,
                 humanize_parameters=True,
                 tidy_data=options.tidy,
@@ -252,7 +250,7 @@ def run():
 
         # Collect data and merge together.
         try:
-            df = readings.all()
+            df = values.all()
         except ValueError as ex:
             log.exception(ex)
             sys.exit(1)
@@ -263,10 +261,10 @@ def run():
         sys.exit(1)
 
     # Filter readings by datetime expression.
-    if options.readings and options.date:
+    if options["values"] and options.date:
         resolution = None
         if options.observations:
-            resolution = readings.resolution
+            resolution = values.resolution
 
         df = df.dwd.filter_by_date(options.date, resolution)
 
@@ -316,7 +314,7 @@ def get_stations(options: Munch) -> pd.DataFrame:
     if options.stations or (options.latitude and options.longitude):
         if options.observations:
             stations = DWDObservationStations(
-                parameter_set=options.parameter,
+                parameter=options.parameter,
                 resolution=options.resolution,
                 period=options.period,
             )
@@ -377,7 +375,7 @@ def about(options: Munch):
     elif options.coverage:
         metadata = DWDObservationMetadata(
             resolution=options.resolution,
-            parameter_set=read_list(options.parameter),
+            parameter=read_list(options.parameter),
             period=read_list(options.period),
         )
         output = json.dumps(metadata.discover_parameter_sets(), indent=4)
@@ -386,7 +384,7 @@ def about(options: Munch):
     elif options.fields:
         metadata = DWDObservationMetadata(
             resolution=options.resolution,
-            parameter_set=read_list(options.parameter),
+            parameter=read_list(options.parameter),
             period=read_list(options.period),
         )
         output = pformat(dict(metadata.describe_fields(language=options.language)))

@@ -69,17 +69,17 @@ MOSMIX_METADATA_COLUMNS = [
 ]
 
 
-class DWDMosmixData(ScalarValuesCore):
+class DWDMosmixValues(ScalarValuesCore):
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
     Parameters
     ----------
-    station_ids : List
+    station_id : List
         - If None, data for all stations is returned.
         - If not None, station_ids are a list of station ids for which data is desired.
 
-    parameters: List
+    parameter: List
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per MOSMIX definition, see
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:E501,B950
@@ -128,9 +128,9 @@ class DWDMosmixData(ScalarValuesCore):
 
     def __init__(
         self,
-        station_ids: Tuple[str],
+        station_id: Tuple[str],
         mosmix_type: Union[str, DWDMosmixType],
-        parameters: Optional[Tuple[Union[str, DWDMosmixParameter]]] = None,
+        parameter: Optional[Tuple[Union[str, DWDMosmixParameter]]] = None,
         start_issue: Optional[
             Union[str, datetime, DWDForecastDate]
         ] = DWDForecastDate.LATEST,
@@ -142,10 +142,10 @@ class DWDMosmixData(ScalarValuesCore):
     ) -> None:
         """
 
-        :param station_ids: station ids which are being queried from the MOSMIX foreacst
+        :param station_id: station ids which are being queried from the MOSMIX foreacst
         :param mosmix_type: type of forecast, either small (MOSMIX-S) or large
                             (MOSMIX-L), as string or enumeration
-        :param parameters: optional parameters for which the forecasts are filtered
+        :param parameter: optional parameters for which the forecasts are filtered
         :param start_issue: start date of the MOSMIX forecast, can be used in
                             combination with end_issue to query multiple MOSMIX
                             forecasts, or instead used with enumeration to only query
@@ -160,11 +160,11 @@ class DWDMosmixData(ScalarValuesCore):
                             values put in rows
         """
         # Use all parameters if none are given
-        parameters = parameters or [*self._parameter_base]
+        parameter = parameter or [*self._parameter_base]
 
-        super(DWDMosmixData, self).__init__(
-            station_ids=station_ids,
-            parameters=parameters,
+        super(DWDMosmixValues, self).__init__(
+            station_id=station_id,
+            parameter=parameter,
             resolution=Resolution.HOURLY,
             period=Period.FUTURE,
             start_date=start_date,
@@ -436,15 +436,15 @@ class DWDMosmixStations(ScalarStationsCore):
         # TODO: Cache payload with FSSPEC
         payload = requests.get(MOSMIX_STATION_LIST, headers={"User-Agent": ""})
 
-        # List is unsorted with repeating interruptions with "TABLE" string in the beginning
-        # of the line
+        # List is unsorted with repeating interruptions with "TABLE" string in the
+        # beginning of the line
         lines = payload.text.split("\n")
         table_lines = [i for i, line in enumerate(lines) if line.startswith("TABLE")]
 
         lines_filtered = []
 
         for start, end in zip(table_lines[:-1], table_lines[1:]):
-            lines_filtered.extend(lines[start + 3 : end - 1])
+            lines_filtered.extend(lines[(start + 3) : (end - 1)])
 
         data = StringIO("\n".join(lines_filtered))
 

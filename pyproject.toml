@@ -178,34 +178,36 @@ multi_line_output = 3
 exclude = [
     "example/climate_observations.ipynb"
 ]
-ignore = ["W503"]
 max-line-length = 88
 
 [tool.flakehell.plugins]
+pycodestyle = ["+*", "-E203", "-W503"]
+pyflakes = ["+*"]
 flake8-bandit = ["+*"]
 flake8-black = ["+*"]
 flake8-bugbear = ["+*"]
 flake8-isort = ["+*"]
 
-[tool.flakehell.exceptions."__init__.py"]
-pycodestyle = ["-F401"]
+[tool.flakehell.exceptions."**/__init__.py"]
+pyflakes = ["-F401"]
 
 [tool.flakehell.exceptions."tests/"]
 flake8-bandit = ["-S101"]
 [tool.flakehell.exceptions."tests/dwd/radar/test_index.py"]
-flake8-bugbear = ["-E501", "-B950"]
-
+pycodestyle = ["-E501", "-B950"]
+[tool.flakehell.exceptions."tests/dwd/observations/util/test_parameter.py"]
+pycodestyle = ["-E501", "-B950"]
 
 [tool.flakehell.exceptions."wetterdienst/cli.py"]
-flake8-bugbear = ["-E501", "-B950"]
+pycodestyle = ["-E501", "-B950"]
 [tool.flakehell.exceptions."wetterdienst/service.py"]
 flake8-bugbear = ["-B008"]
 [tool.flakehell.exceptions."wetterdienst/util/pandas.py"]
-flake8-bugbear = ["-E501", "-B950"]
+pycodestyle = ["-E501", "-B950"]
 [tool.flakehell.exceptions."wetterdienst/dwd/observations/metadata/column_types.py"]
-flake8-bugbear = ["-E501", "-B950"]
+pycodestyle = ["-E501", "-B950"]
 [tool.flakehell.exceptions."wetterdienst/dwd/forecasts/metadata/column_types.py"]
-flake8-bugbear = ["-E501", "-B950"]
+pycodestyle = ["-E501", "-B950"]
 
 
 [tool.poe.tasks]

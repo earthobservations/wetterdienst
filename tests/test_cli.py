@@ -19,9 +19,9 @@ SETTINGS_STATIONS = [
 ]
 
 SETTINGS_READINGS = [
-    "observations readings --resolution=daily --parameter=kl --period=recent "
+    "observations values --resolution=daily --parameter=kl --period=recent "
     "--date=2020-06-30",
-    f"forecasts readings --mosmix-type=large --parameter=DD "
+    f"forecasts values --mosmix-type=large --parameter=DD "
     f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
 ]
 
@@ -43,9 +43,9 @@ def test_cli_help():
 
     response = str(excinfo.value)
     assert "wetterdienst dwd observations stations" in response
-    assert "wetterdienst dwd observations readings" in response
+    assert "wetterdienst dwd observations values" in response
     assert "wetterdienst dwd forecasts stations" in response
-    assert "wetterdienst dwd forecasts readings" in response
+    assert "wetterdienst dwd forecasts values" in response
     assert "wetterdienst dwd about" in response
 
 
@@ -122,13 +122,13 @@ def invoke_wetterdienst_stations_geo(setting, fmt="json"):
     cli.run()
 
 
-def invoke_wetterdienst_readings_static(setting, station, fmt="json"):
+def invoke_wetterdienst_values_static(setting, station, fmt="json"):
     argv = shlex.split(f"wetterdienst dwd {setting} --station={station} --format={fmt}")
     sys.argv = argv
     cli.run()
 
 
-def invoke_wetterdienst_readings_static_tidy(setting, station, fmt="json"):
+def invoke_wetterdienst_values_static_tidy(setting, station, fmt="json"):
     argv = shlex.split(
         f"wetterdienst dwd {setting} --station={station} --format={fmt} --tidy"
     )
@@ -136,7 +136,7 @@ def invoke_wetterdienst_readings_static_tidy(setting, station, fmt="json"):
     cli.run()
 
 
-def invoke_wetterdienst_readings_geo(setting, fmt="json"):
+def invoke_wetterdienst_values_geo(setting, fmt="json"):
     argv = shlex.split(
         f"wetterdienst dwd {setting} --latitude=49.9195 --longitude=8.9671 --number=5 "
         f"--format={fmt}"
@@ -228,7 +228,7 @@ def test_cli_stations_excel(setting, station, expected_station_names, capsys):
 )
 def test_cli_readings_json(setting, station, capsys):
 
-    invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="json")
+    invoke_wetterdienst_values_static(setting=setting, station=station, fmt="json")
 
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)
@@ -266,9 +266,7 @@ def test_cli_readings_json(setting, station, capsys):
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_json_tidy(setting, station, capsys):
 
-    invoke_wetterdienst_readings_static_tidy(
-        setting=setting, station=station, fmt="json"
-    )
+    invoke_wetterdienst_values_static_tidy(setting=setting, station=station, fmt="json")
 
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)
@@ -300,7 +298,7 @@ def test_cli_readings_json_tidy(setting, station, capsys):
 def test_cli_readings_geojson(setting, station):
 
     with pytest.raises(KeyError) as excinfo:
-        invoke_wetterdienst_readings_static(
+        invoke_wetterdienst_values_static(
             setting=setting, station=station, fmt="geojson"
         )
 
@@ -311,7 +309,7 @@ def test_cli_readings_geojson(setting, station):
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_csv(setting, station, capsys):
 
-    invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="csv")
+    invoke_wetterdienst_values_static(setting=setting, station=station, fmt="csv")
 
     stdout, stderr = capsys.readouterr()
 
@@ -322,7 +320,7 @@ def test_cli_readings_csv(setting, station, capsys):
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
 def test_cli_readings_excel(setting, station):
 
-    invoke_wetterdienst_readings_static(setting=setting, station=station, fmt="excel")
+    invoke_wetterdienst_values_static(setting=setting, station=station, fmt="excel")
 
     # FIXME: Make --format=excel write to a designated file.
     filename = "output.xlsx"
@@ -337,7 +335,7 @@ def test_cli_readings_excel(setting, station):
 def test_cli_readings_format_unknown(setting, station, caplog):
 
     with pytest.raises(SystemExit):
-        invoke_wetterdienst_readings_static(
+        invoke_wetterdienst_values_static(
             setting=setting, station=station, fmt="foobar"
         )
 
@@ -373,7 +371,7 @@ def test_cli_stations_geospatial(setting, capsys):
 )
 def test_cli_readings_geospatial(setting, station, capsys):
 
-    invoke_wetterdienst_readings_geo(setting=setting, fmt="json")
+    invoke_wetterdienst_values_geo(setting=setting, fmt="json")
 
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)

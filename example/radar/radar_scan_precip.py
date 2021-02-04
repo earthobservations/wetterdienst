@@ -32,12 +32,12 @@ import matplotlib.pyplot as pl
 import wradlib as wrl
 
 from wetterdienst.dwd.radar import (
-    DWDRadarData,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
     DWDRadarDate,
     DWDRadarParameter,
     DWDRadarSite,
+    DWDRadarValues,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -79,14 +79,14 @@ def radar_info(data: dict):
 
 def radar_scan_precip():
 
-    request_velocity = DWDRadarData(
+    request_velocity = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,
         fmt=DWDRadarDataFormat.HDF5,
         subset=DWDRadarDataSubset.POLARIMETRIC,
     )
-    request_reflectivity = DWDRadarData(
+    request_reflectivity = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,

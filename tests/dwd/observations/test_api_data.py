@@ -14,7 +14,7 @@ from wetterdienst.dwd.observations import (
     DWDObservationPeriod,
     DWDObservationResolution,
 )
-from wetterdienst.dwd.observations.api import DWDObservationData
+from wetterdienst.dwd.observations.api import DWDObservationValues
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameter,
     DWDObservationParameterSetStructure,
@@ -26,34 +26,34 @@ from wetterdienst.metadata.resolution import Resolution
 
 def test_dwd_observation_data_parameter_set():
     """ Request a parameter set"""
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=["kl"],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=["kl"],
         resolution="daily",
-        periods=["recent", "historical"],
+        period=["recent", "historical"],
     )
 
-    assert request == DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    assert request == DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        period=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
         start_date=None,
         end_date=None,
     )
 
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        period=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
     )
 
-    assert request == DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    assert request == DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
+        period=[DWDObservationPeriod.HISTORICAL, DWDObservationPeriod.RECENT],
         start_date=None,
         end_date=None,
     )
@@ -67,18 +67,18 @@ def test_dwd_observation_data_parameter_set():
 
 
 def test_dwd_observation_data_parameter():
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=["precipitation_height"],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=["precipitation_height"],
         resolution="daily",
-        periods=["recent", "historical"],
+        period=["recent", "historical"],
     )
 
-    assert request == DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT],
+    assert request == DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT],
         resolution=Resolution.DAILY,
-        periods=[Period.HISTORICAL, Period.RECENT],
+        period=[Period.HISTORICAL, Period.RECENT],
         start_date=None,
         end_date=None,
     )
@@ -94,26 +94,26 @@ def test_dwd_observation_data_parameter():
 def test_dwd_observation_data_fails():
     # station id
     with pytest.raises(ValueError):
-        DWDObservationData(
-            station_ids=["test"],
-            parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
-            periods=[DWDObservationPeriod.HISTORICAL],
+        DWDObservationValues(
+            station_id=["test"],
+            parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+            period=[DWDObservationPeriod.HISTORICAL],
             resolution=DWDObservationResolution.DAILY,
         )
 
     with pytest.raises(StartDateEndDateError):
-        DWDObservationData(
-            station_ids=[1],
-            parameters=["abc"],
+        DWDObservationValues(
+            station_id=[1],
+            parameter=["abc"],
             resolution=DWDObservationResolution.DAILY,
             start_date="1971-01-01",
             end_date="1951-01-01",
         )
 
     with pytest.raises(NoParametersFound):
-        DWDObservationData(
-            station_ids=[1],
-            parameters=["abc"],
+        DWDObservationValues(
+            station_id=[1],
+            parameter=["abc"],
             resolution=DWDObservationResolution.DAILY,
             start_date="1951-01-01",
             end_date="1961-01-01",
@@ -122,37 +122,37 @@ def test_dwd_observation_data_fails():
 
 def test_dwd_observation_data_dates():
     # time input
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1971-01-01",
     )
 
-    assert request == DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    assert request == DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        periods=[
+        period=[
             DWDObservationPeriod.HISTORICAL,
         ],
         start_date=datetime(1971, 1, 1),
         end_date=datetime(1971, 1, 1),
     )
 
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL],
+        period=[DWDObservationPeriod.HISTORICAL],
         end_date="1971-01-01",
     )
 
-    assert request == DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    assert request == DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
-        periods=[
+        period=[
             DWDObservationPeriod.HISTORICAL,
         ],
         start_date=datetime(1971, 1, 1),
@@ -160,9 +160,9 @@ def test_dwd_observation_data_dates():
     )
 
     with pytest.raises(StartDateEndDateError):
-        DWDObservationData(
-            station_ids=[1],
-            parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+        DWDObservationValues(
+            station_id=[1],
+            parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
             resolution=DWDObservationResolution.DAILY,
             start_date="1971-01-01",
             end_date="1951-01-01",
@@ -171,9 +171,9 @@ def test_dwd_observation_data_dates():
 
 def test_dwd_observation_data_dynamic_period():
     # Historical period expected
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1971-01-01",
     )
@@ -183,9 +183,9 @@ def test_dwd_observation_data_dynamic_period():
     ]
 
     # Historical and recent period expected
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1971-01-01",
         end_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(days=400),
@@ -197,9 +197,9 @@ def test_dwd_observation_data_dynamic_period():
     ]
 
     # Historical, recent and now period expected
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1971-01-01",
         end_date=pd.Timestamp(datetime.utcnow()),
@@ -215,18 +215,18 @@ def test_dwd_observation_data_dynamic_period():
     # TODO: add test with mocked datetime here
 
     # Now period
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
     )
     assert Period.NOW in request.period
 
     # No period (for example in future)
-    request = DWDObservationData(
-        station_ids=[1],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date=pd.Timestamp(datetime.utcnow()) + pd.Timedelta(days=720),
     )
@@ -237,9 +237,9 @@ def test_dwd_observation_data_dynamic_period():
 def test_dwd_observation_data_result_missing_data():
     """Test for DataFrame having empty values for dates where the station should not
     have values"""
-    request = DWDObservationData(
-        station_ids=[1048],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1048],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
@@ -255,9 +255,9 @@ def test_dwd_observation_data_result_missing_data():
     assert not df_1933.empty and df_1933.dropna().empty
     assert not df_1934.empty and not df_1934.dropna().empty
 
-    request = DWDObservationData(
-        station_ids=["03348"],
-        parameters=DWDObservationParameter.HOURLY.TEMPERATURE_AIR_200,
+    request = DWDObservationValues(
+        station_id=["03348"],
+        parameter=DWDObservationParameter.HOURLY.TEMPERATURE_AIR_200,
         resolution=DWDObservationResolution.HOURLY,
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end_date="2020-06-09 12:00:00",
@@ -282,9 +282,9 @@ def test_dwd_observation_data_result_missing_data():
 @pytest.mark.remote
 def test_dwd_observation_data_result_untidy():
     """ Test for actual values (untidy) """
-    request = DWDObservationData(
-        station_ids=[1048],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1048],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
@@ -348,9 +348,9 @@ def test_dwd_observation_data_result_untidy():
 @pytest.mark.remote
 def test_dwd_observation_data_result_tidy():
     """ Test for actual values (tidy) """
-    request = DWDObservationData(
-        station_ids=[1048],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY],
+    request = DWDObservationValues(
+        station_id=[1048],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY],
         resolution=DWDObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
@@ -617,7 +617,7 @@ def test_create_humanized_column_names_mapping():
         "TNK": "TEMPERATURE_AIR_MIN_200",
         "TGK": "TEMPERATURE_AIR_MIN_005",
     }
-    hcnm = DWDObservationData(
+    hcnm = DWDObservationValues(
         [0],
         [DWDObservationParameterSet.CLIMATE_SUMMARY],
         DWDObservationResolution.DAILY,

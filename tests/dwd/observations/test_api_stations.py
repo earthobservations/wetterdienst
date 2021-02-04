@@ -6,17 +6,14 @@ from datetime import datetime
 import pandas as pd
 import pytest
 import pytz
-from pandas import Timestamp
 from pandas._testing import assert_frame_equal
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
 )
 from wetterdienst.dwd.observations.api import DWDObservationStations
-from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
 
 

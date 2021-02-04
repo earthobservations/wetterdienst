@@ -50,7 +50,7 @@ import matplotlib.pyplot as pl
 import numpy as np
 import wradlib as wrl
 
-from wetterdienst.dwd.radar import DWDRadarData, DWDRadarDate, DWDRadarParameter
+from wetterdienst.dwd.radar import DWDRadarDate, DWDRadarParameter, DWDRadarValues
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
@@ -126,7 +126,7 @@ def label_by_producttype(producttype: str) -> str:
 def radolan_rw_example():
 
     log.info("Acquiring RADOLAN RW composite data")
-    radolan = DWDRadarData(
+    radolan = DWDRadarValues(
         parameter=DWDRadarParameter.RW_REFLECTIVITY,
         start_date=DWDRadarDate.LATEST,
     )

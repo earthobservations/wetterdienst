@@ -8,12 +8,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixStations, DWDMosmixType
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType, DWDMosmixValues
 from wetterdienst.dwd.observations import (
-    DWDObservationData,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
+    DWDObservationValues,
 )
 from wetterdienst.dwd.observations.api import DWDObservationStations
 from wetterdienst.util.cli import read_list
@@ -70,8 +70,8 @@ Disallow: /api/
     """.strip()
 
 
-@app.get("/api/dwd/{product}/sites")
-def dwd_sites(
+@app.get("/api/dwd/{product}/stations")
+def dwd_stations(
     product: str,
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
@@ -102,23 +102,25 @@ def dwd_sites(
         )
         period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
-        sites = DWDObservationStations(
-            parameter_set=parameter,
+        stations = DWDObservationStations(
+            parameter=parameter,
             resolution=resolution,
             period=period,
         )
     else:
-        sites = DWDMosmixStations()
+        stations = DWDMosmixStations()
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
-            df = sites.nearby_number(latitude=lat, longitude=lon, number=number_nearby)
+            df = stations.nearby_number(
+                latitude=lat, longitude=lon, number=number_nearby
+            )
         else:
-            df = sites.nearby_radius(
+            df = stations.nearby_radius(
                 latitude=lat, longitude=lon, max_distance_in_km=max_distance_in_km
             )
     else:
-        df = sites.all()
+        df = stations.all()
 
     # Postprocessing.
     df = df.dwd.lower()
@@ -129,8 +131,8 @@ def dwd_sites(
     return make_json_response(df.fillna(-999).io.to_dict())
 
 
-@app.get("/api/dwd/{product}/readings")
-def dwd_readings(
+@app.get("/api/dwd/{product}/values")
+def dwd_values(
     product: str,
     station: str = Query(default=None),
     parameter: str = Query(default=None),
@@ -182,11 +184,11 @@ def dwd_readings(
         period = parse_enumeration_from_template(period, DWDObservationPeriod)
 
         # Data acquisition.
-        readings = DWDObservationData(
-            station_ids=station_ids,
-            parameters=parameter,
+        values = DWDObservationValues(
+            station_id=station_ids,
+            parameter=parameter,
             resolution=resolution,
-            periods=period,
+            period=period,
             tidy_data=True,
             humanize_parameters=True,
         )
@@ -198,10 +200,10 @@ def dwd_readings(
 
         mosmix_type = parse_enumeration_from_template(mosmix_type, DWDMosmixType)
 
-        readings = DWDMosmixData(station_ids=station_ids, mosmix_type=mosmix_type)
+        values = DWDMosmixValues(station_id=station_ids, mosmix_type=mosmix_type)
 
     # Postprocessing.
-    df = readings.all()
+    df = values.all()
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)

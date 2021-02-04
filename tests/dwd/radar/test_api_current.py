@@ -5,12 +5,12 @@ import h5py
 import pytest
 
 from wetterdienst.dwd.radar import (
-    DWDRadarData,
     DWDRadarDataFormat,
     DWDRadarDataSubset,
     DWDRadarDate,
     DWDRadarParameter,
     DWDRadarResolution,
+    DWDRadarValues,
 )
 from wetterdienst.dwd.radar.sites import DWDRadarSite
 
@@ -22,7 +22,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DWDRadarDate.CURRENT,
         site=DWDRadarSite.BOO,
@@ -64,7 +64,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=DWDRadarDate.CURRENT,
         site=DWDRadarSite.BOO,
@@ -106,7 +106,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=DWDRadarDate.CURRENT,
         site=DWDRadarSite.BOO,
@@ -145,7 +145,7 @@ def test_radar_request_radolan_cdc_current(time_resolution):
     available when looking at CURRENT.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.RADOLAN_CDC,
         start_date=DWDRadarDate.CURRENT,
         resolution=time_resolution,
@@ -161,7 +161,7 @@ def test_radar_request_radolan_cdc_current_5min():
 
     """
     with pytest.raises(ValueError):
-        DWDRadarData(
+        DWDRadarValues(
             parameter=DWDRadarParameter.RADOLAN_CDC,
             resolution=DWDRadarResolution.MINUTE_5,
             start_date=DWDRadarDate.CURRENT,

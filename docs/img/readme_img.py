@@ -6,7 +6,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationData, DWDObservationParameter, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
+from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationValues, DWDObservationParameter, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
 
 plt.style.use('ggplot')
 
@@ -24,11 +24,11 @@ def create_temperature_ts_plot():
     station_id, _, _, height, lat, lon, station_name, state = df.sort_values("FROM_DATE").iloc[0].values
     station_name = station_name.replace(u"ß", "ss")
 
-    data = DWDObservationData(
+    data = DWDObservationValues(
         [station_id],
         DWDObservationParameter.DAILY.TEMPERATURE_AIR_200,
         DWDObservationResolution.DAILY,
-        periods=[DWDObservationPeriod.HISTORICAL]
+        period=[DWDObservationPeriod.HISTORICAL]
     )
 
     df = data.all()

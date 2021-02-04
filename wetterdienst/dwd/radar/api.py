@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 # TODO: add core class information
-class DWDRadarData:
+class DWDRadarValues:
     """
     API for DWD radar data requests.
 
@@ -62,7 +62,6 @@ class DWDRadarData:
         :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                                 either daily or hourly or 5 minutes.
         :param period:     Period type for RadarParameter.RADOLAN_CDC
-        :return:                Nothing for now.
         """
 
         # Convert parameters to enum types.

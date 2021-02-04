@@ -111,7 +111,7 @@ Get station information for a given *parameter/parameter_set*, *resolution* and
     from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
     stations = DWDObservationStations(
-        parameter_set=DWDObservationParameterSet.PRECIPITATION_MORE,
+        parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.HISTORICAL
     )
@@ -125,15 +125,15 @@ The function returns a Pandas DataFrame with information about the available sta
 Values
 ------
 
-Use the ``DWDObservationData`` class in order to get hold of values.
+Use the ``DWDObservationValues`` class in order to get hold of values.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
-    observations = DWDObservationData(
-        station_ids=[3, 1048],
-        parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY, DWDObservationParameterSet.SOLAR],
+    observations = DWDObservationValues(
+        station_id=[3, 1048],
+        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY, DWDObservationParameterSet.SOLAR],
         resolution=DWDObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
@@ -175,7 +175,7 @@ Inquire the list of stations by geographic coordinates.
     from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
     stations = DWDObservationStations(
-        parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
+        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
@@ -212,9 +212,9 @@ can be used to download the observation data:
 
 .. ipython:: python
 
-    observations = DWDObservationData(
-        station_ids=station_ids,
-        parameters=[DWDObservationParameterSet.TEMPERATURE_AIR, DWDObservationParameterSet.SOLAR],
+    observations = DWDObservationValues(
+        station_id=station_ids,
+        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR, DWDObservationParameterSet.SOLAR],
         resolution=DWDObservationResolution.HOURLY,
         start_date="1990-01-01",
         end_date="2020-01-01",
@@ -240,11 +240,11 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=[DWDObservationParameterSet.TEMPERATURE_AIR],
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
         resolution=DWDObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
@@ -271,12 +271,12 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet,
+    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet,
         DWDObservationPeriod, DWDObservationResolution, StorageAdapter
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=[DWDObservationParameterSet.TEMPERATURE_AIR],
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
         resolution=DWDObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
@@ -307,10 +307,10 @@ Get Mosmix-L data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
+    from wetterdienst.dwd.forecasts import DWDMosmixValues, DWDMosmixType
 
-    mosmix = DWDMosmixData(
-        station_ids=["01001", "01008"],
+    mosmix = DWDMosmixValues(
+        station_id=["01001", "01008"],
         mosmix_type=DWDMosmixType.LARGE
     )
     response =  next(mosmix.query())

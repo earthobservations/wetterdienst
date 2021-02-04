@@ -10,10 +10,10 @@ import pytest
 from surrogate import surrogate
 
 from wetterdienst.dwd.observations import (
-    DWDObservationData,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
+    DWDObservationValues,
 )
 from wetterdienst.metadata.resolution import Resolution
 
@@ -180,11 +180,11 @@ def test_format_unknown():
 
 def test_request():
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.RECENT,
+        period=DWDObservationPeriod.RECENT,
     )
 
     df = observations.all()
@@ -193,11 +193,11 @@ def test_request():
 
 def test_export_sqlite():
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.RECENT,
+        period=DWDObservationPeriod.RECENT,
     )
 
     with mock.patch(
@@ -219,11 +219,11 @@ def test_export_sqlite():
 
 def test_export_crate():
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.RECENT,
+        period=DWDObservationPeriod.RECENT,
     )
 
     with mock.patch(
@@ -246,11 +246,11 @@ def test_export_crate():
 @surrogate("duckdb.connect")
 def test_export_duckdb():
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.RECENT,
+        period=DWDObservationPeriod.RECENT,
     )
 
     mock_connection = mock.MagicMock()
@@ -272,11 +272,11 @@ def test_export_duckdb():
 @surrogate("influxdb.dataframe_client.DataFrameClient")
 def test_export_influxdb_tabular():
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.RECENT,
+        period=DWDObservationPeriod.RECENT,
         tidy_data=False,
     )
 
@@ -305,11 +305,11 @@ def test_export_influxdb_tabular():
 @surrogate("influxdb.dataframe_client.DataFrameClient")
 def test_export_influxdb_tidy():
 
-    observations = DWDObservationData(
-        station_ids=[1048],
-        parameters=DWDObservationParameterSet.CLIMATE_SUMMARY,
+    observations = DWDObservationValues(
+        station_id=[1048],
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.RECENT,
+        period=DWDObservationPeriod.RECENT,
         tidy_data=True,
     )
 

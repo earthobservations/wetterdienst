@@ -14,7 +14,7 @@ from wetterdienst.metadata.resolution import Resolution
 def test_dwd_observation_metadata_discover_parameters():
 
     parameters = DWDObservationMetadata(
-        parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
     ).discover_parameter_sets()
 
@@ -31,7 +31,7 @@ def test_dwd_observation_metadata_discover_parameters():
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 
     metadata = DWDObservationMetadata(
-        parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
     )
@@ -66,7 +66,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 
     metadata = DWDObservationMetadata(
-        parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
     )
@@ -101,7 +101,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
     metadata = DWDObservationMetadata(
-        parameter_set=DWDObservationParameterSet.SOLAR,
+        parameter=DWDObservationParameterSet.SOLAR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,
     )
@@ -126,7 +126,7 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
 
     metadata = DWDObservationMetadata(
-        parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
+        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.MINUTE_10,
         period=DWDObservationPeriod.RECENT,
     )

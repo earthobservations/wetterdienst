@@ -2,24 +2,18 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
-from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from enum import Enum
-from io import BytesIO
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
-from zipfile import BadZipFile, ZipFile
 
 import pandas as pd
 from pandas import Timestamp
-from requests.exceptions import InvalidURL
 
 from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.observations.download import (
     download_climate_observations_data_parallel,
 )
@@ -57,18 +51,12 @@ from wetterdienst.dwd.observations.util.parameter import (
     create_parameter_to_parameter_set_combination,
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
-from wetterdienst.exceptions import (
-    FailedDownload,
-    InvalidParameter,
-    InvalidParameterCombination,
-    ProductFileNotFound,
-)
+from wetterdienst.exceptions import InvalidParameter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.cache import payload_cache_five_minutes
 from wetterdienst.util.enumeration import (
     parse_enumeration,
     parse_enumeration_from_template,
@@ -77,7 +65,7 @@ from wetterdienst.util.enumeration import (
 log = logging.getLogger(__name__)
 
 
-class DWDObservationData(ScalarValuesCore):
+class DWDObservationValues(ScalarValuesCore):
     """
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
@@ -126,19 +114,15 @@ class DWDObservationData(ScalarValuesCore):
     def _datetime_format(self):
         return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.resolution)
 
-    # def _add_meta(self, df, station_id: str, parameter: Enum) -> pd.DataFrame:
-    #     return super(DWDObservationData, self)._add_meta(
-    #         df, station_id, parameter[0])
-
     # TODO: change arguments to singular
     def __init__(
         self,
-        station_ids: List[Union[int, str]],
-        parameters: List[
+        station_id: List[Union[int, str]],
+        parameter: List[
             Union[str, DWDObservationParameter, DWDObservationParameterSet]
         ],
         resolution: Union[str, Resolution, DWDObservationResolution],
-        periods: Optional[List[Union[str, Period, DWDObservationPeriod]]] = None,
+        period: Optional[List[Union[str, Period, DWDObservationPeriod]]] = None,
         start_date: Optional[Union[str, Timestamp, datetime]] = None,
         end_date: Optional[Union[str, Timestamp, datetime]] = None,
         tidy_data: bool = True,
@@ -150,11 +134,11 @@ class DWDObservationData(ScalarValuesCore):
         types are considered and merged together and the data is filtered for the given
         dates afterwards.
 
-        :param station_ids: definition of stations by str, int or list of str/int,
+        :param station_id: definition of stations by str, int or list of str/int,
                             will be parsed to list of int
-        :param parameters:           Observation measure
+        :param parameter:           Observation measure
         :param resolution:     Frequency/granularity of measurement interval
-        :param periods:         Recent or historical files (optional), if None
+        :param period:         Recent or historical files (optional), if None
                                     and start_date and end_date None, all period
                                     types are used
         :param start_date:          Replacement for period type to define exact time
@@ -167,16 +151,16 @@ class DWDObservationData(ScalarValuesCore):
                                     and row-based version of data
         :param humanize_parameters: Replace column names by more meaningful ones
         """
-        station_ids = pd.Series(station_ids).astype(str).str.pad(5, "left", "0")
+        station_id = pd.Series(station_id).astype(str).str.pad(5, "left", "0")
 
-        if not station_ids.str.isdigit().all():
+        if not station_id.str.isdigit().all():
             raise ValueError("station identifiers of DWD only contain digits")
 
-        super(DWDObservationData, self).__init__(
-            station_ids=station_ids,
-            parameters=parameters,
+        super(DWDObservationValues, self).__init__(
+            station_id=station_id,
+            parameter=parameter,
             resolution=resolution,
-            period=periods,
+            period=period,
             start_date=start_date,
             end_date=end_date,
             humanize_parameters=humanize_parameters,
@@ -218,7 +202,7 @@ class DWDObservationData(ScalarValuesCore):
         )
 
     # TODO: move create_parameter_to_parameter_set_combination to class
-    def _parse_parameters(self, parameters) -> List[Tuple[Enum, Enum]]:
+    def _parse_parameters(self, parameter) -> List[Tuple[Enum, Enum]]:
         """
         Parsing of parameter will create tuples of parameter and parameter_set e.g.
         if the parameter that is parsed is daily precipitation, this parameter is taken
@@ -230,12 +214,12 @@ class DWDObservationData(ScalarValuesCore):
         Example:
             (precipitation, precipitation)
 
-        :param parameters: list of parameter strings or enumerations
+        :param parameter: list of parameter strings or enumerations
         :return: list of tuples of parameter/parameter set to parameter set combination
         """
         parameters_parsed = []
 
-        for parameter in pd.Series(parameters):
+        for parameter in pd.Series(parameter):
             try:
                 (
                     parameter,
@@ -251,7 +235,7 @@ class DWDObservationData(ScalarValuesCore):
 
     def __eq__(self, other):
         """ Add resolution and periods """
-        return super(DWDObservationData, self).__eq__(other) and (
+        return super(DWDObservationValues, self).__eq__(other) and (
             self.resolution == other.resolution and self.period == other.period
         )
 
@@ -261,7 +245,7 @@ class DWDObservationData(ScalarValuesCore):
 
         return ", ".join(
             [
-                super(DWDObservationData, self).__str__(),
+                super(DWDObservationValues, self).__str__(),
                 f"resolution {self.resolution.value}",
                 f"periods {periods_joined}",
             ]
@@ -345,8 +329,9 @@ class DWDObservationData(ScalarValuesCore):
         parameter, parameter_set = parameter
 
         if parameter != parameter_set:
-            # parameter = [*DWDObservationParameterSetStructure[self.resolution.name][parameter_set.name]]
-            df = super(DWDObservationData, self)._get_empty_station_parameter_df(
+            # parameter = [*DWDObservationParameterSetStructure[self.resolution.name]
+            # [parameter_set.name]]
+            df = super(DWDObservationValues, self)._get_empty_station_parameter_df(
                 station_id, parameter
             )
 
@@ -366,9 +351,9 @@ class DWDObservationData(ScalarValuesCore):
             for par in parameter:
                 if not par.value.startswith("QN"):
                     data.append(
-                        super(DWDObservationData, self)._get_empty_station_parameter_df(
-                            station_id, par
-                        )
+                        super(
+                            DWDObservationValues, self
+                        )._get_empty_station_parameter_df(station_id, par)
                     )
 
             df = pd.concat(data)
@@ -377,7 +362,7 @@ class DWDObservationData(ScalarValuesCore):
 
             return df
         else:
-            df = super(DWDObservationData, self)._get_empty_station_parameter_df(
+            df = super(DWDObservationValues, self)._get_empty_station_parameter_df(
                 station_id, parameter
             )
 
@@ -391,7 +376,7 @@ class DWDObservationData(ScalarValuesCore):
         parameter, parameter_set = parameter
 
         if parameter != parameter_set or not self.tidy_data:
-            df = super(DWDObservationData, self)._build_complete_df(
+            df = super(DWDObservationValues, self)._build_complete_df(
                 df, station_id, parameter
             )
         else:
@@ -406,7 +391,7 @@ class DWDObservationData(ScalarValuesCore):
                 )
 
                 data.append(
-                    super(DWDObservationData, self)._build_complete_df(
+                    super(DWDObservationValues, self)._build_complete_df(
                         group, station_id, parameter
                     )
                 )
@@ -530,7 +515,7 @@ class DWDObservationData(ScalarValuesCore):
     def _parse_station_ids(self, series: pd.Series) -> pd.Series:
         series = series.str.pad(5, "left", "0")
 
-        return super(DWDObservationData, self)._parse_station_ids(series)
+        return super(DWDObservationValues, self)._parse_station_ids(series)
 
     def _parse_dates(self, series: pd.Series) -> pd.Series:
         """Use predefined datetime format for given resolution to reduce processing
@@ -593,7 +578,7 @@ class DWDObservationStations(ScalarStationsCore):
 
     def __init__(
         self,
-        parameter_set: Union[str, DWDObservationParameterSet],
+        parameter: Union[str, DWDObservationParameterSet],
         resolution: Union[str, Resolution, DWDObservationResolution],
         period: Union[str, Period, DWDObservationPeriod],
         start_date: Union[None, str, Timestamp] = None,
@@ -601,7 +586,7 @@ class DWDObservationStations(ScalarStationsCore):
     ):
         """
 
-        :param parameter_set: parameter set str/enumeration
+        :param parameter: parameter set str/enumeration
         :param resolution: resolution str/enumeration
         :param period: period str/enumeration
         :param start_date: start date to limit the stations
@@ -617,11 +602,11 @@ class DWDObservationStations(ScalarStationsCore):
         # Ensure there's only one period given
         # self.period = pd.Series(self.period).item()
 
-        parameter_set = parse_enumeration_from_template(
-            parameter_set, DWDObservationParameterSet
+        parameter = parse_enumeration_from_template(
+            parameter, DWDObservationParameterSet
         )
 
-        self.parameter = parameter_set
+        self.parameter = parameter
 
     def _all(self) -> pd.DataFrame:
         # TODO: move to _all and replace error with logging + empty dataframe
@@ -671,21 +656,21 @@ class DWDObservationMetadata:
 
     def __init__(
         self,
-        parameter_set: Optional[List[Union[str, DWDObservationParameterSet]]] = None,
+        parameter: Optional[List[Union[str, DWDObservationParameterSet]]] = None,
         resolution: Optional[List[Union[str, DWDObservationResolution]]] = None,
         period: Optional[List[Union[str, DWDObservationPeriod]]] = None,
     ):
         """
 
-        :param parameter_set: parameter set str/enumeration
+        :param parameter: parameter set str/enumeration
         :param resolution: resolution str/enumeration
         :param period: period str/enumeration
         """
 
-        if not parameter_set:
-            parameter_set = [*DWDObservationParameterSet]
+        if not parameter:
+            parameter = [*DWDObservationParameterSet]
         else:
-            parameter_set = parse_enumeration(parameter_set, DWDObservationParameterSet)
+            parameter = parse_enumeration(parameter, DWDObservationParameterSet)
         if not resolution:
             resolution = [*DWDObservationResolution]
         resolution = parse_enumeration(resolution, DWDObservationResolution, Resolution)
@@ -693,7 +678,7 @@ class DWDObservationMetadata:
             period = [*DWDObservationPeriod]
         period = parse_enumeration(period, DWDObservationPeriod, Period)
 
-        self.parameter = parameter_set
+        self.parameter = parameter
         self.resolution = resolution
         self.period = period
 

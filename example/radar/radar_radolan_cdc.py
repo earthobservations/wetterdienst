@@ -51,10 +51,10 @@ import numpy as np
 import wradlib as wrl
 
 from wetterdienst.dwd.radar import (
-    DWDRadarData,
     DWDRadarParameter,
     DWDRadarPeriod,
     DWDRadarResolution,
+    DWDRadarValues,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -132,7 +132,7 @@ def label_by_producttype(producttype: str) -> str:
 def radolan_grid_example():
 
     log.info("Acquiring RADOLAN_CDC data")
-    radolan = DWDRadarData(
+    radolan = DWDRadarValues(
         parameter=DWDRadarParameter.RADOLAN_CDC,
         resolution=DWDRadarResolution.DAILY,
         period=DWDRadarPeriod.RECENT,

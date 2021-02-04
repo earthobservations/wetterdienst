@@ -24,7 +24,7 @@ log = logging.getLogger()
 def fields_example():
 
     metadata = DWDObservationMetadata(
-        parameter_set=DWDObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
     )

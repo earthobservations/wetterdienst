@@ -39,7 +39,7 @@ Get stations for daily historical precipitation:
     from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
 
     stations = DWDObservationStations(
-        parameter_set=DWDObservationParameterSet.PRECIPITATION_MORE,
+        parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.HISTORICAL
     )
@@ -52,13 +52,13 @@ Get data for a parameter set:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
+    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
 
-    observation_data = DWDObservationData(
-        station_ids=stations.all().STATION_ID[0],
-        parameters=DWDObservationParameterSet.PRECIPITATION_MORE,
+    observation_data = DWDObservationValues(
+        station_id=stations.all().STATION_ID[0],
+        parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.HISTORICAL
+        period=DWDObservationPeriod.HISTORICAL
     )
 
     print(observation_data.all().head())
@@ -67,13 +67,13 @@ Get data for a parameter:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationData, DWDObservationParameter, DWDObservationResolution, DWDObservationPeriod
+    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameter, DWDObservationResolution, DWDObservationPeriod
 
-    observation_data = DWDObservationData(
-        station_ids=stations.all().STATION_ID[0],
-        parameters=DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT,
+    observation_data = DWDObservationValues(
+        station_id=stations.all().STATION_ID[0],
+        parameter=DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT,
         resolution=DWDObservationResolution.DAILY,
-        periods=DWDObservationPeriod.HISTORICAL
+        period=DWDObservationPeriod.HISTORICAL
     )
 
     print(observation_data.all().head())
@@ -95,10 +95,10 @@ Get data for Mosmix-L:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
+    from wetterdienst.dwd.forecasts import DWDMosmixValues, DWDMosmixType
 
-    forecast_data = DWDMosmixData(
-        station_ids=stations.all().STATION_ID[0],
+    forecast_data = DWDMosmixValues(
+        station_id=stations.all().STATION_ID[0],
         mosmix_type=DWDMosmixType.LARGE
     )
 
