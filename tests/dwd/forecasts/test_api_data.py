@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
-from wetterdienst.dwd.forecasts import DWDMosmixData, DWDMosmixType
+from wetterdienst.dwd.forecasts import DWDMosmixType, DWDMosmixValues
 
 
 @pytest.mark.remote
@@ -12,8 +12,8 @@ def test_dwd_mosmix_l():
     Test some details of a typical MOSMIX-L response.
     """
 
-    mosmix = DWDMosmixData(
-        station_ids=["01001"],
+    mosmix = DWDMosmixValues(
+        station_id=["01001"],
         mosmix_type=DWDMosmixType.LARGE,
     )
     response = next(mosmix.query())
@@ -161,8 +161,8 @@ def test_dwd_mosmix_s():
     Test some details of a typical MOSMIX-S response.
     """
 
-    mosmix = DWDMosmixData(
-        station_ids=["01028"],
+    mosmix = DWDMosmixValues(
+        station_id=["01028"],
         mosmix_type=DWDMosmixType.SMALL,
     )
     response = next(mosmix.query())
@@ -235,10 +235,10 @@ def test_mosmix_l_parameters():
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
 
-    mosmix = DWDMosmixData(
-        station_ids=["01001"],
+    mosmix = DWDMosmixValues(
+        station_id=["01001"],
         mosmix_type=DWDMosmixType.LARGE,
-        parameters=["DD", "ww"],
+        parameter=["DD", "ww"],
     )
     response = next(mosmix.query())
 

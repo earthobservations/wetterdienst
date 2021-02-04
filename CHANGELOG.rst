@@ -8,6 +8,8 @@ Development
 - Mosmix stations: fix longitudes/latitudes to be decimal degrees (before they were
   degrees and minutes)
 - Change key STATION_HEIGHT to HEIGHT, LAT to LATITUDE, LON to LONGITUDE
+- Rename "Data" classes to "Values"
+- Make arguments singular
 
 0.13.0 (21.01.2021)
 *******************

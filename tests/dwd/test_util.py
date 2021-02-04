@@ -10,10 +10,10 @@ import pytest
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
-    DWDObservationData,
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
+    DWDObservationValues,
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidEnumeration
@@ -51,8 +51,8 @@ def test_coerce_field_types():
         self.tidy_data = False
         self.resolution = Resolution.HOURLY
 
-    with patch.object(DWDObservationData, "__init__", __init__):
-        observations = DWDObservationData()
+    with patch.object(DWDObservationValues, "__init__", __init__):
+        observations = DWDObservationValues()
         df = observations._coerce_dates(df)
         df = observations._coerce_meta_fields(df)
         df = observations._coerce_parameter_types(df)
@@ -91,9 +91,9 @@ def test_coerce_field_types_with_nans():
     def __init__(self):
         self.tidy_data = False
 
-    with mock.patch.object(DWDObservationData, "__init__", new=__init__):
+    with mock.patch.object(DWDObservationValues, "__init__", new=__init__):
 
-        df = DWDObservationData()._coerce_parameter_types(df)
+        df = DWDObservationValues()._coerce_parameter_types(df)
 
     assert_frame_equal(df, expected_df)
 

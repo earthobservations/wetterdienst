@@ -224,8 +224,8 @@ class ScalarValuesCore(ScalarCore):
 
     def __init__(
         self,
-        station_ids: Tuple[str],
-        parameters: Tuple[Union[str, Enum]],
+        station_id: Tuple[str],
+        parameter: Tuple[Union[str, Enum]],
         resolution: Resolution,
         period: Period,
         start_date: Optional[Union[str, datetime]],
@@ -235,8 +235,8 @@ class ScalarValuesCore(ScalarCore):
     ) -> None:
         """
 
-        :param station_ids: station ids for which data is requested
-        :param parameters: parameters either as strings or enumerations for which data
+        :param station_id: station ids for which data is requested
+        :param parameter: parameters either as strings or enumerations for which data
             is requested
         :param start_date: start date of the resulting data,
             if not start_date: start_date = end_date
@@ -254,13 +254,13 @@ class ScalarValuesCore(ScalarCore):
         )
 
         # Make sure we receive a list of ids
-        self.station_ids = pd.Series(station_ids).astype(str).tolist()
-        self.parameters = self._parse_parameters(parameters)
+        self.station_ids = pd.Series(station_id).astype(str).tolist()
+        self.parameters = self._parse_parameters(parameter)
 
         # TODO: replace this with a response + logging
         # TODO: move this to self.collect_data
         if not self.parameters:
-            raise NoParametersFound(f"No parameters could be parsed from {parameters}")
+            raise NoParametersFound(f"No parameters could be parsed from {parameter}")
 
         self.humanize_parameters = humanize_parameters
         self.tidy_data = tidy_data
@@ -295,16 +295,16 @@ class ScalarValuesCore(ScalarCore):
             ]
         )
 
-    def _parse_parameters(self, parameters: List[Union[str, Enum]]) -> List[Enum]:
+    def _parse_parameters(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
         """
         Method to parse parameters, either from string or enum. Case independent for
         strings.
 
-        :param parameters: parameters as strings or enumerations
+        :param parameter: parameters as strings or enumerations
         :return: list of parameter enumerations of type self._parameter_base
         """
         return (
-            pd.Series(parameters)
+            pd.Series(parameter)
             .apply(parse_enumeration_from_template, args=(self._parameter_base,))
             .tolist()
         )
@@ -312,7 +312,7 @@ class ScalarValuesCore(ScalarCore):
     def _get_empty_station_parameter_df(
         self, station_id: str, parameter: Union[Enum, List[Enum]]
     ) -> pd.DataFrame:
-        parameter = pd.Series(parameter).apply(lambda x: x.value).tolist()
+        parameter = pd.Series(parameter).map(lambda x: x.value).tolist()
         df = self._base_df
 
         # Base columns
@@ -424,12 +424,6 @@ class ScalarValuesCore(ScalarCore):
 
             # TODO: add meaningful metadata here
             yield Result(pd.DataFrame(), station_df)
-
-    def collect_data(self):
-        # TODO: remove method at some point
-        log.warning("method self.collect_data() will deprecate. change to self.query()")
-
-        yield from self.query()
 
     @abstractmethod
     def _collect_station_parameter(self, station_id: str, parameter) -> pd.DataFrame:
@@ -600,12 +594,6 @@ class ScalarValuesCore(ScalarCore):
         df.attrs["tidy"] = self.tidy_data
 
         return df
-
-    def collect_safe(self):
-        # TODO: remove method at some point
-        log.warning("method self.collect_safe() will deprecate. change to self.all()")
-
-        return self.all()
 
     def _humanize(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Method for humanizing parameters. """

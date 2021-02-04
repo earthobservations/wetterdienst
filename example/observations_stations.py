@@ -23,7 +23,7 @@ log = logging.getLogger()
 
 def station_example():
     stations = DWDObservationStations(
-        parameter_set=DWDObservationParameterSet.TEMPERATURE_AIR,
+        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
         period=DWDObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),

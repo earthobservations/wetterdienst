@@ -5,7 +5,6 @@
 import pytest
 import requests
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.observations import DWDObservationParameterSet
 from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,

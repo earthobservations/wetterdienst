@@ -212,14 +212,14 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
 .. code-block:: python
 
     >>> from wetterdienst.dwd.observations import (
-    ...     DWDObservationData,
+    ...     DWDObservationValues,
     ...     DWDObservationParameterSet,
     ...     DWDObservationPeriod,
     ...     DWDObservationResolution
     ... )
-    >>> observations = DWDObservationData(
-    ...    station_ids=[1048,4411],
-    ...    parameters=[DWDObservationParameterSet.CLIMATE_SUMMARY,
+    >>> observations = DWDObservationValues(
+    ...    station_id=[1048,4411],
+    ...    parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY,
     ...                DWDObservationParameterSet.SOLAR],
     ...    resolution=DWDObservationResolution.DAILY,
     ...    start_date="1990-01-01",  # Timezone: UTC
@@ -237,7 +237,7 @@ Receiving of stations for defined parameters using the ``wetterdienst`` client:
     wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent
 
     # Get daily climate summary data for specific stations
-    wetterdienst dwd observations readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent
+    wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
 
 Further examples (code samples) can be found in the `examples`_ folder.
 

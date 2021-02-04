@@ -2,9 +2,7 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """ Tests for parser function """
-from io import BytesIO, StringIO
-from pathlib import Path
-from typing import Union
+from io import BytesIO
 from zipfile import ZipFile
 
 import pandas as pd
@@ -13,11 +11,7 @@ import requests
 from pandas._testing import assert_frame_equal
 
 from wetterdienst import Period, Resolution
-from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-)
+from wetterdienst.dwd.observations import DWDObservationParameterSet
 from wetterdienst.dwd.observations.parser import parse_climate_observations_data
 
 

@@ -6,7 +6,7 @@ import re
 import h5py
 import pytest
 
-from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter
+from wetterdienst.dwd.radar import DWDRadarParameter, DWDRadarValues
 from wetterdienst.dwd.radar.metadata import (
     DWDRadarDataFormat,
     DWDRadarDataSubset,
@@ -23,7 +23,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,
@@ -65,7 +65,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     this time in OPERA HDF5 (ODIM_H5) format.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=DWDRadarDate.MOST_RECENT,
         site=DWDRadarSite.BOO,
@@ -110,7 +110,7 @@ def test_radar_request_radolan_cdc_most_recent():
     Example for testing radar sites most recent RADOLAN_CDC.
     """
 
-    request = DWDRadarData(
+    request = DWDRadarValues(
         parameter=DWDRadarParameter.RADOLAN_CDC,
         resolution=DWDRadarResolution.DAILY,
         start_date=DWDRadarDate.MOST_RECENT,

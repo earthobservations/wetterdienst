@@ -13,7 +13,7 @@ DWD (German Weather Service)
 Historical Weather Data
 -----------------------
 
-.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationData
+.. autoclass:: wetterdienst.dwd.observations.api.DWDObservationValues
     :members:
 
 .. autoclass:: wetterdienst.dwd.observations.api.DWDObservationStations
@@ -25,7 +25,7 @@ Historical Weather Data
 Mosmix
 ------
 
-.. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixData
+.. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixValues
     :members:
 .. autoclass:: wetterdienst.dwd.forecasts.api.DWDMosmixStations
     :members:
@@ -33,5 +33,5 @@ Mosmix
 Radar
 -----
 
-.. autoclass:: wetterdienst.dwd.radar.api.DWDRadarData
+.. autoclass:: wetterdienst.dwd.radar.api.DWDRadarValues
     :members:
