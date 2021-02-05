@@ -34,7 +34,7 @@ Overview
 .. image:: https://pepy.tech/badge/wetterdienst/month
    :target: https://pepy.tech/project/wetterdienst/month
 .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
-   :target: https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.rst
+   :target: https://github.com/earthobservations/wetterdienst/blob/main/LICENSE
 .. image:: https://zenodo.org/badge/160953150.svg
    :target: https://zenodo.org/badge/latestdoi/160953150
 .. image:: https://img.shields.io/discord/704622099750191174.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2

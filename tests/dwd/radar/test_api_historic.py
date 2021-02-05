@@ -849,6 +849,7 @@ def test_radar_request_radvor_rq_yesterday():
     assert re.match(bytes(header, encoding="ascii"), payload[:180])
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_radvor_rq_timerange():
     """
