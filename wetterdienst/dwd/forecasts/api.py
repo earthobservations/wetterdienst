@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 from requests import HTTPError
 
-from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
+from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore, ValuesResult
 from wetterdienst.dwd.forecasts.access import KMLReader
 from wetterdienst.dwd.forecasts.metadata import (
     DWDForecastDate,
@@ -30,7 +30,6 @@ from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.metadata.result import Result
 from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -244,7 +243,7 @@ class DWDMosmixValues(ScalarValuesCore):
 
         return datetime_adjusted
 
-    def query(self) -> Generator[Result, None, None]:
+    def query(self) -> Generator[ValuesResult, None, None]:
         """Replace collect data method as all information is read once from kml file"""
         for metadata_df, forecast_df in self._collect_station_parameter():
             forecast_df = self._coerce_meta_fields(forecast_df)
@@ -264,11 +263,11 @@ class DWDMosmixValues(ScalarValuesCore):
 
             metadata_df = metadata_df.join(station_metadata)
 
-            result = Result(metadata_df, forecast_df)
+            result = ValuesResult(metadata_df, forecast_df)
 
             yield result
 
-    def _collect_station_parameter(self) -> Generator[Result, None, None]:
+    def _collect_station_parameter(self) -> Generator[ValuesResult, None, None]:
         """Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)"""
         if self.start_issue == DWDForecastDate.LATEST:
@@ -281,7 +280,7 @@ class DWDMosmixValues(ScalarValuesCore):
                     log.warning(e)
                     continue
 
-    def read_mosmix(self, date: Union[datetime, DWDForecastDate]) -> Result:
+    def read_mosmix(self, date: Union[datetime, DWDForecastDate]) -> ValuesResult:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
