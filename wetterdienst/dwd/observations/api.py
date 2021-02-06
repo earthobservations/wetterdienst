@@ -9,7 +9,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import pandas as pd
 from pandas import Timestamp
 
-from wetterdienst.core.scalar import ScalarStationsCore, ScalarValuesCore
+from wetterdienst.core.scalar.stations import ScalarStationsCore
+from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.scalar.result import StationsResult
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
@@ -71,8 +73,6 @@ class DWDObservationValues(ScalarValuesCore):
     observation data as provided by the DWD service.
     """
 
-    # TODO: change to DWDObservationValues
-
     @property
     def _source(self) -> Source:
         return Source.DWD
@@ -114,92 +114,94 @@ class DWDObservationValues(ScalarValuesCore):
     def _datetime_format(self):
         return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.resolution)
 
-    # TODO: change arguments to singular
-    def __init__(
-        self,
-        station_id: List[Union[int, str]],
-        parameter: List[
-            Union[str, DWDObservationParameter, DWDObservationParameterSet]
-        ],
-        resolution: Union[str, Resolution, DWDObservationResolution],
-        period: Optional[List[Union[str, Period, DWDObservationPeriod]]] = None,
-        start_date: Optional[Union[str, Timestamp, datetime]] = None,
-        end_date: Optional[Union[str, Timestamp, datetime]] = None,
-        tidy_data: bool = True,
-        humanize_parameters: bool = True,
-    ) -> None:
-        """
-        Class with mostly flexible arguments to define a request regarding DWD data.
-        Special handling for period type. If start_date/end_date are given all period
-        types are considered and merged together and the data is filtered for the given
-        dates afterwards.
+    # def __init__(
+    #     self,
+    #     station_id: List[Union[int, str]],
+    #     parameter: List[
+    #         Union[str, DWDObservationParameter, DWDObservationParameterSet]
+    #     ],
+    #     resolution: Union[str, Resolution, DWDObservationResolution],
+    #     period: Optional[List[Union[str, Period, DWDObservationPeriod]]] = None,
+    #     start_date: Optional[Union[str, Timestamp, datetime]] = None,
+    #     end_date: Optional[Union[str, Timestamp, datetime]] = None,
+    #     tidy_data: bool = True,
+    #     humanize_parameters: bool = True,
+    # ) -> None:
+    #     """
+    #     Class with mostly flexible arguments to define a request regarding DWD data.
+    #     Special handling for period type. If start_date/end_date are given all period
+    #     types are considered and merged together and the data is filtered for the given
+    #     dates afterwards.
+    #
+    #     :param station_id: definition of stations by str, int or list of str/int,
+    #                         will be parsed to list of int
+    #     :param parameter:           Observation measure
+    #     :param resolution:     Frequency/granularity of measurement interval
+    #     :param period:         Recent or historical files (optional), if None
+    #                                 and start_date and end_date None, all period
+    #                                 types are used
+    #     :param start_date:          Replacement for period type to define exact time
+    #                                 of requested data, if used, period type will be set
+    #                                 to all period types (hist, recent, now)
+    #     :param end_date:            Replacement for period type to define exact time
+    #                                 of requested data, if used, period type will be set
+    #                                 to all period types (hist, recent, now)
+    #     :param tidy_data:           Reshape DataFrame to a more tidy
+    #                                 and row-based version of data
+    #     :param humanize_parameters: Replace column names by more meaningful ones
+    #     """
+    #     station_id = pd.Series(station_id).astype(str).str.pad(5, "left", "0")
+    #
+    #     if not station_id.str.isdigit().all():
+    #         raise ValueError("station identifiers of DWD only contain digits")
+    #
+    #     super(DWDObservationValues, self).__init__(
+    #         station_id=station_id,
+    #         parameter=parameter,
+    #         resolution=resolution,
+    #         period=period,
+    #         start_date=start_date,
+    #         end_date=end_date,
+    #         humanize_parameters=humanize_parameters,
+    #         tidy_data=tidy_data,
+    #     )
+    #
+    #     # If any date is given, use all period types and filter, else if not period type
+    #     # is given use all period types
+    #     if not self.period:
+    #         if self.start_date:
+    #             self.period = self._get_periods()
+    #         else:
+    #             self.period = [*self._period_base]
+    #
+    #     if self.start_date and self.period:
+    #         log.warning(
+    #             f"start_date and end_date filtering limited to defined "
+    #             f"periods {self.period}"
+    #         )
+    #
+    #     # For requests with start date and end date set in the future, we wont expect
+    #     # any periods to be selected
+    #     if not self.period:
+    #         log.warning("start date and end date are out of range of any period.")
+    #
+    #     # If more then one parameter requested, automatically tidy data
+    #     # - has to be overwritten here only after parsing parameters and getting the
+    #     # correct format (list) plus parameters could be a parameter set for which we
+    #     # always want tidy data
+    #     self.tidy_data = (
+    #         tidy_data
+    #         or len(self.parameters) > 1
+    #         or any(
+    #             [
+    #                 not isinstance(parameter, DWDObservationParameterSet)
+    #                 for parameter, parameter_set in self.parameters
+    #             ]
+    #         )
+    #     )
 
-        :param station_id: definition of stations by str, int or list of str/int,
-                            will be parsed to list of int
-        :param parameter:           Observation measure
-        :param resolution:     Frequency/granularity of measurement interval
-        :param period:         Recent or historical files (optional), if None
-                                    and start_date and end_date None, all period
-                                    types are used
-        :param start_date:          Replacement for period type to define exact time
-                                    of requested data, if used, period type will be set
-                                    to all period types (hist, recent, now)
-        :param end_date:            Replacement for period type to define exact time
-                                    of requested data, if used, period type will be set
-                                    to all period types (hist, recent, now)
-        :param tidy_data:           Reshape DataFrame to a more tidy
-                                    and row-based version of data
-        :param humanize_parameters: Replace column names by more meaningful ones
-        """
-        station_id = pd.Series(station_id).astype(str).str.pad(5, "left", "0")
-
-        if not station_id.str.isdigit().all():
-            raise ValueError("station identifiers of DWD only contain digits")
-
-        super(DWDObservationValues, self).__init__(
-            station_id=station_id,
-            parameter=parameter,
-            resolution=resolution,
-            period=period,
-            start_date=start_date,
-            end_date=end_date,
-            humanize_parameters=humanize_parameters,
-            tidy_data=tidy_data,
-        )
-
-        # If any date is given, use all period types and filter, else if not period type
-        # is given use all period types
-        if not self.period:
-            if self.start_date:
-                self.period = self._get_periods()
-            else:
-                self.period = [*self._period_base]
-
-        if self.start_date and self.period:
-            log.warning(
-                f"start_date and end_date filtering limited to defined "
-                f"periods {self.period}"
-            )
-
-        # For requests with start date and end date set in the future, we wont expect
-        # any periods to be selected
-        if not self.period:
-            log.warning("start date and end date are out of range of any period.")
-
-        # If more then one parameter requested, automatically tidy data
-        # - has to be overwritten here only after parsing parameters and getting the
-        # correct format (list) plus parameters could be a parameter set for which we
-        # always want tidy data
-        self.tidy_data = (
-            tidy_data
-            or len(self.parameters) > 1
-            or any(
-                [
-                    not isinstance(parameter, DWDObservationParameterSet)
-                    for parameter, parameter_set in self.parameters
-                ]
-            )
-        )
+    # def __init__(self, stations: StationsResult):
+    #     super(DWDObservationValues, self).__init__(stations)
 
     # TODO: move create_parameter_to_parameter_set_combination to class
     def _parse_parameters(self, parameter) -> List[Tuple[Enum, Enum]]:
