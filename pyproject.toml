@@ -221,7 +221,9 @@ pycodestyle = ["-E501", "-B950"]
 
 
 [tool.poe.tasks]
-format = "black wetterdienst example tests && isort wetterdienst example tests"  # black code formatting
+black = "black wetterdienst example tests"
+isort = "isort wetterdienst example tests"
+format = ["black", "isort"]
 lint = "flakehell lint wetterdienst example tests"
 test = "pytest tests"
 export_requirements = "dephell deps convert"

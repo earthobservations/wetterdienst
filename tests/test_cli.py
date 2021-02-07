@@ -381,3 +381,25 @@ def test_cli_readings_geospatial(setting, station, capsys):
     station_ids = list(set([reading["station_id"] for reading in response]))
 
     assert station in station_ids
+
+
+def test_cli_radar_stations_opera(capsys):
+
+    sys.argv = ["wetterdienst", "radar", "stations", "--odim-code=ukdea"]
+    cli.run()
+    stdout, stderr = capsys.readouterr()
+
+    response = json.loads(stdout)
+    assert isinstance(response, dict)
+    assert response["location"] == "Dean Hill"
+
+
+def test_cli_radar_stations_dwd(capsys):
+
+    sys.argv = ["wetterdienst", "dwd", "radar", "stations"]
+    cli.run()
+    stdout, stderr = capsys.readouterr()
+
+    response = json.loads(stdout)
+    assert isinstance(response, list)
+    assert len(response) == 20
