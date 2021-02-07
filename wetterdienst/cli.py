@@ -18,6 +18,8 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
+from wetterdienst.provider.dwd.radar.api import DwdRadarSites
+from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.util.cli import normalize_options, read_list, setup_logging
 
 log = logging.getLogger(__name__)
@@ -34,6 +36,8 @@ def run():
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
+      wetterdienst radar stations [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
+      wetterdienst dwd radar stations
       wetterdienst service [--listen=<listen>] [--reload]
       wetterdienst --version
       wetterdienst (-h | --help)
@@ -224,6 +228,25 @@ def run():
         from wetterdienst.service import start_service
 
         start_service(listen_address, reload=options.reload)
+        return
+
+    # Handle radar data inquiry. Currently, "stations only".
+    if options.radar:
+        if options.dwd:
+            data = DwdRadarSites().all()
+        else:
+            if options.odim_code:
+                data = OperaRadarSites().by_odimcode(options.odim_code)
+            elif options.wmo_code:
+                data = OperaRadarSites().by_wmocode(options.wmo_code)
+            elif options.country_name:
+                data = OperaRadarSites().by_countryname(options.country_name)
+            else:
+                data = OperaRadarSites().all()
+
+        output = json.dumps(data, indent=4)
+        print(output)
+
         return
 
     # Output domain information.

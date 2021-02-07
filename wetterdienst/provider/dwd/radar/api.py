@@ -21,7 +21,8 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarDate,
     DwdRadarParameter,
 )
-from wetterdienst.provider.dwd.radar.sites import RADAR_LOCATIONS, DwdRadarSite
+from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
+from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -249,6 +250,12 @@ class DwdRadarValues:
             period=self.period,
         )
 
-    @staticmethod
-    def get_sites():
-        return RADAR_LOCATIONS
+
+class DwdRadarSites(OperaRadarSites):
+    def __init__(self):
+
+        # Load all OPERA radar sites.
+        super().__init__()
+
+        # Restrict available sites to the list of OPERA radar sites in Germany.
+        self.sites = self.by_countryname(name="Germany")

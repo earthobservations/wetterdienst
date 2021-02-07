@@ -337,6 +337,37 @@ Get Mosmix-L data:
 Radar
 =====
 
+Sites
+-----
+
+Retrieve information about all OPERA radar sites.
+
+.. ipython:: python
+
+    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
+
+    # Acquire information for all OPERA sites.
+    sites = OperaRadarSites().all()
+    print(f"Number of OPERA radar sites: {len(sites)}")
+
+    # Acquire information for a specific OPERA site.
+    site_ukdea = OperaRadarSites().by_odimcode("ukdea")
+    print(site_ukdea)
+
+Retrieve information about the DWD radar sites.
+
+.. ipython:: python
+
+    from wetterdienst.provider.dwd.radar.api import DwdRadarSites
+
+    # Acquire information for a specific site.
+    site_asb = DwdRadarSites().by_odimcode("ASB")
+    print(site_asb)
+
+
+Data
+----
+
 To use ``DWDRadarRequest``, you have to provide a ``RadarParameter``,
 which designates the type of radar data you want to obtain. There is
 radar data available at different locations within the DWD data repository:

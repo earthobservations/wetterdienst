@@ -23,6 +23,7 @@ Development
 - Make all DWD forecast (mosmix) field names lowercase
 - Add Environment and Climate Change Canada API
 - Rename humanize_parameters to humanize and tidy_data to tidy
+- Radar: Use OPERA as data source for improved list of radar sites
 
 0.15.0 (07.03.2021)
 *******************
