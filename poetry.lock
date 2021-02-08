@@ -1548,7 +1548,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
 name = "pybufrkit"
-version = "0.2.17"
+version = "0.2.18"
 description = "Python toolkit to work with BUFR files"
 category = "dev"
 optional = false
@@ -3463,7 +3463,7 @@ py = [
     {file = "py-1.10.0.tar.gz", hash = "sha256:21b81bda15b66ef5e1a777a21c4dcd9c20ad3efd0b3f817e7a809035269e1bd3"},
 ]
 pybufrkit = [
-    {file = "pybufrkit-0.2.17.tar.gz", hash = "sha256:4161d6114ba14f2b18ad9227fd73cfee1d44d2d348fc49940abad8a233d89a17"},
+    {file = "pybufrkit-0.2.18.tar.gz", hash = "sha256:da9c5b234444a581cb22b8e45210322d43465f4b0846302fb2aeeb89f8d755ab"},
 ]
 pycodestyle = [
     {file = "pycodestyle-2.6.0-py2.py3-none-any.whl", hash = "sha256:2295e7b2f6b5bd100585ebcb1f616591b652db8a741695b3d8f5d28bdc934367"},
