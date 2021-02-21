@@ -109,11 +109,11 @@ def test_dwd_observation_stations_nearby_number_success():
                     "07341",
                     Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
                     119.0,
-                    50.09,
+                    50.0899,
                     8.7862,
                     "Offenbach-Wetterpark",
                     "Hessen",
-                    16.13301589362613,
+                    16.12612066977987,
                 ],
             ],
             columns=[
