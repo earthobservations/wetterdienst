@@ -457,7 +457,7 @@ class DWDObservationValues(ScalarValuesCore):
                     f"{self.resolution.value}/{period} is skipped."
                 )
 
-                return pd.DataFrame()
+                continue
 
             remote_files = create_file_list_for_climate_observations(
                 station_id, parameter_set, self.resolution, period, date_range

@@ -6,6 +6,12 @@ Development
 
 ...
 
+0.14.1 (21.02.2021)
+*******************
+
+- Fix date filtering of DWD observations, where accidentally an empty dataframe was
+  returned
+
 0.14.0 (05.02.2021)
 *******************
 
