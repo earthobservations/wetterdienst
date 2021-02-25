@@ -36,7 +36,7 @@ def test_dwd_observation_stations_nearby_number_success():
         8.9,
         1,
     )
-    nearby_station = nearby_station.drop("TO_DATE", axis="columns")
+    nearby_station = nearby_station.df.drop("TO_DATE", axis="columns")
 
     assert_frame_equal(
         nearby_station,
@@ -78,7 +78,7 @@ def test_dwd_observation_stations_nearby_number_success():
         8.9,
         3,
     )
-    nearby_station = nearby_station.drop("TO_DATE", axis="columns")
+    nearby_station = nearby_station.df.drop("TO_DATE", axis="columns")
     nearby_station.STATION_ID = nearby_station.STATION_ID
 
     pd.testing.assert_frame_equal(
@@ -143,7 +143,7 @@ def test_dwd_observation_stations_nearby_distance_success():
         8.9,
         10,
     )
-    assert nearby_station.empty is True
+    assert nearby_station.df.empty
 
 
 def test_dwd_observation_stations_nearby_number_fail_1():

@@ -43,3 +43,7 @@ class DatetimeOutOfRangeError(Exception):
 
 class InvalidTimeInterval(ValueError):
     pass
+
+
+class SourceError(Exception):
+    pass

@@ -2,21 +2,25 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from dataclasses import dataclass
+from datetime import datetime
+from typing import TYPE_CHECKING, Union
+
 import pandas as pd
 
-from wetterdienst.core.scalar.stations import ScalarStationsCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Frequency, Resolution
+
+if TYPE_CHECKING:
+    from wetterdienst.core.scalar.stations import ScalarStationsCore
+    from wetterdienst.core.scalar.values import ScalarValuesCore
+    from wetterdienst.dwd.forecasts.api import DWDMosmixStations
 
 
 class StationsResult:
-    # TODO: add more information about filter and how it is applied, eventually hold
-    #  back filter until later and use pandas.DataFrame.sql instead
-    _filter = []
-
     def __init__(
         self,
-        stations: ScalarStationsCore,
+        stations: Union["ScalarStationsCore", "DWDMosmixStations"],
         df: pd.DataFrame,
         **kwargs
     ) -> None:
@@ -25,6 +29,9 @@ class StationsResult:
 
         self.df = df
         self._kwargs = kwargs
+
+    def __eq__(self, other):
+        return (self.stations == other.stations) and self.df.equals(other.df)
 
     @property
     def source(self):
@@ -39,17 +46,61 @@ class StationsResult:
         return self.df[Columns.STATION_ID.value]
 
     @property
-    def values(self) -> ScalarValuesCore:
+    def parameter(self):
+        return self.stations.parameter
+
+    @property
+    def _resolution_type(self):
+        return self.stations._resolution_type
+
+    @property
+    def values(self) -> "ScalarValuesCore":
         return self.stations._values.from_stations(self)
 
-    def json(self):
+    @property
+    def resolution(self) -> Resolution:
+        return self.stations.resolution
+
+    @property
+    def frequency(self) -> Frequency:
+        return self.stations.frequency
+
+    @property
+    def period(self) -> Period:
+        return self.stations.period
+
+    @property
+    def start_date(self) -> datetime:
+        return self.stations.start_date
+
+    @property
+    def end_date(self) -> datetime:
+        return self.stations.end_date
+
+    @property
+    def start_issue(self) -> datetime:
+        return self.stations.start_issue
+
+    @property
+    def end_issue(self) -> datetime:
+        return self.stations.end_issue
+
+    @property
+    def tidy_data(self) -> bool:
+        return self.stations.tidy_data
+
+    @property
+    def humanize_parameters(self) -> bool:
+        return self.stations.humanize_parameters
+
+    def json(self) -> str:
         raise NotImplementedError()
 
 
 @dataclass
 class ValuesResult:
     stations: StationsResult
-    values: pd.DataFrame
+    df: pd.DataFrame
 
     def __add__(self, other):
         pass

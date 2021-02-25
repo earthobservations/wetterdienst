@@ -114,9 +114,9 @@ Get station information for a given *parameter/parameter_set*, *resolution* and
         parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.HISTORICAL
-    )
+    ).all()
 
-    df = stations.all()
+    df = stations.df
 
     print(df.head())
 
@@ -125,35 +125,34 @@ The function returns a Pandas DataFrame with information about the available sta
 Values
 ------
 
-Use the ``DWDObservationValues`` class in order to get hold of values.
+Use the ``DWDObservationStations`` class in order to get hold of stations.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
-    observations = DWDObservationValues(
-        station_id=[3, 1048],
+    request = DWDObservationStations(
         parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY, DWDObservationParameterSet.SOLAR],
         resolution=DWDObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
         tidy_data=True,
         humanize_parameters=True,
-    )
+    ).filter(station_id=[3, 1048])
 
-Query data by station:
+From here you can query data by station:
 
 .. ipython:: python
 
-    for result in observations.query():
+    for result in request.values.query():
         # analyse the station here
-        print(result.data.dropna().head())
+        print(result.df.dropna().head())
 
 Query data all together:
 
 .. ipython:: python
 
-    df = observations.all().dropna()
+    df = request.values.all().df.dropna()
     print(df.head())
 
 This gives us the most options to work with the data, getting multiple parameters at
@@ -186,7 +185,7 @@ Inquire the list of stations by geographic coordinates.
         latitude=50.0,
         longitude=8.9,
         max_distance_in_km=30
-    )
+    ).df
 
     print(df.head())
 
@@ -194,37 +193,33 @@ Inquire the list of stations by geographic coordinates.
         latitude=50.0,
         longitude=8.9,
         number=5
-    )
+    ).df
 
     print(df.head())
 
 
-The function returns a DataFrame with the list of stations with distances [in km]
-to the given coordinates.
+The function returns a StationsResult with the list of stations being filtered for
+distances [in km] to the given coordinates.
 
-The station ids within the DataFrame:
-
-.. ipython:: python
-
-    station_ids = df.STATION_ID.unique()
-
-can be used to download the observation data:
+Again from here we can jump to the corresponding data:
 
 .. ipython:: python
 
-    observations = DWDObservationValues(
-        station_id=station_ids,
-        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR, DWDObservationParameterSet.SOLAR],
+    stations = DWDObservationStations(
+        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
         resolution=DWDObservationResolution.HOURLY,
-        start_date="1990-01-01",
-        end_date="2020-01-01",
-        tidy_data=True,
-        humanize_parameters=True,
+        period=DWDObservationPeriod.RECENT,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2020, 1, 20)
+    ).nearby_radius(
+        latitude=50.0,
+        longitude=8.9,
+        max_distance_in_km=30
     )
 
-    for result in observations.query():
+    for result in stations.values.query():
         # analyse the station here
-        print(result.data.dropna().head())
+        print(result.df.dropna().head())
 
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
@@ -240,19 +235,18 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    stations = DWDObservationStations(
         parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
         resolution=DWDObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
         humanize_parameters=True,
-    )
+    ).filter(station_id=[1048])
 
-    df = observations.all().dwd.lower()
+    df = stations.values.all().df.dwd.lower()
     df = df.io.sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
     print(df.head())
 
@@ -271,20 +265,19 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet,
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet,
         DWDObservationPeriod, DWDObservationResolution, StorageAdapter
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    stations = DWDObservationStations(
         parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
         resolution=DWDObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
         humanize_parameters=True,
-    )
+    ).filter(station_id=[1048])
 
-    df = observations.all().dwd.lower()
+    df = stations.values.all().df.dwd.lower()
     df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 Mosmix
@@ -296,9 +289,9 @@ Get stations for Mosmix:
 
     from wetterdienst.dwd.forecasts import DWDMosmixStations
 
-    stations = DWDMosmixStations()
+    stations = DWDMosmixStations(mosmix_type="large")  # actually same for small and large
 
-    print(stations.all().head())
+    print(stations.all().df.head())
 
 Mosmix forecasts require us to define ``station_ids`` and ``mosmix_type``. Furthermore
 we can also define explicitly the requested parameters.
@@ -307,16 +300,15 @@ Get Mosmix-L data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixValues, DWDMosmixType
+    from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
 
-    mosmix = DWDMosmixValues(
-        station_id=["01001", "01008"],
+    stations = DWDMosmixStations(
         mosmix_type=DWDMosmixType.LARGE
-    )
-    response =  next(mosmix.query())
+    ).filter(station_id=["01001", "01008"])
+    response =  next(stations.values.query())
 
-    print(response.metadata)
-    print(response.data)
+    print(response.stations.df)
+    print(response.df)
 
 Radar
 =====

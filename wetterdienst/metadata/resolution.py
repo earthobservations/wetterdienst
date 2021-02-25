@@ -17,14 +17,15 @@ class Resolution(Enum):
     observations
     """
 
-    MINUTE_1 = "1_minute"
+    MINUTE_1 = "1_minute"  # used by DWD for file server
     MINUTE_5 = "5_minutes"
-    MINUTE_10 = "10_minutes"
-    HOURLY = "hourly"
-    SUBDAILY = "subdaily"
-    DAILY = "daily"
-    MONTHLY = "monthly"
-    ANNUAL = "annual"
+    MINUTE_10 = "10_minutes"  # used by DWD for file server
+    HOURLY = "hourly"  # used by DWD for file server
+    HOUR_6 = "6_hour"
+    SUBDAILY = "subdaily"  # used by DWD for file server
+    DAILY = "daily"  # used by DWD for file server
+    MONTHLY = "monthly"  # used by DWD for file server
+    ANNUAL = "annual"  # used by DWD for file server
 
     # For sources without resolution
     UNDEFINED = "undefined"
@@ -36,6 +37,7 @@ class Frequency(Enum):
     MINUTE_5 = "5min"
     MINUTE_10 = "10min"
     HOURLY = "1H"
+    HOUR_6 = "6H"
     SUBDAILY = "1H"
     DAILY = "1D"
     MONTHLY = "1M"

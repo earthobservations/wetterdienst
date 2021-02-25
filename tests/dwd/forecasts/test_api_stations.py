@@ -5,16 +5,16 @@ import pandas as pd
 import pytest
 from pandas._testing import assert_frame_equal
 
-from wetterdienst.dwd.forecasts import DWDMosmixStations
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
 from wetterdienst.metadata.columns import Columns
 
 
 @pytest.mark.remote
 def test_dwd_mosmix_stations_success():
     # Existing combination of parameters
-    request = DWDMosmixStations()
+    request = DWDMosmixStations(mosmix_type=DWDMosmixType.LARGE)
 
-    df = request.all()
+    df = request.all().df
 
     assert not df.empty
 
