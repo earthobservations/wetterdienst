@@ -3,24 +3,21 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from abc import abstractmethod
 from enum import Enum
-from typing import Tuple, List, Union, Generator, Dict
-from dataclasses import dataclass
+from typing import Dict, Generator, List, Tuple, Union
 
 import pandas as pd
 from pytz import timezone
 from tqdm import tqdm
 
-from wetterdienst import Period
-from wetterdienst.core.scalar.core import ScalarCore
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
+from wetterdienst.exceptions import SourceError
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType
+from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
-class ScalarValuesCore(ScalarCore):
+class ScalarValuesCore:
     """ Core for sources of point data where data is related to a station """
 
     # Fields for type coercion, needed for separation from fields with actual data
@@ -40,6 +37,10 @@ class ScalarValuesCore(ScalarCore):
     #  data
 
     # TODO: add data type (forecast, observation, ...)
+    @property
+    @abstractmethod
+    def _source(self) -> Source:
+        pass
 
     @property
     @abstractmethod
@@ -78,18 +79,23 @@ class ScalarValuesCore(ScalarCore):
         """ String parameters that will be parsed to integers. """
         pass
 
-    @property
-    @abstractmethod
-    def _parameter_base(self) -> Enum:
-        """parameter base enumeration from which parameters can be parsed e.g.
-        DWDObservationParameter"""
-        pass
+    # @property
+    # @abstractmethod
+    # def _parameter_base(self) -> Enum:
+    #     """parameter base enumeration from which parameters can be parsed e.g.
+    #     DWDObservationParameter"""
+    #     pass
 
     @property
     def _complete_dates(self) -> pd.DatetimeIndex:
-        return pd.date_range(
-            self.start_date, self.end_date, freq=self.frequency.value, tz=self.data_tz
+        date_range = pd.date_range(
+            self.stations.start_date,
+            self.stations.end_date,
+            freq=self.stations.frequency.value,
+            tz=self.data_tz,
         )
+
+        return date_range
 
     @property
     def _base_df(self) -> pd.DataFrame:
@@ -97,21 +103,21 @@ class ScalarValuesCore(ScalarCore):
         found or for merging other dataframes on the full dates"""
         return pd.DataFrame({Columns.DATE.value: self._complete_dates})
 
-    def _parse_period(self, period: List[Period]):
-        """ Parsing method for period, depending on the type of period"""
-        if not period:
-            return None
-        elif self._period_type == PeriodType.FIXED:
-            return period
-        else:
-            return (
-                pd.Series(period)
-                .apply(
-                    parse_enumeration_from_template, args=(self._period_base, Period)
-                )
-                .sort_values()
-                .tolist()
-            )
+    # def _parse_period(self, period: List[Period]):
+    #     """ Parsing method for period, depending on the type of period"""
+    #     if not period:
+    #         return None
+    #     elif self._period_type == PeriodType.FIXED:
+    #         return period
+    #     else:
+    #         return (
+    #             pd.Series(period)
+    #             .apply(
+    #                 parse_enumeration_from_template, args=(self._period_base, Period)
+    #             )
+    #             .sort_values()
+    #             .tolist()
+    #         )
 
     # def __init__(
     #     self,
@@ -156,63 +162,67 @@ class ScalarValuesCore(ScalarCore):
     #     self.humanize_parameters = humanize_parameters
     #     self.tidy_data = tidy_data
 
-    def __init__(
-            self,
-            stations: StationsResult
-    ) -> None:
+    @staticmethod
+    def _determine_resolution(series: pd.Series) -> Resolution:
+        pass
+
+    def __init__(self, stations: StationsResult) -> None:
         self.stations = stations
 
     @classmethod
     def from_stations(cls, stations: StationsResult):
-        if not cls._source == stations._source:
-            # TODO: change to SourceError
-            raise Exception("sources don't match")
+        if not cls._source == stations.stations._source:
+            raise SourceError(
+                f"sources {cls._source} and {stations.stations._source} don't match"
+            )
 
         return cls(stations)
 
     def __eq__(self, other):
         """ Equal method of request object """
-        return (
-            self.station_ids == other.station_ids
-            and self.parameters == other.parameters
-            and self.start_date == other.start_date
-            and self.end_date == other.end_date
-        )
+        # return (
+        #     self.station_ids == other.station_ids
+        #     and self.parameters == other.parameters
+        #     and self.start_date == other.start_date
+        #     and self.end_date == other.end_date
+        # )
+        pass
 
     def __str__(self):
         """ Str representation of request object """
         # TODO: include source
         # TODO: include data type
-        station_ids_joined = "& ".join(
-            [str(station_id) for station_id in self.station_ids]
-        )
+        # station_ids_joined = "& ".join(
+        #     [str(station_id) for station_id in self.station_ids]
+        # )
+        #
+        # parameters_joined = "& ".join(
+        #     [parameter.value for parameter, parameter_set in self.parameters]
+        # )
+        #
+        # return ", ".join(
+        #     [
+        #         f"station_ids {station_ids_joined}",
+        #         f"parameters {parameters_joined}",
+        #         str(self.start_date),
+        #         str(self.end_date),
+        #     ]
+        # )
+        pass
 
-        parameters_joined = "& ".join(
-            [parameter.value for parameter, parameter_set in self.parameters]
-        )
-
-        return ", ".join(
-            [
-                f"station_ids {station_ids_joined}",
-                f"parameters {parameters_joined}",
-                str(self.start_date),
-                str(self.end_date),
-            ]
-        )
-
-    def _parse_parameters(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
-        """
-        Method to parse parameters, either from string or enum. Case independent for
-        strings.
-
-        :param parameter: parameters as strings or enumerations
-        :return: list of parameter enumerations of type self._parameter_base
-        """
-        return (
-            pd.Series(parameter)
-            .apply(parse_enumeration_from_template, args=(self._parameter_base,))
-            .tolist()
-        )
+    # def _parse_parameters(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
+    #     """
+    #     Method to parse parameters, either from string or enum. Case independent for
+    #     strings.
+    #
+    #     :param parameter: parameters as strings or enumerations
+    #     :return: list of parameter enumerations of type self._parameter_base
+    #     """
+    #     return (
+    #         pd.Series(parameter)
+    #         .apply(parse_enumeration_from_template, args=(self._parameter_base,))
+    #         .tolist()
+    #     )
 
     def _get_empty_station_parameter_df(
         self, station_id: str, parameter: Union[Enum, List[Enum]]
@@ -223,7 +233,7 @@ class ScalarValuesCore(ScalarCore):
         # Base columns
         columns = [Columns.STATION_ID.value, Columns.DATE.value]
 
-        if self.tidy_data:
+        if self.stations.tidy_data:
             columns.extend(
                 [Columns.PARAMETER.value, Columns.VALUE.value, Columns.QUALITY.value]
             )
@@ -234,7 +244,7 @@ class ScalarValuesCore(ScalarCore):
 
         df[Columns.STATION_ID.value] = station_id
 
-        if self.tidy_data:
+        if self.stations.tidy_data:
             if len(parameter) == 1:
                 parameter = parameter[0]
             df[Columns.PARAMETER.value] = parameter
@@ -247,7 +257,7 @@ class ScalarValuesCore(ScalarCore):
         # For cases where requests are not defined by start and end date but rather by
         # periods, use the returned df without modifications
         # We may put a standard date range here if no data is found
-        if not self.start_date:
+        if not self.stations.start_date:
             return df
 
         df = pd.merge(
@@ -260,27 +270,26 @@ class ScalarValuesCore(ScalarCore):
 
         df[Columns.STATION_ID.value] = station_id
 
-        if self.tidy_data:
+        if self.stations.tidy_data:
             df[Columns.PARAMETER.value] = parameter.value
 
         return df
 
-    def query(self) -> Generator[Result, None, None]:
+    def query(self) -> Generator[ValuesResult, None, None]:
         """Core method for data collection, iterating of station ids and yielding a
         DataFrame for each station with all found parameters. Takes care of type
         coercion of data, date filtering and humanizing of parameters."""
-        for station_id in self.station_ids:
-
+        for station_id in self.stations.station_id:
             # TODO: add method to return empty result with correct response string e.g.
             #  station id not available
             station_data = []
 
-            for parameter in self.parameters:
+            for parameter in self.stations.parameter:
                 parameter_df = self._collect_station_parameter(station_id, parameter)
 
                 # TODO: solve exceptional case where empty df and dynamic resolution
-                if self._resolution_type == ResolutionType.DYNAMIC:
-                    self.resolution = self._determine_resolution(
+                if self.stations._resolution_type == ResolutionType.DYNAMIC:
+                    self.stations.resolution = self._determine_resolution(
                         parameter_df[Columns.DATE.value]
                     )
 
@@ -294,7 +303,7 @@ class ScalarValuesCore(ScalarCore):
                 else:
                     # Merge on full date range if values are found to ensure result
                     # even if no actual values exist
-                    self._coerce_dates(parameter_df)
+                    self._coerce_date_fields(parameter_df)
 
                     parameter_df = self._build_complete_df(
                         parameter_df, station_id, parameter
@@ -308,19 +317,19 @@ class ScalarValuesCore(ScalarCore):
             station_df = self._coerce_parameter_types(station_df)
 
             # Filter for dates range if start_date and end_date are defined
-            if self.start_date:
+            if self.stations.start_date:
                 # df_station may be empty depending on if station has data for given
                 # constraints
                 try:
                     station_df = station_df[
-                        (station_df[Columns.DATE.value] >= self.start_date)
-                        & (station_df[Columns.DATE.value] <= self.end_date)
+                        (station_df[Columns.DATE.value] >= self.stations.start_date)
+                        & (station_df[Columns.DATE.value] <= self.stations.end_date)
                     ]
                 except KeyError:
                     pass
 
             # Assign meaningful parameter names (humanized).
-            if self.humanize_parameters:
+            if self.stations.humanize_parameters:
                 station_df = self._humanize(station_df)
 
             # Empty dataframe should be skipped
@@ -328,7 +337,7 @@ class ScalarValuesCore(ScalarCore):
                 continue
 
             # TODO: add meaningful metadata here
-            yield ValuesResult(pd.DataFrame(), station_df)
+            yield ValuesResult(stations=self.stations, df=station_df)
 
     @abstractmethod
     def _collect_station_parameter(self, station_id: str, parameter) -> pd.DataFrame:
@@ -346,14 +355,14 @@ class ScalarValuesCore(ScalarCore):
         """
         pass
 
-    def _coerce_dates(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _coerce_date_fields(self, df: pd.DataFrame) -> pd.DataFrame:
         for column in (
             Columns.DATE.value,
             Columns.FROM_DATE.value,
             Columns.TO_DATE.value,
         ):
             try:
-                df[column] = self._parse_dates(df[column])
+                df[column] = self._coerce_dates(df[column])
             except KeyError:
                 pass
 
@@ -370,28 +379,30 @@ class ScalarValuesCore(ScalarCore):
         :param df: pandas.DataFrame with the "fresh" data
         :return: pandas.DataFrame with meta fields being coerced
         """
-        df[Columns.STATION_ID.value] = self._parse_station_ids(
+        df[Columns.STATION_ID.value] = self._parse_station_id(
             df[Columns.STATION_ID.value]
         ).astype("category")
 
-        if self.tidy_data:
-            df[Columns.PARAMETER.value] = self._parse_strings(
+        if self.stations.tidy_data:
+            df[Columns.PARAMETER.value] = self._coerce_strings(
                 df[Columns.PARAMETER.value]
             ).astype("category")
 
             if self._has_quality:
-                df[Columns.QUALITY.value] = self._parse_integers(
+                df[Columns.QUALITY.value] = self._coerce_integers(
                     df[Columns.QUALITY.value]
                 ).astype("category")
 
         return df
 
-    def _parse_station_ids(self, series: pd.Series) -> pd.Series:
+    def _parse_station_id(self, series: pd.Series) -> pd.Series:
         """Dedicated method for parsing station ids, by default uses the same method as
         parse_strings but could be modified by the implementation class"""
-        return self._parse_strings(series)
+        # return self._parse_strings(series)
+        # TODO: use method of Stations class
+        return self.stations.stations._parse_station_id(series)
 
-    def _parse_dates(self, series: pd.Series) -> pd.Series:
+    def _coerce_dates(self, series: pd.Series) -> pd.Series:
         """Method to parse dates in the pandas.DataFrame. Leverages the data timezone
         attribute to ensure correct comparison of dates."""
         series = pd.to_datetime(series, infer_datetime_format=True)
@@ -404,22 +415,22 @@ class ScalarValuesCore(ScalarCore):
         return series
 
     @staticmethod
-    def _parse_integers(series: pd.Series) -> pd.Series:
+    def _coerce_integers(series: pd.Series) -> pd.Series:
         """Method to parse integers for type coercion. Uses pandas.Int64Dtype() to
         allow missing values."""
         return pd.to_numeric(series, errors="coerce").astype(pd.Int64Dtype())
 
     @staticmethod
-    def _parse_strings(series: pd.Series) -> pd.Series:
+    def _coerce_strings(series: pd.Series) -> pd.Series:
         """ Method to parse strings for type coercion. """
         return series.astype(pd.StringDtype())
 
     @staticmethod
-    def _parse_floats(series: pd.Series) -> pd.Series:
+    def _coerce_floats(series: pd.Series) -> pd.Series:
         """ Method to parse floats for type coercion. """
         return pd.to_numeric(series, errors="coerce")
 
-    def _parse_irregular_parameter(self, series: pd.Series) -> pd.Series:
+    def _coerce_irregular_parameter(self, series: pd.Series) -> pd.Series:
         """Method to parse irregular parameters. This will raise an error if an
         implementation has defined irregular parameters but has not implemented its own
         method of parsing irregular parameters."""
@@ -433,37 +444,37 @@ class ScalarValuesCore(ScalarCore):
 
     def _coerce_parameter_types(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Method for parameter type coercion. Depending on the shape of the data. """
-        if not self.tidy_data:
+        if not self.stations.tidy_data:
             for column in df.columns:
                 if column in self._meta_fields:
                     continue
                 if column in self._irregular_parameters:
-                    df[column] = self._parse_irregular_parameter(df[column])
+                    df[column] = self._coerce_irregular_parameter(df[column])
                 elif column in self._integer_parameters or column.startswith("QN"):
-                    df[column] = self._parse_integers(df[column])
+                    df[column] = self._coerce_integers(df[column])
                 elif column in self._string_parameters:
-                    df[column] = self._parse_strings(df[column])
+                    df[column] = self._coerce_strings(df[column])
                 else:
-                    df[column] = self._parse_floats(df[column])
+                    df[column] = self._coerce_floats(df[column])
 
             return df
 
         data = []
         for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
             if parameter in self._irregular_parameters:
-                group[Columns.VALUE.value] = self._parse_irregular_parameter(
+                group[Columns.VALUE.value] = self._coerce_irregular_parameter(
                     group[Columns.VALUE.value]
                 )
             elif parameter in self._integer_parameters:
-                group[Columns.VALUE.value] = self._parse_integers(
+                group[Columns.VALUE.value] = self._coerce_integers(
                     group[Columns.VALUE.value]
                 )
             elif parameter in self._string_parameters:
-                group[Columns.VALUE.value] = self._parse_strings(
+                group[Columns.VALUE.value] = self._coerce_strings(
                     group[Columns.VALUE.value]
                 )
             else:
-                group[Columns.VALUE.value] = self._parse_floats(
+                group[Columns.VALUE.value] = self._coerce_floats(
                     group[Columns.VALUE.value]
                 )
 
@@ -473,12 +484,12 @@ class ScalarValuesCore(ScalarCore):
 
         return df
 
-    def all(self) -> pd.DataFrame:
+    def all(self) -> ValuesResult:
         """ Collect all data from self.collect_data """
         data = []
 
-        for result in tqdm(self.query(), total=len(self.station_ids)):
-            data.append(result.data)
+        for result in tqdm(self.query(), total=len(self.stations.station_id)):
+            data.append(result.df)
 
         if not data:
             raise ValueError("No data available for given constraints")
@@ -496,15 +507,15 @@ class ScalarValuesCore(ScalarCore):
             except KeyError:
                 pass
 
-        df.attrs["tidy"] = self.tidy_data
+        df.attrs["tidy"] = self.stations.tidy_data
 
-        return df
+        return ValuesResult(stations=self.stations, df=df)
 
     def _humanize(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Method for humanizing parameters. """
         hcnm = self._create_humanized_parameters_mapping()
 
-        if not self.tidy_data:
+        if not self.stations.tidy_data:
             df = df.rename(columns=hcnm)
         else:
             df[Columns.PARAMETER.value] = df[
@@ -516,6 +527,9 @@ class ScalarValuesCore(ScalarCore):
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """Method for creation of parameter name mappings based on
         self._parameter_base"""
-        hcnm = {parameter.value: parameter.name for parameter in self._parameter_base}
+        hcnm = {
+            parameter.value: parameter.name
+            for parameter in self.stations.stations._parameter_base
+        }
 
         return hcnm

@@ -8,16 +8,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType, DWDMosmixValues
-from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-    DWDObservationValues,
-)
+from wetterdienst.dwd.forecasts import DWDMosmixStations
 from wetterdienst.dwd.observations.api import DWDObservationStations
 from wetterdienst.util.cli import read_list
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 app = FastAPI(debug=False)
 
@@ -76,6 +69,7 @@ def dwd_stations(
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
+    mosmix_type: str = Query(default=None),
     lon: float = Query(default=None),
     lat: float = Query(default=None),
     number_nearby: int = Query(default=None),
@@ -94,36 +88,28 @@ def dwd_stations(
                 "and 'period' are required",
             )
 
-        parameter = parse_enumeration_from_template(
-            parameter, DWDObservationParameterSet
-        )
-        resolution = parse_enumeration_from_template(
-            resolution, DWDObservationResolution
-        )
-        period = parse_enumeration_from_template(period, DWDObservationPeriod)
-
         stations = DWDObservationStations(
             parameter=parameter,
             resolution=resolution,
             period=period,
         )
     else:
-        stations = DWDMosmixStations()
+        stations = DWDMosmixStations(mosmix_type=mosmix_type)
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
-            df = stations.nearby_number(
+            request = stations.nearby_number(
                 latitude=lat, longitude=lon, number=number_nearby
             )
         else:
-            df = stations.nearby_radius(
+            request = stations.nearby_radius(
                 latitude=lat, longitude=lon, max_distance_in_km=max_distance_in_km
             )
     else:
-        df = stations.all()
+        request = stations.all()
 
     # Postprocessing.
-    df = df.dwd.lower()
+    df = request.df.dwd.lower()
 
     if sql is not None:
         df = df.io.sql(sql)
@@ -138,7 +124,7 @@ def dwd_values(
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
-    mosmix_type: str = Query(default=None, alias="mosmix-type"),
+    mosmix_type: str = Query(default=None),
     date: str = Query(default=None),
     sql: str = Query(default=None),
 ):
@@ -152,7 +138,6 @@ def dwd_values(
     :param parameter:   Observation measure
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
-    :param mosmix_type  type of mosmix, either small or large
     :param date:        Date or date range
     :param sql:         SQL expression
     :return:
@@ -175,22 +160,9 @@ def dwd_values(
                 "and 'period' are required",
             )
 
-        parameter = parse_enumeration_from_template(
-            parameter, DWDObservationParameterSet
-        )
-        resolution = parse_enumeration_from_template(
-            resolution, DWDObservationResolution
-        )
-        period = parse_enumeration_from_template(period, DWDObservationPeriod)
-
         # Data acquisition.
-        values = DWDObservationValues(
-            station_id=station_ids,
-            parameter=parameter,
-            resolution=resolution,
-            period=period,
-            tidy_data=True,
-            humanize_parameters=True,
+        request = DWDObservationStations(
+            parameter=parameter, resolution=resolution, period=period
         )
     else:
         if mosmix_type is None:
@@ -198,12 +170,13 @@ def dwd_values(
                 status_code=400, detail="Query argument 'mosmix_type' is required"
             )
 
-        mosmix_type = parse_enumeration_from_template(mosmix_type, DWDMosmixType)
+        request = DWDMosmixStations(mosmix_type=mosmix_type)
 
-        values = DWDMosmixValues(station_id=station_ids, mosmix_type=mosmix_type)
+    if not resolution:
+        resolution = request.resolution
 
     # Postprocessing.
-    df = values.all()
+    df = request.filter(station_id=station_ids).values.all().df
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)

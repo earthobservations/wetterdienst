@@ -246,14 +246,6 @@ class DWDRadarValues:
             period=self.period,
         )
 
-    def collect_data(self):
-        log.warning(
-            "method self.collect_data() will deprecate at some point. "
-            "use self.query() instead"
-        )
-
-        return self.query()
-
     @staticmethod
     def get_sites():
         return RADAR_LOCATIONS

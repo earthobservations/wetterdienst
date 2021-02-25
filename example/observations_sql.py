@@ -21,7 +21,7 @@ import logging
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationResolution,
-    DWDObservationValues,
+    DWDObservationStations,
 )
 
 log = logging.getLogger()
@@ -29,8 +29,7 @@ log = logging.getLogger()
 
 def sql_example():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
         resolution=DWDObservationResolution.HOURLY,
         start_date="2019-01-01",
@@ -39,10 +38,12 @@ def sql_example():
         humanize_parameters=True,
     )
 
+    stations = request.filter(station_id=(1048,))
+
     sql = "SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
 
-    df = observations.all()
+    df = stations.values.all().df
     df = df.dwd.lower().io.sql(sql)
 
     print(df)

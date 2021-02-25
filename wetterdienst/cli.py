@@ -11,7 +11,7 @@ from docopt import docopt
 from munch import Munch
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixValues
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
 from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
@@ -20,7 +20,6 @@ from wetterdienst.dwd.observations import (
 from wetterdienst.dwd.observations.api import (
     DWDObservationMetadata,
     DWDObservationStations,
-    DWDObservationValues,
 )
 from wetterdienst.util.cli import normalize_options, read_list, setup_logging
 
@@ -175,7 +174,6 @@ def run():
       wetterdienst dwd service --listen=0.0.0.0:9999
 
     """
-
     appname = f"{__appname__} {__version__}"
 
     # Read command line options.
@@ -212,61 +210,55 @@ def run():
 
     # Acquire station list, also used for readings if required.
     # Filtering applied for distance (a.k.a. nearby) and pre-selected stations
-    df = get_stations(options)
+    stations = None
+    if options.observations:
+        stations = DWDObservationStations(
+            parameter=options.parameter,
+            resolution=options.resolution,
+            period=options.period,
+            tidy_data=options.tidy,
+        )
+    elif options.forecasts:
+        stations = DWDMosmixStations(
+            mosmix_type=DWDMosmixType.LARGE, tidy_data=options.tidy
+        )
 
-    if options.stations and df.empty:
-        log.error("No data available for given constraints")
-        sys.exit(1)
-
-    # Acquire observations.
-    # TODO: remove error prone attribute
-    if options["values"]:
-        # Use list of station identifiers.
-        if options.station:
-            station_ids = read_list(options.station)
-        elif options.latitude and options.longitude:
-            station_ids = df.STATION_ID.unique()
-        else:
-            raise KeyError("Either --station or --latitude, --longitude required")
-
-        # Funnel all parameters to the workhorse.
-        if options.observations:
-            values = DWDObservationValues(
-                station_id=station_ids,
-                parameter=read_list(options.parameter),
-                resolution=options.resolution,
-                period=read_list(options.period),
-                humanize_parameters=True,
-                tidy_data=options.tidy,
+    if options.latitude and options.longitude:
+        if options.number:
+            stations = stations.nearby_number(
+                latitude=float(options.latitude),
+                longitude=float(options.longitude),
+                number=int(options.number),
             )
-        elif options.forecasts:
-            values = DWDMosmixValues(
-                station_id=station_ids,
-                parameter=read_list(options.parameter),
-                mosmix_type=options.mosmix_type,
-                humanize_parameters=True,
-                tidy_data=options.tidy,
+        elif options.distance:
+            stations = stations.nearby_radius(
+                latitude=float(options.latitude),
+                longitude=float(options.longitude),
+                max_distance_in_km=int(options.distance),
             )
+    elif options.station:
+        stations = stations.filter(read_list(options.station))
+    else:
+        stations = stations.all()
 
-        # Collect data and merge together.
+    df = pd.DataFrame()
+
+    if options.stations:
+        df = stations.df
+    elif options["values"]:
         try:
-            df = values.all()
+            df = stations.values.all().df
         except ValueError as ex:
             log.exception(ex)
             sys.exit(1)
 
-    # Sanity checks.
     if df.empty:
-        log.error("No data available")
+        log.error("No data available for given constraints")
         sys.exit(1)
 
     # Filter readings by datetime expression.
     if options["values"] and options.date:
-        resolution = None
-        if options.observations:
-            resolution = values.resolution
-
-        df = df.dwd.filter_by_date(options.date, resolution)
+        df = df.dwd.filter_by_date(options.date, stations.stations.resolution)
 
     # Make column names lowercase.
     df = df.dwd.lower()
@@ -292,58 +284,6 @@ def run():
         sys.exit(1)
 
     print(output)
-
-
-def get_stations(options: Munch) -> pd.DataFrame:
-    """
-    Convenience utility function to dispatch command
-    line options related to geospatial requests.
-
-    It will get used from both acquisition requests for station-
-    and measurement data.
-
-    It is able to handle both "number of stations nearby"
-    and "maximum distance in kilometers" query flavors.
-
-    :param options: Normalized docopt command line options.
-    :return: nearby_stations
-    """
-
-    # TODO: Obtain DWIM date range for station liveness.
-    stations = None
-    if options.stations or (options.latitude and options.longitude):
-        if options.observations:
-            stations = DWDObservationStations(
-                parameter=options.parameter,
-                resolution=options.resolution,
-                period=options.period,
-            )
-        elif options.forecasts:
-            stations = DWDMosmixStations()
-
-        if options.latitude and options.longitude:
-            if options.number:
-                stations = stations.nearby_number(
-                    latitude=float(options.latitude),
-                    longitude=float(options.longitude),
-                    number=int(options.number),
-                )
-            elif options.distance:
-                stations = stations.nearby_radius(
-                    latitude=float(options.latitude),
-                    longitude=float(options.longitude),
-                    max_distance_in_km=int(options.distance),
-                )
-        else:
-            stations = stations.all()
-
-        if options.station:
-            station_ids = read_list(options.station)
-
-            stations = stations[stations.STATION_ID.isin(station_ids)]
-
-        return stations
-    return pd.DataFrame()
 
 
 def about(options: Munch):

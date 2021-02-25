@@ -13,7 +13,7 @@ from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
-    DWDObservationValues,
+    DWDObservationStations,
 )
 from wetterdienst.metadata.resolution import Resolution
 
@@ -180,31 +180,32 @@ def test_format_unknown():
 
 def test_request():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
-    )
+    ).filter(station_id=[1048])
 
-    df = observations.all()
+    df = request.values.all().df
+
     assert not df.empty
 
 
 def test_export_sqlite():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
+    ).filter(
+        station_id=[1048],
     )
 
     with mock.patch(
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        df = observations.all()
+        df = request.values.all().df
         df.io.export("sqlite:///test.sqlite?table=testdrive")
 
         mock_to_sql.assert_called_once_with(
@@ -219,18 +220,19 @@ def test_export_sqlite():
 
 def test_export_crate():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
+    ).filter(
+        station_id=[1048],
     )
 
     with mock.patch(
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
 
-        df = observations.all()
+        df = request.values.all().df
         df.io.export("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
@@ -246,19 +248,18 @@ def test_export_crate():
 @surrogate("duckdb.connect")
 def test_export_duckdb():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
-    )
+    ).filter(station_id=[1048])
 
     mock_connection = mock.MagicMock()
     with mock.patch(
         "duckdb.connect", side_effect=[mock_connection], create=True
     ) as mock_connect:
 
-        df = observations.all()
+        df = request.values.all().df
         df.io.export("duckdb:///test.duckdb?table=testdrive")
 
         mock_connect.assert_called_once_with(database="test.duckdb", read_only=False)
@@ -272,13 +273,12 @@ def test_export_duckdb():
 @surrogate("influxdb.dataframe_client.DataFrameClient")
 def test_export_influxdb_tabular():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
         tidy_data=False,
-    )
+    ).filter(station_id=[1048])
 
     mock_client = mock.MagicMock()
     with mock.patch(
@@ -287,7 +287,7 @@ def test_export_influxdb_tabular():
         create=True,
     ) as mock_connect:
 
-        df = observations.all()
+        df = request.values.all().df
         df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
@@ -305,13 +305,12 @@ def test_export_influxdb_tabular():
 @surrogate("influxdb.dataframe_client.DataFrameClient")
 def test_export_influxdb_tidy():
 
-    observations = DWDObservationValues(
-        station_id=[1048],
+    request = DWDObservationStations(
         parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.RECENT,
         tidy_data=True,
-    )
+    ).filter(station_id=[1048])
 
     mock_client = mock.MagicMock()
     with mock.patch(
@@ -320,7 +319,7 @@ def test_export_influxdb_tidy():
         create=True,
     ) as mock_connect:
 
-        df = observations.all()
+        df = request.values.all().df
         df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")

@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
-from wetterdienst.dwd.forecasts import DWDMosmixType, DWDMosmixValues
+from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
 
 
 @pytest.mark.remote
@@ -12,29 +12,31 @@ def test_dwd_mosmix_l():
     Test some details of a typical MOSMIX-L response.
     """
 
-    mosmix = DWDMosmixValues(
+    request = DWDMosmixStations(
+        mosmix_type=DWDMosmixType.LARGE, humanize_parameters=False
+    ).filter(
         station_id=["01001"],
-        mosmix_type=DWDMosmixType.LARGE,
     )
-    response = next(mosmix.query())
+    response = next(request.values.query())
 
     # Verify metadata.
-    assert response.metadata.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
-    assert response.metadata.loc[0, "PRODUCT_ID"] == "MOSMIX"
+    # TODO: add to metadata
+    # assert response.stations.df.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
+    # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = response.metadata["STATION_NAME"].unique().tolist()
+    station_names = response.stations.df["STATION_NAME"].unique().tolist()
     assert station_names == ["JAN MAYEN"]
 
     # Verify forecast data.
-    station_ids = response.data["STATION_ID"].unique().tolist()
+    station_ids = response.df["STATION_ID"].unique().tolist()
     assert station_ids == ["01001"]
-    assert len(response.data) > 200
+    assert len(response.df) > 200
 
-    assert len(response.data.columns) == 4
-    assert list(response.data.columns) == ["STATION_ID", "DATE", "PARAMETER", "VALUE"]
+    assert len(response.df.columns) == 4
+    assert list(response.df.columns) == ["STATION_ID", "DATE", "PARAMETER", "VALUE"]
 
-    assert set(response.data["PARAMETER"]).issuperset(
+    assert set(response.df["PARAMETER"]).issuperset(
         [
             "PPPP",
             "E_PPP",
@@ -161,29 +163,31 @@ def test_dwd_mosmix_s():
     Test some details of a typical MOSMIX-S response.
     """
 
-    mosmix = DWDMosmixValues(
+    request = DWDMosmixStations(
+        mosmix_type=DWDMosmixType.SMALL, humanize_parameters=False, tidy_data=True
+    ).filter(
         station_id=["01028"],
-        mosmix_type=DWDMosmixType.SMALL,
     )
-    response = next(mosmix.query())
+    response = next(request.values.query())
 
     # Verify metadata.
-    assert response.metadata.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
-    assert response.metadata.loc[0, "PRODUCT_ID"] == "MOSMIX"
+    # TODO: add to metadata
+    # assert response.stations.df.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
+    # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = list(response.metadata["STATION_NAME"].unique())
+    station_names = list(response.stations.df["STATION_NAME"].unique())
     assert station_names == ["BJORNOYA"]
 
     # Verify forecast data.
-    station_ids = response.data["STATION_ID"].unique().tolist()
+    station_ids = response.df["STATION_ID"].unique().tolist()
     assert station_ids == ["01028"]
-    assert len(response.data) > 200
+    assert len(response.df) > 200
 
-    assert len(response.data.columns) == 4
-    assert list(response.data.columns) == ["STATION_ID", "DATE", "PARAMETER", "VALUE"]
+    assert len(response.df.columns) == 4
+    assert list(response.df.columns) == ["STATION_ID", "DATE", "PARAMETER", "VALUE"]
 
-    assert set(response.data["PARAMETER"]).issuperset(
+    assert set(response.df["PARAMETER"]).issuperset(
         [
             "PPPP",
             "TX",
@@ -235,23 +239,25 @@ def test_mosmix_l_parameters():
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
 
-    mosmix = DWDMosmixValues(
-        station_id=["01001"],
+    request = DWDMosmixStations(
         mosmix_type=DWDMosmixType.LARGE,
         parameter=["DD", "ww"],
+        humanize_parameters=False,
+    ).filter(
+        station_id=["01001"],
     )
-    response = next(mosmix.query())
+    response = next(request.values.query())
 
     # Verify forecast data.
-    station_ids = response.metadata["STATION_ID"].unique().tolist()
+    station_ids = response.stations.df["STATION_ID"].unique().tolist()
     assert station_ids == ["01001"]
-    assert len(response.data) > 200
+    assert len(response.df) > 200
 
-    assert len(response.data.columns) == 4
-    assert list(response.data.columns) == [
+    assert len(response.df.columns) == 4
+    assert list(response.df.columns) == [
         "STATION_ID",
         "DATE",
         "PARAMETER",
         "VALUE",
     ]
-    assert set(response.data["PARAMETER"]).issuperset(["DD", "ww"])
+    assert set(response.df["PARAMETER"]).issuperset(["DD", "ww"])

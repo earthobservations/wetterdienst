@@ -44,7 +44,7 @@ Get stations for daily historical precipitation:
         period=DWDObservationPeriod.HISTORICAL
     )
 
-    print(stations.all().head())
+    print(stations.all().df.head())
 
 
 
@@ -52,31 +52,29 @@ Get data for a parameter set:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationResolution, DWDObservationPeriod
 
-    observation_data = DWDObservationValues(
-        station_id=stations.all().STATION_ID[0],
+    stations = DWDObservationStations(
         parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.HISTORICAL
     )
 
-    print(observation_data.all().head())
+    print(next(stations.all().values.query()))
 
 Get data for a parameter:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationValues, DWDObservationParameter, DWDObservationResolution, DWDObservationPeriod
+    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameter, DWDObservationResolution, DWDObservationPeriod
 
-    observation_data = DWDObservationValues(
-        station_id=stations.all().STATION_ID[0],
+    observation_data = DWDObservationStations(
         parameter=DWDObservationParameter.DAILY.PRECIPITATION_HEIGHT,
         resolution=DWDObservationResolution.DAILY,
         period=DWDObservationPeriod.HISTORICAL
     )
 
-    print(observation_data.all().head())
+    print(next(stations.all().values.query()))
 
 Mosmix
 ------
@@ -85,21 +83,20 @@ Get stations for Mosmix:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixStations
+    from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
 
-    stations = DWDMosmixStations()
+    stations = DWDMosmixStations(mosmix_type=DWDMosmixType.LARGE)
 
-    print(stations.all().head())
+    print(stations.all().df.head())
 
 Get data for Mosmix-L:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixValues, DWDMosmixType
+    from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
 
-    forecast_data = DWDMosmixValues(
-        station_id=stations.all().STATION_ID[0],
+    stations = DWDMosmixStations(
         mosmix_type=DWDMosmixType.LARGE
-    )
+    ).filter(station_id=["01001", "01008"])
 
-    print(forecast_data.all().head())
+    print(stations.values.all().df.head())

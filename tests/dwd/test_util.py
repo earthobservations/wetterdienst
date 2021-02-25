@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from unittest.mock import patch
-
-import mock
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,11 +10,10 @@ from wetterdienst.dwd.observations import (
     DWDObservationParameterSet,
     DWDObservationPeriod,
     DWDObservationResolution,
-    DWDObservationValues,
+    DWDObservationStations,
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidEnumeration
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
@@ -36,33 +32,42 @@ def test_parse_enumeration_from_template():
 
 
 def test_coerce_field_types():
+    """ Test coercion of fields """
+    # Special cases
+    # We require a stations object with hourly resolution in order to accurately parse
+    # the hourly timestamp (pandas would fail parsing it because it has a strange
+    # format)
+    request = DWDObservationStations(
+        parameter=DWDObservationParameterSet.SOLAR,  # RS_IND_01,
+        resolution=DWDObservationResolution.HOURLY,
+        period=DWDObservationPeriod.RECENT,
+        humanize_parameters=False,
+        tidy_data=False,
+    ).all()
+
+    # Here we don't query the actual data because it tales too long
+    # we rather use a predefined DataFrame to check for coercion
     df = pd.DataFrame(
         {
             "STATION_ID": ["00001"],
-            "QN": ["1"],
-            "RS_IND_01": ["1"],
             "DATE": ["1970010100"],
+            "QN": ["1"],
+            "RS_IND_01": [1],
             "END_OF_INTERVAL": ["1970010100:00"],
             "V_VV_I": ["P"],
         }
     )
 
-    def __init__(self):
-        self.tidy_data = False
-        self.resolution = Resolution.HOURLY
-
-    with patch.object(DWDObservationValues, "__init__", __init__):
-        observations = DWDObservationValues()
-        df = observations._coerce_dates(df)
-        df = observations._coerce_meta_fields(df)
-        df = observations._coerce_parameter_types(df)
+    df = request.values._coerce_date_fields(df)
+    df = request.values._coerce_meta_fields(df)
+    df = request.values._coerce_parameter_types(df)
 
     expected_df = pd.DataFrame(
         {
-            "STATION_ID": pd.Series(["00001"], dtype="category"),
+            "STATION_ID": pd.Categorical(["00001"]),
+            "DATE": [pd.Timestamp("1970-01-01").tz_localize("UTC")],
             "QN": pd.Series([1], dtype=pd.Int64Dtype()),
             "RS_IND_01": pd.Series([1], dtype=pd.Int64Dtype()),
-            "DATE": [pd.Timestamp("1970-01-01").tz_localize("UTC")],
             "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
             "V_VV_I": pd.Series(["P"], dtype=pd.StringDtype()),
         }
@@ -72,6 +77,15 @@ def test_coerce_field_types():
 
 
 def test_coerce_field_types_with_nans():
+    """ Test field coercion with NaNs """
+    request = DWDObservationStations(
+        parameter=DWDObservationParameterSet.SOLAR,  # RS_IND_01,
+        resolution=DWDObservationResolution.HOURLY,
+        period=DWDObservationPeriod.RECENT,
+        humanize_parameters=False,
+        tidy_data=False,
+    ).all()
+
     df = pd.DataFrame(
         {
             "QN": [pd.NA, np.nan, "1"],
@@ -88,12 +102,7 @@ def test_coerce_field_types_with_nans():
         }
     )
 
-    def __init__(self):
-        self.tidy_data = False
-
-    with mock.patch.object(DWDObservationValues, "__init__", new=__init__):
-
-        df = DWDObservationValues()._coerce_parameter_types(df)
+    df = request.values._coerce_parameter_types(df)
 
     assert_frame_equal(df, expected_df)
 

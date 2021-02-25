@@ -27,7 +27,7 @@ def test_dwd_observations_stations_success():
         DWDObservationPeriod.HISTORICAL,
     )
 
-    df = request.all()
+    df = request.all().df
 
     assert not df.empty
 
@@ -73,7 +73,7 @@ def test_dwd_observations_stations_geojson():
         DWDObservationPeriod.HISTORICAL,
     )
 
-    df = request.all()
+    df = request.all().df
 
     assert not df.empty
 

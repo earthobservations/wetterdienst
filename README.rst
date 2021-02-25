@@ -211,23 +211,17 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
 
 .. code-block:: python
 
-    >>> from wetterdienst.dwd.observations import (
-    ...     DWDObservationValues,
-    ...     DWDObservationParameterSet,
-    ...     DWDObservationPeriod,
-    ...     DWDObservationResolution
-    ... )
-    >>> observations = DWDObservationValues(
-    ...    station_id=[1048,4411],
-    ...    parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY,
-    ...                DWDObservationParameterSet.SOLAR],
-    ...    resolution=DWDObservationResolution.DAILY,
+    >>> from wetterdienst.dwd.observations import DWDObservationStations
+    >>> request = DWDObservationStations(
+    ...    parameter=["climate_summary"],
+    ...    resolution="daily",
     ...    start_date="1990-01-01",  # Timezone: UTC
     ...    end_date="2020-01-01",  # Timezone: UTC
     ...    tidy_data=True,  # default
     ...    humanize_parameters=True,  # default
-    ... )
-    >>> df = observations.all()
+    ... ).filter(station_id=[1048, 4411])
+    >>> stations = request.df  # station list
+    >>> values = request.values.all().df  # values
 
 Receiving of stations for defined parameters using the ``wetterdienst`` client:
 

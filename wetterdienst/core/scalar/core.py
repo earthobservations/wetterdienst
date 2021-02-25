@@ -3,17 +3,16 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from abc import abstractmethod
 from datetime import datetime
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 
 import dateutil.parser
 import pandas as pd
 import pytz
 
-from wetterdienst import Resolution, Period
 from wetterdienst.core.core import Core
 from wetterdienst.exceptions import StartDateEndDateError
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType, Frequency
+from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
