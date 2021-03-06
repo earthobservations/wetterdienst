@@ -6,7 +6,7 @@ from enum import Enum
 from wetterdienst.metadata.resolution import Resolution
 
 
-class DWDRadarResolution(Enum):
+class DwdRadarResolution(Enum):
     MINUTE_5 = Resolution.MINUTE_5.value
     HOURLY = Resolution.HOURLY.value
     DAILY = Resolution.DAILY.value

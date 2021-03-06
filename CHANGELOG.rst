@@ -7,6 +7,7 @@ Development
 - Add StationsResult and ValuesResult to allow for new workflow and connect stations and
   values request
 - Add accessor .values to Stations class to get straight to values for a request
+- Rename Stations to Request and use upper camel case e.g. DwdObservationRequest
 
 0.14.1 (21.02.2021)
 *******************

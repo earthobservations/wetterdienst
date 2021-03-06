@@ -13,18 +13,18 @@ stations 01001 and 01008 and parameters DD and ww.
 Other MOSMIX variants are also listed and can be
 enabled on demand.
 """
-from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
-from wetterdienst.dwd.forecasts.metadata.dates import DWDForecastDate
+from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
+from wetterdienst.dwd.forecasts.metadata.dates import DwdForecastDate
 from wetterdienst.util.cli import setup_logging
 
 
 def mosmix_example():
 
     # A. MOSMIX-L -- Specific stations - each station with own file
-    request = DWDMosmixStations(
+    request = DwdMosmixRequest(
         parameter=["DD", "ww"],
-        start_issue=DWDForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=DWDMosmixType.LARGE,
+        start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
+        mosmix_type=DwdMosmixType.LARGE,
         tidy_data=True,
         humanize_parameters=True,
     )
@@ -41,10 +41,10 @@ def mosmix_example():
 
     # B. MOSMIX-S -- All stations - specified stations are extracted.
 
-    request = DWDMosmixStations(
+    request = DwdMosmixRequest(
         parameter=["DD", "ww"],
-        start_issue=DWDForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=DWDMosmixType.SMALL,
+        start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
+        mosmix_type=DwdMosmixType.SMALL,
         tidy_data=True,
         humanize_parameters=True,
     )

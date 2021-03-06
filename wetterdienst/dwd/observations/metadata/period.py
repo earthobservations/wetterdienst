@@ -6,7 +6,7 @@ from enum import Enum
 from wetterdienst.metadata.period import Period
 
 
-class DWDObservationPeriod(Enum):
+class DwdObservationPeriod(Enum):
     HISTORICAL = Period.HISTORICAL.value
     RECENT = Period.RECENT.value
     NOW = Period.NOW.value

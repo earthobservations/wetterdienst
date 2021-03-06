@@ -32,10 +32,6 @@ class ScalarValuesCore:
     # Fields for date coercion
     _date_fields = [Columns.DATE.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
 
-    # TODO: add frequency property that defines the expected time steps of the returned
-    #  data. This will help us return equal results whether or not there actually is
-    #  data
-
     # TODO: add data type (forecast, observation, ...)
     @property
     @abstractmethod
@@ -79,13 +75,6 @@ class ScalarValuesCore:
         """ String parameters that will be parsed to integers. """
         pass
 
-    # @property
-    # @abstractmethod
-    # def _parameter_base(self) -> Enum:
-    #     """parameter base enumeration from which parameters can be parsed e.g.
-    #     DWDObservationParameter"""
-    #     pass
-
     @property
     def _complete_dates(self) -> pd.DatetimeIndex:
         date_range = pd.date_range(
@@ -102,65 +91,6 @@ class ScalarValuesCore:
         """Base dataframe which is used for creating empty dataframes if no data is
         found or for merging other dataframes on the full dates"""
         return pd.DataFrame({Columns.DATE.value: self._complete_dates})
-
-    # def _parse_period(self, period: List[Period]):
-    #     """ Parsing method for period, depending on the type of period"""
-    #     if not period:
-    #         return None
-    #     elif self._period_type == PeriodType.FIXED:
-    #         return period
-    #     else:
-    #         return (
-    #             pd.Series(period)
-    #             .apply(
-    #                 parse_enumeration_from_template, args=(self._period_base, Period)
-    #             )
-    #             .sort_values()
-    #             .tolist()
-    #         )
-
-    # def __init__(
-    #     self,
-    #     station_id: Tuple[str],
-    #     parameter: Tuple[Union[str, Enum]],
-    #     resolution: Resolution,
-    #     period: Period,
-    #     start_date: Optional[Union[str, datetime]],
-    #     end_date: Optional[Union[str, datetime]],
-    #     humanize_parameters: bool,
-    #     tidy_data: bool,
-    # ) -> None:
-    #     """
-    #
-    #     :param station_id: station ids for which data is requested
-    #     :param parameter: parameters either as strings or enumerations for which data
-    #         is requested
-    #     :param start_date: start date of the resulting data,
-    #         if not start_date: start_date = end_date
-    #     :param end_date: end date of the resulting data
-    #         if not end_date: end_date = start_date
-    #     :param humanize_parameters: bool if parameters should be renamed to meaningful
-    #         names
-    #
-    #     """
-    #     super(ScalarValuesCore, self).__init__(
-    #         resolution=resolution,
-    #         period=period,
-    #         start_date=start_date,
-    #         end_date=end_date,
-    #     )
-    #
-    #     # Make sure we receive a list of ids
-    #     self.station_ids = pd.Series(station_id).astype(str).tolist()
-    #     self.parameters = self._parse_parameters(parameter)
-    #
-    #     # TODO: replace this with a response + logging
-    #     # TODO: move this to self.collect_data
-    #     if not self.parameters:
-    #         raise NoParametersFound(f"No parameters could be parsed from {parameter}")
-    #
-    #     self.humanize_parameters = humanize_parameters
-    #     self.tidy_data = tidy_data
 
     @staticmethod
     def _determine_resolution(series: pd.Series) -> Resolution:
@@ -180,49 +110,38 @@ class ScalarValuesCore:
 
     def __eq__(self, other):
         """ Equal method of request object """
-        # return (
-        #     self.station_ids == other.station_ids
-        #     and self.parameters == other.parameters
-        #     and self.start_date == other.start_date
-        #     and self.end_date == other.end_date
-        # )
+        return (
+            self.stations.station_id == other.stations.station_id
+            and self.stations.parameter == other.stations.parameter
+            and self.stations.start_date == other.stations.start_date
+            and self.stations.end_date == other.stations.end_date
+        )
         pass
 
     def __str__(self):
         """ Str representation of request object """
         # TODO: include source
         # TODO: include data type
-        # station_ids_joined = "& ".join(
-        #     [str(station_id) for station_id in self.station_ids]
-        # )
-        #
-        # parameters_joined = "& ".join(
-        #     [parameter.value for parameter, parameter_set in self.parameters]
-        # )
-        #
-        # return ", ".join(
-        #     [
-        #         f"station_ids {station_ids_joined}",
-        #         f"parameters {parameters_joined}",
-        #         str(self.start_date),
-        #         str(self.end_date),
-        #     ]
-        # )
-        pass
+        station_ids_joined = "& ".join(
+            [str(station_id) for station_id in self.stations.station_id]
+        )
 
-    # def _parse_parameters(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
-    #     """
-    #     Method to parse parameters, either from string or enum. Case independent for
-    #     strings.
-    #
-    #     :param parameter: parameters as strings or enumerations
-    #     :return: list of parameter enumerations of type self._parameter_base
-    #     """
-    #     return (
-    #         pd.Series(parameter)
-    #         .apply(parse_enumeration_from_template, args=(self._parameter_base,))
-    #         .tolist()
-    #     )
+        parameters_joined = "& ".join(
+            [
+                parameter.value
+                for parameter, parameter_set in self.stations.stations.parameter
+            ]
+        )
+
+        return ", ".join(
+            [
+                f"station_ids {station_ids_joined}",
+                f"parameters {parameters_joined}",
+                str(self.stations.start_date),
+                str(self.stations.end_date),
+            ]
+        )
+        pass
 
     def _get_empty_station_parameter_df(
         self, station_id: str, parameter: Union[Enum, List[Enum]]
@@ -356,6 +275,7 @@ class ScalarValuesCore:
         pass
 
     def _coerce_date_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """ Function for coercion of possible date fields """
         for column in (
             Columns.DATE.value,
             Columns.FROM_DATE.value,
@@ -398,8 +318,6 @@ class ScalarValuesCore:
     def _parse_station_id(self, series: pd.Series) -> pd.Series:
         """Dedicated method for parsing station ids, by default uses the same method as
         parse_strings but could be modified by the implementation class"""
-        # return self._parse_strings(series)
-        # TODO: use method of Stations class
         return self.stations.stations._parse_station_id(series)
 
     def _coerce_dates(self, series: pd.Series) -> pd.Series:

@@ -11,15 +11,15 @@ from docopt import docopt
 from munch import Munch
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
+from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
+    DwdObservationParameterSet,
+    DwdObservationPeriod,
+    DwdObservationResolution,
 )
 from wetterdienst.dwd.observations.api import (
-    DWDObservationMetadata,
-    DWDObservationStations,
+    DwdObservationMetadata,
+    DwdObservationRequest,
 )
 from wetterdienst.util.cli import normalize_options, read_list, setup_logging
 
@@ -212,15 +212,15 @@ def run():
     # Filtering applied for distance (a.k.a. nearby) and pre-selected stations
     stations = None
     if options.observations:
-        stations = DWDObservationStations(
+        stations = DwdObservationRequest(
             parameter=options.parameter,
             resolution=options.resolution,
             period=options.period,
             tidy_data=options.tidy,
         )
     elif options.forecasts:
-        stations = DWDMosmixStations(
-            mosmix_type=DWDMosmixType.LARGE, tidy_data=options.tidy
+        stations = DwdMosmixRequest(
+            mosmix_type=DwdMosmixType.LARGE, tidy_data=options.tidy
         )
 
     if options.latitude and options.longitude:
@@ -304,16 +304,16 @@ def about(options: Munch):
                 print("-", value)
 
     if options.parameters:
-        output(DWDObservationParameterSet)
+        output(DwdObservationParameterSet)
 
     elif options.resolutions:
-        output(DWDObservationResolution)
+        output(DwdObservationResolution)
 
     elif options.periods:
-        output(DWDObservationPeriod)
+        output(DwdObservationPeriod)
 
     elif options.coverage:
-        metadata = DWDObservationMetadata(
+        metadata = DwdObservationMetadata(
             resolution=options.resolution,
             parameter=read_list(options.parameter),
             period=read_list(options.period),
@@ -322,7 +322,7 @@ def about(options: Munch):
         print(output)
 
     elif options.fields:
-        metadata = DWDObservationMetadata(
+        metadata = DwdObservationMetadata(
             resolution=options.resolution,
             parameter=read_list(options.parameter),
             period=read_list(options.period),

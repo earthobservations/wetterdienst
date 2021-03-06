@@ -11,7 +11,7 @@ from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPI
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns, DWDOrigMetaColumns
 from wetterdienst.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
+from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
 )
@@ -34,7 +34,7 @@ PRECIPITATION_MINUTE_1_QUALITY = (
 
 def parse_climate_observations_data(
     filenames_and_files: List[Tuple[str, BytesIO]],
-    parameter: DWDObservationParameterSet,
+    parameter: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -67,7 +67,7 @@ def parse_climate_observations_data(
 
 def _parse_climate_observations_data(
     filename_and_file: Tuple[str, BytesIO],
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -115,7 +115,7 @@ def _parse_climate_observations_data(
     # Special handling for hourly solar data, as it has more date columns
     if (
         resolution == Resolution.HOURLY
-        and parameter_set == DWDObservationParameterSet.SOLAR
+        and parameter_set == DwdObservationParameterSet.SOLAR
     ):
         # Rename date column correctly to end of interval, as it has additional minute
         # information. Also rename column with true local time to english one
@@ -137,7 +137,7 @@ def _parse_climate_observations_data(
 
     if (
         resolution == Resolution.MINUTE_1
-        and parameter_set == DWDObservationParameterSet.PRECIPITATION
+        and parameter_set == DwdObservationParameterSet.PRECIPITATION
     ):
         # Need to unfold historical data, as it is encoded in its run length e.g.
         # from time X to time Y precipitation is 0

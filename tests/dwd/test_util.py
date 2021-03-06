@@ -7,10 +7,10 @@ import pytest
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-    DWDObservationStations,
+    DwdObservationParameterSet,
+    DwdObservationPeriod,
+    DwdObservationRequest,
+    DwdObservationResolution,
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidEnumeration
@@ -19,16 +19,16 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 def test_parse_enumeration_from_template():
     assert (
-        parse_enumeration_from_template("climate_summary", DWDObservationParameterSet)
-        == DWDObservationParameterSet.CLIMATE_SUMMARY
+        parse_enumeration_from_template("climate_summary", DwdObservationParameterSet)
+        == DwdObservationParameterSet.CLIMATE_SUMMARY
     )
     assert (
-        parse_enumeration_from_template("kl", DWDObservationParameterSet)
-        == DWDObservationParameterSet.CLIMATE_SUMMARY
+        parse_enumeration_from_template("kl", DwdObservationParameterSet)
+        == DwdObservationParameterSet.CLIMATE_SUMMARY
     )
 
     with pytest.raises(InvalidEnumeration):
-        parse_enumeration_from_template("climate", DWDObservationParameterSet)
+        parse_enumeration_from_template("climate", DwdObservationParameterSet)
 
 
 def test_coerce_field_types():
@@ -37,10 +37,10 @@ def test_coerce_field_types():
     # We require a stations object with hourly resolution in order to accurately parse
     # the hourly timestamp (pandas would fail parsing it because it has a strange
     # format)
-    request = DWDObservationStations(
-        parameter=DWDObservationParameterSet.SOLAR,  # RS_IND_01,
-        resolution=DWDObservationResolution.HOURLY,
-        period=DWDObservationPeriod.RECENT,
+    request = DwdObservationRequest(
+        parameter=DwdObservationParameterSet.SOLAR,  # RS_IND_01,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
         humanize_parameters=False,
         tidy_data=False,
     ).all()
@@ -78,10 +78,10 @@ def test_coerce_field_types():
 
 def test_coerce_field_types_with_nans():
     """ Test field coercion with NaNs """
-    request = DWDObservationStations(
-        parameter=DWDObservationParameterSet.SOLAR,  # RS_IND_01,
-        resolution=DWDObservationResolution.HOURLY,
-        period=DWDObservationPeriod.RECENT,
+    request = DwdObservationRequest(
+        parameter=DwdObservationParameterSet.SOLAR,  # RS_IND_01,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
         humanize_parameters=False,
         tidy_data=False,
     ).all()
@@ -109,9 +109,9 @@ def test_coerce_field_types_with_nans():
 
 def test_build_parameter_identifier():
     parameter_identifier = build_parameter_set_identifier(
-        DWDObservationParameterSet.CLIMATE_SUMMARY,
-        DWDObservationResolution.DAILY,
-        DWDObservationPeriod.HISTORICAL,
+        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.HISTORICAL,
         "00001",
     )
 

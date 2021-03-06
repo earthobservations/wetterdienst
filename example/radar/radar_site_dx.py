@@ -34,10 +34,10 @@ import numpy as np
 import wradlib as wrl
 
 from wetterdienst.dwd.radar import (
-    DWDRadarDate,
-    DWDRadarParameter,
-    DWDRadarSite,
-    DWDRadarValues,
+    DwdRadarDate,
+    DwdRadarParameter,
+    DwdRadarSite,
+    DwdRadarValues,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -68,10 +68,10 @@ def radar_info(data: np.ndarray, metadata: dict):
 def radar_dx_example():
 
     log.info("Acquiring radar DX data")
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.DX_REFLECTIVITY,
-        start_date=DWDRadarDate.LATEST,
-        site=DWDRadarSite.BOO,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.DX_REFLECTIVITY,
+        start_date=DwdRadarDate.LATEST,
+        site=DwdRadarSite.BOO,
     )
 
     for item in request.collect_data():

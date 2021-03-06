@@ -7,15 +7,17 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Tuple, Union
 
+import dateutil.parser
 import numpy as np
 import pandas as pd
 import pytz
 
-from wetterdienst.core.scalar.core import ScalarCore
+from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
+from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
-from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
@@ -24,8 +26,60 @@ EARTH_RADIUS_KM = 6371
 log = logging.getLogger(__name__)
 
 
-class ScalarStationsCore(ScalarCore):
+class ScalarRequestCore(Core):
     """ Core for stations information of a source """
+
+    @property
+    def resolution(self) -> Optional[Resolution]:
+        """ Resolution accessor"""
+        return self._resolution
+
+    @resolution.setter
+    def resolution(self, res) -> None:
+        # TODO: add functionality to parse arbitrary resolutions for cases where
+        #  resolution has to be determined based on returned data
+        if self._resolution_type in (ResolutionType.FIXED, ResolutionType.UNDEFINED):
+            self._resolution = res
+        else:
+            self._resolution = parse_enumeration_from_template(
+                res, self._resolution_base, Resolution
+            )
+
+    @property
+    @abstractmethod
+    def _resolution_base(self) -> Optional[Resolution]:
+        """ Optional enumeration for multiple resolutions """
+        pass
+
+    @property
+    @abstractmethod
+    def _resolution_type(self) -> ResolutionType:
+        """ Resolution type, multi, fixed, ..."""
+        pass
+
+    # TODO: implement for source with dynamic resolution
+    @staticmethod
+    def _determine_resolution(dates: pd.Series) -> Resolution:
+        """ Function to determine resolution from a pandas Series of dates """
+        pass
+
+    @property
+    def frequency(self) -> Frequency:
+        """Frequency for the given resolution, used to create a full date range for
+        mering"""
+        return Frequency[self.resolution.name]
+
+    @property
+    @abstractmethod
+    def _period_type(self) -> PeriodType:
+        """ Period type, fixed, multi, ..."""
+        pass
+
+    @property
+    @abstractmethod
+    def _period_base(self) -> Optional[Period]:
+        """ Period base enumeration from which a period string can be parsed """
+        pass
 
     @property
     @abstractmethod
@@ -124,13 +178,33 @@ class ScalarStationsCore(ScalarCore):
         :param start_date: start date for filtering stations for their available data
         :param end_date: end date for filtering stations for their available data
         """
-        super(ScalarStationsCore, self).__init__(
-            resolution=resolution,
-            period=period,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        self.resolution = resolution
+        self.period = self._parse_period(period)
 
+        if start_date or end_date:
+            # If only one date given, set the other one to equal
+            if not start_date:
+                start_date = end_date
+
+            if not end_date:
+                end_date = start_date
+
+            start_date = dateutil.parser.isoparse(str(start_date))
+            if not start_date.tzinfo:
+                start_date = start_date.replace(tzinfo=pytz.UTC)
+
+            end_date = dateutil.parser.isoparse(str(end_date))
+            if not end_date.tzinfo:
+                end_date = end_date.replace(tzinfo=pytz.UTC)
+
+            # TODO: replace this with a response + logging
+            if not start_date <= end_date:
+                raise StartDateEndDateError(
+                    "Error: 'start_date' must be smaller or equal to 'end_date'."
+                )
+
+        self.start_date = start_date
+        self.end_date = end_date
         self.parameter = self._parse_parameter(parameter)
         self.humanize_parameters = humanize_parameters
         self.tidy_data = tidy_data
@@ -161,7 +235,7 @@ class ScalarStationsCore(ScalarCore):
         # TODO: use StationsResult here
         # TODO: ._filter should stay empty as _all_ stations are returned
 
-        result = StationsResult(self, df.reset_index(drop=True))
+        result = StationsResult(self, df.copy().reset_index(drop=True))
 
         return result
 

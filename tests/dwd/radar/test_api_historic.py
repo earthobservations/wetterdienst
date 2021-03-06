@@ -11,14 +11,14 @@ import pybufrkit
 import pytest
 
 from wetterdienst.dwd.radar import (
-    DWDRadarDataFormat,
-    DWDRadarDataSubset,
-    DWDRadarParameter,
-    DWDRadarPeriod,
-    DWDRadarResolution,
-    DWDRadarValues,
+    DwdRadarDataFormat,
+    DwdRadarDataSubset,
+    DwdRadarParameter,
+    DwdRadarPeriod,
+    DwdRadarResolution,
+    DwdRadarValues,
 )
-from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
 
 HERE = Path(__file__).parent
@@ -33,10 +33,10 @@ def test_radar_request_radolan_cdc_hourly_alignment_1():
     and will be floored to 00:50.
     """
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.HOURLY,
-        period=DWDRadarPeriod.HISTORICAL,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.HOURLY,
+        period=DwdRadarPeriod.HISTORICAL,
         start_date="2019-08-08 00:53:53",
     )
 
@@ -54,10 +54,10 @@ def test_radar_request_radolan_cdc_hourly_alignment_2():
     and will be floored to 23:50 on the previous day.
     """
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.HOURLY,
-        period=DWDRadarPeriod.HISTORICAL,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.HOURLY,
+        period=DwdRadarPeriod.HISTORICAL,
         start_date="2019-08-08 00:42:42",
     )
 
@@ -72,17 +72,17 @@ def test_radar_request_radolan_cdc_historic_hourly_data():
     Verify data acquisition for RADOLAN_CDC/hourly/historical.
     """
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.HOURLY,
-        period=DWDRadarPeriod.HISTORICAL,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.HOURLY,
+        period=DwdRadarPeriod.HISTORICAL,
         start_date="2019-08-08 00:50:00",
     )
 
-    assert request == DWDRadarValues(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.HOURLY,
-        period=DWDRadarPeriod.HISTORICAL,
+    assert request == DwdRadarValues(
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.HOURLY,
+        period=DwdRadarPeriod.HISTORICAL,
         start_date=datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0),
     )
 
@@ -100,17 +100,17 @@ def test_radar_request_radolan_cdc_historic_daily_data():
     Verify data acquisition for RADOLAN_CDC/daily/historical.
     """
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.DAILY,
-        period=DWDRadarPeriod.HISTORICAL,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.DAILY,
+        period=DwdRadarPeriod.HISTORICAL,
         start_date="2019-08-08 00:50:00",
     )
 
-    assert request == DWDRadarValues(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.DAILY,
-        period=DWDRadarPeriod.HISTORICAL,
+    assert request == DwdRadarValues(
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.DAILY,
+        period=DwdRadarPeriod.HISTORICAL,
         start_date=datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0),
     )
 
@@ -131,8 +131,8 @@ def test_radar_request_composite_historic_fx_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.FX_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.FX_REFLECTIVITY,
         start_date=timestamp,
     )
 
@@ -165,8 +165,8 @@ def test_radar_request_composite_historic_fx_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.FX_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.FX_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(minutes=10),
     )
@@ -194,8 +194,8 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RW_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RW_REFLECTIVITY,
         start_date=timestamp,
     )
 
@@ -224,8 +224,8 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RW_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RW_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(hours=3),
     )
@@ -246,10 +246,10 @@ def test_radar_request_site_historic_dx_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.DX_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.DX_REFLECTIVITY,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
+        site=DwdRadarSite.BOO,
     )
 
     buffer = next(request.query())[1]
@@ -275,11 +275,11 @@ def test_radar_request_site_historic_dx_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.DX_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.DX_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(hours=0.5),
-        site=DWDRadarSite.BOO,
+        site=DwdRadarSite.BOO,
     )
 
     # Verify number of elements.
@@ -301,11 +301,11 @@ def test_radar_request_site_historic_pe_binary_yesterday():
     # Acquire data from yesterday at this time.
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.PE_ECHO_TOP,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.BINARY,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.BINARY,
     )
 
     buffer = next(request.query())[1]
@@ -336,11 +336,11 @@ def test_radar_request_site_historic_pe_bufr():
     # Acquire data from yesterday at this time.
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.PE_ECHO_TOP,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.BUFR,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     buffer = next(request.query())[1]
@@ -359,8 +359,8 @@ def test_radar_request_site_historic_pe_bufr():
 @pytest.mark.parametrize(
     "format",
     [
-        DWDRadarDataFormat.BINARY,
-        DWDRadarDataFormat.BUFR,
+        DwdRadarDataFormat.BINARY,
+        DwdRadarDataFormat.BUFR,
     ],
 )
 def test_radar_request_site_historic_pe_timerange(format):
@@ -378,11 +378,11 @@ def test_radar_request_site_historic_pe_timerange(format):
     start_date = datetime.utcnow() - timedelta(days=1)
     end_date = timedelta(hours=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.PE_ECHO_TOP,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP,
         start_date=start_date,
         end_date=end_date,
-        site=DWDRadarSite.BOO,
+        site=DwdRadarSite.BOO,
         fmt=format,
     )
 
@@ -403,10 +403,10 @@ def test_radar_request_site_historic_px250_bufr_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.PX250_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PX250_REFLECTIVITY,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
+        site=DwdRadarSite.BOO,
     )
 
     buffer = next(request.query())[1]
@@ -440,11 +440,11 @@ def test_radar_request_site_historic_px250_bufr_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.PX250_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.PX250_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(hours=1),
-        site=DWDRadarSite.BOO,
+        site=DwdRadarSite.BOO,
     )
 
     # Verify number of elements.
@@ -464,11 +464,11 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=timestamp,
-        site=DWDRadarSite.ASB,
-        fmt=DWDRadarDataFormat.BUFR,
+        site=DwdRadarSite.ASB,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     buffer = next(request.query())[1]
@@ -500,12 +500,12 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=timestamp,
         end_date=timedelta(hours=1),
-        site=DWDRadarSite.ASB,
-        fmt=DWDRadarDataFormat.BUFR,
+        site=DwdRadarSite.ASB,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     # Verify number of elements.
@@ -525,11 +525,11 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=timestamp,
-        site=DWDRadarSite.ASB,
-        fmt=DWDRadarDataFormat.BUFR,
+        site=DwdRadarSite.ASB,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     buffer = next(request.query())[1]
@@ -561,12 +561,12 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=timestamp,
         end_date=timedelta(hours=0.5),
-        site=DWDRadarSite.ASB,
-        fmt=DWDRadarDataFormat.BUFR,
+        site=DwdRadarSite.ASB,
+        fmt=DwdRadarDataFormat.BUFR,
     )
 
     # Verify number of elements.
@@ -585,12 +585,12 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.HDF5,
-        subset=DWDRadarDataSubset.SIMPLE,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        subset=DwdRadarDataSubset.SIMPLE,
     )
     results = list(request.query())
 
@@ -638,13 +638,13 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=timestamp,
         end_date=timedelta(hours=1),
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.HDF5,
-        subset=DWDRadarDataSubset.SIMPLE,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        subset=DwdRadarDataSubset.SIMPLE,
     )
 
     # Verify number of elements.
@@ -663,12 +663,12 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=timestamp,
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.HDF5,
-        subset=DWDRadarDataSubset.SIMPLE,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        subset=DwdRadarDataSubset.SIMPLE,
     )
     results = list(request.query())
 
@@ -732,13 +732,13 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         start_date=timestamp,
         end_date=timedelta(hours=0.5),
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.HDF5,
-        subset=DWDRadarDataSubset.SIMPLE,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        subset=DwdRadarDataSubset.SIMPLE,
     )
 
     # Verify number of elements.
@@ -762,8 +762,8 @@ def test_radar_request_radvor_re_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RE_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RE_REFLECTIVITY,
         start_date=timestamp,
     )
 
@@ -798,8 +798,8 @@ def test_radar_request_radvor_re_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RE_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RE_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(minutes=3 * 5),
     )
@@ -825,8 +825,8 @@ def test_radar_request_radvor_rq_yesterday():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RQ_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RQ_REFLECTIVITY,
         start_date=timestamp,
     )
 
@@ -862,8 +862,8 @@ def test_radar_request_radvor_rq_timerange():
 
     timestamp = datetime.utcnow() - timedelta(days=1)
 
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.RQ_REFLECTIVITY,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.RQ_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(minutes=3 * 15),
     )

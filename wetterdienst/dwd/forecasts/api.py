@@ -11,14 +11,14 @@ import pandas as pd
 import requests
 from requests import HTTPError
 
+from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
-from wetterdienst.core.scalar.stations import ScalarStationsCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.dwd.forecasts.access import KMLReader
 from wetterdienst.dwd.forecasts.metadata import (
-    DWDForecastDate,
-    DWDMosmixParameter,
-    DWDMosmixType,
+    DwdForecastDate,
+    DwdMosmixParameter,
+    DwdMosmixType,
 )
 from wetterdienst.dwd.forecasts.metadata.column_types import INTEGER_PARAMETERS
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
@@ -69,7 +69,7 @@ MOSMIX_METADATA_COLUMNS = [
 ]
 
 
-class DWDMosmixValues(ScalarValuesCore):
+class DwdMosmixValues(ScalarValuesCore):
     """
     Fetch weather forecast data (KML/MOSMIX_S dataset).
 
@@ -105,7 +105,7 @@ class DWDMosmixValues(ScalarValuesCore):
 
     def __init__(self, stations: StationsResult) -> None:
         """"""
-        super(DWDMosmixValues, self).__init__(stations=stations)
+        super(DwdMosmixValues, self).__init__(stations=stations)
 
         self.kml = KMLReader(
             station_ids=self.stations.station_id.tolist(),
@@ -135,7 +135,7 @@ class DWDMosmixValues(ScalarValuesCore):
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
         """Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)"""
-        if self.stations.start_issue == DWDForecastDate.LATEST:
+        if self.stations.start_issue == DwdForecastDate.LATEST:
             yield from self.read_mosmix(self.stations.stations.start_issue)
         else:
             for date in pd.date_range(
@@ -149,7 +149,7 @@ class DWDMosmixValues(ScalarValuesCore):
                     log.warning(e)
                     continue
 
-    def read_mosmix(self, date: Union[datetime, DWDForecastDate]) -> ValuesResult:
+    def read_mosmix(self, date: Union[datetime, DwdForecastDate]) -> ValuesResult:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -178,17 +178,17 @@ class DWDMosmixValues(ScalarValuesCore):
             yield df_forecast
 
     def _read_mosmix(
-        self, date: Union[DWDForecastDate, datetime]
+        self, date: Union[DwdForecastDate, datetime]
     ) -> Generator[pd.DataFrame, None, None]:
         """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type"""
-        if self.stations.stations.mosmix_type == DWDMosmixType.SMALL:
+        if self.stations.stations.mosmix_type == DwdMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
         else:
             yield from self.read_mosmix_large(date)
 
     def read_mosmix_small(
-        self, date: Union[DWDForecastDate, datetime]
+        self, date: Union[DwdForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads single MOSMIX-S file with all stations and returns every forecast that
         matches with one of the defined station ids."""
@@ -202,7 +202,7 @@ class DWDMosmixValues(ScalarValuesCore):
             yield forecast
 
     def read_mosmix_large(
-        self, date: Union[DWDForecastDate, datetime]
+        self, date: Union[DwdForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Reads multiple MOSMIX-L files with one per each station and returns a
         forecast per file."""
@@ -222,7 +222,7 @@ class DWDMosmixValues(ScalarValuesCore):
             yield next(self.kml.get_forecasts())
 
     @staticmethod
-    def get_url_for_date(url: str, date: Union[datetime, DWDForecastDate]) -> str:
+    def get_url_for_date(url: str, date: Union[datetime, DwdForecastDate]) -> str:
         """
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
@@ -236,7 +236,7 @@ class DWDMosmixValues(ScalarValuesCore):
         """
         urls = list_remote_files(url, False)
 
-        if date == DWDForecastDate.LATEST:
+        if date == DwdForecastDate.LATEST:
             try:
                 url = list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
                 return url
@@ -263,13 +263,13 @@ class DWDMosmixValues(ScalarValuesCore):
         return df_urls["URL"].item()
 
 
-class DWDMosmixStations(ScalarStationsCore):
+class DwdMosmixRequest(ScalarRequestCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
     _source = Source.DWD
     _tz = Timezone.GERMANY
-    _parameter_base = DWDMosmixParameter
-    _values = DWDMosmixValues
+    _parameter_base = DwdMosmixParameter
+    _values = DwdMosmixValues
 
     _resolution_type = ResolutionType.FIXED
     _resolution_base = None
@@ -314,11 +314,11 @@ class DWDMosmixStations(ScalarStationsCore):
 
     def __init__(
         self,
-        mosmix_type: Union[str, DWDMosmixType],
-        parameter: Optional[Tuple[Union[str, DWDMosmixParameter]]] = None,
+        mosmix_type: Union[str, DwdMosmixType],
+        parameter: Optional[Tuple[Union[str, DwdMosmixParameter]]] = None,
         start_issue: Optional[
-            Union[str, datetime, DWDForecastDate]
-        ] = DWDForecastDate.LATEST,
+            Union[str, datetime, DwdForecastDate]
+        ] = DwdForecastDate.LATEST,
         end_issue: Optional[Union[str, datetime]] = None,
         humanize_parameters: bool = True,
         tidy_data: bool = True,
@@ -333,17 +333,17 @@ class DWDMosmixStations(ScalarStationsCore):
             period=Period.FUTURE,
         )
 
-        self.mosmix_type = parse_enumeration_from_template(mosmix_type, DWDMosmixType)
+        self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
         # Parse issue date if not set to fixed "latest" string
-        if start_issue is DWDForecastDate.LATEST and end_issue:
+        if start_issue is DwdForecastDate.LATEST and end_issue:
             log.info(
                 "end_issue will be ignored as 'latest' was selected for issue date"
             )
 
-        if start_issue is not DWDForecastDate.LATEST:
+        if start_issue is not DwdForecastDate.LATEST:
             if not start_issue and not end_issue:
-                start_issue = DWDForecastDate.LATEST
+                start_issue = DwdForecastDate.LATEST
             elif not end_issue:
                 end_issue = start_issue
             elif not start_issue:
@@ -357,12 +357,12 @@ class DWDMosmixStations(ScalarStationsCore):
             )
 
             # Shift start date and end date to 3, 9, 15, 21 hour format
-            if mosmix_type == DWDMosmixType.LARGE:
+            if mosmix_type == DwdMosmixType.LARGE:
                 start_issue = self.adjust_datetime(start_issue)
                 end_issue = self.adjust_datetime(end_issue)
 
         # TODO: this should be replaced by the freq property in the main class
-        if self.mosmix_type == DWDMosmixType.SMALL:
+        if self.mosmix_type == DwdMosmixType.SMALL:
             self.resolution = Resolution.HOURLY
         else:
             self.resolution = Resolution.HOUR_6

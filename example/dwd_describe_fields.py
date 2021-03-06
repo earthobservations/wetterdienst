@@ -12,10 +12,10 @@ import logging
 from pprint import pprint
 
 from wetterdienst.dwd.observations import (
-    DWDObservationMetadata,
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
+    DwdObservationMetadata,
+    DwdObservationParameterSet,
+    DwdObservationPeriod,
+    DwdObservationResolution,
 )
 
 log = logging.getLogger()
@@ -23,10 +23,10 @@ log = logging.getLogger()
 
 def fields_example():
 
-    metadata = DWDObservationMetadata(
-        parameter=DWDObservationParameterSet.CLIMATE_SUMMARY,
-        resolution=DWDObservationResolution.DAILY,
-        period=DWDObservationPeriod.RECENT,
+    metadata = DwdObservationMetadata(
+        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
     )
 
     # Output in JSON format.

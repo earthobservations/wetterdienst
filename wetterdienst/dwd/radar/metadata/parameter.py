@@ -4,7 +4,7 @@
 from enum import Enum
 
 
-class DWDRadarParameter(Enum):
+class DwdRadarParameter(Enum):
     """
     All available radar moments.
     """
@@ -57,45 +57,45 @@ class DWDRadarParameter(Enum):
 
 
 RADAR_PARAMETERS_COMPOSITES = [
-    DWDRadarParameter.FX_REFLECTIVITY,
-    DWDRadarParameter.PG_REFLECTIVITY,
-    DWDRadarParameter.WX_REFLECTIVITY,
-    DWDRadarParameter.WN_REFLECTIVITY,
-    DWDRadarParameter.RX_REFLECTIVITY,
+    DwdRadarParameter.FX_REFLECTIVITY,
+    DwdRadarParameter.PG_REFLECTIVITY,
+    DwdRadarParameter.WX_REFLECTIVITY,
+    DwdRadarParameter.WN_REFLECTIVITY,
+    DwdRadarParameter.RX_REFLECTIVITY,
 ]
 RADAR_PARAMETERS_RADOLAN = [
-    DWDRadarParameter.RW_REFLECTIVITY,
-    DWDRadarParameter.RY_REFLECTIVITY,
-    DWDRadarParameter.SF_REFLECTIVITY,
+    DwdRadarParameter.RW_REFLECTIVITY,
+    DwdRadarParameter.RY_REFLECTIVITY,
+    DwdRadarParameter.SF_REFLECTIVITY,
 ]
 RADAR_PARAMETERS_RADVOR = [
-    DWDRadarParameter.RE_REFLECTIVITY,
-    DWDRadarParameter.RQ_REFLECTIVITY,
+    DwdRadarParameter.RE_REFLECTIVITY,
+    DwdRadarParameter.RQ_REFLECTIVITY,
 ]
 RADAR_PARAMETERS_SITES = [
-    DWDRadarParameter.DX_REFLECTIVITY,
-    DWDRadarParameter.LMAX_VOLUME_SCAN,
-    DWDRadarParameter.PE_ECHO_TOP,
-    DWDRadarParameter.PF_REFLECTIVITY,
-    DWDRadarParameter.PX_REFLECTIVITY,
-    DWDRadarParameter.PL_VOLUME_SCAN,
-    DWDRadarParameter.PR_VELOCITY,
-    DWDRadarParameter.PX250_REFLECTIVITY,
-    DWDRadarParameter.PZ_CAPPI,
-    DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
-    DWDRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
-    DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
-    DWDRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+    DwdRadarParameter.DX_REFLECTIVITY,
+    DwdRadarParameter.LMAX_VOLUME_SCAN,
+    DwdRadarParameter.PE_ECHO_TOP,
+    DwdRadarParameter.PF_REFLECTIVITY,
+    DwdRadarParameter.PX_REFLECTIVITY,
+    DwdRadarParameter.PL_VOLUME_SCAN,
+    DwdRadarParameter.PR_VELOCITY,
+    DwdRadarParameter.PX250_REFLECTIVITY,
+    DwdRadarParameter.PZ_CAPPI,
+    DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+    DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+    DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
+    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
 ]
 RADAR_PARAMETERS_SWEEPS = [
-    DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
-    DWDRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
-    DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
-    DWDRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+    DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+    DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+    DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
+    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
 ]
 
 
-class DWDRadarDate(Enum):
+class DwdRadarDate(Enum):
     """
     Enumeration for pointing to different radar dates.
     """
@@ -105,7 +105,7 @@ class DWDRadarDate(Enum):
     MOST_RECENT = "most_recent"
 
 
-class DWDRadarDataFormat(Enum):
+class DwdRadarDataFormat(Enum):
     """
     Radar data formats.
     """
@@ -115,7 +115,7 @@ class DWDRadarDataFormat(Enum):
     HDF5 = "hdf5"
 
 
-class DWDRadarDataSubset(Enum):
+class DwdRadarDataSubset(Enum):
     """
     HDF5 subset types for radar sweep data.
 

@@ -24,7 +24,7 @@ RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[Resolution, str] = {
 }
 
 
-class DWDObservationResolution(Enum):
+class DwdObservationResolution(Enum):
     MINUTE_1 = Resolution.MINUTE_1.value
     MINUTE_10 = Resolution.MINUTE_10.value
     HOURLY = Resolution.HOURLY.value

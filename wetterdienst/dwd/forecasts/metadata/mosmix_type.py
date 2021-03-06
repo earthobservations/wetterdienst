@@ -4,6 +4,6 @@
 from enum import Enum
 
 
-class DWDMosmixType(Enum):
+class DwdMosmixType(Enum):
     SMALL = "SMALL"
     LARGE = "LARGE"

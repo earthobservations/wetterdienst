@@ -17,13 +17,13 @@ from wetterdienst.dwd.radar.metadata import (
     RADAR_PARAMETERS_RADVOR,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_SWEEPS,
-    DWDRadarDataFormat,
-    DWDRadarDataSubset,
-    DWDRadarParameter,
-    DWDRadarPeriod,
-    DWDRadarResolution,
+    DwdRadarDataFormat,
+    DwdRadarDataSubset,
+    DwdRadarParameter,
+    DwdRadarPeriod,
+    DwdRadarResolution,
 )
-from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.dwd.radar.sites import DwdRadarSite
 from wetterdienst.dwd.radar.util import RADOLAN_DT_PATTERN, get_date_from_filename
 from wetterdienst.util.cache import fileindex_cache_five_minutes
 from wetterdienst.util.network import list_remote_files
@@ -48,12 +48,12 @@ def use_cache() -> int:  # pragma: no cover
 
 @fileindex_cache_five_minutes.cache_on_arguments(expiration_time=use_cache)
 def create_fileindex_radar(
-    parameter: DWDRadarParameter,
-    site: Optional[DWDRadarSite] = None,
-    fmt: Optional[DWDRadarDataFormat] = None,
-    subset: Optional[DWDRadarDataSubset] = None,
-    resolution: Optional[DWDRadarResolution] = None,
-    period: Optional[DWDRadarPeriod] = None,
+    parameter: DwdRadarParameter,
+    site: Optional[DwdRadarSite] = None,
+    fmt: Optional[DwdRadarDataFormat] = None,
+    subset: Optional[DwdRadarDataSubset] = None,
+    resolution: Optional[DwdRadarResolution] = None,
+    period: Optional[DwdRadarPeriod] = None,
     parse_datetime: bool = False,
 ) -> pd.DataFrame:
     """
@@ -95,11 +95,11 @@ def create_fileindex_radar(
     # so we need to filter here by designated RadarDataFormat. Example:
     # https://opendata.dwd.de/weather/radar/sites/px/boo/
     if fmt is not None:
-        if fmt == DWDRadarDataFormat.BINARY:
+        if fmt == DwdRadarDataFormat.BINARY:
             files_server = files_server[
                 files_server[DWDMetaColumns.FILENAME.value].str.contains("--bin")
             ]
-        elif fmt == DWDRadarDataFormat.BUFR:
+        elif fmt == DwdRadarDataFormat.BUFR:
             files_server = files_server[
                 files_server[DWDMetaColumns.FILENAME.value].str.contains("--buf")
             ]
@@ -118,7 +118,7 @@ def create_fileindex_radar(
 
 @fileindex_cache_five_minutes.cache_on_arguments()
 def create_fileindex_radolan_cdc(
-    resolution: DWDRadarResolution, period: DWDRadarPeriod
+    resolution: DwdRadarResolution, period: DwdRadarPeriod
 ) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
@@ -133,7 +133,7 @@ def create_fileindex_radolan_cdc(
     :return:                File index as DataFrame
     """
     file_index = create_fileindex_radar(
-        parameter=DWDRadarParameter.RADOLAN_CDC,
+        parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=resolution,
         period=period,
     )
@@ -159,12 +159,12 @@ def create_fileindex_radolan_cdc(
 
 
 def build_path_to_parameter(
-    parameter: DWDRadarParameter,
-    site: Optional[DWDRadarSite] = None,
-    fmt: Optional[DWDRadarDataFormat] = None,
-    subset: Optional[DWDRadarDataSubset] = None,
-    resolution: Optional[DWDRadarResolution] = None,
-    period: Optional[DWDRadarPeriod] = None,
+    parameter: DwdRadarParameter,
+    site: Optional[DwdRadarSite] = None,
+    fmt: Optional[DwdRadarDataFormat] = None,
+    subset: Optional[DwdRadarDataSubset] = None,
+    resolution: Optional[DwdRadarResolution] = None,
+    period: Optional[DwdRadarPeriod] = None,
 ) -> str:
     """
     Compute URL path to data product.
@@ -195,8 +195,8 @@ def build_path_to_parameter(
 
     :return:                URL path to data product
     """
-    if parameter == DWDRadarParameter.RADOLAN_CDC:
-        if resolution == DWDRadarResolution.MINUTE_5:
+    if parameter == DwdRadarParameter.RADOLAN_CDC:
+        if resolution == DwdRadarResolution.MINUTE_5:
             # See also page 4 on
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf  # noqa:E501,B950
             parameter_path = f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950
@@ -221,18 +221,18 @@ def build_path_to_parameter(
         if fmt is None:
 
             ambiguous_parameters = [
-                DWDRadarParameter.PE_ECHO_TOP,
-                DWDRadarParameter.PL_VOLUME_SCAN,
-                DWDRadarParameter.PR_VELOCITY,
-                DWDRadarParameter.PX_REFLECTIVITY,
-                DWDRadarParameter.PZ_CAPPI,
+                DwdRadarParameter.PE_ECHO_TOP,
+                DwdRadarParameter.PL_VOLUME_SCAN,
+                DwdRadarParameter.PR_VELOCITY,
+                DwdRadarParameter.PX_REFLECTIVITY,
+                DwdRadarParameter.PZ_CAPPI,
             ]
 
             candidates = None
             if parameter in ambiguous_parameters:
-                candidates = [DWDRadarDataFormat.BINARY, DWDRadarDataFormat.BUFR]
+                candidates = [DwdRadarDataFormat.BINARY, DwdRadarDataFormat.BUFR]
             if parameter in RADAR_PARAMETERS_SWEEPS:
-                candidates = [DWDRadarDataFormat.BUFR, DWDRadarDataFormat.HDF5]
+                candidates = [DwdRadarDataFormat.BUFR, DwdRadarDataFormat.HDF5]
 
             if candidates:
                 raise ValueError(
@@ -241,11 +241,11 @@ def build_path_to_parameter(
 
         # Compute path to BINARY/BUFR vs. HDF5.
         parameter_path = f"weather/radar/sites/{parameter.value}/{site.value}"
-        if fmt == DWDRadarDataFormat.HDF5:
+        if fmt == DwdRadarDataFormat.HDF5:
             if subset is None:
                 candidates = [
-                    DWDRadarDataSubset.SIMPLE,
-                    DWDRadarDataSubset.POLARIMETRIC,
+                    DwdRadarDataSubset.SIMPLE,
+                    DwdRadarDataSubset.POLARIMETRIC,
                 ]
                 raise ValueError(
                     f"Argument 'subset' is missing, use one of {candidates}"

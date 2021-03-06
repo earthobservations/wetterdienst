@@ -9,18 +9,18 @@ from wetterdienst.dwd.index import (
 )
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
+    DwdObservationParameterSet,
+    DwdObservationPeriod,
+    DwdObservationResolution,
 )
 from wetterdienst.util.network import list_remote_files
 
 
 def test_build_index_path():
     path = build_path_to_parameter(
-        DWDObservationParameterSet.CLIMATE_SUMMARY,
-        DWDObservationResolution.DAILY,
-        DWDObservationPeriod.HISTORICAL,
+        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.HISTORICAL,
     )
     assert path == "daily/kl/historical/"
 
@@ -42,9 +42,9 @@ def test_list_files_of_climate_observations():
 def test_fileindex():
 
     file_index = _create_file_index_for_dwd_server(
-        DWDObservationParameterSet.CLIMATE_SUMMARY,
-        DWDObservationResolution.DAILY,
-        DWDObservationPeriod.RECENT,
+        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.RECENT,
         DWDCDCBase.CLIMATE_OBSERVATIONS,
     )
 

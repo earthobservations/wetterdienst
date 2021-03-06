@@ -6,7 +6,7 @@ from enum import Enum
 from wetterdienst.util.parameter import WDParameterStructureBase
 
 
-class DWDObservationParameter(WDParameterStructureBase):
+class DwdObservationParameter(WDParameterStructureBase):
     # Following DWDObsParameterSetStructure
     # 1_minute
     class MINUTE_1(Enum):  # noqa
