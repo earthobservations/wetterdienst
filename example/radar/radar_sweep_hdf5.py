@@ -30,12 +30,12 @@ import numpy as np
 import wradlib as wrl
 
 from wetterdienst.dwd.radar import (
-    DWDRadarDataFormat,
-    DWDRadarDataSubset,
-    DWDRadarDate,
-    DWDRadarParameter,
-    DWDRadarSite,
-    DWDRadarValues,
+    DwdRadarDataFormat,
+    DwdRadarDataSubset,
+    DwdRadarDate,
+    DwdRadarParameter,
+    DwdRadarSite,
+    DwdRadarValues,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -65,12 +65,12 @@ def radar_info(data: dict):
 def radar_hdf5_example():
 
     log.info("Acquiring radar sweep data in HDF5")
-    request = DWDRadarValues(
-        parameter=DWDRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=DWDRadarDate.MOST_RECENT,
-        site=DWDRadarSite.BOO,
-        fmt=DWDRadarDataFormat.HDF5,
-        subset=DWDRadarDataSubset.SIMPLE,
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        start_date=DwdRadarDate.MOST_RECENT,
+        site=DwdRadarSite.BOO,
+        fmt=DwdRadarDataFormat.HDF5,
+        subset=DwdRadarDataSubset.SIMPLE,
     )
 
     for item in request.collect_data():

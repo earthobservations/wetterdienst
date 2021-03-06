@@ -66,7 +66,7 @@ or at the domain specific level e.g.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationResolution, DWDObservationPeriod
+    from wetterdienst.dwd.observations import DwdObservationResolution, DwdObservationPeriod
 
 Both enumerations can be used interchangeably however the weather services enumeration
 is limited to what resolutions and periods are actually available while the main level
@@ -96,7 +96,7 @@ Historical Weather Observations
 ===============================
 
 In case of the DWD requests have to be defined by resolution and period (respectively
-``start_date`` and ``end_date``). Use ``DWDObservationMetadata.discover_parameters()``
+``start_date`` and ``end_date``). Use ``DwdObservationMetadata.discover_parameters()``
 to discover available resolution, parameter, period combinations and their subsets
 based on the obtained filter arguments.
 
@@ -108,12 +108,12 @@ Get station information for a given *parameter/parameter_set*, *resolution* and
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
 
-    stations = DWDObservationStations(
-        parameter=DWDObservationParameterSet.PRECIPITATION_MORE,
-        resolution=DWDObservationResolution.DAILY,
-        period=DWDObservationPeriod.HISTORICAL
+    stations = DwdObservationRequest(
+        parameter=DwdObservationParameterSet.PRECIPITATION_MORE,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.HISTORICAL
     ).all()
 
     df = stations.df
@@ -125,15 +125,15 @@ The function returns a Pandas DataFrame with information about the available sta
 Values
 ------
 
-Use the ``DWDObservationStations`` class in order to get hold of stations.
+Use the ``DwdObservationRequest`` class in order to get hold of stations.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
 
-    request = DWDObservationStations(
-        parameter=[DWDObservationParameterSet.CLIMATE_SUMMARY, DWDObservationParameterSet.SOLAR],
-        resolution=DWDObservationResolution.DAILY,
+    request = DwdObservationRequest(
+        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY, DwdObservationParameterSet.SOLAR],
+        resolution=DwdObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -171,12 +171,12 @@ Inquire the list of stations by geographic coordinates.
 .. ipython:: python
 
     from datetime import datetime
-    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
 
-    stations = DWDObservationStations(
-        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
-        resolution=DWDObservationResolution.HOURLY,
-        period=DWDObservationPeriod.RECENT,
+    stations = DwdObservationRequest(
+        parameter=DwdObservationParameterSet.TEMPERATURE_AIR,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     )
@@ -205,10 +205,10 @@ Again from here we can jump to the corresponding data:
 
 .. ipython:: python
 
-    stations = DWDObservationStations(
-        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
-        resolution=DWDObservationResolution.HOURLY,
-        period=DWDObservationPeriod.RECENT,
+    stations = DwdObservationRequest(
+        parameter=DwdObservationParameterSet.TEMPERATURE_AIR,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     ).nearby_radius(
@@ -235,11 +235,11 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet, DWDObservationPeriod, DWDObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
 
-    stations = DWDObservationStations(
-        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
-        resolution=DWDObservationResolution.HOURLY,
+    stations = DwdObservationRequest(
+        parameter=[DwdObservationParameterSet.TEMPERATURE_AIR],
+        resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -265,12 +265,12 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DWDObservationStations, DWDObservationParameterSet,
-        DWDObservationPeriod, DWDObservationResolution, StorageAdapter
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet,
+        DwdObservationPeriod, DwdObservationResolution
 
-    stations = DWDObservationStations(
-        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
-        resolution=DWDObservationResolution.HOURLY,
+    stations = DwdObservationRequest(
+        parameter=[DwdObservationParameterSet.TEMPERATURE_AIR],
+        resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,
@@ -287,9 +287,9 @@ Get stations for Mosmix:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixStations
+    from wetterdienst.dwd.forecasts import DwdMosmixRequest
 
-    stations = DWDMosmixStations(mosmix_type="large")  # actually same for small and large
+    stations = DwdMosmixRequest(mosmix_type="large")  # actually same for small and large
 
     print(stations.all().df.head())
 
@@ -300,10 +300,10 @@ Get Mosmix-L data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DWDMosmixStations, DWDMosmixType
+    from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
 
-    stations = DWDMosmixStations(
-        mosmix_type=DWDMosmixType.LARGE
+    stations = DwdMosmixRequest(
+        mosmix_type=DwdMosmixType.LARGE
     ).filter(station_id=["01001", "01008"])
     response =  next(stations.values.query())
 
@@ -342,12 +342,12 @@ For more examples, please have a look at `example/radar/`_.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.radar import DWDRadarData, DWDRadarParameter, DWDRadarResolution
+    from wetterdienst.dwd.radar import DwdRadarValues, DwdRadarParameter, DwdRadarResolution
     import wradlib as wrl
 
-    radar = DWDRadarData(
-        radar_parameter=DWDRadarParameter.RADOLAN_CDC,
-        resolution=DWDRadarResolution.DAILY,
+    radar = DwdRadarValues(
+        radar_parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=DwdRadarResolution.DAILY,
         start_date="2020-09-04T12:00:00",
         end_date="2020-09-04T12:00:00"
     )

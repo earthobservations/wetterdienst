@@ -10,13 +10,13 @@ import pandas as pd
 from wetterdienst.dwd.radar.access import RadarResult, collect_radar_data
 from wetterdienst.dwd.radar.metadata import (
     RADAR_PARAMETERS_RADOLAN,
-    DWDRadarDataFormat,
-    DWDRadarDataSubset,
-    DWDRadarPeriod,
-    DWDRadarResolution,
+    DwdRadarDataFormat,
+    DwdRadarDataSubset,
+    DwdRadarPeriod,
+    DwdRadarResolution,
 )
-from wetterdienst.dwd.radar.metadata.parameter import DWDRadarDate, DWDRadarParameter
-from wetterdienst.dwd.radar.sites import RADAR_LOCATIONS, DWDRadarSite
+from wetterdienst.dwd.radar.metadata.parameter import DwdRadarDate, DwdRadarParameter
+from wetterdienst.dwd.radar.sites import RADAR_LOCATIONS, DwdRadarSite
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import raster_minutes, round_minutes
@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 # TODO: add core class information
-class DWDRadarValues:
+class DwdRadarValues:
     """
     API for DWD radar data requests.
 
@@ -41,15 +41,15 @@ class DWDRadarValues:
 
     def __init__(
         self,
-        parameter: Union[str, DWDRadarParameter],
-        site: Optional[DWDRadarSite] = None,
-        fmt: Optional[DWDRadarDataFormat] = None,
-        subset: Optional[DWDRadarDataSubset] = None,
+        parameter: Union[str, DwdRadarParameter],
+        site: Optional[DwdRadarSite] = None,
+        fmt: Optional[DwdRadarDataFormat] = None,
+        subset: Optional[DwdRadarDataSubset] = None,
         elevation: Optional[int] = None,
-        start_date: Optional[Union[str, datetime, DWDRadarDate]] = None,
+        start_date: Optional[Union[str, datetime, DwdRadarDate]] = None,
         end_date: Optional[Union[str, datetime, timedelta]] = None,
-        resolution: Optional[Union[str, Resolution, DWDRadarResolution]] = None,
-        period: Optional[Union[str, Period, DWDRadarPeriod]] = None,
+        resolution: Optional[Union[str, Resolution, DwdRadarResolution]] = None,
+        period: Optional[Union[str, Period, DwdRadarPeriod]] = None,
     ) -> None:
         """
         :param parameter:       The radar moment to request
@@ -65,18 +65,18 @@ class DWDRadarValues:
         """
 
         # Convert parameters to enum types.
-        self.parameter = parse_enumeration_from_template(parameter, DWDRadarParameter)
-        self.site = parse_enumeration_from_template(site, DWDRadarSite)
-        self.format = parse_enumeration_from_template(fmt, DWDRadarDataFormat)
-        self.subset = parse_enumeration_from_template(subset, DWDRadarDataSubset)
+        self.parameter = parse_enumeration_from_template(parameter, DwdRadarParameter)
+        self.site = parse_enumeration_from_template(site, DwdRadarSite)
+        self.format = parse_enumeration_from_template(fmt, DwdRadarDataFormat)
+        self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
         self.resolution = parse_enumeration_from_template(
-            resolution, DWDRadarResolution, Resolution
+            resolution, DwdRadarResolution, Resolution
         )
-        self.period = parse_enumeration_from_template(period, DWDRadarPeriod, Period)
+        self.period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
 
         # Sanity checks.
-        if self.parameter == DWDRadarParameter.RADOLAN_CDC:
+        if self.parameter == DwdRadarParameter.RADOLAN_CDC:
 
             if self.resolution not in (
                 Resolution.HOURLY,
@@ -87,26 +87,26 @@ class DWDRadarValues:
                 )
 
         elevation_parameters = [
-            DWDRadarParameter.SWEEP_VOL_VELOCITY_H,
-            DWDRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+            DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
+            DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
         ]
         if self.elevation is not None and self.parameter not in elevation_parameters:
             raise ValueError(
                 f"Argument 'elevation' only valid for parameter={elevation_parameters}"
             )
 
-        if start_date == DWDRadarDate.LATEST:
+        if start_date == DwdRadarDate.LATEST:
 
             # HDF5 folders do not have "-latest-" files.
-            if self.parameter == DWDRadarParameter.RADOLAN_CDC:
+            if self.parameter == DwdRadarParameter.RADOLAN_CDC:
                 raise ValueError("RADOLAN_CDC data has no '-latest-' files")
 
             # HDF5 folders do not have "-latest-" files.
-            if self.format == DWDRadarDataFormat.HDF5:
+            if self.format == DwdRadarDataFormat.HDF5:
                 raise ValueError("HDF5 data has no '-latest-' files")
 
-        if start_date == DWDRadarDate.CURRENT and not self.period:
-            self.period = DWDRadarPeriod.RECENT
+        if start_date == DwdRadarDate.CURRENT and not self.period:
+            self.period = DwdRadarPeriod.RECENT
 
         # Evaluate "RadarDate.MOST_RECENT" for "start_date".
         #
@@ -123,24 +123,24 @@ class DWDRadarValues:
         # volume by addressing the **previous** volume. So, when requesting data at
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
-        if fmt == DWDRadarDataFormat.HDF5 and start_date == DWDRadarDate.MOST_RECENT:
+        if fmt == DwdRadarDataFormat.HDF5 and start_date == DwdRadarDate.MOST_RECENT:
             start_date = datetime.utcnow() - timedelta(minutes=5)
             end_date = None
 
         if (
-            start_date == DWDRadarDate.MOST_RECENT
-            and parameter == DWDRadarParameter.RADOLAN_CDC
+            start_date == DwdRadarDate.MOST_RECENT
+            and parameter == DwdRadarParameter.RADOLAN_CDC
         ):
             start_date = datetime.utcnow() - timedelta(minutes=50)
             end_date = None
 
         # Evaluate "RadarDate.CURRENT" for "start_date".
-        if start_date == DWDRadarDate.CURRENT:
+        if start_date == DwdRadarDate.CURRENT:
             start_date = datetime.utcnow()
             end_date = None
 
         # Evaluate "RadarDate.LATEST" for "start_date".
-        if start_date == DWDRadarDate.LATEST:
+        if start_date == DwdRadarDate.LATEST:
             self.start_date = start_date
             self.end_date = None
 
@@ -174,7 +174,7 @@ class DWDRadarValues:
         """
 
         if (
-            self.parameter == DWDRadarParameter.RADOLAN_CDC
+            self.parameter == DwdRadarParameter.RADOLAN_CDC
             or self.parameter in RADAR_PARAMETERS_RADOLAN
         ):
 
@@ -190,7 +190,7 @@ class DWDRadarValues:
             if self.end_date is None:
                 self.end_date = self.start_date + timedelta(microseconds=1)
 
-        elif self.parameter == DWDRadarParameter.RQ_REFLECTIVITY:
+        elif self.parameter == DwdRadarParameter.RQ_REFLECTIVITY:
 
             # Align "start_date" to the 15 minute mark before tm.
             self.start_date = round_minutes(self.start_date, 15)

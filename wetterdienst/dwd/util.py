@@ -3,13 +3,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from typing import Optional
 
-from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
+from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 
 
 def build_parameter_set_identifier(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
     station_id: str,

@@ -7,10 +7,10 @@ from wetterdienst.dwd.radar.metadata.parameter import (
     RADAR_PARAMETERS_RADVOR,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_SWEEPS,
-    DWDRadarDataFormat,
-    DWDRadarDataSubset,
-    DWDRadarDate,
-    DWDRadarParameter,
+    DwdRadarDataFormat,
+    DwdRadarDataSubset,
+    DwdRadarDate,
+    DwdRadarParameter,
 )
-from wetterdienst.dwd.radar.metadata.period import DWDRadarPeriod
-from wetterdienst.dwd.radar.metadata.resolution import DWDRadarResolution
+from wetterdienst.dwd.radar.metadata.period import DwdRadarPeriod
+from wetterdienst.dwd.radar.metadata.resolution import DwdRadarResolution

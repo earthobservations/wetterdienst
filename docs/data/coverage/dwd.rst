@@ -117,9 +117,9 @@ parameters can be queried. Take a look at the massive amount of data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DWDObservationMetadata
+    from wetterdienst.dwd.observations import DwdObservationMetadata
 
-    observations_meta = DWDObservationMetadata()
+    observations_meta = DwdObservationMetadata()
 
     # Selection of daily historical data
     print(

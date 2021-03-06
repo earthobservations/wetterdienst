@@ -12,15 +12,15 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Frequency, Resolution
 
 if TYPE_CHECKING:
-    from wetterdienst.core.scalar.stations import ScalarStationsCore
+    from wetterdienst.core.scalar.request import ScalarRequestCore
     from wetterdienst.core.scalar.values import ScalarValuesCore
-    from wetterdienst.dwd.forecasts.api import DWDMosmixStations
+    from wetterdienst.dwd.forecasts.api import DwdMosmixRequest
 
 
 class StationsResult:
     def __init__(
         self,
-        stations: Union["ScalarStationsCore", "DWDMosmixStations"],
+        stations: Union["ScalarRequestCore", "DwdMosmixRequest"],
         df: pd.DataFrame,
         **kwargs
     ) -> None:

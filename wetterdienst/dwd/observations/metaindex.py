@@ -25,7 +25,7 @@ from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
 )
 from wetterdienst.dwd.network import download_file_from_dwd
-from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
+from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
 from wetterdienst.exceptions import MetaFileNotFound
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
@@ -64,7 +64,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 
 @metaindex_cache.cache_on_arguments()
 def create_meta_index_for_climate_observations(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -84,7 +84,7 @@ def create_meta_index_for_climate_observations(
     cond = (
         resolution == Resolution.MINUTE_1
         and period == Period.HISTORICAL
-        and parameter_set == DWDObservationParameterSet.PRECIPITATION
+        and parameter_set == DwdObservationParameterSet.PRECIPITATION
     )
 
     if cond:
@@ -98,7 +98,7 @@ def create_meta_index_for_climate_observations(
     # precipitation
     if DWDMetaColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
-            DWDObservationParameterSet.PRECIPITATION_MORE,
+            DwdObservationParameterSet.PRECIPITATION_MORE,
             Resolution.DAILY,
             Period.HISTORICAL,
         )
@@ -113,7 +113,7 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -206,7 +206,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     parameter_path = (
         f"{Resolution.MINUTE_1.value}/"
-        f"{DWDObservationParameterSet.PRECIPITATION.value}/"
+        f"{DwdObservationParameterSet.PRECIPITATION.value}/"
     )
 
     url = reduce(

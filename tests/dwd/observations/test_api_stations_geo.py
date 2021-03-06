@@ -11,10 +11,10 @@ from pandas._libs.tslibs.timestamps import Timestamp
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-    DWDObservationStations,
+    DwdObservationParameterSet,
+    DwdObservationPeriod,
+    DwdObservationRequest,
+    DwdObservationResolution,
 )
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
@@ -23,10 +23,10 @@ from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 def test_dwd_observation_stations_nearby_number_success():
 
     # Test for one nearest station
-    request = DWDObservationStations(
-        DWDObservationParameterSet.TEMPERATURE_AIR,
-        DWDObservationResolution.HOURLY,
-        DWDObservationPeriod.RECENT,
+    request = DwdObservationRequest(
+        DwdObservationParameterSet.TEMPERATURE_AIR,
+        DwdObservationResolution.HOURLY,
+        DwdObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -66,10 +66,10 @@ def test_dwd_observation_stations_nearby_number_success():
         ),
     )
 
-    request = DWDObservationStations(
-        DWDObservationParameterSet.TEMPERATURE_AIR,
-        DWDObservationResolution.HOURLY,
-        DWDObservationPeriod.RECENT,
+    request = DwdObservationRequest(
+        DwdObservationParameterSet.TEMPERATURE_AIR,
+        DwdObservationResolution.HOURLY,
+        DwdObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -131,10 +131,10 @@ def test_dwd_observation_stations_nearby_number_success():
 
 
 def test_dwd_observation_stations_nearby_distance_success():
-    request = DWDObservationStations(
-        DWDObservationParameterSet.TEMPERATURE_AIR,
-        DWDObservationResolution.HOURLY,
-        DWDObservationPeriod.RECENT,
+    request = DwdObservationRequest(
+        DwdObservationParameterSet.TEMPERATURE_AIR,
+        DwdObservationResolution.HOURLY,
+        DwdObservationPeriod.RECENT,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -148,10 +148,10 @@ def test_dwd_observation_stations_nearby_distance_success():
 
 def test_dwd_observation_stations_nearby_number_fail_1():
     with pytest.raises(ValueError):
-        DWDObservationStations(
-            DWDObservationParameterSet.TEMPERATURE_AIR,
-            DWDObservationResolution.HOURLY,
-            DWDObservationPeriod.RECENT,
+        DwdObservationRequest(
+            DwdObservationParameterSet.TEMPERATURE_AIR,
+            DwdObservationResolution.HOURLY,
+            DwdObservationPeriod.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).nearby_number(

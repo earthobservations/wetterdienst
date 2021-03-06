@@ -19,9 +19,9 @@ Setup
 import logging
 
 from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationResolution,
-    DWDObservationStations,
+    DwdObservationParameterSet,
+    DwdObservationRequest,
+    DwdObservationResolution,
 )
 
 log = logging.getLogger()
@@ -29,9 +29,9 @@ log = logging.getLogger()
 
 def sql_example():
 
-    request = DWDObservationStations(
-        parameter=[DWDObservationParameterSet.TEMPERATURE_AIR],
-        resolution=DWDObservationResolution.HOURLY,
+    request = DwdObservationRequest(
+        parameter=[DwdObservationParameterSet.TEMPERATURE_AIR],
+        resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
         tidy_data=True,

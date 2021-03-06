@@ -12,20 +12,20 @@ import logging
 from datetime import datetime
 
 from wetterdienst.dwd.observations import (
-    DWDObservationParameterSet,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-    DWDObservationStations,
+    DwdObservationParameterSet,
+    DwdObservationPeriod,
+    DwdObservationRequest,
+    DwdObservationResolution,
 )
 
 log = logging.getLogger()
 
 
 def station_example():
-    stations = DWDObservationStations(
-        parameter=DWDObservationParameterSet.TEMPERATURE_AIR,
-        resolution=DWDObservationResolution.HOURLY,
-        period=DWDObservationPeriod.RECENT,
+    stations = DwdObservationRequest(
+        parameter=DwdObservationParameterSet.TEMPERATURE_AIR,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20),
         tidy_data=True,

@@ -8,7 +8,7 @@ import pandas as pd
 
 from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
 from wetterdienst.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER, DWDCDCBase
-from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
+from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import (
@@ -19,7 +19,7 @@ from wetterdienst.util.network import list_remote_files
 
 
 def _create_file_index_for_dwd_server(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
     cdc_base: DWDCDCBase,
@@ -55,7 +55,7 @@ def reset_file_index_cache() -> None:
 
 
 def build_path_to_parameter(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> str:
@@ -69,7 +69,7 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter_set == DWDObservationParameterSet.SOLAR and resolution in (
+    if parameter_set == DwdObservationParameterSet.SOLAR and resolution in (
         Resolution.HOURLY,
         Resolution.DAILY,
     ):

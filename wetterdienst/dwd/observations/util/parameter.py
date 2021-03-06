@@ -4,8 +4,8 @@
 from typing import Tuple, Union
 
 from wetterdienst.dwd.observations.metadata import (
-    DWDObservationParameter,
-    DWDObservationParameterSet,
+    DwdObservationParameter,
+    DwdObservationParameterSet,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
     DWDObservationParameterSetStructure,
@@ -20,11 +20,11 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
 def create_parameter_to_parameter_set_combination(
-    parameter: Union[DWDObservationParameter, DWDObservationParameterSet],
+    parameter: Union[DwdObservationParameter, DwdObservationParameterSet],
     resolution: Resolution,
 ) -> Tuple[
-    Union[DWDObservationParameter, DWDObservationParameterSet],
-    DWDObservationParameterSet,
+    Union[DwdObservationParameter, DwdObservationParameterSet],
+    DwdObservationParameterSet,
 ]:
     """Function to create a mapping from a requested parameter to a provided parameter
     set which has to be downloaded first to extract the parameter from it"""
@@ -46,7 +46,7 @@ def create_parameter_to_parameter_set_combination(
             )
 
             parameter_set = parse_enumeration_from_template(
-                parameter_set_enum.__name__, DWDObservationParameterSet
+                parameter_set_enum.__name__, DwdObservationParameterSet
             )
 
             return parameter_, parameter_set
@@ -55,7 +55,7 @@ def create_parameter_to_parameter_set_combination(
 
     try:
         parameter_set = parse_enumeration_from_template(
-            parameter, DWDObservationParameterSet
+            parameter, DwdObservationParameterSet
         )
         return parameter_set, parameter_set
     except InvalidEnumeration:
@@ -68,7 +68,7 @@ def create_parameter_to_parameter_set_combination(
 
 
 def check_dwd_observations_parameter_set(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> bool:

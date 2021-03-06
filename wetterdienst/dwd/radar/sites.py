@@ -164,7 +164,7 @@ RADAR_LOCATIONS = {
 }
 
 
-class DWDRadarSite(Enum):
+class DwdRadarSite(Enum):
     """
     Enumerate short names of all radar sites.
     """

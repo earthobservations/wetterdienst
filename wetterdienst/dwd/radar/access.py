@@ -21,14 +21,14 @@ from wetterdienst.dwd.radar.index import (
     create_fileindex_radolan_cdc,
 )
 from wetterdienst.dwd.radar.metadata import (
-    DWDRadarDataFormat,
-    DWDRadarDataSubset,
-    DWDRadarDate,
-    DWDRadarParameter,
-    DWDRadarPeriod,
-    DWDRadarResolution,
+    DwdRadarDataFormat,
+    DwdRadarDataSubset,
+    DwdRadarDate,
+    DwdRadarParameter,
+    DwdRadarPeriod,
+    DwdRadarResolution,
 )
-from wetterdienst.dwd.radar.sites import DWDRadarSite
+from wetterdienst.dwd.radar.sites import DwdRadarSite
 from wetterdienst.dwd.radar.util import get_date_from_filename
 from wetterdienst.util.cache import (
     payload_cache_five_minutes,
@@ -68,12 +68,12 @@ class RadarResult:
 
 
 def collect_radar_data(
-    parameter: DWDRadarParameter,
-    resolution: Optional[DWDRadarResolution] = None,
-    period: Optional[DWDRadarPeriod] = None,
-    site: Optional[DWDRadarSite] = None,
-    fmt: Optional[DWDRadarDataFormat] = None,
-    subset: Optional[DWDRadarDataSubset] = None,
+    parameter: DwdRadarParameter,
+    resolution: Optional[DwdRadarResolution] = None,
+    period: Optional[DwdRadarPeriod] = None,
+    site: Optional[DwdRadarSite] = None,
+    fmt: Optional[DwdRadarDataFormat] = None,
+    subset: Optional[DwdRadarDataSubset] = None,
     elevation: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -97,7 +97,7 @@ def collect_radar_data(
     """
 
     # Find latest file.
-    if start_date == DWDRadarDate.LATEST:
+    if start_date == DwdRadarDate.LATEST:
 
         file_index = create_fileindex_radar(
             parameter=parameter,
@@ -116,14 +116,14 @@ def collect_radar_data(
 
     else:
 
-        if parameter == DWDRadarParameter.RADOLAN_CDC:
+        if parameter == DwdRadarParameter.RADOLAN_CDC:
 
             if period:
                 period_types = [period]
             else:
                 period_types = [
-                    DWDRadarPeriod.RECENT,
-                    DWDRadarPeriod.HISTORICAL,
+                    DwdRadarPeriod.RECENT,
+                    DwdRadarPeriod.HISTORICAL,
                 ]
 
             results = []
@@ -134,7 +134,7 @@ def collect_radar_data(
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                if period == DWDRadarPeriod.RECENT:
+                if period == DwdRadarPeriod.RECENT:
                     file_index = file_index[
                         (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
                         & (file_index[DWDMetaColumns.DATETIME.value] < end_date)

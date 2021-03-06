@@ -211,8 +211,8 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
 
 .. code-block:: python
 
-    >>> from wetterdienst.dwd.observations import DWDObservationStations
-    >>> request = DWDObservationStations(
+    >>> from wetterdienst.dwd.observations import DwdObservationRequest
+    >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
     ...    start_date="1990-01-01",  # Timezone: UTC

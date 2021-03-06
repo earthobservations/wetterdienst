@@ -8,8 +8,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DWDMosmixStations
-from wetterdienst.dwd.observations.api import DWDObservationStations
+from wetterdienst.dwd.forecasts import DwdMosmixRequest
+from wetterdienst.dwd.observations.api import DwdObservationRequest
 from wetterdienst.util.cli import read_list
 
 app = FastAPI(debug=False)
@@ -88,13 +88,13 @@ def dwd_stations(
                 "and 'period' are required",
             )
 
-        stations = DWDObservationStations(
+        stations = DwdObservationRequest(
             parameter=parameter,
             resolution=resolution,
             period=period,
         )
     else:
-        stations = DWDMosmixStations(mosmix_type=mosmix_type)
+        stations = DwdMosmixRequest(mosmix_type=mosmix_type)
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
@@ -161,7 +161,7 @@ def dwd_values(
             )
 
         # Data acquisition.
-        request = DWDObservationStations(
+        request = DwdObservationRequest(
             parameter=parameter, resolution=resolution, period=period
         )
     else:
@@ -170,7 +170,7 @@ def dwd_values(
                 status_code=400, detail="Query argument 'mosmix_type' is required"
             )
 
-        request = DWDMosmixStations(mosmix_type=mosmix_type)
+        request = DwdMosmixRequest(mosmix_type=mosmix_type)
 
     if not resolution:
         resolution = request.resolution

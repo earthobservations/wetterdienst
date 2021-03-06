@@ -14,7 +14,7 @@ from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
 )
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.dwd.observations.metadata import DWDObservationParameterSet
+from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
 from wetterdienst.dwd.observations.metadata.resolution import HIGH_RESOLUTIONS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -23,7 +23,7 @@ from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 def create_file_list_for_climate_observations(
     station_id: str,
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
     date_range: Optional[str] = None,
@@ -58,7 +58,7 @@ def create_file_list_for_climate_observations(
 
 @fileindex_cache_twelve_hours.cache_on_arguments()
 def create_file_index_for_climate_observations(
-    parameter_set: DWDObservationParameterSet,
+    parameter_set: DwdObservationParameterSet,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
