@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+...
+
+0.15.0 (07.03.2021)
+*******************
+
 - Add StationsResult and ValuesResult to allow for new workflow and connect stations and
   values request
 - Add accessor .values to Stations class to get straight to values for a request
