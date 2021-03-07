@@ -45,5 +45,5 @@ class InvalidTimeInterval(ValueError):
     pass
 
 
-class SourceError(Exception):
+class ProviderError(Exception):
     pass

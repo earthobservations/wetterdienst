@@ -30,8 +30,8 @@ from wetterdienst.dwd.metadata.constants import (
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
@@ -85,7 +85,7 @@ class DwdMosmixValues(ScalarValuesCore):
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:E501,B950
     """
 
-    _source = Source.DWD
+    _provider = Provider.DWD
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = False
@@ -136,7 +136,11 @@ class DwdMosmixValues(ScalarValuesCore):
         """Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)"""
         if self.stations.start_issue == DwdForecastDate.LATEST:
-            yield from self.read_mosmix(self.stations.stations.start_issue)
+            df = next(self.read_mosmix(self.stations.stations.start_issue))
+
+            df[Columns.QUALITY.value] = pd.NA
+
+            yield df
         else:
             for date in pd.date_range(
                 self.stations.stations.start_issue,
@@ -144,12 +148,18 @@ class DwdMosmixValues(ScalarValuesCore):
                 freq=self.stations.frequency.value,
             ):
                 try:
-                    yield from self.read_mosmix(date)
+                    df = next(self.read_mosmix(date))
+
+                    df[Columns.QUALITY.value] = pd.NA
+
+                    yield df
                 except IndexError as e:
                     log.warning(e)
                     continue
 
-    def read_mosmix(self, date: Union[datetime, DwdForecastDate]) -> ValuesResult:
+    def read_mosmix(
+        self, date: Union[datetime, DwdForecastDate]
+    ) -> Generator[pd.DataFrame, None, None]:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -266,7 +276,7 @@ class DwdMosmixValues(ScalarValuesCore):
 class DwdMosmixRequest(ScalarRequestCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
-    _source = Source.DWD
+    _provider = Provider.DWD
     _tz = Timezone.GERMANY
     _parameter_base = DwdMosmixParameter
     _values = DwdMosmixValues
@@ -315,11 +325,13 @@ class DwdMosmixRequest(ScalarRequestCore):
     def __init__(
         self,
         mosmix_type: Union[str, DwdMosmixType],
-        parameter: Optional[Tuple[Union[str, DwdMosmixParameter]]] = None,
+        parameter: Optional[Tuple[Union[str, DwdMosmixParameter], ...]] = None,
         start_issue: Optional[
             Union[str, datetime, DwdForecastDate]
         ] = DwdForecastDate.LATEST,
         end_issue: Optional[Union[str, datetime]] = None,
+        start_date: Optional[Union[str, datetime]] = None,
+        end_date: Optional[Union[str, datetime]] = None,
         humanize_parameters: bool = True,
         tidy_data: bool = True,
     ) -> None:
@@ -327,8 +339,8 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         super().__init__(
             parameter=parameter,
-            start_date=None,
-            end_date=None,
+            start_date=start_date,
+            end_date=end_date,
             resolution=Resolution.HOURLY,
             period=Period.FUTURE,
         )

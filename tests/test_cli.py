@@ -26,13 +26,13 @@ SETTINGS_READINGS = [
 ]
 
 SETTINGS_STATION = [
-    "04411,07341",  # observation stations
-    "10488,67743",  # mosmix forecast stations
+    "01048",  # observation stations
+    "10488",  # mosmix forecast stations
 ]
 
-EXPECTED_STATION_NAMES = [
-    ["Schaafheim-Schlierbach", "Offenbach-Wetterpark"],
-    ["DRESDEN", "LIVINGSTONE"],
+EXPECTED_STATION_NAME = [
+    "Dresden-Klotzsche",
+    "DRESDEN",
 ]
 
 
@@ -115,7 +115,7 @@ def invoke_wetterdienst_stations_static(setting, station, fmt="json"):
 
 def invoke_wetterdienst_stations_geo(setting, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --latitude=49.9195 --longitude=8.9671 --number=5 "
+        f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --number=5 "
         f"--format={fmt}"
     )
     sys.argv = argv
@@ -138,7 +138,7 @@ def invoke_wetterdienst_values_static_tidy(setting, station, fmt="json"):
 
 def invoke_wetterdienst_values_geo(setting, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --latitude=49.9195 --longitude=8.9671 --number=5 "
+        f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --number=5 "
         f"--format={fmt}"
     )
     sys.argv = argv
@@ -146,10 +146,10 @@ def invoke_wetterdienst_values_geo(setting, fmt="json"):
 
 
 @pytest.mark.parametrize(
-    "setting,station,expected_station_names",
-    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAMES),
+    "setting,station,expected_station_name",
+    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAME),
 )
-def test_cli_stations_json(setting, station, expected_station_names, capsys):
+def test_cli_stations_json(setting, station, expected_station_name, capsys):
 
     invoke_wetterdienst_stations_static(setting=setting, station=station, fmt="json")
 
@@ -158,8 +158,7 @@ def test_cli_stations_json(setting, station, expected_station_names, capsys):
 
     station_names = [station["station_name"] for station in response]
 
-    for station_name in expected_station_names:
-        assert station_name in station_names
+    assert expected_station_name in station_names
 
 
 @pytest.mark.parametrize("setting", SETTINGS_STATIONS)
@@ -174,43 +173,41 @@ def test_cli_stations_empty(setting, caplog):
 
 # TODO: make forecasts formattable as GEOJSON/make to_geojson compatible with WMO_ID
 @pytest.mark.parametrize(
-    "setting,station,expected_station_names",
-    zip(SETTINGS_STATIONS[:1], SETTINGS_STATION[:1], EXPECTED_STATION_NAMES[:1]),
+    "setting,station,expected_station_name",
+    zip(SETTINGS_STATIONS[:1], SETTINGS_STATION[:1], EXPECTED_STATION_NAME[:1]),
 )
-def test_cli_stations_geojson(setting, station, expected_station_names, capsys):
+def test_cli_stations_geojson(setting, station, expected_station_name, capsys):
 
     invoke_wetterdienst_stations_static(setting=setting, station=station, fmt="geojson")
 
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)
 
-    assert len(response["features"]) == 2
+    assert len(response["features"]) == 1
 
     station_names = [station["properties"]["name"] for station in response["features"]]
 
-    for station_name in expected_station_names:
-        assert station_name in station_names
+    assert expected_station_name in station_names
 
 
 @pytest.mark.parametrize(
-    "setting,station,expected_station_names",
-    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAMES),
+    "setting,station,expected_station_name",
+    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAME),
 )
-def test_cli_stations_csv(setting, station, expected_station_names, capsys):
+def test_cli_stations_csv(setting, station, expected_station_name, capsys):
 
     invoke_wetterdienst_stations_static(setting=setting, station=station, fmt="csv")
 
     stdout, stderr = capsys.readouterr()
 
-    for station_name in expected_station_names:
-        assert station_name in stdout
+    assert expected_station_name in stdout
 
 
 @pytest.mark.parametrize(
-    "setting,station,expected_station_names",
-    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAMES),
+    "setting,station,expected_station_name",
+    zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAME),
 )
-def test_cli_stations_excel(setting, station, expected_station_names, capsys):
+def test_cli_stations_excel(setting, station, expected_station_name, capsys):
 
     invoke_wetterdienst_stations_static(setting=setting, station=station, fmt="excel")
 
@@ -219,8 +216,7 @@ def test_cli_stations_excel(setting, station, expected_station_names, capsys):
     with zipfile.ZipFile(filename, "r") as zip_file:
         payload = zip_file.read("xl/worksheets/sheet1.xml")
 
-        for station_name in expected_station_names:
-            assert bytes(station_name, encoding="utf8") in payload
+        assert bytes(expected_station_name, encoding="utf8") in payload
 
 
 @pytest.mark.parametrize(
@@ -235,8 +231,7 @@ def test_cli_readings_json(setting, station, capsys):
 
     station_ids = list(set([reading["station_id"] for reading in response]))
 
-    for s in station.split(","):
-        assert s in station_ids
+    assert station in station_ids
 
     first = response[0]
     assert set(first.keys()).issuperset(
@@ -273,25 +268,19 @@ def test_cli_readings_json_tidy(setting, station, capsys):
 
     station_ids = list(set([reading["station_id"] for reading in response]))
 
-    for s in station.split(","):
-        assert s in station_ids
+    assert station in station_ids
 
     first = response[0]
 
-    # TODO: align/unify this after setting up a data model
-    assert list(first.keys()) == [
-        "station_id",
-        "date",
-        "parameter_set",
-        "parameter",
-        "value",
-        "quality",
-    ] or list(first.keys()) == [
-        "station_id",
-        "date",
-        "parameter",
-        "value",
-    ]
+    assert set(first.keys()).issuperset(
+        {
+            "station_id",
+            "date",
+            "parameter",
+            "value",
+            "quality",
+        }
+    )
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
@@ -313,8 +302,7 @@ def test_cli_readings_csv(setting, station, capsys):
 
     stdout, stderr = capsys.readouterr()
 
-    for s in station.split(","):
-        assert s in stdout
+    assert station in stdout
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
@@ -327,8 +315,7 @@ def test_cli_readings_excel(setting, station):
     with zipfile.ZipFile(filename, "r") as zip_file:
         payload = zip_file.read("xl/worksheets/sheet1.xml")
 
-        for s in station.split(","):
-            assert bytes(s, encoding="utf8") in payload
+        assert bytes(station, encoding="utf8") in payload
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
@@ -343,8 +330,10 @@ def test_cli_readings_format_unknown(setting, station, caplog):
     assert "Unknown output format" in caplog.text
 
 
-@pytest.mark.parametrize("setting", SETTINGS_STATIONS[:1])
-def test_cli_stations_geospatial(setting, capsys):
+@pytest.mark.parametrize(
+    "setting,station", zip(SETTINGS_STATIONS, EXPECTED_STATION_NAME)
+)
+def test_cli_stations_geospatial(setting, station, capsys):
 
     invoke_wetterdienst_stations_geo(setting=setting, fmt="json")
 
@@ -353,17 +342,7 @@ def test_cli_stations_geospatial(setting, capsys):
 
     station_names = [station["station_name"] for station in response]
 
-    assert "Schaafheim-Schlierbach" in station_names
-    assert "Offenbach-Wetterpark" in station_names
-
-    # Please remove if too flakey.
-    assert station_names == [
-        "Schaafheim-Schlierbach",
-        "Kahl/Main",
-        "Michelstadt-Vielbrunn",
-        "Offenbach-Wetterpark",
-        "Michelstadt",
-    ]
+    assert station in station_names
 
 
 @pytest.mark.parametrize(
@@ -378,6 +357,4 @@ def test_cli_readings_geospatial(setting, station, capsys):
 
     station_ids = list(set([reading["station_id"] for reading in response]))
 
-    for s in station.split(","):
-        assert s in station_ids
-        assert s in station_ids
+    assert station in station_ids
