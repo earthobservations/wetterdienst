@@ -8,6 +8,8 @@ Development
   values request
 - Add accessor .values to Stations class to get straight to values for a request
 - Rename Stations to Request and use upper camel case e.g. DwdObservationRequest
+- Add top-level API
+- Fix issue with Mosmix station location
 
 0.14.1 (21.02.2021)
 *******************

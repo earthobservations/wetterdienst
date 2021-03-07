@@ -30,7 +30,6 @@ def test_get_coordinates_in_radians():
 
 def test_dms_to_dd():
     """ Test conversion from degree minute second to decimal degree """
-
     # test Mosmix station Muenster/Osnabrueck
-    assert convert_dm_to_dd(7.7) == 7.42
-    assert convert_dm_to_dd(52.13) == 52.08
+    assert convert_dm_to_dd(7.42) == 7.7
+    assert convert_dm_to_dd(52.08) == 52.13

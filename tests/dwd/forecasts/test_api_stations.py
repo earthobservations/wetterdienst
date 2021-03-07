@@ -29,8 +29,8 @@ def test_dwd_mosmix_stations_success():
                 "FROM_DATE": pd.to_datetime([pd.NA], utc=True),
                 "TO_DATE": pd.to_datetime([pd.NaT], utc=True),
                 "HEIGHT": [10.0],
-                "LATITUDE": [70.34],
-                "LONGITUDE": [-8.64],
+                "LATITUDE": [70.93],
+                "LONGITUDE": [-8.0],
                 "STATION_NAME": ["JAN MAYEN"],
                 "STATE": ["nan"],
             }

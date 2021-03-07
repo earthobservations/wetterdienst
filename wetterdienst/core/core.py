@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pytz import timezone
 
-from wetterdienst.metadata.source import Source
+from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.timezone import Timezone
 
 
@@ -31,7 +31,7 @@ class Core(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def _source(self) -> Source:
+    def _provider(self) -> Provider:
         """Abstract representation of source that is related to the request, used for
         identification of returned data"""
         pass

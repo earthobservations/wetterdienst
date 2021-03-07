@@ -33,8 +33,14 @@ def test_dwd_mosmix_l():
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
-    assert len(response.df.columns) == 4
-    assert list(response.df.columns) == ["STATION_ID", "DATE", "PARAMETER", "VALUE"]
+    assert len(response.df.columns) == 5
+    assert list(response.df.columns) == [
+        "STATION_ID",
+        "DATE",
+        "PARAMETER",
+        "VALUE",
+        "QUALITY",
+    ]
 
     assert set(response.df["PARAMETER"]).issuperset(
         [
@@ -184,8 +190,14 @@ def test_dwd_mosmix_s():
     assert station_ids == ["01028"]
     assert len(response.df) > 200
 
-    assert len(response.df.columns) == 4
-    assert list(response.df.columns) == ["STATION_ID", "DATE", "PARAMETER", "VALUE"]
+    assert len(response.df.columns) == 5
+    assert list(response.df.columns) == [
+        "STATION_ID",
+        "DATE",
+        "PARAMETER",
+        "VALUE",
+        "QUALITY",
+    ]
 
     assert set(response.df["PARAMETER"]).issuperset(
         [
@@ -244,7 +256,7 @@ def test_mosmix_l_parameters():
         parameter=["DD", "ww"],
         humanize_parameters=False,
     ).filter(
-        station_id=["01001"],
+        station_id=("01001", "123"),
     )
     response = next(request.values.query())
 
@@ -253,11 +265,12 @@ def test_mosmix_l_parameters():
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
-    assert len(response.df.columns) == 4
+    assert len(response.df.columns) == 5
     assert list(response.df.columns) == [
         "STATION_ID",
         "DATE",
         "PARAMETER",
         "VALUE",
+        "QUALITY",
     ]
     assert set(response.df["PARAMETER"]).issuperset(["DD", "ww"])

@@ -4,7 +4,7 @@
 from enum import Enum
 
 
-class Source(Enum):
+class Provider(Enum):
     """Source of weather information given as tuple of local name, english name and
     country"""
 

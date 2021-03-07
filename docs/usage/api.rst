@@ -19,6 +19,27 @@ you might want to try the :ref:`cli`.
 
 .. _example: https://github.com/earthobservations/wetterdienst/tree/main/example
 
+Available APIs
+==============
+
+The available APIs can be accessed by the top-level API Wetterdienst. This API also
+allows the user to discover the available APIs of each service included:
+
+.. ipython:: python
+
+    from wetterdienst import Wetterdienst
+
+    Wetterdienst.discover()
+
+To load any of the available APIs pass the provider and the kind of data to the
+Wetterdienst API:
+
+.. ipython:: python
+
+    from wetterdienst import Wetterdienst
+
+    API = Wetterdienst("dwd", "observation")
+
 Request arguments
 =================
 

@@ -239,7 +239,7 @@ class ScalarRequestCore(Core):
 
         return result
 
-    def filter(self, station_id: Tuple[str]) -> "StationsResult":
+    def filter(self, station_id: Tuple[str, ...]) -> "StationsResult":
         # TODO: add queries for the given possible parameters
         # TODO: eventually add other parameters from nearby_... and use DataFrame of
         #  them instead

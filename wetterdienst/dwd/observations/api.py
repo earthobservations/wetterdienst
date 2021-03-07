@@ -55,8 +55,8 @@ from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidParameter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.metadata.source import Source
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.enumeration import (
     parse_enumeration,
@@ -72,7 +72,7 @@ class DwdObservationValues(ScalarValuesCore):
     observation data as provided by the DWD service.
     """
 
-    _source = Source.DWD
+    _provider = Provider.DWD
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = True
@@ -360,7 +360,7 @@ class DwdObservationRequest(ScalarRequestCore):
 
     _values = DwdObservationValues
     _parameter_base = DwdObservationParameter
-    _source = Source.DWD
+    _provider = Provider.DWD
     _tz = Timezone.GERMANY
 
     _resolution_type = ResolutionType.MULTI

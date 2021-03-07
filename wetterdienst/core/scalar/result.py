@@ -34,8 +34,8 @@ class StationsResult:
         return (self.stations == other.stations) and self.df.equals(other.df)
 
     @property
-    def source(self):
-        return self.stations._source
+    def provider(self):
+        return self.stations._provider
 
     @property
     def now(self):
