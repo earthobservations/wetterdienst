@@ -33,7 +33,7 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     STRING_PARAMETERS,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
-    DWDObservationParameterSetStructure,
+    DwdObservationParameterSetStructure,
 )
 from wetterdienst.dwd.observations.metadata.parameter_set import (
     RESOLUTION_PARAMETER_MAPPING,
@@ -119,7 +119,7 @@ class DwdObservationValues(ScalarValuesCore):
         parameter, parameter_set = parameter
 
         if parameter != parameter_set:
-            # parameter = [*DWDObservationParameterSetStructure[self.resolution.name]
+            # parameter = [*DwdObservationParameterSetStructure[self.resolution.name]
             # [parameter_set.name]]
             df = super(DwdObservationValues, self)._get_empty_station_parameter_df(
                 station_id, parameter
@@ -131,7 +131,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         # Get parameters from enum
         parameter = [
-            *DWDObservationParameterSetStructure[self.stations.resolution.name][
+            *DwdObservationParameterSetStructure[self.stations.resolution.name][
                 parameter_set.name
             ]
         ]
@@ -175,7 +175,7 @@ class DwdObservationValues(ScalarValuesCore):
             for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
                 parameter = parse_enumeration_from_template(
                     parameter,
-                    DWDObservationParameterSetStructure[self.stations.resolution.name][
+                    DwdObservationParameterSetStructure[self.stations.resolution.name][
                         parameter_set.name
                     ],
                 )

@@ -8,7 +8,7 @@ from wetterdienst.dwd.observations.metadata import (
     DwdObservationParameterSet,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
-    DWDObservationParameterSetStructure,
+    PARAMETER_TO_PARAMETER_MAPPING,
 )
 from wetterdienst.dwd.observations.metadata.parameter_set import (
     RESOLUTION_PARAMETER_MAPPING,
@@ -28,43 +28,28 @@ def create_parameter_to_parameter_set_combination(
 ]:
     """Function to create a mapping from a requested parameter to a provided parameter
     set which has to be downloaded first to extract the parameter from it"""
-    parameter_set_enums = [
-        value
-        for key, value in DWDObservationParameterSetStructure[
-            resolution.name
-        ].__dict__.items()
-        if not key.startswith("_")
-    ]
-
-    for parameter_set_enum in parameter_set_enums:
-        try:
-            parameter_ = parse_enumeration_from_template(
-                parameter,
-                DWDObservationParameterSetStructure[resolution.name][
-                    parameter_set_enum.__name__
-                ],
-            )
-
-            parameter_set = parse_enumeration_from_template(
-                parameter_set_enum.__name__, DwdObservationParameterSet
-            )
-
-            return parameter_, parameter_set
-        except InvalidEnumeration:
-            pass
-
     try:
-        parameter_set = parse_enumeration_from_template(
-            parameter, DwdObservationParameterSet
+        parameter_ = parse_enumeration_from_template(
+            parameter, DwdObservationParameter[resolution.name]
         )
-        return parameter_set, parameter_set
-    except InvalidEnumeration:
-        pass
 
-    raise InvalidParameter(
-        f"parameter {parameter} could not be parsed for "
-        f"time resolution {resolution}"
-    )
+        parameter = PARAMETER_TO_PARAMETER_MAPPING[resolution][parameter_]
+
+        return parameter, parse_enumeration_from_template(
+            parameter.__class__.__name__, DwdObservationParameterSet
+        )
+    except (KeyError, InvalidEnumeration):
+        try:
+            parameter_set = parse_enumeration_from_template(
+                parameter, DwdObservationParameterSet
+            )
+
+            return parameter_set, parameter_set
+        except InvalidEnumeration:
+            raise InvalidParameter(
+                f"parameter {parameter} could not be parsed for "
+                f"time resolution {resolution}"
+            )
 
 
 def check_dwd_observations_parameter_set(

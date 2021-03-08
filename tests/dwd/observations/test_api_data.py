@@ -17,7 +17,7 @@ from wetterdienst.dwd.observations import (
 from wetterdienst.dwd.observations.api import DwdObservationRequest
 from wetterdienst.dwd.observations.metadata.parameter import (
     DwdObservationParameter,
-    DWDObservationParameterSetStructure,
+    DwdObservationParameterSetStructure,
 )
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
@@ -91,8 +91,8 @@ def test_dwd_observation_data_parameter():
 
     assert request.parameter == [
         (
-            DWDObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
-            DwdObservationParameterSet.CLIMATE_SUMMARY,
+            DwdObservationParameterSetStructure.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
+            DwdObservationParameterSet.PRECIPITATION_MORE,
         )
     ]
 

@@ -13,7 +13,7 @@ from wetterdienst.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
 from wetterdienst.dwd.observations.metadata.parameter import (
-    DWDObservationParameterSetStructure,
+    DwdObservationParameterSetStructure,
 )
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -23,12 +23,12 @@ log = logging.getLogger(__name__)
 # Parameter names used to create full 1 minute precipitation dataset wherever those
 # columns are missing (which is the case for non historical data)
 PRECIPITATION_PARAMETERS = (
-    DWDObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,  # Noqa: E501, B950
-    DWDObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,  # Noqa: E501, B950
+    DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,  # Noqa: E501, B950
+    DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,  # Noqa: E501, B950
 )
 
 PRECIPITATION_MINUTE_1_QUALITY = (
-    DWDObservationParameterSetStructure.MINUTE_1.PRECIPITATION.QUALITY
+    DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.QUALITY
 )
 
 
@@ -122,13 +122,13 @@ def _parse_climate_observations_data(
         df = df.rename(
             columns={
                 "MESS_DATUM_WOZ": (
-                    DWDObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501, B950
+                    DwdObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501, B950
                 ),
             }
         )
 
         # Duplicate the date column to end of interval column
-        df[DWDObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[
+        df[DwdObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[
             DWDOrigMetaColumns.DATE.value
         ]
 
