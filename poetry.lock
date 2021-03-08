@@ -1,12 +1,4 @@
 [[package]]
-name = "aenum"
-version = "2.2.6"
-description = "Advanced Enumerations (compatible with Python's stdlib Enum), NamedTuples, and NamedConstants"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "aiohttp"
 version = "3.7.4.post0"
 description = "Async http client/server framework (asyncio)"
@@ -353,7 +345,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*"
 
 [[package]]
 name = "defusedxml"
-version = "0.7.0"
+version = "0.7.1"
 description = "XML bomb protection for Python stdlib modules"
 category = "dev"
 optional = false
@@ -2374,14 +2366,9 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "1716f3f69ee910bcd2c027caea50b54ccf8c79f26fd4b7a19877a016f0a546e6"
+content-hash = "e1ee66c1d1787421d2a9bb8b4a262d55ff163a751b99219100efa1e823bd05e0"
 
 [metadata.files]
-aenum = [
-    {file = "aenum-2.2.6-py2-none-any.whl", hash = "sha256:aaebe735508d9cbc72cd6adfb59660a5e676dfbeb6fb24fb090041e7ddb8d3b3"},
-    {file = "aenum-2.2.6-py3-none-any.whl", hash = "sha256:f9d20f7302ce3dc3639b3f75c3b3e146f3b22409a6b4513c1f0bd6dbdfcbd8c1"},
-    {file = "aenum-2.2.6.tar.gz", hash = "sha256:260225470b49429f5893a195a8b99c73a8d182be42bf90c37c93e7b20e44eaae"},
-]
 aiohttp = [
     {file = "aiohttp-3.7.4.post0-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:3cf75f7cdc2397ed4442594b935a11ed5569961333d49b7539ea741be2cc79d5"},
     {file = "aiohttp-3.7.4.post0-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:4b302b45040890cea949ad092479e01ba25911a15e648429c7c5aae9650c67a8"},
@@ -2676,8 +2663,8 @@ decorator = [
     {file = "decorator-4.4.2.tar.gz", hash = "sha256:e3a62f0520172440ca0dcc823749319382e377f37f140a0b99ef45fecb84bfe7"},
 ]
 defusedxml = [
-    {file = "defusedxml-0.7.0-py2.py3-none-any.whl", hash = "sha256:a290cad10346ed366c8a0133d868eaf6585ec6afdd0c511286cdb11f5fc3d285"},
-    {file = "defusedxml-0.7.0.tar.gz", hash = "sha256:86b15d9e3c639de79f4cb38aeffea3281f62aff78dde7d798e1352c63bfa6ea0"},
+    {file = "defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61"},
+    {file = "defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69"},
 ]
 dephell = [
     {file = "dephell-0.8.3-py3-none-any.whl", hash = "sha256:3ca3661e2a353b5c67c77034b69b379e360d4c70ce562e8161db32d39064be5a"},

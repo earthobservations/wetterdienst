@@ -6,7 +6,7 @@ from wetterdienst.dwd.observations.metadata import (
     DwdObservationParameterSet,
 )
 from wetterdienst.dwd.observations.metadata.parameter import (
-    DWDObservationParameterSetStructure,
+    DwdObservationParameterSetStructure,
 )
 from wetterdienst.dwd.observations.util.parameter import (
     check_dwd_observations_parameter_set,
@@ -23,17 +23,17 @@ def test_create_parameter_to_parameter_set_combination():
     )
 
     assert par_to_par_set_combination == (
-        DWDObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
+        DwdObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
         DwdObservationParameterSet.PRECIPITATION,
     )
 
     par_to_par_set_combination = create_parameter_to_parameter_set_combination(
-        parameter=DWDObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
+        parameter=DwdObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
         resolution=Resolution.MINUTE_10,
     )
 
     assert par_to_par_set_combination == (
-        DWDObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
+        DwdObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
         DwdObservationParameterSet.PRECIPITATION,
     )
 

@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.parameter import WDParameterStructureBase
 
 
@@ -117,7 +118,7 @@ class DwdObservationParameter(WDParameterStructureBase):
 
         # visibility
         VISIBILITY_INDICATOR = "V_VV_I"  # str
-        # VISIBILITY = "V_VV"  # int
+        VISIBILITY = "V_VV"  # int
 
         # wind
         WIND_SPEED = "F"
@@ -273,7 +274,7 @@ class DwdObservationParameter(WDParameterStructureBase):
         DEW = "JA_TAU"  # int
 
 
-class DWDObservationParameterSetStructure(WDParameterStructureBase):
+class DwdObservationParameterSetStructure(WDParameterStructureBase):
     """
     Original data column names from DWD data
     Two anomalies:
@@ -626,3 +627,233 @@ class DWDObservationParameterSetStructure(WDParameterStructureBase):
             HAIL = "JA_HAGEL"  # int
             FOG = "JA_NEBEL"  # int
             DEW = "JA_TAU"  # int
+
+
+PARAMETER_TO_PARAMETER_MAPPING = {
+    Resolution.MINUTE_1: {
+        # precipitation
+        DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT: DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_DROPLET: DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET,
+        DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_ROCKER: DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER,
+        DwdObservationParameter.MINUTE_1.PRECIPITATION_FORM: DwdObservationParameterSetStructure.MINUTE_1.PRECIPITATION.PRECIPITATION_FORM,
+    },
+    Resolution.MINUTE_10: {
+        # air_temperature
+        DwdObservationParameter.MINUTE_10.PRESSURE_AIR_STATION_HEIGHT: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_STATION_HEIGHT,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_200: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_AIR.TEMPERATURE_AIR_200,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_005: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_AIR.TEMPERATURE_AIR_005,
+        DwdObservationParameter.MINUTE_10.HUMIDITY: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_AIR.HUMIDITY,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_DEW_POINT_200: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_AIR.TEMPERATURE_DEW_POINT_200,
+        # extreme_temperature
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MAX_200: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_EXTREME.TEMPERATURE_AIR_MAX_200,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MAX_005: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_EXTREME.TEMPERATURE_AIR_MAX_005,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MIN_200: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_EXTREME.TEMPERATURE_AIR_MIN_200,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MIN_005: DwdObservationParameterSetStructure.MINUTE_10.TEMPERATURE_EXTREME.TEMPERATURE_AIR_MIN_005,
+        # extreme_wind
+        DwdObservationParameter.MINUTE_10.WIND_GUST_MAX: DwdObservationParameterSetStructure.MINUTE_10.WIND_EXTREME.WIND_GUST_MAX,
+        DwdObservationParameter.MINUTE_10.WIND_SPEED_MIN: DwdObservationParameterSetStructure.MINUTE_10.WIND_EXTREME.WIND_SPEED_MIN,
+        DwdObservationParameter.MINUTE_10.WIND_SPEED_ROLLING_MEAN_MAX: DwdObservationParameterSetStructure.MINUTE_10.WIND_EXTREME.WIND_SPEED_ROLLING_MEAN_MAX,
+        DwdObservationParameter.MINUTE_10.WIND_DIRECTION_MAX_VELOCITY: DwdObservationParameterSetStructure.MINUTE_10.WIND_EXTREME.WIND_DIRECTION_MAX_VELOCITY,
+        # precipitation
+        DwdObservationParameter.MINUTE_10.PRECIPITATION_DURATION: DwdObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_DURATION,
+        DwdObservationParameter.MINUTE_10.PRECIPITATION_HEIGHT: DwdObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.MINUTE_10.PRECIPITATION_INDICATOR_WR: DwdObservationParameterSetStructure.MINUTE_10.PRECIPITATION.PRECIPITATION_INDICATOR_WR,
+        # solar
+        DwdObservationParameter.MINUTE_10.RADIATION_SKY_DIFFUSE: DwdObservationParameterSetStructure.MINUTE_10.SOLAR.RADIATION_SKY_DIFFUSE,
+        DwdObservationParameter.MINUTE_10.RADIATION_GLOBAL: DwdObservationParameterSetStructure.MINUTE_10.SOLAR.RADIATION_GLOBAL,
+        DwdObservationParameter.MINUTE_10.SUNSHINE_DURATION: DwdObservationParameterSetStructure.MINUTE_10.SOLAR.SUNSHINE_DURATION,
+        DwdObservationParameter.MINUTE_10.RADIATION_SKY_LONG_WAVE: DwdObservationParameterSetStructure.MINUTE_10.SOLAR.RADIATION_SKY_LONG_WAVE,
+        # wind
+        DwdObservationParameter.MINUTE_10.WIND_SPEED: DwdObservationParameterSetStructure.MINUTE_10.WIND.WIND_SPEED,
+        DwdObservationParameter.MINUTE_10.WIND_DIRECTION: DwdObservationParameterSetStructure.MINUTE_10.WIND.WIND_DIRECTION,
+    },
+    Resolution.HOURLY: {
+        # air_temperature
+        DwdObservationParameter.HOURLY.TEMPERATURE_AIR_200: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_AIR.TEMPERATURE_AIR_200,
+        DwdObservationParameter.HOURLY.HUMIDITY: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_AIR.HUMIDITY,
+        # cloudiness
+        DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL: DwdObservationParameterSetStructure.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL,
+        DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL_INDICATOR: DwdObservationParameterSetStructure.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR,
+        # cloud_type
+        # DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL: DwdObservationParameterSet.CLOUD_TYPE,
+        # DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL_INDICATOR: DwdObservationParameterSet.CLOUD_TYPE,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER1: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER1_ABBREVIATION: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION,
+        DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER1: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_HEIGHT_LAYER1,
+        DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER1: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_COVER_LAYER1,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER2: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER2_ABBREVIATION: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION,
+        DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER2: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_HEIGHT_LAYER2,
+        DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER2: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_COVER_LAYER2,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER3: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER3_ABBREVIATION: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION,
+        DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER3: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_HEIGHT_LAYER3,
+        DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER3: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_COVER_LAYER3,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER4: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4,
+        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER4_ABBREVIATION: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION,
+        DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER4: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_HEIGHT_LAYER4,
+        DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER4: DwdObservationParameterSetStructure.HOURLY.CLOUD_TYPE.CLOUD_COVER_LAYER4,
+        # dew_point
+        # TEMPERATURE_AIR_200: "TT"
+        DwdObservationParameter.HOURLY.TEMPERATURE_DEW_POINT_200: DwdObservationParameterSetStructure.HOURLY.DEW_POINT.TEMPERATURE_DEW_POINT_200,
+        # precipitation
+        DwdObservationParameter.HOURLY.PRECIPITATION_HEIGHT: DwdObservationParameterSetStructure.HOURLY.PRECIPITATION.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.HOURLY.PRECIPITATION_INDICATOR: DwdObservationParameterSetStructure.HOURLY.PRECIPITATION.PRECIPITATION_INDICATOR,
+        DwdObservationParameter.HOURLY.PRECIPITATION_FORM: DwdObservationParameterSetStructure.HOURLY.PRECIPITATION.PRECIPITATION_FORM,
+        # pressure
+        DwdObservationParameter.HOURLY.PRESSURE_AIR_SEA_LEVEL: DwdObservationParameterSetStructure.HOURLY.PRESSURE.PRESSURE_AIR_SEA_LEVEL,
+        DwdObservationParameter.HOURLY.PRESSURE_AIR_STATION_HEIGHT: DwdObservationParameterSetStructure.HOURLY.PRESSURE.PRESSURE_AIR_STATION_HEIGHT,
+        # soil_temperature
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_002: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_002,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_005: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_005,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_010: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_010,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_020: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_020,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_050: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_050,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_100: DwdObservationParameterSetStructure.HOURLY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_100,
+        # sun
+        DwdObservationParameter.HOURLY.SUNSHINE_DURATION: DwdObservationParameterSetStructure.HOURLY.SUN.SUNSHINE_DURATION,
+        # solar
+        DwdObservationParameter.HOURLY.END_OF_INTERVAL: DwdObservationParameterSetStructure.HOURLY.SOLAR.END_OF_INTERVAL,
+        DwdObservationParameter.HOURLY.RADIATION_SKY_LONG_WAVE: DwdObservationParameterSetStructure.HOURLY.SOLAR.RADIATION_SKY_LONG_WAVE,
+        DwdObservationParameter.HOURLY.RADIATION_SKY_SHORT_WAVE_DIFFUSE: DwdObservationParameterSetStructure.HOURLY.SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE,
+        DwdObservationParameter.HOURLY.RADIATION_GLOBAL: DwdObservationParameterSetStructure.HOURLY.SOLAR.RADIATION_GLOBAL,
+        # DwdObservationParameter.HOURLY.SUNSHINE_DURATION:                 DwdObservationParameterSetStructure.HOURLY.SOLAR.SUNSHINE_DURATION,
+        DwdObservationParameter.HOURLY.SUN_ZENITH: DwdObservationParameterSetStructure.HOURLY.SOLAR.SUN_ZENITH,
+        DwdObservationParameter.HOURLY.TRUE_LOCAL_TIME: DwdObservationParameterSetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME,
+        # visibility
+        DwdObservationParameter.HOURLY.VISIBILITY_INDICATOR: DwdObservationParameterSetStructure.HOURLY.VISIBILITY.VISIBILITY_INDICATOR,
+        DwdObservationParameter.HOURLY.VISIBILITY: DwdObservationParameterSetStructure.HOURLY.VISIBILITY.VISIBILITY,
+        # wind
+        DwdObservationParameter.HOURLY.WIND_SPEED: DwdObservationParameterSetStructure.HOURLY.WIND.WIND_SPEED,
+        DwdObservationParameter.HOURLY.WIND_DIRECTION: DwdObservationParameterSetStructure.HOURLY.WIND.WIND_DIRECTION,
+        # wind_synop
+        # DwdObservationParameter.HOURLY.WIND_SPEED: "FF"
+        # DwdObservationParameter.HOURLY.WIND_DIRECTION: "DD"  # int
+    },
+    Resolution.SUBDAILY: {
+        # air_temperature
+        DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_200: DwdObservationParameterSetStructure.SUBDAILY.TEMPERATURE_AIR.TEMPERATURE_AIR_200,
+        DwdObservationParameter.SUBDAILY.HUMIDITY: DwdObservationParameterSetStructure.SUBDAILY.TEMPERATURE_AIR.HUMIDITY,
+        # cloudiness
+        DwdObservationParameter.SUBDAILY.CLOUD_COVER_TOTAL: DwdObservationParameterSetStructure.SUBDAILY.CLOUDINESS.CLOUD_COVER_TOTAL,
+        DwdObservationParameter.SUBDAILY.CLOUD_DENSITY: DwdObservationParameterSetStructure.SUBDAILY.CLOUDINESS.CLOUD_DENSITY,
+        # moisture
+        DwdObservationParameter.SUBDAILY.PRESSURE_VAPOR: DwdObservationParameterSetStructure.SUBDAILY.MOISTURE.PRESSURE_VAPOR,
+        DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_005: DwdObservationParameterSetStructure.SUBDAILY.MOISTURE.TEMPERATURE_AIR_005,
+        # TEMPERATURE_AIR_200: "TF_TER"
+        # HUMIDITY: "RF_TER"
+        # pressure
+        DwdObservationParameter.SUBDAILY.PRESSURE_AIR: DwdObservationParameterSetStructure.SUBDAILY.PRESSURE.PRESSURE_AIR,
+        # soil
+        DwdObservationParameter.SUBDAILY.TEMPERATURE_SOIL_005: DwdObservationParameterSetStructure.SUBDAILY.SOIL.TEMPERATURE_SOIL_005,
+        # visibility
+        DwdObservationParameter.SUBDAILY.VISIBILITY: DwdObservationParameterSetStructure.SUBDAILY.VISIBILITY.VISIBILITY,
+        # wind
+        DwdObservationParameter.SUBDAILY.WIND_DIRECTION: DwdObservationParameterSetStructure.SUBDAILY.WIND.WIND_DIRECTION,
+        DwdObservationParameter.SUBDAILY.WIND_FORCE_BEAUFORT: DwdObservationParameterSetStructure.SUBDAILY.WIND.WIND_FORCE_BEAUFORT,
+    },
+    Resolution.DAILY: {
+        # more_precip
+        DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: DwdObservationParameterSetStructure.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.DAILY.PRECIPITATION_FORM: DwdObservationParameterSetStructure.DAILY.PRECIPITATION_MORE.PRECIPITATION_FORM,
+        DwdObservationParameter.DAILY.SNOW_DEPTH: DwdObservationParameterSetStructure.DAILY.PRECIPITATION_MORE.SNOW_DEPTH,
+        DwdObservationParameter.DAILY.SNOW_DEPTH_NEW: DwdObservationParameterSetStructure.DAILY.PRECIPITATION_MORE.SNOW_DEPTH_NEW,
+        # solar
+        DwdObservationParameter.DAILY.RADIATION_SKY_LONG_WAVE: DwdObservationParameterSetStructure.DAILY.SOLAR.RADIATION_SKY_LONG_WAVE,
+        DwdObservationParameter.DAILY.RADIATION_SKY_SHORT_WAVE_DIFFUSE: DwdObservationParameterSetStructure.DAILY.SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE,
+        DwdObservationParameter.DAILY.RADIATION_SKY_SHORT_WAVE_DIRECT: DwdObservationParameterSetStructure.DAILY.SOLAR.RADIATION_SKY_SHORT_WAVE_DIRECT,
+        DwdObservationParameter.DAILY.SUNSHINE_DURATION: DwdObservationParameterSetStructure.DAILY.SOLAR.SUNSHINE_DURATION,
+        # kl
+        DwdObservationParameter.DAILY.WIND_GUST_MAX: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.WIND_GUST_MAX,
+        DwdObservationParameter.DAILY.WIND_SPEED: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.WIND_SPEED,
+        # DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: "RSK",
+        # DwdObservationParameter.DAILY.PRECIPITATION_FORM: "RSKF",
+        # DwdObservationParameter.DAILY.SUNSHINE_DURATION: DwdObservationParameterSet.CLIMATE_SUMMARY,
+        # DwdObservationParameter.DAILY.SNOW_DEPTH: "SHK_TAG",
+        DwdObservationParameter.DAILY.CLOUD_COVER_TOTAL: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.CLOUD_COVER_TOTAL,
+        DwdObservationParameter.DAILY.PRESSURE_VAPOR: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.PRESSURE_VAPOR,
+        DwdObservationParameter.DAILY.PRESSURE_AIR: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.PRESSURE_AIR,
+        DwdObservationParameter.DAILY.TEMPERATURE_AIR_200: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_200,
+        DwdObservationParameter.DAILY.HUMIDITY: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.HUMIDITY,
+        DwdObservationParameter.DAILY.TEMPERATURE_AIR_MAX_200: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
+        DwdObservationParameter.DAILY.TEMPERATURE_AIR_MIN_200: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
+        DwdObservationParameter.DAILY.TEMPERATURE_AIR_MIN_005: DwdObservationParameterSetStructure.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_005,
+        # soil_temperature
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_002: DwdObservationParameterSetStructure.DAILY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_002,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_005: DwdObservationParameterSetStructure.DAILY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_005,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_010: DwdObservationParameterSetStructure.DAILY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_010,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_020: DwdObservationParameterSetStructure.DAILY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_020,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_050: DwdObservationParameterSetStructure.DAILY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_050,
+        # water_equiv
+        DwdObservationParameter.DAILY.SNOW_DEPTH_EXCELLED: DwdObservationParameterSetStructure.DAILY.WATER_EQUIVALENT.SNOW_DEPTH_EXCELLED,
+        # SNOW_DEPTH: "SH_TAG"  # int
+        DwdObservationParameter.DAILY.WATER_EQUIVALENT_TOTAL_SNOW_DEPTH: DwdObservationParameterSetStructure.DAILY.WATER_EQUIVALENT.WATER_EQUIVALENT_TOTAL_SNOW_DEPTH,
+        DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW: DwdObservationParameterSetStructure.DAILY.WATER_EQUIVALENT.WATER_EQUIVALENT_SNOW,
+        # weather_phenomena
+        DwdObservationParameter.DAILY.FOG: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.FOG,
+        DwdObservationParameter.DAILY.THUNDER: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.THUNDER,
+        DwdObservationParameter.DAILY.STORM_STRONG_WIND: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.STORM_STRONG_WIND,
+        DwdObservationParameter.DAILY.STORM_STORMIER_WIND: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.STORM_STORMIER_WIND,
+        DwdObservationParameter.DAILY.DEW: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.DEW,
+        DwdObservationParameter.DAILY.GLAZE: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.GLAZE,
+        DwdObservationParameter.DAILY.RIPE: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.RIPE,
+        DwdObservationParameter.DAILY.SLEET: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.SLEET,
+        DwdObservationParameter.DAILY.HAIL: DwdObservationParameterSetStructure.DAILY.WEATHER_PHENOMENA.HAIL,
+    },
+    Resolution.MONTHLY: {
+        # more_precip
+        DwdObservationParameter.MONTHLY.SNOW_DEPTH_NEW: DwdObservationParameterSetStructure.MONTHLY.PRECIPITATION_MORE.SNOW_DEPTH_NEW,
+        DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT: DwdObservationParameterSetStructure.MONTHLY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.MONTHLY.SNOW_DEPTH: DwdObservationParameterSetStructure.MONTHLY.PRECIPITATION_MORE.SNOW_DEPTH,
+        DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT_MAX: DwdObservationParameterSetStructure.MONTHLY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT_MAX,
+        # kl
+        DwdObservationParameter.MONTHLY.CLOUD_COVER_TOTAL: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.CLOUD_COVER_TOTAL,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_200: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.TEMPERATURE_AIR_200,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MAX_MEAN_200: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_MEAN_200,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MIN_MEAN_200: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_MEAN_200,
+        DwdObservationParameter.MONTHLY.WIND_FORCE_BEAUFORT: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.WIND_FORCE_BEAUFORT,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MAX_200: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
+        DwdObservationParameter.MONTHLY.WIND_GUST_MAX: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.WIND_GUST_MAX,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MIN_200: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
+        DwdObservationParameter.MONTHLY.SUNSHINE_DURATION: DwdObservationParameterSetStructure.MONTHLY.CLIMATE_SUMMARY.SUNSHINE_DURATION,
+        # DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT: DwdObservationParameterSet.CLIMATE_SUMMARY,
+        # DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT_MAX: DwdObservationParameterSet.CLIMATE_SUMMARY,
+        # weather_phenomena
+        DwdObservationParameter.MONTHLY.STORM_STRONG_WIND: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.STORM_STRONG_WIND,
+        DwdObservationParameter.MONTHLY.STORM_STORMIER_WIND: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.STORM_STORMIER_WIND,
+        DwdObservationParameter.MONTHLY.THUNDER: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.THUNDER,
+        DwdObservationParameter.MONTHLY.GLAZE: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.GLAZE,
+        DwdObservationParameter.MONTHLY.SLEET: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.SLEET,
+        DwdObservationParameter.MONTHLY.HAIL: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.HAIL,
+        DwdObservationParameter.MONTHLY.FOG: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.FOG,
+        DwdObservationParameter.MONTHLY.DEW: DwdObservationParameterSetStructure.MONTHLY.WEATHER_PHENOMENA.DEW,
+    },
+    Resolution.ANNUAL: {
+        # more_precip
+        DwdObservationParameter.ANNUAL.SNOW_DEPTH_NEW: DwdObservationParameterSetStructure.ANNUAL.PRECIPITATION_MORE.SNOW_DEPTH_NEW,
+        DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT: DwdObservationParameterSetStructure.ANNUAL.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.ANNUAL.SNOW_DEPTH: DwdObservationParameterSetStructure.ANNUAL.PRECIPITATION_MORE.SNOW_DEPTH,
+        DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: DwdObservationParameterSetStructure.ANNUAL.PRECIPITATION_MORE.PRECIPITATION_HEIGHT_MAX,
+        # kl
+        DwdObservationParameter.ANNUAL.CLOUD_COVER_TOTAL: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.CLOUD_COVER_TOTAL,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_200: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_200,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MAX_MEAN_200: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_MEAN_200,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MIN_MEAN_200: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_MEAN_200,
+        DwdObservationParameter.ANNUAL.WIND_FORCE_BEAUFORT: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.WIND_FORCE_BEAUFORT,
+        DwdObservationParameter.ANNUAL.SUNSHINE_DURATION: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.SUNSHINE_DURATION,
+        DwdObservationParameter.ANNUAL.WIND_GUST_MAX: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.WIND_GUST_MAX,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MAX_200: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MIN_200: DwdObservationParameterSetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
+        # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT: "JA_RR",
+        # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: "JA_MX_RS",
+        # weather_phenomena
+        DwdObservationParameter.ANNUAL.STORM_STRONG_WIND: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.STORM_STRONG_WIND,
+        DwdObservationParameter.ANNUAL.STORM_STORMIER_WIND: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.STORM_STORMIER_WIND,
+        DwdObservationParameter.ANNUAL.THUNDER: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.THUNDER,
+        DwdObservationParameter.ANNUAL.GLAZE: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.GLAZE,
+        DwdObservationParameter.ANNUAL.SLEET: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.SLEET,
+        DwdObservationParameter.ANNUAL.HAIL: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.HAIL,
+        DwdObservationParameter.ANNUAL.FOG: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.FOG,
+        DwdObservationParameter.ANNUAL.DEW: DwdObservationParameterSetStructure.ANNUAL.WEATHER_PHENOMENA.DEW,
+    },
+}

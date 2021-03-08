@@ -4,7 +4,7 @@ Changelog
 Development
 ***********
 
-...
+- Use direct mapping to get a parameter set for a parameter
 
 0.15.0 (07.03.2021)
 *******************

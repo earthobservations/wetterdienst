@@ -105,6 +105,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 2
 
 
+@pytest.mark.xfail
 def test_radar_request_radolan_cdc_most_recent():
     """
     Example for testing radar sites most recent RADOLAN_CDC.
