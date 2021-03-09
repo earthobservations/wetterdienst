@@ -10,14 +10,14 @@ import pytz
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
-    DwdObservationParameterSet,
+    DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
 from wetterdienst.dwd.observations.api import DwdObservationRequest
 from wetterdienst.dwd.observations.metadata.parameter import (
+    DwdObservationDatasetStructure,
     DwdObservationParameter,
-    DwdObservationParameterSetStructure,
 )
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
@@ -35,7 +35,7 @@ def test_dwd_observation_data_parameter_set():
     stations = request.filter(station_id=(1,))
 
     assert stations == DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
         start_date=None,
@@ -45,7 +45,7 @@ def test_dwd_observation_data_parameter_set():
     )
 
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
     ).filter(
@@ -53,7 +53,7 @@ def test_dwd_observation_data_parameter_set():
     )
 
     assert request == DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
         start_date=None,
@@ -64,8 +64,8 @@ def test_dwd_observation_data_parameter_set():
 
     assert request.parameter == [
         (
-            DwdObservationParameterSet.CLIMATE_SUMMARY,
-            DwdObservationParameterSet.CLIMATE_SUMMARY,
+            DwdObservationDataset.CLIMATE_SUMMARY,
+            DwdObservationDataset.CLIMATE_SUMMARY,
         )
     ]
 
@@ -91,8 +91,8 @@ def test_dwd_observation_data_parameter():
 
     assert request.parameter == [
         (
-            DwdObservationParameterSetStructure.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
-            DwdObservationParameterSet.PRECIPITATION_MORE,
+            DwdObservationDatasetStructure.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
+            DwdObservationDataset.PRECIPITATION_MORE,
         )
     ]
 
@@ -101,7 +101,7 @@ def test_dwd_observation_data_fails():
     # station id
     assert (
         DwdObservationRequest(
-            parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+            parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
             period=[DwdObservationPeriod.HISTORICAL],
             resolution=DwdObservationResolution.DAILY,
         )
@@ -132,7 +132,7 @@ def test_dwd_observation_data_fails():
 def test_dwd_observation_data_dates():
     # time input
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
     ).filter(
@@ -140,7 +140,7 @@ def test_dwd_observation_data_dates():
     )
 
     assert request == DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[
             DwdObservationPeriod.HISTORICAL,
@@ -152,7 +152,7 @@ def test_dwd_observation_data_dates():
     )
 
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[DwdObservationPeriod.HISTORICAL],
         end_date="1971-01-01",
@@ -161,7 +161,7 @@ def test_dwd_observation_data_dates():
     )
 
     assert request == DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[
             DwdObservationPeriod.HISTORICAL,
@@ -174,7 +174,7 @@ def test_dwd_observation_data_dates():
 
     with pytest.raises(StartDateEndDateError):
         DwdObservationRequest(
-            parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+            parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
             resolution=DwdObservationResolution.DAILY,
             start_date="1971-01-01",
             end_date="1951-01-01",
@@ -184,7 +184,7 @@ def test_dwd_observation_data_dates():
 def test_dwd_observation_data_dynamic_period():
     # Historical period expected
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
     )
@@ -195,7 +195,7 @@ def test_dwd_observation_data_dynamic_period():
 
     # Historical and recent period expected
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
         end_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(days=400),
@@ -208,7 +208,7 @@ def test_dwd_observation_data_dynamic_period():
 
     # Historical, recent and now period expected
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
         end_date=pd.Timestamp(datetime.utcnow()),
@@ -225,7 +225,7 @@ def test_dwd_observation_data_dynamic_period():
 
     # Now period
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
     )
@@ -233,7 +233,7 @@ def test_dwd_observation_data_dynamic_period():
 
     # No period (for example in future)
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date=pd.Timestamp(datetime.utcnow()) + pd.Timedelta(days=720),
     )
@@ -245,7 +245,7 @@ def test_dwd_observation_data_result_missing_data():
     """Test for DataFrame having empty values for dates where the station should not
     have values"""
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
@@ -292,7 +292,7 @@ def test_dwd_observation_data_result_missing_data():
 def test_dwd_observation_data_result_untidy():
     """ Test for actual values (untidy) """
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
@@ -359,7 +359,7 @@ def test_dwd_observation_data_result_untidy():
 def test_dwd_observation_data_result_tidy():
     """ Test for actual values (tidy) """
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
@@ -630,7 +630,7 @@ def test_create_humanized_column_names_mapping():
     }
     hcnm = (
         DwdObservationRequest(
-            [DwdObservationParameterSet.CLIMATE_SUMMARY],
+            [DwdObservationDataset.CLIMATE_SUMMARY],
             DwdObservationResolution.DAILY,
             [DwdObservationPeriod.RECENT],
         )

@@ -8,8 +8,8 @@ from urllib.parse import urljoin
 import pandas as pd
 from dateparser import parse
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER, ArchiveFormat
+from wetterdienst.dwd.metadata.column_names import DwdColumns
+from wetterdienst.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.radar.metadata import (
     RADAR_PARAMETERS_COMPOSITES,
@@ -25,6 +25,7 @@ from wetterdienst.dwd.radar.metadata import (
 )
 from wetterdienst.dwd.radar.sites import DwdRadarSite
 from wetterdienst.dwd.radar.util import RADOLAN_DT_PATTERN, get_date_from_filename
+from wetterdienst.metadata.extension import Extension
 from wetterdienst.util.cache import fileindex_cache_five_minutes
 from wetterdienst.util.network import list_remote_files
 
@@ -88,7 +89,7 @@ def create_fileindex_radar(
     files_server = list_remote_files(url, recursive=True)
 
     files_server = pd.DataFrame(
-        files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
+        files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
     )
 
     # Some directories have both "---bin" and "---bufr" files within the same directory,
@@ -97,18 +98,18 @@ def create_fileindex_radar(
     if fmt is not None:
         if fmt == DwdRadarDataFormat.BINARY:
             files_server = files_server[
-                files_server[DWDMetaColumns.FILENAME.value].str.contains("--bin")
+                files_server[DwdColumns.FILENAME.value].str.contains("--bin")
             ]
         elif fmt == DwdRadarDataFormat.BUFR:
             files_server = files_server[
-                files_server[DWDMetaColumns.FILENAME.value].str.contains("--buf")
+                files_server[DwdColumns.FILENAME.value].str.contains("--buf")
             ]
 
     # Decode datetime of file for filtering.
     if parse_datetime:
 
-        files_server[DWDMetaColumns.DATETIME.value] = files_server[
-            DWDMetaColumns.FILENAME.value
+        files_server[DwdColumns.DATETIME.value] = files_server[
+            DwdColumns.FILENAME.value
         ].apply(get_date_from_filename)
 
         files_server = files_server.dropna()
@@ -139,16 +140,14 @@ def create_fileindex_radolan_cdc(
     )
 
     file_index = file_index[
-        file_index[DWDMetaColumns.FILENAME.value].str.contains("/bin/")
-        & file_index[DWDMetaColumns.FILENAME.value].str.endswith(
-            (ArchiveFormat.GZ.value, ArchiveFormat.TAR_GZ.value)
+        file_index[DwdColumns.FILENAME.value].str.contains("/bin/")
+        & file_index[DwdColumns.FILENAME.value].str.endswith(
+            (Extension.GZ.value, Extension.TAR_GZ.value)
         )
     ].copy()
 
     # Decode datetime of file for filtering.
-    file_index[DWDMetaColumns.DATETIME.value] = file_index[
-        DWDMetaColumns.FILENAME.value
-    ].apply(
+    file_index[DwdColumns.DATETIME.value] = file_index[DwdColumns.FILENAME.value].apply(
         lambda filename: parse(
             RADOLAN_DT_PATTERN.findall(filename)[0],
             date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value],

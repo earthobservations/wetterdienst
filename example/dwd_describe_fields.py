@@ -12,8 +12,8 @@ import logging
 from pprint import pprint
 
 from wetterdienst.dwd.observations import (
+    DwdObservationDataset,
     DwdObservationMetadata,
-    DwdObservationParameterSet,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
@@ -24,7 +24,7 @@ log = logging.getLogger()
 def fields_example():
 
     metadata = DwdObservationMetadata(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )

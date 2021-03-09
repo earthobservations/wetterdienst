@@ -129,10 +129,10 @@ Get station information for a given *parameter/parameter_set*, *resolution* and
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.PRECIPITATION_MORE,
+        parameter=DwdObservationDataset.PRECIPITATION_MORE,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.HISTORICAL
     ).all()
@@ -150,10 +150,10 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     request = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.CLIMATE_SUMMARY, DwdObservationParameterSet.SOLAR],
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
         resolution=DwdObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
@@ -192,10 +192,10 @@ Inquire the list of stations by geographic coordinates.
 .. ipython:: python
 
     from datetime import datetime
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.TEMPERATURE_AIR,
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
@@ -227,7 +227,7 @@ Again from here we can jump to the corresponding data:
 .. ipython:: python
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.TEMPERATURE_AIR,
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
@@ -256,10 +256,10 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.TEMPERATURE_AIR],
+        parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
@@ -286,11 +286,11 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet,
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset,
         DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
-        parameter=[DwdObservationParameterSet.TEMPERATURE_AIR],
+        parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",

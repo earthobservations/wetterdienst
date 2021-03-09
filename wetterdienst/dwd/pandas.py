@@ -12,22 +12,22 @@ import dateutil.parser
 import pandas as pd
 import pytz
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.exceptions import InvalidTimeInterval
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import mktimerange
 
 POSSIBLE_ID_VARS = (
-    DWDMetaColumns.STATION_ID.value,
-    DWDMetaColumns.DATE.value,
-    DWDMetaColumns.FROM_DATE.value,
-    DWDMetaColumns.TO_DATE.value,
+    DwdColumns.STATION_ID.value,
+    DwdColumns.DATE.value,
+    DwdColumns.FROM_DATE.value,
+    DwdColumns.TO_DATE.value,
 )
 
 POSSIBLE_DATE_VARS = (
-    DWDMetaColumns.DATE.value,
-    DWDMetaColumns.FROM_DATE.value,
-    DWDMetaColumns.TO_DATE.value,
+    DwdColumns.DATE.value,
+    DwdColumns.FROM_DATE.value,
+    DwdColumns.TO_DATE.value,
 )
 
 
@@ -44,7 +44,7 @@ class PandasDwdExtension:
         """
         df = self.df.rename(columns=str.lower)
 
-        for attribute in DWDMetaColumns.PARAMETER_SET, DWDMetaColumns.PARAMETER:
+        for attribute in DwdColumns.PARAMETER_SET, DwdColumns.PARAMETER:
             attribute_name = attribute.value.lower()
             if attribute_name in df:
                 df[attribute_name] = df[attribute_name].str.lower()
@@ -92,12 +92,12 @@ class PandasDwdExtension:
                 Resolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(resolution, date_from, date_to)
-                expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
-                    self.df[DWDMetaColumns.TO_DATE.value] <= date_to
+                expression = (date_from <= self.df[DwdColumns.FROM_DATE.value]) & (
+                    self.df[DwdColumns.TO_DATE.value] <= date_to
                 )
             else:
-                expression = (date_from <= self.df[DWDMetaColumns.DATE.value]) & (
-                    self.df[DWDMetaColumns.DATE.value] <= date_to
+                expression = (date_from <= self.df[DwdColumns.DATE.value]) & (
+                    self.df[DwdColumns.DATE.value] <= date_to
                 )
             df = self.df[expression]
 
@@ -112,11 +112,11 @@ class PandasDwdExtension:
                 Resolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(resolution, date)
-                expression = (date_from <= self.df[DWDMetaColumns.FROM_DATE.value]) & (
-                    self.df[DWDMetaColumns.TO_DATE.value] <= date_to
+                expression = (date_from <= self.df[DwdColumns.FROM_DATE.value]) & (
+                    self.df[DwdColumns.TO_DATE.value] <= date_to
                 )
             else:
-                expression = date == self.df[DWDMetaColumns.DATE.value]
+                expression = date == self.df[DwdColumns.DATE.value]
             df = self.df[expression]
 
         return df
@@ -215,14 +215,14 @@ class PandasDwdExtension:
 
         df_tidy = self.df.melt(
             id_vars=id_vars,
-            var_name=DWDMetaColumns.PARAMETER.value,
-            value_name=DWDMetaColumns.VALUE.value,
+            var_name=DwdColumns.PARAMETER.value,
+            value_name=DwdColumns.VALUE.value,
         )
 
-        if DWDMetaColumns.STATION_ID.value not in df_tidy:
-            df_tidy[DWDMetaColumns.STATION_ID.value] = pd.NA
+        if DwdColumns.STATION_ID.value not in df_tidy:
+            df_tidy[DwdColumns.STATION_ID.value] = pd.NA
 
-        df_tidy[DWDMetaColumns.QUALITY.value] = (
+        df_tidy[DwdColumns.QUALITY.value] = (
             quality.reset_index(drop=True).astype(float).astype(pd.Int64Dtype())
         )
 
@@ -230,14 +230,14 @@ class PandasDwdExtension:
         # Convert other columns to categorical
         df_tidy = df_tidy.astype(
             {
-                DWDMetaColumns.STATION_ID.value: "category",
-                DWDMetaColumns.PARAMETER.value: "category",
-                DWDMetaColumns.QUALITY.value: "category",
+                DwdColumns.STATION_ID.value: "category",
+                DwdColumns.PARAMETER.value: "category",
+                DwdColumns.QUALITY.value: "category",
             }
         )
 
         df_tidy.loc[
-            df_tidy[DWDMetaColumns.VALUE.value].isna(), DWDMetaColumns.QUALITY.value
+            df_tidy[DwdColumns.VALUE.value].isna(), DwdColumns.QUALITY.value
         ] = pd.NA
 
         # Store metadata information within dataframe.

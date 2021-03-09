@@ -22,17 +22,3 @@ STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
 NA_STRING = "-999"
 STATION_DATA_SEP = ";"
-
-
-class DataFormat(Enum):
-    CSV = "csv"
-    H5 = "h5"
-    BIN = "bin"
-
-
-class ArchiveFormat(Enum):
-    ZIP = "zip"
-    GZ = "gz"
-    BZ2 = "bz2"
-    TAR_GZ = "tar.gz"
-    TAR_BZ2 = "tar.bz2"

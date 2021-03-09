@@ -13,7 +13,7 @@ from munch import Munch
 from wetterdienst import __appname__, __version__
 from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.dwd.observations import (
-    DwdObservationParameterSet,
+    DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
@@ -304,7 +304,7 @@ def about(options: Munch):
                 print("-", value)
 
     if options.parameters:
-        output(DwdObservationParameterSet)
+        output(DwdObservationDataset)
 
     elif options.resolutions:
         output(DwdObservationResolution)

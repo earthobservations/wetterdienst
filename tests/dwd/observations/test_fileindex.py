@@ -5,9 +5,9 @@
 import pytest
 import requests
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.observations import (
-    DwdObservationParameterSet,
+    DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
@@ -24,7 +24,7 @@ def test_file_index_creation():
 
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
-        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.RECENT,
     )
@@ -32,8 +32,8 @@ def test_file_index_creation():
     assert not file_index.empty
 
     assert file_index.loc[
-        file_index[DWDMetaColumns.STATION_ID.value] == "01048",
-        DWDMetaColumns.FILENAME.value,
+        file_index[DwdColumns.STATION_ID.value] == "01048",
+        DwdColumns.FILENAME.value,
     ].values.tolist() == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
@@ -41,7 +41,7 @@ def test_file_index_creation():
 
     with pytest.raises(requests.exceptions.HTTPError):
         create_file_index_for_climate_observations(
-            DwdObservationParameterSet.CLIMATE_SUMMARY,
+            DwdObservationDataset.CLIMATE_SUMMARY,
             DwdObservationResolution.MINUTE_1,
             DwdObservationPeriod.HISTORICAL,
         )
@@ -50,7 +50,7 @@ def test_file_index_creation():
 def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
         station_id="01048",
-        parameter_set=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
@@ -62,7 +62,7 @@ def test_create_file_list_for_dwd_server():
     # with date range
     remote_file_path = create_file_list_for_climate_observations(
         station_id="00003",
-        parameter_set=DwdObservationParameterSet.TEMPERATURE_AIR,
+        dataset=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=Resolution.MINUTE_10,
         period=Period.HISTORICAL,
         date_range="19930428_19991231",

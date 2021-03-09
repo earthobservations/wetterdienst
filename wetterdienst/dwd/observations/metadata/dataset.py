@@ -8,7 +8,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 
 
-class DwdObservationParameterSet(Enum):
+class DwdObservationDataset(Enum):
     """
 
     enumeration for different parameter/variables
@@ -42,175 +42,175 @@ class DwdObservationParameterSet(Enum):
     WEATHER_PHENOMENA = "weather_phenomena"
 
 
-RESOLUTION_PARAMETER_MAPPING: Dict[
-    Resolution, Dict[DwdObservationParameterSet, List[Period]]
+RESOLUTION_DATASET_MAPPING: Dict[
+    Resolution, Dict[DwdObservationDataset, List[Period]]
 ] = {
     Resolution.MINUTE_1: {
-        DwdObservationParameterSet.PRECIPITATION: [
+        DwdObservationDataset.PRECIPITATION: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
     },
     Resolution.MINUTE_10: {
-        DwdObservationParameterSet.PRECIPITATION: [
+        DwdObservationDataset.PRECIPITATION: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
-        DwdObservationParameterSet.TEMPERATURE_AIR: [
+        DwdObservationDataset.TEMPERATURE_AIR: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
-        DwdObservationParameterSet.TEMPERATURE_EXTREME: [
+        DwdObservationDataset.TEMPERATURE_EXTREME: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
-        DwdObservationParameterSet.WIND_EXTREME: [
+        DwdObservationDataset.WIND_EXTREME: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
-        DwdObservationParameterSet.SOLAR: [
+        DwdObservationDataset.SOLAR: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
-        DwdObservationParameterSet.WIND: [
+        DwdObservationDataset.WIND: [
             Period.HISTORICAL,
             Period.RECENT,
             Period.NOW,
         ],
     },
     Resolution.HOURLY: {
-        DwdObservationParameterSet.TEMPERATURE_AIR: [
+        DwdObservationDataset.TEMPERATURE_AIR: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.CLOUD_TYPE: [
+        DwdObservationDataset.CLOUD_TYPE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.CLOUDINESS: [
+        DwdObservationDataset.CLOUDINESS: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.DEW_POINT: [
+        DwdObservationDataset.DEW_POINT: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.PRECIPITATION: [
+        DwdObservationDataset.PRECIPITATION: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.PRESSURE: [
+        DwdObservationDataset.PRESSURE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.TEMPERATURE_SOIL: [
+        DwdObservationDataset.TEMPERATURE_SOIL: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.SOLAR: [
+        DwdObservationDataset.SOLAR: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.SUNSHINE_DURATION: [
+        DwdObservationDataset.SUNSHINE_DURATION: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.VISIBILITY: [
+        DwdObservationDataset.VISIBILITY: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.WIND: [
+        DwdObservationDataset.WIND: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.WIND_SYNOPTIC: [
+        DwdObservationDataset.WIND_SYNOPTIC: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
     },
     Resolution.SUBDAILY: {
-        DwdObservationParameterSet.TEMPERATURE_AIR: [
+        DwdObservationDataset.TEMPERATURE_AIR: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.CLOUDINESS: [
+        DwdObservationDataset.CLOUDINESS: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.MOISTURE: [
+        DwdObservationDataset.MOISTURE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.PRESSURE: [
+        DwdObservationDataset.PRESSURE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.SOIL: [
+        DwdObservationDataset.SOIL: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.VISIBILITY: [
+        DwdObservationDataset.VISIBILITY: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.WIND: [
+        DwdObservationDataset.WIND: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
     },
     Resolution.DAILY: {
-        DwdObservationParameterSet.CLIMATE_SUMMARY: [
+        DwdObservationDataset.CLIMATE_SUMMARY: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.PRECIPITATION_MORE: [
+        DwdObservationDataset.PRECIPITATION_MORE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.TEMPERATURE_SOIL: [
+        DwdObservationDataset.TEMPERATURE_SOIL: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.SOLAR: [Period.RECENT],
-        DwdObservationParameterSet.WATER_EQUIVALENT: [
+        DwdObservationDataset.SOLAR: [Period.RECENT],
+        DwdObservationDataset.WATER_EQUIVALENT: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.WEATHER_PHENOMENA: [
+        DwdObservationDataset.WEATHER_PHENOMENA: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
     },
     Resolution.MONTHLY: {
-        DwdObservationParameterSet.CLIMATE_SUMMARY: [
+        DwdObservationDataset.CLIMATE_SUMMARY: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.PRECIPITATION_MORE: [
+        DwdObservationDataset.PRECIPITATION_MORE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.WEATHER_PHENOMENA: [
+        DwdObservationDataset.WEATHER_PHENOMENA: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
     },
     Resolution.ANNUAL: {
-        DwdObservationParameterSet.CLIMATE_SUMMARY: [
+        DwdObservationDataset.CLIMATE_SUMMARY: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.PRECIPITATION_MORE: [
+        DwdObservationDataset.PRECIPITATION_MORE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationParameterSet.WEATHER_PHENOMENA: [
+        DwdObservationDataset.WEATHER_PHENOMENA: [
             Period.HISTORICAL,
             Period.RECENT,
         ],

@@ -36,10 +36,10 @@ Get stations for daily historical precipitation:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.PRECIPITATION_MORE,
+        parameter=DwdObservationDataset.PRECIPITATION_MORE,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.HISTORICAL
     )
@@ -52,10 +52,10 @@ Get data for a parameter set:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameterSet, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.PRECIPITATION_MORE,
+        parameter=DwdObservationDataset.PRECIPITATION_MORE,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.HISTORICAL
     )

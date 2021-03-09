@@ -6,9 +6,9 @@ from urllib.parse import urljoin
 
 import pandas as pd
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER, DWDCDCBase
-from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
+from wetterdienst.dwd.observations.metadata.dataset import DwdObservationDataset
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.cache import (
@@ -19,7 +19,7 @@ from wetterdienst.util.network import list_remote_files
 
 
 def _create_file_index_for_dwd_server(
-    parameter_set: DwdObservationParameterSet,
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
     cdc_base: DWDCDCBase,
@@ -28,21 +28,21 @@ def _create_file_index_for_dwd_server(
     Function to create a file index of the DWD station data, which usually is shipped as
     zipped/archived data. The file index is created for an individual set of parameters.
     Args:
-        parameter_set: parameter set of Parameter enumeration
+        dataset: dwd dataset enumeration
         resolution: time resolution of TimeResolution enumeration
         period: period type of PeriodType enumeration
         cdc_base: base path e.g. climate_observations/germany
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    parameter_path = build_path_to_parameter(parameter_set, resolution, period)
+    parameter_path = build_path_to_parameter(dataset, resolution, period)
 
     url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
 
     files_server = list_remote_files(url, recursive=True)
 
     files_server = pd.DataFrame(
-        files_server, columns=[DWDMetaColumns.FILENAME.value], dtype="str"
+        files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
     )
 
     return files_server
@@ -55,7 +55,7 @@ def reset_file_index_cache() -> None:
 
 
 def build_path_to_parameter(
-    parameter_set: DwdObservationParameterSet,
+    parameter_set: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> str:
@@ -69,7 +69,7 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observations path
     """
-    if parameter_set == DwdObservationParameterSet.SOLAR and resolution in (
+    if parameter_set == DwdObservationDataset.SOLAR and resolution in (
         Resolution.HOURLY,
         Resolution.DAILY,
     ):

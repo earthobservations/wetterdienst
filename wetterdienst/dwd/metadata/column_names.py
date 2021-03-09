@@ -4,7 +4,7 @@
 from enum import Enum
 
 
-class DWDOrigMetaColumns(Enum):
+class DwdOrigColumns(Enum):
     """ Original meta column names from DWD data """
 
     STATION_ID = "STATIONS_ID"
@@ -22,7 +22,7 @@ class DWDOrigMetaColumns(Enum):
     STATE = "BUNDESLAND"
 
 
-class DWDMetaColumns(Enum):
+class DwdColumns(Enum):
     """ Overhauled column names for metadata fields """
 
     STATION_ID = "STATION_ID"  # change to local id later

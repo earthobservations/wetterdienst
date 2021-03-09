@@ -10,9 +10,7 @@ from pytz import timezone
 from tqdm import tqdm
 
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
-from wetterdienst.exceptions import ProviderError
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 
@@ -33,11 +31,6 @@ class ScalarValuesCore:
     _date_fields = [Columns.DATE.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
 
     # TODO: add data type (forecast, observation, ...)
-    @property
-    @abstractmethod
-    def _source(self) -> Provider:
-        pass
-
     @property
     @abstractmethod
     def _has_quality(self) -> bool:
@@ -101,11 +94,6 @@ class ScalarValuesCore:
 
     @classmethod
     def from_stations(cls, stations: StationsResult):
-        if not cls._provider == stations.stations._provider:
-            raise ProviderError(
-                f"sources {cls._provider} and {stations.stations._provider} don't match"
-            )
-
         return cls(stations)
 
     def __eq__(self, other):

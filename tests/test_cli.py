@@ -97,7 +97,7 @@ def test_cli_about_coverage(capsys):
 
     response = stdout
     assert "Resolution.ANNUAL" in response
-    assert "DwdObservationParameterSet.CLIMATE_SUMMARY" in response
+    assert "DwdObservationDataset.CLIMATE_SUMMARY" in response
     assert "Period.HISTORICAL" in response
 
 
