@@ -259,7 +259,7 @@ Licenses of the available data can be found in our documentation at the `data li
 section. Licenses and usage requirements may differ so check this out before including
 the data in your project to be sure to fulfill copyright issues beforehand.
 
-.. _data license: https://wetterdienst.readthedocs.io/en/latest/pages/data_license.html
+.. _data license: https://wetterdienst.readthedocs.io/en/latest/data/license.html
 
 .. contribution_development_marker
 
