@@ -9,7 +9,7 @@ import pytz
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.dwd.observations import (
-    DwdObservationParameterSet,
+    DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
@@ -22,7 +22,7 @@ def test_dwd_observations_stations_success():
 
     # Existing combination of parameters
     request = DwdObservationRequest(
-        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
     )
@@ -68,7 +68,7 @@ def test_dwd_observations_stations_geojson():
 
     # Existing combination of parameters
     request = DwdObservationRequest(
-        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
     )

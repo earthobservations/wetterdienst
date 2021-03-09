@@ -2,9 +2,9 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from wetterdienst.dwd.forecasts.metadata.parameter import DwdMosmixParameter
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 
-DATE_FIELDS_REGULAR = DWDMetaColumns.DATETIME.value
+DATE_FIELDS_REGULAR = DwdColumns.DATETIME.value
 
 INTEGER_PARAMETERS = (
     DwdMosmixParameter.WIND_DIRECTION.value,

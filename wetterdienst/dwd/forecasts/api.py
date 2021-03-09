@@ -21,7 +21,7 @@ from wetterdienst.dwd.forecasts.metadata import (
     DwdMosmixType,
 )
 from wetterdienst.dwd.forecasts.metadata.column_types import INTEGER_PARAMETERS
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.metadata.constants import (
     DWD_MOSMIX_L_SINGLE_PATH,
     DWD_MOSMIX_S_PATH,
@@ -85,7 +85,6 @@ class DwdMosmixValues(ScalarValuesCore):
           https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:E501,B950
     """
 
-    _provider = Provider.DWD
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = False
@@ -170,19 +169,19 @@ class DwdMosmixValues(ScalarValuesCore):
         for df_forecast in self._read_mosmix(date):
             df_forecast = df_forecast.rename(
                 columns={
-                    "station_id": DWDMetaColumns.STATION_ID.value,
-                    "datetime": DWDMetaColumns.DATE.value,
+                    "station_id": DwdColumns.STATION_ID.value,
+                    "datetime": DwdColumns.DATE.value,
                 }
             )
 
             if self.stations.tidy_data:
                 df_forecast = df_forecast.melt(
                     id_vars=[
-                        DWDMetaColumns.STATION_ID.value,
-                        DWDMetaColumns.DATE.value,
+                        DwdColumns.STATION_ID.value,
+                        DwdColumns.DATE.value,
                     ],
-                    var_name=DWDMetaColumns.PARAMETER.value,
-                    value_name=DWDMetaColumns.VALUE.value,
+                    var_name=DwdColumns.PARAMETER.value,
+                    value_name=DwdColumns.VALUE.value,
                 )
 
             yield df_forecast
@@ -255,17 +254,17 @@ class DwdMosmixValues(ScalarValuesCore):
 
         df_urls = pd.DataFrame({"URL": urls})
 
-        df_urls[DWDMetaColumns.DATE.value] = df_urls["URL"].apply(
+        df_urls[DwdColumns.DATE.value] = df_urls["URL"].apply(
             lambda url_: url_.split("/")[-1].split("_")[2].replace(".kmz", "")
         )
 
-        df_urls = df_urls[df_urls[DWDMetaColumns.DATE.value] != "LATEST"]
+        df_urls = df_urls[df_urls[DwdColumns.DATE.value] != "LATEST"]
 
-        df_urls[DWDMetaColumns.DATE.value] = pd.to_datetime(
-            df_urls[DWDMetaColumns.DATE.value], format=DatetimeFormat.YMDH.value
+        df_urls[DwdColumns.DATE.value] = pd.to_datetime(
+            df_urls[DwdColumns.DATE.value], format=DatetimeFormat.YMDH.value
         )
 
-        df_urls = df_urls.loc[df_urls[DWDMetaColumns.DATE.value] == date]
+        df_urls = df_urls.loc[df_urls[DwdColumns.DATE.value] == date]
 
         if df_urls.empty:
             raise IndexError(f"Unable to find {date} file within {url}")

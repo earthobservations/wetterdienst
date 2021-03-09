@@ -15,7 +15,7 @@ from requests.exceptions import InvalidURL
 
 from wetterdienst.dwd.index import build_path_to_parameter
 from wetterdienst.dwd.metadata.column_map import GERMAN_TO_ENGLISH_COLUMNS_MAPPING
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.metadata.constants import (
     DWD_CDC_PATH,
     DWD_SERVER,
@@ -25,7 +25,7 @@ from wetterdienst.dwd.metadata.constants import (
     DWDCDCBase,
 )
 from wetterdienst.dwd.network import download_file_from_dwd
-from wetterdienst.dwd.observations.metadata import DwdObservationParameterSet
+from wetterdienst.dwd.observations.metadata.dataset import DwdObservationDataset
 from wetterdienst.exceptions import MetaFileNotFound
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
@@ -64,7 +64,7 @@ METADATA_FIXED_COLUMN_WIDTH = [
 
 @metaindex_cache.cache_on_arguments()
 def create_meta_index_for_climate_observations(
-    parameter_set: DwdObservationParameterSet,
+    parameter_set: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -84,7 +84,7 @@ def create_meta_index_for_climate_observations(
     cond = (
         resolution == Resolution.MINUTE_1
         and period == Period.HISTORICAL
-        and parameter_set == DwdObservationParameterSet.PRECIPITATION
+        and parameter_set == DwdObservationDataset.PRECIPITATION
     )
 
     if cond:
@@ -96,9 +96,9 @@ def create_meta_index_for_climate_observations(
 
     # If no state column available, take state information from daily historical
     # precipitation
-    if DWDMetaColumns.STATE.value not in meta_index:
+    if DwdColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
-            DwdObservationParameterSet.PRECIPITATION_MORE,
+            DwdObservationDataset.PRECIPITATION_MORE,
             Resolution.DAILY,
             Period.HISTORICAL,
         )
@@ -113,7 +113,7 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    parameter_set: DwdObservationParameterSet,
+    parameter_set: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -205,8 +205,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     """
 
     parameter_path = (
-        f"{Resolution.MINUTE_1.value}/"
-        f"{DwdObservationParameterSet.PRECIPITATION.value}/"
+        f"{Resolution.MINUTE_1.value}/" f"{DwdObservationDataset.PRECIPITATION.value}/"
     )
 
     url = reduce(
@@ -240,11 +239,11 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
 
-    missing_to_date_index = pd.isnull(meta_index_df[DWDMetaColumns.TO_DATE.value])
+    missing_to_date_index = pd.isnull(meta_index_df[DwdColumns.TO_DATE.value])
 
-    meta_index_df.loc[
-        missing_to_date_index, DWDMetaColumns.TO_DATE.value
-    ] = pd.Timestamp(dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")
+    meta_index_df.loc[missing_to_date_index, DwdColumns.TO_DATE.value] = pd.Timestamp(
+        dt.date.today() - dt.timedelta(days=1)
+    ).strftime("%Y%m%d")
 
     # Drop empty state column again as it will be merged later on
     meta_index_df = meta_index_df.drop(labels=Columns.STATE.value, axis=1)

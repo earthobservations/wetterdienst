@@ -12,8 +12,7 @@ from typing import Generator, Optional, Tuple
 
 import pandas as pd
 
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
-from wetterdienst.dwd.metadata.constants import ArchiveFormat
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.network import download_file_from_dwd
 from wetterdienst.dwd.radar.index import (
@@ -30,6 +29,7 @@ from wetterdienst.dwd.radar.metadata import (
 )
 from wetterdienst.dwd.radar.sites import DwdRadarSite
 from wetterdienst.dwd.radar.util import get_date_from_filename
+from wetterdienst.metadata.extension import Extension
 from wetterdienst.util.cache import (
     payload_cache_five_minutes,
     payload_cache_twelve_hours,
@@ -136,19 +136,19 @@ def collect_radar_data(
                 # Filter for dates range if start_date and end_date are defined.
                 if period == DwdRadarPeriod.RECENT:
                     file_index = file_index[
-                        (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
-                        & (file_index[DWDMetaColumns.DATETIME.value] < end_date)
+                        (file_index[DwdColumns.DATETIME.value] >= start_date)
+                        & (file_index[DwdColumns.DATETIME.value] < end_date)
                     ]
 
                 # This is for matching historical data, e.g. "RW-200509.tar.gz".
                 else:
                     file_index = file_index[
                         (
-                            file_index[DWDMetaColumns.DATETIME.value].dt.year
+                            file_index[DwdColumns.DATETIME.value].dt.year
                             == start_date.year
                         )
                         & (
-                            file_index[DWDMetaColumns.DATETIME.value].dt.month
+                            file_index[DwdColumns.DATETIME.value].dt.month
                             == start_date.month
                         )
                     ]
@@ -164,7 +164,7 @@ def collect_radar_data(
 
             # Iterate list of files and yield "RadarResult" items.
             for _, row in file_index.iterrows():
-                url = row[DWDMetaColumns.FILENAME.value]
+                url = row[DwdColumns.FILENAME.value]
                 yield download_radolan_data(start_date, url)
 
         else:
@@ -178,13 +178,13 @@ def collect_radar_data(
 
             # Filter for dates range if start_date and end_date are defined.
             file_index = file_index[
-                (file_index[DWDMetaColumns.DATETIME.value] >= start_date)
-                & (file_index[DWDMetaColumns.DATETIME.value] < end_date)
+                (file_index[DwdColumns.DATETIME.value] >= start_date)
+                & (file_index[DwdColumns.DATETIME.value] < end_date)
             ]
 
             # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
             if elevation is not None:
-                filename = file_index[DWDMetaColumns.FILENAME.value]
+                filename = file_index[DwdColumns.FILENAME.value]
                 file_index = file_index[
                     (filename.str.contains(f"vradh_{elevation:02d}"))
                     | (filename.str.contains(f"sweep_vol_v_{elevation}"))
@@ -198,8 +198,8 @@ def collect_radar_data(
 
             # Iterate list of files and yield "RadarResult" items.
             for _, row in file_index.iterrows():
-                date_time = row[DWDMetaColumns.DATETIME.value]
-                url = row[DWDMetaColumns.FILENAME.value]
+                date_time = row[DwdColumns.DATETIME.value]
+                url = row[DwdColumns.FILENAME.value]
 
                 for result in _download_generic_data(url=url):
                     if result.timestamp is None:
@@ -243,7 +243,7 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
     data.seek(0)
 
     # RadarParameter.FX_REFLECTIVITY
-    if url.endswith(ArchiveFormat.TAR_BZ2.value):
+    if url.endswith(Extension.TAR_BZ2.value):
         with bz2.BZ2File(data, mode="rb") as archive:
             with tarfile.open(fileobj=archive) as tar_file:
                 for file in tar_file.getmembers():
@@ -254,13 +254,13 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
                     )
 
     # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)
-    elif url.endswith(ArchiveFormat.BZ2.value):
+    elif url.endswith(Extension.BZ2.value):
         with bz2.BZ2File(data, mode="rb") as archive:
             data = BytesIO(archive.read())
             yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
 
     # RADAR_PARAMETERS_RADVOR
-    elif url.endswith(ArchiveFormat.GZ.value):
+    elif url.endswith(Extension.GZ.value):
         with gzip.GzipFile(fileobj=data, mode="rb") as archive:
             data = BytesIO(archive.read())
             yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))

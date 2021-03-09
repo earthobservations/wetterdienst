@@ -4,14 +4,12 @@
 from typing import Tuple, Union
 
 from wetterdienst.dwd.observations.metadata import (
+    DwdObservationDataset,
     DwdObservationParameter,
-    DwdObservationParameterSet,
 )
+from wetterdienst.dwd.observations.metadata.dataset import RESOLUTION_DATASET_MAPPING
 from wetterdienst.dwd.observations.metadata.parameter import (
-    PARAMETER_TO_PARAMETER_MAPPING,
-)
-from wetterdienst.dwd.observations.metadata.parameter_set import (
-    RESOLUTION_PARAMETER_MAPPING,
+    PARAMETER_TO_DATASET_MAPPING,
 )
 from wetterdienst.exceptions import InvalidEnumeration, InvalidParameter
 from wetterdienst.metadata.period import Period
@@ -19,12 +17,12 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
-def create_parameter_to_parameter_set_combination(
-    parameter: Union[DwdObservationParameter, DwdObservationParameterSet],
+def create_parameter_to_dataset_combination(
+    parameter: Union[DwdObservationParameter, DwdObservationDataset],
     resolution: Resolution,
 ) -> Tuple[
-    Union[DwdObservationParameter, DwdObservationParameterSet],
-    DwdObservationParameterSet,
+    Union[DwdObservationParameter, DwdObservationDataset],
+    DwdObservationDataset,
 ]:
     """Function to create a mapping from a requested parameter to a provided parameter
     set which has to be downloaded first to extract the parameter from it"""
@@ -33,15 +31,15 @@ def create_parameter_to_parameter_set_combination(
             parameter, DwdObservationParameter[resolution.name]
         )
 
-        parameter = PARAMETER_TO_PARAMETER_MAPPING[resolution][parameter_]
+        parameter = PARAMETER_TO_DATASET_MAPPING[resolution][parameter_]
 
         return parameter, parse_enumeration_from_template(
-            parameter.__class__.__name__, DwdObservationParameterSet
+            parameter.__class__.__name__, DwdObservationDataset
         )
     except (KeyError, InvalidEnumeration):
         try:
             parameter_set = parse_enumeration_from_template(
-                parameter, DwdObservationParameterSet
+                parameter, DwdObservationDataset
             )
 
             return parameter_set, parameter_set
@@ -52,8 +50,8 @@ def create_parameter_to_parameter_set_combination(
             )
 
 
-def check_dwd_observations_parameter_set(
-    parameter_set: DwdObservationParameterSet,
+def check_dwd_observations_dataset(
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> bool:
@@ -61,7 +59,7 @@ def check_dwd_observations_parameter_set(
     Function to check for element (alternative name) and if existing return it
     Differs from foldername e.g. air_temperature -> tu
     """
-    check = RESOLUTION_PARAMETER_MAPPING.get(resolution, {}).get(parameter_set, [])
+    check = RESOLUTION_DATASET_MAPPING.get(resolution, {}).get(dataset, [])
 
     if period not in check:
         return False

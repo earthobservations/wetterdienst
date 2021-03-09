@@ -10,7 +10,7 @@ import pytest
 from surrogate import surrogate
 
 from wetterdienst.dwd.observations import (
-    DwdObservationParameterSet,
+    DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationRequest,
     DwdObservationResolution,
@@ -181,7 +181,7 @@ def test_format_unknown():
 def test_request():
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     ).filter(station_id=[1048])
@@ -194,7 +194,7 @@ def test_request():
 def test_export_sqlite():
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     ).filter(
@@ -221,7 +221,7 @@ def test_export_sqlite():
 def test_export_crate():
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     ).filter(
@@ -249,7 +249,7 @@ def test_export_crate():
 def test_export_duckdb():
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     ).filter(station_id=[1048])
@@ -274,7 +274,7 @@ def test_export_duckdb():
 def test_export_influxdb_tabular():
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy_data=False,
@@ -306,7 +306,7 @@ def test_export_influxdb_tabular():
 def test_export_influxdb_tidy():
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy_data=True,

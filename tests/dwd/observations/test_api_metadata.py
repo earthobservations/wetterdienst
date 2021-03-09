@@ -2,8 +2,8 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from wetterdienst.dwd.observations import (
+    DwdObservationDataset,
     DwdObservationMetadata,
-    DwdObservationParameterSet,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
@@ -14,13 +14,13 @@ from wetterdienst.metadata.resolution import Resolution
 def test_dwd_observation_metadata_discover_parameters():
 
     parameters = DwdObservationMetadata(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
     ).discover_parameter_sets()
 
     assert parameters == {
         str(Resolution.DAILY): {
-            str(DwdObservationParameterSet.CLIMATE_SUMMARY): [
+            str(DwdObservationDataset.CLIMATE_SUMMARY): [
                 str(Period.HISTORICAL),
                 str(Period.RECENT),
             ]
@@ -31,7 +31,7 @@ def test_dwd_observation_metadata_discover_parameters():
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 
     metadata = DwdObservationMetadata(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
@@ -66,7 +66,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 
     metadata = DwdObservationMetadata(
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
@@ -101,7 +101,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
     metadata = DwdObservationMetadata(
-        parameter=DwdObservationParameterSet.SOLAR,
+        parameter=DwdObservationDataset.SOLAR,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
     )
@@ -126,7 +126,7 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
 
     metadata = DwdObservationMetadata(
-        parameter=DwdObservationParameterSet.TEMPERATURE_AIR,
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.MINUTE_10,
         period=DwdObservationPeriod.RECENT,
     )

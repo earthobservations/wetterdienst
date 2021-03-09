@@ -12,7 +12,7 @@ from pandas import Timestamp
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.dwd.index import _create_file_index_for_dwd_server
-from wetterdienst.dwd.metadata.column_names import DWDMetaColumns
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.dwd.observations.download import (
@@ -23,8 +23,8 @@ from wetterdienst.dwd.observations.fileindex import (
     create_file_list_for_climate_observations,
 )
 from wetterdienst.dwd.observations.metadata import (
+    DwdObservationDataset,
     DwdObservationParameter,
-    DwdObservationParameterSet,
     DwdObservationResolution,
 )
 from wetterdienst.dwd.observations.metadata.column_types import (
@@ -32,11 +32,9 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     INTEGER_PARAMETERS,
     STRING_PARAMETERS,
 )
+from wetterdienst.dwd.observations.metadata.dataset import RESOLUTION_DATASET_MAPPING
 from wetterdienst.dwd.observations.metadata.parameter import (
-    DwdObservationParameterSetStructure,
-)
-from wetterdienst.dwd.observations.metadata.parameter_set import (
-    RESOLUTION_PARAMETER_MAPPING,
+    DwdObservationDatasetStructure,
 )
 from wetterdienst.dwd.observations.metadata.period import DwdObservationPeriod
 from wetterdienst.dwd.observations.metadata.resolution import (
@@ -48,8 +46,8 @@ from wetterdienst.dwd.observations.metaindex import (
 )
 from wetterdienst.dwd.observations.parser import parse_climate_observations_data
 from wetterdienst.dwd.observations.util.parameter import (
-    check_dwd_observations_parameter_set,
-    create_parameter_to_parameter_set_combination,
+    check_dwd_observations_dataset,
+    create_parameter_to_dataset_combination,
 )
 from wetterdienst.dwd.util import build_parameter_set_identifier
 from wetterdienst.exceptions import InvalidParameter
@@ -119,7 +117,7 @@ class DwdObservationValues(ScalarValuesCore):
         parameter, parameter_set = parameter
 
         if parameter != parameter_set:
-            # parameter = [*DwdObservationParameterSetStructure[self.resolution.name]
+            # parameter = [*DwdObservationDatasetStructure[self.resolution.name]
             # [parameter_set.name]]
             df = super(DwdObservationValues, self)._get_empty_station_parameter_df(
                 station_id, parameter
@@ -131,7 +129,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         # Get parameters from enum
         parameter = [
-            *DwdObservationParameterSetStructure[self.stations.resolution.name][
+            *DwdObservationDatasetStructure[self.stations.resolution.name][
                 parameter_set.name
             ]
         ]
@@ -175,7 +173,7 @@ class DwdObservationValues(ScalarValuesCore):
             for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
                 parameter = parse_enumeration_from_template(
                     parameter,
-                    DwdObservationParameterSetStructure[self.stations.resolution.name][
+                    DwdObservationDatasetStructure[self.stations.resolution.name][
                         parameter_set.name
                     ],
                 )
@@ -200,8 +198,8 @@ class DwdObservationValues(ScalarValuesCore):
         self,
         station_id: str,
         parameter: Tuple[
-            Union[DwdObservationParameter, DwdObservationParameterSet],
-            DwdObservationParameterSet,
+            Union[DwdObservationParameter, DwdObservationDataset],
+            DwdObservationDataset,
         ],
     ) -> pd.DataFrame:
         """
@@ -243,7 +241,7 @@ class DwdObservationValues(ScalarValuesCore):
 
             log.info(f"Acquiring observations data for {parameter_identifier}.")
 
-            if not check_dwd_observations_parameter_set(
+            if not check_dwd_observations_dataset(
                 parameter_set, self.stations.resolution, period
             ):
                 log.info(
@@ -282,8 +280,8 @@ class DwdObservationValues(ScalarValuesCore):
             # Filter out values which already are in the DataFrame
             try:
                 period_df = period_df[
-                    ~period_df[DWDMetaColumns.DATE.value].isin(
-                        parameter_df[DWDMetaColumns.DATE.value]
+                    ~period_df[DwdColumns.DATE.value].isin(
+                        parameter_df[DwdColumns.DATE.value]
                     )
                 ]
             except KeyError:
@@ -296,16 +294,14 @@ class DwdObservationValues(ScalarValuesCore):
 
             # TODO: remove this column and rather move it into metadata of resulting
             #  data model
-            parameter_df.insert(
-                2, DWDMetaColumns.PARAMETER_SET.value, parameter_set.name
-            )
-            parameter_df[DWDMetaColumns.PARAMETER_SET.value] = parameter_df[
-                DWDMetaColumns.PARAMETER_SET.value
+            parameter_df.insert(2, DwdColumns.PARAMETER_SET.value, parameter_set.name)
+            parameter_df[DwdColumns.PARAMETER_SET.value] = parameter_df[
+                DwdColumns.PARAMETER_SET.value
             ].astype("category")
 
-        if parameter not in DwdObservationParameterSet:
+        if parameter not in DwdObservationDataset:
             parameter_df = parameter_df[
-                parameter_df[DWDMetaColumns.PARAMETER.value] == parameter.value
+                parameter_df[DwdColumns.PARAMETER.value] == parameter.value
             ]
 
         return parameter_df
@@ -333,7 +329,7 @@ class DwdObservationValues(ScalarValuesCore):
         return hcnm
 
     def _get_historical_date_ranges(
-        self, station_id: str, parameter_set: DwdObservationParameterSet
+        self, station_id: str, parameter_set: DwdObservationDataset
     ) -> List[str]:
         """Get particular files for historical data which for high resolution is
         released in data chunks e.g. decades or monthly chunks"""
@@ -343,13 +339,13 @@ class DwdObservationValues(ScalarValuesCore):
 
         # Filter for from date and end date
         file_index_filtered = file_index[
-            (file_index[DWDMetaColumns.STATION_ID.value] == station_id)
-            & file_index[DWDMetaColumns.INTERVAL.value].array.overlaps(
+            (file_index[DwdColumns.STATION_ID.value] == station_id)
+            & file_index[DwdColumns.INTERVAL.value].array.overlaps(
                 self.stations.stations._interval
             )
         ]
 
-        return file_index_filtered[DWDMetaColumns.DATE_RANGE.value].tolist()
+        return file_index_filtered[DwdColumns.DATE_RANGE.value].tolist()
 
 
 class DwdObservationRequest(ScalarRequestCore):
@@ -467,9 +463,7 @@ class DwdObservationRequest(ScalarRequestCore):
                 (
                     parameter,
                     parameter_set,
-                ) = create_parameter_to_parameter_set_combination(
-                    parameter, self.resolution
-                )
+                ) = create_parameter_to_dataset_combination(parameter, self.resolution)
                 parameters_parsed.append((parameter, parameter_set))
             except InvalidParameter as e:
                 log.info(str(e))
@@ -485,7 +479,7 @@ class DwdObservationRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter: Union[str, DwdObservationParameterSet],
+        parameter: Union[str, DwdObservationDataset],
         resolution: Union[str, Resolution, DwdObservationResolution],
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
         start_date: Optional[Union[str, datetime]] = None,
@@ -538,7 +532,7 @@ class DwdObservationRequest(ScalarRequestCore):
             # values
             for period in reversed(self.period):
                 # TODO: move to _all and replace error with logging + empty dataframe
-                if not check_dwd_observations_parameter_set(
+                if not check_dwd_observations_dataset(
                     parameter_set, self.resolution, period
                 ):
                     log.warning(
@@ -587,7 +581,7 @@ class DwdObservationMetadata:
 
     def __init__(
         self,
-        parameter: Optional[List[Union[str, DwdObservationParameterSet]]] = None,
+        parameter: Optional[List[Union[str, DwdObservationDataset]]] = None,
         resolution: Optional[List[Union[str, DwdObservationResolution]]] = None,
         period: Optional[List[Union[str, DwdObservationPeriod]]] = None,
     ):
@@ -599,9 +593,9 @@ class DwdObservationMetadata:
         """
 
         if not parameter:
-            parameter = [*DwdObservationParameterSet]
+            parameter = [*DwdObservationDataset]
         else:
-            parameter = parse_enumeration(parameter, DwdObservationParameterSet)
+            parameter = parse_enumeration(parameter, DwdObservationDataset)
         if not resolution:
             resolution = [*DwdObservationResolution]
         resolution = parse_enumeration(resolution, DwdObservationResolution, Resolution)
@@ -626,11 +620,11 @@ class DwdObservationMetadata:
                 for par, pt in parameters_and_period_types.items()
                 if par in self.parameter
             }
-            for ts, parameters_and_period_types in RESOLUTION_PARAMETER_MAPPING.items()  # noqa:E501,B950
+            for ts, parameters_and_period_types in RESOLUTION_DATASET_MAPPING.items()  # noqa:E501,B950
             if ts in self.resolution
         }
 
-        time_resolution_parameter_mapping = {
+        time_RESOLUTION_DATASET_MAPPING = {
             str(time_resolution): {
                 str(parameter): [str(period) for period in periods]
                 for parameter, periods in parameters_and_periods.items()
@@ -640,7 +634,7 @@ class DwdObservationMetadata:
             if parameters_and_periods
         }
 
-        return time_resolution_parameter_mapping
+        return time_RESOLUTION_DATASET_MAPPING
 
     def discover_parameters(self) -> Dict[str, List[str]]:
         """Return available parameters for the given time resolution, independent of
@@ -662,7 +656,7 @@ class DwdObservationMetadata:
             )
 
         file_index = _create_file_index_for_dwd_server(
-            parameter_set=self.parameter[0],
+            dataset=self.parameter[0],
             resolution=self.resolution[0],
             period=self.period[0],
             cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
@@ -676,12 +670,10 @@ class DwdObservationMetadata:
             raise ValueError("Only language 'en' or 'de' supported")
 
         file_index = file_index[
-            file_index[DWDMetaColumns.FILENAME.value].str.contains(file_prefix)
+            file_index[DwdColumns.FILENAME.value].str.contains(file_prefix)
         ]
 
-        description_file_url = str(
-            file_index[DWDMetaColumns.FILENAME.value].tolist()[0]
-        )
+        description_file_url = str(file_index[DwdColumns.FILENAME.value].tolist()[0])
         log.info(f"Acquiring field information from {description_file_url}")
 
         from wetterdienst.dwd.observations.fields import read_description

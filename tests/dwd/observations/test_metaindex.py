@@ -5,7 +5,7 @@
 import pytest
 import requests
 
-from wetterdienst.dwd.observations import DwdObservationParameterSet
+from wetterdienst.dwd.observations import DwdObservationDataset
 from wetterdienst.dwd.observations.metaindex import (
     create_meta_index_for_climate_observations,
 )
@@ -19,7 +19,7 @@ def test_meta_index_creation():
 
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
-        DwdObservationParameterSet.CLIMATE_SUMMARY,
+        DwdObservationDataset.CLIMATE_SUMMARY,
         Resolution.DAILY,
         Period.HISTORICAL,
     )
@@ -28,7 +28,7 @@ def test_meta_index_creation():
 
     with pytest.raises(requests.exceptions.HTTPError):
         create_meta_index_for_climate_observations(
-            DwdObservationParameterSet.CLIMATE_SUMMARY,
+            DwdObservationDataset.CLIMATE_SUMMARY,
             Resolution.MINUTE_1,
             Period.HISTORICAL,
         )
@@ -38,7 +38,7 @@ def test_meta_index_creation():
 def test_meta_index_1mph_creation():
 
     meta_index_1mph = create_meta_index_for_climate_observations(
-        DwdObservationParameterSet.PRECIPITATION,
+        DwdObservationDataset.PRECIPITATION,
         Resolution.MINUTE_1,
         Period.HISTORICAL,
     )

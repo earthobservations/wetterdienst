@@ -11,7 +11,7 @@ import requests
 from pandas._testing import assert_frame_equal
 
 from wetterdienst import Period, Resolution
-from wetterdienst.dwd.observations import DwdObservationParameterSet
+from wetterdienst.dwd.observations import DwdObservationDataset
 from wetterdienst.dwd.observations.parser import parse_climate_observations_data
 
 
@@ -32,7 +32,7 @@ def test_parse_dwd_data():
 
     df = parse_climate_observations_data(
         filenames_and_files=[(filename, BytesIO(file))],
-        parameter=DwdObservationParameterSet.CLIMATE_SUMMARY,
+        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=Resolution.DAILY,
         period=Period.HISTORICAL,
     )

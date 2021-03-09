@@ -6,9 +6,7 @@ from wetterdienst.dwd.observations.api import (
     DwdObservationRequest,
     DwdObservationValues,
 )
-from wetterdienst.dwd.observations.metadata import (
-    DwdObservationParameter,
-    DwdObservationParameterSet,
-    DwdObservationPeriod,
-    DwdObservationResolution,
-)
+from wetterdienst.dwd.observations.metadata.dataset import DwdObservationDataset
+from wetterdienst.dwd.observations.metadata.parameter import DwdObservationParameter
+from wetterdienst.dwd.observations.metadata.period import DwdObservationPeriod
+from wetterdienst.dwd.observations.metadata.resolution import DwdObservationResolution
