@@ -12,22 +12,22 @@ import dateutil.parser
 import pandas as pd
 import pytz
 
-from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.exceptions import InvalidTimeInterval
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import mktimerange
 
 POSSIBLE_ID_VARS = (
-    DwdColumns.STATION_ID.value,
-    DwdColumns.DATE.value,
-    DwdColumns.FROM_DATE.value,
-    DwdColumns.TO_DATE.value,
+    Columns.STATION_ID.value,
+    Columns.DATE.value,
+    Columns.FROM_DATE.value,
+    Columns.TO_DATE.value,
 )
 
 POSSIBLE_DATE_VARS = (
-    DwdColumns.DATE.value,
-    DwdColumns.FROM_DATE.value,
-    DwdColumns.TO_DATE.value,
+    Columns.DATE.value,
+    Columns.FROM_DATE.value,
+    Columns.TO_DATE.value,
 )
 
 
@@ -44,7 +44,7 @@ class PandasDwdExtension:
         """
         df = self.df.rename(columns=str.lower)
 
-        for attribute in DwdColumns.PARAMETER_SET, DwdColumns.PARAMETER:
+        for attribute in Columns.DATASET, Columns.PARAMETER:
             attribute_name = attribute.value.lower()
             if attribute_name in df:
                 df[attribute_name] = df[attribute_name].str.lower()
@@ -92,12 +92,12 @@ class PandasDwdExtension:
                 Resolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(resolution, date_from, date_to)
-                expression = (date_from <= self.df[DwdColumns.FROM_DATE.value]) & (
-                    self.df[DwdColumns.TO_DATE.value] <= date_to
+                expression = (date_from <= self.df[Columns.FROM_DATE.value]) & (
+                    self.df[Columns.TO_DATE.value] <= date_to
                 )
             else:
-                expression = (date_from <= self.df[DwdColumns.DATE.value]) & (
-                    self.df[DwdColumns.DATE.value] <= date_to
+                expression = (date_from <= self.df[Columns.DATE.value]) & (
+                    self.df[Columns.DATE.value] <= date_to
                 )
             df = self.df[expression]
 
@@ -112,11 +112,11 @@ class PandasDwdExtension:
                 Resolution.MONTHLY,
             ):
                 date_from, date_to = mktimerange(resolution, date)
-                expression = (date_from <= self.df[DwdColumns.FROM_DATE.value]) & (
-                    self.df[DwdColumns.TO_DATE.value] <= date_to
+                expression = (date_from <= self.df[Columns.FROM_DATE.value]) & (
+                    self.df[Columns.TO_DATE.value] <= date_to
                 )
             else:
-                expression = date == self.df[DwdColumns.DATE.value]
+                expression = date == self.df[Columns.DATE.value]
             df = self.df[expression]
 
         return df
@@ -194,7 +194,7 @@ class PandasDwdExtension:
         id_vars = []
         date_vars = []
 
-        # Add id columns based on metadata columns
+        # Add id Columns based on metadata Columns
         for column in POSSIBLE_ID_VARS:
             if column in self.df:
                 id_vars.append(column)
@@ -202,7 +202,7 @@ class PandasDwdExtension:
                     date_vars.append(column)
 
         # Extract quality
-        # Set empty quality for first columns until first QN column
+        # Set empty quality for first Columns until first QN column
         quality = pd.Series(dtype=pd.Int64Dtype())
         column_quality = pd.Series(dtype=pd.Int64Dtype())
 
@@ -215,30 +215,28 @@ class PandasDwdExtension:
 
         df_tidy = self.df.melt(
             id_vars=id_vars,
-            var_name=DwdColumns.PARAMETER.value,
-            value_name=DwdColumns.VALUE.value,
+            var_name=Columns.PARAMETER.value,
+            value_name=Columns.VALUE.value,
         )
 
-        if DwdColumns.STATION_ID.value not in df_tidy:
-            df_tidy[DwdColumns.STATION_ID.value] = pd.NA
+        if Columns.STATION_ID.value not in df_tidy:
+            df_tidy[Columns.STATION_ID.value] = pd.NA
 
-        df_tidy[DwdColumns.QUALITY.value] = (
+        df_tidy[Columns.QUALITY.value] = (
             quality.reset_index(drop=True).astype(float).astype(pd.Int64Dtype())
         )
 
         # TODO: move into coercing field types function after OOP refactoring
-        # Convert other columns to categorical
+        # Convert other Columns to categorical
         df_tidy = df_tidy.astype(
             {
-                DwdColumns.STATION_ID.value: "category",
-                DwdColumns.PARAMETER.value: "category",
-                DwdColumns.QUALITY.value: "category",
+                Columns.STATION_ID.value: "category",
+                Columns.PARAMETER.value: "category",
+                Columns.QUALITY.value: "category",
             }
         )
 
-        df_tidy.loc[
-            df_tidy[DwdColumns.VALUE.value].isna(), DwdColumns.QUALITY.value
-        ] = pd.NA
+        df_tidy.loc[df_tidy[Columns.VALUE.value].isna(), Columns.QUALITY.value] = pd.NA
 
         # Store metadata information within dataframe.
         df_tidy.attrs["tidy"] = True

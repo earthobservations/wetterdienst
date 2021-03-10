@@ -70,7 +70,7 @@ def test_dwd_readings_success(dicts_are_same):
         response.json()["data"][0],
         {
             "station_id": "01359",
-            "parameter_set": "climate_summary",
+            "dataset": "climate_summary",
             "parameter": "wind_gust_max",
             "date": "1982-01-01T00:00:00.000Z",
             "value": 4.2,
@@ -164,7 +164,7 @@ def test_dwd_readings_sql(dicts_are_same):
         response.json()["data"][0],
         {
             "station_id": "01048",
-            "parameter_set": "climate_summary",
+            "dataset": "climate_summary",
             "parameter": "temperature_air_max_200",
             "date": "2019-12-28T00:00:00.000Z",
             "value": 1.3,

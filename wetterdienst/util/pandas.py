@@ -191,9 +191,9 @@ class IoAccessor:
             tag_columns = ["station_id", "quality"]
 
             # When the "tidy" format has been requested, also use
-            # the fields "parameter_set" and "parameter" as InfluxDB tags.
+            # the fields "dataset" and "parameter" as InfluxDB tags.
             if df.attrs.get("tidy"):
-                tag_columns += ["parameter_set", "parameter"]
+                tag_columns += ["dataset", "parameter"]
 
             # Write to InfluxDB.
             c.write_points(

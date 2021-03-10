@@ -5,7 +5,8 @@ Development
 ***********
 
 - Use direct mapping to get a parameter set for a parameter
-- Rename DwdObservationParameterSet to DwdObservationDataset
+- Rename DwdObservationParameterSet to DwdObservationDataset as well as corresponding
+  columns
 
 0.15.0 (07.03.2021)
 *******************

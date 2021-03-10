@@ -24,7 +24,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 
 
-def test_dwd_observation_data_parameter_set():
+def test_dwd_observation_data_dataset():
     """ Request a parameter set"""
     request = DwdObservationRequest(
         parameter=["kl"],
@@ -280,7 +280,7 @@ def test_dwd_observation_data_result_missing_data():
             {
                 "DATE": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
                 "STATION_ID": pd.Categorical(["03348"]),
-                "PARAMETER_SET": pd.Categorical(["TEMPERATURE_AIR"]),
+                "DATASET": pd.Categorical(["TEMPERATURE_AIR"]),
                 "PARAMETER": pd.Categorical(["TEMPERATURE_AIR_200"]),
                 "VALUE": [np.nan],
             }
@@ -366,7 +366,7 @@ def test_dwd_observation_data_result_tidy():
         tidy_data=True,
         humanize_parameters=False,
     ).filter(
-        station_id=[1048],
+        station_id=(1048,),
     )
 
     df = request.values.all().df
@@ -374,7 +374,7 @@ def test_dwd_observation_data_result_tidy():
     assert list(df.columns.values) == [
         "DATE",
         "STATION_ID",
-        "PARAMETER_SET",
+        "DATASET",
         "PARAMETER",
         "VALUE",
         "QUALITY",
@@ -446,7 +446,7 @@ def test_dwd_observation_data_result_tidy():
                         "01048",
                     ]
                 ),
-                "PARAMETER_SET": pd.Categorical(
+                "DATASET": pd.Categorical(
                     [
                         "CLIMATE_SUMMARY",
                         "CLIMATE_SUMMARY",
