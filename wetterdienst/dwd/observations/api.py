@@ -93,8 +93,8 @@ class DwdObservationValues(ScalarValuesCore):
     def __eq__(self, other):
         """ Add resolution and periods """
         return super(DwdObservationValues, self).__eq__(other) and (
-            self.stations.resolution == other.resolution
-            and self.stations.period == other.period
+            self.stations.resolution == other.stations.resolution
+            and self.stations.period == other.stations.period
         )
 
     def __str__(self):
@@ -114,24 +114,22 @@ class DwdObservationValues(ScalarValuesCore):
     def _get_empty_station_parameter_df(
         self, station_id: str, parameter: Enum
     ) -> pd.DataFrame:
-        parameter, parameter_set = parameter
+        parameter, dataset = parameter
 
-        if parameter != parameter_set:
+        if parameter != dataset:
             # parameter = [*DwdObservationDatasetStructure[self.resolution.name]
             # [parameter_set.name]]
             df = super(DwdObservationValues, self)._get_empty_station_parameter_df(
                 station_id, parameter
             )
 
-            df[Columns.PARAMETER_SET.value] = parameter_set.name
+            df[Columns.DATASET.value] = dataset.name
 
             return df
 
         # Get parameters from enum
         parameter = [
-            *DwdObservationDatasetStructure[self.stations.resolution.name][
-                parameter_set.name
-            ]
+            *DwdObservationDatasetStructure[self.stations.resolution.name][dataset.name]
         ]
 
         if self.stations.tidy_data:
@@ -146,7 +144,7 @@ class DwdObservationValues(ScalarValuesCore):
 
             df = pd.concat(data)
 
-            df[Columns.PARAMETER_SET.value] = parameter_set.name
+            df[Columns.DATASET.value] = dataset.name
 
             return df
         else:
@@ -154,16 +152,16 @@ class DwdObservationValues(ScalarValuesCore):
                 station_id, parameter
             )
 
-            df[Columns.PARAMETER_SET.value] = parameter_set.name
+            df[Columns.DATASET.value] = dataset.name
 
             return df
 
     def _build_complete_df(
         self, df: pd.DataFrame, station_id: str, parameter: Enum
     ) -> pd.DataFrame:
-        parameter, parameter_set = parameter
+        parameter, dataset = parameter
 
-        if parameter != parameter_set or not self.stations.tidy_data:
+        if parameter != dataset or not self.stations.tidy_data:
             df = super(DwdObservationValues, self)._build_complete_df(
                 df, station_id, parameter
             )
@@ -174,7 +172,7 @@ class DwdObservationValues(ScalarValuesCore):
                 parameter = parse_enumeration_from_template(
                     parameter,
                     DwdObservationDatasetStructure[self.stations.resolution.name][
-                        parameter_set.name
+                        dataset.name
                     ],
                 )
 
@@ -187,10 +185,8 @@ class DwdObservationValues(ScalarValuesCore):
             df = pd.concat(data)
 
         if self.stations.tidy_data:
-            df[Columns.PARAMETER_SET.value] = parameter_set.name
-            df[Columns.PARAMETER_SET.value] = pd.Categorical(
-                df[Columns.PARAMETER_SET.value]
-            )
+            df[Columns.DATASET.value] = dataset.name
+            df[Columns.DATASET.value] = pd.Categorical(df[Columns.DATASET.value])
 
         return df
 
@@ -209,12 +205,12 @@ class DwdObservationValues(ScalarValuesCore):
 
         Args:
             station_id: station id for which parameter is collected
-            parameter: chosen parameter-parameter_set combination that is collected
+            parameter: chosen parameter-dataset combination that is collected
 
         Returns:
             pandas.DataFrame for given parameter of station
         """
-        parameter, parameter_set = parameter
+        parameter, dataset = parameter
 
         periods_and_date_ranges = []
 
@@ -223,9 +219,7 @@ class DwdObservationValues(ScalarValuesCore):
                 self.stations.resolution in HIGH_RESOLUTIONS
                 and period == Period.HISTORICAL
             ):
-                date_ranges = self._get_historical_date_ranges(
-                    station_id, parameter_set
-                )
+                date_ranges = self._get_historical_date_ranges(station_id, dataset)
 
                 for date_range in date_ranges:
                     periods_and_date_ranges.append((period, date_range))
@@ -236,28 +230,28 @@ class DwdObservationValues(ScalarValuesCore):
 
         for period, date_range in periods_and_date_ranges:
             parameter_identifier = build_parameter_set_identifier(
-                parameter_set, self.stations.resolution, period, station_id, date_range
+                dataset, self.stations.resolution, period, station_id, date_range
             )
 
             log.info(f"Acquiring observations data for {parameter_identifier}.")
 
             if not check_dwd_observations_dataset(
-                parameter_set, self.stations.resolution, period
+                dataset, self.stations.resolution, period
             ):
                 log.info(
-                    f"Invalid combination {parameter_set.value}/"
+                    f"Invalid combination {dataset.value}/"
                     f"{self.stations.resolution.value}/{period} is skipped."
                 )
 
                 continue
 
             remote_files = create_file_list_for_climate_observations(
-                station_id, parameter_set, self.stations.resolution, period, date_range
+                station_id, dataset, self.stations.resolution, period, date_range
             )
 
             if len(remote_files) == 0:
                 parameter_identifier = build_parameter_set_identifier(
-                    parameter_set,
+                    dataset,
                     self.stations.resolution,
                     period,
                     station_id,
@@ -274,7 +268,7 @@ class DwdObservationValues(ScalarValuesCore):
             )
 
             period_df = parse_climate_observations_data(
-                filenames_and_files, parameter_set, self.stations.resolution, period
+                filenames_and_files, dataset, self.stations.resolution, period
             )
 
             # Filter out values which already are in the DataFrame
@@ -294,9 +288,9 @@ class DwdObservationValues(ScalarValuesCore):
 
             # TODO: remove this column and rather move it into metadata of resulting
             #  data model
-            parameter_df.insert(2, DwdColumns.PARAMETER_SET.value, parameter_set.name)
-            parameter_df[DwdColumns.PARAMETER_SET.value] = parameter_df[
-                DwdColumns.PARAMETER_SET.value
+            parameter_df.insert(2, Columns.DATASET.value, dataset.name)
+            parameter_df[Columns.DATASET.value] = parameter_df[
+                Columns.DATASET.value
             ].astype("category")
 
         if parameter not in DwdObservationDataset:
@@ -329,23 +323,23 @@ class DwdObservationValues(ScalarValuesCore):
         return hcnm
 
     def _get_historical_date_ranges(
-        self, station_id: str, parameter_set: DwdObservationDataset
+        self, station_id: str, dataset: DwdObservationDataset
     ) -> List[str]:
         """Get particular files for historical data which for high resolution is
         released in data chunks e.g. decades or monthly chunks"""
         file_index = create_file_index_for_climate_observations(
-            parameter_set, self.stations.resolution, Period.HISTORICAL
+            dataset, self.stations.resolution, Period.HISTORICAL
         )
 
         # Filter for from date and end date
         file_index_filtered = file_index[
-            (file_index[DwdColumns.STATION_ID.value] == station_id)
-            & file_index[DwdColumns.INTERVAL.value].array.overlaps(
+            (file_index[Columns.STATION_ID.value] == station_id)
+            & file_index[Columns.INTERVAL.value].array.overlaps(
                 self.stations.stations._interval
             )
         ]
 
-        return file_index_filtered[DwdColumns.DATE_RANGE.value].tolist()
+        return file_index_filtered[Columns.DATE_RANGE.value].tolist()
 
 
 class DwdObservationRequest(ScalarRequestCore):

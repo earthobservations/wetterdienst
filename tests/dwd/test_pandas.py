@@ -34,7 +34,7 @@ df_station = pd.DataFrame.from_dict(
 df_data = pd.DataFrame.from_dict(
     {
         "STATION_ID": ["01048"],
-        "PARAMETER_SET": ["CLIMATE_SUMMARY"],
+        "DATASET": ["CLIMATE_SUMMARY"],
         "PARAMETER": ["TEMPERATURE_AIR_MAX_200"],
         "DATE": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
         "VALUE": [1.3],
@@ -49,14 +49,14 @@ def test_lowercase():
 
     assert list(df.columns) == [
         "station_id",
-        "parameter_set",
+        "dataset",
         "parameter",
         "date",
         "value",
         "quality",
     ]
 
-    assert df.iloc[0]["parameter_set"] == "climate_summary"
+    assert df.iloc[0]["dataset"] == "climate_summary"
     assert df.iloc[0]["parameter"] == "temperature_air_max_200"
 
 
@@ -83,8 +83,8 @@ def test_filter_by_date_monthly():
     result = pd.DataFrame.from_dict(
         {
             "STATION_ID": ["01048"],
-            "PARAMETER": ["climate_summary"],
-            "ELEMENT": ["temperature_air_max_200"],
+            "DATASET": ["climate_summary"],
+            "PARAMETER": ["temperature_air_max_200"],
             "FROM_DATE": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
             "TO_DATE": [dateutil.parser.isoparse("2020-01-28T00:00:00.000Z")],
             "VALUE": [1.3],
@@ -107,7 +107,7 @@ def test_filter_by_date_annual():
     result = pd.DataFrame.from_dict(
         {
             "STATION_ID": ["01048"],
-            "PARAMETER_SET": ["climate_summary"],
+            "DATASET": ["climate_summary"],
             "PARAMETER": ["temperature_air_max_200"],
             "FROM_DATE": [dateutil.parser.isoparse("2019-01-01T00:00:00.000Z")],
             "TO_DATE": [dateutil.parser.isoparse("2019-12-31T00:00:00.000Z")],
@@ -165,7 +165,7 @@ def test_format_csv():
 
     output = df_data.dwd.lower().io.format("csv").strip()
 
-    assert "station_id,parameter_set,parameter,date,value,quality" in output
+    assert "station_id,dataset,parameter,date,value,quality" in output
     assert (
         "01048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3,"
         in output
@@ -329,6 +329,6 @@ def test_export_influxdb_tidy():
         mock_client.write_points.assert_called_with(
             dataframe=mock.ANY,
             measurement="weather",
-            tag_columns=["station_id", "quality", "parameter_set", "parameter"],
+            tag_columns=["station_id", "quality", "dataset", "parameter"],
             batch_size=50000,
         )
