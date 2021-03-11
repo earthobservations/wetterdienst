@@ -218,7 +218,7 @@ def test_export_sqlite():
         )
 
 
-def test_export_crate():
+def test_export_cratedb():
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -233,14 +233,15 @@ def test_export_crate():
     ) as mock_to_sql:
 
         df = request.values.all().df
-        df.io.export("crate://localhost/?database=test&table=testdrive")
+        df.dwd.lower().io.export("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
             name="testdrive",
-            con="crate://localhost/?database=test&table=testdrive",
+            con="crate://localhost",
+            schema="test",
             if_exists="replace",
             index=False,
-            method="multi",
+            # method="multi",
             chunksize=5000,
         )
 
@@ -297,7 +298,7 @@ def test_export_influxdb_tabular():
         mock_client.write_points.assert_called_with(
             dataframe=mock.ANY,
             measurement="weather",
-            tag_columns=["station_id", "quality"],
+            tag_columns=["station_id", "qn_3", "qn_4"],
             batch_size=50000,
         )
 

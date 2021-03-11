@@ -312,12 +312,7 @@ class ScalarValuesCore:
         """Method to parse dates in the pandas.DataFrame. Leverages the data timezone
         attribute to ensure correct comparison of dates."""
         series = pd.to_datetime(series, infer_datetime_format=True)
-
-        try:
-            series = series.dt.tz_localize(self.data_tz)
-        except TypeError:
-            pass
-
+        series = series.dt.tz_localize(self.data_tz)
         return series
 
     @staticmethod
@@ -352,7 +347,7 @@ class ScalarValuesCore:
         """ Method for parameter type coercion. Depending on the shape of the data. """
         if not self.stations.tidy_data:
             for column in df.columns:
-                if column in self._meta_fields:
+                if column in self._meta_fields or column in self._date_fields:
                     continue
                 if column in self._irregular_parameters:
                     df[column] = self._coerce_irregular_parameter(df[column])

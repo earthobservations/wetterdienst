@@ -146,7 +146,7 @@ def test_dwd_readings_no_period():
 
 
 @pytest.mark.sql
-def test_dwd_readings_sql(dicts_are_same):
+def test_dwd_readings_sql_tabular(dicts_are_same):
 
     response = client.get(
         "/api/dwd/observations/values",
@@ -155,6 +155,56 @@ def test_dwd_readings_sql(dicts_are_same):
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
+            "date": "2019/2022",
+            "sql": "SELECT * FROM data WHERE temperature_air_max_200 < 2.0",
+            "tidy": False,
+        },
+    )
+    assert response.status_code == 200
+
+    data = response.json()["data"]
+
+    assert len(data) >= 49
+    assert dicts_are_same(
+        data[0],
+        {
+            "station_id": "01048",
+            "date": "2019-12-28T00:00:00.000Z",
+            "qn_3": 10.0,
+            "qn_4": 3,
+            "cloud_cover_total": 7.4,
+            "humidity": 82.54,
+            "precipitation_form": 7,
+            "precipitation_height": 0.4,
+            "pressure_air": 1011.49,
+            "pressure_vapor": 5.2,
+            "snow_depth": 0,
+            "sunshine_duration": 0.0,
+            "temperature_air_200": 0.4,
+            "temperature_air_max_200": 1.3,
+            "temperature_air_min_005": -1.0,
+            "temperature_air_min_200": -0.7,
+            "wind_gust_max": 7.7,
+            "wind_speed": 3.1,
+        },
+    )
+
+
+@pytest.mark.sql
+@pytest.mark.xfail(
+    reason="The data types of the `value` column in tidy data "
+    "frames is currently not homogenous"
+)
+def test_dwd_readings_sql_tidy(dicts_are_same):
+
+    response = client.get(
+        "/api/dwd/observations/values",
+        params={
+            "station": "01048,4411",
+            "parameter": "kl",
+            "resolution": "daily",
+            "period": "recent",
+            "date": "2019/2022",
             "sql": "SELECT * FROM data "
             "WHERE parameter='temperature_air_max_200' AND value < 1.5",
         },

@@ -146,6 +146,8 @@ INTEGER_PARAMETERS = (
     DwdObservationDatasetStructure.SUBDAILY.WIND.WIND_DIRECTION.value,
     DwdObservationDatasetStructure.SUBDAILY.WIND.WIND_FORCE_BEAUFORT.value,
     # daily
+    # kl
+    DwdObservationDatasetStructure.DAILY.CLIMATE_SUMMARY.SNOW_DEPTH.value,
     # more_precip
     DwdObservationDatasetStructure.DAILY.PRECIPITATION_MORE.PRECIPITATION_FORM.value,
     DwdObservationDatasetStructure.DAILY.PRECIPITATION_MORE.SNOW_DEPTH.value,
