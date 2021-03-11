@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
 import logging
 from datetime import datetime
 from enum import Enum
@@ -32,7 +33,6 @@ from wetterdienst.dwd.observations.metadata.column_types import (
     INTEGER_PARAMETERS,
     STRING_PARAMETERS,
 )
-from wetterdienst.dwd.observations.metadata.dataset import RESOLUTION_DATASET_MAPPING
 from wetterdienst.dwd.observations.metadata.parameter import (
     DwdObservationDatasetStructure,
 )
@@ -56,10 +56,7 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.util.enumeration import (
-    parse_enumeration,
-    parse_enumeration_from_template,
-)
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 log = logging.getLogger(__name__)
 
@@ -513,35 +510,111 @@ class DwdObservationRequest(ScalarRequestCore):
                 f"periods {self.period}"
             )
 
-        # Ensure there's only one period given
-        # self.period = pd.Series(self.period).item()
+    @classmethod
+    def discover(cls, resolution=None, dataset=None, flatten: bool = True) -> str:
+        if flatten:
+            if dataset:
+                log.warning("dataset filter will be ignored due to 'flatten'")
+            return super(DwdObservationRequest, cls).discover(resolution=resolution)
+
+        resolutions = (
+            pd.Series(resolution)
+            .apply(parse_enumeration_from_template, args=(cls._resolution_base,))
+            .tolist()
+            or cls._resolution_base
+        )
+
+        datasets_filter = (
+            pd.Series(dataset)
+            .apply(parse_enumeration_from_template, args=(DwdObservationDataset,))
+            .tolist()
+            or DwdObservationDataset
+        )
+        datasets_filter = [ds.name for ds in datasets_filter]
+
+        parameters = {}
+
+        for resolution in resolutions:
+            resolution = resolution.name
+
+            parameters[resolution] = {}
+
+            for dataset in DwdObservationDatasetStructure[resolution].__dict__:
+                if dataset.startswith("_") or dataset not in datasets_filter:
+                    continue
+
+                parameters[resolution][dataset] = []
+
+                for parameter in DwdObservationDatasetStructure[resolution][dataset]:
+                    parameters[resolution][dataset].append(parameter.name)
+
+        return json.dumps(parameters, indent=4)
+
+    @classmethod
+    def describe_fields(cls, dataset, resolution, period, language: str = "en") -> dict:
+        dataset = parse_enumeration_from_template(dataset, DwdObservationDataset)
+        resolution = parse_enumeration_from_template(
+            resolution, cls._resolution_base, Resolution
+        )
+        period = parse_enumeration_from_template(period, cls._period_base, Period)
+
+        # if len(parameter) > 1 or len(resolution) > 1 or len(self.period) > 1:
+        #     raise NotImplementedError(
+        #         "'describe_fields is only available for a single"
+        #         "parameter, resolution and period"
+        #     )
+
+        file_index = _create_file_index_for_dwd_server(
+            dataset=dataset,
+            resolution=resolution,
+            period=period,
+            cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
+        )
+
+        if language == "en":
+            file_prefix = "DESCRIPTION_"
+        elif language == "de":
+            file_prefix = "BESCHREIBUNG_"
+        else:
+            raise ValueError("Only language 'en' or 'de' supported")
+
+        file_index = file_index[
+            file_index[DwdColumns.FILENAME.value].str.contains(file_prefix)
+        ]
+
+        description_file_url = str(file_index[DwdColumns.FILENAME.value].tolist()[0])
+        log.info(f"Acquiring field information from {description_file_url}")
+
+        from wetterdienst.dwd.observations.fields import read_description
+
+        document = read_description(description_file_url, language=language)
+
+        return document
 
     def _all(self) -> pd.DataFrame:
-        parameter_sets = pd.Series(self.parameter).map(lambda x: x[1]).unique()
+        datasets = pd.Series(self.parameter).map(lambda x: x[1]).unique()
 
         stations_df = pd.DataFrame()
 
-        for parameter_set in parameter_sets:
+        for dataset in datasets:
             # First "now" period as it has more updated end date up to the last "now"
             # values
             for period in reversed(self.period):
                 # TODO: move to _all and replace error with logging + empty dataframe
-                if not check_dwd_observations_dataset(
-                    parameter_set, self.resolution, period
-                ):
+                if not check_dwd_observations_dataset(dataset, self.resolution, period):
                     log.warning(
-                        f"The combination of {parameter_set.value}, "
+                        f"The combination of {dataset.value}, "
                         f"{self.resolution.value}, {period.value} is invalid."
                     )
 
                     continue
 
                 df = create_meta_index_for_climate_observations(
-                    parameter_set, self.resolution, period
+                    dataset, self.resolution, period
                 )
 
                 file_index = create_file_index_for_climate_observations(
-                    parameter_set, self.resolution, period
+                    dataset, self.resolution, period
                 )
 
                 df = df[
@@ -565,113 +638,3 @@ class DwdObservationRequest(ScalarRequestCore):
             )
 
         return stations_df
-
-
-class DwdObservationMetadata:
-    """
-    Inquire metadata about weather observations on the
-    public DWD data repository.
-    """
-
-    def __init__(
-        self,
-        parameter: Optional[List[Union[str, DwdObservationDataset]]] = None,
-        resolution: Optional[List[Union[str, DwdObservationResolution]]] = None,
-        period: Optional[List[Union[str, DwdObservationPeriod]]] = None,
-    ):
-        """
-
-        :param parameter: parameter set str/enumeration
-        :param resolution: resolution str/enumeration
-        :param period: period str/enumeration
-        """
-
-        if not parameter:
-            parameter = [*DwdObservationDataset]
-        else:
-            parameter = parse_enumeration(parameter, DwdObservationDataset)
-        if not resolution:
-            resolution = [*DwdObservationResolution]
-        resolution = parse_enumeration(resolution, DwdObservationResolution, Resolution)
-        if not period:
-            period = [*DwdObservationPeriod]
-        period = parse_enumeration(period, DwdObservationPeriod, Period)
-
-        self.parameter = parameter
-        self.resolution = resolution
-        self.period = period
-
-    def discover_parameter_sets(self) -> dict:
-        """
-        Function to print/discover available time_resolution/parameter/period_type
-        combinations.
-
-        :return: Available parameter combinations.
-        """
-        trp_mapping_filtered = {
-            ts: {
-                par: [p for p in pt if p in self.period]
-                for par, pt in parameters_and_period_types.items()
-                if par in self.parameter
-            }
-            for ts, parameters_and_period_types in RESOLUTION_DATASET_MAPPING.items()  # noqa:E501,B950
-            if ts in self.resolution
-        }
-
-        time_RESOLUTION_DATASET_MAPPING = {
-            str(time_resolution): {
-                str(parameter): [str(period) for period in periods]
-                for parameter, periods in parameters_and_periods.items()
-                if periods
-            }
-            for time_resolution, parameters_and_periods in trp_mapping_filtered.items()
-            if parameters_and_periods
-        }
-
-        return time_RESOLUTION_DATASET_MAPPING
-
-    def discover_parameters(self) -> Dict[str, List[str]]:
-        """Return available parameters for the given time resolution, independent of
-        source parameter set"""
-        available_parameters = {
-            resolution.name: [
-                parameter.name for parameter in DwdObservationParameter[resolution.name]
-            ]
-            for resolution in self.resolution
-        }
-
-        return available_parameters
-
-    def describe_fields(self, language: str = "en") -> dict:
-        if len(self.parameter) > 1 or len(self.resolution) > 1 or len(self.period) > 1:
-            raise NotImplementedError(
-                "'describe_fields is only available for a single"
-                "parameter, resolution and period"
-            )
-
-        file_index = _create_file_index_for_dwd_server(
-            dataset=self.parameter[0],
-            resolution=self.resolution[0],
-            period=self.period[0],
-            cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
-        )
-
-        if language == "en":
-            file_prefix = "DESCRIPTION_"
-        elif language == "de":
-            file_prefix = "BESCHREIBUNG_"
-        else:
-            raise ValueError("Only language 'en' or 'de' supported")
-
-        file_index = file_index[
-            file_index[DwdColumns.FILENAME.value].str.contains(file_prefix)
-        ]
-
-        description_file_url = str(file_index[DwdColumns.FILENAME.value].tolist()[0])
-        log.info(f"Acquiring field information from {description_file_url}")
-
-        from wetterdienst.dwd.observations.fields import read_description
-
-        document = read_description(description_file_url, language=language)
-
-        return document

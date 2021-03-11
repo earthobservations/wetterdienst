@@ -117,9 +117,8 @@ Historical Weather Observations
 ===============================
 
 In case of the DWD requests have to be defined by resolution and period (respectively
-``start_date`` and ``end_date``). Use ``DwdObservationMetadata.discover_parameters()``
-to discover available resolution, parameter, period combinations and their subsets
-based on the obtained filter arguments.
+``start_date`` and ``end_date``). Use ``DwdObservationRequest.discover()``
+to discover available parameters based on the given filter arguments.
 
 Stations
 --------

@@ -96,9 +96,8 @@ def test_cli_about_coverage(capsys):
     stdout, stderr = capsys.readouterr()
 
     response = stdout
-    assert "Resolution.ANNUAL" in response
-    assert "DwdObservationDataset.CLIMATE_SUMMARY" in response
-    assert "Period.HISTORICAL" in response
+    assert "MINUTE_1" in response
+    assert "PRECIPITATION" in response
 
 
 def invoke_wetterdienst_stations_empty(setting, fmt="json"):

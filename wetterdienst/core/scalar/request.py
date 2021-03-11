@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
 import logging
 from abc import abstractmethod
 from datetime import datetime
@@ -208,6 +209,36 @@ class ScalarRequestCore(Core):
         self.parameter = self._parse_parameter(parameter)
         self.humanize_parameters = humanize_parameters
         self.tidy_data = tidy_data
+
+    @classmethod
+    def discover(cls, resolution=None) -> str:
+        """ Function to print/discover available parameters """
+
+        resolutions = (
+            pd.Series(resolution)
+            .apply(parse_enumeration_from_template, args=(cls._resolution_base,))
+            .tolist()
+            or cls._resolution_base
+        )
+
+        if cls._resolution_type == ResolutionType.FIXED:
+            log.warning("resolution filter will be ignored due to fixed resolution")
+
+            resolutions = [cls.resolution]
+
+        parameters = {}
+        if cls._resolution_type == ResolutionType.MULTI:
+            for resolution in resolutions:
+                parameters[resolution.name] = []
+                for parameter in cls._parameter_base[resolution.name]:
+                    parameters[resolution.name].append(parameter.name)
+        else:
+            parameters[cls.resolution.name] = []
+
+            for par in cls._parameter_base:
+                parameters[cls.resolution.name].append(par.name)
+
+        return json.dumps(parameters, indent=4)
 
     def all(self) -> "StationsResult":
         """

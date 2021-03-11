@@ -1,47 +1,50 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
+
 from wetterdienst.dwd.observations import (
     DwdObservationDataset,
-    DwdObservationMetadata,
+    DwdObservationParameter,
     DwdObservationPeriod,
+    DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 
 
 def test_dwd_observation_metadata_discover_parameters():
+    parameters = DwdObservationRequest.discover(resolution="minute_1", flatten=True)
 
-    parameters = DwdObservationMetadata(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-    ).discover_parameter_sets()
-
-    assert parameters == {
-        str(Resolution.DAILY): {
-            str(DwdObservationDataset.CLIMATE_SUMMARY): [
-                str(Period.HISTORICAL),
-                str(Period.RECENT),
-            ]
-        }
-    }
+    assert (
+        json.dumps(
+            {
+                Resolution.MINUTE_1.name: [
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT.name,
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_DROPLET.name,
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_ROCKER.name,
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_FORM.name,
+                ]
+            },
+            indent=4,
+        )
+        in parameters
+    )
 
 
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():
-
-    metadata = DwdObservationMetadata(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+    metadata = DwdObservationRequest.describe_fields(
+        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
 
-    assert list(metadata.describe_fields().keys()) == [
+    assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
 
-    assert list(metadata.describe_fields()["parameters"].keys()) == [
+    assert list(metadata["parameters"].keys()) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN_3",
@@ -64,19 +67,25 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 
 
 def test_dwd_observation_metadata_describe_fields_kl_daily_german():
-
-    metadata = DwdObservationMetadata(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+    metadata = DwdObservationRequest.describe_fields(
+        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
 
-    assert list(metadata.describe_fields().keys()) == [
+    assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
 
-    assert list(metadata.describe_fields(language="de")["parameters"].keys()) == [
+    assert list(
+        DwdObservationRequest.describe_fields(
+            dataset=DwdObservationDataset.CLIMATE_SUMMARY,
+            resolution=DwdObservationResolution.DAILY,
+            period=DwdObservationPeriod.RECENT,
+            language="de",
+        )["parameters"].keys()
+    ) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN_3",
@@ -100,18 +109,19 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
-    metadata = DwdObservationMetadata(
-        parameter=DwdObservationDataset.SOLAR,
+    metadata = DwdObservationRequest.describe_fields(
+        dataset=DwdObservationDataset.SOLAR,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
+        language="en",
     )
 
-    assert list(metadata.describe_fields().keys()) == [
+    assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
 
-    assert list(metadata.describe_fields()["parameters"].keys()) == [
+    assert list(metadata["parameters"].keys()) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN_592",
@@ -125,18 +135,18 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
 
-    metadata = DwdObservationMetadata(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
+    metadata = DwdObservationRequest.describe_fields(
+        dataset=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.MINUTE_10,
         period=DwdObservationPeriod.RECENT,
     )
 
-    assert list(metadata.describe_fields().keys()) == [
+    assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
 
-    assert list(metadata.describe_fields()["parameters"].keys()) == [
+    assert list(metadata["parameters"].keys()) == [
         "STATIONS_ID",
         "MESS_DATUM",
         "QN",
