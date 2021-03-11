@@ -127,6 +127,7 @@ def dwd_values(
     mosmix_type: str = Query(default=None),
     date: str = Query(default=None),
     sql: str = Query(default=None),
+    tidy: bool = Query(default=True),
 ):
     """
     Acquire data from DWD.
@@ -134,12 +135,14 @@ def dwd_values(
     # TODO: Obtain lat/lon distance/number information.
 
     :param product:     string for product, either observations or mosmix
-    :param station:     Comma-separated list of station identifiers.
+    :param station:     Comma-separated list of station identifiers
     :param parameter:   Observation measure
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
+    :param mosmix_type: MOSMIX type. Either "small" or "large".
     :param date:        Date or date range
     :param sql:         SQL expression
+    :param tidy:        Whether to return data in tidy format. Default: True.
     :return:
     """
     if product not in ["observations", "mosmix"]:
@@ -162,7 +165,10 @@ def dwd_values(
 
         # Data acquisition.
         request = DwdObservationRequest(
-            parameter=parameter, resolution=resolution, period=period
+            parameter=parameter,
+            resolution=resolution,
+            period=period,
+            tidy_data=tidy,
         )
     else:
         if mosmix_type is None:
@@ -203,9 +209,9 @@ def make_json_response(data):
     return response
 
 
-def start_service(listen_address):  # pragma: no cover
+def start_service(listen_address, reload: bool = False):  # pragma: no cover
     host, port = listen_address.split(":")
     port = int(port)
     from uvicorn.main import run
 
-    run(app="wetterdienst.service:app", host=host, port=port, reload=True)
+    run(app="wetterdienst.service:app", host=host, port=port, reload=reload)

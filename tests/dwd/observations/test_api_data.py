@@ -289,8 +289,8 @@ def test_dwd_observation_data_result_missing_data():
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_untidy():
-    """ Test for actual values (untidy) """
+def test_dwd_observation_data_result_tabular():
+    """ Test for actual values (tabular) """
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -341,7 +341,7 @@ def test_dwd_observation_data_result_untidy():
                 "RSK": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
                 "RSKF": pd.to_numeric([pd.NA, 8], errors="coerce"),
                 "SDK": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "SHK_TAG": pd.to_numeric([pd.NA, 0], errors="coerce"),
+                "SHK_TAG": pd.Series([pd.NA, 0], dtype=pd.Int64Dtype()),
                 "NM": pd.to_numeric([pd.NA, 8.0], errors="coerce"),
                 "VPM": pd.to_numeric([pd.NA, 6.4], errors="coerce"),
                 "PM": pd.to_numeric([pd.NA, 1008.60], errors="coerce"),
@@ -556,7 +556,7 @@ def test_dwd_observation_data_result_tidy():
                         pd.NA,
                     ],
                     errors="coerce",
-                ),
+                ).astype(pd.Float64Dtype),
                 "QUALITY": pd.Categorical(
                     [
                         # FX
@@ -603,8 +603,10 @@ def test_dwd_observation_data_result_tidy():
                         pd.NA,
                     ]
                 ),
-            }
+            },
         ),
+        # Needed since pandas 1.2?
+        check_categorical=False,
     )
 
 

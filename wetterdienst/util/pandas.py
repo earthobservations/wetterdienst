@@ -12,7 +12,7 @@ Extending pandas
 - https://pandas.pydata.org/pandas-docs/stable/development/extending.html
 """
 import logging
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlunparse
 
 import pandas as pd
 
@@ -110,6 +110,8 @@ class IoAccessor:
         :return: self
         """
 
+        log.info(f"Exporting records to {target}\n{self.df.count()}")
+
         t = ConnectionString(target)
         database = t.get_database()
         tablename = t.get_table()
@@ -168,7 +170,7 @@ class IoAccessor:
 
             Acquire data::
 
-                wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
+                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
 
             Example queries::
 
@@ -176,7 +178,7 @@ class IoAccessor:
                 python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.execute("SELECT * FROM weather").df())'  # noqa
 
             """
-            log.info(f"Writing to DuckDB {database, tablename}")
+            log.info(f"Writing to DuckDB. database={database}, table={tablename}")
             import duckdb
 
             connection = duckdb.connect(database=database, read_only=False)
@@ -205,39 +207,70 @@ class IoAccessor:
 
             Run database::
 
-                docker run --publish "8086:8086" influxdb:1.8.3
+                docker run -it --rm --publish=8086:8086 influxdb:1.8
 
             Acquire data::
 
-                wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="influxdb://localhost/?database=dwd&table=weather"
+                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
 
                 http 'localhost:8086/query?db=dwd&q=SELECT * FROM weather;'
                 http 'localhost:8086/query?db=dwd&q=SELECT COUNT(*) FROM weather;'
             """
-            log.info(f"Writing to InfluxDB {database, tablename}")
+            log.info(f"Writing to InfluxDB. database={database}, table={tablename}")
             from influxdb.dataframe_client import DataFrameClient
+
+            # 1. Mungle the data frame.
+            # Use the "date" column as appropriate timestamp index.
+            df = self.df.set_index(pd.DatetimeIndex(self.df["date"]))
+            df = df.drop(["date"], axis=1)
+
+            # Work around `ValueError: fill value must be in categories`.
+            # The reason is that the InfluxDB Pandas adapter tries to apply
+            # `tag_df.fillna('')  # replace NA with empty string`.
+            # However, it is not possible to apply `.fillna` to categorical
+            # columns. See:
+            # - https://github.com/pandas-dev/pandas/issues/24079
+            # - https://stackoverflow.com/questions/65316023/filling-np-nan-entries-of-float-column-gives-valueerror-fill-value-must-be-in-c/65316190
+            # - https://stackoverflow.com/questions/53664948/pandas-fillna-throws-valueerror-fill-value-must-be-in-categories
+            # - https://stackoverflow.com/questions/32718639/pandas-filling-nans-in-categorical-data/44633307
+            #
+            # So, let's convert all categorical columns back to their designated type representations.
+            # https://stackoverflow.com/questions/32011359/convert-categorical-data-in-pandas-dataframe/32011969#32011969
+            if "quality" in df:
+                df.quality = df.quality.astype("Int64")
+            categorical_columns = df.select_dtypes(["category"]).columns
+            df[categorical_columns] = df[categorical_columns].astype("str")
+
+            # When using the tidy format, don't export empty records.
+            # Otherwise, the InfluxDB dataframe driver adapter will croak.
+            if df.attrs.get("tidy"):
+                df = df.dropna()
+
+            # Compute designated tag fields from some candidates.
+            tag_columns = []
+            tag_candidates = [
+                Columns.STATION_ID.value,
+                Columns.QUALITY.value,
+                "qn_",
+                Columns.DATASET.value,
+                Columns.PARAMETER.value,
+            ]
+            for tag_candidate in tag_candidates:
+                tag_candidate = tag_candidate.lower()
+                for column in df.columns:
+                    if column.startswith(tag_candidate):
+                        tag_columns.append(column)
 
             # Setup the connection.
             c = DataFrameClient(database=database)
             c.create_database(database)
 
-            # Mungle the data frame.
-            df = self.df.set_index(pd.DatetimeIndex(self.df["date"]))
-            df = df.drop(["date"], axis=1)
-            df = df.dropna()
-
-            # Compute designated tag fields.
-
-            # Always use the fields "station_id" and
-            # "quality" as InfluxDB tags.
-            tag_columns = ["station_id", "quality"]
-
-            # When the "tidy" format has been requested, also use
-            # the fields "dataset" and "parameter" as InfluxDB tags.
-            if df.attrs.get("tidy"):
-                tag_columns += ["dataset", "parameter"]
+            # Need pandas>=1.2, otherwise InfluxDB's `field_df = dataframe[field_columns].replace([np.inf, -np.inf], np.nan)`
+            # will erroneously cast `Int64` to `object`, so `int_columns = df.select_dtypes(include=['integer']).columns`
+            # will fail.
+            # https://github.com/pandas-dev/pandas/issues/32988
 
             # Write to InfluxDB.
             c.write_points(
@@ -260,35 +293,48 @@ class IoAccessor:
 
             Run database::
 
-                docker run --publish "4200:4200" --env CRATE_HEAP_SIZE=512M crate/crate:4.2.4
+                docker run -it --rm --publish=4200:4200 --env CRATE_HEAP_SIZE=2048M crate/crate:nightly
 
             Acquire data::
 
-                wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://localhost/?database=dwd&table=weather"
+                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://crate@localhost/dwd?table=weather"
 
             Example queries::
 
-                crash -c 'select * from weather;'
-                crash -c 'select count(*) from weather;'
-                crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', date) as datetime from weather order by datetime limit 10;"  # noqa
+                psql postgres://crate@localhost --command 'SELECT * FROM dwd.weather;'
+
+                crash -c 'select * from dwd.weather;'
+                crash -c 'select count(*) from dwd.weather;'
+                crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', date) as datetime from dwd.weather order by datetime limit 10;"  # noqa
 
             """
-            log.info("Writing to CrateDB")
+            log.info(f"Writing to CrateDB. target={target}, table={tablename}")
+
+            # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
+            cratedb_url = t.url._replace(path="", query=None)
+            cratedb_target = urlunparse(cratedb_url)
+
+            # Convert timezone-aware datetime fields to naive ones.
+            # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
+            self.df.date = self.df.date.dt.tz_localize(None)
+            # self.df.date = self.df.date.dt.tz_convert(None)
+
             self.df.to_sql(
                 name=tablename,
-                con=target,
+                con=cratedb_target,
+                schema=database,
                 if_exists="replace",
                 index=False,
-                method="multi",
+                # method="multi",
                 chunksize=5000,
             )
             log.info("Writing to CrateDB finished")
 
         else:
             """
-            ========================
-            SQLAlchemy database sink
-            ========================
+            ================================
+            Generic SQLAlchemy database sink
+            ================================
 
             Install Python driver::
 
@@ -297,7 +343,7 @@ class IoAccessor:
             Examples::
 
                 # Prepare
-                alias fetch='wetterdienst dwd readings --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
+                alias fetch='wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
 
                 # Acquire data.
                 fetch --target="sqlite:///dwd.sqlite?table=weather"
