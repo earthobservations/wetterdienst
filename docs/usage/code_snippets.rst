@@ -15,22 +15,21 @@ Get available parameters for daily historical data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationMetadata, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationResolution, DwdObservationPeriod
 
-    observations_meta = DwdObservationMetadata(
+    observations_meta = DwdObservationRequest.discover(
         resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.HISTORICAL
     )
 
     # Available parameter sets
-    print(
-        observations_meta.discover_parameter_sets()
-    )
+    print(observations_meta)
 
     # Available individual parameters
-    print(
-        observations_meta.discover_parameters()
+    observations_meta = DwdObservationRequest.discover(
+        resolution=DwdObservationResolution.DAILY, flatten=False
     )
+
+    print(observations_meta)
 
 Get stations for daily historical precipitation:
 

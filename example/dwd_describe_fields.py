@@ -13,8 +13,8 @@ from pprint import pprint
 
 from wetterdienst.dwd.observations import (
     DwdObservationDataset,
-    DwdObservationMetadata,
     DwdObservationPeriod,
+    DwdObservationRequest,
     DwdObservationResolution,
 )
 
@@ -22,13 +22,6 @@ log = logging.getLogger()
 
 
 def fields_example():
-
-    metadata = DwdObservationMetadata(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
-    )
-
     # Output in JSON format.
     # import json; print(json.dumps(metadata.describe_fields(), indent=4))
 
@@ -36,8 +29,23 @@ def fields_example():
     # import yaml; print(yaml.dump(dict(metadata.describe_fields()), default_style="|"))
 
     # Output in pretty-print format.
-    pprint(dict(metadata.describe_fields(language="en")))
-    pprint(dict(metadata.describe_fields(language="de")))
+    pprint(
+        DwdObservationRequest.describe_fields(
+            dataset=DwdObservationDataset.CLIMATE_SUMMARY,
+            resolution=DwdObservationResolution.DAILY,
+            period=DwdObservationPeriod.RECENT,
+            language="en",
+        )
+    )
+
+    pprint(
+        DwdObservationRequest.describe_fields(
+            dataset=DwdObservationDataset.CLIMATE_SUMMARY,
+            resolution=DwdObservationResolution.DAILY,
+            period=DwdObservationPeriod.RECENT,
+            language="de",
+        )
+    )
 
 
 def main():

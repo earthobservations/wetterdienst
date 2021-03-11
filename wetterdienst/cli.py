@@ -17,10 +17,7 @@ from wetterdienst.dwd.observations import (
     DwdObservationPeriod,
     DwdObservationResolution,
 )
-from wetterdienst.dwd.observations.api import (
-    DwdObservationMetadata,
-    DwdObservationRequest,
-)
+from wetterdienst.dwd.observations.api import DwdObservationRequest
 from wetterdienst.util.cli import normalize_options, read_list, setup_logging
 
 log = logging.getLogger(__name__)
@@ -313,21 +310,22 @@ def about(options: Munch):
         output(DwdObservationPeriod)
 
     elif options.coverage:
-        metadata = DwdObservationMetadata(
+        metadata = DwdObservationRequest.discover(
             resolution=options.resolution,
-            parameter=read_list(options.parameter),
-            period=read_list(options.period),
+            dataset=read_list(options.parameter),
+            flatten=False,
         )
-        output = json.dumps(metadata.discover_parameter_sets(), indent=4)
+        output = json.dumps(metadata, indent=4)
         print(output)
 
     elif options.fields:
-        metadata = DwdObservationMetadata(
+        metadata = DwdObservationRequest.describe_fields(
+            dataset=read_list(options.parameter),
             resolution=options.resolution,
-            parameter=read_list(options.parameter),
             period=read_list(options.period),
+            language=options.language,
         )
-        output = pformat(dict(metadata.describe_fields(language=options.language)))
+        output = pformat(dict(metadata))
         print(output)
 
     else:
