@@ -14,7 +14,7 @@ class ResolutionType(Enum):
 class Resolution(Enum):
     """
     enumeration for granularity/resolution of the weather
-    observations
+    observation
     """
 
     MINUTE_1 = "1_minute"  # used by DWD for file server
@@ -40,5 +40,5 @@ class Frequency(Enum):
     HOUR_6 = "6H"
     SUBDAILY = "1H"
     DAILY = "1D"
-    MONTHLY = "1M"
-    ANNUAL = "1A"
+    MONTHLY = "MS"  # month start
+    ANNUAL = "AS"  # year start

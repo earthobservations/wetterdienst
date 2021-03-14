@@ -15,7 +15,7 @@ Get available parameters for daily historical data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationResolution, DwdObservationPeriod
 
     observations_meta = DwdObservationRequest.discover(
         resolution=DwdObservationResolution.DAILY,
@@ -35,7 +35,7 @@ Get stations for daily historical precipitation:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -51,7 +51,7 @@ Get data for a parameter set:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -65,7 +65,7 @@ Get data for a parameter:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationParameter, DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationParameter, DwdObservationResolution, DwdObservationPeriod
 
     observation_data = DwdObservationRequest(
         parameter=DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT,
@@ -82,7 +82,7 @@ Get stations for Mosmix:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
+    from wetterdienst.provider.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
 
     stations = DwdMosmixRequest(mosmix_type=DwdMosmixType.LARGE)
 
@@ -92,7 +92,7 @@ Get data for Mosmix-L:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
+    from wetterdienst.provider.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
 
     stations = DwdMosmixRequest(
         mosmix_type=DwdMosmixType.LARGE

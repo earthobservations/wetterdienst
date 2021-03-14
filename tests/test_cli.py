@@ -12,16 +12,16 @@ import pytest
 
 from wetterdienst import cli
 
-# Individual settings for observations and forecasts
+# Individual settings for observation and forecast
 SETTINGS_STATIONS = [
-    "observations stations --resolution=daily --parameter=kl --period=recent",
-    "forecasts stations",
+    "observation stations --resolution=daily --parameter=kl --period=recent",
+    "forecast stations --parameter=large",
 ]
 
 SETTINGS_READINGS = [
-    "observations values --resolution=daily --parameter=kl --period=recent "
+    "observation values --resolution=daily --parameter=kl --period=recent "
     "--date=2020-06-30",
-    f"forecasts values --mosmix-type=large --parameter=DD "
+    f"forecast values --parameter=DD --mosmix-type=large"
     f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
 ]
 
@@ -42,10 +42,10 @@ def test_cli_help():
         cli.run()
 
     response = str(excinfo.value)
-    assert "wetterdienst dwd observations stations" in response
-    assert "wetterdienst dwd observations values" in response
-    assert "wetterdienst dwd forecasts stations" in response
-    assert "wetterdienst dwd forecasts values" in response
+    assert "wetterdienst dwd observation stations" in response
+    assert "wetterdienst dwd observation values" in response
+    assert "wetterdienst dwd forecast stations" in response
+    assert "wetterdienst dwd forecast values" in response
     assert "wetterdienst dwd about" in response
 
 
@@ -186,7 +186,7 @@ def test_cli_stations_empty(setting, caplog):
     assert "No data available for given constraints" in caplog.text
 
 
-# TODO: make forecasts formattable as GEOJSON/make to_geojson compatible with WMO_ID
+# TODO: make forecast formattable as GEOJSON/make to_geojson compatible with WMO_ID
 @pytest.mark.parametrize(
     "setting,station,expected_station_name",
     zip(SETTINGS_STATIONS[:1], SETTINGS_STATION[:1], EXPECTED_STATION_NAME[:1]),
@@ -348,7 +348,7 @@ def test_cli_readings_format_unknown(setting, station, caplog):
         invoke_wetterdienst_values_static(
             setting=setting, station=station, fmt="foobar"
         )
-
+    print(caplog.text)
     assert "ERROR" in caplog.text
     assert "Unknown output format" in caplog.text
 

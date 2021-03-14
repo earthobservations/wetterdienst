@@ -4,12 +4,12 @@
 """Wetterdienst - Open weather data for humans"""
 __appname__ = "wetterdienst"
 
-from wetterdienst import dwd
-from wetterdienst.api import Wetterdienst
+from wetterdienst.api import Wetterdienst  # rather use this as entry point
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider import dwd  # remove at some point
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/

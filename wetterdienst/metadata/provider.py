@@ -8,4 +8,9 @@ class Provider(Enum):
     """Source of weather information given as tuple of local name, english name and
     country"""
 
-    DWD = "Deutscher Wetterdienst", "German Weather Service", "Germany"
+    DWD = ("Deutscher Wetterdienst", "German Weather Service", "Germany")
+    ECCC = (
+        "Environnement et Changement climatique Canada",
+        "Environment and Climate Change Canada",
+        "Canada",
+    )

@@ -18,7 +18,7 @@ Setup
 """
 import logging
 
-from wetterdienst.dwd.observations import (
+from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationRequest,
     DwdObservationResolution,

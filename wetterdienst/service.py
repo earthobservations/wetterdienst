@@ -8,8 +8,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from wetterdienst import __appname__, __version__
-from wetterdienst.dwd.forecasts import DwdMosmixRequest
-from wetterdienst.dwd.observations.api import DwdObservationRequest
+from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.util.cli import read_list
 
 app = FastAPI(debug=False)
@@ -76,11 +76,11 @@ def dwd_stations(
     max_distance_in_km: int = Query(default=None),
     sql: str = Query(default=None),
 ):
-    if product not in ["observations", "mosmix"]:
+    if product not in ["observation", "mosmix"]:
         return HTTPException(status_code=404, detail=f"product {product} not found")
 
     # Data acquisition.
-    if product == "observations":
+    if product == "observation":
         if parameter is None or resolution is None or period is None:
             raise HTTPException(
                 status_code=400,
@@ -134,8 +134,8 @@ def dwd_values(
 
     # TODO: Obtain lat/lon distance/number information.
 
-    :param product:     string for product, either observations or mosmix
-    :param station:     Comma-separated list of station identifiers
+    :param product:     string for product, either observation or mosmix
+    :param station:     Comma-separated list of station identifiers.
     :param parameter:   Observation measure
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
@@ -145,7 +145,7 @@ def dwd_values(
     :param tidy:        Whether to return data in tidy format. Default: True.
     :return:
     """
-    if product not in ["observations", "mosmix"]:
+    if product not in ["observation", "mosmix"]:
         return HTTPException(status_code=404, detail=f"product {product} not found")
 
     if station is None:
@@ -155,7 +155,7 @@ def dwd_values(
 
     station_ids = map(str, read_list(station))
 
-    if product == "observations":
+    if product == "observation":
         if parameter is None or resolution is None or period is None:
             raise HTTPException(
                 status_code=400,

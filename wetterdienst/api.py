@@ -3,11 +3,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 
-from wetterdienst.dwd.forecasts import DwdMosmixRequest
-from wetterdienst.dwd.observations import DwdObservationRequest
-from wetterdienst.dwd.radar import DwdRadarValues
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.provider import Provider
+from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.radar import DwdRadarValues
+from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 API_ENDPOINTS = {
@@ -15,7 +16,8 @@ API_ENDPOINTS = {
         Kind.OBSERVATION: DwdObservationRequest,
         Kind.FORECAST: DwdMosmixRequest,
         Kind.RADAR: DwdRadarValues,
-    }
+    },
+    Provider.ECCC: {Kind.OBSERVATION: EcccObservationRequest},
 }
 
 
