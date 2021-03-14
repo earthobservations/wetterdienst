@@ -117,7 +117,7 @@ parameters can be queried. Take a look at the massive amount of data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest
 
     observations_meta = DwdObservationRequest.discover(flatten=False)
 

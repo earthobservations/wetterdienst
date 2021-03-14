@@ -7,5 +7,5 @@ class _GetAttrMeta(type):
         return getattr(cls, x)
 
 
-class WDParameterStructureBase(metaclass=_GetAttrMeta):
+class DatasetTreeCore(metaclass=_GetAttrMeta):
     pass

@@ -9,21 +9,31 @@ from wetterdienst import Wetterdienst
 @pytest.mark.parametrize(
     "provider,kind,kwargs",
     [
+        # German Weather Service (DWD)
         (
             "dwd",
             "observation",
             {"parameter": "kl", "resolution": "daily", "period": "recent"},
         ),
-        ("dwd", "forecast", {"mosmix_type": "large"}),
+        ("dwd", "forecast", {"parameter": "large", "mosmix_type": "large"}),
+        # Environment and Climate Change Canada
+        ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}),
     ],
 )
 def test_api(provider, kind, kwargs):
+    """ Test main wetterdienst API """
+    # Build API
     api = Wetterdienst(provider, kind)
 
+    # Discover parameters
+    assert api.discover()
+
+    # All stations
     request = api(**kwargs).all()
 
     stations = request.df
 
+    # Check stations DataFrame columns
     assert set(stations.columns).issuperset(
         {
             "station_id",
@@ -37,8 +47,10 @@ def test_api(provider, kind, kwargs):
         }
     )
 
+    # Check that there are actually stations
     assert not stations.empty
 
+    # Query first DataFrame from values
     values = next(request.values.query()).df
 
     # TODO: DWD Forecast has no quality

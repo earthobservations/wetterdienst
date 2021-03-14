@@ -23,7 +23,7 @@ def test_robots():
 def test_dwd_stations():
 
     response = client.get(
-        "/api/dwd/observations/stations",
+        "/api/dwd/observation/stations",
         params={
             "parameter": "kl",
             "resolution": "daily",
@@ -38,7 +38,7 @@ def test_dwd_stations():
 def test_dwd_stations_sql():
 
     response = client.get(
-        "/api/dwd/observations/stations",
+        "/api/dwd/observation/stations",
         params={
             "parameter": "kl",
             "resolution": "daily",
@@ -55,7 +55,7 @@ def test_dwd_stations_sql():
 def test_dwd_readings_success(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
             "station": "01359",
             "parameter": "kl",
@@ -82,7 +82,7 @@ def test_dwd_readings_success(dicts_are_same):
 def test_dwd_readings_no_station():
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
             "parameter": "kl",
             "resolution": "daily",
@@ -97,7 +97,7 @@ def test_dwd_readings_no_station():
 def test_dwd_readings_no_parameter():
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
             "station": "01048,4411",
             "resolution": "daily",
@@ -114,7 +114,7 @@ def test_dwd_readings_no_parameter():
 def test_dwd_readings_no_resolution():
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
             "station": "01048,4411",
             "parameter": "kl",
@@ -131,7 +131,7 @@ def test_dwd_readings_no_resolution():
 def test_dwd_readings_no_period():
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
             "station": "01048,4411",
             "parameter": "kl",
@@ -149,7 +149,7 @@ def test_dwd_readings_no_period():
 def test_dwd_readings_sql_tabular(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
             "station": "01048,4411",
             "parameter": "kl",

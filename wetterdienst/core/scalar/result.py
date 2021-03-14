@@ -14,7 +14,7 @@ from wetterdienst.metadata.resolution import Frequency, Resolution
 if TYPE_CHECKING:
     from wetterdienst.core.scalar.request import ScalarRequestCore
     from wetterdienst.core.scalar.values import ScalarValuesCore
-    from wetterdienst.dwd.forecasts.api import DwdMosmixRequest
+    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
 
 
 class StationsResult:

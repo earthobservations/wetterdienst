@@ -11,7 +11,7 @@ Acquire information about the data fields from DWD.
 import logging
 from pprint import pprint
 
-from wetterdienst.dwd.observations import (
+from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationRequest,

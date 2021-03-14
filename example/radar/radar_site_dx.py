@@ -33,7 +33,7 @@ import matplotlib.pyplot as pl
 import numpy as np
 import wradlib as wrl
 
-from wetterdienst.dwd.radar import (
+from wetterdienst.provider.dwd.radar import (
     DwdRadarDate,
     DwdRadarParameter,
     DwdRadarSite,

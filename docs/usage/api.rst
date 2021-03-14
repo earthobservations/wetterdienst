@@ -87,7 +87,7 @@ or at the domain specific level e.g.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationResolution, DwdObservationPeriod
+    from wetterdienst.provider.dwd.observations import DwdObservationResolution, DwdObservationPeriod
 
 Both enumerations can be used interchangeably however the weather services enumeration
 is limited to what resolutions and periods are actually available while the main level
@@ -128,7 +128,7 @@ Get station information for a given *parameter/parameter_set*, *resolution* and
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -149,7 +149,7 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
 
 .. ipython:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
@@ -191,7 +191,7 @@ Inquire the list of stations by geographic coordinates.
 .. ipython:: python
 
     from datetime import datetime
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
@@ -255,7 +255,7 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
@@ -285,7 +285,7 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationDataset,
+    from wetterdienst.provider.dwd.observations import DwdObservationRequest, DwdObservationDataset,
         DwdObservationPeriod, DwdObservationResolution
 
     stations = DwdObservationRequest(
@@ -307,7 +307,7 @@ Get stations for Mosmix:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DwdMosmixRequest
+    from wetterdienst.provider.dwd.forecasts import DwdMosmixRequest
 
     stations = DwdMosmixRequest(mosmix_type="large")  # actually same for small and large
 
@@ -320,7 +320,7 @@ Get Mosmix-L data:
 
 .. ipython:: python
 
-    from wetterdienst.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
+    from wetterdienst.provider.dwd.forecasts import DwdMosmixRequest, DwdMosmixType
 
     stations = DwdMosmixRequest(
         mosmix_type=DwdMosmixType.LARGE
@@ -362,7 +362,7 @@ For more examples, please have a look at `example/radar/`_.
 
 .. code-block:: python
 
-    from wetterdienst.dwd.radar import DwdRadarValues, DwdRadarParameter, DwdRadarResolution
+    from wetterdienst.provider.dwd.radar import DwdRadarValues, DwdRadarParameter, DwdRadarResolution
     import wradlib as wrl
 
     radar = DwdRadarValues(

@@ -15,7 +15,7 @@ import pytz
 
 from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
-from wetterdienst.exceptions import StartDateEndDateError
+from wetterdienst.exceptions import InvalidEnumeration, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
@@ -91,6 +91,42 @@ class ScalarRequestCore(Core):
 
     @property
     @abstractmethod
+    def _has_datasets(self) -> bool:
+        pass
+
+    @property
+    def _dataset_base(self) -> Optional[Enum]:
+        if self._has_datasets:
+            raise NotImplementedError(
+                "implement _dataset_base Enumeration that contains available datasets"
+            )
+        return
+
+    @property
+    def _dataset_tree(self) -> Optional[object]:
+        if self._has_datasets:
+            raise NotImplementedError(
+                "implement _dataset_tree class that contains available datasets "
+                "and their parameters"
+            )
+        return None
+
+    @property
+    def _unique_dataset(self) -> bool:
+        if self._has_datasets:
+            raise NotImplementedError("define if only one big dataset is available")
+        return False
+
+    @property
+    def _parameter_to_dataset_mapping(self) -> dict:
+        if not self._unique_dataset:
+            raise NotImplementedError(
+                "for non unique datasets implement a mapping from parameter to dataset"
+            )
+        return dict()
+
+    @property
+    @abstractmethod
     def _values(self):
         pass
 
@@ -132,6 +168,10 @@ class ScalarRequestCore(Core):
                 .tolist()
             )
 
+    @property
+    def _dataset_accessor(self):
+        return self.resolution.name
+
     def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
         """
         Method to parse parameters, either from string or enum. Case independent for
@@ -140,11 +180,60 @@ class ScalarRequestCore(Core):
         :param parameter: parameters as strings or enumerations
         :return: list of parameter enumerations of type self._parameter_base
         """
-        return (
-            pd.Series(parameter)
-            .apply(parse_enumeration_from_template, args=(self._parameter_base,))
-            .tolist()
-        )
+        # for logging
+        enums = []
+        if self._dataset_base:
+            enums.append(self._dataset_base)
+
+        enums.append(self._parameter_base)
+
+        parameters = []
+
+        for parameter in pd.Series(parameter):
+            parameter_ = None
+
+            if self._dataset_base:
+                try:
+                    parameter_ = parse_enumeration_from_template(
+                        parameter, self._dataset_base
+                    )
+                except InvalidEnumeration:
+                    pass
+                else:
+                    parameters.append((parameter_, parameter_))
+                    continue
+
+                try:
+                    parameter_ = parse_enumeration_from_template(
+                        parameter, self._parameter_base[self._dataset_accessor]
+                    )
+                    if self._unique_dataset:
+                        dataset = self._dataset_base[self._dataset_accessor]
+                    else:
+                        dataset = self._parameter_to_dataset_mapping[self.resolution][
+                            parameter_
+                        ]
+                        parameter_ = self._dataset_tree[self._dataset_accessor][
+                            dataset.name
+                        ][parameter_.name]
+                except InvalidEnumeration:
+                    pass
+                else:
+                    parameters.append((parameter_, dataset))
+                    continue
+
+            try:
+                parameter_ = parse_enumeration_from_template(
+                    parameter, self._parameter_base[self._dataset_accessor]
+                )
+                parameters.append(parameter_)
+            except InvalidEnumeration:
+                pass
+
+            if not parameter_:
+                log.info(f"parameter {parameter} could not be parsed from ({enums})")
+
+        return parameters
 
     @staticmethod
     def _parse_station_id(series: pd.Series) -> pd.Series:
@@ -208,6 +297,16 @@ class ScalarRequestCore(Core):
         self.end_date = end_date
         self.parameter = self._parse_parameter(parameter)
         self.humanize_parameters = humanize_parameters
+
+        tidy_data = tidy_data
+        if self._has_datasets:
+            tidy_data = tidy_data or any(
+                [
+                    parameter not in self._dataset_base
+                    for parameter, dataset in self.parameter
+                ]
+            )
+
         self.tidy_data = tidy_data
 
     @classmethod

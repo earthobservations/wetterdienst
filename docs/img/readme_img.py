@@ -6,7 +6,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from wetterdienst.dwd.observations import DwdObservationRequest, DwdObservationValues, DwdObservationParameter, DwdObservationParameterSet, DwdObservationResolution, DwdObservationPeriod
+from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationValues, DwdObservationParameter, DwdObservationParameterSet, DwdObservationResolution, DwdObservationPeriod
 
 plt.style.use('ggplot')
 

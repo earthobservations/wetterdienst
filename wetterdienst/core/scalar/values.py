@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from abc import abstractmethod
 from enum import Enum
-from typing import Dict, Generator, List, Tuple, Union
+from typing import Dict, Generator, Tuple, Union
 
 import pandas as pd
 from pytz import timezone
@@ -13,6 +13,7 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
 class ScalarValuesCore:
@@ -70,9 +71,16 @@ class ScalarValuesCore:
 
     @property
     def _complete_dates(self) -> pd.DatetimeIndex:
+        start_date, end_date = self.stations.start_date, self.stations.end_date
+
+        if self.stations.stations.resolution == Resolution.MONTHLY:
+            end_date += pd.Timedelta(days=31)
+        elif self.stations.stations.resolution == Resolution.ANNUAL:
+            end_date += pd.Timedelta(year=366)
+
         date_range = pd.date_range(
-            self.stations.start_date,
-            self.stations.end_date,
+            start_date,
+            end_date,
             freq=self.stations.frequency.value,
             tz=self.data_tz,
         )
@@ -132,31 +140,54 @@ class ScalarValuesCore:
         pass
 
     def _get_empty_station_parameter_df(
-        self, station_id: str, parameter: Union[Enum, List[Enum]]
+        self, station_id: str, parameter: Union[Enum, Tuple[Enum, Enum]]
     ) -> pd.DataFrame:
-        parameter = pd.Series(parameter).map(lambda x: x.value).tolist()
-        df = self._base_df
+        dataset_tree = self.stations.stations._dataset_tree
+        resolution = self.stations.stations.resolution
 
-        # Base columns
-        columns = [Columns.STATION_ID.value, Columns.DATE.value]
+        dataset = None
+        # Split parameter into parameter and dataset if parameters are stored in dataset
+        if self.stations.stations._has_datasets:
+            parameter, dataset = parameter
 
-        if self.stations.tidy_data:
-            columns.extend(
-                [Columns.PARAMETER.value, Columns.VALUE.value, Columns.QUALITY.value]
-            )
+        # if parameter is a whole dataset, take every parameter from the dataset instead
+        if parameter == dataset:
+            if self.stations.stations._unique_dataset:
+                parameter = [*dataset_tree[resolution.name]]
+            else:
+                parameter = [*dataset_tree[resolution.name][dataset.name]]
+
+        if self.stations.stations.tidy_data:
+            data = []
+            for par in pd.Series(parameter):
+                if par.name.startswith("QUALITY"):
+                    continue
+
+                par_df = self._base_df
+                par_df[Columns.PARAMETER.value] = par.value
+
+                data.append(par_df)
+
+            df = pd.concat(data)
+
+            df[Columns.STATION_ID.value] = station_id
+            df[Columns.DATASET.value] = dataset.name
+            df[Columns.VALUE.value] = pd.NA
+            df[Columns.QUALITY.value] = pd.NA
+
+            return df
         else:
-            columns.extend(parameter)
+            df = self._base_df
+            parameter = pd.Series(parameter).map(lambda x: x.value).tolist()
 
-        df = df.reindex(columns=columns)
+            # Base columns
+            columns = [Columns.STATION_ID.value, Columns.DATE.value, *parameter]
 
-        df[Columns.STATION_ID.value] = station_id
+            df = df.reindex(columns=columns)
 
-        if self.stations.tidy_data:
-            if len(parameter) == 1:
-                parameter = parameter[0]
-            df[Columns.PARAMETER.value] = parameter
+            df[Columns.STATION_ID.value] = station_id
 
-        return df
+            return df
 
     def _build_complete_df(
         self, df: pd.DataFrame, station_id: str, parameter: Enum
@@ -167,20 +198,70 @@ class ScalarValuesCore:
         if not self.stations.start_date:
             return df
 
-        df = pd.merge(
-            left=self._base_df,
-            right=df,
-            left_on=Columns.DATE.value,
-            right_on=Columns.DATE.value,
-            how="left",
-        )
+        dataset = None
+        if self.stations.stations._has_datasets:
+            parameter, dataset = parameter
 
-        df[Columns.STATION_ID.value] = station_id
+        if parameter != dataset or not self.stations.stations.tidy_data:
+            df = pd.merge(
+                left=self._base_df,
+                right=df,
+                left_on=Columns.DATE.value,
+                right_on=Columns.DATE.value,
+                how="left",
+            )
 
-        if self.stations.tidy_data:
-            df[Columns.PARAMETER.value] = parameter.value
+            df[Columns.STATION_ID.value] = station_id
 
-        return df
+            if self.stations.tidy_data:
+                df[Columns.PARAMETER.value] = parameter.value
+                df[Columns.PARAMETER.value] = pd.Categorical(
+                    df[Columns.PARAMETER.value]
+                )
+
+                if dataset:
+                    df[Columns.DATASET.value] = dataset.name.lower()
+                    df[Columns.DATASET.value] = pd.Categorical(
+                        df[Columns.DATASET.value]
+                    )
+
+            return df
+        else:
+            data = []
+            for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
+                if self.stations.stations._unique_dataset:
+                    parameter_ = parse_enumeration_from_template(
+                        parameter,
+                        self.stations.stations._parameter_base[
+                            self.stations.resolution.name
+                        ],
+                    )
+                else:
+                    parameter_ = parse_enumeration_from_template(
+                        parameter,
+                        self.stations.stations._dataset_tree[
+                            self.stations.resolution.name
+                        ][dataset.name],
+                    )
+
+                df = pd.merge(
+                    left=self._base_df,
+                    right=group,
+                    left_on=Columns.DATE.value,
+                    right_on=Columns.DATE.value,
+                    how="left",
+                )
+
+                df[Columns.STATION_ID.value] = station_id
+
+                df[Columns.PARAMETER.value] = parameter_.value
+
+                df[Columns.DATASET.value] = dataset.name.lower()
+                df[Columns.DATASET.value] = pd.Categorical(df[Columns.DATASET.value])
+
+                data.append(df)
+
+            return pd.concat(data)
 
     def query(self) -> Generator[ValuesResult, None, None]:
         """Core method for data collection, iterating of station ids and yielding a

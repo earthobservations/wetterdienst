@@ -29,8 +29,8 @@ import matplotlib.pyplot as pl
 import numpy as np
 import wradlib as wrl
 
-from wetterdienst.dwd.radar import DwdRadarValues
-from wetterdienst.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
+from wetterdienst.provider.dwd.radar import DwdRadarValues
+from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()

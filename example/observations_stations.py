@@ -11,7 +11,7 @@ Acquire station information from DWD.
 import logging
 from datetime import datetime
 
-from wetterdienst.dwd.observations import (
+from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationRequest,
