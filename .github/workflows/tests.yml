@@ -47,7 +47,7 @@ jobs:
         key: ${{ matrix.os }}-${{ matrix.python-version }}-poetry-${{ env.CACHE_NUMBER }}-${{ hashFiles('poetry.lock') }}
 
     - name: Install dependencies
-      run: poetry install --no-interaction --no-root --extras=http --extras=sql --extras=excel
+      run: poetry install --no-interaction --no-root --extras=http --extras=sql --extras=export
 
     - name: Install library
       run: poetry install --no-interaction

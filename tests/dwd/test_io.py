@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime
 import json
+import os
 
 import dateutil.parser
 import mock
@@ -58,6 +60,21 @@ def test_lowercase():
 
     assert df.iloc[0]["dataset"] == "climate_summary"
     assert df.iloc[0]["parameter"] == "temperature_air_max_200"
+
+
+def test_to_dict():
+    df = df_data.io.to_dict()
+
+    assert df == [
+        {
+            "DATASET": "CLIMATE_SUMMARY",
+            "DATE": "2019-12-28T00:00:00+00:00",
+            "PARAMETER": "TEMPERATURE_AIR_MAX_200",
+            "QUALITY": None,
+            "STATION_ID": "01048",
+            "VALUE": 1.3,
+        },
+    ]
 
 
 def test_filter_by_date():
@@ -172,10 +189,20 @@ def test_format_csv():
     )
 
 
-def test_format_unknown():
+def test_format_unknown_dwd():
 
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError) as ex:
         df_data.dwd.format("foobar")
+
+    ex.match("Unknown output format")
+
+
+def test_format_unknown_io():
+
+    with pytest.raises(KeyError) as ex:
+        df_data.io.format("foobar")
+
+    ex.match("Unknown output format")
 
 
 def test_request():
@@ -191,7 +218,7 @@ def test_request():
     assert not df.empty
 
 
-def test_export_sqlite():
+def test_export_unknown():
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -201,21 +228,313 @@ def test_export_sqlite():
         station_id=[1048],
     )
 
-    with mock.patch(
-        "pandas.DataFrame.to_sql",
-    ) as mock_to_sql:
+    df = request.values.all().df
 
-        df = request.values.all().df
-        df.io.export("sqlite:///test.sqlite?table=testdrive")
+    with pytest.raises(KeyError) as ex:
+        df.io.export("file:///test.foobar")
 
-        mock_to_sql.assert_called_once_with(
-            name="testdrive",
-            con="sqlite:///test.sqlite?table=testdrive",
-            if_exists="replace",
-            index=False,
-            method="multi",
-            chunksize=5000,
+    ex.match("Unknown export file type")
+
+
+def test_export_spreadsheet(tmpdir_factory):
+
+    import openpyxl
+
+    # 1. Request data and save to .xlsx file.
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        start_date="2019",
+        end_date="2020",
+        tidy_data=False,
+    ).filter(
+        station_id=[1048],
+    )
+
+    df = request.values.all().df
+
+    filename = tmpdir_factory.mktemp("data").join("observations.xlsx")
+    df.io.export(f"file://{filename}")
+
+    workbook = openpyxl.load_workbook(filename=filename)
+    worksheet = workbook.active
+
+    # 2. Validate some details of .xlsx file.
+
+    # Validate header row.
+    header = list(worksheet.iter_cols(min_row=1, max_row=1, values_only=True))
+    assert header == [
+        ("DATE",),
+        ("STATION_ID",),
+        ("QN_3",),
+        ("WIND_GUST_MAX",),
+        ("WIND_SPEED",),
+        ("QN_4",),
+        ("PRECIPITATION_HEIGHT",),
+        ("PRECIPITATION_FORM",),
+        ("SUNSHINE_DURATION",),
+        ("SNOW_DEPTH",),
+        ("CLOUD_COVER_TOTAL",),
+        ("PRESSURE_VAPOR",),
+        ("PRESSURE_AIR",),
+        ("TEMPERATURE_AIR_200",),
+        ("HUMIDITY",),
+        ("TEMPERATURE_AIR_MAX_200",),
+        ("TEMPERATURE_AIR_MIN_200",),
+        ("TEMPERATURE_AIR_MIN_005",),
+    ]
+
+    # Validate number of records.
+    assert worksheet.max_row == 367
+
+    first_record = list(worksheet.iter_cols(min_row=2, max_row=2, values_only=True))
+    assert first_record == [
+        ("2019-01-01T00:00:00+00:00",),
+        ("01048",),
+        (10,),
+        (19.9,),
+        (8.5,),
+        (3,),
+        (0.9,),
+        (8,),
+        (0,),
+        (0,),
+        (7.4,),
+        (7.9,),
+        (991.87,),
+        (5.9,),
+        (84.21,),
+        (7.5,),
+        (2,),
+        (1.5,),
+    ]
+
+    last_record = list(
+        worksheet.iter_cols(
+            min_row=worksheet.max_row, max_row=worksheet.max_row, values_only=True
         )
+    )
+    assert last_record == [
+        ("2020-01-01T00:00:00+00:00",),
+        ("01048",),
+        (10,),
+        (6.9,),
+        (3.2,),
+        (3,),
+        (0,),
+        (0,),
+        (3.933,),
+        (0,),
+        (4.2,),
+        (5.7,),
+        (1005.11,),
+        (2.4,),
+        (79,),
+        (5.6,),
+        (-2.8,),
+        (-4.6,),
+    ]
+
+    os.unlink(filename)
+
+
+def test_export_parquet(tmpdir_factory):
+
+    import pyarrow.parquet as pq
+
+    # Request data.
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        start_date="2019",
+        end_date="2020",
+        tidy_data=False,
+    ).filter(
+        station_id=[1048],
+    )
+
+    df = request.values.all().df
+
+    # Save to Parquet file.
+    filename = tmpdir_factory.mktemp("data").join("observations.parquet")
+    df.io.export(f"file://{filename}")
+
+    # Read back Parquet file.
+    table = pq.read_table(filename)
+
+    # Validate dimensions.
+    assert table.num_columns == 18
+    assert table.num_rows == 366
+
+    # Validate column names.
+    assert table.column_names == [
+        "DATE",
+        "STATION_ID",
+        "QN_3",
+        "WIND_GUST_MAX",
+        "WIND_SPEED",
+        "QN_4",
+        "PRECIPITATION_HEIGHT",
+        "PRECIPITATION_FORM",
+        "SUNSHINE_DURATION",
+        "SNOW_DEPTH",
+        "CLOUD_COVER_TOTAL",
+        "PRESSURE_VAPOR",
+        "PRESSURE_AIR",
+        "TEMPERATURE_AIR_200",
+        "HUMIDITY",
+        "TEMPERATURE_AIR_MAX_200",
+        "TEMPERATURE_AIR_MIN_200",
+        "TEMPERATURE_AIR_MIN_005",
+    ]
+
+    # Validate content.
+    data = table.to_pydict()
+
+    assert data["DATE"][0] == datetime.datetime(
+        2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    assert data["TEMPERATURE_AIR_MIN_005"][0] == 1.5
+    assert data["DATE"][-1] == datetime.datetime(
+        2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    assert data["TEMPERATURE_AIR_MIN_005"][-1] == -4.6
+
+    os.unlink(filename)
+
+
+def test_export_feather(tmpdir_factory):
+
+    import pyarrow.feather as feather
+
+    # Request data
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        start_date="2019",
+        end_date="2020",
+        tidy_data=False,
+    ).filter(
+        station_id=[1048],
+    )
+
+    df = request.values.all().df
+
+    # Save to Feather file.
+    filename = tmpdir_factory.mktemp("data").join("observations.feather")
+    df.io.export(f"file://{filename}")
+
+    # Read back Feather file.
+    table = feather.read_table(filename)
+
+    # Validate dimensions.
+    assert table.num_columns == 18
+    assert table.num_rows == 366
+
+    # Validate column names.
+    assert table.column_names == [
+        "DATE",
+        "STATION_ID",
+        "QN_3",
+        "WIND_GUST_MAX",
+        "WIND_SPEED",
+        "QN_4",
+        "PRECIPITATION_HEIGHT",
+        "PRECIPITATION_FORM",
+        "SUNSHINE_DURATION",
+        "SNOW_DEPTH",
+        "CLOUD_COVER_TOTAL",
+        "PRESSURE_VAPOR",
+        "PRESSURE_AIR",
+        "TEMPERATURE_AIR_200",
+        "HUMIDITY",
+        "TEMPERATURE_AIR_MAX_200",
+        "TEMPERATURE_AIR_MIN_200",
+        "TEMPERATURE_AIR_MIN_005",
+    ]
+
+    # Validate content.
+    data = table.to_pydict()
+
+    assert data["DATE"][0] == datetime.datetime(
+        2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    assert data["TEMPERATURE_AIR_MIN_005"][0] == 1.5
+    assert data["DATE"][-1] == datetime.datetime(
+        2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    assert data["TEMPERATURE_AIR_MIN_005"][-1] == -4.6
+
+    os.unlink(filename)
+
+
+def test_export_sqlite(tmpdir_factory):
+
+    import sqlite3
+
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        start_date="2019",
+        end_date="2020",
+        tidy_data=False,
+    ).filter(
+        station_id=[1048],
+    )
+
+    filename = tmpdir_factory.mktemp("data").join("observations.sqlite")
+
+    df = request.values.all().df
+    df.io.export(f"sqlite:///{filename}?table=testdrive")
+
+    connection = sqlite3.connect(filename)
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM testdrive")
+    results = cursor.fetchall()
+    cursor.close()
+    connection.close()
+
+    assert results[0] == (
+        "2019-01-01 00:00:00.000000",
+        "01048",
+        10,
+        19.9,
+        8.5,
+        3,
+        0.9,
+        8,
+        0.0,
+        0,
+        7.4,
+        7.9,
+        991.87,
+        5.9,
+        84.21,
+        7.5,
+        2.0,
+        1.5,
+    )
+
+    assert results[-1] == (
+        "2020-01-01 00:00:00.000000",
+        "01048",
+        10,
+        6.9,
+        3.2,
+        3,
+        0.0,
+        0,
+        3.933,
+        0,
+        4.2,
+        5.7,
+        1005.11,
+        2.4,
+        79.0,
+        5.6,
+        -2.8,
+        -4.6,
+    )
 
 
 def test_export_cratedb():

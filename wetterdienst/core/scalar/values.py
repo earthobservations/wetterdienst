@@ -311,9 +311,9 @@ class ScalarValuesCore:
     def _coerce_dates(self, series: pd.Series) -> pd.Series:
         """Method to parse dates in the pandas.DataFrame. Leverages the data timezone
         attribute to ensure correct comparison of dates."""
-        series = pd.to_datetime(series, infer_datetime_format=True)
-        series = series.dt.tz_localize(self.data_tz)
-        return series
+        return pd.to_datetime(series, infer_datetime_format=True).dt.tz_localize(
+            self.data_tz
+        )
 
     @staticmethod
     def _coerce_integers(series: pd.Series) -> pd.Series:

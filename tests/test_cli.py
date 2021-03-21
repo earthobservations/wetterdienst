@@ -112,6 +112,14 @@ def invoke_wetterdienst_stations_static(setting, station, fmt="json"):
     cli.run()
 
 
+def invoke_wetterdienst_stations_export(setting, station, target):
+    argv = shlex.split(
+        f"wetterdienst dwd {setting} --station={station} --target={target}"
+    )
+    sys.argv = argv
+    cli.run()
+
+
 def invoke_wetterdienst_stations_geo(setting, fmt="json"):
     argv = shlex.split(
         f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --number=5 "
@@ -123,6 +131,14 @@ def invoke_wetterdienst_stations_geo(setting, fmt="json"):
 
 def invoke_wetterdienst_values_static(setting, station, fmt="json"):
     argv = shlex.split(f"wetterdienst dwd {setting} --station={station} --format={fmt}")
+    sys.argv = argv
+    cli.run()
+
+
+def invoke_wetterdienst_values_export(setting, station, target):
+    argv = shlex.split(
+        f"wetterdienst dwd {setting} --station={station} --target={target}"
+    )
     sys.argv = argv
     cli.run()
 
@@ -206,12 +222,17 @@ def test_cli_stations_csv(setting, station, expected_station_name, capsys):
     "setting,station,expected_station_name",
     zip(SETTINGS_STATIONS, SETTINGS_STATION, EXPECTED_STATION_NAME),
 )
-def test_cli_stations_excel(setting, station, expected_station_name, capsys):
+def test_cli_stations_excel(
+    setting, station, expected_station_name, capsys, tmpdir_factory
+):
 
-    invoke_wetterdienst_stations_static(setting=setting, station=station, fmt="excel")
+    # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")
+    filename = "stations.xlsx"
 
-    # FIXME: Make --format=excel write to a designated file.
-    filename = "output.xlsx"
+    invoke_wetterdienst_stations_export(
+        setting=setting, station=station, target=f"file://{filename}"
+    )
+
     with zipfile.ZipFile(filename, "r") as zip_file:
         payload = zip_file.read("xl/worksheets/sheet1.xml")
 
@@ -305,12 +326,15 @@ def test_cli_readings_csv(setting, station, capsys):
 
 
 @pytest.mark.parametrize("setting,station", zip(SETTINGS_READINGS, SETTINGS_STATION))
-def test_cli_readings_excel(setting, station):
+def test_cli_readings_excel(setting, station, tmpdir_factory):
 
-    invoke_wetterdienst_values_static(setting=setting, station=station, fmt="excel")
+    # filename = tmpdir_factory.mktemp("data").join("readings.xlsx")
+    filename = "readings.xlsx"
 
-    # FIXME: Make --format=excel write to a designated file.
-    filename = "output.xlsx"
+    invoke_wetterdienst_values_export(
+        setting=setting, station=station, target=f"file://{filename}"
+    )
+
     with zipfile.ZipFile(filename, "r") as zip_file:
         payload = zip_file.read("xl/worksheets/sheet1.xml")
 

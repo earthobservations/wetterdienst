@@ -2332,8 +2332,7 @@ bufr = []
 cratedb = ["crate"]
 docs = ["sphinx", "sphinx-material", "tomlkit", "sphinx-autodoc-typehints", "sphinxcontrib-svg2pdfconverter", "matplotlib", "ipython"]
 duckdb = ["duckdb"]
-excel = ["openpyxl"]
-export = ["pyarrow"]
+export = ["openpyxl", "pyarrow", "sqlalchemy"]
 http = ["fastapi", "uvicorn"]
 influxdb = ["influxdb"]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
@@ -2345,7 +2344,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.1"
-content-hash = "88050587eaa3e6ca6e81e83d1985afbc8ce310cce9a6260fa56cd4c90c4901e8"
+content-hash = "f7fc696697d46470f8e638d4bb15d89274afd88f41ad1bb0392c9c9a3555eb02"
 
 [metadata.files]
 aiohttp = [

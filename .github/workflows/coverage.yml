@@ -24,7 +24,7 @@ jobs:
         path: ~/.poetry
         key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
     - name: Install library
-      run: poetry install --extras=http --extras=sql --extras=excel
+      run: poetry install --extras=http --extras=sql --extras=export
     - name: Generate coverage report
       run: |
         poetry run pytest --cov=wetterdienst tests/
