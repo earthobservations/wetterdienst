@@ -143,7 +143,7 @@ There are some extras available for ``wetterdienst``. Use them like:
 
 - docs: Install the Sphinx documentation generator.
 - ipython: Install iPython stack.
-- excel: Install openpyxl for Excel export.
+- export: Install openpyxl for Excel export and pyarrow for writing files in Feather- and Parquet-format.
 - http: Install HTTP API prerequisites.
 - sql: Install DuckDB for querying data using SQL.
 - duckdb: Install support for DuckDB.

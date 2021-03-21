@@ -26,10 +26,10 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> [--period=<period>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> [--period=<period>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observations values --parameter=<parameter> --resolution=<resolution> [--period=<period>] [--station=<station>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observations values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd forecasts values --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
@@ -159,9 +159,24 @@ def run():
       # Tell me all parameters available for 'daily' resolution.
       wetterdienst dwd about coverage --resolution=daily
 
+    Examples for exporting data to files:
+
+      # Export list of stations into spreadsheet
+      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent --target=file://stations.xlsx
+
+      # Shortcut command for fetching readings
+      alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+
+      # Export readings into spreadsheet (Excel-compatible)
+      fetch --target="file://observations.xlsx"
+
+      # Export readings into Parquet format and display head of Parquet file
+      fetch --target="file://observations.parquet"
+      parquet-tools head observations.parquet
+
     Examples for exporting data to databases:
 
-      # Shortcut command for fetching readings from DWD
+      # Shortcut command for fetching readings
       alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
 
       # Store readings to DuckDB
@@ -172,10 +187,6 @@ def run():
 
       # Store readings to CrateDB
       fetch --target="crate://localhost/?database=dwd&table=weather"
-
-      # Export readings into Parquet format and display head of Parquet file
-      fetch --target="file://test.parquet"
-      parquet-tools head test.parquet
 
     Run as HTTP service:
 
@@ -294,9 +305,7 @@ def run():
     try:
         output = df.dwd.format(options.format)
     except KeyError as ex:
-        log.error(
-            f'{ex}. Output format must be one of "json", "geojson", "csv", "excel".'
-        )
+        log.error(f'{ex}. Output format must be one of "json", "geojson", "csv".')
         sys.exit(1)
 
     print(output)

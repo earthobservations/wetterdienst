@@ -5,7 +5,7 @@ dwd_data/
 .venv*
 *.egg-info
 coverage.xml
-.coverage
+.coverage*
 htmlcov
 .nox/
 .pytest_cache/

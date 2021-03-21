@@ -125,7 +125,7 @@ class PandasDwdExtension:
         """
         Format/render Pandas DataFrame to given output format.
 
-        :param fmt: One of json, geojson, csv, excel.
+        :param fmt: One of json, geojson, csv.
         :return: Rendered payload.
         """
 
@@ -133,7 +133,7 @@ class PandasDwdExtension:
         if fmt == "geojson":
             output = json.dumps(self.df.dwd.to_geojson(), indent=4)
 
-        elif fmt in ("json", "csv", "excel"):
+        elif fmt in ("json", "csv"):
             output = self.df.io.format(fmt=fmt)
         else:
             raise KeyError("Unknown output format")

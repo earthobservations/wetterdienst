@@ -12,11 +12,12 @@ Extending pandas
 - https://pandas.pydata.org/pandas-docs/stable/development/extending.html
 """
 import logging
-from urllib.parse import parse_qs, urlparse, urlunparse
+from urllib.parse import urlunparse
 
 import pandas as pd
 
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.util.url import ConnectionString
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +25,26 @@ log = logging.getLogger(__name__)
 @pd.api.extensions.register_dataframe_accessor("io")
 class IoAccessor:
     def __init__(self, pandas_obj):
-        self.df = pandas_obj
+        self.df: pd.DataFrame = pandas_obj
+
+    @staticmethod
+    def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
+        df: pd.DataFrame = df.copy(deep=True)
+
+        # Convert all datetime columns to ISO format.
+        date_columns = list(df.select_dtypes(include=[pd.DatetimeTZDtype]).columns)
+        for date_column in date_columns:
+            df[date_column] = df[date_column].apply(lambda d: d.isoformat())
+
+        return df
 
     def to_dict(self) -> dict:
-        return self.df.to_dict(orient="records")
+
+        # Convert all datetime columns to ISO format.
+        df = self.convert_datetimes(self.df)
+
+        # Return dictionary with scalar types.
+        return df.to_dict(orient="records")
 
     def sql(self, sql: str) -> pd.DataFrame:
         """
@@ -57,32 +74,13 @@ class IoAccessor:
         :return: Rendered payload.
         """
 
-        # Output as JSON.
+        # Format as JSON.
         if fmt == "json":
             output = self.df.to_json(orient="records", date_format="iso", indent=4)
-        # Output as CSV.
+
+        # Format as CSV.
         elif fmt == "csv":
             output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
-
-        # Output as XLSX.
-        # FIXME: Make --format=excel write to a designated file.
-        elif fmt == "excel":
-            # TODO: Obtain output file name from command line.
-            output_filename = "output.xlsx"
-            log.info(f"Writing {output_filename}")
-            df = self.df.copy()
-            for column in (
-                Columns.DATE.value,
-                Columns.FROM_DATE.value,
-                Columns.TO_DATE.value,
-            ):
-                column = column if column in df else column.lower()
-                try:
-                    df[column] = df[column].astype(str)
-                except KeyError:
-                    pass
-            df.to_excel(output_filename, index=False)
-            output = None
 
         else:
             raise KeyError("Unknown output format")
@@ -119,23 +117,12 @@ class IoAccessor:
         if target.startswith("file://"):
             filepath = t.get_path()
 
-            if target.endswith(".arrow"):
-                # https://arrow.apache.org/docs/python/ipc.html
-                # https://arrow.apache.org/docs/python/filesystems.html
+            if target.endswith(".xlsx"):
+                log.info(f"Writing to spreadsheet file '{filepath}'")
 
-                log.info(f"Writing to Arrow IPC file '{filepath}'")
-
-                import pyarrow as pa
-                from pyarrow import fs
-
-                table = pa.Table.from_pandas(self.df)
-
-                local_filesystem = fs.LocalFileSystem()
-                sink = local_filesystem.open_output_stream(
-                    path=filepath, compression="lz4"
-                )
-                writer = pa.ipc.new_file(sink, table.schema)
-                writer.write_table(table)
+                # Convert all datetime columns to ISO format.
+                df = self.convert_datetimes(self.df)
+                df.to_excel(filepath, index=False)
 
             elif target.endswith(".feather"):
                 # https://arrow.apache.org/docs/python/feather.html
@@ -154,7 +141,7 @@ class IoAccessor:
                 pq.write_table(table, filepath)
 
             else:
-                raise ValueError("Unknown export file type")
+                raise KeyError("Unknown export file type")
 
             return
 
@@ -362,41 +349,3 @@ class IoAccessor:
                 chunksize=5000,
             )
             log.info("Writing to SQL database finished")
-
-
-class ConnectionString:
-    """
-    Helper class to support ``IoAccessor.export()``.
-    """
-
-    def __init__(self, url):
-        self.url_raw = url
-        self.url = urlparse(url)
-
-    def get_path(self):
-        return self.url.path or self.url.netloc
-
-    def get_query_param(self, name):
-        query = parse_qs(self.url.query)
-        try:
-            return query[name][0]
-        except (KeyError, IndexError):
-            return None
-
-    def get_table(self):
-        return self.get_query_param("table") or "weather"
-
-    def get_database(self):
-        database = None
-        if self.url.netloc:
-            database = self.get_query_param("database")
-        else:
-            if self.url.path.startswith("/"):
-                database = self.url.path[1:]
-
-        return database or "dwd"
-
-    def get(self):
-        database = self.get_database()
-        tablename = self.get_table()
-        return database, tablename
