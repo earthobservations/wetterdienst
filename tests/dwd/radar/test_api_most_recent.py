@@ -33,6 +33,9 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
 
     results = list(request.query())
 
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     # Verify number of results.
     assert len(results) == 1
 
@@ -57,7 +60,6 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     assert hdf["/dataset1/data1/data"].shape == (360, 600)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     """
@@ -74,6 +76,9 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     )
 
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
 
     # Verify number of results.
     assert len(results) == 10
@@ -105,7 +110,6 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 2
 
 
-@pytest.mark.xfail
 def test_radar_request_radolan_cdc_most_recent():
     """
     Example for testing radar sites most recent RADOLAN_CDC.
@@ -118,6 +122,9 @@ def test_radar_request_radolan_cdc_most_recent():
     )
 
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
 
     assert len(results) == 1
 

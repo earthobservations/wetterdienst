@@ -42,7 +42,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bufr():
     )
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(reason="Out of service", strict=True)
 def test_radar_fileindex_composite_rx_reflectivity_bin():
 
     file_index = create_fileindex_radar(
