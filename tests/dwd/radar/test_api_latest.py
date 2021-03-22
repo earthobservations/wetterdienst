@@ -12,7 +12,7 @@ from wetterdienst.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(reason="Out of service", strict=True)
 @pytest.mark.remote
 def test_radar_request_composite_latest_rx_reflectivity():
     """
@@ -36,7 +36,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(reason="Out of service", strict=True)
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity():
     """

@@ -193,7 +193,8 @@ def test_dwd_readings_sql_tabular(dicts_are_same):
 @pytest.mark.sql
 @pytest.mark.xfail(
     reason="The data types of the `value` column in tidy data "
-    "frames is currently not homogenous"
+    "frames is currently not homogenous",
+    strict=True,
 )
 def test_dwd_readings_sql_tidy(dicts_are_same):
 
