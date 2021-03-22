@@ -339,6 +339,17 @@ class IoAccessor:
                 sqlite3 dwd.sqlite "SELECT * FROM weather;"
 
             """
+
+            # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999
+            # for SQLite versions prior to 3.32.0 (2020-05-22),
+            # see https://www.sqlite.org/limits.html#max_variable_number.
+            chunksize = 5000
+            if target.startswith("sqlite://"):
+                import sqlite3
+
+                if sqlite3.sqlite_version_info < (3, 32, 0):
+                    chunksize = int(999 / len(self.df.columns))
+
             log.info("Writing to SQL database")
             self.df.to_sql(
                 name=tablename,
@@ -346,6 +357,6 @@ class IoAccessor:
                 if_exists="replace",
                 index=False,
                 method="multi",
-                chunksize=5000,
+                chunksize=chunksize,
             )
             log.info("Writing to SQL database finished")
