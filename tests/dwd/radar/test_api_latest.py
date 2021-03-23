@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pytest
 
+from tests.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.dwd.radar import DwdRadarValues
 from wetterdienst.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
 from wetterdienst.dwd.radar.sites import DwdRadarSite
@@ -30,13 +31,12 @@ def test_radar_request_composite_latest_rx_reflectivity():
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
         f"RX......10000{month_year}BY 8101..VS 3SW   2.28.1PR E\\+00INT   5GP 900x 900MS "  # noqa:E501,B950
-        f"..<(asb,)?boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,tur,(isn,)?fbg(,mem)?>"  # noqa:E501,B950
+        f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
-@pytest.mark.xfail(reason="Out of service", strict=True)
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity():
     """
@@ -48,14 +48,20 @@ def test_radar_request_composite_latest_rw_reflectivity():
         start_date=DwdRadarDate.LATEST,
     )
 
-    buffer = next(request.query())[1]
+    results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
+    buffer = results[0][1]
+
     payload = buffer.getvalue()
 
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
         f"RW......10000{month_year}"
         f"BY16201..VS 3SW   2.28.1PR E-01INT  60GP 900x 900MF 00000001MS "
-        f"..<asb,boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,tur,(isn,)?fbg,mem>"
+        f"..<{station_reference_pattern_unsorted}>"
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
