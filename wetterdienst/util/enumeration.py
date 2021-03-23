@@ -28,19 +28,33 @@ def parse_enumeration_from_template(
 
     enum_name = None
 
-    try:
-        enum_name = enum_.upper()
-    except AttributeError:
+    # Attempt to decode parameter either as string or Enum item.
+    if isinstance(enum_, str):
+        enum_name = enum_
+    else:
         try:
             enum_name = enum_.name
         except AttributeError:
             pass
 
     try:
-        enum_parsed = intermediate[enum_name]
+        enum_parsed = intermediate[enum_name.upper()]
     except (KeyError, AttributeError):
         try:
-            enum_parsed = intermediate(enum_)
+            if isinstance(enum_, str):
+                candidates = [enum_, enum_.lower()]
+                success = False
+                for candidate in candidates:
+                    try:
+                        enum_parsed = intermediate(candidate)
+                        success = True
+                        break
+                    except ValueError:
+                        pass
+                if not success:
+                    raise ValueError()
+            else:
+                enum_parsed = intermediate(enum_)
         except ValueError:
             raise InvalidEnumeration(
                 f"{enum_} could not be parsed from {intermediate.__name__}."
