@@ -62,9 +62,7 @@ class IoAccessor:
         """
         import duckdb
 
-        df = duckdb.query(self.df, "data", sql).df()
-        self.df = df
-        return df
+        return duckdb.query(self.df, "data", sql).df()
 
     def format(self, fmt: str) -> str:
         """
@@ -240,7 +238,7 @@ class IoAccessor:
             tag_candidates = [
                 Columns.STATION_ID.value,
                 Columns.QUALITY.value,
-                "qn_",
+                Columns.QUALITY_PREFIX.value,
                 Columns.DATASET.value,
                 Columns.PARAMETER.value,
             ]

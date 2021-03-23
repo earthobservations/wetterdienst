@@ -36,7 +36,7 @@ def test_dwd_observation_stations_nearby_number_success():
         8.9,
         1,
     )
-    nearby_station = nearby_station.df.drop("TO_DATE", axis="columns")
+    nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
     assert_frame_equal(
         nearby_station,
@@ -54,14 +54,14 @@ def test_dwd_observation_stations_nearby_number_success():
                 ]
             ],
             columns=[
-                "STATION_ID",
-                "FROM_DATE",
-                "HEIGHT",
-                "LATITUDE",
-                "LONGITUDE",
-                "STATION_NAME",
-                "STATE",
-                "DISTANCE_TO_LOCATION",
+                "station_id",
+                "from_date",
+                "height",
+                "latitude",
+                "longitude",
+                "station_name",
+                "state",
+                "distance_to_location",
             ],
         ),
     )
@@ -78,8 +78,8 @@ def test_dwd_observation_stations_nearby_number_success():
         8.9,
         3,
     )
-    nearby_station = nearby_station.df.drop("TO_DATE", axis="columns")
-    nearby_station.STATION_ID = nearby_station.STATION_ID
+    nearby_station = nearby_station.df.drop("to_date", axis="columns")
+    nearby_station["station_id"] = nearby_station["station_id"]
 
     pd.testing.assert_frame_equal(
         nearby_station,
@@ -117,14 +117,14 @@ def test_dwd_observation_stations_nearby_number_success():
                 ],
             ],
             columns=[
-                "STATION_ID",
-                "FROM_DATE",
-                "HEIGHT",
-                "LATITUDE",
-                "LONGITUDE",
-                "STATION_NAME",
-                "STATE",
-                "DISTANCE_TO_LOCATION",
+                "station_id",
+                "from_date",
+                "height",
+                "latitude",
+                "longitude",
+                "station_name",
+                "state",
+                "distance_to_location",
             ],
         ),
     )
@@ -166,15 +166,15 @@ def test_derive_nearest_neighbours():
 
     metadata = pd.DataFrame(
         {
-            "STATION_ID": [4371, 4373, 4411, 13904, 13965, 15207],
-            "LAT": [52.1042, 52.8568, 49.9195, 55.0, 48.2639, 51.2835],
-            "LON": [8.7521, 11.1319, 8.9671, 6.3333, 8.8134, 9.359],
+            "station_id": [4371, 4373, 4411, 13904, 13965, 15207],
+            "latitude": [52.1042, 52.8568, 49.9195, 55.0, 48.2639, 51.2835],
+            "longitude": [8.7521, 11.1319, 8.9671, 6.3333, 8.8134, 9.359],
         }
     )
 
     distances, indices_nearest_neighbours = derive_nearest_neighbours(
-        latitudes=metadata.LAT.values,
-        longitudes=metadata.LON.values,
+        latitudes=metadata["latitude"].values,
+        longitudes=metadata["longitude"].values,
         coordinates=coords,
         number_nearby=1,
     )

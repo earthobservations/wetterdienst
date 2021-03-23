@@ -60,7 +60,7 @@ def parse_parameters(text):
                         more = re.sub(r"\n(?!\d+)", " ", more, flags=re.DOTALL)
                     else:
                         more = more.replace("\n", " ")
-                    data[parameter] = more
+                    data[parameter.lower()] = more
                 buffer.truncate(0)
                 buffer.seek(0)
             parameter = line

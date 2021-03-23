@@ -113,6 +113,8 @@ class DwdObservationValues(ScalarValuesCore):
     ) -> pd.DataFrame:
         parameter, dataset = parameter
 
+        dataset_name = dataset.name.lower()
+
         if parameter != dataset:
             # parameter = [*DwdObservationDatasetStructure[self.resolution.name]
             # [parameter_set.name]]
@@ -120,7 +122,7 @@ class DwdObservationValues(ScalarValuesCore):
                 station_id, parameter
             )
 
-            df[Columns.DATASET.value] = dataset.name
+            df[Columns.DATASET.value] = dataset_name
 
             return df
 
@@ -132,7 +134,7 @@ class DwdObservationValues(ScalarValuesCore):
         if self.stations.tidy_data:
             data = []
             for par in parameter:
-                if not par.value.startswith("QN"):
+                if not par.value.startswith(Columns.QUALITY_PREFIX.value):
                     data.append(
                         super(
                             DwdObservationValues, self
@@ -141,7 +143,7 @@ class DwdObservationValues(ScalarValuesCore):
 
             df = pd.concat(data)
 
-            df[Columns.DATASET.value] = dataset.name
+            df[Columns.DATASET.value] = dataset_name
 
             return df
         else:
@@ -149,7 +151,7 @@ class DwdObservationValues(ScalarValuesCore):
                 station_id, parameter
             )
 
-            df[Columns.DATASET.value] = dataset.name
+            df[Columns.DATASET.value] = dataset_name
 
             return df
 
@@ -157,6 +159,8 @@ class DwdObservationValues(ScalarValuesCore):
         self, df: pd.DataFrame, station_id: str, parameter: Enum
     ) -> pd.DataFrame:
         parameter, dataset = parameter
+
+        dataset_name = dataset.name.lower()
 
         if parameter != dataset or not self.stations.tidy_data:
             df = super(DwdObservationValues, self)._build_complete_df(
@@ -182,7 +186,7 @@ class DwdObservationValues(ScalarValuesCore):
             df = pd.concat(data)
 
         if self.stations.tidy_data:
-            df[Columns.DATASET.value] = dataset.name
+            df[Columns.DATASET.value] = dataset_name
             df[Columns.DATASET.value] = pd.Categorical(df[Columns.DATASET.value])
 
         return df
@@ -285,14 +289,14 @@ class DwdObservationValues(ScalarValuesCore):
 
             # TODO: remove this column and rather move it into metadata of resulting
             #  data model
-            parameter_df.insert(2, Columns.DATASET.value, dataset.name)
+            parameter_df.insert(2, Columns.DATASET.value, dataset.name.lower())
             parameter_df[Columns.DATASET.value] = parameter_df[
                 Columns.DATASET.value
             ].astype("category")
 
         if parameter not in DwdObservationDataset:
             parameter_df = parameter_df[
-                parameter_df[DwdColumns.PARAMETER.value] == parameter.value
+                parameter_df[DwdColumns.PARAMETER.value] == parameter.value.lower()
             ]
 
         return parameter_df
@@ -313,7 +317,7 @@ class DwdObservationValues(ScalarValuesCore):
         """Reduce the creation of parameter mapping of the massive amount of parameters
         by specifying the resolution."""
         hcnm = {
-            parameter.value: parameter.name
+            parameter.value: parameter.name.lower()
             for parameter in DwdObservationParameter[self.stations.resolution.name]
         }
 

@@ -288,9 +288,6 @@ def run():
     if options["values"] and options.date:
         df = df.dwd.filter_by_date(options.date, stations.stations.resolution)
 
-    # Make column names lowercase.
-    df = df.dwd.lower()
-
     # Apply filtering by SQL.
     if options.sql:
         log.info(f"Filtering with SQL: {options.sql}")

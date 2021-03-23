@@ -9,33 +9,35 @@ class Columns(Enum):
 
     # TODO: remove columns which are only used in context of data wrangling of one of
     #  the weather services e.g. EOR or FILENAME
-    STATION_ID = "STATION_ID"  # change to local id later
-    DATE = "DATE"
-    FROM_DATE = "FROM_DATE"
-    TO_DATE = "TO_DATE"
-    HEIGHT = "HEIGHT"
-    LATITUDE = "LATITUDE"
-    LONGITUDE = "LONGITUDE"
-    STATION_NAME = "STATION_NAME"
-    STATE = "STATE"
-    EOR = "EOR"
+    STATION_ID = "station_id"  # change to local id later
+    DATE = "date"
+    FROM_DATE = "from_date"
+    TO_DATE = "to_date"
+    HEIGHT = "height"
+    LATITUDE = "latitude"
+    LONGITUDE = "longitude"
+    STATION_NAME = "station_name"
+    STATE = "state"
+    EOR = "eor"
     # Extra column names
-    FILENAME = "FILENAME"
-    HAS_FILE = "HAS_FILE"
-    FILEID = "FILEID"
-    DATE_RANGE = "DATE_RANGE"
-    INTERVAL = "INTERVAL"
+    FILENAME = "filename"
+    HAS_FILE = "has_file"
+    FILEID = "fileid"
+    DATE_RANGE = "date_range"
+    INTERVAL = "interval"
     # Columns used for tidy data
+    PARAMETER = "parameter"
+    DATASET = "dataset"
+    VALUE = "value"
     # Column for quality
-    PARAMETER = "PARAMETER"
-    DATASET = "DATASET"
-    VALUE = "VALUE"
-    QUALITY = "QUALITY"
+    QUALITY = "quality"
     # Columns used for RADOLAN
-    PERIOD_TYPE = "PERIOD_TYPE"
-    DATETIME = "DATETIME"
+    PERIOD_TYPE = "period_type"
+    DATETIME = "datetime"
     # Column for distance used by get_nearby_stations_...
-    DISTANCE_TO_LOCATION = "DISTANCE_TO_LOCATION"
+    DISTANCE_TO_LOCATION = "distance_to_location"
     # For mosmix
-    WMO_ID = "WMO_ID"
-    ICAO_ID = "ICAO_ID"
+    WMO_ID = "wmo_id"
+    ICAO_ID = "icao_id"
+    # Special columns
+    QUALITY_PREFIX = "qn"

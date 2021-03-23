@@ -107,7 +107,7 @@ def collect_radar_data(
         )
 
         # Find "-latest-" file.
-        filenames = file_index["FILENAME"].tolist()
+        filenames = file_index[DwdColumns.FILENAME.value].tolist()
         latest_file = list(filter(lambda x: "-latest-" in x, filenames))[0]
 
         # Yield single "RadarResult" item.

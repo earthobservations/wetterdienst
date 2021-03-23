@@ -24,15 +24,15 @@ def test_dwd_mosmix_stations_success():
         df.loc[df[Columns.STATION_ID.value] == "01001", :].reset_index(drop=True),
         pd.DataFrame(
             {
-                "STATION_ID": ["01001"],
-                "ICAO_ID": ["ENJA"],
-                "FROM_DATE": pd.to_datetime([pd.NA], utc=True),
-                "TO_DATE": pd.to_datetime([pd.NaT], utc=True),
-                "HEIGHT": [10.0],
-                "LATITUDE": [70.93],
-                "LONGITUDE": [-8.0],
-                "STATION_NAME": ["JAN MAYEN"],
-                "STATE": ["nan"],
+                "station_id": ["01001"],
+                "icao_id": ["ENJA"],
+                "from_date": pd.to_datetime([pd.NA], utc=True),
+                "to_date": pd.to_datetime([pd.NaT], utc=True),
+                "height": [10.0],
+                "latitude": [70.93],
+                "longitude": [-8.0],
+                "station_name": ["JAN MAYEN"],
+                "state": ["nan"],
             }
         ),
     )

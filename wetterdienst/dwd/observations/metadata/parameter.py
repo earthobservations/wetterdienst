@@ -12,266 +12,266 @@ class DwdObservationParameter(WDParameterStructureBase):
     # 1_minute
     class MINUTE_1(Enum):  # noqa
         # precipitation
-        PRECIPITATION_HEIGHT = "RS_01"
-        PRECIPITATION_HEIGHT_DROPLET = "RTH_01"
-        PRECIPITATION_HEIGHT_ROCKER = "RWH_01"
-        PRECIPITATION_FORM = "RS_IND_01"  # int
+        PRECIPITATION_HEIGHT = "rs_01"
+        PRECIPITATION_HEIGHT_DROPLET = "rth_01"
+        PRECIPITATION_HEIGHT_ROCKER = "rwh_01"
+        PRECIPITATION_FORM = "rs_ind_01"  # int
 
     # 10_minutes
     class MINUTE_10(Enum):  # noqa
         # air_temperature
-        PRESSURE_AIR_STATION_HEIGHT = "PP_10"
-        TEMPERATURE_AIR_200 = "TT_10"
-        TEMPERATURE_AIR_005 = "TM5_10"
-        HUMIDITY = "RF_10"
-        TEMPERATURE_DEW_POINT_200 = "TD_10"
+        PRESSURE_AIR_STATION_HEIGHT = "pp_10"
+        TEMPERATURE_AIR_200 = "tt_10"
+        TEMPERATURE_AIR_005 = "tm5_10"
+        HUMIDITY = "rf_10"
+        TEMPERATURE_DEW_POINT_200 = "td_10"
 
         # extreme_temperature
-        TEMPERATURE_AIR_MAX_200 = "TX_10"
-        TEMPERATURE_AIR_MAX_005 = "TX5_10"
-        TEMPERATURE_AIR_MIN_200 = "TN_10"
-        TEMPERATURE_AIR_MIN_005 = "TN5_10"
+        TEMPERATURE_AIR_MAX_200 = "tx_10"
+        TEMPERATURE_AIR_MAX_005 = "tx5_10"
+        TEMPERATURE_AIR_MIN_200 = "tn_10"
+        TEMPERATURE_AIR_MIN_005 = "tn5_10"
 
         # extreme_wind
-        WIND_GUST_MAX = "FX_10"
-        WIND_SPEED_MIN = "FNX_10"
-        WIND_SPEED_ROLLING_MEAN_MAX = "FMX_10"
-        WIND_DIRECTION_MAX_VELOCITY = "DX_10"  # int
+        WIND_GUST_MAX = "fx_10"
+        WIND_SPEED_MIN = "fnx_10"
+        WIND_SPEED_ROLLING_MEAN_MAX = "fmx_10"
+        WIND_DIRECTION_MAX_VELOCITY = "dx_10"  # int
 
         # precipitation
-        PRECIPITATION_DURATION = "RWS_DAU_10"
-        PRECIPITATION_HEIGHT = "RWS_10"
-        PRECIPITATION_INDICATOR_WR = "RWS_IND_10"  # int
+        PRECIPITATION_DURATION = "rws_dau_10"
+        PRECIPITATION_HEIGHT = "rws_10"
+        PRECIPITATION_INDICATOR_WR = "rws_ind_10"  # int
 
         # solar
-        RADIATION_SKY_DIFFUSE = "DS_10"
-        RADIATION_GLOBAL = "GS_10"
-        SUNSHINE_DURATION = "SD_10"
-        RADIATION_SKY_LONG_WAVE = "LS_10"
+        RADIATION_SKY_DIFFUSE = "ds_10"
+        RADIATION_GLOBAL = "gs_10"
+        SUNSHINE_DURATION = "sd_10"
+        RADIATION_SKY_LONG_WAVE = "ls_10"
 
         # wind
-        WIND_SPEED = "FF_10"
-        WIND_DIRECTION = "DD_10"
+        WIND_SPEED = "ff_10"
+        WIND_DIRECTION = "dd_10"
 
     # hourly
     class HOURLY(Enum):
         # air_temperature
-        TEMPERATURE_AIR_200 = "TT_TU"
-        HUMIDITY = "RF_TU"
+        TEMPERATURE_AIR_200 = "tt_tu"
+        HUMIDITY = "rf_tu"
 
         # cloud_type
-        CLOUD_COVER_TOTAL = "V_N"  # int
-        CLOUD_COVER_TOTAL_INDICATOR = "V_N_I"  # str
-        CLOUD_TYPE_LAYER1 = "V_S1_CS"  # int
-        CLOUD_TYPE_LAYER1_ABBREVIATION = "V_S1_CSA"  # str
-        CLOUD_HEIGHT_LAYER1 = "V_S1_HHS"
-        CLOUD_COVER_LAYER1 = "V_S1_NS"  # int
-        CLOUD_TYPE_LAYER2 = "V_S2_CS"  # int
-        CLOUD_TYPE_LAYER2_ABBREVIATION = "V_S2_CSA"  # str
-        CLOUD_HEIGHT_LAYER2 = "V_S2_HHS"
-        CLOUD_COVER_LAYER2 = "V_S2_NS"  # int
-        CLOUD_TYPE_LAYER3 = "V_S3_CS"  # int
-        CLOUD_TYPE_LAYER3_ABBREVIATION = "V_S3_CSA"  # str
-        CLOUD_HEIGHT_LAYER3 = "V_S3_HHS"
-        CLOUD_COVER_LAYER3 = "V_S3_NS"  # int
-        CLOUD_TYPE_LAYER4 = "V_S4_CS"  # int
-        CLOUD_TYPE_LAYER4_ABBREVIATION = "V_S4_CSA"  # str
-        CLOUD_HEIGHT_LAYER4 = "V_S4_HHS"
-        CLOUD_COVER_LAYER4 = "V_S4_NS"  # int
+        CLOUD_COVER_TOTAL = "v_n"  # int
+        CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+        CLOUD_TYPE_LAYER1 = "v_s1_cs"  # int
+        CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
+        CLOUD_HEIGHT_LAYER1 = "v_s1_hhs"
+        CLOUD_COVER_LAYER1 = "v_s1_ns"  # int
+        CLOUD_TYPE_LAYER2 = "v_s2_cs"  # int
+        CLOUD_TYPE_LAYER2_ABBREVIATION = "v_s2_csa"  # str
+        CLOUD_HEIGHT_LAYER2 = "v_s2_hhs"
+        CLOUD_COVER_LAYER2 = "v_s2_ns"  # int
+        CLOUD_TYPE_LAYER3 = "v_s3_cs"  # int
+        CLOUD_TYPE_LAYER3_ABBREVIATION = "v_s3_csa"  # str
+        CLOUD_HEIGHT_LAYER3 = "v_s3_hhs"
+        CLOUD_COVER_LAYER3 = "v_s3_ns"  # int
+        CLOUD_TYPE_LAYER4 = "v_s4_cs"  # int
+        CLOUD_TYPE_LAYER4_ABBREVIATION = "v_s4_csa"  # str
+        CLOUD_HEIGHT_LAYER4 = "v_s4_hhs"
+        CLOUD_COVER_LAYER4 = "v_s4_ns"  # int
 
         # cloudiness
-        # CLOUD_COVER_TOTAL_INDICATOR = "V_N_I"  # str
-        # CLOUD_COVER_TOTAL = "V_N"  # int
+        # CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+        # CLOUD_COVER_TOTAL = "v_n"  # int
 
         # dew_point
-        # TEMPERATURE_AIR_200 = "TT"
-        TEMPERATURE_DEW_POINT_200 = "TD"
+        # TEMPERATURE_AIR_200 = "tt"
+        TEMPERATURE_DEW_POINT_200 = "td"
 
         # precipitation
-        PRECIPITATION_HEIGHT = "R1"
-        PRECIPITATION_INDICATOR = "RS_IND"  # int
-        PRECIPITATION_FORM = "WRTR"  # int
+        PRECIPITATION_HEIGHT = "r1"
+        PRECIPITATION_INDICATOR = "rs_ind"  # int
+        PRECIPITATION_FORM = "wrtr"  # int
 
         # pressure
-        PRESSURE_AIR_SEA_LEVEL = "P"
-        PRESSURE_AIR_STATION_HEIGHT = "P0"
+        PRESSURE_AIR_SEA_LEVEL = "p"
+        PRESSURE_AIR_STATION_HEIGHT = "p0"
 
         # soil_temperature
-        TEMPERATURE_SOIL_002 = "V_TE002"
-        TEMPERATURE_SOIL_005 = "V_TE005"
-        TEMPERATURE_SOIL_010 = "V_TE010"
-        TEMPERATURE_SOIL_020 = "V_TE020"
-        TEMPERATURE_SOIL_050 = "V_TE050"
-        TEMPERATURE_SOIL_100 = "V_TE100"
+        TEMPERATURE_SOIL_002 = "v_te002"
+        TEMPERATURE_SOIL_005 = "v_te005"
+        TEMPERATURE_SOIL_010 = "v_te010"
+        TEMPERATURE_SOIL_020 = "v_te020"
+        TEMPERATURE_SOIL_050 = "v_te050"
+        TEMPERATURE_SOIL_100 = "v_te100"
 
         # solar
-        END_OF_INTERVAL = "END_OF_INTERVAL"  # modified, does not exist in original
-        RADIATION_SKY_LONG_WAVE = "ATMO_LBERG"
-        RADIATION_SKY_SHORT_WAVE_DIFFUSE = "FD_LBERG"
-        RADIATION_GLOBAL = "FG_LBERG"
-        SUNSHINE_DURATION = "SD_LBERG"
-        SUN_ZENITH = "ZENIT"
-        TRUE_LOCAL_TIME = "TRUE_LOCAL_TIME"  # original name was adjusted to this one
+        END_OF_INTERVAL = "end_of_interval"  # modified, does not exist in original
+        RADIATION_SKY_LONG_WAVE = "atmo_lberg"
+        RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_lberg"
+        RADIATION_GLOBAL = "fg_lberg"
+        SUNSHINE_DURATION = "sd_lberg"
+        SUN_ZENITH = "zenit"
+        TRUE_LOCAL_TIME = "true_local_time"  # original name was adjusted to this one
 
         # sun
-        # SUNSHINE_DURATION = "SD_SO"
+        # SUNSHINE_DURATION = "sd_so"
 
         # visibility
-        VISIBILITY_INDICATOR = "V_VV_I"  # str
-        VISIBILITY = "V_VV"  # int
+        VISIBILITY_INDICATOR = "v_vv_i"  # str
+        VISIBILITY = "v_vv"  # int
 
         # wind
-        WIND_SPEED = "F"
-        WIND_DIRECTION = "D"  # int
+        WIND_SPEED = "f"
+        WIND_DIRECTION = "d"  # int
 
         # wind_synop
-        # WIND_SPEED = "FF"
-        # WIND_DIRECTION = "DD"  # int
+        # WIND_SPEED = "ff"
+        # WIND_DIRECTION = "dd"  # int
 
     # subdaily
     class SUBDAILY(Enum):  # noqa
         # air_temperature
-        TEMPERATURE_AIR_200 = "TT_TER"
-        HUMIDITY = "RF_TER"
+        TEMPERATURE_AIR_200 = "tt_ter"
+        HUMIDITY = "rf_ter"
 
         # cloudiness
-        CLOUD_COVER_TOTAL = "N_TER"  # int
-        CLOUD_DENSITY = "CD_TER"  # int
+        CLOUD_COVER_TOTAL = "n_ter"  # int
+        CLOUD_DENSITY = "cd_ter"  # int
 
         # moisture
-        PRESSURE_VAPOR = "VP_TER"
-        TEMPERATURE_AIR_005 = "E_TF_TER"
-        # TEMPERATURE_AIR_200 = "TF_TER"
-        # HUMIDITY = "RF_TER"
+        PRESSURE_VAPOR = "vp_ter"
+        TEMPERATURE_AIR_005 = "e_tf_ter"
+        # TEMPERATURE_AIR_200 = "tf_ter"
+        # HUMIDITY = "rf_ter"
 
         # pressure
-        PRESSURE_AIR = "PP_TER"
+        PRESSURE_AIR = "pp_ter"
 
         # soil
-        TEMPERATURE_SOIL_005 = "EK_TER"  # int
+        TEMPERATURE_SOIL_005 = "ek_ter"  # int
 
         # visibility
-        VISIBILITY = "VK_TER"  # int
+        VISIBILITY = "vk_ter"  # int
 
         # wind
-        WIND_DIRECTION = "DK_TER"  # int
-        WIND_FORCE_BEAUFORT = "FK_TER"  # int
+        WIND_DIRECTION = "dk_ter"  # int
+        WIND_FORCE_BEAUFORT = "fk_ter"  # int
 
     # Daily
     class DAILY(Enum):
         # kl
-        WIND_GUST_MAX = "FX"
-        WIND_SPEED = "FM"
-        PRECIPITATION_HEIGHT = "RSK"
-        PRECIPITATION_FORM = "RSKF"
-        SUNSHINE_DURATION = "SDK"
-        SNOW_DEPTH = "SHK_TAG"
-        CLOUD_COVER_TOTAL = "NM"
-        PRESSURE_VAPOR = "VPM"
-        PRESSURE_AIR = "PM"
-        TEMPERATURE_AIR_200 = "TMK"
-        HUMIDITY = "UPM"
-        TEMPERATURE_AIR_MAX_200 = "TXK"
-        TEMPERATURE_AIR_MIN_200 = "TNK"
-        TEMPERATURE_AIR_MIN_005 = "TGK"
+        WIND_GUST_MAX = "fx"
+        WIND_SPEED = "fm"
+        PRECIPITATION_HEIGHT = "rsk"
+        PRECIPITATION_FORM = "rskf"
+        SUNSHINE_DURATION = "sdk"
+        SNOW_DEPTH = "shk_tag"
+        CLOUD_COVER_TOTAL = "nm"
+        PRESSURE_VAPOR = "vpm"
+        PRESSURE_AIR = "pm"
+        TEMPERATURE_AIR_200 = "tmk"
+        HUMIDITY = "upm"
+        TEMPERATURE_AIR_MAX_200 = "txk"
+        TEMPERATURE_AIR_MIN_200 = "tnk"
+        TEMPERATURE_AIR_MIN_005 = "tgk"
 
         # more_precip
-        # PRECIPITATION_HEIGHT = "RS"
-        # PRECIPITATION_FORM = "RSF"  # int
-        # SNOW_DEPTH = "SH_TAG"  # int
-        SNOW_DEPTH_NEW = "NSH_TAG"  # int
+        # PRECIPITATION_HEIGHT = "rs"
+        # PRECIPITATION_FORM = "rsf"  # int
+        # SNOW_DEPTH = "sh_tag"  # int
+        SNOW_DEPTH_NEW = "nsh_tag"  # int
 
         # soil_temperature
-        TEMPERATURE_SOIL_002 = "V_TE002M"
-        TEMPERATURE_SOIL_005 = "V_TE005M"
-        TEMPERATURE_SOIL_010 = "V_TE010M"
-        TEMPERATURE_SOIL_020 = "V_TE020M"
-        TEMPERATURE_SOIL_050 = "V_TE050M"
+        TEMPERATURE_SOIL_002 = "v_te002m"
+        TEMPERATURE_SOIL_005 = "v_te005m"
+        TEMPERATURE_SOIL_010 = "v_te010m"
+        TEMPERATURE_SOIL_020 = "v_te020m"
+        TEMPERATURE_SOIL_050 = "v_te050m"
 
         # solar
-        RADIATION_SKY_LONG_WAVE = "ATMO_STRAHL"
-        RADIATION_SKY_SHORT_WAVE_DIFFUSE = "FD_STRAHL"
-        RADIATION_SKY_SHORT_WAVE_DIRECT = "FG_STRAHL"
-        # SUNSHINE_DURATION = "SD_STRAHL"
+        RADIATION_SKY_LONG_WAVE = "atmo_strahl"
+        RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_strahl"
+        RADIATION_SKY_SHORT_WAVE_DIRECT = "fg_strahl"
+        # SUNSHINE_DURATION = "sd_strahl"
 
         # water_equiv
-        SNOW_DEPTH_EXCELLED = "ASH_6"  # int
-        # SNOW_DEPTH = "SH_TAG"  # int
-        WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = "WASH_6"
-        WATER_EQUIVALENT_SNOW = "WAAS_6"
+        SNOW_DEPTH_EXCELLED = "ash_6"  # int
+        # SNOW_DEPTH = "sh_tag"  # int
+        WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = "wash_6"
+        WATER_EQUIVALENT_SNOW = "waas_6"
 
         # weather_phenomena
-        FOG = "NEBEL"  # int
-        THUNDER = "GEWITTER"  # int
-        STORM_STRONG_WIND = "STURM_6"  # int
-        STORM_STORMIER_WIND = "STURM_8"  # int
-        DEW = "TAU"  # int
-        GLAZE = "GLATTEIS"  # int
-        RIPE = "REIF"  # int
-        SLEET = "GRAUPEL"  # int
-        HAIL = "HAGEL"  # int
+        FOG = "nebel"  # int
+        THUNDER = "gewitter"  # int
+        STORM_STRONG_WIND = "sturm_6"  # int
+        STORM_STORMIER_WIND = "sturm_8"  # int
+        DEW = "tau"  # int
+        GLAZE = "glatteis"  # int
+        RIPE = "reif"  # int
+        SLEET = "graupel"  # int
+        HAIL = "hagel"  # int
 
     # monthly
     class MONTHLY(Enum):
         # kl
-        CLOUD_COVER_TOTAL = "MO_N"
-        TEMPERATURE_AIR_200 = "MO_TT"
-        TEMPERATURE_AIR_MAX_MEAN_200 = "MO_TX"
-        TEMPERATURE_AIR_MIN_MEAN_200 = "MO_TN"
-        WIND_FORCE_BEAUFORT = "MO_FK"
-        TEMPERATURE_AIR_MAX_200 = "MX_TX"
-        WIND_GUST_MAX = "MX_FX"
-        TEMPERATURE_AIR_MIN_200 = "MX_TN"
-        SUNSHINE_DURATION = "MO_SD_S"
-        PRECIPITATION_HEIGHT = "MO_RR"
-        PRECIPITATION_HEIGHT_MAX = "MX_RS"
+        CLOUD_COVER_TOTAL = "mo_n"
+        TEMPERATURE_AIR_200 = "mo_tt"
+        TEMPERATURE_AIR_MAX_MEAN_200 = "mo_tx"
+        TEMPERATURE_AIR_MIN_MEAN_200 = "mo_tn"
+        WIND_FORCE_BEAUFORT = "mo_fk"
+        TEMPERATURE_AIR_MAX_200 = "mx_tx"
+        WIND_GUST_MAX = "mx_fx"
+        TEMPERATURE_AIR_MIN_200 = "mx_tn"
+        SUNSHINE_DURATION = "mo_sd_s"
+        PRECIPITATION_HEIGHT = "mo_rr"
+        PRECIPITATION_HEIGHT_MAX = "mx_rs"
 
         # more_precip
-        SNOW_DEPTH_NEW = "MO_NSH"  # int
-        # PRECIPITATION_HEIGHT = "MO_RR"
-        SNOW_DEPTH = "MO_SH_S"  # int
-        # PRECIPITATION_HEIGHT_MAX = "MX_RS"
+        SNOW_DEPTH_NEW = "mo_nsh"  # int
+        # PRECIPITATION_HEIGHT = "mo_rr"
+        SNOW_DEPTH = "mo_sh_s"  # int
+        # PRECIPITATION_HEIGHT_MAX = "mx_rs"
 
         # weather_phenomena
-        STORM_STRONG_WIND = "MO_STURM_6"  # int
-        STORM_STORMIER_WIND = "MO_STURM_8"  # int
-        THUNDER = "MO_GEWITTER"  # int
-        GLAZE = "MO_GLATTEIS"  # int
-        SLEET = "MO_GRAUPEL"  # int
-        HAIL = "MO_HAGEL"  # int
-        FOG = "MO_NEBEL"  # int
-        DEW = "MO_TAU"  # int
+        STORM_STRONG_WIND = "mo_sturm_6"  # int
+        STORM_STORMIER_WIND = "mo_sturm_8"  # int
+        THUNDER = "mo_gewitter"  # int
+        GLAZE = "mo_glatteis"  # int
+        SLEET = "mo_graupel"  # int
+        HAIL = "mo_hagel"  # int
+        FOG = "mo_nebel"  # int
+        DEW = "mo_tau"  # int
 
     # annual
     class ANNUAL(Enum):
         # kl
-        CLOUD_COVER_TOTAL = "JA_N"
-        TEMPERATURE_AIR_200 = "JA_TT"
-        TEMPERATURE_AIR_MAX_MEAN_200 = "JA_TX"
-        TEMPERATURE_AIR_MIN_MEAN_200 = "JA_TN"
-        WIND_FORCE_BEAUFORT = "JA_FK"
-        SUNSHINE_DURATION = "JA_SD_S"
-        WIND_GUST_MAX = "JA_MX_FX"
-        TEMPERATURE_AIR_MAX_200 = "JA_MX_TX"
-        TEMPERATURE_AIR_MIN_200 = "JA_MX_TN"
-        PRECIPITATION_HEIGHT = "JA_RR"
-        PRECIPITATION_HEIGHT_MAX = "JA_MX_RS"
+        CLOUD_COVER_TOTAL = "ja_n"
+        TEMPERATURE_AIR_200 = "ja_tt"
+        TEMPERATURE_AIR_MAX_MEAN_200 = "ja_tx"
+        TEMPERATURE_AIR_MIN_MEAN_200 = "ja_tn"
+        WIND_FORCE_BEAUFORT = "ja_fk"
+        SUNSHINE_DURATION = "ja_sd_s"
+        WIND_GUST_MAX = "ja_mx_fx"
+        TEMPERATURE_AIR_MAX_200 = "ja_mx_tx"
+        TEMPERATURE_AIR_MIN_200 = "ja_mx_tn"
+        PRECIPITATION_HEIGHT = "ja_rr"
+        PRECIPITATION_HEIGHT_MAX = "ja_mx_rs"
 
         # more_precip
-        SNOW_DEPTH_NEW = "JA_NSH"  # int
-        # PRECIPITATION_HEIGHT = "JA_RR"
-        SNOW_DEPTH = "JA_SH_S"  # int
-        # PRECIPITATION_HEIGHT_MAX = "JA_MX_RS"
+        SNOW_DEPTH_NEW = "ja_nsh"  # int
+        # PRECIPITATION_HEIGHT = "ja_rr"
+        SNOW_DEPTH = "ja_sh_s"  # int
+        # PRECIPITATION_HEIGHT_MAX = "ja_mx_rs"
 
         # weather_phenomena
-        STORM_STRONG_WIND = "JA_STURM_6"  # int
-        STORM_STORMIER_WIND = "JA_STURM_8"  # int
-        THUNDER = "JA_GEWITTER"  # int
-        GLAZE = "JA_GLATTEIS"  # int
-        SLEET = "JA_GRAUPEL"  # int
-        HAIL = "JA_HAGEL"  # int
-        FOG = "JA_NEBEL"  # int
-        DEW = "JA_TAU"  # int
+        STORM_STRONG_WIND = "ja_sturm_6"  # int
+        STORM_STORMIER_WIND = "ja_sturm_8"  # int
+        THUNDER = "ja_gewitter"  # int
+        GLAZE = "ja_glatteis"  # int
+        SLEET = "ja_graupel"  # int
+        HAIL = "ja_hagel"  # int
+        FOG = "ja_nebel"  # int
+        DEW = "ja_tau"  # int
 
 
 class DwdObservationDatasetStructure(WDParameterStructureBase):
@@ -287,346 +287,346 @@ class DwdObservationDatasetStructure(WDParameterStructureBase):
     class MINUTE_1(WDParameterStructureBase):  # noqa
         # precipitation
         class PRECIPITATION(Enum):
-            QUALITY = "QN"
-            PRECIPITATION_HEIGHT = "RS_01"
-            PRECIPITATION_HEIGHT_DROPLET = "RTH_01"
-            PRECIPITATION_HEIGHT_ROCKER = "RWH_01"
-            PRECIPITATION_FORM = "RS_IND_01"  # int
+            QUALITY = "qn"
+            PRECIPITATION_HEIGHT = "rs_01"
+            PRECIPITATION_HEIGHT_DROPLET = "rth_01"
+            PRECIPITATION_HEIGHT_ROCKER = "rwh_01"
+            PRECIPITATION_FORM = "rs_ind_01"  # int
 
     # 10_minutes
     class MINUTE_10(WDParameterStructureBase):  # noqa
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
-            QUALITY = "QN"
-            PRESSURE_AIR_STATION_HEIGHT = "PP_10"
-            TEMPERATURE_AIR_200 = "TT_10"
-            TEMPERATURE_AIR_005 = "TM5_10"
-            HUMIDITY = "RF_10"
-            TEMPERATURE_DEW_POINT_200 = "TD_10"
+            QUALITY = "qn"
+            PRESSURE_AIR_STATION_HEIGHT = "pp_10"
+            TEMPERATURE_AIR_200 = "tt_10"
+            TEMPERATURE_AIR_005 = "tm5_10"
+            HUMIDITY = "rf_10"
+            TEMPERATURE_DEW_POINT_200 = "td_10"
 
         # extreme_temperature
         class TEMPERATURE_EXTREME(Enum):  # noqa
-            QUALITY = "QN"
-            TEMPERATURE_AIR_MAX_200 = "TX_10"
-            TEMPERATURE_AIR_MAX_005 = "TX5_10"
-            TEMPERATURE_AIR_MIN_200 = "TN_10"
-            TEMPERATURE_AIR_MIN_005 = "TN5_10"
+            QUALITY = "qn"
+            TEMPERATURE_AIR_MAX_200 = "tx_10"
+            TEMPERATURE_AIR_MAX_005 = "tx5_10"
+            TEMPERATURE_AIR_MIN_200 = "tn_10"
+            TEMPERATURE_AIR_MIN_005 = "tn5_10"
 
         # extreme_wind
         class WIND_EXTREME(Enum):  # noqa
-            QUALITY = "QN"
-            WIND_GUST_MAX = "FX_10"
-            WIND_SPEED_MIN = "FNX_10"
-            WIND_SPEED_ROLLING_MEAN_MAX = "FMX_10"
-            WIND_DIRECTION_MAX_VELOCITY = "DX_10"  # int
+            QUALITY = "qn"
+            WIND_GUST_MAX = "fx_10"
+            WIND_SPEED_MIN = "fnx_10"
+            WIND_SPEED_ROLLING_MEAN_MAX = "fmx_10"
+            WIND_DIRECTION_MAX_VELOCITY = "dx_10"  # int
 
         # precipitation
         class PRECIPITATION(Enum):
-            QUALITY = "QN"
-            PRECIPITATION_DURATION = "RWS_DAU_10"
-            PRECIPITATION_HEIGHT = "RWS_10"
-            PRECIPITATION_INDICATOR_WR = "RWS_IND_10"  # int
+            QUALITY = "qn"
+            PRECIPITATION_DURATION = "rws_dau_10"
+            PRECIPITATION_HEIGHT = "rws_10"
+            PRECIPITATION_INDICATOR_WR = "rws_ind_10"  # int
 
         # solar
         class SOLAR(Enum):
-            QUALITY = "QN"
-            RADIATION_SKY_DIFFUSE = "DS_10"
-            RADIATION_GLOBAL = "GS_10"
-            SUNSHINE_DURATION = "SD_10"
-            RADIATION_SKY_LONG_WAVE = "LS_10"
+            QUALITY = "qn"
+            RADIATION_SKY_DIFFUSE = "ds_10"
+            RADIATION_GLOBAL = "gs_10"
+            SUNSHINE_DURATION = "sd_10"
+            RADIATION_SKY_LONG_WAVE = "ls_10"
 
         # wind
         class WIND(Enum):
-            QUALITY = "QN"
-            WIND_SPEED = "FF_10"
-            WIND_DIRECTION = "DD_10"
+            QUALITY = "qn"
+            WIND_SPEED = "ff_10"
+            WIND_DIRECTION = "dd_10"
 
     # hourly
     class HOURLY(WDParameterStructureBase):
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
-            QUALITY = "QN_9"
-            TEMPERATURE_AIR_200 = "TT_TU"
-            HUMIDITY = "RF_TU"
+            QUALITY = "qn_9"
+            TEMPERATURE_AIR_200 = "tt_tu"
+            HUMIDITY = "rf_tu"
 
         # cloud_type
         class CLOUD_TYPE(Enum):  # noqa
-            QUALITY = "QN_8"
-            CLOUD_COVER_TOTAL = "V_N"  # int
-            CLOUD_COVER_TOTAL_INDICATOR = "V_N_I"  # str
-            CLOUD_TYPE_LAYER1 = "V_S1_CS"  # int
-            CLOUD_TYPE_LAYER1_ABBREVIATION = "V_S1_CSA"  # str
-            CLOUD_HEIGHT_LAYER1 = "V_S1_HHS"
-            CLOUD_COVER_LAYER1 = "V_S1_NS"  # int
-            CLOUD_TYPE_LAYER2 = "V_S2_CS"  # int
-            CLOUD_TYPE_LAYER2_ABBREVIATION = "V_S2_CSA"  # str
-            CLOUD_HEIGHT_LAYER2 = "V_S2_HHS"
-            CLOUD_COVER_LAYER2 = "V_S2_NS"  # int
-            CLOUD_TYPE_LAYER3 = "V_S3_CS"  # int
-            CLOUD_TYPE_LAYER3_ABBREVIATION = "V_S3_CSA"  # str
-            CLOUD_HEIGHT_LAYER3 = "V_S3_HHS"
-            CLOUD_COVER_LAYER3 = "V_S3_NS"  # int
-            CLOUD_TYPE_LAYER4 = "V_S4_CS"  # int
-            CLOUD_TYPE_LAYER4_ABBREVIATION = "V_S4_CSA"  # str
-            CLOUD_HEIGHT_LAYER4 = "V_S4_HHS"
-            CLOUD_COVER_LAYER4 = "V_S4_NS"  # int
+            QUALITY = "qn_8"
+            CLOUD_COVER_TOTAL = "v_n"  # int
+            CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+            CLOUD_TYPE_LAYER1 = "v_s1_cs"  # int
+            CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
+            CLOUD_HEIGHT_LAYER1 = "v_s1_hhs"
+            CLOUD_COVER_LAYER1 = "v_s1_ns"  # int
+            CLOUD_TYPE_LAYER2 = "v_s2_cs"  # int
+            CLOUD_TYPE_LAYER2_ABBREVIATION = "v_s2_csa"  # str
+            CLOUD_HEIGHT_LAYER2 = "v_s2_hhs"
+            CLOUD_COVER_LAYER2 = "v_s2_ns"  # int
+            CLOUD_TYPE_LAYER3 = "v_s3_cs"  # int
+            CLOUD_TYPE_LAYER3_ABBREVIATION = "v_s3_csa"  # str
+            CLOUD_HEIGHT_LAYER3 = "v_s3_hhs"
+            CLOUD_COVER_LAYER3 = "v_s3_ns"  # int
+            CLOUD_TYPE_LAYER4 = "v_s4_cs"  # int
+            CLOUD_TYPE_LAYER4_ABBREVIATION = "v_s4_csa"  # str
+            CLOUD_HEIGHT_LAYER4 = "v_s4_hhs"
+            CLOUD_COVER_LAYER4 = "v_s4_ns"  # int
 
         # cloudiness
         class CLOUDINESS(Enum):
-            QUALITY = "QN_8"
-            CLOUD_COVER_TOTAL_INDICATOR = "V_N_I"  # str
-            CLOUD_COVER_TOTAL = "V_N"  # int
+            QUALITY = "qn_8"
+            CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+            CLOUD_COVER_TOTAL = "v_n"  # int
 
         # dew_point
         class DEW_POINT(Enum):  # noqa
-            QUALITY = "QN_8"
-            TEMPERATURE_AIR_200 = "TT"
-            TEMPERATURE_DEW_POINT_200 = "TD"
+            QUALITY = "qn_8"
+            TEMPERATURE_AIR_200 = "tt"
+            TEMPERATURE_DEW_POINT_200 = "td"
 
         # precipitation
         class PRECIPITATION(Enum):
-            QUALITY = "QN_8"
-            PRECIPITATION_HEIGHT = "R1"
-            PRECIPITATION_INDICATOR = "RS_IND"  # int
-            PRECIPITATION_FORM = "WRTR"  # int
+            QUALITY = "qn_8"
+            PRECIPITATION_HEIGHT = "r1"
+            PRECIPITATION_INDICATOR = "rs_ind"  # int
+            PRECIPITATION_FORM = "wrtr"  # int
 
         # pressure
         class PRESSURE(Enum):
-            QUALITY = "QN_8"
-            PRESSURE_AIR_SEA_LEVEL = "P"
-            PRESSURE_AIR_STATION_HEIGHT = "P0"
+            QUALITY = "qn_8"
+            PRESSURE_AIR_SEA_LEVEL = "p"
+            PRESSURE_AIR_STATION_HEIGHT = "p0"
 
         # soil_temperature
         class TEMPERATURE_SOIL(Enum):  # noqa
-            QUALITY = "QN_2"
-            TEMPERATURE_SOIL_002 = "V_TE002"
-            TEMPERATURE_SOIL_005 = "V_TE005"
-            TEMPERATURE_SOIL_010 = "V_TE010"
-            TEMPERATURE_SOIL_020 = "V_TE020"
-            TEMPERATURE_SOIL_050 = "V_TE050"
-            TEMPERATURE_SOIL_100 = "V_TE100"
+            QUALITY = "qn_2"
+            TEMPERATURE_SOIL_002 = "v_te002"
+            TEMPERATURE_SOIL_005 = "v_te005"
+            TEMPERATURE_SOIL_010 = "v_te010"
+            TEMPERATURE_SOIL_020 = "v_te020"
+            TEMPERATURE_SOIL_050 = "v_te050"
+            TEMPERATURE_SOIL_100 = "v_te100"
 
         # solar
         class SOLAR(Enum):
-            QUALITY = "QN_592"
-            END_OF_INTERVAL = "END_OF_INTERVAL"  # modified, does not exist in original
-            RADIATION_SKY_LONG_WAVE = "ATMO_LBERG"
-            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "FD_LBERG"
-            RADIATION_GLOBAL = "FG_LBERG"
-            SUNSHINE_DURATION = "SD_LBERG"
-            SUN_ZENITH = "ZENIT"
+            QUALITY = "qn_592"
+            END_OF_INTERVAL = "end_of_interval"  # modified, does not exist in original
+            RADIATION_SKY_LONG_WAVE = "atmo_lberg"
+            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_lberg"
+            RADIATION_GLOBAL = "fg_lberg"
+            SUNSHINE_DURATION = "sd_lberg"
+            SUN_ZENITH = "zenit"
             TRUE_LOCAL_TIME = (
-                "TRUE_LOCAL_TIME"  # original name was adjusted to this one
+                "true_local_time"  # original name was adjusted to this one
             )
 
         # sun
         class SUN(Enum):
-            QUALITY = "QN_7"
-            SUNSHINE_DURATION = "SD_SO"
+            QUALITY = "qn_7"
+            SUNSHINE_DURATION = "sd_so"
 
         # visibility
         class VISIBILITY(Enum):
-            QUALITY = "QN_8"
-            VISIBILITY_INDICATOR = "V_VV_I"  # str
-            VISIBILITY = "V_VV"  # int
+            QUALITY = "qn_8"
+            VISIBILITY_INDICATOR = "v_vv_i"  # str
+            VISIBILITY = "v_vv"  # int
 
         # wind
         class WIND(Enum):
-            QUALITY = "QN_3"
-            WIND_SPEED = "F"
-            WIND_DIRECTION = "D"  # int
+            QUALITY = "qn_3"
+            WIND_SPEED = "f"
+            WIND_DIRECTION = "d"  # int
 
         # wind_synop
         class WIND_SYNOPTIC(Enum):  # noqa
-            QUALITY = "QN_8"
-            WIND_SPEED = "FF"
-            WIND_DIRECTION = "DD"  # int
+            QUALITY = "qn_8"
+            WIND_SPEED = "ff"
+            WIND_DIRECTION = "dd"  # int
 
     # subdaily
     class SUBDAILY(WDParameterStructureBase):  # noqa
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
-            QUALITY = "QN_4"
-            TEMPERATURE_AIR_200 = "TT_TER"
-            HUMIDITY = "RF_TER"
+            QUALITY = "qn_4"
+            TEMPERATURE_AIR_200 = "tt_ter"
+            HUMIDITY = "rf_ter"
 
         # cloudiness
         class CLOUDINESS(Enum):
-            QUALITY = "QN_4"
-            CLOUD_COVER_TOTAL = "N_TER"  # int
-            CLOUD_DENSITY = "CD_TER"  # int
+            QUALITY = "qn_4"
+            CLOUD_COVER_TOTAL = "n_ter"  # int
+            CLOUD_DENSITY = "cd_ter"  # int
 
         # moisture
         class MOISTURE(Enum):
-            QUALITY = "QN_4"
-            PRESSURE_VAPOR = "VP_TER"
-            TEMPERATURE_AIR_005 = "E_TF_TER"
-            TEMPERATURE_AIR_200 = "TF_TER"
-            HUMIDITY = "RF_TER"
+            QUALITY = "qn_4"
+            PRESSURE_VAPOR = "vp_ter"
+            TEMPERATURE_AIR_005 = "e_tf_ter"
+            TEMPERATURE_AIR_200 = "tf_ter"
+            HUMIDITY = "rf_ter"
 
         # pressure
         class PRESSURE(Enum):
-            QUALITY = "QN_4"
-            PRESSURE_AIR = "PP_TER"
+            QUALITY = "qn_4"
+            PRESSURE_AIR = "pp_ter"
 
         # soil
         class SOIL(Enum):
-            QUALITY = "QN_4"
-            TEMPERATURE_SOIL_005 = "EK_TER"  # int
+            QUALITY = "qn_4"
+            TEMPERATURE_SOIL_005 = "ek_ter"  # int
 
         # visibility
         class VISIBILITY(Enum):
-            QUALITY = "QN_4"
-            VISIBILITY = "VK_TER"  # int
+            QUALITY = "qn_4"
+            VISIBILITY = "vk_ter"  # int
 
         # wind
         class WIND(Enum):
-            QUALITY = "QN_4"
-            WIND_DIRECTION = "DK_TER"  # int
-            WIND_FORCE_BEAUFORT = "FK_TER"  # int
+            QUALITY = "qn_4"
+            WIND_DIRECTION = "dk_ter"  # int
+            WIND_FORCE_BEAUFORT = "fk_ter"  # int
 
     # Daily
     class DAILY(WDParameterStructureBase):
         # kl
         class CLIMATE_SUMMARY(Enum):  # noqa
-            QUALITY_WIND = "QN_3"
-            WIND_GUST_MAX = "FX"
-            WIND_SPEED = "FM"
-            QUALITY_GENERAL = "QN_4"  # special case here with two quality columns!
-            PRECIPITATION_HEIGHT = "RSK"
-            PRECIPITATION_FORM = "RSKF"
-            SUNSHINE_DURATION = "SDK"
-            SNOW_DEPTH = "SHK_TAG"
-            CLOUD_COVER_TOTAL = "NM"
-            PRESSURE_VAPOR = "VPM"
-            PRESSURE_AIR = "PM"
-            TEMPERATURE_AIR_200 = "TMK"
-            HUMIDITY = "UPM"
-            TEMPERATURE_AIR_MAX_200 = "TXK"
-            TEMPERATURE_AIR_MIN_200 = "TNK"
-            TEMPERATURE_AIR_MIN_005 = "TGK"
+            QUALITY_WIND = "qn_3"
+            WIND_GUST_MAX = "fx"
+            WIND_SPEED = "fm"
+            QUALITY_GENERAL = "qn_4"  # special case here with two quality columns!
+            PRECIPITATION_HEIGHT = "rsk"
+            PRECIPITATION_FORM = "rskf"
+            SUNSHINE_DURATION = "sdk"
+            SNOW_DEPTH = "shk_tag"
+            CLOUD_COVER_TOTAL = "nm"
+            PRESSURE_VAPOR = "vpm"
+            PRESSURE_AIR = "pm"
+            TEMPERATURE_AIR_200 = "tmk"
+            HUMIDITY = "upm"
+            TEMPERATURE_AIR_MAX_200 = "txk"
+            TEMPERATURE_AIR_MIN_200 = "tnk"
+            TEMPERATURE_AIR_MIN_005 = "tgk"
 
         # more_precip
         class PRECIPITATION_MORE(Enum):  # noqa
-            QUALITY = "QN_6"
-            PRECIPITATION_HEIGHT = "RS"
-            PRECIPITATION_FORM = "RSF"  # int
-            SNOW_DEPTH = "SH_TAG"  # int
-            SNOW_DEPTH_NEW = "NSH_TAG"  # int
+            QUALITY = "qn_6"
+            PRECIPITATION_HEIGHT = "rs"
+            PRECIPITATION_FORM = "rsf"  # int
+            SNOW_DEPTH = "sh_tag"  # int
+            SNOW_DEPTH_NEW = "nsh_tag"  # int
 
         # soil_temperature
         class TEMPERATURE_SOIL(Enum):  # noqa
-            QUALITY = "QN_2"
-            TEMPERATURE_SOIL_002 = "V_TE002M"
-            TEMPERATURE_SOIL_005 = "V_TE005M"
-            TEMPERATURE_SOIL_010 = "V_TE010M"
-            TEMPERATURE_SOIL_020 = "V_TE020M"
-            TEMPERATURE_SOIL_050 = "V_TE050M"
+            QUALITY = "qn_2"
+            TEMPERATURE_SOIL_002 = "v_te002m"
+            TEMPERATURE_SOIL_005 = "v_te005m"
+            TEMPERATURE_SOIL_010 = "v_te010m"
+            TEMPERATURE_SOIL_020 = "v_te020m"
+            TEMPERATURE_SOIL_050 = "v_te050m"
 
         # solar
         class SOLAR(Enum):
-            QUALITY = "QN_592"
-            RADIATION_SKY_LONG_WAVE = "ATMO_STRAHL"
-            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "FD_STRAHL"
-            RADIATION_SKY_SHORT_WAVE_DIRECT = "FG_STRAHL"
-            SUNSHINE_DURATION = "SD_STRAHL"
+            QUALITY = "qn_592"
+            RADIATION_SKY_LONG_WAVE = "atmo_strahl"
+            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_strahl"
+            RADIATION_SKY_SHORT_WAVE_DIRECT = "fg_strahl"
+            SUNSHINE_DURATION = "sd_strahl"
 
         # water_equiv
         class WATER_EQUIVALENT(Enum):  # noqa
-            QN_6 = "QN_6"
-            SNOW_DEPTH_EXCELLED = "ASH_6"  # int
-            SNOW_DEPTH = "SH_TAG"  # int
-            WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = "WASH_6"
-            WATER_EQUIVALENT_SNOW = "WAAS_6"
+            QN_6 = "qn_6"
+            SNOW_DEPTH_EXCELLED = "ash_6"  # int
+            SNOW_DEPTH = "sh_tag"  # int
+            WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = "wash_6"
+            WATER_EQUIVALENT_SNOW = "waas_6"
 
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
-            QUALITY = "QN_4"
-            FOG = "NEBEL"  # int
-            THUNDER = "GEWITTER"  # int
-            STORM_STRONG_WIND = "STURM_6"  # int
-            STORM_STORMIER_WIND = "STURM_8"  # int
-            DEW = "TAU"  # int
-            GLAZE = "GLATTEIS"  # int
-            RIPE = "REIF"  # int
-            SLEET = "GRAUPEL"  # int
-            HAIL = "HAGEL"  # int
+            QUALITY = "qn_4"
+            FOG = "nebel"  # int
+            THUNDER = "gewitter"  # int
+            STORM_STRONG_WIND = "sturm_6"  # int
+            STORM_STORMIER_WIND = "sturm_8"  # int
+            DEW = "tau"  # int
+            GLAZE = "glatteis"  # int
+            RIPE = "reif"  # int
+            SLEET = "graupel"  # int
+            HAIL = "hagel"  # int
 
     # monthly
     class MONTHLY(WDParameterStructureBase):
         # kl
         class CLIMATE_SUMMARY(Enum):  # noqa
-            QUALITY_GENERAL = "QN_4"
-            CLOUD_COVER_TOTAL = "MO_N"
-            TEMPERATURE_AIR_200 = "MO_TT"
-            TEMPERATURE_AIR_MAX_MEAN_200 = "MO_TX"
-            TEMPERATURE_AIR_MIN_MEAN_200 = "MO_TN"
-            WIND_FORCE_BEAUFORT = "MO_FK"
-            TEMPERATURE_AIR_MAX_200 = "MX_TX"
-            WIND_GUST_MAX = "MX_FX"
-            TEMPERATURE_AIR_MIN_200 = "MX_TN"
-            SUNSHINE_DURATION = "MO_SD_S"
-            QUALITY_PRECIPITATION = "QN_6"
-            PRECIPITATION_HEIGHT = "MO_RR"
-            PRECIPITATION_HEIGHT_MAX = "MX_RS"
+            QUALITY_GENERAL = "qn_4"
+            CLOUD_COVER_TOTAL = "mo_n"
+            TEMPERATURE_AIR_200 = "mo_tt"
+            TEMPERATURE_AIR_MAX_MEAN_200 = "mo_tx"
+            TEMPERATURE_AIR_MIN_MEAN_200 = "mo_tn"
+            WIND_FORCE_BEAUFORT = "mo_fk"
+            TEMPERATURE_AIR_MAX_200 = "mx_tx"
+            WIND_GUST_MAX = "mx_fx"
+            TEMPERATURE_AIR_MIN_200 = "mx_tn"
+            SUNSHINE_DURATION = "mo_sd_s"
+            QUALITY_PRECIPITATION = "qn_6"
+            PRECIPITATION_HEIGHT = "mo_rr"
+            PRECIPITATION_HEIGHT_MAX = "mx_rs"
 
         # more_precip
         class PRECIPITATION_MORE(Enum):  # noqa
-            QUALITY = "QN_6"
-            SNOW_DEPTH_NEW = "MO_NSH"  # int
-            PRECIPITATION_HEIGHT = "MO_RR"
-            SNOW_DEPTH = "MO_SH_S"  # int
-            PRECIPITATION_HEIGHT_MAX = "MX_RS"
+            QUALITY = "qn_6"
+            SNOW_DEPTH_NEW = "mo_nsh"  # int
+            PRECIPITATION_HEIGHT = "mo_rr"
+            SNOW_DEPTH = "mo_sh_s"  # int
+            PRECIPITATION_HEIGHT_MAX = "mx_rs"
 
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
-            QUALITY = "QN_4"
-            STORM_STRONG_WIND = "MO_STURM_6"  # int
-            STORM_STORMIER_WIND = "MO_STURM_8"  # int
-            THUNDER = "MO_GEWITTER"  # int
-            GLAZE = "MO_GLATTEIS"  # int
-            SLEET = "MO_GRAUPEL"  # int
-            HAIL = "MO_HAGEL"  # int
-            FOG = "MO_NEBEL"  # int
-            DEW = "MO_TAU"  # int
+            QUALITY = "qn_4"
+            STORM_STRONG_WIND = "mo_sturm_6"  # int
+            STORM_STORMIER_WIND = "mo_sturm_8"  # int
+            THUNDER = "mo_gewitter"  # int
+            GLAZE = "mo_glatteis"  # int
+            SLEET = "mo_graupel"  # int
+            HAIL = "mo_hagel"  # int
+            FOG = "mo_nebel"  # int
+            DEW = "mo_tau"  # int
 
     # annual
     class ANNUAL(WDParameterStructureBase):
         # kl
         class CLIMATE_SUMMARY(Enum):  # noqa
-            QUALITY_GENERAL = "QN_4"
-            CLOUD_COVER_TOTAL = "JA_N"
-            TEMPERATURE_AIR_200 = "JA_TT"
-            TEMPERATURE_AIR_MAX_MEAN_200 = "JA_TX"
-            TEMPERATURE_AIR_MIN_MEAN_200 = "JA_TN"
-            WIND_FORCE_BEAUFORT = "JA_FK"
-            SUNSHINE_DURATION = "JA_SD_S"
-            WIND_GUST_MAX = "JA_MX_FX"
-            TEMPERATURE_AIR_MAX_200 = "JA_MX_TX"
-            TEMPERATURE_AIR_MIN_200 = "JA_MX_TN"
-            QUALITY_PRECIPITATION = "QN_6"
-            PRECIPITATION_HEIGHT = "JA_RR"
-            PRECIPITATION_HEIGHT_MAX = "JA_MX_RS"
+            QUALITY_GENERAL = "qn_4"
+            CLOUD_COVER_TOTAL = "ja_n"
+            TEMPERATURE_AIR_200 = "ja_tt"
+            TEMPERATURE_AIR_MAX_MEAN_200 = "ja_tx"
+            TEMPERATURE_AIR_MIN_MEAN_200 = "ja_tn"
+            WIND_FORCE_BEAUFORT = "ja_fk"
+            SUNSHINE_DURATION = "ja_sd_s"
+            WIND_GUST_MAX = "ja_mx_fx"
+            TEMPERATURE_AIR_MAX_200 = "ja_mx_tx"
+            TEMPERATURE_AIR_MIN_200 = "ja_mx_tn"
+            QUALITY_PRECIPITATION = "qn_6"
+            PRECIPITATION_HEIGHT = "ja_rr"
+            PRECIPITATION_HEIGHT_MAX = "ja_mx_rs"
 
         # more_precip
         class PRECIPITATION_MORE(Enum):  # noqa
-            QUALITY = "QN_6"
-            SNOW_DEPTH_NEW = "JA_NSH"  # int
-            PRECIPITATION_HEIGHT = "JA_RR"
-            SNOW_DEPTH = "JA_SH_S"  # int
-            PRECIPITATION_HEIGHT_MAX = "JA_MX_RS"
+            QUALITY = "qn_6"
+            SNOW_DEPTH_NEW = "ja_nsh"  # int
+            PRECIPITATION_HEIGHT = "ja_rr"
+            SNOW_DEPTH = "ja_sh_s"  # int
+            PRECIPITATION_HEIGHT_MAX = "ja_mx_rs"
 
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
-            QUALITY = "QN_4"
-            STORM_STRONG_WIND = "JA_STURM_6"  # int
-            STORM_STORMIER_WIND = "JA_STURM_8"  # int
-            THUNDER = "JA_GEWITTER"  # int
-            GLAZE = "JA_GLATTEIS"  # int
-            SLEET = "JA_GRAUPEL"  # int
-            HAIL = "JA_HAGEL"  # int
-            FOG = "JA_NEBEL"  # int
-            DEW = "JA_TAU"  # int
+            QUALITY = "qn_4"
+            STORM_STRONG_WIND = "ja_sturm_6"  # int
+            STORM_STORMIER_WIND = "ja_sturm_8"  # int
+            THUNDER = "ja_gewitter"  # int
+            GLAZE = "ja_glatteis"  # int
+            SLEET = "ja_graupel"  # int
+            HAIL = "ja_hagel"  # int
+            FOG = "ja_nebel"  # int
+            DEW = "ja_tau"  # int
 
 
 PARAMETER_TO_DATASET_MAPPING = {
@@ -694,7 +694,7 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER4: DwdObservationDatasetStructure.HOURLY.CLOUD_TYPE.CLOUD_HEIGHT_LAYER4,
         DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER4: DwdObservationDatasetStructure.HOURLY.CLOUD_TYPE.CLOUD_COVER_LAYER4,
         # dew_point
-        # TEMPERATURE_AIR_200: "TT"
+        # TEMPERATURE_AIR_200: "tt"
         DwdObservationParameter.HOURLY.TEMPERATURE_DEW_POINT_200: DwdObservationDatasetStructure.HOURLY.DEW_POINT.TEMPERATURE_DEW_POINT_200,
         # precipitation
         DwdObservationParameter.HOURLY.PRECIPITATION_HEIGHT: DwdObservationDatasetStructure.HOURLY.PRECIPITATION.PRECIPITATION_HEIGHT,
@@ -727,8 +727,8 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.HOURLY.WIND_SPEED: DwdObservationDatasetStructure.HOURLY.WIND.WIND_SPEED,
         DwdObservationParameter.HOURLY.WIND_DIRECTION: DwdObservationDatasetStructure.HOURLY.WIND.WIND_DIRECTION,
         # wind_synop
-        # DwdObservationParameter.HOURLY.WIND_SPEED: "FF"
-        # DwdObservationParameter.HOURLY.WIND_DIRECTION: "DD"  # int
+        # DwdObservationParameter.HOURLY.WIND_SPEED: "ff"
+        # DwdObservationParameter.HOURLY.WIND_DIRECTION: "dd"  # int
     },
     Resolution.SUBDAILY: {
         # air_temperature
@@ -740,8 +740,8 @@ PARAMETER_TO_DATASET_MAPPING = {
         # moisture
         DwdObservationParameter.SUBDAILY.PRESSURE_VAPOR: DwdObservationDatasetStructure.SUBDAILY.MOISTURE.PRESSURE_VAPOR,
         DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_005: DwdObservationDatasetStructure.SUBDAILY.MOISTURE.TEMPERATURE_AIR_005,
-        # TEMPERATURE_AIR_200: "TF_TER"
-        # HUMIDITY: "RF_TER"
+        # TEMPERATURE_AIR_200: "tf_ter"
+        # HUMIDITY: "rf_ter"
         # pressure
         DwdObservationParameter.SUBDAILY.PRESSURE_AIR: DwdObservationDatasetStructure.SUBDAILY.PRESSURE.PRESSURE_AIR,
         # soil
@@ -766,10 +766,10 @@ PARAMETER_TO_DATASET_MAPPING = {
         # kl
         DwdObservationParameter.DAILY.WIND_GUST_MAX: DwdObservationDatasetStructure.DAILY.CLIMATE_SUMMARY.WIND_GUST_MAX,
         DwdObservationParameter.DAILY.WIND_SPEED: DwdObservationDatasetStructure.DAILY.CLIMATE_SUMMARY.WIND_SPEED,
-        # DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: "RSK",
-        # DwdObservationParameter.DAILY.PRECIPITATION_FORM: "RSKF",
+        # DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: "rsk",
+        # DwdObservationParameter.DAILY.PRECIPITATION_FORM: "rskf",
         # DwdObservationParameter.DAILY.SUNSHINE_DURATION: DwdObservationParameterSet.CLIMATE_SUMMARY,
-        # DwdObservationParameter.DAILY.SNOW_DEPTH: "SHK_TAG",
+        # DwdObservationParameter.DAILY.SNOW_DEPTH: "shk_tag",
         DwdObservationParameter.DAILY.CLOUD_COVER_TOTAL: DwdObservationDatasetStructure.DAILY.CLIMATE_SUMMARY.CLOUD_COVER_TOTAL,
         DwdObservationParameter.DAILY.PRESSURE_VAPOR: DwdObservationDatasetStructure.DAILY.CLIMATE_SUMMARY.PRESSURE_VAPOR,
         DwdObservationParameter.DAILY.PRESSURE_AIR: DwdObservationDatasetStructure.DAILY.CLIMATE_SUMMARY.PRESSURE_AIR,
@@ -786,7 +786,7 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.DAILY.TEMPERATURE_SOIL_050: DwdObservationDatasetStructure.DAILY.TEMPERATURE_SOIL.TEMPERATURE_SOIL_050,
         # water_equiv
         DwdObservationParameter.DAILY.SNOW_DEPTH_EXCELLED: DwdObservationDatasetStructure.DAILY.WATER_EQUIVALENT.SNOW_DEPTH_EXCELLED,
-        # SNOW_DEPTH: "SH_TAG"  # int
+        # SNOW_DEPTH: "sh_tag"  # int
         DwdObservationParameter.DAILY.WATER_EQUIVALENT_TOTAL_SNOW_DEPTH: DwdObservationDatasetStructure.DAILY.WATER_EQUIVALENT.WATER_EQUIVALENT_TOTAL_SNOW_DEPTH,
         DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW: DwdObservationDatasetStructure.DAILY.WATER_EQUIVALENT.WATER_EQUIVALENT_SNOW,
         # weather_phenomena
@@ -844,8 +844,8 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.ANNUAL.WIND_GUST_MAX: DwdObservationDatasetStructure.ANNUAL.CLIMATE_SUMMARY.WIND_GUST_MAX,
         DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MAX_200: DwdObservationDatasetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
         DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MIN_200: DwdObservationDatasetStructure.ANNUAL.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
-        # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT: "JA_RR",
-        # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: "JA_MX_RS",
+        # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT: "ja_rr",
+        # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: "ja_mx_rs",
         # weather_phenomena
         DwdObservationParameter.ANNUAL.STORM_STRONG_WIND: DwdObservationDatasetStructure.ANNUAL.WEATHER_PHENOMENA.STORM_STRONG_WIND,
         DwdObservationParameter.ANNUAL.STORM_STORMIER_WIND: DwdObservationDatasetStructure.ANNUAL.WEATHER_PHENOMENA.STORM_STORMIER_WIND,

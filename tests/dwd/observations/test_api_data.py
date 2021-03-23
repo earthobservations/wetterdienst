@@ -255,10 +255,10 @@ def test_dwd_observation_data_result_missing_data():
     )
 
     # Leave only one column to potentially contain NaN which is VALUE
-    df = request.values.all().df.drop("QUALITY", axis=1)
+    df = request.values.all().df.drop("quality", axis=1)
 
-    df_1933 = df[df["DATE"].dt.year == 1933]
-    df_1934 = df[df["DATE"].dt.year == 1934]
+    df_1933 = df[df["date"].dt.year == 1933]
+    df_1934 = df[df["date"].dt.year == 1934]
 
     assert not df_1933.empty and df_1933.dropna().empty
     assert not df_1934.empty and not df_1934.dropna().empty
@@ -272,17 +272,17 @@ def test_dwd_observation_data_result_missing_data():
         station_id=["03348"],
     )
 
-    df = request.values.all().df.drop("QUALITY", axis=1)
+    df = request.values.all().df.drop("quality", axis=1)
 
     assert_frame_equal(
         df,
         pd.DataFrame(
             {
-                "DATE": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
-                "STATION_ID": pd.Categorical(["03348"]),
-                "DATASET": pd.Categorical(["TEMPERATURE_AIR"]),
-                "PARAMETER": pd.Categorical(["TEMPERATURE_AIR_200"]),
-                "VALUE": [np.nan],
+                "date": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
+                "station_id": pd.Categorical(["03348"]),
+                "dataset": pd.Categorical(["temperature_air"]),
+                "parameter": pd.Categorical(["temperature_air_200"]),
+                "value": [np.nan],
             }
         ),
     )
@@ -305,51 +305,51 @@ def test_dwd_observation_data_result_tabular():
     df = request.values.all().df
 
     assert list(df.columns.values) == [
-        "DATE",
-        "STATION_ID",
-        "QN_3",
-        "FX",
-        "FM",
-        "QN_4",
-        "RSK",
-        "RSKF",
-        "SDK",
-        "SHK_TAG",
-        "NM",
-        "VPM",
-        "PM",
-        "TMK",
-        "UPM",
-        "TXK",
-        "TNK",
-        "TGK",
+        "date",
+        "station_id",
+        "qn_3",
+        "fx",
+        "fm",
+        "qn_4",
+        "rsk",
+        "rskf",
+        "sdk",
+        "shk_tag",
+        "nm",
+        "vpm",
+        "pm",
+        "tmk",
+        "upm",
+        "txk",
+        "tnk",
+        "tgk",
     ]
 
     assert_frame_equal(
         df,
         pd.DataFrame(
             {
-                "DATE": [
+                "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                 ],
-                "STATION_ID": pd.Categorical(["01048", "01048"]),
-                "QN_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
-                "FX": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "FM": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "QN_4": pd.Series([pd.NA, 1], dtype=pd.Int64Dtype()),
-                "RSK": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
-                "RSKF": pd.to_numeric([pd.NA, 8], errors="coerce"),
-                "SDK": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "SHK_TAG": pd.Series([pd.NA, 0], dtype=pd.Int64Dtype()),
-                "NM": pd.to_numeric([pd.NA, 8.0], errors="coerce"),
-                "VPM": pd.to_numeric([pd.NA, 6.4], errors="coerce"),
-                "PM": pd.to_numeric([pd.NA, 1008.60], errors="coerce"),
-                "TMK": pd.to_numeric([pd.NA, 0.5], errors="coerce"),
-                "UPM": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
-                "TXK": pd.to_numeric([pd.NA, 0.7], errors="coerce"),
-                "TNK": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
-                "TGK": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "station_id": pd.Categorical(["01048", "01048"]),
+                "qn_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
+                "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "qn_4": pd.Series([pd.NA, 1], dtype=pd.Int64Dtype()),
+                "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
+                "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
+                "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "shk_tag": pd.Series([pd.NA, 0], dtype=pd.Int64Dtype()),
+                "nm": pd.to_numeric([pd.NA, 8.0], errors="coerce"),
+                "vpm": pd.to_numeric([pd.NA, 6.4], errors="coerce"),
+                "pm": pd.to_numeric([pd.NA, 1008.60], errors="coerce"),
+                "tmk": pd.to_numeric([pd.NA, 0.5], errors="coerce"),
+                "upm": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
+                "txk": pd.to_numeric([pd.NA, 0.7], errors="coerce"),
+                "tnk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
+                "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             }
         ),
     )
@@ -372,19 +372,19 @@ def test_dwd_observation_data_result_tidy():
     df = request.values.all().df
 
     assert list(df.columns.values) == [
-        "DATE",
-        "STATION_ID",
-        "DATASET",
-        "PARAMETER",
-        "VALUE",
-        "QUALITY",
+        "date",
+        "station_id",
+        "dataset",
+        "parameter",
+        "value",
+        "quality",
     ]
 
     assert_frame_equal(
         df,
         pd.DataFrame(
             {
-                "DATE": [
+                "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
@@ -414,7 +414,7 @@ def test_dwd_observation_data_result_tidy():
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                 ],
-                "STATION_ID": pd.Categorical(
+                "station_id": pd.Categorical(
                     [
                         "01048",
                         "01048",
@@ -446,71 +446,71 @@ def test_dwd_observation_data_result_tidy():
                         "01048",
                     ]
                 ),
-                "DATASET": pd.Categorical(
+                "dataset": pd.Categorical(
                     [
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
-                        "CLIMATE_SUMMARY",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
+                        "climate_summary",
                     ]
                 ),
-                "PARAMETER": pd.Categorical(
+                "parameter": pd.Categorical(
                     [
-                        "FX",
-                        "FX",
-                        "FM",
-                        "FM",
-                        "RSK",
-                        "RSK",
-                        "RSKF",
-                        "RSKF",
-                        "SDK",
-                        "SDK",
-                        "SHK_TAG",
-                        "SHK_TAG",
-                        "NM",
-                        "NM",
-                        "VPM",
-                        "VPM",
-                        "PM",
-                        "PM",
-                        "TMK",
-                        "TMK",
-                        "UPM",
-                        "UPM",
-                        "TXK",
-                        "TXK",
-                        "TNK",
-                        "TNK",
-                        "TGK",
-                        "TGK",
+                        "fx",
+                        "fx",
+                        "fm",
+                        "fm",
+                        "rsk",
+                        "rsk",
+                        "rskf",
+                        "rskf",
+                        "sdk",
+                        "sdk",
+                        "shk_tag",
+                        "shk_tag",
+                        "nm",
+                        "nm",
+                        "vpm",
+                        "vpm",
+                        "pm",
+                        "pm",
+                        "tmk",
+                        "tmk",
+                        "upm",
+                        "upm",
+                        "txk",
+                        "txk",
+                        "tnk",
+                        "tnk",
+                        "tgk",
+                        "tgk",
                     ]
                 ),
-                "VALUE": pd.to_numeric(
+                "value": pd.to_numeric(
                     [
                         # FX
                         pd.NA,
@@ -557,7 +557,7 @@ def test_dwd_observation_data_result_tidy():
                     ],
                     errors="coerce",
                 ).astype(pd.Float64Dtype),
-                "QUALITY": pd.Categorical(
+                "quality": pd.Categorical(
                     [
                         # FX
                         pd.NA,
@@ -613,22 +613,22 @@ def test_dwd_observation_data_result_tidy():
 def test_create_humanized_column_names_mapping():
     """ Test for function to create a mapping to humanized column names """
     kl_daily_hcnm = {
-        # "QN_3": "QUALITY_WIND",
-        "FX": "WIND_GUST_MAX",
-        "FM": "WIND_SPEED",
-        # "QN_4": "QUALITY_GENERAL",
-        "RSK": "PRECIPITATION_HEIGHT",
-        "RSKF": "PRECIPITATION_FORM",
-        "SDK": "SUNSHINE_DURATION",
-        "SHK_TAG": "SNOW_DEPTH",
-        "NM": "CLOUD_COVER_TOTAL",
-        "VPM": "PRESSURE_VAPOR",
-        "PM": "PRESSURE_AIR",
-        "TMK": "TEMPERATURE_AIR_200",
-        "UPM": "HUMIDITY",
-        "TXK": "TEMPERATURE_AIR_MAX_200",
-        "TNK": "TEMPERATURE_AIR_MIN_200",
-        "TGK": "TEMPERATURE_AIR_MIN_005",
+        # "qn_3": "quality_wind",
+        "fx": "wind_gust_max",
+        "fm": "wind_speed",
+        # "qn_4": "quality_general",
+        "rsk": "precipitation_height",
+        "rskf": "precipitation_form",
+        "sdk": "sunshine_duration",
+        "shk_tag": "snow_depth",
+        "nm": "cloud_cover_total",
+        "vpm": "pressure_vapor",
+        "pm": "pressure_air",
+        "tmk": "temperature_air_200",
+        "upm": "humidity",
+        "txk": "temperature_air_max_200",
+        "tnk": "temperature_air_min_200",
+        "tgk": "temperature_air_min_005",
     }
     hcnm = (
         DwdObservationRequest(
@@ -649,48 +649,48 @@ def test_tidy_up_data():
     """ Test for function to tidy data"""
     df = pd.DataFrame(
         {
-            "STATION_ID": [1048],
-            "DATE": [pd.Timestamp("2019-01-23 00:00:00")],
-            "QN_3": [10],
-            "FX": [11.8],
-            "FM": [5.8],
-            "QN_4": [3],
-            "RSK": [0.0],
-            "RSKF": [0.0],
-            "SDK": [7.1],
-            "SHK_TAG": [0.0],
-            "NM": [2.3],
-            "VPM": [3.2],
-            "PM": [975.4],
-            "TMK": [-5.5],
-            "UPM": [79.17],
-            "TXK": [-1.7],
-            "TNK": [-7.9],
-            "TGK": [-11.4],
+            "station_id": [1048],
+            "date": [pd.Timestamp("2019-01-23 00:00:00")],
+            "qn_3": [10],
+            "fx": [11.8],
+            "fm": [5.8],
+            "qn_4": [3],
+            "rsk": [0.0],
+            "rskf": [0.0],
+            "sdk": [7.1],
+            "shk_tag": [0.0],
+            "nm": [2.3],
+            "vpm": [3.2],
+            "pm": [975.4],
+            "tmk": [-5.5],
+            "upm": [79.17],
+            "txk": [-1.7],
+            "tnk": [-7.9],
+            "tgk": [-11.4],
         }
     )
 
     df_tidy = pd.DataFrame(
         {
-            "STATION_ID": [1048] * 14,
-            "DATE": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
-            "PARAMETER": [
-                "FX",
-                "FM",
-                "RSK",
-                "RSKF",
-                "SDK",
-                "SHK_TAG",
-                "NM",
-                "VPM",
-                "PM",
-                "TMK",
-                "UPM",
-                "TXK",
-                "TNK",
-                "TGK",
+            "station_id": [1048] * 14,
+            "date": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
+            "parameter": [
+                "fx",
+                "fm",
+                "rsk",
+                "rskf",
+                "sdk",
+                "shk_tag",
+                "nm",
+                "vpm",
+                "pm",
+                "tmk",
+                "upm",
+                "txk",
+                "tnk",
+                "tgk",
             ],
-            "VALUE": [
+            "value": [
                 11.8,
                 5.8,
                 0.0,
@@ -706,7 +706,7 @@ def test_tidy_up_data():
                 -7.9,
                 -11.4,
             ],
-            "QUALITY": pd.Series(
+            "quality": pd.Series(
                 [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=pd.Int64Dtype()
             ),
         }
@@ -714,9 +714,9 @@ def test_tidy_up_data():
 
     df_tidy = df_tidy.astype(
         {
-            "STATION_ID": "category",
-            "PARAMETER": "category",
-            "QUALITY": "category",
+            "station_id": "category",
+            "parameter": "category",
+            "quality": "category",
         }
     )
 

@@ -21,7 +21,7 @@ jobs:
     - name: Load cached dependencies
       uses: actions/cache@v2
       with:
-        path: ~/.poetry
+        path: ~/.poetry/cache
         key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
     - name: Install library
       run: poetry install --extras=http --extras=sql --extras=export

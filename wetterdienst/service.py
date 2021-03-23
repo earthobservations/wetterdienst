@@ -109,7 +109,7 @@ def dwd_stations(
         request = stations.all()
 
     # Postprocessing.
-    df = request.df.dwd.lower()
+    df = request.df
 
     if sql is not None:
         df = df.io.sql(sql)
@@ -186,8 +186,6 @@ def dwd_values(
 
     if date is not None:
         df = df.dwd.filter_by_date(date, resolution)
-
-    df = df.dwd.lower()
 
     if sql is not None:
         df = df.io.sql(sql)

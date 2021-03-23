@@ -21,45 +21,28 @@ from wetterdienst.metadata.resolution import Resolution
 
 df_station = pd.DataFrame.from_dict(
     {
-        "STATION_ID": ["19087"],
-        "FROM_DATE": [dateutil.parser.isoparse("1957-05-01T00:00:00.000Z")],
-        "TO_DATE": [dateutil.parser.isoparse("1995-11-30T00:00:00.000Z")],
-        "HEIGHT": [645.0],
-        "LATITUDE": [48.8049],
-        "LONGITUDE": [13.5528],
-        "STATION_NAME": ["Freyung vorm Wald"],
-        "STATE": ["Bayern"],
-        "HAS_FILE": [False],
+        "station_id": ["19087"],
+        "from_date": [dateutil.parser.isoparse("1957-05-01T00:00:00.000Z")],
+        "to_date": [dateutil.parser.isoparse("1995-11-30T00:00:00.000Z")],
+        "height": [645.0],
+        "latitude": [48.8049],
+        "longitude": [13.5528],
+        "station_name": ["Freyung vorm Wald"],
+        "state": ["Bayern"],
+        "has_file": [False],
     }
 )
 
 df_data = pd.DataFrame.from_dict(
     {
-        "STATION_ID": ["01048"],
-        "DATASET": ["CLIMATE_SUMMARY"],
-        "PARAMETER": ["TEMPERATURE_AIR_MAX_200"],
-        "DATE": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
-        "VALUE": [1.3],
-        "QUALITY": [None],
+        "station_id": ["01048"],
+        "dataset": ["climate_summary"],
+        "parameter": ["temperature_air_max_200"],
+        "date": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
+        "value": [1.3],
+        "quality": [None],
     }
 )
-
-
-def test_lowercase():
-
-    df = df_data.dwd.lower()
-
-    assert list(df.columns) == [
-        "station_id",
-        "dataset",
-        "parameter",
-        "date",
-        "value",
-        "quality",
-    ]
-
-    assert df.iloc[0]["dataset"] == "climate_summary"
-    assert df.iloc[0]["parameter"] == "temperature_air_max_200"
 
 
 def test_to_dict():
@@ -67,12 +50,12 @@ def test_to_dict():
 
     assert df == [
         {
-            "DATASET": "CLIMATE_SUMMARY",
-            "DATE": "2019-12-28T00:00:00+00:00",
-            "PARAMETER": "TEMPERATURE_AIR_MAX_200",
-            "QUALITY": None,
-            "STATION_ID": "01048",
-            "VALUE": 1.3,
+            "dataset": "climate_summary",
+            "date": "2019-12-28T00:00:00+00:00",
+            "parameter": "temperature_air_max_200",
+            "quality": None,
+            "station_id": "01048",
+            "value": 1.3,
         },
     ]
 
@@ -99,13 +82,13 @@ def test_filter_by_date_monthly():
 
     result = pd.DataFrame.from_dict(
         {
-            "STATION_ID": ["01048"],
-            "DATASET": ["climate_summary"],
-            "PARAMETER": ["temperature_air_max_200"],
-            "FROM_DATE": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
-            "TO_DATE": [dateutil.parser.isoparse("2020-01-28T00:00:00.000Z")],
-            "VALUE": [1.3],
-            "QUALITY": [None],
+            "station_id": ["01048"],
+            "dataset": ["climate_summary"],
+            "parameter": ["temperature_air_max_200"],
+            "from_date": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
+            "to_date": [dateutil.parser.isoparse("2020-01-28T00:00:00.000Z")],
+            "value": [1.3],
+            "quality": [None],
         }
     )
 
@@ -123,13 +106,13 @@ def test_filter_by_date_annual():
 
     result = pd.DataFrame.from_dict(
         {
-            "STATION_ID": ["01048"],
-            "DATASET": ["climate_summary"],
-            "PARAMETER": ["temperature_air_max_200"],
-            "FROM_DATE": [dateutil.parser.isoparse("2019-01-01T00:00:00.000Z")],
-            "TO_DATE": [dateutil.parser.isoparse("2019-12-31T00:00:00.000Z")],
-            "VALUE": [1.3],
-            "QUALITY": [None],
+            "station_id": ["01048"],
+            "dataset": ["climate_summary"],
+            "parameter": ["temperature_air_max_200"],
+            "from_date": [dateutil.parser.isoparse("2019-01-01T00:00:00.000Z")],
+            "to_date": [dateutil.parser.isoparse("2019-12-31T00:00:00.000Z")],
+            "value": [1.3],
+            "quality": [None],
         }
     )
 
@@ -146,12 +129,12 @@ def test_filter_by_date_annual():
 @pytest.mark.sql
 def test_filter_by_sql():
     # TODO: change this to a test of historical data
-    df = df_data.dwd.lower().io.sql(
+    df = df_data.io.sql(
         "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
     )
     assert not df.empty
 
-    df = df_data.dwd.lower().io.sql(
+    df = df_data.io.sql(
         "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 1.5"
     )
     assert df.empty
@@ -159,7 +142,7 @@ def test_filter_by_sql():
 
 def test_format_json():
 
-    output = df_data.dwd.lower().io.format("json")
+    output = df_data.io.format("json")
 
     response = json.loads(output)
     station_ids = list(set([reading["station_id"] for reading in response]))
@@ -180,7 +163,7 @@ def test_format_geojson():
 
 def test_format_csv():
 
-    output = df_data.dwd.lower().io.format("csv").strip()
+    output = df_data.io.format("csv").strip()
 
     assert "station_id,dataset,parameter,date,value,quality" in output
     assert (
@@ -264,24 +247,24 @@ def test_export_spreadsheet(tmpdir_factory):
     # Validate header row.
     header = list(worksheet.iter_cols(min_row=1, max_row=1, values_only=True))
     assert header == [
-        ("DATE",),
-        ("STATION_ID",),
-        ("QN_3",),
-        ("WIND_GUST_MAX",),
-        ("WIND_SPEED",),
-        ("QN_4",),
-        ("PRECIPITATION_HEIGHT",),
-        ("PRECIPITATION_FORM",),
-        ("SUNSHINE_DURATION",),
-        ("SNOW_DEPTH",),
-        ("CLOUD_COVER_TOTAL",),
-        ("PRESSURE_VAPOR",),
-        ("PRESSURE_AIR",),
-        ("TEMPERATURE_AIR_200",),
-        ("HUMIDITY",),
-        ("TEMPERATURE_AIR_MAX_200",),
-        ("TEMPERATURE_AIR_MIN_200",),
-        ("TEMPERATURE_AIR_MIN_005",),
+        ("date",),
+        ("station_id",),
+        ("qn_3",),
+        ("wind_gust_max",),
+        ("wind_speed",),
+        ("qn_4",),
+        ("precipitation_height",),
+        ("precipitation_form",),
+        ("sunshine_duration",),
+        ("snow_depth",),
+        ("cloud_cover_total",),
+        ("pressure_vapor",),
+        ("pressure_air",),
+        ("temperature_air_200",),
+        ("humidity",),
+        ("temperature_air_max_200",),
+        ("temperature_air_min_200",),
+        ("temperature_air_min_005",),
     ]
 
     # Validate number of records.
@@ -368,37 +351,37 @@ def test_export_parquet(tmpdir_factory):
 
     # Validate column names.
     assert table.column_names == [
-        "DATE",
-        "STATION_ID",
-        "QN_3",
-        "WIND_GUST_MAX",
-        "WIND_SPEED",
-        "QN_4",
-        "PRECIPITATION_HEIGHT",
-        "PRECIPITATION_FORM",
-        "SUNSHINE_DURATION",
-        "SNOW_DEPTH",
-        "CLOUD_COVER_TOTAL",
-        "PRESSURE_VAPOR",
-        "PRESSURE_AIR",
-        "TEMPERATURE_AIR_200",
-        "HUMIDITY",
-        "TEMPERATURE_AIR_MAX_200",
-        "TEMPERATURE_AIR_MIN_200",
-        "TEMPERATURE_AIR_MIN_005",
+        "date",
+        "station_id",
+        "qn_3",
+        "wind_gust_max",
+        "wind_speed",
+        "qn_4",
+        "precipitation_height",
+        "precipitation_form",
+        "sunshine_duration",
+        "snow_depth",
+        "cloud_cover_total",
+        "pressure_vapor",
+        "pressure_air",
+        "temperature_air_200",
+        "humidity",
+        "temperature_air_max_200",
+        "temperature_air_min_200",
+        "temperature_air_min_005",
     ]
 
     # Validate content.
     data = table.to_pydict()
 
-    assert data["DATE"][0] == datetime.datetime(
+    assert data["date"][0] == datetime.datetime(
         2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
     )
-    assert data["TEMPERATURE_AIR_MIN_005"][0] == 1.5
-    assert data["DATE"][-1] == datetime.datetime(
+    assert data["temperature_air_min_005"][0] == 1.5
+    assert data["date"][-1] == datetime.datetime(
         2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
     )
-    assert data["TEMPERATURE_AIR_MIN_005"][-1] == -4.6
+    assert data["temperature_air_min_005"][-1] == -4.6
 
     os.unlink(filename)
 
@@ -433,37 +416,37 @@ def test_export_feather(tmpdir_factory):
 
     # Validate column names.
     assert table.column_names == [
-        "DATE",
-        "STATION_ID",
-        "QN_3",
-        "WIND_GUST_MAX",
-        "WIND_SPEED",
-        "QN_4",
-        "PRECIPITATION_HEIGHT",
-        "PRECIPITATION_FORM",
-        "SUNSHINE_DURATION",
-        "SNOW_DEPTH",
-        "CLOUD_COVER_TOTAL",
-        "PRESSURE_VAPOR",
-        "PRESSURE_AIR",
-        "TEMPERATURE_AIR_200",
-        "HUMIDITY",
-        "TEMPERATURE_AIR_MAX_200",
-        "TEMPERATURE_AIR_MIN_200",
-        "TEMPERATURE_AIR_MIN_005",
+        "date",
+        "station_id",
+        "qn_3",
+        "wind_gust_max",
+        "wind_speed",
+        "qn_4",
+        "precipitation_height",
+        "precipitation_form",
+        "sunshine_duration",
+        "snow_depth",
+        "cloud_cover_total",
+        "pressure_vapor",
+        "pressure_air",
+        "temperature_air_200",
+        "humidity",
+        "temperature_air_max_200",
+        "temperature_air_min_200",
+        "temperature_air_min_005",
     ]
 
     # Validate content.
     data = table.to_pydict()
 
-    assert data["DATE"][0] == datetime.datetime(
+    assert data["date"][0] == datetime.datetime(
         2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
     )
-    assert data["TEMPERATURE_AIR_MIN_005"][0] == 1.5
-    assert data["DATE"][-1] == datetime.datetime(
+    assert data["temperature_air_min_005"][0] == 1.5
+    assert data["date"][-1] == datetime.datetime(
         2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
     )
-    assert data["TEMPERATURE_AIR_MIN_005"][-1] == -4.6
+    assert data["temperature_air_min_005"][-1] == -4.6
 
     os.unlink(filename)
 
@@ -552,7 +535,7 @@ def test_export_cratedb():
     ) as mock_to_sql:
 
         df = request.values.all().df
-        df.dwd.lower().io.export("crate://localhost/?database=test&table=testdrive")
+        df.io.export("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
             name="testdrive",
@@ -608,7 +591,7 @@ def test_export_influxdb_tabular():
     ) as mock_connect:
 
         df = request.values.all().df
-        df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
+        df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")
@@ -640,7 +623,7 @@ def test_export_influxdb_tidy():
     ) as mock_connect:
 
         df = request.values.all().df
-        df.dwd.lower().io.export("influxdb://localhost/?database=dwd&table=weather")
+        df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")

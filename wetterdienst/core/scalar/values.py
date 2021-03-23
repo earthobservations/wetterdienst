@@ -351,7 +351,9 @@ class ScalarValuesCore:
                     continue
                 if column in self._irregular_parameters:
                     df[column] = self._coerce_irregular_parameter(df[column])
-                elif column in self._integer_parameters or column.startswith("QN"):
+                elif column in self._integer_parameters or column.startswith(
+                    Columns.QUALITY_PREFIX.value
+                ):
                     df[column] = self._coerce_integers(df[column])
                 elif column in self._string_parameters:
                     df[column] = self._coerce_strings(df[column])
