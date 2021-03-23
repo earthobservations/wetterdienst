@@ -266,7 +266,7 @@ The result data is provided through a virtual table called ``data``.
         humanize_parameters=True,
     ).filter(station_id=[1048])
 
-    df = stations.values.all().df.dwd.lower()
+    df = stations.values.all().df
     df = df.io.sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
     print(df.head())
 
@@ -297,7 +297,7 @@ Examples:
         humanize_parameters=True,
     ).filter(station_id=[1048])
 
-    df = stations.values.all().df.dwd.lower()
+    df = stations.values.all().df
     df.io.export("influxdb://localhost/?database=dwd&table=weather")
 
 Mosmix

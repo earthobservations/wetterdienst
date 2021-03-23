@@ -36,21 +36,6 @@ class PandasDwdExtension:
     def __init__(self, pandas_obj):
         self.df = pandas_obj
 
-    def lower(self) -> pd.DataFrame:
-        """
-        Make Pandas DataFrame column names and parameters lowercase.
-
-        :return: Mungled DataFrame
-        """
-        df = self.df.rename(columns=str.lower)
-
-        for attribute in Columns.DATASET, Columns.PARAMETER:
-            attribute_name = attribute.value.lower()
-            if attribute_name in df:
-                df[attribute_name] = df[attribute_name].str.lower()
-
-        return df
-
     def filter_by_date(self, date: str, resolution: Resolution) -> pd.DataFrame:
         """
         Filter Pandas DataFrame by date or date interval.
@@ -150,10 +135,9 @@ class PandasDwdExtension:
         Return:
              Dictionary in GeoJSON FeatureCollection format.
         """
-        df = self.df.rename(columns=str.lower)
 
         features = []
-        for _, station in df.iterrows():
+        for _, station in self.df.iterrows():
             features.append(
                 {
                     "type": "Feature",
@@ -208,7 +192,7 @@ class PandasDwdExtension:
 
         for column in self.df:
             # If is quality column, overwrite current "column quality"
-            if column.startswith("QN"):
+            if column.startswith(Columns.QUALITY_PREFIX.value):
                 column_quality = self.df.pop(column)
             else:
                 quality = quality.append(column_quality)

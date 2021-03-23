@@ -5,6 +5,7 @@ from pathlib import PurePath
 
 import pytest
 
+from wetterdienst.dwd.metadata.column_names import DwdColumns
 from wetterdienst.dwd.radar.index import create_fileindex_radar
 from wetterdienst.dwd.radar.metadata import (
     DwdRadarDataFormat,
@@ -23,7 +24,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bin():
         fmt=DwdRadarDataFormat.BINARY,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match("*/weather/radar/composit/pg/*---bin") for url in urls
     )
@@ -36,7 +37,7 @@ def test_radar_fileindex_composite_pg_reflectivity_bufr():
         fmt=DwdRadarDataFormat.BUFR,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match("*/weather/radar/composit/pg/*---bufr") for url in urls
     )
@@ -49,7 +50,7 @@ def test_radar_fileindex_composite_rx_reflectivity_bin():
         parameter=DwdRadarParameter.RX_REFLECTIVITY,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match("*/weather/radar/composit/rx/*---bin") for url in urls
     )
@@ -69,7 +70,7 @@ def test_radar_fileindex_radolan_reflectivity_bin(parameter):
         parameter=parameter,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match(f"*/weather/radar/radolan/{parameter.value}/*---bin")
         for url in urls
@@ -84,7 +85,7 @@ def test_radar_fileindex_sites_px_reflectivity_bin():
         fmt=DwdRadarDataFormat.BINARY,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match("*/weather/radar/sites/px/boo/*---bin") for url in urls
     )
@@ -98,7 +99,7 @@ def test_radar_fileindex_sites_px_reflectivity_bufr():
         fmt=DwdRadarDataFormat.BUFR,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match("*/weather/radar/sites/px/boo/*---buf") for url in urls
     )
@@ -111,7 +112,7 @@ def test_radar_fileindex_sites_px250_reflectivity_bufr():
         site=DwdRadarSite.BOO,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all("/weather/radar/sites/px250/boo" in url for url in urls)
 
 
@@ -123,7 +124,7 @@ def test_radar_fileindex_sites_sweep_bufr():
         fmt=DwdRadarDataFormat.BUFR,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match("*/weather/radar/sites/sweep_vol_v/boo/*--buf.bz2")
         for url in urls
@@ -139,7 +140,7 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple():
         subset=DwdRadarDataSubset.SIMPLE,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
 
     assert all(
         "/weather/radar/sites/sweep_vol_v/boo/hdf5/filter_simple" in url for url in urls
@@ -155,7 +156,7 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric():
         subset=DwdRadarDataSubset.POLARIMETRIC,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
 
     assert all(
         "/weather/radar/sites/sweep_vol_v/boo/hdf5/filter_polarimetric" in url
@@ -171,7 +172,7 @@ def test_radar_fileindex_radolan_cdc_daily_recent():
         period=DwdRadarPeriod.RECENT,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match(
             "*/climate_environment/CDC/grids_germany/daily/radolan/recent/bin/*---bin.gz"
@@ -189,7 +190,7 @@ def test_radar_fileindex_radolan_cdc_daily_historical():
         period=DwdRadarPeriod.HISTORICAL,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match(
             "*/climate_environment/CDC/grids_germany/daily/radolan/historical/bin/*/SF*.tar.gz"
@@ -207,7 +208,7 @@ def test_radar_fileindex_radolan_cdc_hourly_recent():
         period=DwdRadarPeriod.RECENT,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match(
             "*/climate_environment/CDC/grids_germany/hourly/radolan/recent/bin/*---bin.gz"
@@ -225,7 +226,7 @@ def test_radar_fileindex_radolan_cdc_hourly_historical():
         period=DwdRadarPeriod.HISTORICAL,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
         PurePath(url).match(
             "*/climate_environment/CDC/grids_germany/hourly/radolan/historical/bin/*/RW*.tar.gz"
@@ -242,7 +243,7 @@ def test_radar_fileindex_radolan_cdc_5minutes():
         resolution=DwdRadarResolution.MINUTE_5,
     )
 
-    urls = file_index["FILENAME"].tolist()
+    urls = file_index[DwdColumns.FILENAME.value].tolist()
     for url in urls:
         print(url)
     assert all(

@@ -23,6 +23,10 @@ def test_parse_enumeration_from_template():
         == DwdObservationDataset.CLIMATE_SUMMARY
     )
     assert (
+        parse_enumeration_from_template("CLIMATE_SUMMARY", DwdObservationDataset)
+        == DwdObservationDataset.CLIMATE_SUMMARY
+    )
+    assert (
         parse_enumeration_from_template("kl", DwdObservationDataset)
         == DwdObservationDataset.CLIMATE_SUMMARY
     )
@@ -49,12 +53,12 @@ def test_coerce_field_types():
     # we rather use a predefined DataFrame to check for coercion
     df = pd.DataFrame(
         {
-            "STATION_ID": ["00001"],
-            "DATE": ["1970010100"],
-            "QN": ["1"],
-            "RS_IND_01": [1],
-            "END_OF_INTERVAL": ["1970010100:00"],
-            "V_VV_I": ["P"],
+            "station_id": ["00001"],
+            "date": ["1970010100"],
+            "qn": ["1"],
+            "rs_ind_01": [1],
+            "end_of_interval": ["1970010100:00"],
+            "v_vv_i": ["p"],
         }
     )
 
@@ -64,12 +68,12 @@ def test_coerce_field_types():
 
     expected_df = pd.DataFrame(
         {
-            "STATION_ID": pd.Categorical(["00001"]),
-            "DATE": [pd.Timestamp("1970-01-01").tz_localize("UTC")],
-            "QN": pd.Series([1], dtype=pd.Int64Dtype()),
-            "RS_IND_01": pd.Series([1], dtype=pd.Int64Dtype()),
-            "END_OF_INTERVAL": [pd.Timestamp("1970-01-01")],
-            "V_VV_I": pd.Series(["P"], dtype=pd.StringDtype()),
+            "station_id": pd.Categorical(["00001"]),
+            "date": [pd.Timestamp("1970-01-01").tz_localize("utc")],
+            "qn": pd.Series([1], dtype=pd.Int64Dtype()),
+            "rs_ind_01": pd.Series([1], dtype=pd.Int64Dtype()),
+            "end_of_interval": [pd.Timestamp("1970-01-01")],
+            "v_vv_i": pd.Series(["p"], dtype=pd.StringDtype()),
         }
     )
 
@@ -88,17 +92,17 @@ def test_coerce_field_types_with_nans():
 
     df = pd.DataFrame(
         {
-            "QN": [pd.NA, np.nan, "1"],
-            "RS_IND_01": [pd.NA, np.nan, "1"],
-            "V_VV_I": [pd.NA, np.nan, "P"],
+            "qn": [pd.NA, np.nan, "1"],
+            "rs_ind_01": [pd.NA, np.nan, "1"],
+            "v_vv_i": [pd.NA, np.nan, "p"],
         }
     )
 
     expected_df = pd.DataFrame(
         {
-            "QN": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
-            "RS_IND_01": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
-            "V_VV_I": pd.Series([pd.NA, np.nan, "P"], dtype=pd.StringDtype()),
+            "qn": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
+            "rs_ind_01": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
+            "v_vv_i": pd.Series([pd.NA, np.nan, "p"], dtype=pd.StringDtype()),
         }
     )
 

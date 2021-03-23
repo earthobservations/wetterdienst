@@ -35,14 +35,14 @@ def test_dwd_observations_stations_success():
         df.loc[df[Columns.STATION_ID.value] == "00001", :].reset_index(drop=True),
         pd.DataFrame(
             {
-                "STATION_ID": ["00001"],
-                "FROM_DATE": [datetime(1937, 1, 1, tzinfo=pytz.UTC)],
-                "TO_DATE": [datetime(1986, 6, 30, tzinfo=pytz.UTC)],
-                "HEIGHT": [478.0],
-                "LATITUDE": [47.8413],
-                "LONGITUDE": [8.8493],
-                "STATION_NAME": ["Aach"],
-                "STATE": ["Baden-Württemberg"],
+                "station_id": ["00001"],
+                "from_date": [datetime(1937, 1, 1, tzinfo=pytz.UTC)],
+                "to_date": [datetime(1986, 6, 30, tzinfo=pytz.UTC)],
+                "height": [478.0],
+                "latitude": [47.8413],
+                "longitude": [8.8493],
+                "station_name": ["Aach"],
+                "state": ["Baden-Württemberg"],
             }
         ),
     )

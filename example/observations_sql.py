@@ -44,7 +44,7 @@ def sql_example():
     log.info(f"Invoking SQL query '{sql}'")
 
     df = stations.values.all().df
-    df = df.dwd.lower().io.sql(sql)
+    df = df.io.sql(sql)
 
     print(df)
 

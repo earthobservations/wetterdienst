@@ -26,14 +26,14 @@ def test_api(provider, kind, kwargs):
 
     assert set(stations.columns).issuperset(
         {
-            "STATION_ID",
-            "FROM_DATE",
-            "TO_DATE",
-            "HEIGHT",
-            "LATITUDE",
-            "LONGITUDE",
-            "STATION_NAME",
-            "STATE",
+            "station_id",
+            "from_date",
+            "to_date",
+            "height",
+            "latitude",
+            "longitude",
+            "station_name",
+            "state",
         }
     )
 
@@ -43,7 +43,7 @@ def test_api(provider, kind, kwargs):
 
     # TODO: DWD Forecast has no quality
     assert set(values.columns).issuperset(
-        {"STATION_ID", "PARAMETER", "DATE", "VALUE", "QUALITY"}
+        {"station_id", "parameter", "date", "value", "quality"}
     )
 
     assert not values.empty

@@ -25,24 +25,24 @@ def test_dwd_mosmix_l():
     # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = response.stations.df["STATION_NAME"].unique().tolist()
+    station_names = response.stations.df["station_name"].unique().tolist()
     assert station_names == ["JAN MAYEN"]
 
     # Verify forecast data.
-    station_ids = response.df["STATION_ID"].unique().tolist()
+    station_ids = response.df["station_id"].unique().tolist()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
     assert len(response.df.columns) == 5
     assert list(response.df.columns) == [
-        "STATION_ID",
-        "DATE",
-        "PARAMETER",
-        "VALUE",
-        "QUALITY",
+        "station_id",
+        "date",
+        "parameter",
+        "value",
+        "quality",
     ]
 
-    assert set(response.df["PARAMETER"]).issuperset(
+    assert set(response.df["parameter"]).issuperset(
         [
             "PPPP",
             "E_PPP",
@@ -182,24 +182,24 @@ def test_dwd_mosmix_s():
     # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = list(response.stations.df["STATION_NAME"].unique())
+    station_names = list(response.stations.df["station_name"].unique())
     assert station_names == ["BJORNOYA"]
 
     # Verify forecast data.
-    station_ids = response.df["STATION_ID"].unique().tolist()
+    station_ids = response.df["station_id"].unique().tolist()
     assert station_ids == ["01028"]
     assert len(response.df) > 200
 
     assert len(response.df.columns) == 5
     assert list(response.df.columns) == [
-        "STATION_ID",
-        "DATE",
-        "PARAMETER",
-        "VALUE",
-        "QUALITY",
+        "station_id",
+        "date",
+        "parameter",
+        "value",
+        "quality",
     ]
 
-    assert set(response.df["PARAMETER"]).issuperset(
+    assert set(response.df["parameter"]).issuperset(
         [
             "PPPP",
             "TX",
@@ -261,16 +261,16 @@ def test_mosmix_l_parameters():
     response = next(request.values.query())
 
     # Verify forecast data.
-    station_ids = response.stations.df["STATION_ID"].unique().tolist()
+    station_ids = response.stations.df["station_id"].unique().tolist()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
     assert len(response.df.columns) == 5
     assert list(response.df.columns) == [
-        "STATION_ID",
-        "DATE",
-        "PARAMETER",
-        "VALUE",
-        "QUALITY",
+        "station_id",
+        "date",
+        "parameter",
+        "value",
+        "quality",
     ]
-    assert set(response.df["PARAMETER"]).issuperset(["DD", "ww"])
+    assert set(response.df["parameter"]).issuperset(["DD", "ww"])

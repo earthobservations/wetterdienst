@@ -104,8 +104,8 @@ def _parse_climate_observations_data(
     # Column names contain spaces, so strip them away.
     df = df.rename(columns=str.strip)
 
-    # Make column names uppercase.
-    df = df.rename(columns=str.upper)
+    # Make column names lowercase.
+    df = df.rename(columns=str.lower)
 
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(columns=DwdColumns.EOR.value, errors="ignore")
@@ -116,7 +116,7 @@ def _parse_climate_observations_data(
         # information. Also rename column with true local time to english one
         df = df.rename(
             columns={
-                "MESS_DATUM_WOZ": (
+                "mess_datum_woz": (
                     DwdObservationDatasetStructure.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501, B950
                 ),
             }

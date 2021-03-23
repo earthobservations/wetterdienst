@@ -41,9 +41,9 @@ jobs:
       uses: actions/cache@v2
       env:
         # Increase this value to reset cache if `poetry.lock` has not changed.
-        CACHE_NUMBER: 1
+        CACHE_NUMBER: 2
       with:
-        path: ~/.cache
+        path: ~/.poetry/cache
         key: ${{ matrix.os }}-${{ matrix.python-version }}-poetry-${{ env.CACHE_NUMBER }}-${{ hashFiles('poetry.lock') }}
 
     - name: Install dependencies

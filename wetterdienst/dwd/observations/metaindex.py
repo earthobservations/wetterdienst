@@ -165,7 +165,7 @@ def _create_meta_index_for_climate_observations(
         [column for column in meta_index.columns if "unnamed" not in column.lower()]
     ).split(" ")
 
-    meta_index = meta_index.rename(columns=str.upper)
+    meta_index = meta_index.rename(columns=str.lower)
 
     meta_index = meta_index.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
@@ -303,7 +303,7 @@ def _parse_geo_metadata(
 
     metadata_geo_df = _parse_zipped_data_into_df(metadata_geo_bytes)
 
-    metadata_geo_df = metadata_geo_df.rename(columns=str.upper)
+    metadata_geo_df = metadata_geo_df.rename(columns=str.lower)
 
     metadata_geo_df = metadata_geo_df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 

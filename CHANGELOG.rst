@@ -14,6 +14,7 @@ Development
 - Add ``--reload`` parameter to ``wetterdienst service`` for supporting development
 - Improve spreadsheet export
 - Increase I/O subsystem test coverage
+- Make all DWD observation field names lowercase
 
 0.15.0 (07.03.2021)
 *******************
