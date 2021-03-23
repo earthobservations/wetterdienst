@@ -6,6 +6,7 @@ import re
 import h5py
 import pytest
 
+from tests.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.dwd.radar import DwdRadarParameter, DwdRadarValues
 from wetterdienst.dwd.radar.metadata import (
     DwdRadarDataFormat,
@@ -137,7 +138,7 @@ def test_radar_request_radolan_cdc_most_recent():
     month_year = request.start_date.strftime("%m%y")
     header = (
         f"SF{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT1440GP 900x 900MS "  # noqa:E501,B950
-        f"..<asb,boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,tur,(isn,)?fbg(,mem)?>"  # noqa:E501,B950
+        f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:180])

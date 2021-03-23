@@ -10,6 +10,11 @@ import h5py
 import pybufrkit
 import pytest
 
+from tests.dwd.radar import (
+    station_reference_pattern_de,
+    station_reference_pattern_sorted,
+    station_reference_pattern_unsorted,
+)
 from wetterdienst.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -153,7 +158,7 @@ def test_radar_request_composite_historic_fx_yesterday():
     month_year = request.start_date.strftime("%m%y")
     header = (
         f"FX{date_time}10000{month_year}BY.......VS 3SW   2.12.0PR E-01INT   5GP 900x 900VV 000MF 00000002MS "  # noqa:E501,B950
-        f"..<asb,boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,tur,(isn,)?fbg,mem>"
+        f"..<{station_reference_pattern_unsorted}>"
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
@@ -214,7 +219,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     month_year = request.start_date.strftime("%m%y")
     header = (
         f"RW{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT  60GP 900x 900MF 00000001MS "  # noqa:E501,B950
-        f"..<asb,boo,ros,hnr,umd,pro,ess,fld,drs,neu,(nhb,)?oft,eis,(tur,)?(isn,)?fbg,mem>"  # noqa:E501,B950
+        f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
@@ -257,7 +262,12 @@ def test_radar_request_site_historic_dx_yesterday():
         site=DwdRadarSite.BOO,
     )
 
-    buffer = next(request.query())[1]
+    results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
+    buffer = results[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -289,6 +299,10 @@ def test_radar_request_site_historic_dx_timerange():
 
     # Verify number of elements.
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     assert len(results) == 6
 
     # TODO: Verify data.
@@ -313,7 +327,12 @@ def test_radar_request_site_historic_pe_binary_yesterday():
         fmt=DwdRadarDataFormat.BINARY,
     )
 
-    buffer = next(request.query())[1]
+    results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
+    buffer = results[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -348,7 +367,12 @@ def test_radar_request_site_historic_pe_bufr():
         fmt=DwdRadarDataFormat.BUFR,
     )
 
-    buffer = next(request.query())[1]
+    results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
+    buffer = results[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -395,6 +419,10 @@ def test_radar_request_site_historic_pe_timerange(format):
 
     # Verify number of elements.
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -414,7 +442,12 @@ def test_radar_request_site_historic_px250_bufr_yesterday():
         site=DwdRadarSite.BOO,
     )
 
-    buffer = next(request.query())[1]
+    results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
+    buffer = results[1]
     payload = buffer.getvalue()
 
     # Verify data.
@@ -454,6 +487,10 @@ def test_radar_request_site_historic_px250_bufr_timerange():
 
     # Verify number of elements.
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -613,6 +650,9 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
     )
     results = list(request.query())
 
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     # Verify number of elements.
     assert len(results) == 1
 
@@ -668,6 +708,10 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
 
     # Verify number of elements.
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     assert len(results) == 12
 
     # TODO: Verify data.
@@ -690,6 +734,9 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
         subset=DwdRadarDataSubset.SIMPLE,
     )
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
 
     # Verify number of elements.
     assert len(results) == 10
@@ -762,6 +809,10 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
 
     # Verify number of elements.
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     assert len(results) == 60
 
     # TODO: Verify data.
@@ -801,7 +852,7 @@ def test_radar_request_radvor_re_yesterday():
     month_year = request.start_date.strftime("%m%y")
     header = (
         f"RE{date_time}10000{month_year}BY.......VS 3SW P20000.HPR E-03INT  60GP 900x 900VV 000MF 00000008QN "  # noqa:E501,B950
-        f"016MS...<deasb,deboo,dedrs,deeis,deess,(defbg,)?defld,dehnr,(deisn,)?demem(,deneu,denhb,deoft,depro,deros(,detur)?(,deumd)?)?"  # noqa:E501,B950
+        f"016MS...<{station_reference_pattern_de}"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:200])
@@ -866,7 +917,7 @@ def test_radar_request_radvor_rq_yesterday():
     month_year = request.start_date.strftime("%m%y")
     header = (
         f"RQ{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
-        f"..<asb,boo,drs,eis,ess,(fbg,)?fld,hnr,(isn,)?mem(,neu,nhb,oft,pro,ros(,tur)?(,umd)?)?"  # noqa:E501,B950
+        f"..<{station_reference_pattern_sorted}"  # noqa:E501,B950
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:180])
