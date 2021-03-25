@@ -10,23 +10,29 @@ API
 DWD (German Weather Service)
 ============================
 
-Historical Weather Data
------------------------
+Observation
+-----------
 
-.. autoclass:: wetterdienst.dwd.observations.api.DwdObservationRequest
+.. autoclass:: wetterdienst.provider.dwd.observation.api.DwdObservationRequest
     :members:
 
-.. autoclass:: wetterdienst.dwd.observations.api.DwdObservationMetadata
-    :members:
+Forecast (Mosmix)
+-----------------
 
-Mosmix
-------
-
-.. autoclass:: wetterdienst.dwd.forecasts.api.DwdMosmixRequest
+.. autoclass:: wetterdienst.provider.dwd.forecast.api.DwdMosmixRequest
     :members:
 
 Radar
 -----
 
-.. autoclass:: wetterdienst.dwd.radar.api.DwdRadarValues
+.. autoclass:: wetterdienst.provider.dwd.radar.api.DwdRadarValues
+    :members:
+
+ECCC (Environment and Climate Change Canada)
+============================================
+
+Observation
+-----------
+
+.. autoclass:: wetterdienst.provider.eccc.observation.api.EcccObservationRequest
     :members:

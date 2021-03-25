@@ -164,16 +164,18 @@ class EcccObservationValues(ScalarValuesCore):
 
                 df_temp = pd.read_csv(BytesIO(payload.content))
 
+                df_temp = df_temp.rename(columns=str.lower)
+
                 df_temp = df_temp.drop(
                     columns=[
-                        "Longitude (x)",
-                        "Latitude (y)",
-                        "Station Name",
-                        "Climate ID",
-                        "Year",
-                        "Month",
-                        "Day",
-                        "Time (LST)",
+                        "longitude (x)",
+                        "latitude (y)",
+                        "station name",
+                        "climate id",
+                        "year",
+                        "month",
+                        "day",
+                        "time (lst)",
                     ],
                     errors="ignore",
                 )
@@ -182,8 +184,8 @@ class EcccObservationValues(ScalarValuesCore):
 
             df = df.rename(
                 columns={
-                    "Date/Time (LST)": Columns.DATE.value,
-                    "Date/Time": Columns.DATE.value,
+                    "date/time (lst)": Columns.DATE.value,
+                    "date/time": Columns.DATE.value,
                 }
             )
 
@@ -261,13 +263,13 @@ class EcccObservationRequest(ScalarRequestCore):
 
         from_date, to_date = None, None
         if self.resolution == Resolution.HOURLY:
-            from_date, to_date = "HLY First Year", "HLY Last Year"
+            from_date, to_date = "hly first year", "hly last year"
         elif self.resolution == Resolution.DAILY:
-            from_date, to_date = "DLY First Year", "DLY Last Year"
+            from_date, to_date = "dly first year", "dly last year"
         elif self.resolution == Resolution.MONTHLY:
-            from_date, to_date = "MLY First Year", "MLY Last Year"
+            from_date, to_date = "mly first year", "mly last year"
         elif self.resolution == Resolution.ANNUAL:
-            from_date, to_date = "First Year", "Last Year"
+            from_date, to_date = "first year", "last year"
 
         dcm.update(
             {
@@ -279,15 +281,15 @@ class EcccObservationRequest(ScalarRequestCore):
         return dcm
 
     _base_columns_mapping: dict = {
-        "Station ID": Columns.STATION_ID.value,
-        "Name": Columns.STATION_NAME.value,
-        "Province": Columns.STATE.value,
+        "station id": Columns.STATION_ID.value,
+        "name": Columns.STATION_NAME.value,
+        "province": Columns.STATE.value,
         # "CLIMATE_ID",
         # "WMO_ID",
         # "TC_ID",
-        "Latitude (Decimal Degrees)": Columns.LATITUDE.value,
-        "Longitude (Decimal Degrees)": Columns.LONGITUDE.value,
-        "Elevation (m)": Columns.HEIGHT.value,
+        "latitude (decimal degrees)": Columns.LATITUDE.value,
+        "longitude (decimal degrees)": Columns.LONGITUDE.value,
+        "elevation (m)": Columns.HEIGHT.value,
     }
 
     def __init__(
@@ -315,6 +317,10 @@ class EcccObservationRequest(ScalarRequestCore):
 
         # Read into Pandas data frame.
         df = pd.read_csv(BytesIO(csv_payload), header=2, dtype=str)
+
+        df = df.rename(columns=str.lower)
+
+        df = df.drop(columns=["latitude", "longitude"])
 
         df = df.rename(columns=self._columns_mapping)
 

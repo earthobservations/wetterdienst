@@ -15,6 +15,8 @@ Development
 - Improve spreadsheet export
 - Increase I/O subsystem test coverage
 - Make all DWD observation field names lowercase
+- Make all DWD forecast (mosmix) field names lowercase
+- Add Environment and Climate Change Canada API
 
 0.15.0 (07.03.2021)
 *******************

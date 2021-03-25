@@ -5,8 +5,8 @@ DWD (German Weather Service)
 ============================
 
 
-.. automodule:: wetterdienst.dwd.forecasts.access
+.. automodule:: wetterdienst.provider.dwd.forecast.access
     :members:
 
-.. automodule:: wetterdienst.dwd.radar.access
+.. automodule:: wetterdienst.provider.dwd.radar.access
     :members:

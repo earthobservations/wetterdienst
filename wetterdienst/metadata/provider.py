@@ -10,7 +10,7 @@ class Provider(Enum):
 
     DWD = ("Deutscher Wetterdienst", "German Weather Service", "Germany")
     ECCC = (
-        "Environnement et Changement climatique Canada",
+        "Environnement et Changement Climatique Canada",
         "Environment and Climate Change Canada",
         "Canada",
     )

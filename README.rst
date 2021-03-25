@@ -83,7 +83,7 @@ Coverage
 DWD (German Weather Service / Deutscher Wetterdienst / Germany)
     - Historical Weather Observations
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
-        - every minute to yearly resolution
+        - Every minute to yearly resolution
         - Time series of stations in Germany
     - Mosmix - statistical optimized scalar forecasts extracted from weather models
         - Point forecast
@@ -95,6 +95,12 @@ DWD (German Weather Service / Deutscher Wetterdienst / Germany)
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
+
+ECCC (Environnement et Changement Climatique Canada, Environment and Climate Change Canada, Canada)
+    - Historical Weather Observations
+        - Historical (last ~180 years)
+        - Hourly, daily, monthly, (annual) resolution
+        - Time series of stations in Canada
 
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.
