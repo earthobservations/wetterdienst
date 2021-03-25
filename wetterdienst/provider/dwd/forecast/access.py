@@ -134,7 +134,7 @@ class KMLReader:
                     f"{{{self.root.nsmap['dwd']}}}elementName"
                 )
 
-                if measurement_parameter in self.parameters:
+                if measurement_parameter.lower() in self.parameters:
                     measurement_string = measurement_item.getchildren()[0].text
 
                     measurement_values = " ".join(measurement_string.split()).split(" ")
@@ -146,6 +146,6 @@ class KMLReader:
                         self.timesteps
                     ), "Number of timesteps does not match number of measurement values"
 
-                    df[measurement_parameter] = measurement_values
+                    df[measurement_parameter.lower()] = measurement_values
 
             yield df

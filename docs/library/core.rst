@@ -28,14 +28,14 @@ Data models
 Download
 ========
 
-.. automodule:: wetterdienst.dwd.network
+.. automodule:: wetterdienst.provider.dwd.network
     :members:
 
 Enumerations
 ============
 
-.. automodule:: wetterdienst.dwd.metadata.column_names
+.. automodule:: wetterdienst.provider.dwd.metadata.column_names
     :members:
 
-.. automodule:: wetterdienst.dwd.metadata.datetime
+.. automodule:: wetterdienst.provider.dwd.metadata.datetime
     :members:

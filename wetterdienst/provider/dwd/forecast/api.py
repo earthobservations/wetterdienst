@@ -41,35 +41,6 @@ from wetterdienst.util.network import list_remote_files
 log = logging.getLogger(__name__)
 
 
-MOSMIX_STATION_LIST = (
-    "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
-    "mosmix_stationskatalog.cfg?view=nasPublication"
-)
-MOSMIX_STATION_LIST_COLSPECS = [
-    (0, 5),
-    (6, 11),
-    (12, 17),
-    (18, 22),
-    (23, 44),
-    (45, 51),
-    (52, 58),
-    (59, 64),
-    (65, 71),
-    (72, 76),
-]
-MOSMIX_METADATA_COLUMNS = [
-    Columns.STATION_ID.value,
-    Columns.ICAO_ID.value,
-    Columns.FROM_DATE.value,
-    Columns.TO_DATE.value,
-    Columns.HEIGHT.value,
-    Columns.LATITUDE.value,
-    Columns.LONGITUDE.value,
-    Columns.STATION_NAME.value,
-    Columns.STATE.value,
-]
-
-
 class DwdMosmixDataset(Enum):
     SMALL = "small"
     LARGE = "large"
@@ -299,6 +270,36 @@ class DwdMosmixValues(ScalarValuesCore):
 class DwdMosmixRequest(ScalarRequestCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
+    _url = (
+        "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
+        "mosmix_stationskatalog.cfg?view=nasPublication"
+    )
+
+    _colspecs = [
+        (0, 5),
+        (6, 11),
+        (12, 17),
+        (18, 22),
+        (23, 44),
+        (45, 51),
+        (52, 58),
+        (59, 64),
+        (65, 71),
+        (72, 76),
+    ]
+
+    _columns = [
+        Columns.STATION_ID.value,
+        Columns.ICAO_ID.value,
+        Columns.FROM_DATE.value,
+        Columns.TO_DATE.value,
+        Columns.HEIGHT.value,
+        Columns.LATITUDE.value,
+        Columns.LONGITUDE.value,
+        Columns.STATION_NAME.value,
+        Columns.STATE.value,
+    ]
+
     _provider = Provider.DWD
     _tz = Timezone.GERMANY
     _parameter_base = DwdMosmixParameter
@@ -426,7 +427,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     def _all(self) -> pd.DataFrame:
         """ Create meta data DataFrame from available station list """
         # TODO: Cache payload with FSSPEC
-        payload = requests.get(MOSMIX_STATION_LIST, headers={"User-Agent": ""})
+        payload = requests.get(self._url, headers={"User-Agent": ""})
 
         # List is unsorted with repeating interruptions with "TABLE" string in the
         # beginning of the line
@@ -442,7 +443,7 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         df = pd.read_fwf(
             data,
-            colspecs=MOSMIX_STATION_LIST_COLSPECS,
+            colspecs=self._colspecs,
             na_values=["----"],
             header=None,
             dtype="str",
@@ -468,6 +469,6 @@ class DwdMosmixRequest(ScalarRequestCore):
             df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
         )
 
-        df = df.reindex(columns=MOSMIX_METADATA_COLUMNS)
+        df = df.reindex(columns=self._columns)
 
         return df.copy()
