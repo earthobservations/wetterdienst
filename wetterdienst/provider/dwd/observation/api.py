@@ -406,46 +406,6 @@ class DwdObservationRequest(ScalarRequestCore):
             )
 
     @classmethod
-    def discover(cls, resolution=None, dataset=None, flatten: bool = True) -> str:
-        if flatten:
-            if dataset:
-                log.warning("dataset filter will be ignored due to 'flatten'")
-            return super(DwdObservationRequest, cls).discover(resolution=resolution)
-
-        resolutions = (
-            pd.Series(resolution)
-            .apply(parse_enumeration_from_template, args=(cls._resolution_base,))
-            .tolist()
-            or cls._resolution_base
-        )
-
-        datasets_filter = (
-            pd.Series(dataset)
-            .apply(parse_enumeration_from_template, args=(DwdObservationDataset,))
-            .tolist()
-            or DwdObservationDataset
-        )
-        datasets_filter = [ds.name for ds in datasets_filter]
-
-        parameters = {}
-
-        for resolution in resolutions:
-            resolution = resolution.name
-
-            parameters[resolution] = {}
-
-            for dataset in DwdObservationDatasetTree[resolution].__dict__:
-                if dataset.startswith("_") or dataset not in datasets_filter:
-                    continue
-
-                parameters[resolution][dataset] = []
-
-                for parameter in DwdObservationDatasetTree[resolution][dataset]:
-                    parameters[resolution][dataset].append(parameter.name)
-
-        return json.dumps(parameters, indent=4)
-
-    @classmethod
     def describe_fields(cls, dataset, resolution, period, language: str = "en") -> dict:
         dataset = parse_enumeration_from_template(dataset, DwdObservationDataset)
         resolution = parse_enumeration_from_template(

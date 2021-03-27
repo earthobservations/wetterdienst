@@ -40,7 +40,7 @@ Get stations for daily historical precipitation:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
 
-    API = Wetterdienst("dwd", "observation")
+    API = Wetterdienst(provider="dwd", kind="observation")
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -59,7 +59,7 @@ Get data for a parameter set:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
 
-    API = Wetterdienst("dwd", "observation")
+    API = Wetterdienst(provider="dwd", kind="observation")
 
     stations = API(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -76,7 +76,7 @@ Get data for a parameter:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationParameter
 
-    API = Wetterdienst("dwd", "observation")
+    API = Wetterdienst(provider="dwd", kind="observation")
 
     observation_data = API(
         parameter=DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT,
@@ -96,9 +96,9 @@ Get stations for Mosmix:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.forecast import DwdMosmixType
 
-    API = Wetterdienst("dwd", "forecast")
+    API = Wetterdienst(provider="dwd", kind="forecast")
 
-    stations = API(mosmix_type=DwdMosmixType.LARGE)
+    stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE)
 
     print(stations.all().df.head())
 
@@ -109,9 +109,9 @@ Get data for Mosmix-L:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.forecast import DwdMosmixType
 
-    API = Wetterdienst("dwd", "forecast")
+    API = Wetterdienst(provider="dwd", kind="forecast")
 
-    stations = API(mosmix_type=DwdMosmixType.LARGE).filter(
+    stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter(
         station_id=["01001", "01008"]
     )
 

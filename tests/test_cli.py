@@ -348,7 +348,7 @@ def test_cli_readings_format_unknown(setting, station, caplog):
         invoke_wetterdienst_values_static(
             setting=setting, station=station, fmt="foobar"
         )
-    print(caplog.text)
+
     assert "ERROR" in caplog.text
     assert "Unknown output format" in caplog.text
 

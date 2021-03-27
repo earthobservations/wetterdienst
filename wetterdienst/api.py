@@ -2,7 +2,9 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import json
+from typing import TypeVar, Type
 
+from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
@@ -10,6 +12,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+
 
 API_ENDPOINTS = {
     Provider.DWD: {
@@ -26,7 +29,7 @@ class Wetterdienst:
 
     endpoints = API_ENDPOINTS
 
-    def __init__(self, provider: Provider, kind: Kind) -> None:
+    def __new__(cls, provider: Provider, kind: Kind):
         """
 
         :param provider: provider of data e.g. DWD
@@ -43,11 +46,7 @@ class Wetterdienst:
                 f"No API available for provider {provider.value} and kind {kind.value}"
             )
 
-        self.api = api
-
-    def __call__(self, *args, **kwargs):
-        """ Caller for API """
-        return self.api(*args, **kwargs)
+        return api
 
     @classmethod
     def discover(cls) -> str:

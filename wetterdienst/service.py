@@ -63,9 +63,9 @@ Disallow: /api/
     """.strip()
 
 
-@app.get("/api/dwd/{product}/stations")
+@app.get("/api/dwd/{kind}/stations")
 def dwd_stations(
-    product: str,
+    kind: str,
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
@@ -76,11 +76,13 @@ def dwd_stations(
     max_distance_in_km: int = Query(default=None),
     sql: str = Query(default=None),
 ):
-    if product not in ["observation", "mosmix"]:
-        return HTTPException(status_code=404, detail=f"product {product} not found")
+    provider = "dwd"  # for now fixed
+
+    if kind not in ["observation", "forecast"]:
+        return HTTPException(status_code=404, detail=f"product {kind} not found")
 
     # Data acquisition.
-    if product == "observation":
+    if kind == "observation":
         if parameter is None or resolution is None or period is None:
             raise HTTPException(
                 status_code=400,
@@ -94,7 +96,7 @@ def dwd_stations(
             period=period,
         )
     else:
-        stations = DwdMosmixRequest(mosmix_type=mosmix_type)
+        stations = DwdMosmixRequest(parameter=parameter, mosmix_type=mosmix_type)
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
@@ -117,10 +119,10 @@ def dwd_stations(
     return make_json_response(df.fillna(-999).io.to_dict())
 
 
-@app.get("/api/dwd/{product}/values")
+@app.get("/api/dwd/{kind}/values")
 def dwd_values(
-    product: str,
-    station: str = Query(default=None),
+    kind: str,
+    stations: str = Query(default=None),
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
@@ -134,8 +136,9 @@ def dwd_values(
 
     # TODO: Obtain lat/lon distance/number information.
 
-    :param product:     string for product, either observation or mosmix
-    :param station:     Comma-separated list of station identifiers.
+    :param provider:
+    :param kind:        string for product, either observation or forecast
+    :param stations:     Comma-separated list of station identifiers.
     :param parameter:   Observation measure
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
@@ -145,17 +148,18 @@ def dwd_values(
     :param tidy:        Whether to return data in tidy format. Default: True.
     :return:
     """
-    if product not in ["observation", "mosmix"]:
-        return HTTPException(status_code=404, detail=f"product {product} not found")
+    provider = "dwd"
+    if kind not in ["observation", "mosmix"]:
+        return HTTPException(status_code=404, detail=f"product {kind} not found")
 
-    if station is None:
+    if stations is None:
         raise HTTPException(
             status_code=400, detail="Query argument 'station' is required"
         )
 
-    station_ids = map(str, read_list(station))
+    station_ids = map(str, read_list(stations))
 
-    if product == "observation":
+    if kind == "observation":
         if parameter is None or resolution is None or period is None:
             raise HTTPException(
                 status_code=400,
@@ -171,12 +175,12 @@ def dwd_values(
             tidy_data=tidy,
         )
     else:
-        if mosmix_type is None:
+        if parameter is None or mosmix_type is None:
             raise HTTPException(
                 status_code=400, detail="Query argument 'mosmix_type' is required"
             )
 
-        request = DwdMosmixRequest(mosmix_type=mosmix_type)
+        request = DwdMosmixRequest(parameter=parameter, mosmix_type=mosmix_type)
 
     if not resolution:
         resolution = request.resolution

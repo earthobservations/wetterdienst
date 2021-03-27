@@ -57,7 +57,7 @@ def test_dwd_readings_success(dicts_are_same):
     response = client.get(
         "/api/dwd/observation/values",
         params={
-            "station": "01359",
+            "stations": "01359",
             "parameter": "kl",
             "resolution": "daily",
             "period": "historical",
@@ -99,7 +99,7 @@ def test_dwd_readings_no_parameter():
     response = client.get(
         "/api/dwd/observation/values",
         params={
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "resolution": "daily",
             "period": "recent",
         },
@@ -116,7 +116,7 @@ def test_dwd_readings_no_resolution():
     response = client.get(
         "/api/dwd/observation/values",
         params={
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "parameter": "kl",
             "period": "recent",
         },
@@ -133,7 +133,7 @@ def test_dwd_readings_no_period():
     response = client.get(
         "/api/dwd/observation/values",
         params={
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
         },
@@ -146,12 +146,12 @@ def test_dwd_readings_no_period():
 
 
 @pytest.mark.sql
-def test_dwd_readings_sql_tabular(dicts_are_same):
+def test_dwd_values_sql_tabular(dicts_are_same):
 
     response = client.get(
         "/api/dwd/observation/values",
         params={
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -160,6 +160,7 @@ def test_dwd_readings_sql_tabular(dicts_are_same):
             "tidy": False,
         },
     )
+
     assert response.status_code == 200
 
     data = response.json()["data"]
@@ -196,12 +197,12 @@ def test_dwd_readings_sql_tabular(dicts_are_same):
     "frames is currently not homogenous",
     strict=True,
 )
-def test_dwd_readings_sql_tidy(dicts_are_same):
+def test_dwd_values_sql_tidy(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/observations/values",
+        "/api/dwd/observation/values",
         params={
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
