@@ -10,7 +10,7 @@ ECCC (Environment and Climate Change Canada)
 
     from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
-    observations_meta = EcccObservationRequest.discover(flatten=False)
+    observations_meta = EcccObservationRequest.discover()
 
     # Selection of daily historical data
     print(observations_meta)

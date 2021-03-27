@@ -324,6 +324,8 @@ class ScalarRequestCore(Core):
     def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
         """ Function to print/discover available parameters """
         # TODO: Refactor this!
+        flatten = cls._unique_dataset or flatten
+
         filter_ = cls._setup_discover_filter(filter_)
 
         filter_ = [f.name for f in filter_]
