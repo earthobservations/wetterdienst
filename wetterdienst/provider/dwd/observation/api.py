@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import json
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union
