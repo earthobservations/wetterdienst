@@ -8,11 +8,11 @@ Command Line Interface
     $ wetterdienst --help
 
     Usage:
-      wetterdienst dwd observations stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd observations values --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd observations values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--persist] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecasts stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd forecasts values --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--persist] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecast stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
+      wetterdienst dwd forecast values --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
@@ -46,72 +46,72 @@ Command Line Interface
     Examples requesting stations:
 
       # Get list of all stations for daily climate summary data in JSON format
-      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent
+      wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent
 
       # Get list of all stations in CSV format
-      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent --format=csv
+      wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent --format=csv
 
       # Get list of specific stations
-      wetterdienst dwd observations stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411
+      wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411
 
       # Get list of specific stations in GeoJSON format
-      wetterdienst dwd observations stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411 --format=geojson
+      wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411 --format=geojson
 
     Examples requesting values:
 
       # Get daily climate summary data for specific stations
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
 
       # Optionally save/restore to/from disk in order to avoid asking upstream servers each time
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --persist
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --persist
 
       # Limit output to specific date
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
 
       # Limit output to specified date range in ISO-8601 time interval format
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
 
       # The real power horse: Acquire data across historical+recent data sets
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
 
       # Acquire monthly data for 2020-05
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
 
       # Acquire monthly data from 2017-01 to 2019-12
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
 
       # Acquire annual data for 2019
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=annual --period=recent,historical --date=2019
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=annual --period=recent,historical --date=2019
 
       # Acquire annual data from 2010 to 2020
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
 
       # Acquire hourly data
-      wetterdienst dwd observations values --station=1048,4411 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
+      wetterdienst dwd observation values --station=1048,4411 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
 
     Examples using geospatial features:
 
       # Acquire stations and values by geoposition, request specific number of nearby stations.
-      wetterdienst dwd observations stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5
-      wetterdienst dwd observations values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30
+      wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5
+      wetterdienst dwd observation values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30
 
       # Acquire stations and values by geoposition, request stations within specific radius.
-      wetterdienst dwd observations stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
-      wetterdienst dwd observations values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25 --date=2020-06-30
+      wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
+      wetterdienst dwd observation values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25 --date=2020-06-30
 
     Examples using SQL filtering:
 
       # Find stations by state.
-      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
+      wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
 
       # Find stations by name (LIKE query).
-      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
+      wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
 
       # Find stations by name (regexp query).
-      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
+      wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
 
       # Filter measurements: Display daily climate observation values where the maximum temperature is below two degrees.
-      wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 2.0;"
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 2.0;"
 
     Examples for inquiring metadata:
 

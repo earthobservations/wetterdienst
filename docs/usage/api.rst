@@ -38,7 +38,7 @@ Wetterdienst API:
 
     from wetterdienst import Wetterdienst
 
-    API = Wetterdienst("dwd", "observation")
+    API = Wetterdienst(provider="dwd", kind="observation")
 
 Request arguments
 =================

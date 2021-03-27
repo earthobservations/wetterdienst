@@ -314,6 +314,21 @@ class DwdMosmixRequest(ScalarRequestCore):
     _unique_dataset = True
     _dataset_base = DwdMosmixDataset
 
+    @property
+    def _dataset_accessor(self) -> str:
+        return self.mosmix_type.name
+
+    @classmethod
+    def _setup_discover_filter(cls, filter_):
+        filter_ = (
+            pd.Series(filter_)
+            .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
+            .tolist()
+            or [*cls._dataset_base]
+        )
+
+        return filter_
+
     _base_columns = [
         Columns.STATION_ID.value,
         Columns.ICAO_ID.value,
@@ -349,10 +364,6 @@ class DwdMosmixRequest(ScalarRequestCore):
         datetime_adjusted = datetime_ - pd.Timedelta(hours=delta_hours)
 
         return datetime_adjusted
-
-    @property
-    def _dataset_accessor(self):
-        return self.mosmix_type.name
 
     def __init__(
         self,

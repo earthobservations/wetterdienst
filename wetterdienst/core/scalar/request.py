@@ -92,10 +92,13 @@ class ScalarRequestCore(Core):
     @property
     @abstractmethod
     def _has_datasets(self) -> bool:
+        """ Boolean if weather service has datasets (when multiple parameters are stored
+        in one table/file """
         pass
 
     @property
     def _dataset_base(self) -> Optional[Enum]:
+        """ Dataset base that is used to differ between different datasets """
         if self._has_datasets:
             raise NotImplementedError(
                 "implement _dataset_base Enumeration that contains available datasets"
@@ -104,6 +107,7 @@ class ScalarRequestCore(Core):
 
     @property
     def _dataset_tree(self) -> Optional[object]:
+        """ Detailed dataset tree with all parameters per dataset """
         if self._has_datasets:
             raise NotImplementedError(
                 "implement _dataset_tree class that contains available datasets "
@@ -113,12 +117,21 @@ class ScalarRequestCore(Core):
 
     @property
     def _unique_dataset(self) -> bool:
+        """ If ALL parameters are stored in one dataset e.g. all daily data is stored in
+        one file """
         if self._has_datasets:
             raise NotImplementedError("define if only one big dataset is available")
         return False
 
     @property
+    def _dataset_accessor(self) -> str:
+        """ Accessor for dataset, by default the resolution is used as we expect
+        datasets to be divided in resolutions """
+        return self.resolution.name
+
+    @property
     def _parameter_to_dataset_mapping(self) -> dict:
+        """ Mapping to go from a (flat) parameter to dataset """
         if not self._unique_dataset:
             raise NotImplementedError(
                 "for non unique datasets implement a mapping from parameter to dataset"
@@ -128,6 +141,7 @@ class ScalarRequestCore(Core):
     @property
     @abstractmethod
     def _values(self):
+        """ Class to get the values for a request """
         pass
 
     # Columns that should be contained within any stations information
@@ -168,10 +182,6 @@ class ScalarRequestCore(Core):
                 .tolist()
             )
 
-    @property
-    def _dataset_accessor(self):
-        return self.resolution.name
-
     def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
         """
         Method to parse parameters, either from string or enum. Case independent for
@@ -180,6 +190,7 @@ class ScalarRequestCore(Core):
         :param parameter: parameters as strings or enumerations
         :return: list of parameter enumerations of type self._parameter_base
         """
+        # TODO: refactor this!
         # for logging
         enums = []
         if self._dataset_base:
@@ -310,34 +321,73 @@ class ScalarRequestCore(Core):
         self.tidy_data = tidy_data
 
     @classmethod
-    def discover(cls, resolution=None) -> str:
+    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
         """ Function to print/discover available parameters """
+        # TODO: Refactor this!
+        filter_ = cls._setup_discover_filter(filter_)
 
-        resolutions = (
-            pd.Series(resolution)
-            .apply(parse_enumeration_from_template, args=(cls._resolution_base,))
-            .tolist()
-            or cls._resolution_base
+        filter_ = [f.name for f in filter_]
+
+        if flatten:
+            if dataset:
+                log.warning("dataset filter will be ignored due to 'flatten'")
+
+            parameters = {}
+            # if cls._resolution_type == ResolutionType.MULTI:
+            for f in filter_:
+                parameters[f] = []
+                for parameter in cls._parameter_base[f]:
+                    parameters[f].append(parameter.name)
+            # else:
+            #     parameters[cls._dataset_accessor] = []
+            #     print(cls._parameter_base)
+            #     for par in cls._parameter_base:
+            #         parameters[cls._dataset_accessor].append(par.name)
+
+            return json.dumps(parameters, indent=4)
+
+        datasets_filter = (
+                pd.Series(dataset)
+                .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
+                .tolist()
+                or cls._dataset_base
         )
 
+        datasets_filter = [ds.name for ds in datasets_filter]
+
+        parameters = {}
+
+        for f in filter_:
+            f = f.name
+
+            parameters[f] = {}
+
+            for dataset in cls._dataset_tree[f].__dict__:
+                if dataset.startswith("_") or dataset not in datasets_filter:
+                    continue
+
+                parameters[f][dataset] = []
+
+                for parameter in cls._dataset_tree[f][dataset]:
+                    parameters[f][dataset].append(parameter.name)
+
+        return json.dumps(parameters, indent=4)
+
+    @classmethod
+    def _setup_discover_filter(cls, filter_):
         if cls._resolution_type == ResolutionType.FIXED:
             log.warning("resolution filter will be ignored due to fixed resolution")
 
-            resolutions = [cls.resolution]
+            filter_ = [cls.resolution]
 
-        parameters = {}
-        if cls._resolution_type == ResolutionType.MULTI:
-            for resolution in resolutions:
-                parameters[resolution.name] = []
-                for parameter in cls._parameter_base[resolution.name]:
-                    parameters[resolution.name].append(parameter.name)
-        else:
-            parameters[cls.resolution.name] = []
+        filter_ = (
+            pd.Series(filter_)
+            .apply(parse_enumeration_from_template, args=(cls._resolution_base,))
+            .tolist()
+            or [*cls._resolution_base]
+        )
 
-            for par in cls._parameter_base:
-                parameters[cls.resolution.name].append(par.name)
-
-        return json.dumps(parameters, indent=4)
+        return filter_
 
     def all(self) -> "StationsResult":
         """
