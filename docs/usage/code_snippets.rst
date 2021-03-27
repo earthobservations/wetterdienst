@@ -20,7 +20,7 @@ Get available parameters for daily historical data of DWD:
     API = Wetterdienst("dwd", "observation")
 
     observations_meta = API.discover(
-        resolution=Resolution.DAILY,
+        filter_=Resolution.DAILY,
     )
 
     # Available parameter sets
@@ -28,7 +28,7 @@ Get available parameters for daily historical data of DWD:
 
     # Available individual parameters
     observations_meta = API.discover(
-        resolution=Resolution.DAILY, flatten=False
+        filter_=Resolution.DAILY, flatten=False
     )
 
     print(observations_meta)

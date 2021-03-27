@@ -76,8 +76,6 @@ def dwd_stations(
     max_distance_in_km: int = Query(default=None),
     sql: str = Query(default=None),
 ):
-    provider = "dwd"  # for now fixed
-
     if kind not in ["observation", "forecast"]:
         return HTTPException(status_code=404, detail=f"product {kind} not found")
 
@@ -148,13 +146,15 @@ def dwd_values(
     :param tidy:        Whether to return data in tidy format. Default: True.
     :return:
     """
-    provider = "dwd"
     if kind not in ["observation", "mosmix"]:
-        return HTTPException(status_code=404, detail=f"product {kind} not found")
+        return HTTPException(
+            status_code=404,
+            detail=f"Unknown value for query argument 'kind={kind}' {kind}",
+        )
 
     if stations is None:
         raise HTTPException(
-            status_code=400, detail="Query argument 'station' is required"
+            status_code=400, detail="Query argument 'stations' is required"
         )
 
     station_ids = map(str, read_list(stations))

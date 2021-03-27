@@ -91,7 +91,7 @@ def test_dwd_readings_no_station():
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'station' is required"}
+    assert response.json() == {"detail": "Query argument 'stations' is required"}
 
 
 def test_dwd_readings_no_parameter():

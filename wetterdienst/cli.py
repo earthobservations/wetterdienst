@@ -26,10 +26,10 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]  [--target=<target>]
+      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> [--station=<station>] [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecast stations --parameter=<parameter> [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>]  [--target=<target>]
+      wetterdienst dwd forecast stations --parameter=<parameter> [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd forecast values --parameter=<parameter> [--mosmix-type=<mosmix-type>] --station=<station> [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
@@ -338,7 +338,7 @@ def about(options: Munch):
 
     elif options.coverage:
         metadata = DwdObservationRequest.discover(
-            resolution=options.resolution,
+            filter_=options.resolution,
             dataset=read_list(options.parameter),
             flatten=False,
         )

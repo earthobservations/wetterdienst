@@ -320,12 +320,9 @@ class DwdMosmixRequest(ScalarRequestCore):
 
     @classmethod
     def _setup_discover_filter(cls, filter_):
-        filter_ = (
-            pd.Series(filter_)
-            .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
-            .tolist()
-            or [*cls._dataset_base]
-        )
+        filter_ = pd.Series(filter_).apply(
+            parse_enumeration_from_template, args=(cls._dataset_base,)
+        ).tolist() or [*cls._dataset_base]
 
         return filter_
 

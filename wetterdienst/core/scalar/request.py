@@ -92,8 +92,8 @@ class ScalarRequestCore(Core):
     @property
     @abstractmethod
     def _has_datasets(self) -> bool:
-        """ Boolean if weather service has datasets (when multiple parameters are stored
-        in one table/file """
+        """Boolean if weather service has datasets (when multiple parameters are stored
+        in one table/file"""
         pass
 
     @property
@@ -117,16 +117,16 @@ class ScalarRequestCore(Core):
 
     @property
     def _unique_dataset(self) -> bool:
-        """ If ALL parameters are stored in one dataset e.g. all daily data is stored in
-        one file """
+        """If ALL parameters are stored in one dataset e.g. all daily data is stored in
+        one file"""
         if self._has_datasets:
             raise NotImplementedError("define if only one big dataset is available")
         return False
 
     @property
     def _dataset_accessor(self) -> str:
-        """ Accessor for dataset, by default the resolution is used as we expect
-        datasets to be divided in resolutions """
+        """Accessor for dataset, by default the resolution is used as we expect
+        datasets to be divided in resolutions"""
         return self.resolution.name
 
     @property
@@ -347,10 +347,10 @@ class ScalarRequestCore(Core):
             return json.dumps(parameters, indent=4)
 
         datasets_filter = (
-                pd.Series(dataset)
-                .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
-                .tolist()
-                or cls._dataset_base
+            pd.Series(dataset)
+            .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
+            .tolist()
+            or cls._dataset_base
         )
 
         datasets_filter = [ds.name for ds in datasets_filter]
@@ -358,8 +358,6 @@ class ScalarRequestCore(Core):
         parameters = {}
 
         for f in filter_:
-            f = f.name
-
             parameters[f] = {}
 
             for dataset in cls._dataset_tree[f].__dict__:
@@ -380,12 +378,9 @@ class ScalarRequestCore(Core):
 
             filter_ = [cls.resolution]
 
-        filter_ = (
-            pd.Series(filter_)
-            .apply(parse_enumeration_from_template, args=(cls._resolution_base,))
-            .tolist()
-            or [*cls._resolution_base]
-        )
+        filter_ = pd.Series(filter_).apply(
+            parse_enumeration_from_template, args=(cls._resolution_base,)
+        ).tolist() or [*cls._resolution_base]
 
         return filter_
 
