@@ -34,7 +34,7 @@ class EccObservationParameter(DatasetTreeCore):
             EccObservationDatasetTree.DAILY.TEMPERATURE_AIR_MIN_200.value
         )
         TEMPERATURE_AIR_MEAN_200 = (
-            EccObservationDatasetTree.DAILY.TEMPERATURE_AIR_MEAN_200.value
+            EccObservationDatasetTree.DAILY.TEMPERATURE_AIR_200.value
         )
         HEATING_DEGREE_DAYS = EccObservationDatasetTree.DAILY.HEATING_DEGREE_DAYS.value
         COOLING_DEGREE_DAYS = EccObservationDatasetTree.DAILY.COOLING_DEGREE_DAYS.value
