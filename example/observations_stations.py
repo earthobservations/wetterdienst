@@ -28,8 +28,8 @@ def station_example():
         period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20),
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     )
 
     df = stations.nearby_radius(latitude=50.0, longitude=8.9, max_distance_in_km=30).df

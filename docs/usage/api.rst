@@ -101,15 +101,15 @@ Other arguments for the request are
 
 - ``start_date``
 - ``end_date``
-- ``tidy_data``
-- ``humanize_parameters``
+- ``tidy``
+- ``humanize``
 
 Arguments start_date and end_date are possible replacements for the period argument if
 the period of a weather service is fixed. In case both arguments are given they are
 combined thus data is only taken from the given period and between the given time span.
-The argument tidy_data can be used to reshape the returned data to a `tidy format`_.
-The argument humanize_parameters can be used to rename parameters to more meaningful
-names. Both tidy_data and humanize_parameters are defaulted to True.
+The argument `tidy` can be used to reshape the returned data to a `tidy format`_.
+The argument `humanize` can be used to rename parameters to more meaningful
+names. Both `tidy` and `humanize` are defaulted to True.
 
 .. _tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
 
@@ -156,8 +156,8 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
         resolution=DwdObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     ).filter(station_id=[3, 1048])
 
 From here you can query data by station:
@@ -262,8 +262,8 @@ The result data is provided through a virtual table called ``data``.
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     ).filter(station_id=[1048])
 
     df = stations.values.all().df
@@ -293,8 +293,8 @@ Examples:
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     ).filter(station_id=[1048])
 
     df = stations.values.all().df

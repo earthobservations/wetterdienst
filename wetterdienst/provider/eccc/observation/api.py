@@ -191,7 +191,7 @@ class EcccObservationValues(ScalarValuesCore):
 
             df = df.reset_index(drop=True)
 
-        if self.stations.stations.tidy_data:
+        if self.stations.stations.tidy:
             df = self._tidy_up_dataframe(df)
 
             if parameter not in self.stations.stations._dataset_base:
@@ -298,8 +298,8 @@ class EcccObservationRequest(ScalarRequestCore):
         resolution,
         start_date=None,
         end_date=None,
-        humanize_parameters=True,
-        tidy_data=True,
+        humanize=True,
+        tidy=True,
     ):
         super(EcccObservationRequest, self).__init__(
             parameter=parameter,
@@ -307,8 +307,8 @@ class EcccObservationRequest(ScalarRequestCore):
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
-            humanize_parameters=humanize_parameters,
-            tidy_data=tidy_data,
+            humanize=humanize,
+            tidy=tidy,
         )
 
     def _all(self) -> pd.DataFrame:

@@ -172,7 +172,7 @@ def dwd_values(
             parameter=parameter,
             resolution=resolution,
             period=period,
-            tidy_data=tidy,
+            tidy=tidy,
         )
     else:
         if parameter is None or mosmix_type is None:

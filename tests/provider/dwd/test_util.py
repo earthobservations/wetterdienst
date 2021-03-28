@@ -45,8 +45,8 @@ def test_coerce_field_types():
         parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
-        humanize_parameters=False,
-        tidy_data=False,
+        humanize=False,
+        tidy=False,
     ).all()
 
     # Here we don't query the actual data because it tales too long
@@ -86,8 +86,8 @@ def test_coerce_field_types_with_nans():
         parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
-        humanize_parameters=False,
-        tidy_data=False,
+        humanize=False,
+        tidy=False,
     ).all()
 
     df = pd.DataFrame(
