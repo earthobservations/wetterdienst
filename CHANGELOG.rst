@@ -17,6 +17,7 @@ Development
 - Make all DWD observation field names lowercase
 - Make all DWD forecast (mosmix) field names lowercase
 - Add Environment and Climate Change Canada API
+- Rename humanize_parameters to humanize and tidy_data to tidy
 
 0.15.0 (07.03.2021)
 *******************

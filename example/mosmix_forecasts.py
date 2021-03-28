@@ -28,8 +28,8 @@ def mosmix_example():
         parameter=["DD", "ww"],
         start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DwdMosmixType.LARGE,
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     )
 
     stations = request.filter(
@@ -48,8 +48,8 @@ def mosmix_example():
         parameter=["DD", "ww"],
         start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DwdMosmixType.SMALL,
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     )
 
     stations = request.filter(

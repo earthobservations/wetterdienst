@@ -13,7 +13,7 @@ def test_dwd_mosmix_l():
     """
 
     request = DwdMosmixRequest(
-        parameter="large", mosmix_type=DwdMosmixType.LARGE, humanize_parameters=False
+        parameter="large", mosmix_type=DwdMosmixType.LARGE, humanize=False
     ).filter(
         station_id=["01001"],
     )
@@ -172,8 +172,8 @@ def test_dwd_mosmix_s():
     request = DwdMosmixRequest(
         parameter="small",
         mosmix_type=DwdMosmixType.SMALL,
-        humanize_parameters=False,
-        tidy_data=True,
+        humanize=False,
+        tidy=True,
     ).filter(
         station_id=["01028"],
     )
@@ -257,7 +257,7 @@ def test_mosmix_l_parameters():
     request = DwdMosmixRequest(
         mosmix_type=DwdMosmixType.LARGE,
         parameter=["DD", "ww"],
-        humanize_parameters=False,
+        humanize=False,
     ).filter(
         station_id=("01001", "123"),
     )

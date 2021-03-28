@@ -34,8 +34,8 @@ def sql_example():
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
-        tidy_data=True,
-        humanize_parameters=True,
+        tidy=True,
+        humanize=True,
     )
 
     stations = request.filter(station_id=(1048,))

@@ -222,8 +222,8 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
     ...    resolution="daily",
     ...    start_date="1990-01-01",  # Timezone: UTC
     ...    end_date="2020-01-01",  # Timezone: UTC
-    ...    tidy_data=True,  # default
-    ...    humanize_parameters=True,  # default
+    ...    tidy=True,  # default, tidy data
+    ...    humanize=True,  # default, humanized parameters
     ... ).filter(station_id=(1048, 4411))
     >>> stations = request.df  # station list
     >>> values = request.values.all().df  # values

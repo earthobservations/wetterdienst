@@ -197,7 +197,7 @@ class DwdObservationValues(ScalarValuesCore):
 
             parameter_df = parameter_df.append(period_df)
 
-        if self.stations.tidy_data:
+        if self.stations.tidy:
             parameter_df = parameter_df.dwd.tidy_up_data()
 
             # TODO: remove this column and rather move it into metadata of resulting
@@ -363,8 +363,8 @@ class DwdObservationRequest(ScalarRequestCore):
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        humanize_parameters: bool = True,
-        tidy_data: bool = True,
+        humanize: bool = True,
+        tidy: bool = True,
     ):
         """
 
@@ -380,8 +380,8 @@ class DwdObservationRequest(ScalarRequestCore):
             period=period,
             start_date=start_date,
             end_date=end_date,
-            humanize_parameters=humanize_parameters,
-            tidy_data=tidy_data,
+            humanize=humanize,
+            tidy=tidy,
         )
 
         # Has to follow the super call as start date and end date are required for getting

@@ -268,7 +268,7 @@ def test_dwd_observation_data_result_missing_data():
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
-        tidy_data=True,
+        tidy=True,
     ).filter(
         station_id=[1048],
     )
@@ -315,8 +315,8 @@ def test_dwd_observation_data_result_tabular():
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        tidy_data=False,
-        humanize_parameters=False,
+        tidy=False,
+        humanize=False,
     ).filter(
         station_id=[1048],
     )
@@ -382,8 +382,8 @@ def test_dwd_observation_data_result_tidy():
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        tidy_data=True,
-        humanize_parameters=False,
+        tidy=True,
+        humanize=False,
     ).filter(
         station_id=(1048,),
     )

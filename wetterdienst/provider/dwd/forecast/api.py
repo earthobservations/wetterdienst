@@ -68,7 +68,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
     @property
     def _tidy(self) -> bool:
-        return self.stations.tidy_data
+        return self.stations.tidy
 
     _irregular_parameters = tuple()
     _integer_parameters = INTEGER_PARAMETERS
@@ -119,7 +119,7 @@ class DwdMosmixValues(ScalarValuesCore):
             forecast_df = self._coerce_meta_fields(forecast_df)
             forecast_df = self._coerce_parameter_types(forecast_df)
 
-            if self.stations.humanize_parameters:
+            if self.stations.humanize:
                 forecast_df = self._humanize(forecast_df)
 
             result = ValuesResult(stations=self.stations, df=forecast_df)
@@ -169,7 +169,7 @@ class DwdMosmixValues(ScalarValuesCore):
                 }
             )
 
-            if self.stations.tidy_data:
+            if self.stations.tidy:
                 df_forecast = df_forecast.melt(
                     id_vars=[
                         DwdColumns.STATION_ID.value,
@@ -372,8 +372,8 @@ class DwdMosmixRequest(ScalarRequestCore):
         end_issue: Optional[Union[str, datetime]] = None,
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
-        humanize_parameters: bool = True,
-        tidy_data: bool = True,
+        humanize: bool = True,
+        tidy: bool = True,
     ) -> None:
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
@@ -419,8 +419,8 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         self.start_issue = start_issue
         self.end_issue = end_issue
-        self.humanize_parameters = humanize_parameters
-        self.tidy_data = tidy_data
+        self.humanize = humanize
+        self.tidy = tidy
 
     @property
     def issue_start(self):

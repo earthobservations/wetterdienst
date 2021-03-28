@@ -86,12 +86,12 @@ class StationsResult:
         return self.stations.end_issue
 
     @property
-    def tidy_data(self) -> bool:
-        return self.stations.tidy_data
+    def tidy(self) -> bool:
+        return self.stations.tidy
 
     @property
-    def humanize_parameters(self) -> bool:
-        return self.stations.humanize_parameters
+    def humanize(self) -> bool:
+        return self.stations.humanize
 
     def json(self) -> str:
         raise NotImplementedError()

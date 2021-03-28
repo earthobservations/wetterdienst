@@ -157,7 +157,7 @@ class ScalarValuesCore:
             else:
                 parameter = [*dataset_tree[resolution.name][dataset.name]]
 
-        if self.stations.stations.tidy_data:
+        if self.stations.stations.tidy:
             data = []
             for par in pd.Series(parameter):
                 if par.name.startswith("QUALITY"):
@@ -202,7 +202,7 @@ class ScalarValuesCore:
         if self.stations.stations._has_datasets:
             parameter, dataset = parameter
 
-        if parameter != dataset or not self.stations.stations.tidy_data:
+        if parameter != dataset or not self.stations.stations.tidy:
             df = pd.merge(
                 left=self._base_df,
                 right=df,
@@ -213,7 +213,7 @@ class ScalarValuesCore:
 
             df[Columns.STATION_ID.value] = station_id
 
-            if self.stations.tidy_data:
+            if self.stations.tidy:
                 df[Columns.PARAMETER.value] = parameter.value
                 df[Columns.PARAMETER.value] = pd.Categorical(
                     df[Columns.PARAMETER.value]
@@ -317,7 +317,7 @@ class ScalarValuesCore:
                     pass
 
             # Assign meaningful parameter names (humanized).
-            if self.stations.humanize_parameters:
+            if self.stations.humanize:
                 station_df = self._humanize(station_df)
 
             # Empty dataframe should be skipped
@@ -372,7 +372,7 @@ class ScalarValuesCore:
             df[Columns.STATION_ID.value]
         ).astype("category")
 
-        if self.stations.tidy_data:
+        if self.stations.tidy:
             df[Columns.PARAMETER.value] = self._coerce_strings(
                 df[Columns.PARAMETER.value]
             ).astype("category")
@@ -426,7 +426,7 @@ class ScalarValuesCore:
 
     def _coerce_parameter_types(self, df: pd.DataFrame) -> pd.DataFrame:
         """ Method for parameter type coercion. Depending on the shape of the data. """
-        if not self.stations.tidy_data:
+        if not self.stations.tidy:
             for column in df.columns:
                 if column in self._meta_fields or column in self._date_fields:
                     continue
@@ -491,7 +491,7 @@ class ScalarValuesCore:
             except KeyError:
                 pass
 
-        df.attrs["tidy"] = self.stations.tidy_data
+        df.attrs["tidy"] = self.stations.tidy
 
         return ValuesResult(stations=self.stations, df=df)
 
@@ -499,7 +499,7 @@ class ScalarValuesCore:
         """ Method for humanizing parameters. """
         hcnm = self._create_humanized_parameters_mapping()
 
-        if not self.stations.tidy_data:
+        if not self.stations.tidy:
             df = df.rename(columns=hcnm)
         else:
             df[Columns.PARAMETER.value] = df[

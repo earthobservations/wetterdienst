@@ -229,7 +229,7 @@ def test_export_spreadsheet(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy_data=False,
+        tidy=False,
     ).filter(
         station_id=[1048],
     )
@@ -331,7 +331,7 @@ def test_export_parquet(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy_data=False,
+        tidy=False,
     ).filter(
         station_id=[1048],
     )
@@ -396,7 +396,7 @@ def test_export_feather(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy_data=False,
+        tidy=False,
     ).filter(
         station_id=[1048],
     )
@@ -460,7 +460,7 @@ def test_export_sqlite(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy_data=False,
+        tidy=False,
     ).filter(
         station_id=[1048],
     )
@@ -580,7 +580,7 @@ def test_export_influxdb_tabular():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        tidy_data=False,
+        tidy=False,
     ).filter(station_id=[1048])
 
     mock_client = mock.MagicMock()
@@ -612,7 +612,7 @@ def test_export_influxdb_tidy():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        tidy_data=True,
+        tidy=True,
     ).filter(station_id=[1048])
 
     mock_client = mock.MagicMock()

@@ -260,8 +260,8 @@ class ScalarRequestCore(Core):
             and self.period == other.period
             and self.start_date == other.start_date
             and self.end_date == other.end_date
-            and self.humanize_parameters == other.humanize_parameters
-            and self.tidy_data == other.tidy_data
+            and self.humanize == other.humanize
+            and self.tidy == other.tidy
         )
 
     def __init__(
@@ -271,8 +271,8 @@ class ScalarRequestCore(Core):
         period: Period,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        humanize_parameters: bool = True,
-        tidy_data: bool = True,
+        humanize: bool = True,
+        tidy: bool = True,
     ) -> None:
         """
         :param start_date: Start date for filtering stations for their available data
@@ -286,18 +286,18 @@ class ScalarRequestCore(Core):
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
         self.parameter = self._parse_parameter(parameter)
-        self.humanize_parameters = humanize_parameters
+        self.humanize = humanize
 
-        tidy_data = tidy_data
+        tidy = tidy
         if self._has_datasets:
-            tidy_data = tidy_data or any(
+            tidy = tidy or any(
                 [
                     parameter not in self._dataset_base
                     for parameter, dataset in self.parameter
                 ]
             )
 
-        self.tidy_data = tidy_data
+        self.tidy = tidy
 
     def convert_timestamps(
         self,
