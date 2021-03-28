@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import pytz
+from freezegun import freeze_time
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.exceptions import StartDateEndDateError
@@ -181,7 +182,7 @@ def test_dwd_observation_data_dates():
         )
 
 
-def test_dwd_observation_data_dynamic_period():
+def test_request_period_historical():
     # Historical period expected
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
@@ -193,6 +194,8 @@ def test_dwd_observation_data_dynamic_period():
         Period.HISTORICAL,
     ]
 
+
+def test_request_period_historical_recent():
     # Historical and recent period expected
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
@@ -206,6 +209,8 @@ def test_dwd_observation_data_dynamic_period():
         Period.RECENT,
     ]
 
+
+def test_request_period_historical_recent_now():
     # Historical, recent and now period expected
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
@@ -220,8 +225,8 @@ def test_dwd_observation_data_dynamic_period():
         Period.NOW,
     ]
 
-    # !!!Recent and now period cant be tested dynamically
-    # TODO: add test with mocked datetime here
+
+def test_request_period_now():
 
     # Now period
     request = DwdObservationRequest(
@@ -231,6 +236,20 @@ def test_dwd_observation_data_dynamic_period():
     )
     assert Period.NOW in request.period
 
+
+@freeze_time("2021-03-28T18:38:00+02:00")
+def test_request_period_now_fixeddate():
+
+    # Now period
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
+        resolution=DwdObservationResolution.DAILY,
+        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
+    )
+    assert Period.NOW in request.period
+
+
+def test_request_period_empty():
     # No period (for example in future)
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
