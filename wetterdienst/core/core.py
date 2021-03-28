@@ -4,6 +4,7 @@
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
+import pandas as pd
 from pytz import timezone
 
 from wetterdienst.metadata.provider import Provider
@@ -13,8 +14,9 @@ from wetterdienst.metadata.timezone import Timezone
 class Core(metaclass=ABCMeta):
     """ Core class for any related requests of wetterdienst """
 
-    # Time of request
-    _now = datetime.utcnow()
+    def __init__(self):
+        # Time of request.
+        self.now = datetime.utcnow()
 
     @property
     def tz(self) -> timezone:
@@ -40,4 +42,4 @@ class Core(metaclass=ABCMeta):
     def _now_local(self) -> datetime:
         """Local now time based on the given timezone that represents the request time
         in local time"""
-        return self._now.astimezone(self.tz)
+        return pd.Timestamp(self.now, tz=self.tz)

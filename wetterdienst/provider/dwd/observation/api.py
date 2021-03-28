@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
-from pandas import Timestamp
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
@@ -283,9 +282,7 @@ class DwdObservationRequest(ScalarRequestCore):
     def _interval(self) -> Optional[pd.Interval]:
         """ Interval of the request if date given """
         if self.start_date:
-            return pd.Interval(
-                pd.Timestamp(self.start_date), pd.Timestamp(self.end_date), "both"
-            )
+            return pd.Interval(self.start_date, self.end_date, "both")
 
         return None
 
@@ -294,12 +291,11 @@ class DwdObservationRequest(ScalarRequestCore):
         """Interval of historical data release schedule. Historical data is typically
         release once in a year somewhere in the first few months with updated quality
         """
-        start_date = Timestamp(self.start_date)
 
-        historical_end = pd.Timestamp(self._now_local.replace(month=1, day=1))
+        historical_end = self._now_local.replace(month=1, day=1)
 
-        if start_date < historical_end:
-            historical_begin = start_date.tz_convert(historical_end.tz)
+        if self.start_date < historical_end:
+            historical_begin = self.start_date.tz_convert(historical_end.tz)
         else:
             historical_begin = historical_end + pd.tseries.offsets.DateOffset(years=-1)
 
@@ -313,7 +309,7 @@ class DwdObservationRequest(ScalarRequestCore):
     def _recent_interval(self) -> pd.Interval:
         """Interval of recent data release schedule. Recent data is released every day
         somewhere after midnight with data reaching back 500 days."""
-        recent_end = pd.Timestamp(self._now_local.replace(hour=0, minute=0, second=0))
+        recent_end = self._now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - pd.Timedelta(days=500)
 
         recent_interval = pd.Interval(
@@ -326,10 +322,8 @@ class DwdObservationRequest(ScalarRequestCore):
     def _now_interval(self) -> pd.Interval:
         """Interval of now data release schedule. Now data is released every hour (near
         real time) reaching back to beginning of the previous day."""
-        now_end = pd.Timestamp(self._now_local)
-        now_begin = pd.Timestamp(
-            now_end.replace(hour=0, minute=0, second=0)
-        ) - pd.Timedelta(days=1)
+        now_end = self._now_local
+        now_begin = now_end.replace(hour=0, minute=0, second=0) - pd.Timedelta(days=1)
 
         now_interval = pd.Interval(left=now_begin, right=now_end, closed="both")
 
@@ -367,8 +361,8 @@ class DwdObservationRequest(ScalarRequestCore):
         parameter: Union[str, DwdObservationDataset],
         resolution: Union[str, Resolution, DwdObservationResolution],
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         humanize_parameters: bool = True,
         tidy_data: bool = True,
     ):

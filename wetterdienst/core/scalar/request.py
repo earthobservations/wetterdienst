@@ -269,43 +269,22 @@ class ScalarRequestCore(Core):
         parameter: Tuple[Union[str, Enum]],
         resolution: Resolution,
         period: Period,
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         humanize_parameters: bool = True,
         tidy_data: bool = True,
     ) -> None:
         """
-
-        :param start_date: start date for filtering stations for their available data
-        :param end_date: end date for filtering stations for their available data
+        :param start_date: Start date for filtering stations for their available data
+        :param end_date:   End date for filtering stations for their available data
         """
+
+        super().__init__()
+
         self.resolution = resolution
         self.period = self._parse_period(period)
 
-        if start_date or end_date:
-            # If only one date given, set the other one to equal
-            if not start_date:
-                start_date = end_date
-
-            if not end_date:
-                end_date = start_date
-
-            start_date = dateutil.parser.isoparse(str(start_date))
-            if not start_date.tzinfo:
-                start_date = start_date.replace(tzinfo=pytz.UTC)
-
-            end_date = dateutil.parser.isoparse(str(end_date))
-            if not end_date.tzinfo:
-                end_date = end_date.replace(tzinfo=pytz.UTC)
-
-            # TODO: replace this with a response + logging
-            if not start_date <= end_date:
-                raise StartDateEndDateError(
-                    "Error: 'start_date' must be smaller or equal to 'end_date'."
-                )
-
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
         self.parameter = self._parse_parameter(parameter)
         self.humanize_parameters = humanize_parameters
 
@@ -319,6 +298,50 @@ class ScalarRequestCore(Core):
             )
 
         self.tidy_data = tidy_data
+
+    def convert_timestamps(
+        self,
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+    ) -> Union[Tuple[None, None], Tuple[pd.Timestamp, pd.Timestamp]]:
+        """
+        Sort out start_date vs. end_date, parse strings to datetime
+        objects and finally convert both to pd.Timestamp types.
+
+        :param start_date: Start date for filtering stations for their available data
+        :param end_date:   End date for filtering stations for their available data
+        :return:           pd.Timestamp objects tuple of (start_date, end_date)
+        """
+
+        if start_date is None and end_date is None:
+            return None, None
+
+        if start_date:
+            if isinstance(start_date, str):
+                start_date = dateutil.parser.isoparse(start_date)
+            if not start_date.tzinfo:
+                start_date = start_date.replace(tzinfo=pytz.UTC)
+
+        if end_date:
+            if isinstance(end_date, str):
+                end_date = dateutil.parser.isoparse(end_date)
+            if not end_date.tzinfo:
+                end_date = end_date.replace(tzinfo=pytz.UTC)
+
+        # If only one date given, set the other one to equal.
+        if not start_date:
+            start_date = end_date
+
+        if not end_date:
+            end_date = start_date
+
+        # TODO: replace this with a response + logging
+        if not start_date <= end_date:
+            raise StartDateEndDateError(
+                "Error: 'start_date' must be smaller or equal to 'end_date'."
+            )
+
+        return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
     @classmethod
     def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
