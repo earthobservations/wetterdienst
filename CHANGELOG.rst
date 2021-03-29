@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+...
+
+0.16.0 (29.03.2021)
+*******************
+
 - Use direct mapping to get a parameter set for a parameter
 - Rename DwdObservationParameterSet to DwdObservationDataset as well as corresponding
   columns
