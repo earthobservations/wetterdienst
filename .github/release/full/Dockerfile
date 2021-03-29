@@ -1,5 +1,5 @@
 # 1. Build GDAL-python
-FROM python:3.8.6-slim as build-step
+FROM python:3.8.8-slim as build-step
 
 # TODO: This currently installs GDAL==2.4.0. For a more recent version, ...
 #
@@ -30,7 +30,7 @@ RUN pip install mysqlclient
 
 
 # 2. Main
-FROM python:3.8.6-slim
+FROM python:3.8.8-slim
 
 # Install libgdal.
 RUN apt-get update
@@ -42,7 +42,13 @@ COPY --from=build-step /usr/local/lib /usr/local/lib
 # Install Wetterdienst.
 
 # Use "poetry build --format=wheel" to build wheel packages.
-COPY dist/*.whl /tmp/
+COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[http,sql,excel,duckdb,influxdb,cratedb,mysql,postgresql]
+RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[http,sql,export,duckdb,influxdb,cratedb,mysql,postgresql,radar,bufr]
+
+# Purge /tmp directory
+RUN rm /tmp/*
+
+# Copy selftest.sh to the image
+COPY .github/release/selftest.sh /usr/local/bin
