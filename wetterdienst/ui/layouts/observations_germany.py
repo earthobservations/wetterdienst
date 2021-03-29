@@ -1,10 +1,11 @@
 """ holds html layout for observation dashboard """
 import dash_core_components as dcc
 import dash_html_components as html
-from wetterdienst.dwd.observations import (
-    DWDObservationPeriod,
-    DWDObservationResolution,
-    DWDObservationParameterSet,
+
+from wetterdienst.provider.dwd.observation import (
+    DwdObservationDataset,
+    DwdObservationPeriod,
+    DwdObservationResolution,
 )
 
 
@@ -22,9 +23,9 @@ def dashboard_layout() -> html:
                                 id="select-parameter",
                                 options=[
                                     {"label": param.value, "value": param.value}
-                                    for param in DWDObservationParameterSet
+                                    for param in DwdObservationDataset
                                 ],
-                                value=DWDObservationParameterSet.PRECIPITATION.value,
+                                value=DwdObservationDataset.PRECIPITATION.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
@@ -33,9 +34,9 @@ def dashboard_layout() -> html:
                                 id="select-time-resolution",
                                 options=[
                                     {"label": param.value, "value": param.value}
-                                    for param in DWDObservationResolution
+                                    for param in DwdObservationResolution
                                 ],
-                                value=DWDObservationResolution.MINUTE_10.value,
+                                value=DwdObservationResolution.MINUTE_10.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
@@ -44,9 +45,9 @@ def dashboard_layout() -> html:
                                 id="select-period-type",
                                 options=[
                                     {"label": param.value, "value": param.value}
-                                    for param in DWDObservationPeriod
+                                    for param in DwdObservationPeriod
                                 ],
-                                value=DWDObservationPeriod.RECENT.value,
+                                value=DwdObservationPeriod.RECENT.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
@@ -75,12 +76,13 @@ def dashboard_layout() -> html:
                     ),
                     html.Div(
                         [dcc.Graph(id="sites-map")],
-                        className="pretty_container eight columns",
+                        className="pretty_container four columns",
+                        style={"align-self": "flex-end"},
                     ),
                 ],
                 id="header",
                 className="row flex-display",
-                style={"margin-bottom": "25px"},
+                style={"justify-content": "space-between", "margin-bottom": "25px"},
             ),
             html.Div(
                 [
