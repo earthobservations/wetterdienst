@@ -39,6 +39,7 @@ def run():
       wetterdienst radar stations [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
       wetterdienst dwd radar stations
       wetterdienst service [--listen=<listen>] [--reload]
+      wetterdienst ui [--listen=<listen>] [--reload]
       wetterdienst --version
       wetterdienst (-h | --help)
 
@@ -234,12 +235,22 @@ def run():
 
     setup_logging(log_level)
 
-    # Run service.
+    # Run HTTP service.
     if options.service:  # pragma: no cover
         listen_address = options.listen
         log.info(f"Starting {appname}")
-        log.info(f"Starting web service on {listen_address}")
+        log.info(f"Starting HTTP web service on {listen_address}")
         from wetterdienst.service import start_service
+
+        start_service(listen_address, reload=options.reload)
+        return
+
+    # Run UI service.
+    if options.ui:  # pragma: no cover
+        listen_address = options.listen
+        log.info(f"Starting {appname}")
+        log.info(f"Starting UI web service on {listen_address}")
+        from wetterdienst.ui.app import start_service
 
         start_service(listen_address, reload=options.reload)
         return
@@ -260,7 +271,6 @@ def run():
 
         output = json.dumps(data, indent=4)
         print(output)
-
         return
 
     # Output domain information.

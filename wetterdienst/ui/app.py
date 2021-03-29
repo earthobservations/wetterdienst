@@ -1,33 +1,29 @@
 """ main app for wetterdienst-ui """
-import os
-
 import dash
 import pandas as pd
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-from wetterdienst.dwd.observations import (
-    DWDObservationStations,
-    DWDObservationValues,
-    DWDObservationPeriod,
-    DWDObservationResolution,
-    DWDObservationParameterSet,
-)
-from wetterdienst.exceptions import InvalidParameterCombination
 
-from ui.layouts.observations_germany import dashboard_layout
-from ui.plotting.figure import default_figure
+from wetterdienst.exceptions import InvalidParameterCombination
+from wetterdienst.provider.dwd.observation import (
+    DwdObservationDataset,
+    DwdObservationPeriod,
+    DwdObservationRequest,
+    DwdObservationResolution,
+)
+from wetterdienst.ui.layouts.observations_germany import dashboard_layout
+from wetterdienst.ui.plotting.figure import default_figure
 
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
 )
-server = app.server
 
 app.layout = dashboard_layout()
 
-OBSERVATION_VALUES_PARAMETER_COLUMN = "PARAMETER"
-OBSERVATION_VALUES_VALUE_COLUMN = "VALUE"
-OBSERVATION_VALUES_DATE_COLUMN = "DATE"
+OBSERVATION_VALUES_PARAMETER_COLUMN = "parameter"
+OBSERVATION_VALUES_VALUE_COLUMN = "value"
+OBSERVATION_VALUES_DATE_COLUMN = "date"
 
 
 @app.callback(
@@ -45,15 +41,15 @@ def update_meta_data(parameter, time_resolution, period_type):
     It stores MetaData behind a hidden div on the front-end
     """
     try:
-        meta_data = DWDObservationStations(
-            parameter=DWDObservationParameterSet(parameter),
-            resolution=DWDObservationResolution(time_resolution),
-            period=DWDObservationPeriod(period_type),
+        stations = DwdObservationRequest(
+            parameter=DwdObservationDataset(parameter),
+            resolution=DwdObservationResolution(time_resolution),
+            period=DwdObservationPeriod(period_type),
         ).all()
     except InvalidParameterCombination:
         raise PreventUpdate
 
-    return meta_data.to_json(date_format="iso", orient="split")
+    return stations.df.to_json(date_format="iso", orient="split")
 
 
 @app.callback(
@@ -63,6 +59,8 @@ def update_meta_data(parameter, time_resolution, period_type):
 )
 def make_graph(variable, jsonified_data):
     """  takes hidden data to show up the central plot  """
+    print("variable:", variable)
+    print("jsonified_data:", jsonified_data)
     climate_data = pd.read_json(jsonified_data, orient="split")
     fig = default_figure(climate_data, variable)
     fig.update_layout(
@@ -89,21 +87,30 @@ def update_data(
     station_id: int, parameter: str, time_resolution: str, period_type: str
 ):
     """ stores selected data behind a hidden div box to share with other callbacks """
-    climate_data = DWDObservationValues(
-        station_id=station_id,
-        parameter=DWDObservationParameterSet(parameter),
-        resolution=DWDObservationResolution(time_resolution),
-        period=DWDObservationPeriod(period_type),
+    print("update_data")
+    print(parameter, time_resolution, period_type, station_id)
+    stations = DwdObservationRequest(
+        parameter=DwdObservationDataset(parameter),
+        resolution=DwdObservationResolution(time_resolution),
+        period=DwdObservationPeriod(period_type),
+        tidy_data=False,
         humanize_parameters=True,
-    ).all()
-    climate_data = climate_data.dropna(axis=0)
-    climate_data.VALUE = climate_data.VALUE.astype(float)
-    climate_data = climate_data.pivot_table(
-        values=OBSERVATION_VALUES_VALUE_COLUMN,
-        columns=OBSERVATION_VALUES_PARAMETER_COLUMN,
-        index=OBSERVATION_VALUES_DATE_COLUMN,
-    )
-    return climate_data.to_json(date_format="iso", orient="split")
+    ).filter(station_id=tuple(str(station_id)))
+    print("stations:", stations)
+    print("parameter:", stations.parameter)
+    print("resolution:", stations.resolution)
+    print("period:", stations.period)
+
+    df = stations.values.all().df
+    df = df.dropna(axis=0)
+    # df.value = df.value.astype(float)
+    # df = df.pivot_table(
+    #    values=OBSERVATION_VALUES_VALUE_COLUMN,
+    #    columns=OBSERVATION_VALUES_PARAMETER_COLUMN,
+    #    index=OBSERVATION_VALUES_DATE_COLUMN,
+    # )
+    print("df:", df)
+    return df.to_json(date_format="iso", orient="split")
 
 
 @app.callback(Output("select-variable", "options"), [Input("hidden-div", "children")])
@@ -122,7 +129,7 @@ def update_weather_stations_dropdown(jsonified_data):
     meta_data = pd.read_json(jsonified_data, orient="split")
     return [
         {"label": name, "value": station_id}
-        for name, station_id in zip(meta_data.STATION_NAME, meta_data.STATION_ID)
+        for name, station_id in zip(meta_data.station_name, meta_data.station_id)
     ]
 
 
@@ -131,16 +138,16 @@ def update_systems_map(jsonified_data):
     meta_data = pd.read_json(jsonified_data, orient="split")
     fig = go.Figure(
         go.Scattermapbox(
-            lat=meta_data.LATITUDE,
-            lon=meta_data.LONGITUDE,
+            lat=meta_data.latitude,
+            lon=meta_data.longitude,
             mode="markers",
-            marker=go.scattermapbox.Marker(size=10),
+            marker=go.scattermapbox.Marker(size=5),
             text=[
                 f"{name} <br>Station Height: {altitude}m <br>Id: {station_id}"
                 for name, altitude, station_id in zip(
-                    meta_data.STATION_NAME,
-                    meta_data.HEIGHT,
-                    meta_data.STATION_ID,
+                    meta_data.station_name,
+                    meta_data.height,
+                    meta_data.station_id,
                 )
             ],
         )
@@ -150,10 +157,10 @@ def update_systems_map(jsonified_data):
         hovermode="closest",
         mapbox=dict(
             bearing=0,
-            center=go.layout.mapbox.Center(lat=50, lon=10),
+            center=go.layout.mapbox.Center(lat=51.5, lon=10),
             style="open-street-map",
             pitch=0,
-            zoom=5,
+            zoom=4.5,
         ),
         margin=go.layout.Margin(
             l=0,
@@ -165,6 +172,7 @@ def update_systems_map(jsonified_data):
     return fig
 
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8050))
-    server.run(host="0.0.0.0", port=port, processes=4)
+def start_service(listen_address, reload: bool = False):  # pragma: no cover
+    host, port = listen_address.split(":")
+    port = int(port)
+    app.server.run(host=host, port=port, debug=reload)

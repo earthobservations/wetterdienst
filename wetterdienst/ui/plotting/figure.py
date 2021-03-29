@@ -1,6 +1,6 @@
 """ collection of different figures for different data types"""
-import plotly.graph_objs as go
 import pandas as pd
+import plotly.graph_objs as go
 
 
 def default_figure(climate_data: pd.DataFrame, column: str) -> go.Figure:
