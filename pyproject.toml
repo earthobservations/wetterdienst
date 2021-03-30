@@ -17,17 +17,26 @@ homepage = "https://wetterdienst.readthedocs.io/"
 repository = "https://github.com/earthobservations/wetterdienst"
 
 keywords = [
-    "dwd",
-    "deutscher wetterdienst",
-    "german weather service",
+    "open-source",
+    "open-data",
     "weather",
     "weather-data",
     "weather-api",
-    "open-data",
+    "weather-station",
+    "time-series",
     "observations",
     "historical-data",
-    "forecasts",
-    "radar"
+    "recent-data",
+    "forecast",
+    "radar",
+    "dwd",
+    "deutscher wetterdienst",
+    "german weather service",
+    "mosmix",
+    "radolan",
+    "eccc",
+    "environment-and-climate-change-canada",
+    "environnement-et-changement-climatique-canada"
 ]
 classifiers = [
     "Programming Language :: Python",
