@@ -1,4 +1,4 @@
-This is an alphabetically-ordered list of the people who directly contributed to GribMagic in one way or another.
+This is a list of the people who directly contributed to wetterdienst in one way or another.
 
 * `Benjamin Gutzmann <https://github.com/gutzbenj>`_
     - gutzemann@gmail.com
@@ -7,6 +7,7 @@ This is an alphabetically-ordered list of the people who directly contributed to
     - andreas.motl@panodata.org
 
 * `Daniel Lassahn <https://github.com/meteoDaniel>`_
+    - UI/Browser interface
 
 * `Trevor James Smith <https://github.com/Zeitsperre>`_
     - Contribution of Environment and Climate Change Canada adapter - Thanks!
