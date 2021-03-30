@@ -30,7 +30,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationParameter,
     DwdObservationResolution,
 )
-from wetterdienst.provider.dwd.observation.metadata.column_types import (
+from wetterdienst.provider.dwd.observation.metadata.field_types import (
     DATE_PARAMETERS_IRREGULAR,
     INTEGER_PARAMETERS,
     STRING_PARAMETERS,

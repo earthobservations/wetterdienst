@@ -6,6 +6,11 @@ Development
 
 ...
 
+0.16.1 (31.03.2021)
+*******************
+
+- Make .discover return lowercase parameters and datasets
+
 0.16.0 (29.03.2021)
 *******************
 

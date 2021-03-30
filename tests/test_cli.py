@@ -59,10 +59,6 @@ def test_cli_about_parameters(capsys):
     assert "precipitation" in response
     assert "air_temperature" in response
     assert "weather_phenomena" in response
-    # assert "radolan" in response
-    # assert "wx" in response
-    # assert "rx" in response
-    # assert "sweep_vol_z" in response
 
 
 def test_cli_about_resolutions(capsys):
@@ -96,8 +92,8 @@ def test_cli_about_coverage(capsys):
     stdout, stderr = capsys.readouterr()
 
     response = stdout
-    assert "MINUTE_1" in response
-    assert "PRECIPITATION" in response
+    assert "minute_1" in response
+    assert "precipitation" in response
 
 
 def invoke_wetterdienst_stations_empty(setting, fmt="json"):
