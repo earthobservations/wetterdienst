@@ -6,16 +6,16 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationDatasetTree,
 )
 
-DATE_FIELDS_REGULAR = (
+DATE_FIELDS_REGULAR = {
     DwdColumns.DATE.value,
     DwdColumns.FROM_DATE.value,
     DwdColumns.TO_DATE.value,
-)
-DATE_PARAMETERS_IRREGULAR = (
+}
+DATE_PARAMETERS_IRREGULAR = {
     DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value,
     DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
-)
-QUALITY_PARAMETERS = (
+}
+QUALITY_PARAMETERS = {
     # 1_minute
     # precipitation
     DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.QUALITY.value,
@@ -102,8 +102,8 @@ QUALITY_PARAMETERS = (
     DwdObservationDatasetTree.ANNUAL.PRECIPITATION_MORE.QUALITY.value,
     # weather_phenomena
     DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.QUALITY.value,
-)
-INTEGER_PARAMETERS = (
+}
+INTEGER_PARAMETERS = {
     # 1_minute
     # precipitation
     DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_FORM.value,
@@ -191,8 +191,8 @@ INTEGER_PARAMETERS = (
     DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.HAIL.value,
     DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.FOG.value,
     DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.DEW.value,
-)
-STRING_PARAMETERS = (
+}
+STRING_PARAMETERS = {
     # hourly
     # cloud_type
     DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_COVER_TOTAL_INDICATOR.value,
@@ -204,4 +204,4 @@ STRING_PARAMETERS = (
     DwdObservationDatasetTree.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,
     # visibility
     DwdObservationDatasetTree.HOURLY.VISIBILITY.VISIBILITY_INDICATOR.value,
-)
+}

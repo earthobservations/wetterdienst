@@ -2,6 +2,7 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import json
+from typing import Union
 
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.provider import Provider
@@ -26,7 +27,7 @@ class Wetterdienst:
 
     endpoints = API_ENDPOINTS
 
-    def __new__(cls, provider: Provider, kind: Kind):
+    def __new__(cls, provider: Union[Provider, str], kind: Union[Kind, str]):
         """
 
         :param provider: provider of data e.g. DWD
@@ -36,7 +37,7 @@ class Wetterdienst:
         provider = parse_enumeration_from_template(provider, Provider)
         kind = parse_enumeration_from_template(kind, Kind)
 
-        api = API_ENDPOINTS.get(provider).get(kind)
+        api = cls.endpoints.get(provider, {}).get(kind)
 
         if not api:
             raise ValueError(
@@ -50,6 +51,6 @@ class Wetterdienst:
         """ Display available API endpoints """
         api_endpoints = {}
         for provider, kinds in cls.endpoints.items():
-            api_endpoints[provider.name] = [kind.name for kind in kinds]
+            api_endpoints[provider.name.lower()] = [kind.name.lower() for kind in kinds]
 
         return json.dumps(api_endpoints)

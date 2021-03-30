@@ -6,7 +6,7 @@ from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 
 DATE_FIELDS_REGULAR = DwdColumns.DATETIME.value
 
-INTEGER_PARAMETERS = (
+INTEGER_PARAMETERS = {
     DwdMosmixParameter.LARGE.WIND_DIRECTION.value,
     DwdMosmixParameter.LARGE.WEATHER_LAST_6H.value,
     DwdMosmixParameter.LARGE.WEATHER_SIGNIFICANT_OPTIONAL_LAST_1H,
@@ -82,4 +82,4 @@ INTEGER_PARAMETERS = (
     DwdMosmixParameter.LARGE.PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_24H.value,
     DwdMosmixParameter.LARGE.PROBABILITY_PRECIPITATION_LAST_24H.value,
     DwdMosmixParameter.LARGE.PROBABILITY_THUNDERSTORM_LAST_24H.value,
-)
+}

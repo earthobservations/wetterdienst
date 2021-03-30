@@ -19,11 +19,11 @@ def test_dwd_observation_metadata_discover_parameters():
     assert (
         json.dumps(
             {
-                Resolution.MINUTE_1.name: [
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT.name,
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_DROPLET.name,
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_ROCKER.name,
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_FORM.name,
+                Resolution.MINUTE_1.name.lower(): [
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT.name.lower(),
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_DROPLET.name.lower(),
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_ROCKER.name.lower(),
+                    DwdObservationParameter.MINUTE_1.PRECIPITATION_FORM.name.lower(),
                 ]
             },
             indent=4,

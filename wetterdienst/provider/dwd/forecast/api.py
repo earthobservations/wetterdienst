@@ -26,7 +26,7 @@ from wetterdienst.provider.dwd.forecast.metadata import (
     DwdMosmixParameter,
     DwdMosmixType,
 )
-from wetterdienst.provider.dwd.forecast.metadata.column_types import INTEGER_PARAMETERS
+from wetterdienst.provider.dwd.forecast.metadata.field_types import INTEGER_PARAMETERS
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
     DWD_MOSMIX_L_SINGLE_PATH,

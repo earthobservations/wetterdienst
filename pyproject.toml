@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.16.0"
+version = "0.16.1"
 description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
@@ -212,15 +212,17 @@ pycodestyle = ["-E501", "-B950"]
 flake8-bugbear = ["-B008"]
 [tool.flakehell.exceptions."wetterdienst/util/pandas.py"]
 pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/provider/dwd/observation/metadata/column_types.py"]
+[tool.flakehell.exceptions."wetterdienst/provider/dwd/observation/metadata/field_types.py"]
 pycodestyle = ["-E501", "-B950"]
 [tool.flakehell.exceptions."wetterdienst/provider/dwd/observation/metadata/parameter.py"]
 pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/provider/dwd/forecast/metadata/column_types.py"]
+[tool.flakehell.exceptions."wetterdienst/provider/dwd/forecast/metadata/field_types.py"]
+pycodestyle = ["-E501", "-B950"]
+[tool.flakehell.exceptions."tests/provider/dwd/observation/test_api_metadata.py"]
 pycodestyle = ["-E501", "-B950"]
 
-
 [tool.poe.tasks]
+install_dev = "poetry install -E ipython -E docs -E http -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
 format = ["black", "isort"]

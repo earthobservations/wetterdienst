@@ -360,9 +360,9 @@ class ScalarRequestCore(Core):
             parameters = {}
             # if cls._resolution_type == ResolutionType.MULTI:
             for f in filter_:
-                parameters[f] = []
+                parameters[f.lower()] = []
                 for parameter in cls._parameter_base[f]:
-                    parameters[f].append(parameter.name)
+                    parameters[f.lower()].append(parameter.name.lower())
             # else:
             #     parameters[cls._dataset_accessor] = []
             #     print(cls._parameter_base)
@@ -383,16 +383,18 @@ class ScalarRequestCore(Core):
         parameters = {}
 
         for f in filter_:
-            parameters[f] = {}
+            parameters[f.lower()] = {}
 
             for dataset in cls._dataset_tree[f].__dict__:
                 if dataset.startswith("_") or dataset not in datasets_filter:
                     continue
 
-                parameters[f][dataset] = []
+                parameters[f.lower()][dataset.lower()] = []
 
                 for parameter in cls._dataset_tree[f][dataset]:
-                    parameters[f][dataset].append(parameter.name)
+                    parameters[f.lower()][dataset.lower()].append(
+                        parameter.name.lower()
+                    )
 
         return json.dumps(parameters, indent=4)
 
