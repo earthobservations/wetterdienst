@@ -16,20 +16,31 @@ jobs:
       with:
         python-version: 3.9
         architecture: x64
+
     - name: Setup Poetry
-      uses: Gr1N/setup-poetry@v4
-    - name: Configure poetry
-      # FROM https://github.com/northtree/poetry-github-actions/actions/runs/170795796/workflow
-      run: |
-        poetry config virtualenvs.in-project false
-        poetry config cache-dir ~/.poetry
-        poetry config virtualenvs.path ~/.poetry/venv
-    - name: Load cached dependencies
-      uses: actions/cache@v2
+      uses: snok/install-poetry@v1.1.2
       with:
-        path: ~/.poetry
-        key: ${{ runner.os }}-${{ runner.python-version }}-poetry-${{ hashFiles('poetry.lock') }}
+        version: 1.1.5
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Get Poetry cache directory
+      id: poetry-cache-dir
+      run: |
+        echo "::set-output name=dir::$(poetry config cache-dir)"
+
+    - name: Apply cache
+      id: poetry-cache-flag
+      uses: actions/cache@v2
+      env:
+        # Increase this value to reset cache if `poetry.lock` has not changed.
+        CACHE_NUMBER: 1
+      with:
+        path: ${{ steps.poetry-cache-dir.outputs.dir }}
+        key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
+
     - name: Install library
       run: poetry install
+
     - name: Run lint on code
       run: poetry run poe lint
