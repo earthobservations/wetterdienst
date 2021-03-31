@@ -209,7 +209,7 @@ The ``wetterdienst`` command is also available:
     wetterdienst --help
 
 Example
-********
+*******
 
 Acquisition of historical data for specific stations using ``wetterdienst`` as library:
 
@@ -270,7 +270,7 @@ the data in your project to be sure to fulfill copyright issues beforehand.
 Contribution
 ************
 
-There are different ways in which you contribute to this library:
+There are different ways in which you can contribute to this library:
 
 - by handing in a PR which describes the feature/issue that was solved including tests
   for newly added features
@@ -283,35 +283,84 @@ There are different ways in which you contribute to this library:
 Development
 ***********
 
-1. Clone the library and install the environment
+1. Clone the library and install the environment.
+
+   This setup procedure will outline how to install the library and the minimum
+   dependencies required to run the whole test suite. If, for some reason, you
+   are not available to install all the packages, just leave out some of the
+   "extras" dependency tags.
 
 .. code-block:: bash
 
     git clone https://github.com/earthobservations/wetterdienst
     cd wetterdienst
 
-    pip install . # or poetry install
+    # Install package in editable mode.
+    pip install --editable=.[http,sql,export,ui]
 
-2. Add required libraries e.g.
+    # Alternatively, when using Poetry.
+    poetry install --extras=http --extras=sql --extras=export --extras=ui
 
-.. code-block:: bash
+2. For running the whole test suite, you will need to have Firefox and
+   geckodriver installed on your machine. Install them like::
 
-    poetry add pandas
+       # macOS
+       brew install --cask firefox
+       brew install geckodriver
 
-3. Apply your changes
+       # Other OS
+       # You can also get installers and/or release archives for Linux, macOS
+       # and Windows at
+       #
+       # - https://www.mozilla.org/en-US/firefox/new/
+       # - https://github.com/mozilla/geckodriver/releases
 
-4. Add tests and documentation for your changes
+   If this does not work for some reason and you would like to skip ui-related
+   tests on your machine, please invoke the test suite with::
 
-5. Clean up and run tests
+       poe test -m "not ui"
+
+3. Edit the source code, add corresponding tests and documentation for your
+   changes. While editing, you might want to continuously run the test suite
+   by invoking::
+
+       poe test
+
+   In order to run only specific tests, invoke::
+
+       # Run tests by module name or function name.
+       poe test -k test_cli
+
+       # Run tests by tags.
+       poe test -m "not (remote or slow)"
+
+4. Before committing your changes, please als run those steps in order to make
+   the patch adhere to the coding standards used here.
 
 .. code-block:: bash
 
     poe format  # black code formatting
-    poe lint  # lint checking
+    poe lint    # lint checking
     poe export  # export of requirements (for Github Dependency Graph)
-    poe test  # for quicker tests run: poe test -vvvv -m "not (remote or slow)"
 
-6. Push your changes and setup PR
+5. Push your changes and submit them as pull request
+
+   Thank you in advance!
+
+
+.. note::
+
+    If you need to extend the list of package dependencies, invoke:
+
+    .. code-block:: bash
+
+        # Add package to runtime dependencies.
+        poetry add new-package
+
+        # Add package to development dependencies.
+        poetry add --dev new-package
+
+
 
 Important Links
 ***************
