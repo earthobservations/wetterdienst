@@ -239,7 +239,7 @@ def run():
     if options.service:  # pragma: no cover
         listen_address = options.listen
         log.info(f"Starting {appname}")
-        log.info(f"Starting HTTP web service on {listen_address}")
+        log.info(f"Starting HTTP web service on http://{listen_address}")
         from wetterdienst.service import start_service
 
         start_service(listen_address, reload=options.reload)
@@ -249,7 +249,7 @@ def run():
     if options.ui:  # pragma: no cover
         listen_address = options.listen
         log.info(f"Starting {appname}")
-        log.info(f"Starting UI web service on {listen_address}")
+        log.info(f"Starting UI web service on http://{listen_address}")
         from wetterdienst.ui.app import start_service
 
         start_service(listen_address, reload=options.reload)

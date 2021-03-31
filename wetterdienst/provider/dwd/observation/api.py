@@ -64,7 +64,8 @@ class DwdObservationValues(ScalarValuesCore):
     observation data as provided by the DWD service.
     """
 
-    _provider = Provider.DWD
+    provider = Provider.DWD
+
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = True
@@ -263,9 +264,10 @@ class DwdObservationRequest(ScalarRequestCore):
     a station list as provided by the DWD service.
     """
 
+    provider = Provider.DWD
+
     _values = DwdObservationValues
     _parameter_base = DwdObservationParameter
-    _provider = Provider.DWD
     _tz = Timezone.GERMANY
 
     _resolution_type = ResolutionType.MULTI

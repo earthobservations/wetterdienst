@@ -299,6 +299,18 @@ class ScalarRequestCore(Core):
 
         self.tidy = tidy
 
+        log.info(
+            f"Processing request for "
+            f"provider={self.provider}, "
+            f"parameter={self.parameter}, "
+            f"resolution={self.resolution}, "
+            f"period={self.period}, "
+            f"start_date={self.start_date}, "
+            f"end_date={self.end_date}, "
+            f"humanize={self.humanize}, "
+            f"tidy={self.tidy}"
+        )
+
     def convert_timestamps(
         self,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
@@ -445,9 +457,12 @@ class ScalarRequestCore(Core):
         # TODO: add queries for the given possible parameters
         # TODO: eventually add other parameters from nearby_... and use DataFrame of
         #  them instead
+
         df = self.all().df
 
         station_id = self._parse_station_id(pd.Series(station_id))
+
+        log.info(f"Filtering for station_id={list(station_id)}")
 
         df = df[df[Columns.STATION_ID.value].isin(station_id)]
 
