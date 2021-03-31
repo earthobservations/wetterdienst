@@ -207,7 +207,7 @@ def run():
       # Store readings to CrateDB
       fetch --target="crate://localhost/?database=dwd&table=weather"
 
-    Run as HTTP service:
+    Invoke the HTTP service:
 
       # Start service on standard port, listening on http://localhost:7890.
       wetterdienst service
@@ -218,6 +218,18 @@ def run():
 
       # Start service on public interface and specific port.
       wetterdienst service --listen=0.0.0.0:9999
+
+    Invoke the UI service:
+
+      # Start service on standard port, listening on http://localhost:7890.
+      wetterdienst ui
+
+      # Start service on standard port and watch filesystem changes.
+      # This is suitable for development.
+      wetterdienst ui --reload
+
+      # Start service on public interface and specific port.
+      wetterdienst ui --listen=0.0.0.0:9999
 
     """
     appname = f"{__appname__} {__version__}"
