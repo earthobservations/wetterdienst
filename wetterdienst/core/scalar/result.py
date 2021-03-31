@@ -37,7 +37,7 @@ class StationsResult(ExportMixin):
 
     @property
     def provider(self):
-        return self.stations._provider
+        return self.stations.provider
 
     @property
     def now(self):

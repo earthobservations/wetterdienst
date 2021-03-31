@@ -270,6 +270,8 @@ class DwdMosmixValues(ScalarValuesCore):
 class DwdMosmixRequest(ScalarRequestCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
+    provider = Provider.DWD
+
     _url = (
         "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
         "mosmix_stationskatalog.cfg?view=nasPublication"
@@ -300,7 +302,6 @@ class DwdMosmixRequest(ScalarRequestCore):
         Columns.STATE.value,
     ]
 
-    _provider = Provider.DWD
     _tz = Timezone.GERMANY
     _parameter_base = DwdMosmixParameter
     _values = DwdMosmixValues

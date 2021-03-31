@@ -33,7 +33,7 @@ class Core(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def _provider(self) -> Provider:
+    def provider(self) -> Provider:
         """Abstract representation of source that is related to the request, used for
         identification of returned data"""
         pass

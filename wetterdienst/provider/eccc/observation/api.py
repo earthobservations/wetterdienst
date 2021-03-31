@@ -235,8 +235,9 @@ class EcccObservationRequest(ScalarRequestCore):
 
     """
 
+    provider = Provider.ECCC
+
     _tz = Timezone.UTC
-    _provider = Provider.DWD  # put Eccc here
 
     _resolution_base = EccObservationResolution
     _resolution_type = ResolutionType.MULTI
