@@ -6,4 +6,4 @@ from dash.testing.application_runners import import_app
 def wetterdienst_ui(dash_duo):
     app = import_app("wetterdienst.ui.app")
     dash_duo.start_server(app)
-    dash_duo.wait_for_page(timeout=5)
+    dash_duo.wait_for_page(timeout=10)
