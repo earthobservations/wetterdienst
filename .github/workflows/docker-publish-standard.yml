@@ -33,6 +33,8 @@ jobs:
 
       - name: Setup Poetry
         uses: Gr1N/setup-poetry@v4
+        with:
+          poetry-version: 1.1.5
 
       - name: Build wheel package
         run: poetry build --format=wheel

@@ -11,8 +11,13 @@ jobs:
       with:
         python-version: 3.9
         architecture: x64
+
     - name: Setup Poetry
-      uses: Gr1N/setup-poetry@v4
+      uses: snok/install-poetry@v1.1.2
+      with:
+        version: 1.1.5
+        virtualenvs-in-project: true
+
     - name: Install library
       run: poetry install --extras=http --extras=sql --extras=export --extras=ui
 
