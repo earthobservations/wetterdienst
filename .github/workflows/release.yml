@@ -14,7 +14,8 @@ jobs:
     - name: Setup Poetry
       uses: Gr1N/setup-poetry@v4
     - name: Install library
-      run: poetry install --extras=http --extras=sql --extras=export
+      run: poetry install --extras=http --extras=sql --extras=export --extras=ui
+
     - name: Test
       run: poetry run poe test
     - name: Build

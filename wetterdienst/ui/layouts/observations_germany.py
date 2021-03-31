@@ -14,6 +14,8 @@ def dashboard_layout() -> html:
     return html.Div(
         [
             dcc.Location(id="url", refresh=False),
+            html.H1("Wetterdienst UI"),
+            # html.P("Hello world"),
             html.Div(
                 [
                     html.Div(
@@ -72,10 +74,12 @@ def dashboard_layout() -> html:
                                 ],
                             ),
                         ],
+                        id="navigation",
                         className="pretty_container four columns",
                     ),
                     html.Div(
                         [dcc.Graph(id="sites-map")],
+                        id="map",
                         className="pretty_container four columns",
                         style={"align-self": "flex-end"},
                     ),
@@ -93,6 +97,7 @@ def dashboard_layout() -> html:
                             ),
                             dcc.Graph(id="graph1"),
                         ],
+                        id="graph",
                         className="pretty_container twelve columns",
                     ),
                 ],
