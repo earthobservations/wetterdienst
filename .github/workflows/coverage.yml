@@ -23,12 +23,15 @@ jobs:
       with:
         path: ~/.poetry/cache
         key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+
     - name: Install library
-      run: poetry install --extras=http --extras=sql --extras=export
+      run: poetry install --extras=http --extras=sql --extras=export --extras=ui
+
     - name: Generate coverage report
       run: |
         poetry run pytest --cov=wetterdienst tests/
         poetry run coverage xml
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:

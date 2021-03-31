@@ -13,3 +13,4 @@ htmlcov
 docs/_build/
 dist/
 tmp/
+geckodriver.log
