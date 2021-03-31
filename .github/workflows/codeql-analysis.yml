@@ -12,6 +12,10 @@ on:
 jobs:
   analyze:
     name: Analyze
+
+    # Deactivated as of 2021-03-31.
+    if: false
+
     runs-on: ubuntu-latest
 
     strategy:
