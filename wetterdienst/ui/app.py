@@ -17,20 +17,17 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.ui.layouts.observations_germany import dashboard_layout
 from wetterdienst.ui.plotting.figure import default_figure
+from wetterdienst.ui.util import frame_summary
 
 log = logging.getLogger(__name__)
 
 
+# Create and configure Dash application object.
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
 )
-
 app.title = "Wetterdienst UI"
 app.layout = dashboard_layout()
-
-OBSERVATION_VALUES_PARAMETER_COLUMN = "parameter"
-OBSERVATION_VALUES_VALUE_COLUMN = "value"
-OBSERVATION_VALUES_DATE_COLUMN = "date"
 
 
 @app.callback(
@@ -64,7 +61,7 @@ def update_meta_data(parameter, time_resolution, period_type):
 
     df = stations.df
 
-    log.info(f"Forwarding stations data frame {frame_summary(df)}")
+    log.info(f"Propagating stations data frame with {frame_summary(df)}")
 
     return df.to_json(date_format="iso", orient="split")
 
@@ -156,17 +153,7 @@ def update_data(
 
     df = df.dropna(axis=0)
 
-    # 2021-03-30 [amo]: I amended this from the original version by Daniel.
-    #                   However, I am a bit clueless what I am doing here.
-
-    # df.value = df.value.astype(float)
-    # df = df.pivot_table(
-    #    values=OBSERVATION_VALUES_VALUE_COLUMN,
-    #    columns=OBSERVATION_VALUES_PARAMETER_COLUMN,
-    #    index=OBSERVATION_VALUES_DATE_COLUMN,
-    # )
-
-    log.info(f"Forwarding values data frame {frame_summary(df)}")
+    log.info(f"Propagating values data frame with {frame_summary(df)}")
 
     return df.to_json(date_format="iso", orient="split")
 
@@ -202,10 +189,6 @@ def update_weather_stations_dropdown(jsonified_data):
         {"label": name, "value": station_id}
         for name, station_id in zip(meta_data.station_name, meta_data.station_id)
     ]
-
-
-def frame_summary(frame: pd.DataFrame):
-    return f"columns={list(frame.columns)}, length={len(frame)}"
 
 
 @app.callback(Output("sites-map", "figure"), [Input("hidden-div-metadata", "children")])
@@ -249,10 +232,16 @@ def update_systems_map(jsonified_data):
 
 
 def start_service(listen_address, reload: bool = False):  # pragma: no cover
+    """
+    This entrypoint will be used by `wetterdienst.cli`.
+    """
     host, port = listen_address.split(":")
     port = int(port)
     app.server.run(host=host, port=port, debug=reload)
 
 
 if __name__ == "__main__":
+    """
+    This entrypoint will be used by `dash.testing`.
+    """
     app.run_server(debug=True)
