@@ -27,7 +27,7 @@ def dashboard_layout() -> html:
                                     {"label": param.value, "value": param.value}
                                     for param in DwdObservationDataset
                                 ],
-                                value=DwdObservationDataset.PRECIPITATION.value,
+                                value=DwdObservationDataset.TEMPERATURE_AIR.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
@@ -38,7 +38,7 @@ def dashboard_layout() -> html:
                                     {"label": param.value, "value": param.value}
                                     for param in DwdObservationResolution
                                 ],
-                                value=DwdObservationResolution.MINUTE_10.value,
+                                value=DwdObservationResolution.HOURLY.value,
                                 multi=False,
                                 className="dcc_control",
                             ),

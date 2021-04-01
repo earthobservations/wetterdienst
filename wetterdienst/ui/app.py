@@ -72,16 +72,30 @@ def update_meta_data(parameter, time_resolution, period_type):
 @app.callback(
     Output("graph1", "figure"),
     [Input("select-variable", "value")],
-    [State("hidden-div", "children")],
+    [Input("hidden-div", "children")],
 )
 def make_graph(variable, jsonified_data):
     """  takes hidden data to show up the central plot  """
 
-    # FIXME: This does not work yet.
-    if not jsonified_data:
-        return html.Div(html.P("No data available"))
+    # FIXME: Showing these admonitions to the user does not work yet.
 
-    climate_data = pd.read_json(jsonified_data, orient="split")
+    # Sanity checks.
+    if variable is None:
+        message = "No variable selected"
+        log.warning(message)
+        return html.Div(html.P(message))
+
+    no_data_message = f"No data available for {variable}"
+
+    try:
+        climate_data = pd.read_json(jsonified_data, orient="split")
+        if climate_data.empty:
+            raise ValueError(no_data_message)
+
+    except Exception:
+        log.warning(no_data_message)
+        return html.Div(html.P(no_data_message))
+
     log.info(
         f"Building graph for variable={variable} from {frame_summary(climate_data)}"
     )
@@ -111,6 +125,14 @@ def update_data(
     station_id: int, parameter: str, time_resolution: str, period_type: str
 ):
     """ stores selected data behind a hidden div box to share with other callbacks """
+
+    empty_frame = pd.DataFrame().to_json(date_format="iso", orient="split")
+
+    # Sanity checks.
+    if station_id is None:
+        log.warning("Querying without station_id is rejected")
+        return empty_frame
+
     log.info(
         f"Requesting values for "
         f"station_id={station_id}, "
@@ -130,7 +152,7 @@ def update_data(
         df = stations.values.all().df
     except ValueError:
         log.exception("No data received")
-        return pd.DataFrame().to_json(date_format="iso", orient="split")
+        return empty_frame
 
     df = df.dropna(axis=0)
 
