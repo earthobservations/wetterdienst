@@ -40,7 +40,7 @@ jobs:
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
     - name: Install library
-      run: poetry install
+      run: poetry install --no-root
 
     - name: Run lint on code
       run: poetry run poe lint

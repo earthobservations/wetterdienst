@@ -41,7 +41,7 @@ jobs:
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
     - name: Install library
-      run: poetry install --extras=http --extras=sql --extras=export --extras=ui
+      run: .github/workflows/install.sh testing
 
     - name: Generate coverage report
       run: |

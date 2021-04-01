@@ -38,7 +38,7 @@ jobs:
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
     - name: Install library
-      run: poetry install --extras=docs
+      run: .github/workflows/install.sh docs
 
     - name: Build docs
       run: cd docs && poetry run make html
