@@ -146,7 +146,7 @@ def update_data(
         period=DwdObservationPeriod(period_type),
         tidy=False,
         humanize=True,
-    ).filter(station_id=tuple(str(station_id)))
+    ).filter(station_id=(str(station_id),))
 
     try:
         df = stations.values.all().df
