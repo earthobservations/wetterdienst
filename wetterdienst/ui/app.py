@@ -176,7 +176,18 @@ def update_variable_drop_down(jsonified_data):
     """ Depending on the selection the variable drop_down is adapted """
     climate_data = pd.read_json(jsonified_data, orient="split")
     log.info(f"Building variable dropdown from {frame_summary(climate_data)}")
-    return [{"label": column, "value": column} for column in climate_data.columns]
+
+    # Build list of columns to be selectable.
+    columns = []
+    for column in climate_data.columns:
+
+        # Skip some columns.
+        if column in ["station_id", "date"]:
+            continue
+
+        columns.append({"label": column, "value": column})
+
+    return columns
 
 
 @app.callback(
