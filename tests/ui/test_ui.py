@@ -63,19 +63,36 @@ def test_app_data_stations(wetterdienst_ui, dash_tre):
     assert len(data["data"]) == 511
 
 
-@pytest.mark.xfail
 @pytest.mark.slow
 @pytest.mark.ui
-def test_app_data_values(wetterdienst_ui, dash_duo):
+def test_app_data_values(wetterdienst_ui, dash_tre):
     """
     Verify if data for "values" has been correctly propagated.
     """
 
-    dash_duo.wait_for_element_by_id("hidden-div")
+    # Select weather station.
+    dash_tre.wait_for_element_by_id("select-weather-stations")
+    dash_tre.select_dcc_dropdown("#select-weather-stations", value="Anklam")
 
-    dom: BeautifulSoup = dash_duo.dash_innerhtml_dom
+    # Select variable.
+    dash_tre.wait_for_element_by_id("select-variable")
+    dash_tre.wait_for_element_by_id_clickable("select-variable")
+    dash_tre.select_dcc_dropdown("#select-variable", value="temperature_air_200")
 
+    # Wait for data element.
+    dash_tre.wait_for_element_by_id("hidden-div")
+
+    # Read payload from data element.
+    dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
     data_element = dom.find(attrs={"id": "hidden-div"})
     data = json.loads(data_element.text)
-    assert data["columns"] == ["todo-fixme"]
-    assert len(data["data"]) == -999
+
+    # Verify data.
+    assert data["columns"] == [
+        "station_id",
+        "date",
+        "qn_9",
+        "temperature_air_200",
+        "humidity",
+    ]
+    assert len(data["data"]) == 13081
