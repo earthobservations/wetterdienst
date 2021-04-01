@@ -1,4 +1,9 @@
-""" main app for wetterdienst-ui """
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""
+Wetterdienst UI Dash application.
+"""
 import logging
 
 import dash
@@ -15,8 +20,8 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.ui.layouts.observations_germany import dashboard_layout
-from wetterdienst.ui.plotting.figure import default_figure
+from wetterdienst.ui.layout.observations_germany import dashboard_layout
+from wetterdienst.ui.library import default_figure
 from wetterdienst.ui.util import frame_summary
 
 log = logging.getLogger(__name__)
@@ -31,30 +36,32 @@ app.layout = dashboard_layout()
 
 
 @app.callback(
-    Output("hidden-div-metadata", "children"),
+    Output("dataframe-stations", "children"),
     [
         Input("select-parameter", "value"),
-        Input("select-time-resolution", "value"),
-        Input("select-period-type", "value"),
+        Input("select-resolution", "value"),
+        Input("select-period", "value"),
     ],
 )
-def update_meta_data(parameter, time_resolution, period_type):
+def fetch_stations(parameter, resolution, period):
     """
-    Function to update the metadata according to
-    the selection of the dropdowns
-    It stores MetaData behind a hidden div on the front-end
+    Fetch "stations" data.
+
+    This will be used to populate the navigation chooser and to render the map.
+
+    The data will be stored on a hidden within the browser DOM.
     """
     log.info(
         f"Requesting stations for "
         f"parameter={parameter}, "
-        f"resolution={time_resolution}, "
-        f"period={period_type}"
+        f"resolution={resolution}, "
+        f"period={period}"
     )
     try:
         stations = DwdObservationRequest(
             parameter=DwdObservationDataset(parameter),
-            resolution=DwdObservationResolution(time_resolution),
-            period=DwdObservationPeriod(period_type),
+            resolution=DwdObservationResolution(resolution),
+            period=DwdObservationPeriod(period),
         ).all()
     except InvalidParameterCombination:
         raise PreventUpdate
@@ -67,61 +74,22 @@ def update_meta_data(parameter, time_resolution, period_type):
 
 
 @app.callback(
-    Output("graph1", "figure"),
-    [Input("select-variable", "value")],
-    [Input("hidden-div", "children")],
-)
-def make_graph(variable, jsonified_data):
-    """  takes hidden data to show up the central plot  """
-
-    # FIXME: Showing these admonitions to the user does not work yet.
-
-    # Sanity checks.
-    if variable is None:
-        message = "No variable selected"
-        log.warning(message)
-        return html.Div(html.P(message))
-
-    no_data_message = f"No data available for {variable}"
-
-    try:
-        climate_data = pd.read_json(jsonified_data, orient="split")
-        if climate_data.empty:
-            raise ValueError(no_data_message)
-
-    except Exception:
-        log.warning(no_data_message)
-        return html.Div(html.P(no_data_message))
-
-    log.info(
-        f"Building graph for variable={variable} from {frame_summary(climate_data)}"
-    )
-
-    fig = default_figure(climate_data, variable)
-    fig.update_layout(
-        margin=go.layout.Margin(
-            l=0,  # left margin
-            r=0,  # right margin
-            b=0,  # bottom margin
-            t=0,  # top margin
-        )
-    )
-    return fig
-
-
-@app.callback(
-    Output("hidden-div", "children"),
-    [Input("select-weather-stations", "value")],
+    Output("dataframe-values", "children"),
+    [Input("select-station", "value")],
     [
         State("select-parameter", "value"),
-        State("select-time-resolution", "value"),
-        State("select-period-type", "value"),
+        State("select-resolution", "value"),
+        State("select-period", "value"),
     ],
 )
-def update_data(
-    station_id: int, parameter: str, time_resolution: str, period_type: str
-):
-    """ stores selected data behind a hidden div box to share with other callbacks """
+def fetch_values(station_id: int, parameter: str, resolution: str, period: str):
+    """
+    Fetch "values" data.
+
+    This will be used to populate the navigation chooser and to render the graph.
+
+    The data will be stored on a hidden within the browser DOM.
+    """
 
     empty_frame = pd.DataFrame().to_json(date_format="iso", orient="split")
 
@@ -134,13 +102,13 @@ def update_data(
         f"Requesting values for "
         f"station_id={station_id}, "
         f"parameter={parameter}, "
-        f"resolution={time_resolution}, "
-        f"period={period_type}"
+        f"resolution={resolution}, "
+        f"period={period}"
     )
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset(parameter),
-        resolution=DwdObservationResolution(time_resolution),
-        period=DwdObservationPeriod(period_type),
+        resolution=DwdObservationResolution(resolution),
+        period=DwdObservationPeriod(period),
         tidy=False,
         humanize=True,
     ).filter(station_id=(str(station_id),))
@@ -158,10 +126,33 @@ def update_data(
     return df.to_json(date_format="iso", orient="split")
 
 
-@app.callback(Output("select-variable", "options"), [Input("hidden-div", "children")])
-def update_variable_drop_down(jsonified_data):
-    """ Depending on the selection the variable drop_down is adapted """
-    climate_data = pd.read_json(jsonified_data, orient="split")
+@app.callback(
+    Output("select-station", "options"),
+    [Input("dataframe-stations", "children")],
+)
+def render_navigation_stations(payload):
+    """
+    Compute list of items from "stations" data for populating the "stations"
+    chooser element.
+    """
+    meta_data = pd.read_json(payload, orient="split")
+    log.info(f"Building stations dropdown from {frame_summary(meta_data)}")
+    return [
+        {"label": name, "value": station_id}
+        for name, station_id in zip(meta_data.station_name, meta_data.station_id)
+    ]
+
+
+@app.callback(
+    Output("select-variable", "options"),
+    [Input("dataframe-values", "children")],
+)
+def render_navigation_variables(payload):
+    """
+    Compute list of items from "values" data for populating the "variables"
+    chooser element.
+    """
+    climate_data = pd.read_json(payload, orient="split")
     log.info(f"Building variable dropdown from {frame_summary(climate_data)}")
 
     # Build list of columns to be selectable.
@@ -178,22 +169,14 @@ def update_variable_drop_down(jsonified_data):
 
 
 @app.callback(
-    Output("select-weather-stations", "options"),
-    [Input("hidden-div-metadata", "children")],
+    Output("map-stations", "figure"),
+    [Input("dataframe-stations", "children")],
 )
-def update_weather_stations_dropdown(jsonified_data):
-    """ Depending on the selection the variable drop_down is adapted """
-    meta_data = pd.read_json(jsonified_data, orient="split")
-    log.info(f"Building stations dropdown from {frame_summary(meta_data)}")
-    return [
-        {"label": name, "value": station_id}
-        for name, station_id in zip(meta_data.station_name, meta_data.station_id)
-    ]
-
-
-@app.callback(Output("sites-map", "figure"), [Input("hidden-div-metadata", "children")])
-def update_systems_map(jsonified_data):
-    meta_data = pd.read_json(jsonified_data, orient="split")
+def render_map(payload):
+    """
+    Create a "map" Figure element from "stations" data.
+    """
+    meta_data = pd.read_json(payload, orient="split")
     log.info(f"Building stations map from {frame_summary(meta_data)}")
     fig = go.Figure(
         go.Scattermapbox(
@@ -227,6 +210,51 @@ def update_systems_map(jsonified_data):
             b=0,
             t=0,
         ),
+    )
+    return fig
+
+
+@app.callback(
+    Output("graph-values", "figure"),
+    [Input("select-variable", "value")],
+    [Input("dataframe-values", "children")],
+)
+def render_graph(variable, payload):
+    """
+    Create a "graph" Figure element from "values" data.
+    """
+
+    # FIXME: Showing these admonitions to the user does not work yet.
+
+    # Sanity checks.
+    if variable is None:
+        message = "No variable selected"
+        log.warning(message)
+        return html.Div(html.P(message))
+
+    no_data_message = f"No data available for {variable}"
+
+    try:
+        climate_data = pd.read_json(payload, orient="split")
+        if climate_data.empty:
+            raise ValueError(no_data_message)
+
+    except Exception:
+        log.warning(no_data_message)
+        return html.Div(html.P(no_data_message))
+
+    log.info(
+        f"Building graph for variable={variable} from {frame_summary(climate_data)}"
+    )
+
+    fig = default_figure(climate_data, variable)
+    fig.update_layout(
+        margin=go.layout.Margin(
+            l=0,  # left margin
+            r=0,  # right margin
+            b=0,  # bottom margin
+            t=0,  # top margin
+        )
     )
     return fig
 

@@ -1,4 +1,12 @@
-""" collection of different figures for different data types"""
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""
+Library of generic components.
+
+Examples:
+- Different figures for different data types.
+"""
 import pandas as pd
 import plotly.graph_objs as go
 

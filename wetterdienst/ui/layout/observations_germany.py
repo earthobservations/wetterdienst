@@ -1,4 +1,6 @@
-""" holds html layout for observation dashboard """
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
 import dash_core_components as dcc
 import dash_html_components as html
 
@@ -10,7 +12,9 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def dashboard_layout() -> html:
-    """ main dashboard layout """
+    """
+    Dashboard layout for observations in Germany.
+    """
     return html.Div(
         [
             dcc.Location(id="url", refresh=False),
@@ -33,7 +37,7 @@ def dashboard_layout() -> html:
                             ),
                             html.P("Select time resolution:"),
                             dcc.Dropdown(
-                                id="select-time-resolution",
+                                id="select-resolution",
                                 options=[
                                     {"label": param.value, "value": param.value}
                                     for param in DwdObservationResolution
@@ -44,7 +48,7 @@ def dashboard_layout() -> html:
                             ),
                             html.P("Select period type: [NOW, RECENT, HISTORIC]"),
                             dcc.Dropdown(
-                                id="select-period-type",
+                                id="select-period",
                                 options=[
                                     {"label": param.value, "value": param.value}
                                     for param in DwdObservationPeriod
@@ -55,7 +59,7 @@ def dashboard_layout() -> html:
                             ),
                             html.P("Select weather station:"),
                             dcc.Dropdown(
-                                id="select-weather-stations",
+                                id="select-station",
                                 multi=False,
                                 className="dcc_control",
                             ),
@@ -69,7 +73,9 @@ def dashboard_layout() -> html:
                                         className="dcc_control",
                                     ),
                                     html.Div(
-                                        [], id="hidden-div", style={"display": "None"}
+                                        [],
+                                        id="dataframe-values",
+                                        style={"display": "None"},
                                     ),
                                 ],
                             ),
@@ -78,7 +84,7 @@ def dashboard_layout() -> html:
                         className="pretty_container four columns",
                     ),
                     html.Div(
-                        [dcc.Graph(id="sites-map")],
+                        [dcc.Graph(id="map-stations")],
                         id="map",
                         className="pretty_container four columns",
                         style={"align-self": "flex-end"},
@@ -92,10 +98,8 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            html.P(
-                                "Visualisation of Data", style={"text-align": "center"}
-                            ),
-                            dcc.Graph(id="graph1"),
+                            html.P("Time-series graph", style={"text-align": "center"}),
+                            dcc.Graph(id="graph-values"),
                         ],
                         id="graph",
                         className="pretty_container twelve columns",
@@ -103,7 +107,7 @@ def dashboard_layout() -> html:
                 ],
                 className="row flex-display",
             ),
-            html.Div([], id="hidden-div-metadata", style={"display": "None"}),
+            html.Div([], id="dataframe-stations", style={"display": "None"}),
         ],
         id="mainContainer",
         style={"display": "flex", "flex-direction": "column"},
