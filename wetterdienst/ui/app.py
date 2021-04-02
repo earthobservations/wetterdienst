@@ -21,11 +21,10 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 from wetterdienst.ui.layout.observations_germany import dashboard_layout
-from wetterdienst.ui.library import default_figure
+from wetterdienst.ui.library import add_annotation_no_data, default_figure
 from wetterdienst.ui.util import frame_summary
 
 log = logging.getLogger(__name__)
-
 
 # Create and configure Dash application object.
 app = dash.Dash(
@@ -43,7 +42,7 @@ app.layout = dashboard_layout()
         Input("select-period", "value"),
     ],
 )
-def fetch_stations(parameter, resolution, period):
+def fetch_stations(parameter: str, resolution: str, period: str):
     """
     Fetch "stations" data.
 
@@ -75,14 +74,14 @@ def fetch_stations(parameter, resolution, period):
 
 @app.callback(
     Output("dataframe-values", "children"),
-    [Input("select-station", "value")],
     [
-        State("select-parameter", "value"),
-        State("select-resolution", "value"),
-        State("select-period", "value"),
+        Input("select-parameter", "value"),
+        Input("select-resolution", "value"),
+        Input("select-period", "value"),
+        Input("select-station", "value"),
     ],
 )
-def fetch_values(station_id: int, parameter: str, resolution: str, period: str):
+def fetch_values(parameter: str, resolution: str, period: str, station_id: int):
     """
     Fetch "values" data.
 
@@ -135,11 +134,13 @@ def render_navigation_stations(payload):
     Compute list of items from "stations" data for populating the "stations"
     chooser element.
     """
-    meta_data = pd.read_json(payload, orient="split")
-    log.info(f"Building stations dropdown from {frame_summary(meta_data)}")
+    stations_data = pd.read_json(payload, orient="split")
+    log.info(f"Rendering stations dropdown from {frame_summary(stations_data)}")
     return [
         {"label": name, "value": station_id}
-        for name, station_id in zip(meta_data.station_name, meta_data.station_id)
+        for name, station_id in sorted(
+            zip(stations_data.station_name, stations_data.station_id)
+        )
     ]
 
 
@@ -153,7 +154,7 @@ def render_navigation_variables(payload):
     chooser element.
     """
     climate_data = pd.read_json(payload, orient="split")
-    log.info(f"Building variable dropdown from {frame_summary(climate_data)}")
+    log.info(f"Rendering variable dropdown from {frame_summary(climate_data)}")
 
     # Build list of columns to be selectable.
     columns = []
@@ -169,6 +170,101 @@ def render_navigation_variables(payload):
 
 
 @app.callback(
+    Output("status-response-stations", "children"),
+    [
+        Input("select-parameter", "value"),
+        Input("select-resolution", "value"),
+        Input("select-period", "value"),
+        Input("dataframe-stations", "children"),
+    ],
+)
+def render_status_response_stations(
+    parameter: str, resolution: str, period: str, payload: str
+):
+    """
+    Report about the status of the query.
+    """
+
+    empty_message = html.Div(
+        [
+            html.P("No data for stations.", style={"font-weight": "bold"}),
+            html.P(
+                f'Maybe the combination of "{parameter}", "{resolution}" '
+                f'and "{period}" is invalid.'
+            ),
+        ]
+    )
+
+    try:
+        stations_data = pd.read_json(payload, orient="split")
+    except ValueError:
+        return empty_message
+
+    if stations_data.empty:
+        return empty_message
+
+    return html.Div(
+        [
+            html.P(f"Number of stations: {len(stations_data)}"),
+            html.P(f"Columns: {list(stations_data.columns)}"),
+        ]
+    )
+
+
+@app.callback(
+    Output("status-response-values", "children"),
+    [
+        Input("dataframe-values", "children"),
+        State("select-parameter", "value"),
+        State("select-resolution", "value"),
+        State("select-period", "value"),
+        State("select-station", "value"),
+        State("select-variable", "value"),
+    ],
+)
+def render_status_response_values(
+    payload: str,
+    parameter: str,
+    resolution: str,
+    period: str,
+    station: str,
+    variable: str,
+):
+    """
+    Report about the status of the query.
+    """
+    values_data = pd.read_json(payload, orient="split")
+    if values_data.empty:
+
+        # Main message.
+        messages = [html.P("No data for values.", style={"font-weight": "bold"})]
+
+        candidates = ["parameter", "resolution", "period", "station", "variable"]
+        missing = []
+        for candidate in candidates:
+            if locals().get(candidate) is None:
+                missing.append(candidate)
+
+        if missing:
+            messages.append(html.P(f"Please select all of missing options {missing}"))
+
+        return html.Div(messages)
+
+    return html.Div(
+        [
+            html.P(f"Number of records: {len(values_data)}"),
+            html.P(f"Columns: {list(values_data.columns)}"),
+            html.P(
+                [
+                    html.Div(f"Begin date: {values_data.date.iloc[0]}"),
+                    html.Div(f"End date: {values_data.date.iloc[-1]}"),
+                ]
+            ),
+        ]
+    )
+
+
+@app.callback(
     Output("map-stations", "figure"),
     [Input("dataframe-stations", "children")],
 )
@@ -176,20 +272,20 @@ def render_map(payload):
     """
     Create a "map" Figure element from "stations" data.
     """
-    meta_data = pd.read_json(payload, orient="split")
-    log.info(f"Building stations map from {frame_summary(meta_data)}")
+    stations_data = pd.read_json(payload, orient="split")
+    log.info(f"Rendering stations map from {frame_summary(stations_data)}")
     fig = go.Figure(
         go.Scattermapbox(
-            lat=meta_data.latitude,
-            lon=meta_data.longitude,
+            lat=stations_data.latitude,
+            lon=stations_data.longitude,
             mode="markers",
             marker=go.scattermapbox.Marker(size=5),
             text=[
                 f"{name} <br>Station Height: {altitude}m <br>Id: {station_id}"
                 for name, altitude, station_id in zip(
-                    meta_data.station_name,
-                    meta_data.height,
-                    meta_data.station_id,
+                    stations_data.station_name,
+                    stations_data.height,
+                    stations_data.station_id,
                 )
             ],
         )
@@ -211,6 +307,10 @@ def render_map(payload):
             t=0,
         ),
     )
+
+    if stations_data.empty:
+        add_annotation_no_data(fig)
+
     return fig
 
 
@@ -224,30 +324,17 @@ def render_graph(variable, payload):
     Create a "graph" Figure element from "values" data.
     """
 
-    # FIXME: Showing these admonitions to the user does not work yet.
-
-    # Sanity checks.
-    if variable is None:
-        message = "No variable selected"
-        log.warning(message)
-        return html.Div(html.P(message))
-
-    no_data_message = f"No data available for {variable}"
-
     try:
         climate_data = pd.read_json(payload, orient="split")
-        if climate_data.empty:
-            raise ValueError(no_data_message)
-
-    except Exception:
-        log.warning(no_data_message)
-        return html.Div(html.P(no_data_message))
+    except ValueError:
+        climate_data = pd.DataFrame()
 
     log.info(
-        f"Building graph for variable={variable} from {frame_summary(climate_data)}"
+        f"Rendering graph for variable={variable} from {frame_summary(climate_data)}"
     )
 
     fig = default_figure(climate_data, variable)
+
     fig.update_layout(
         margin=go.layout.Margin(
             l=0,  # left margin
@@ -256,6 +343,7 @@ def render_graph(variable, payload):
             t=0,  # top margin
         )
     )
+
     return fig
 
 
