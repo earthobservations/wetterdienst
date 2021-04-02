@@ -247,7 +247,6 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     # TODO: Verify data.
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_yesterday():
     """
@@ -268,7 +267,7 @@ def test_radar_request_site_historic_dx_yesterday():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    buffer = results[1]
+    buffer = results[0].data
     payload = buffer.getvalue()
 
     # Verify data.
@@ -309,7 +308,6 @@ def test_radar_request_site_historic_dx_timerange():
     # TODO: Verify data.
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_binary_yesterday():
     """
@@ -334,7 +332,7 @@ def test_radar_request_site_historic_pe_binary_yesterday():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    buffer = results[1]
+    buffer = results[0].data
     payload = buffer.getvalue()
 
     # Verify data.
@@ -350,7 +348,6 @@ def test_radar_request_site_historic_pe_binary_yesterday():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_bufr():
     """
@@ -375,7 +372,7 @@ def test_radar_request_site_historic_pe_bufr():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    buffer = results[1]
+    buffer = results[0].data
     payload = buffer.getvalue()
 
     # Verify data.
@@ -431,7 +428,6 @@ def test_radar_request_site_historic_pe_timerange(format):
     # TODO: Verify data.
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_yesterday():
     """
@@ -451,7 +447,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    buffer = results[1]
+    buffer = results[0].data
     payload = buffer.getvalue()
 
     # Verify data.
@@ -721,7 +717,6 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
     # TODO: Verify data.
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     """
@@ -765,7 +760,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (361, 180))
+    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (360, 720))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(
@@ -888,7 +883,6 @@ def test_radar_request_radvor_re_timerange():
     # TODO: Verify data.
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday():
     """
