@@ -42,9 +42,6 @@ def dashboard_layout() -> html:
     """
     return html.Div(
         [
-            dcc.Location(id="url", refresh=False),
-            html.H1("Wetterdienst UI"),
-            # html.P("Hello world"),
             html.Div(
                 [
                     html.Div(
@@ -109,7 +106,7 @@ def dashboard_layout() -> html:
                             ),
                         ],
                         id="status-response",
-                        className="pretty_container four columns",
+                        className="pretty_container three columns",
                     ),
                     html.Div(
                         [dcc.Graph(id="map-stations")],
@@ -120,7 +117,10 @@ def dashboard_layout() -> html:
                 ],
                 id="header",
                 className="row flex-display",
-                style={"justify-content": "space-between", "margin-bottom": "25px"},
+                style={
+                    "justify-content": "space-between",
+                    "margin-bottom_inactive": "10px",
+                },
             ),
             html.Div(
                 [
@@ -137,6 +137,4 @@ def dashboard_layout() -> html:
             ),
             html.Div([], id="dataframe-stations", style={"display": "None"}),
         ],
-        id="mainContainer",
-        style={"display": "flex", "flex-direction": "column"},
     )

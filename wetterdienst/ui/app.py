@@ -7,6 +7,7 @@ Wetterdienst UI Dash application.
 import logging
 
 import dash
+import dash_bootstrap_components as dbc
 import dash_html_components as html
 import pandas as pd
 import plotly.graph_objects as go
@@ -20,7 +21,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.ui.layout.observations_germany import dashboard_layout
+from wetterdienst.ui.layout.main import get_app_layout
 from wetterdienst.ui.library import add_annotation_no_data, default_figure
 from wetterdienst.ui.util import frame_summary
 
@@ -28,10 +29,23 @@ log = logging.getLogger(__name__)
 
 # Create and configure Dash application object.
 app = dash.Dash(
-    __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
+    __name__,
+    meta_tags=[{"name": "viewport", "content": "width=device-width"}],
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
 )
 app.title = "Wetterdienst UI"
-app.layout = dashboard_layout()
+app.layout = get_app_layout()
+
+
+@app.callback(
+    Output("modal-about", "is_open"),
+    [Input("open-about", "n_clicks"), Input("close-about", "n_clicks")],
+    [State("modal-about", "is_open")],
+)
+def toggle_about(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
 
 
 @app.callback(
