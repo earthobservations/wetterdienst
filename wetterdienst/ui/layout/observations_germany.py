@@ -46,7 +46,7 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            html.P("Parameter:"),
+                            html.Div("Parameter:"),
                             dcc.Dropdown(
                                 id="select-parameter",
                                 options=get_parameters(),
@@ -54,7 +54,7 @@ def dashboard_layout() -> html:
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Resolution:"),
+                            html.Div("Resolution:"),
                             dcc.Dropdown(
                                 id="select-resolution",
                                 options=get_resolutions(),
@@ -62,7 +62,7 @@ def dashboard_layout() -> html:
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Period:"),
+                            html.Div("Period:"),
                             dcc.Dropdown(
                                 id="select-period",
                                 options=get_periods(),
@@ -70,13 +70,13 @@ def dashboard_layout() -> html:
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Weather station:"),
+                            html.Div("Station:"),
                             dcc.Dropdown(
                                 id="select-station",
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Variable:"),
+                            html.Div("Variable:"),
                             dcc.Loading(
                                 id="loading-1",
                                 children=[
@@ -94,33 +94,29 @@ def dashboard_layout() -> html:
                             ),
                         ],
                         id="navigation",
-                        className="pretty_container four columns",
+                        className="col wd-panel d-flex flex-column",
                     ),
                     html.Div(
                         [
                             html.Div(
                                 id="status-response-stations",
                             ),
+                            html.Hr(),
                             html.Div(
                                 id="status-response-values",
                             ),
                         ],
                         id="status-response",
-                        className="pretty_container three columns",
+                        className="col wd-panel flex-column",
                     ),
                     html.Div(
                         [dcc.Graph(id="map-stations")],
                         id="map",
-                        className="pretty_container four columns",
-                        style={"align-self": "flex-end"},
+                        className="col wd-panel",
                     ),
                 ],
                 id="header",
-                className="row flex-display",
-                style={
-                    "justify-content": "space-between",
-                    "margin-bottom_inactive": "10px",
-                },
+                className="d-flex flex-row",
             ),
             html.Div(
                 [
@@ -130,10 +126,10 @@ def dashboard_layout() -> html:
                             dcc.Graph(id="graph-values"),
                         ],
                         id="graph",
-                        className="pretty_container twelve columns",
+                        className="col wd-panel",
                     ),
                 ],
-                className="row flex-display",
+                className="d-flex flex-row",
             ),
             html.Div([], id="dataframe-stations", style={"display": "None"}),
         ],
