@@ -1,15 +1,15 @@
-Code Snippets
-*************
+###############
+Python examples
+###############
 
 .. contents::
     :local:
     :depth: 1
 
-DWD (German Weather Service)
-============================
 
-Historical Weather Observations
--------------------------------
+************************************
+DWD: Historical weather observations
+************************************
 
 Get available parameters for daily historical data of DWD:
 
@@ -50,8 +50,6 @@ Get stations for daily historical precipitation:
 
     print(stations.all().df.head())
 
-
-
 Get data for a parameter set:
 
 .. ipython:: python
@@ -86,10 +84,12 @@ Get data for a parameter:
 
     print(next(stations.all().values.query()))
 
-Mosmix
-------
 
-Get stations for Mosmix:
+*********************
+DWD: MOSMIX forecasts
+*********************
+
+Get stations for MOSMIX-SMALL:
 
 .. ipython:: python
 
@@ -102,7 +102,7 @@ Get stations for Mosmix:
 
     print(stations.all().df.head())
 
-Get data for Mosmix-L:
+Get data for MOSMIX-LARGE:
 
 .. ipython:: python
 

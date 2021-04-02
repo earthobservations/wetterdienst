@@ -1,7 +1,8 @@
 .. wetterdienst-api:
 
-API
-***
+##########
+Python API
+##########
 
 .. contents::
     :local:

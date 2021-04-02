@@ -5,7 +5,8 @@ Usage
 
    introduction
    api
+   code_snippets
    cli
    http_api
+   dash-ui
    docker
-   code_snippets

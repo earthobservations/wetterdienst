@@ -61,7 +61,7 @@ def run():
       --language=<language>         Output language. [Default: en]
       --version                     Show version information
       --debug                       Enable debug messages
-      --listen=<listen>             HTTP server listen address. [Default: localhost:7890]
+      --listen=<listen>             HTTP server listen address. [Default: 127.0.0.1:7890]
       --reload                      Run service and dynamically reload changed files
       -h --help                     Show this screen
 
