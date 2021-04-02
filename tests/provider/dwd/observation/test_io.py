@@ -4,6 +4,7 @@
 import datetime
 import json
 import os
+import shutil
 
 import dateutil.parser
 import mock
@@ -384,6 +385,73 @@ def test_export_parquet(tmpdir_factory):
     assert data["temperature_air_min_005"][-1] == -4.6
 
     os.unlink(filename)
+
+
+def test_export_zarr(tmpdir_factory):
+
+    import numpy as np
+    import zarr
+
+    # Request data.
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        start_date="2019",
+        end_date="2020",
+        tidy=False,
+    ).filter(
+        station_id=[1048],
+    )
+
+    df = request.values.all().df
+
+    # Save to Zarr group.
+    filename = tmpdir_factory.mktemp("data").join("observations.zarr")
+    df.io.export(f"file://{filename}")
+
+    # Read back Zarr group.
+    group = zarr.open(str(filename), mode="r")
+
+    # Validate dimensions.
+    assert len(group) == 19
+    assert len(group.index) == 366
+
+    # Validate column names.
+    assert set(group.keys()) == {
+        "index",
+        "date",
+        "station_id",
+        "qn_3",
+        "wind_gust_max",
+        "wind_speed",
+        "qn_4",
+        "precipitation_height",
+        "precipitation_form",
+        "sunshine_duration",
+        "snow_depth",
+        "cloud_cover_total",
+        "pressure_vapor",
+        "pressure_air",
+        "temperature_air_200",
+        "humidity",
+        "temperature_air_max_200",
+        "temperature_air_min_200",
+        "temperature_air_min_005",
+    }
+
+    # Validate content.
+    data = group
+
+    assert data["date"][0] == np.datetime64(
+        datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    )
+    assert data["temperature_air_min_005"][0] == 1.5
+    assert data["date"][-1] == np.datetime64(
+        datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    )
+    assert data["temperature_air_min_005"][-1] == -4.6
+
+    shutil.rmtree(filename)
 
 
 def test_export_feather(tmpdir_factory):

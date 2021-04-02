@@ -130,13 +130,77 @@ class IoAccessor:
                 feather.write_feather(self.df, filepath, compression="lz4")
 
             elif target.endswith(".parquet"):
-                # https://arrow.apache.org/docs/python/parquet.html
+                """
+                # Acquire data and store to Parquet file.
+                alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                fetch --target="file://observations.parquet"
+
+                # Check Parquet file.
+                parquet-tools schema observations.parquet
+                parquet-tools head observations.parquet
+
+                # References
+                - https://arrow.apache.org/docs/python/parquet.html
+                """
+
                 log.info(f"Writing to Parquet file '{filepath}'")
                 import pyarrow as pa
                 import pyarrow.parquet as pq
 
                 table = pa.Table.from_pandas(self.df)
                 pq.write_table(table, filepath)
+
+            elif target.endswith(".zarr"):
+                """
+                # Acquire data and store to Zarr group.
+                alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                fetch --target="file://observations.zarr"
+
+                # References
+                - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.from_dataframe.html
+                - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_zarr.html
+                """
+
+                log.info(f"Writing to Zarr group '{filepath}'")
+                import xarray
+
+                df = self.df
+
+                # Problem: `ValueError: Cannot setitem on a Categorical with a new category, set the categories first`.
+                # Solution: Let's convert all categorical columns back to their designated type representations.
+                #           https://stackoverflow.com/questions/32011359/convert-categorical-data-in-pandas-dataframe/32011969#32011969
+                if "quality" in df:
+                    df.quality = df.quality.astype("Int64")
+                categorical_columns = df.select_dtypes(["category"]).columns
+                df[categorical_columns] = df[categorical_columns].astype("str")
+
+                # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
+                # Solution: Fill gaps in the data.
+                df = df.fillna(-999)
+
+                # Convert pandas DataFrame to xarray Dataset.
+                dataset = xarray.Dataset.from_dataframe(df)
+                log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
+
+                # Export to Zarr format.
+                # TODO: Add "group" parameter.
+                #       Group path. (a.k.a. `path` in zarr terminology.)
+                # TODO: Also use attributes: `store.set_attribute()`
+                store = dataset.to_zarr(
+                    filepath,
+                    mode="w",
+                    group=None,
+                    encoding={"date": {"dtype": "datetime64"}},
+                )
+
+                # Reporting.
+                dimensions = store.get_dimensions()
+                variables = list(store.get_variables().keys())
+
+                log.info(
+                    f"Wrote Zarr file with dimensions={dimensions} and variables={variables}"
+                )
+                log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
 
             else:
                 raise KeyError("Unknown export file type")

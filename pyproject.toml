@@ -122,6 +122,8 @@ tomlkit = { version = "^0.7.0", optional = true }
 ipython = { version = "^7.10.1", optional = true }
 ipython-genutils = { version = "^0.2.0", optional = true }
 requests-ftp = "^0.3.1"
+zarr = {version = "^2.7.0", optional = true}
+xarray = {version = "^0.17.0", optional = true}
 
 [tool.poetry.dev-dependencies]
 black = "^20.8b1"
@@ -161,7 +163,7 @@ docs = [
 ]
 http = ["fastapi", "uvicorn"]
 sql = ["duckdb"]
-export = ["openpyxl", "pyarrow", "sqlalchemy"]
+export = ["openpyxl", "sqlalchemy", "pyarrow", "xarray", "zarr"]
 duckdb = ["duckdb"]
 influxdb = ["influxdb"]
 cratedb = ["crate"]
