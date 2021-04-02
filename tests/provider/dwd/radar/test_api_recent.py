@@ -58,7 +58,6 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
     assert hdf["/dataset1/data1/data"].shape == (360, 600)
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_recent_sweep_vol_v_hdf5():
     """
@@ -100,7 +99,7 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape == (360, 180)
+    assert hdf["/dataset1/data1/data"].shape == (360, 720)
 
     # Verify that the second file is the second scan / elevation level.
     buffer = results[1].data
