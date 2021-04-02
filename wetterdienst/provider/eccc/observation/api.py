@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import gzip
 import logging
 from enum import Enum
 from io import BytesIO
@@ -14,6 +15,7 @@ from urllib3 import Retry
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
@@ -334,9 +336,38 @@ class EcccObservationRequest(ScalarRequestCore):
 
         :return: CSV payload
         """
-        session = FTPSession()
-        response = session.retr(
+
+        ftp_url = (
             "ftp://client_climate:foobar@ftp.tor.ec.gc.ca"
             "/Pub/Get_More_Data_Plus_de_donnees/Station Inventory EN.csv"
         )
-        return response.content
+
+        http_url = (
+            "https://raw.githubusercontent.com/earthobservations/testdata"
+            "/main/ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees"
+            "/Station%20Inventory%20EN.csv.gz"
+        )
+
+        payload = None
+
+        # Try original source.
+        session = FTPSession()
+        try:
+            response = session.retr(ftp_url)
+            payload = response.content
+        except Exception:
+            log.exception(f"Unable to access FTP server at {ftp_url}")
+
+            # Fall back to different source.
+            try:
+                response = requests.get(http_url)
+                response.raise_for_status()
+                with gzip.open(BytesIO(response.content), mode="rb") as f:
+                    payload = f.read()
+            except Exception:
+                log.exception(f"Unable to access HTTP server at {http_url}")
+
+        if payload is None:
+            raise FailedDownload("Unable to acquire ECCC stations list")
+
+        return payload
