@@ -4,7 +4,7 @@ Changelog
 Development
 ***********
 
-...
+- Add capability to export data to Zarr format
 
 0.16.1 (31.03.2021)
 *******************

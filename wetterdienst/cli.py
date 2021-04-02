@@ -176,7 +176,13 @@ def run():
 
       # Export readings into Parquet format and display head of Parquet file
       fetch --target="file://observations.parquet"
+
+      # Check Parquet file
+      parquet-tools schema observations.parquet
       parquet-tools head observations.parquet
+
+      # Export readings into Zarr format
+      fetch --target="file://observations.zarr"
 
     Examples for exporting data to databases:
 
