@@ -5,6 +5,7 @@ Development
 ***********
 
 - Add capability to export data to Zarr format
+- Add Wetterdienst UI. Thanks, @meteoDaniel!
 
 0.16.1 (31.03.2021)
 *******************

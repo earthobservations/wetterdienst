@@ -22,8 +22,9 @@ contributions.
 Screenshot
 **********
 
-.. figure:: https://user-images.githubusercontent.com/453543/113368602-7fc93100-935f-11eb-9207-d13cfaaa7cac.png
+.. figure:: https://user-images.githubusercontent.com/453543/113444787-dcc2f680-93f4-11eb-8ca5-ad71c2e15007.png
     :name: Wetterdienst UI screenshot
+    :target: https://user-images.githubusercontent.com/453543/113444866-febc7900-93f4-11eb-827a-5af0e5e624de.png
 
 
 ********

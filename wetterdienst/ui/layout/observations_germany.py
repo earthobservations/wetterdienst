@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import operator
+
 import dash_core_components as dcc
 import dash_html_components as html
 
@@ -9,6 +11,29 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationPeriod,
     DwdObservationResolution,
 )
+
+
+def get_parameters():
+    return sorted(
+        [
+            {"label": param.value, "value": param.value}
+            for param in DwdObservationDataset
+        ],
+        key=operator.itemgetter("label"),
+    )
+
+
+def get_resolutions():
+    return [
+        {"label": param.value, "value": param.value}
+        for param in DwdObservationResolution
+    ]
+
+
+def get_periods():
+    return [
+        {"label": param.value, "value": param.value} for param in DwdObservationPeriod
+    ]
 
 
 def dashboard_layout() -> html:
@@ -24,46 +49,37 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            html.P("Select Parameter:"),
+                            html.P("Parameter:"),
                             dcc.Dropdown(
                                 id="select-parameter",
-                                options=[
-                                    {"label": param.value, "value": param.value}
-                                    for param in DwdObservationDataset
-                                ],
+                                options=get_parameters(),
                                 value=DwdObservationDataset.TEMPERATURE_AIR.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Select time resolution:"),
+                            html.P("Resolution:"),
                             dcc.Dropdown(
                                 id="select-resolution",
-                                options=[
-                                    {"label": param.value, "value": param.value}
-                                    for param in DwdObservationResolution
-                                ],
+                                options=get_resolutions(),
                                 value=DwdObservationResolution.HOURLY.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Select period type: [NOW, RECENT, HISTORIC]"),
+                            html.P("Period:"),
                             dcc.Dropdown(
                                 id="select-period",
-                                options=[
-                                    {"label": param.value, "value": param.value}
-                                    for param in DwdObservationPeriod
-                                ],
+                                options=get_periods(),
                                 value=DwdObservationPeriod.RECENT.value,
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Select weather station:"),
+                            html.P("Weather station:"),
                             dcc.Dropdown(
                                 id="select-station",
                                 multi=False,
                                 className="dcc_control",
                             ),
-                            html.P("Select variable:"),
+                            html.P("Variable:"),
                             dcc.Loading(
                                 id="loading-1",
                                 children=[
@@ -84,6 +100,18 @@ def dashboard_layout() -> html:
                         className="pretty_container four columns",
                     ),
                     html.Div(
+                        [
+                            html.Div(
+                                id="status-response-stations",
+                            ),
+                            html.Div(
+                                id="status-response-values",
+                            ),
+                        ],
+                        id="status-response",
+                        className="pretty_container four columns",
+                    ),
+                    html.Div(
                         [dcc.Graph(id="map-stations")],
                         id="map",
                         className="pretty_container four columns",
@@ -98,7 +126,7 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            html.P("Time-series graph", style={"text-align": "center"}),
+                            # html.P("Time-series graph", style={"text-align": "center"}),
                             dcc.Graph(id="graph-values"),
                         ],
                         id="graph",

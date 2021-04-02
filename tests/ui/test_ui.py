@@ -38,7 +38,7 @@ def test_app_layout(wetterdienst_ui, dash_tre):
 
 @pytest.mark.slow
 @pytest.mark.ui
-def test_app_data_stations(wetterdienst_ui, dash_tre):
+def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
     Verify if data for "stations" has been correctly propagated.
     """
@@ -46,6 +46,9 @@ def test_app_data_stations(wetterdienst_ui, dash_tre):
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-stations", timeout=5)
     time.sleep(0.5)
+
+    # Wait for status element.
+    dash_tre.wait_for_contains_text("#status-response", "Number of stations", timeout=1)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
@@ -64,6 +67,30 @@ def test_app_data_stations(wetterdienst_ui, dash_tre):
         "state",
     ]
     assert len(data["data"]) == 511
+
+
+@pytest.mark.slow
+@pytest.mark.ui
+def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
+    """
+    Verify if data for "stations" has been correctly propagated.
+    """
+
+    # Select parameter.
+    dash_tre.wait_for_element_by_id("select-parameter")
+    dash_tre.select_dcc_dropdown("#select-parameter", value="extreme_wind")
+
+    # Wait for data element.
+    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=5)
+    time.sleep(0.5)
+
+    # Wait for status element.
+    dash_tre.wait_for_contains_text(
+        "#status-response", "No data for stations", timeout=1
+    )
+    dash_tre.wait_for_contains_text("#status-response", "No data for values", timeout=1)
+    dash_tre.wait_for_contains_text("#map", "No matching data found", timeout=1)
+    dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=1)
 
 
 @pytest.mark.slow
@@ -96,6 +123,10 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-values")
+
+    # Wait for status element.
+    dash_tre.wait_for_contains_text("#status-response", "Number of records", timeout=1)
+    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=1)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
