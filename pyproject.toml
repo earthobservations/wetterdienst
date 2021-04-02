@@ -116,6 +116,7 @@ wradlib                         = { version = "^1.9.0", optional = true }
 # UI
 plotly                          = { version = "^4.14.3", optional = true }
 dash                            = { version = "^1.19.0", optional = true }
+dash-bootstrap-components       = { version = "^0.12.0", optional = true }
 
 matplotlib =  "^3.3.2"
 
@@ -170,7 +171,7 @@ docs = [
     "ipython"
 ]
 http = ["fastapi", "uvicorn"]
-ui = ["plotly", "dash"]
+ui = ["plotly", "dash", "dash-bootstrap-components"]
 sql = ["duckdb"]
 export = ["openpyxl", "sqlalchemy", "pyarrow", "xarray", "zarr"]
 duckdb = ["duckdb"]

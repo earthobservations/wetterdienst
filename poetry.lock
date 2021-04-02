@@ -347,6 +347,20 @@ dev = ["dash_flow_example (==0.0.5)", "dash-dangerously-set-inner-html", "flake8
 testing = ["pytest-sugar (>=0.9.4)", "lxml (>=4.6.2)", "selenium (>=3.141.0)", "percy (>=2.0.2)", "requests[security] (>=2.21.0)", "waitress (>=1.4.4)", "pytest (>=4.6,<5)", "pytest-mock (>=2.0.0,<3)", "beautifulsoup4 (>=4.8.2,<=4.9.3)", "pytest (>=6.0.2)", "pytest-mock (>=3.2.0)", "beautifulsoup4 (>=4.8.2)"]
 
 [[package]]
+name = "dash-bootstrap-components"
+version = "0.12.0"
+description = "Bootstrap themed components for use in Plotly Dash"
+category = "main"
+optional = true
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4"
+
+[package.dependencies]
+dash = ">=1.9.0"
+
+[package.extras]
+pandas = ["numpy", "pandas"]
+
+[[package]]
 name = "dash-core-components"
 version = "1.15.0"
 description = "Core component suite for Dash"
@@ -2580,12 +2594,12 @@ mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
 radar = ["wradlib"]
 sql = ["duckdb"]
-ui = ["plotly", "dash"]
+ui = ["plotly", "dash", "dash-bootstrap-components"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.1"
-content-hash = "78fb03d71faf7c616c8c341f1499ec612ce6576d0bfacb0fbb4017a33a1d8ecc"
+content-hash = "478288a10a402c93508b566dc2056e8f36c85578c3994cee38457ba5d16ffe87"
 
 [metadata.files]
 aiohttp = [
@@ -2907,6 +2921,10 @@ cycler = [
 ]
 dash = [
     {file = "dash-1.19.0.tar.gz", hash = "sha256:ba7307f94795fee844551791d401073d4e9b8d71596b37d54e131cec044268ef"},
+]
+dash-bootstrap-components = [
+    {file = "dash-bootstrap-components-0.12.0.tar.gz", hash = "sha256:8d28ddb5a1c368a2b60b27c30e20b190651e621603f67668bc9dce7545ce26c1"},
+    {file = "dash_bootstrap_components-0.12.0-py3-none-any.whl", hash = "sha256:9d4b0bdbfc86879599cb3f8314e65cf1cb4c015e25556e3fc18da95638f9b835"},
 ]
 dash-core-components = [
     {file = "dash_core_components-1.15.0.tar.gz", hash = "sha256:b61cb37322de91b4feb0d4d823694cbba8686f6459db774b53d553135350c71e"},
