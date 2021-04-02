@@ -8,6 +8,7 @@ import logging
 
 import dash
 import dash_bootstrap_components as dbc
+import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import plotly.graph_objects as go
@@ -31,7 +32,7 @@ log = logging.getLogger(__name__)
 app = dash.Dash(
     __name__,
     meta_tags=[{"name": "viewport", "content": "width=device-width"}],
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.themes.SANDSTONE],
 )
 app.title = "Wetterdienst UI"
 app.layout = get_app_layout()
@@ -199,30 +200,33 @@ def render_status_response_stations(
     Report about the status of the query.
     """
 
-    empty_message = html.Div(
-        [
-            html.P("No data for stations.", style={"font-weight": "bold"}),
-            html.P(
-                f'Maybe the combination of "{parameter}", "{resolution}" '
-                f'and "{period}" is invalid.'
-            ),
-        ]
-    )
+    title = [dcc.Markdown("#### Stations")]
+
+    empty_message = [
+        dcc.Markdown(
+            f"""
+No data.
+Maybe the combination of "{parameter}", "{resolution}" and "{period}" is invalid.
+    """
+        )
+    ]
 
     try:
         stations_data = pd.read_json(payload, orient="split")
     except ValueError:
-        return empty_message
+        return title + empty_message
 
     if stations_data.empty:
-        return empty_message
+        return title + empty_message
 
-    return html.Div(
-        [
-            html.P(f"Number of stations: {len(stations_data)}"),
-            html.P(f"Columns: {list(stations_data.columns)}"),
-        ]
-    )
+    return title + [
+        html.Div(
+            [
+                html.Div(f"Columns: {len(stations_data.columns)}"),
+                html.Div(f"Records: {len(stations_data)}"),
+            ]
+        )
+    ]
 
 
 @app.callback(
@@ -248,10 +252,13 @@ def render_status_response_values(
     Report about the status of the query.
     """
     values_data = pd.read_json(payload, orient="split")
+
+    messages = [dcc.Markdown("#### Values")]
+
     if values_data.empty:
 
         # Main message.
-        messages = [html.P("No data for values.", style={"font-weight": "bold"})]
+        empty_message = [html.Span("No data. ")]
 
         candidates = ["parameter", "resolution", "period", "station", "variable"]
         missing = []
@@ -260,22 +267,26 @@ def render_status_response_values(
                 missing.append(candidate)
 
         if missing:
-            messages.append(html.P(f"Please select all of missing options {missing}"))
+            empty_message.append(
+                html.Span(f"Please select all of the missing options {missing}.")
+            )
 
-        return html.Div(messages)
+        messages += [html.Div(empty_message), html.Br()]
 
-    return html.Div(
-        [
-            html.P(f"Number of records: {len(values_data)}"),
-            html.P(f"Columns: {list(values_data.columns)}"),
-            html.P(
-                [
-                    html.Div(f"Begin date: {values_data.date.iloc[0]}"),
-                    html.Div(f"End date: {values_data.date.iloc[-1]}"),
-                ]
-            ),
+    messages += [
+        html.Div(f"Columns: {len(values_data.columns)}"),
+        html.Div(f"Records: {len(values_data)}"),
+        html.Br(),
+    ]
+
+    if "date" in values_data:
+        messages += [
+            html.Div(f"Station: {station}"),
+            html.Div(f"Begin date: {values_data.date.iloc[0]}"),
+            html.Div(f"End date: {values_data.date.iloc[-1]}"),
         ]
-    )
+
+    return html.Div(messages)
 
 
 @app.callback(
@@ -295,7 +306,7 @@ def render_map(payload):
             mode="markers",
             marker=go.scattermapbox.Marker(size=5),
             text=[
-                f"{name} <br>Station Height: {altitude}m <br>Id: {station_id}"
+                f"Name: {name}<br>Id: {station_id}<br>Height: {altitude}m "
                 for name, altitude, station_id in zip(
                     stations_data.station_name,
                     stations_data.height,
