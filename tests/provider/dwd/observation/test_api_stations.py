@@ -73,13 +73,15 @@ def test_dwd_observations_stations_geojson():
         DwdObservationPeriod.HISTORICAL,
     )
 
-    df = request.all().df
+    results = request.all()
+
+    df = results.df
 
     assert not df.empty
 
     df = df[df[Columns.STATION_ID.value] == "00001"]
 
-    geojson = df.dwd.to_geojson()
+    geojson = results.to_ogc_feature_collection()
 
     properties = geojson["features"][0]["properties"]
     geometry = geojson["features"][0]["geometry"]

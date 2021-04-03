@@ -7,7 +7,7 @@ import sys
 from pprint import pformat
 
 import pandas as pd
-from docopt import docopt
+from docopt import DocoptExit, docopt
 from munch import Munch
 
 from wetterdienst import __appname__, __version__
@@ -31,7 +31,7 @@ def run():
       wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> [--station=<station>] [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecast stations --parameter=<parameter> [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecast stations [--parameter=<parameter>] [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd forecast values --parameter=<parameter> [--mosmix-type=<mosmix-type>] --station=<station> [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
@@ -65,7 +65,7 @@ def run():
       -h --help                     Show this screen
 
 
-    Examples requesting stations:
+    Examples requesting observation stations:
 
       # Get list of all stations for daily climate summary data in JSON format
       wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent
@@ -79,7 +79,7 @@ def run():
       # Get list of specific stations in GeoJSON format
       wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411 --format=geojson
 
-    Examples requesting readings:
+    Examples requesting observation values:
 
       # Get daily climate summary data for specific stations
       wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
@@ -113,6 +113,14 @@ def run():
 
       # Acquire hourly data
       wetterdienst dwd observation values --station=1048,4411 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
+
+    Examples requesting forecast stations:
+
+      wetterdienst dwd forecast stations
+
+    Examples requesting forecast values:
+
+      wetterdienst dwd forecast values --parameter=ttt,ff --station=65510
 
     Examples using geospatial features:
 
@@ -269,14 +277,14 @@ def run():
     stations = None
     if options.observation:
         stations = DwdObservationRequest(
-            parameter=options.parameter,
+            parameter=read_list(options.parameter),
             resolution=options.resolution,
             period=options.period,
             tidy=options.tidy,
         )
     elif options.forecast:
         stations = DwdMosmixRequest(
-            parameter=options.parameter,
+            parameter=read_list(options.parameter),
             mosmix_type=DwdMosmixType.LARGE,
             tidy=options.tidy,
         )
@@ -294,22 +302,30 @@ def run():
                 longitude=float(options.longitude),
                 max_distance_in_km=int(options.distance),
             )
+        else:
+            raise DocoptExit("Geospatial queries need either --number or --distance")
+        results = stations
+
     elif options.station:
-        stations = stations.filter(read_list(options.station))
+        results = stations.filter(read_list(options.station))
+
     else:
-        stations = stations.all()
+        results = stations.all()
 
     df = pd.DataFrame()
 
     if options.stations:
-        df = stations.df
+        pass
+
     elif options["values"]:
         try:
             # TODO: Add stream-based processing here.
-            df = stations.values.all().df
+            results = results.values.all()
         except ValueError as ex:
             log.exception(ex)
             sys.exit(1)
+
+    df = results.df
 
     if df.empty:
         log.error("No data available for given constraints")
@@ -317,21 +333,33 @@ def run():
 
     # Filter readings by datetime expression.
     if options["values"] and options.date:
-        df = df.dwd.filter_by_date(options.date, stations.stations.resolution)
+        results.filter_by_date(options.date)
 
     # Apply filtering by SQL.
     if options.sql:
+        if options.tidy:
+            log.error("Combining SQL filtering with tidy format not possible")
+            sys.exit(1)
+
         log.info(f"Filtering with SQL: {options.sql}")
-        df = df.io.sql(options.sql)
+        results.filter_by_sql(options.sql)
 
     # Emit to data sink, e.g. write to database.
     if options.target:
-        df.io.export(options.target)
+        results.to_target(options.target)
         return
 
     # Render to output format.
     try:
-        output = df.dwd.format(options.format)
+        if options.format == "json":
+            output = results.to_json()
+        elif options.format == "csv":
+            output = results.to_csv()
+        elif options.format == "geojson":
+            output = results.to_geojson()
+        else:
+            raise KeyError("Unknown output format")
+
     except KeyError as ex:
         log.error(f'{ex}. Output format must be one of "json", "geojson", "csv".')
         sys.exit(1)

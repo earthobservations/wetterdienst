@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
+from wetterdienst.core.process import tidy_up_data
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
@@ -198,7 +199,7 @@ class DwdObservationValues(ScalarValuesCore):
             parameter_df = parameter_df.append(period_df)
 
         if self.stations.tidy:
-            parameter_df = parameter_df.dwd.tidy_up_data()
+            parameter_df = tidy_up_data(parameter_df)
 
             # TODO: remove this column and rather move it into metadata of resulting
             #  data model

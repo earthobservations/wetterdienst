@@ -266,8 +266,8 @@ The result data is provided through a virtual table called ``data``.
         humanize=True,
     ).filter(station_id=[1048])
 
-    df = stations.values.all().df
-    df = df.io.sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
+    results = stations.values.all()
+    df = results.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
     print(df.head())
 
 Data export
@@ -297,8 +297,8 @@ Examples:
         humanize=True,
     ).filter(station_id=[1048])
 
-    df = stations.values.all().df
-    df.io.export("influxdb://localhost/?database=dwd&table=weather")
+    results = stations.values.all()
+    results.to_target("influxdb://localhost/?database=dwd&table=weather")
 
 Mosmix
 ======
