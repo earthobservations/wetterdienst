@@ -12,6 +12,9 @@ import pandas as pd
 import pytest
 from surrogate import surrogate
 
+from wetterdienst.core.process import filter_by_date_and_resolution
+from wetterdienst.core.scalar.export import ExportMixin
+from wetterdienst.core.scalar.result import StationsResult
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
@@ -47,9 +50,10 @@ df_data = pd.DataFrame.from_dict(
 
 
 def test_to_dict():
-    df = df_data.io.to_dict()
 
-    assert df == [
+    data = ExportMixin(df=df_data).to_dict()
+
+    assert data == [
         {
             "dataset": "climate_summary",
             "date": "2019-12-28T00:00:00+00:00",
@@ -63,19 +67,21 @@ def test_to_dict():
 
 def test_filter_by_date():
 
-    df = df_data.dwd.filter_by_date("2019-12-28", Resolution.HOURLY)
+    df = filter_by_date_and_resolution(df_data, "2019-12-28", Resolution.HOURLY)
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2019-12-27", Resolution.HOURLY)
+    df = filter_by_date_and_resolution(df_data, "2019-12-27", Resolution.HOURLY)
     assert df.empty
 
 
 def test_filter_by_date_interval():
 
-    df = df_data.dwd.filter_by_date("2019-12-27/2019-12-29", Resolution.HOURLY)
+    df = filter_by_date_and_resolution(
+        df_data, "2019-12-27/2019-12-29", Resolution.HOURLY
+    )
     assert not df.empty
 
-    df = df_data.dwd.filter_by_date("2020/2022", Resolution.HOURLY)
+    df = filter_by_date_and_resolution(df_data, "2020/2022", Resolution.HOURLY)
     assert df.empty
 
 
@@ -93,19 +99,19 @@ def test_filter_by_date_monthly():
         }
     )
 
-    df = result.dwd.filter_by_date("2019-12/2020-01", Resolution.MONTHLY)
+    df = filter_by_date_and_resolution(result, "2019-12/2020-01", Resolution.MONTHLY)
     assert not df.empty
 
-    df = result.dwd.filter_by_date("2020/2022", Resolution.MONTHLY)
+    df = filter_by_date_and_resolution(result, "2020/2022", Resolution.MONTHLY)
     assert df.empty
 
-    df = result.dwd.filter_by_date("2020", Resolution.MONTHLY)
+    df = filter_by_date_and_resolution(result, "2020", Resolution.MONTHLY)
     assert df.empty
 
 
 def test_filter_by_date_annual():
 
-    result = pd.DataFrame.from_dict(
+    df = pd.DataFrame.from_dict(
         {
             "station_id": ["01048"],
             "dataset": ["climate_summary"],
@@ -117,25 +123,29 @@ def test_filter_by_date_annual():
         }
     )
 
-    df = result.dwd.filter_by_date("2019-05/2019-09", Resolution.ANNUAL)
+    df = filter_by_date_and_resolution(
+        df, date="2019-05/2019-09", resolution=Resolution.ANNUAL
+    )
     assert not df.empty
 
-    df = result.dwd.filter_by_date("2020/2022", Resolution.ANNUAL)
+    df = filter_by_date_and_resolution(
+        df, date="2020/2022", resolution=Resolution.ANNUAL
+    )
     assert df.empty
 
-    df = result.dwd.filter_by_date("2020", Resolution.ANNUAL)
+    df = filter_by_date_and_resolution(df, date="2020", resolution=Resolution.ANNUAL)
     assert df.empty
 
 
 @pytest.mark.sql
 def test_filter_by_sql():
     # TODO: change this to a test of historical data
-    df = df_data.io.sql(
+    df = ExportMixin(df=df_data).filter_by_sql(
         "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
     )
     assert not df.empty
 
-    df = df_data.io.sql(
+    df = ExportMixin(df=df_data).filter_by_sql(
         "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 1.5"
     )
     assert df.empty
@@ -143,7 +153,7 @@ def test_filter_by_sql():
 
 def test_format_json():
 
-    output = df_data.io.format("json")
+    output = ExportMixin(df=df_data).to_json()
 
     response = json.loads(output)
     station_ids = list(set([reading["station_id"] for reading in response]))
@@ -153,7 +163,7 @@ def test_format_json():
 
 def test_format_geojson():
 
-    output = df_station.dwd.format("geojson")
+    output = StationsResult(df=df_station, stations=None).to_geojson()
 
     response = json.loads(output)
 
@@ -164,29 +174,13 @@ def test_format_geojson():
 
 def test_format_csv():
 
-    output = df_data.io.format("csv").strip()
+    output = ExportMixin(df=df_data).to_csv().strip()
 
     assert "station_id,dataset,parameter,date,value,quality" in output
     assert (
         "01048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3,"
         in output
     )
-
-
-def test_format_unknown_dwd():
-
-    with pytest.raises(KeyError) as ex:
-        df_data.dwd.format("foobar")
-
-    ex.match("Unknown output format")
-
-
-def test_format_unknown_io():
-
-    with pytest.raises(KeyError) as ex:
-        df_data.io.format("foobar")
-
-    ex.match("Unknown output format")
 
 
 def test_request():
@@ -215,7 +209,7 @@ def test_export_unknown():
     df = request.values.all().df
 
     with pytest.raises(KeyError) as ex:
-        df.io.export("file:///test.foobar")
+        ExportMixin(df=df).to_target("file:///test.foobar")
 
     ex.match("Unknown export file type")
 
@@ -238,7 +232,7 @@ def test_export_spreadsheet(tmpdir_factory):
     df = request.values.all().df
 
     filename = tmpdir_factory.mktemp("data").join("observations.xlsx")
-    df.io.export(f"file://{filename}")
+    ExportMixin(df=df).to_target(f"file://{filename}")
 
     workbook = openpyxl.load_workbook(filename=filename)
     worksheet = workbook.active
@@ -341,7 +335,7 @@ def test_export_parquet(tmpdir_factory):
 
     # Save to Parquet file.
     filename = tmpdir_factory.mktemp("data").join("observations.parquet")
-    df.io.export(f"file://{filename}")
+    ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Parquet file.
     table = pq.read_table(filename)
@@ -407,7 +401,7 @@ def test_export_zarr(tmpdir_factory):
 
     # Save to Zarr group.
     filename = tmpdir_factory.mktemp("data").join("observations.zarr")
-    df.io.export(f"file://{filename}")
+    ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Zarr group.
     group = zarr.open(str(filename), mode="r")
@@ -473,7 +467,7 @@ def test_export_feather(tmpdir_factory):
 
     # Save to Feather file.
     filename = tmpdir_factory.mktemp("data").join("observations.feather")
-    df.io.export(f"file://{filename}")
+    ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Feather file.
     table = feather.read_table(filename)
@@ -536,7 +530,7 @@ def test_export_sqlite(tmpdir_factory):
     filename = tmpdir_factory.mktemp("data").join("observations.sqlite")
 
     df = request.values.all().df
-    df.io.export(f"sqlite:///{filename}?table=testdrive")
+    ExportMixin(df=df).to_target(f"sqlite:///{filename}?table=testdrive")
 
     connection = sqlite3.connect(filename)
     cursor = connection.cursor()
@@ -603,7 +597,7 @@ def test_export_cratedb():
     ) as mock_to_sql:
 
         df = request.values.all().df
-        df.io.export("crate://localhost/?database=test&table=testdrive")
+        ExportMixin(df=df).to_target("crate://localhost/?database=test&table=testdrive")
 
         mock_to_sql.assert_called_once_with(
             name="testdrive",
@@ -631,7 +625,7 @@ def test_export_duckdb():
     ) as mock_connect:
 
         df = request.values.all().df
-        df.io.export("duckdb:///test.duckdb?table=testdrive")
+        ExportMixin(df=df).to_target("duckdb:///test.duckdb?table=testdrive")
 
         mock_connect.assert_called_once_with(database="test.duckdb", read_only=False)
         mock_connection.register.assert_called_once()
@@ -659,7 +653,7 @@ def test_export_influxdb_tabular():
     ) as mock_connect:
 
         df = request.values.all().df
-        df.io.export("influxdb://localhost/?database=dwd&table=weather")
+        ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")
@@ -691,7 +685,7 @@ def test_export_influxdb_tidy():
     ) as mock_connect:
 
         df = request.values.all().df
-        df.io.export("influxdb://localhost/?database=dwd&table=weather")
+        ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
 
         mock_connect.assert_called_once_with(database="dwd")
         mock_client.create_database.assert_called_once_with("dwd")

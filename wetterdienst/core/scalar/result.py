@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Union
 
 import pandas as pd
 
+from wetterdienst.core.process import filter_by_date_and_resolution
+from wetterdienst.core.scalar.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Frequency, Resolution
@@ -17,7 +19,7 @@ if TYPE_CHECKING:
     from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
 
 
-class StationsResult:
+class StationsResult(ExportMixin):
     def __init__(
         self,
         stations: Union["ScalarRequestCore", "DwdMosmixRequest"],
@@ -93,17 +95,63 @@ class StationsResult:
     def humanize(self) -> bool:
         return self.stations.humanize
 
-    def json(self) -> str:
-        raise NotImplementedError()
+    # TODO make compatible with forecast (instead of station_id, use wmo_id)
+    def to_ogc_feature_collection(self) -> dict:
+        """
+        Format station information as OGC feature collection.
+        Will be used by ``.to_geojson()``.
+
+        Return:
+             Dictionary in GeoJSON FeatureCollection format.
+        """
+
+        features = []
+        for _, station in self.df.iterrows():
+            features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "id": station["station_id"],
+                        "name": station["station_name"],
+                        "state": station["state"],
+                        "from_date": station["from_date"].isoformat(),
+                        "to_date": station["to_date"].isoformat(),
+                    },
+                    "geometry": {
+                        # WGS84 is implied and coordinates represent decimal degrees
+                        # ordered as "longitude, latitude [,elevation]" with z expressed
+                        # as metres above mean sea level per WGS84.
+                        # -- http://wiki.geojson.org/RFC-001
+                        "type": "Point",
+                        "coordinates": [
+                            station["longitude"],
+                            station["latitude"],
+                            station["height"],
+                        ],
+                    },
+                }
+            )
+
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+        }
 
 
 @dataclass
-class ValuesResult:
+class ValuesResult(ExportMixin):
+
     stations: StationsResult
     df: pd.DataFrame
 
     def __add__(self, other):
         pass
 
-    def json(self):
+    def to_ogc_feature_collection(self):
         raise NotImplementedError()
+
+    def filter_by_date(self, date: str) -> pd.DataFrame:
+        self.df = filter_by_date_and_resolution(
+            self.df, date=date, resolution=self.stations.resolution
+        )
+        return self.df

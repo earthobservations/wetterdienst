@@ -1,17 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""
-Postprocessing data.
-
-This aids in collecting, filtering, formatting and emitting data
-acquired through the core machinery.
-
-Extending pandas
-================
-- https://pandas.pydata.org/pandas-docs/stable/development/extending.html
-"""
+import json
 import logging
+from abc import abstractmethod
+from dataclasses import dataclass
 from urllib.parse import urlunparse
 
 import pandas as pd
@@ -22,31 +15,52 @@ from wetterdienst.util.url import ConnectionString
 log = logging.getLogger(__name__)
 
 
-@pd.api.extensions.register_dataframe_accessor("io")
-class IoAccessor:
-    def __init__(self, pandas_obj):
-        self.df: pd.DataFrame = pandas_obj
+@dataclass
+class ExportMixin:
+    """
+    Postprocessing data.
 
-    @staticmethod
-    def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
-        df: pd.DataFrame = df.copy(deep=True)
+    This aids in collecting, filtering, formatting and emitting data
+    acquired through the core machinery.
+    """
 
-        # Convert all datetime columns to ISO format.
-        date_columns = list(df.select_dtypes(include=[pd.DatetimeTZDtype]).columns)
-        for date_column in date_columns:
-            df[date_column] = df[date_column].apply(lambda d: d.isoformat())
+    df: pd.DataFrame
 
-        return df
+    def fill_gaps(self):
+        self.df = self.df.fillna(-999)
+        return self.df
+
+    def filter_by_sql(self, sql: str) -> pd.DataFrame:
+        self.df = self._filter_by_sql(self.df, sql)
+        return self.df
 
     def to_dict(self) -> dict:
 
         # Convert all datetime columns to ISO format.
-        df = self.convert_datetimes(self.df)
+        df = convert_datetimes(self.df)
 
         # Return dictionary with scalar types.
         return df.to_dict(orient="records")
 
-    def sql(self, sql: str) -> pd.DataFrame:
+    def to_json(self):
+        output = self.df.to_json(orient="records", date_format="iso", indent=4)
+        return output
+
+    def to_csv(self):
+        output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
+        return output
+
+    def to_geojson(self) -> str:
+        """
+        Convert station information into GeoJSON format.
+
+        Return:
+             JSON string in GeoJSON FeatureCollection format.
+        """
+        return json.dumps(self.to_ogc_feature_collection(), indent=4)
+
+    @staticmethod
+    def _filter_by_sql(df: pd.DataFrame, sql: str) -> pd.DataFrame:
         """
         Filter Pandas DataFrame using an SQL query.
         The virtual table name is "data", so queries
@@ -62,30 +76,13 @@ class IoAccessor:
         """
         import duckdb
 
-        return duckdb.query(self.df, "data", sql).df()
+        return duckdb.query(df, "data", sql).df()
 
-    def format(self, fmt: str) -> str:
-        """
-        Format/render Pandas DataFrame to given output format.
+    @abstractmethod
+    def to_ogc_feature_collection(self):
+        raise NotImplementedError()
 
-        :param fmt: One of json, geojson, csv, excel.
-        :return: Rendered payload.
-        """
-
-        # Format as JSON.
-        if fmt == "json":
-            output = self.df.to_json(orient="records", date_format="iso", indent=4)
-
-        # Format as CSV.
-        elif fmt == "csv":
-            output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
-
-        else:
-            raise KeyError("Unknown output format")
-
-        return output
-
-    def export(self, target: str):
+    def to_target(self, target: str):
         """
         Emit Pandas DataFrame to target. A target
         is identified by a connection string.
@@ -119,7 +116,7 @@ class IoAccessor:
                 log.info(f"Writing to spreadsheet file '{filepath}'")
 
                 # Convert all datetime columns to ISO format.
-                df = self.convert_datetimes(self.df)
+                df = convert_datetimes(self.df)
                 df.to_excel(filepath, index=False)
 
             elif target.endswith(".feather"):
@@ -422,3 +419,19 @@ class IoAccessor:
                 chunksize=chunksize,
             )
             log.info("Writing to SQL database finished")
+
+
+def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert all datetime columns to ISO format.
+
+    :param df:
+    :return:
+    """
+    df: pd.DataFrame = df.copy(deep=True)
+
+    date_columns = list(df.select_dtypes(include=[pd.DatetimeTZDtype]).columns)
+    for date_column in date_columns:
+        df[date_column] = df[date_column].apply(lambda d: d.isoformat())
+
+    return df

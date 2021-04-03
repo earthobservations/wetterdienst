@@ -10,6 +10,7 @@ import pytz
 from freezegun import freeze_time
 from pandas._testing import assert_frame_equal
 
+from wetterdienst.core.process import tidy_up_data
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -739,4 +740,4 @@ def test_tidy_up_data():
         }
     )
 
-    assert_frame_equal(df.dwd.tidy_up_data(), df_tidy)
+    assert_frame_equal(tidy_up_data(df), df_tidy)

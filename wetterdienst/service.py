@@ -98,23 +98,22 @@ def dwd_stations(
 
     if lon and lat and (number_nearby or max_distance_in_km):
         if number_nearby:
-            request = stations.nearby_number(
+            results = stations.nearby_number(
                 latitude=lat, longitude=lon, number=number_nearby
             )
         else:
-            request = stations.nearby_radius(
+            results = stations.nearby_radius(
                 latitude=lat, longitude=lon, max_distance_in_km=max_distance_in_km
             )
     else:
-        request = stations.all()
+        results = stations.all()
 
     # Postprocessing.
-    df = request.df
-
     if sql is not None:
-        df = df.io.sql(sql)
+        results.filter_by_sql(sql)
+    results.fill_gaps()
 
-    return make_json_response(df.fillna(-999).io.to_dict())
+    return make_json_response(results.to_dict())
 
 
 @app.get("/api/dwd/{kind}/values")
@@ -186,15 +185,15 @@ def dwd_values(
         resolution = request.resolution
 
     # Postprocessing.
-    df = request.filter(station_id=station_ids).values.all().df
+    results = request.filter(station_id=station_ids).values.all()
 
     if date is not None:
-        df = df.dwd.filter_by_date(date, resolution)
+        results.filter_by_date(date)
 
     if sql is not None:
-        df = df.io.sql(sql)
+        results.filter_by_sql(sql)
 
-    data = json.loads(df.to_json(orient="records", date_format="iso"))
+    data = json.loads(results.to_json())
 
     return make_json_response(data)
 

@@ -43,10 +43,11 @@ def sql_example():
     sql = "SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
 
-    df = stations.values.all().df
-    df = df.io.sql(sql)
+    # Acquire observation values and filter with SQL.
+    results = stations.values.all()
+    results.filter_by_sql(sql)
 
-    print(df)
+    print(results.df)
 
 
 def main():
