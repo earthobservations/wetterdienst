@@ -6,6 +6,7 @@ Development
 
 - Add capability to export data to Zarr format
 - Add Wetterdienst UI. Thanks, @meteoDaniel!
+- Add MAC ARM64 supoort with dependency restrictions
 
 0.16.1 (31.03.2021)
 *******************

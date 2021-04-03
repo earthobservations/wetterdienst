@@ -362,6 +362,30 @@ Development
 
 
 
+Known Issues
+************
+
+Under Mac ARM64 you need to install **pandas, numpy and scipy** as follows before continuing with the regular setup:
+
+.. code-block:: bash
+
+    pip install pandas --no-use-pep517
+    pip install numpy --no-use-pep517
+    pip install --no-binary :all: --no-use-pep517 scipy
+
+Further additional libraries are affected and have to be installed in a similar manner:
+
+.. code-block:: bash
+
+    # SQL related
+    pip install duckdb --no-use-pep517
+    brew install postgresql
+    brew link openssl (and export ENVS as given)
+    pip install psycopg2-binary --no-use-pep517
+
+Furthermore as h5py is currently bound to versions of numpy that conflict with the ARM64 ready libraries, h5py itself as
+well as wradlib are not available for users with that architecture!
+
 Important Links
 ***************
 

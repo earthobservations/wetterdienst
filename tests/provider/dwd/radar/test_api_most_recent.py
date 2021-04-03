@@ -3,9 +3,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import re
 
-import h5py
 import pytest
 
+from tests import mac_arm64, mac_arm64_unsupported
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import (
@@ -16,7 +16,11 @@ from wetterdienst.provider.dwd.radar.metadata import (
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
+if not mac_arm64:
+    import h5py
 
+
+@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     """
@@ -61,6 +65,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     assert hdf["/dataset1/data1/data"].shape == (360, 600)
 
 
+@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     """
