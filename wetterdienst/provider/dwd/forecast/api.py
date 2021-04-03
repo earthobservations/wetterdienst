@@ -78,7 +78,7 @@ class DwdMosmixValues(ScalarValuesCore):
         """Method for creation of parameter name mappings based on
         self._parameter_base"""
         hcnm = {
-            parameter.value: parameter.name
+            parameter.value: parameter.name.lower()
             for parameter in self.stations.stations._parameter_base[
                 self.stations.stations.mosmix_type.name
             ]

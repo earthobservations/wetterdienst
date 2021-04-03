@@ -81,7 +81,7 @@ class EcccObservationValues(ScalarValuesCore):
     def _create_humanized_parameters_mapping(self):
         # TODO: change to something general, depending on ._has_datasets
         hcnm = {
-            parameter.value: parameter.name
+            parameter.value: parameter.name.lower()
             for parameter in self.stations.stations._parameter_base[
                 self.stations.stations.resolution.name
             ]
