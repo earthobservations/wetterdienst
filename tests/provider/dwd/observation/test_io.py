@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 from surrogate import surrogate
 
+from tests import mac_arm64_unsupported
 from wetterdienst.core.process import filter_by_date_and_resolution
 from wetterdienst.core.scalar.export import ExportMixin
 from wetterdienst.core.scalar.result import StationsResult
@@ -316,6 +317,7 @@ def test_export_spreadsheet(tmpdir_factory):
     os.unlink(filename)
 
 
+@mac_arm64_unsupported
 def test_export_parquet(tmpdir_factory):
 
     import pyarrow.parquet as pq
@@ -381,6 +383,7 @@ def test_export_parquet(tmpdir_factory):
     os.unlink(filename)
 
 
+@mac_arm64_unsupported
 def test_export_zarr(tmpdir_factory):
 
     import numpy as np
@@ -448,6 +451,7 @@ def test_export_zarr(tmpdir_factory):
     shutil.rmtree(filename)
 
 
+@mac_arm64_unsupported
 def test_export_feather(tmpdir_factory):
 
     import pyarrow.feather as feather
