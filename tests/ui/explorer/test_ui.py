@@ -60,7 +60,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
         "height",
         "latitude",
         "longitude",
-        "station_name",
+        "name",
         "state",
     ]
     assert len(data["data"]) == 511

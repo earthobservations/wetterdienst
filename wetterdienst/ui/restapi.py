@@ -96,11 +96,11 @@ def dwd_stations(
 
     if longitude and latitude and (number_nearby or max_distance_in_km):
         if number_nearby:
-            results = stations.nearby_number(
+            results = stations.filter_by_rank(
                 latitude=latitude, longitude=longitude, number=number_nearby
             )
         else:
-            results = stations.nearby_radius(
+            results = stations.filter_by_distance(
                 latitude=latitude,
                 longitude=longitude,
                 max_distance_in_km=max_distance_in_km,
@@ -185,7 +185,7 @@ def dwd_values(
         resolution = request.resolution
 
     # Postprocessing.
-    results = request.filter(station_id=station_ids).values.all()
+    results = request.filter_by_station_id(station_id=station_ids).values.all()
 
     if date is not None:
         results.filter_by_date(date)

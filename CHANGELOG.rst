@@ -8,6 +8,11 @@ Development
 - Add Wetterdienst Explorer UI. Thanks, @meteoDaniel!
 - Add MAC ARM64 supoort with dependency restrictions
 - Radar: Verify HDF5 responses instead of returning invalid data
+- Add support for stations filtering via bbox and name
+- Add support for units in distance filtering
+- Rename station_name to name
+- Rename filter methods to .filter_by_station_id and .filter_by_name, use same convention for bbox, filter_by_rank
+  (previously nearby_number), filter_by_distance (nearby_distance)
 
 0.16.1 (31.03.2021)
 *******************

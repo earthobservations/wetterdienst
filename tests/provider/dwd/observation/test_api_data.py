@@ -34,7 +34,7 @@ def test_dwd_observation_data_dataset():
         period=["recent", "historical"],
     )
 
-    stations = request.filter(station_id=(1,))
+    stations = request.filter_by_station_id(station_id=(1,))
 
     assert stations == DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
@@ -42,7 +42,7 @@ def test_dwd_observation_data_dataset():
         period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
         start_date=None,
         end_date=None,
-    ).filter(
+    ).filter_by_station_id(
         station_id=(1,),
     )
 
@@ -50,7 +50,7 @@ def test_dwd_observation_data_dataset():
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
-    ).filter(
+    ).filter_by_station_id(
         station_id=(1,),
     )
 
@@ -60,7 +60,7 @@ def test_dwd_observation_data_dataset():
         period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
         start_date=None,
         end_date=None,
-    ).filter(
+    ).filter_by_station_id(
         station_id=(1,),
     )
 
@@ -77,7 +77,7 @@ def test_dwd_observation_data_parameter():
         parameter=["precipitation_height"],
         resolution="daily",
         period=["recent", "historical"],
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1],
     )
 
@@ -87,7 +87,7 @@ def test_dwd_observation_data_parameter():
         period=[Period.HISTORICAL, Period.RECENT],
         start_date=None,
         end_date=None,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1],
     )
 
@@ -107,7 +107,7 @@ def test_dwd_observation_data_fails():
             period=[DwdObservationPeriod.HISTORICAL],
             resolution=DwdObservationResolution.DAILY,
         )
-        .filter(
+        .filter_by_station_id(
             station_id=["test"],
         )
         .df.empty
@@ -137,7 +137,7 @@ def test_dwd_observation_data_dates():
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1],
     )
 
@@ -149,7 +149,7 @@ def test_dwd_observation_data_dates():
         ],
         start_date=datetime(1971, 1, 1),
         end_date=datetime(1971, 1, 1),
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1],
     )
 
@@ -158,7 +158,7 @@ def test_dwd_observation_data_dates():
         resolution=DwdObservationResolution.DAILY,
         period=[DwdObservationPeriod.HISTORICAL],
         end_date="1971-01-01",
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1],
     )
 
@@ -170,7 +170,7 @@ def test_dwd_observation_data_dates():
         ],
         start_date=datetime(1971, 1, 1),
         end_date=datetime(1971, 1, 1),
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1],
     )
 
@@ -270,7 +270,7 @@ def test_dwd_observation_data_result_missing_data():
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
         tidy=True,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -288,7 +288,7 @@ def test_dwd_observation_data_result_missing_data():
         resolution=DwdObservationResolution.HOURLY,
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end_date="2020-06-09 12:00:00",
-    ).filter(
+    ).filter_by_station_id(
         station_id=["03348"],
     )
 
@@ -318,7 +318,7 @@ def test_dwd_observation_data_result_tabular():
         end_date="1934-01-01",  # few days after official start,
         tidy=False,
         humanize=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -385,7 +385,7 @@ def test_dwd_observation_data_result_tidy():
         end_date="1934-01-01",  # few days after official start,
         tidy=True,
         humanize=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=(1048,),
     )
 
@@ -656,7 +656,7 @@ def test_create_humanized_column_names_mapping():
             DwdObservationResolution.DAILY,
             [DwdObservationPeriod.RECENT],
         )
-        .filter(
+        .filter_by_station_id(
             (0,),
         )
         .values._create_humanized_parameters_mapping()

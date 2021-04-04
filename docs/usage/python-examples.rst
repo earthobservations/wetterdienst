@@ -111,7 +111,7 @@ Get data for MOSMIX-LARGE:
 
     API = Wetterdienst(provider="dwd", kind="forecast")
 
-    stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter(
+    stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
         station_id=["01001", "01008"]
     )
 

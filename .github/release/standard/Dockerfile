@@ -3,6 +3,8 @@ FROM python:3.8.8-slim
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
+RUN apt-get update
+
 # Use "poetry build --format=wheel" to build wheel packages.
 COPY dist/wetterdienst-*.whl /tmp/
 

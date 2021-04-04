@@ -17,6 +17,7 @@ import requests
 from dash.dependencies import Input, Output, State
 
 from wetterdienst.exceptions import InvalidParameterCombination
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -130,7 +131,7 @@ def fetch_values(parameter: str, resolution: str, period: str, station_id: int):
         period=DwdObservationPeriod(period),
         tidy=False,
         humanize=True,
-    ).filter(station_id=(str(station_id),))
+    ).filter_by_station_id(station_id=(str(station_id),))
 
     try:
         df = stations.values.all().df
@@ -161,7 +162,10 @@ def render_navigation_stations(payload):
     return [
         {"label": name, "value": station_id}
         for name, station_id in sorted(
-            zip(stations_data.station_name, stations_data.station_id)
+            zip(
+                stations_data[Columns.NAME.value],
+                stations_data[Columns.STATION_ID.value],
+            )
         )
     ]
 

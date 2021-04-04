@@ -13,8 +13,10 @@ FROM python:3.8.8-slim as build-step
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
-# Install GDAL.
 RUN apt-get update
+
+
+# Install GDAL.
 RUN apt-get --yes install build-essential libgdal-dev libmariadbclient-dev
 
 # Make sure you have numpy installed before you attempt to install the GDAL Python bindings.

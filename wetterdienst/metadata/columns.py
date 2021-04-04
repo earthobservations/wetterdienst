@@ -16,7 +16,7 @@ class Columns(Enum):
     HEIGHT = "height"
     LATITUDE = "latitude"
     LONGITUDE = "longitude"
-    STATION_NAME = "station_name"
+    NAME = "name"
     STATE = "state"
     EOR = "eor"
     # Extra column names
@@ -34,8 +34,8 @@ class Columns(Enum):
     # Columns used for RADOLAN
     PERIOD_TYPE = "period_type"
     DATETIME = "datetime"
-    # Column for distance used by get_nearby_stations_...
-    DISTANCE_TO_LOCATION = "distance_to_location"
+    # Column for distance used by self.nearby_radius...
+    DISTANCE = "distance"
     # For mosmix
     WMO_ID = "wmo_id"
     ICAO_ID = "icao_id"

@@ -8,7 +8,6 @@ import pytest
 import pytz
 from pandas._testing import assert_frame_equal
 
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -16,9 +15,22 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
+EXPECTED_DF = pd.DataFrame(
+    {
+        "station_id": ["00001"],
+        "from_date": [datetime(1937, 1, 1, tzinfo=pytz.UTC)],
+        "to_date": [datetime(1986, 6, 30, tzinfo=pytz.UTC)],
+        "height": [478.0],
+        "latitude": [47.8413],
+        "longitude": [8.8493],
+        "name": ["Aach"],
+        "state": ["Baden-Württemberg"],
+    }
+)
+
 
 @pytest.mark.remote
-def test_dwd_observations_stations_success():
+def test_dwd_observations_stations_filter():
 
     # Existing combination of parameters
     request = DwdObservationRequest(
@@ -27,40 +39,74 @@ def test_dwd_observations_stations_success():
         DwdObservationPeriod.HISTORICAL,
     )
 
-    df = request.all().df
+    df = request.filter_by_station_id(station_id=("00001",)).df
 
     assert not df.empty
 
-    assert_frame_equal(
-        df.loc[df[Columns.STATION_ID.value] == "00001", :].reset_index(drop=True),
-        pd.DataFrame(
-            {
-                "station_id": ["00001"],
-                "from_date": [datetime(1937, 1, 1, tzinfo=pytz.UTC)],
-                "to_date": [datetime(1986, 6, 30, tzinfo=pytz.UTC)],
-                "height": [478.0],
-                "latitude": [47.8413],
-                "longitude": [8.8493],
-                "station_name": ["Aach"],
-                "state": ["Baden-Württemberg"],
-            }
-        ),
+    assert_frame_equal(df, EXPECTED_DF)
+
+
+@pytest.mark.remote
+def test_dwd_observations_stations_filter_name():
+
+    # Existing combination of parameters
+    request = DwdObservationRequest(
+        DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.HISTORICAL,
     )
 
-    # assert df.loc[
-    #     df[Columns.STATION_ID.value] == "00001", :
-    # ].values.tolist() == [
-    #     [
-    #         "00001",
-    #         datetime(1937, 1, 1, tzinfo=pytz.UTC),
-    #         datetime(1986, 6, 30, tzinfo=pytz.UTC),
-    #         478.0,
-    #         47.8413,
-    #         8.8493,
-    #         "Aach",
-    #         "Baden-Württemberg",
-    #     ]
-    # ]
+    df = request.filter_by_name(name="Aach").df
+
+    assert not df.empty
+
+    assert_frame_equal(df, EXPECTED_DF)
+
+
+@pytest.mark.remote
+def test_dwd_observations_stations_filter_empty():
+
+    # Existing combination of parameters
+    request = DwdObservationRequest(
+        DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.HISTORICAL,
+    )
+
+    df = request.filter_by_station_id(station_id=("FizzBuzz",)).df
+
+    assert df.empty
+
+
+@pytest.mark.remote
+def test_dwd_observations_stations_filter_name_empty():
+
+    # Existing combination of parameters
+    request = DwdObservationRequest(
+        DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.HISTORICAL,
+    )
+
+    df = request.filter_by_name(name="FizzBuzz").df
+
+    assert df.empty
+
+
+def test_dwd_observations_stations_fail():
+    with pytest.raises(TypeError):
+        DwdObservationRequest(
+            DwdObservationDataset.CLIMATE_SUMMARY,
+            DwdObservationResolution.DAILY,
+            DwdObservationPeriod.HISTORICAL,
+        ).filter_by_station_id(name="FizzBuzz")
+
+    with pytest.raises(TypeError):
+        DwdObservationRequest(
+            DwdObservationDataset.CLIMATE_SUMMARY,
+            DwdObservationResolution.DAILY,
+            DwdObservationPeriod.HISTORICAL,
+        ).filter_by_name(name=123)
 
 
 @pytest.mark.remote
@@ -73,13 +119,9 @@ def test_dwd_observations_stations_geojson():
         DwdObservationPeriod.HISTORICAL,
     )
 
-    results = request.all()
+    results = request.filter_by_station_id(station_id=("00001",))
 
-    df = results.df
-
-    assert not df.empty
-
-    df = df[df[Columns.STATION_ID.value] == "00001"]
+    assert not results.df.empty
 
     geojson = results.to_ogc_feature_collection()
 

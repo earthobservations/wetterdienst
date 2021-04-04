@@ -32,7 +32,7 @@ Overview
 .. image:: https://img.shields.io/pypi/status/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
 .. image:: https://pepy.tech/badge/wetterdienst/month
-   :target: https://pepy.tech/project/wetterdienst/month
+   :target: https://pepy.tech/project/wetterdienst
 .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
    :target: https://github.com/earthobservations/wetterdienst/blob/main/LICENSE
 .. image:: https://zenodo.org/badge/160953150.svg
@@ -224,7 +224,7 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
     ...    end_date="2020-01-01",  # Timezone: UTC
     ...    tidy=True,  # default, tidy data
     ...    humanize=True,  # default, humanized parameters
-    ... ).filter(station_id=(1048, 4411))
+    ... ).filter_by_station_id(station_id=(1048, 4411))
     >>> stations = request.df  # station list
     >>> values = request.values.all().df  # values
 
@@ -378,7 +378,6 @@ Further additional libraries are affected and have to be installed in a similar 
 .. code-block:: bash
 
     # SQL related
-    pip install duckdb --no-use-pep517
     brew install postgresql
     brew link openssl (and export ENVS as given)
     pip install psycopg2-binary --no-use-pep517

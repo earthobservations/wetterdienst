@@ -21,8 +21,8 @@ def create_temperature_ts_plot():
 
     df = stations.all()
 
-    station_id, _, _, height, lat, lon, station_name, state = df.sort_values("FROM_DATE").iloc[0].values
-    station_name = station_name.replace(u"ß", "ss")
+    station_id, _, _, height, lat, lon, name, state = df.sort_values("FROM_DATE").iloc[0].values
+    name = name.replace(u"ß", "ss")
 
     data = DwdObservationValues(
         [station_id],
@@ -57,7 +57,7 @@ def create_temperature_ts_plot():
 
     ax.set_xlabel("Date")
 
-    title = f"temperature (°C) at {station_name} (GER)\n" \
+    title = f"temperature (°C) at {name} (GER)\n" \
             f"ID {station_id}\n" \
             f"{lat}N {lon}E {height}m"
     ax.set_title(title)

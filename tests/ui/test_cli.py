@@ -167,7 +167,7 @@ def test_cli_stations_json(setting, station, expected_station_name, capsys):
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)
 
-    station_names = [station["station_name"] for station in response]
+    station_names = [station["name"] for station in response]
 
     assert expected_station_name in station_names
 
@@ -359,7 +359,7 @@ def test_cli_stations_geospatial(setting, station, capsys):
     stdout, stderr = capsys.readouterr()
     response = json.loads(stdout)
 
-    station_names = [station["station_name"] for station in response]
+    station_names = [station["name"] for station in response]
 
     assert station in station_names
 

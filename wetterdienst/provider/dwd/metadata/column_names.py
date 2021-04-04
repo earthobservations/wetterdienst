@@ -32,7 +32,7 @@ class DwdColumns(Enum):
     STATION_HEIGHT = "station_height"
     LATITUDE = "lat"
     LONGITUDE = "lon"
-    STATION_NAME = "station_name"
+    NAME = "name"
     STATE = "state"
     EOR = "eor"
     # Extra column names

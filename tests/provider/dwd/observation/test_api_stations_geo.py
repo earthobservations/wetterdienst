@@ -18,9 +18,80 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
+EXPECTED_DF_SINGLE = pd.DataFrame(
+    [
+        [
+            "04411",
+            Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
+            155.0,
+            49.9195,
+            8.9671,
+            "Schaafheim-Schlierbach",
+            "Hessen",
+            11.653026716750542,
+        ],
+    ],
+    columns=[
+        "station_id",
+        "from_date",
+        "height",
+        "latitude",
+        "longitude",
+        "name",
+        "state",
+        "distance",
+    ],
+)
+
+
+EXPECTED_DF_MULTIPLE = pd.DataFrame(
+    [
+        [
+            "04411",
+            Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
+            155.0,
+            49.9195,
+            8.9671,
+            "Schaafheim-Schlierbach",
+            "Hessen",
+            11.653026716750542,
+        ],
+        [
+            "02480",
+            Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
+            108.0,
+            50.0643,
+            8.993,
+            "Kahl/Main",
+            "Bayern",
+            12.572153957087247,
+        ],
+        [
+            "07341",
+            Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
+            119.0,
+            50.0899,
+            8.7862,
+            "Offenbach-Wetterpark",
+            "Hessen",
+            16.12612066977987,
+        ],
+    ],
+    columns=[
+        "station_id",
+        "from_date",
+        "height",
+        "latitude",
+        "longitude",
+        "name",
+        "state",
+        "distance",
+    ],
+)
+
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_number_success():
+def test_dwd_observation_stations_nearby_number_single():
 
     # Test for one nearest station
     request = DwdObservationRequest(
@@ -31,41 +102,18 @@ def test_dwd_observation_stations_nearby_number_success():
         datetime(2020, 1, 20),
     )
 
-    nearby_station = request.nearby_number(
+    nearby_station = request.filter_by_rank(
         50.0,
         8.9,
         1,
     )
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
-    assert_frame_equal(
-        nearby_station,
-        pd.DataFrame(
-            [
-                [
-                    "04411",
-                    Timestamp("2002-01-24", tzinfo=pytz.UTC),
-                    155.0,
-                    49.9195,
-                    8.9671,
-                    "Schaafheim-Schlierbach",
-                    "Hessen",
-                    11.65302672,
-                ]
-            ],
-            columns=[
-                "station_id",
-                "from_date",
-                "height",
-                "latitude",
-                "longitude",
-                "station_name",
-                "state",
-                "distance_to_location",
-            ],
-        ),
-    )
+    assert_frame_equal(nearby_station, EXPECTED_DF_SINGLE)
 
+
+@pytest.mark.remote
+def test_dwd_observation_stations_nearby_number_multiple():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
@@ -73,64 +121,18 @@ def test_dwd_observation_stations_nearby_number_success():
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
-    nearby_station = request.nearby_number(
+    nearby_station = request.filter_by_rank(
         50.0,
         8.9,
         3,
     )
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
-    nearby_station["station_id"] = nearby_station["station_id"]
 
-    pd.testing.assert_frame_equal(
-        nearby_station,
-        pd.DataFrame(
-            [
-                [
-                    "04411",
-                    Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
-                    155.0,
-                    49.9195,
-                    8.9671,
-                    "Schaafheim-Schlierbach",
-                    "Hessen",
-                    11.653026716750542,
-                ],
-                [
-                    "02480",
-                    Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
-                    108.0,
-                    50.0643,
-                    8.993,
-                    "Kahl/Main",
-                    "Bayern",
-                    12.572153957087247,
-                ],
-                [
-                    "07341",
-                    Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
-                    119.0,
-                    50.0899,
-                    8.7862,
-                    "Offenbach-Wetterpark",
-                    "Hessen",
-                    16.12612066977987,
-                ],
-            ],
-            columns=[
-                "station_id",
-                "from_date",
-                "height",
-                "latitude",
-                "longitude",
-                "station_name",
-                "state",
-                "distance_to_location",
-            ],
-        ),
-    )
+    pd.testing.assert_frame_equal(nearby_station, EXPECTED_DF_MULTIPLE)
 
 
-def test_dwd_observation_stations_nearby_distance_success():
+@pytest.mark.remote
+def test_dwd_observation_stations_nearby_distance():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
@@ -138,15 +140,69 @@ def test_dwd_observation_stations_nearby_distance_success():
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
-    nearby_station = request.nearby_radius(
+    # Kilometers
+    nearby_station = request.filter_by_distance(50.0, 8.9, 16.13, "km")
+    nearby_station = nearby_station.df.drop("to_date", axis="columns")
+
+    pd.testing.assert_frame_equal(nearby_station, EXPECTED_DF_MULTIPLE)
+
+    # Miles
+    nearby_station = request.filter_by_distance(50.0, 8.9, 10.03, "mi")
+    nearby_station = nearby_station.df.drop(columns="to_date")
+
+    pd.testing.assert_frame_equal(nearby_station, EXPECTED_DF_MULTIPLE)
+
+
+@pytest.mark.remote
+def test_dwd_observation_stations_bbox():
+    request = DwdObservationRequest(
+        DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationResolution.HOURLY,
+        DwdObservationPeriod.RECENT,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
+    )
+    nearby_station = request.filter_by_bbox(
+        left=8.7862, bottom=49.9195, right=8.993, top=50.0899
+    )
+    nearby_station = nearby_station.df.drop("to_date", axis="columns")
+
+    pd.testing.assert_frame_equal(
+        nearby_station,
+        EXPECTED_DF_MULTIPLE.drop(columns=["distance"])
+        .sort_values(["station_id"], key=lambda x: x.astype(int))
+        .reset_index(drop=True),
+    )
+
+
+@pytest.mark.remote
+def test_dwd_observation_stations_empty():
+    request = DwdObservationRequest(
+        DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationResolution.HOURLY,
+        DwdObservationPeriod.RECENT,
+        datetime(2020, 1, 1),
+        datetime(2020, 1, 20),
+    )
+    # Distance
+    assert request.filter_by_distance(
         50.0,
         8.9,
         10,
-    )
-    assert nearby_station.df.empty
+    ).df.empty
+
+    # Bbox
+    assert request.filter_by_bbox(
+        left=-100,
+        bottom=-20,
+        right=-90,
+        top=-10,
+    ).df.empty
 
 
-def test_dwd_observation_stations_nearby_number_fail_1():
+@pytest.mark.remote
+def test_dwd_observation_stations_fail():
+    # Number
     with pytest.raises(ValueError):
         DwdObservationRequest(
             DwdObservationDataset.TEMPERATURE_AIR,
@@ -154,11 +210,33 @@ def test_dwd_observation_stations_nearby_number_fail_1():
             DwdObservationPeriod.RECENT,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
-        ).nearby_number(
+        ).filter_by_rank(
             51.4,
             9.3,
             0,
         )
+    # Distance
+    with pytest.raises(ValueError):
+        DwdObservationRequest(
+            DwdObservationDataset.TEMPERATURE_AIR,
+            DwdObservationResolution.HOURLY,
+            DwdObservationPeriod.RECENT,
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
+        ).filter_by_distance(
+            51.4,
+            9.3,
+            -1,
+        )
+    # Bbox
+    with pytest.raises(ValueError):
+        DwdObservationRequest(
+            DwdObservationDataset.TEMPERATURE_AIR,
+            DwdObservationResolution.HOURLY,
+            DwdObservationPeriod.RECENT,
+            datetime(2020, 1, 1),
+            datetime(2020, 1, 20),
+        ).filter_by_bbox(left=10, bottom=10, right=5, top=5)
 
 
 def test_derive_nearest_neighbours():

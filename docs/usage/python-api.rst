@@ -143,6 +143,38 @@ Get station information for a given *parameter/parameter_set*, *resolution* and
 
 The function returns a Pandas DataFrame with information about the available stations.
 
+Filter for specific station ids:
+
+.. ipython:: python
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+
+    stations = DwdObservationRequest(
+        parameter=DwdObservationDataset.PRECIPITATION_MORE,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.HISTORICAL
+    ).filter_by_station_id(station_id=("01048", ))
+
+    df = stations.df
+
+    print(df.head())
+
+Filter for specific station name:
+
+.. ipython:: python
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+
+    stations = DwdObservationRequest(
+        parameter=DwdObservationDataset.PRECIPITATION_MORE,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.HISTORICAL
+    ).filter_by_name(name="Dresden-Klotzsche")
+
+    df = stations.df
+
+    print(df.head())
+
 Values
 ------
 
@@ -159,7 +191,7 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
         end_date="2020-01-01",
         tidy=True,
         humanize=True,
-    ).filter(station_id=[3, 1048])
+    ).filter_by_station_id(station_id=[3, 1048])
 
 From here you can query data by station:
 
@@ -187,7 +219,12 @@ Geospatial support
 Inquire the list of stations by geographic coordinates.
 
 - Calculate weather stations close to the given coordinates and set of parameters.
-- Either select by rank (n stations) or by distance in km.
+- Select stations by
+    - rank (n stations)
+    - distance (km, mi,...)
+    - bbox
+
+Distance with default (kilometers)
 
 .. ipython:: python
 
@@ -202,18 +239,81 @@ Inquire the list of stations by geographic coordinates.
         end_date=datetime(2020, 1, 20)
     )
 
-    df = stations.nearby_radius(
+    df = stations.filter_by_distance(
         latitude=50.0,
         longitude=8.9,
-        max_distance_in_km=30
+        distance=30
     ).df
 
     print(df.head())
 
-    df = stations.nearby_number(
+Distance with miles
+
+.. ipython:: python
+
+    from datetime import datetime
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+
+    stations = DwdObservationRequest(
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2020, 1, 20)
+    )
+
+    df = stations.filter_by_distance(
+        latitude=50.0,
+        longitude=8.9,
+        distance=30,
+        unit="mi"
+    ).df
+
+    print(df.head())
+
+Rank selection
+
+.. ipython:: python
+
+    from datetime import datetime
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+
+    stations = DwdObservationRequest(
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2020, 1, 20)
+    )
+
+    df = stations.filter_by_rank(
         latitude=50.0,
         longitude=8.9,
         number=5
+    ).df
+
+    print(df.head())
+
+Bbox selection
+
+.. ipython:: python
+
+    from datetime import datetime
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+
+    stations = DwdObservationRequest(
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
+        resolution=DwdObservationResolution.HOURLY,
+        period=DwdObservationPeriod.RECENT,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2020, 1, 20)
+    )
+
+    df = stations.bbox(
+        bottom=50.0,
+        left=8.9,
+        top=50.01,
+        right=8.91,
     ).df
 
     print(df.head())
@@ -232,10 +332,10 @@ Again from here we can jump to the corresponding data:
         period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
-    ).nearby_radius(
+    ).filter_by_distance(
         latitude=50.0,
         longitude=8.9,
-        max_distance_in_km=30
+        distance=30
     )
 
     for result in stations.values.query():
@@ -265,7 +365,7 @@ The result data is provided through a virtual table called ``data``.
         end_date="2020-01-01",
         tidy=True,
         humanize=True,
-    ).filter(station_id=[1048])
+    ).filter_by_station_id(station_id=[1048])
 
     results = stations.values.all()
     df = results.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
@@ -296,7 +396,7 @@ Examples:
         end_date="2020-01-01",
         tidy=True,
         humanize=True,
-    ).filter(station_id=[1048])
+    ).filter_by_station_id(station_id=[1048])
 
     results = stations.values.all()
     results.to_target("influxdb://localhost/?database=dwd&table=weather")
@@ -329,7 +429,7 @@ Get Mosmix-L data:
     stations = DwdMosmixRequest(
         parameter="large",
         mosmix_type=DwdMosmixType.LARGE
-    ).filter(station_id=["01001", "01008"])
+    ).filter_by_station_id(station_id=["01001", "01008"])
     response =  next(stations.values.query())
 
     print(response.stations.df)
