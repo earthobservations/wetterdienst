@@ -313,23 +313,23 @@ def run():
 
     if options.latitude and options.longitude:
         if options.number:
-            stations = stations.nearby_number(
+            stations = stations.filter_by_rank(
                 latitude=float(options.latitude),
                 longitude=float(options.longitude),
-                number=int(options.number),
+                rank=int(options.number),
             )
         elif options.distance:
-            stations = stations.nearby_radius(
+            stations = stations.filter_by_distance(
                 latitude=float(options.latitude),
                 longitude=float(options.longitude),
-                max_distance_in_km=int(options.distance),
+                distance=int(options.distance),
             )
         else:
             raise DocoptExit("Geospatial queries need either --number or --distance")
         results = stations
 
     elif options.station:
-        results = stations.filter(read_list(options.station))
+        results = stations.filter_by_station_id(read_list(options.station))
 
     else:
         results = stations.all()

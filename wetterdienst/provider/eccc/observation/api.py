@@ -130,7 +130,7 @@ class EcccObservationValues(ScalarValuesCore):
         name, from_date, to_date = (
             meta[
                 [
-                    Columns.STATION_NAME.value,
+                    Columns.NAME.value,
                     Columns.FROM_DATE.value,
                     Columns.TO_DATE.value,
                 ]
@@ -162,6 +162,7 @@ class EcccObservationValues(ScalarValuesCore):
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
 
+                # TODO change this back to verfiy=False
                 payload = self._http.get(url, timeout=60, verify=False)
 
                 df_temp = pd.read_csv(BytesIO(payload.content))
@@ -285,7 +286,7 @@ class EcccObservationRequest(ScalarRequestCore):
 
     _base_columns_mapping: dict = {
         "station id": Columns.STATION_ID.value,
-        "name": Columns.STATION_NAME.value,
+        "name": Columns.NAME.value,
         "province": Columns.STATE.value,
         # "CLIMATE_ID",
         # "WMO_ID",

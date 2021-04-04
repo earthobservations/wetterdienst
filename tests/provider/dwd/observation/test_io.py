@@ -32,7 +32,7 @@ df_station = pd.DataFrame.from_dict(
         "height": [645.0],
         "latitude": [48.8049],
         "longitude": [13.5528],
-        "station_name": ["Freyung vorm Wald"],
+        "name": ["Freyung vorm Wald"],
         "state": ["Bayern"],
         "has_file": [False],
     }
@@ -190,7 +190,7 @@ def test_request():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-    ).filter(station_id=[1048])
+    ).filter_by_station_id(station_id=[1048])
 
     df = request.values.all().df
 
@@ -203,7 +203,7 @@ def test_export_unknown():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -226,7 +226,7 @@ def test_export_spreadsheet(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -329,7 +329,7 @@ def test_export_parquet(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -396,7 +396,7 @@ def test_export_zarr(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -463,7 +463,7 @@ def test_export_feather(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -527,7 +527,7 @@ def test_export_sqlite(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -592,7 +592,7 @@ def test_export_cratedb():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-    ).filter(
+    ).filter_by_station_id(
         station_id=[1048],
     )
 
@@ -621,7 +621,7 @@ def test_export_duckdb():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-    ).filter(station_id=[1048])
+    ).filter_by_station_id(station_id=[1048])
 
     mock_connection = mock.MagicMock()
     with mock.patch(
@@ -647,7 +647,7 @@ def test_export_influxdb_tabular():
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy=False,
-    ).filter(station_id=[1048])
+    ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
     with mock.patch(
@@ -679,7 +679,7 @@ def test_export_influxdb_tidy():
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy=True,
-    ).filter(station_id=[1048])
+    ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
     with mock.patch(

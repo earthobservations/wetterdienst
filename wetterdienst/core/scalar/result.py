@@ -112,7 +112,7 @@ class StationsResult(ExportMixin):
                     "type": "Feature",
                     "properties": {
                         "id": station["station_id"],
-                        "name": station["station_name"],
+                        "name": station["name"],
                         "state": station["state"],
                         "from_date": station["from_date"].isoformat(),
                         "to_date": station["to_date"].isoformat(),

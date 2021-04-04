@@ -32,7 +32,7 @@ def station_example():
         humanize=True,
     )
 
-    df = stations.nearby_radius(latitude=50.0, longitude=8.9, max_distance_in_km=30).df
+    df = stations.filter_by_distance(latitude=50.0, longitude=8.9, distance=30).df
 
     print(df)
 

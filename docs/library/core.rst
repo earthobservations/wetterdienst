@@ -34,7 +34,7 @@ Download
 Enumerations
 ============
 
-.. automodule:: wetterdienst.provider.dwd.metadata.column_names
+.. automodule:: wetterdienst.metadata.columns
     :members:
 
 .. automodule:: wetterdienst.provider.dwd.metadata.datetime

@@ -42,7 +42,7 @@ def test_api(provider, kind, kwargs):
             "height",
             "latitude",
             "longitude",
-            "station_name",
+            "name",
             "state",
         }
     )

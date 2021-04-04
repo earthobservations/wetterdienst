@@ -38,7 +38,7 @@ def sql_example():
         humanize=True,
     )
 
-    stations = request.filter(station_id=(1048,))
+    stations = request.filter_by_station_id(station_id=(1048,))
 
     sql = "SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")

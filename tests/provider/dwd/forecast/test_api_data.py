@@ -14,7 +14,7 @@ def test_dwd_mosmix_l():
 
     request = DwdMosmixRequest(
         parameter="large", mosmix_type=DwdMosmixType.LARGE, humanize=False
-    ).filter(
+    ).filter_by_station_id(
         station_id=["01001"],
     )
     response = next(request.values.query())
@@ -25,7 +25,7 @@ def test_dwd_mosmix_l():
     # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = response.stations.df["station_name"].unique().tolist()
+    station_names = response.stations.df["name"].unique().tolist()
     assert station_names == ["JAN MAYEN"]
 
     # Verify forecast data.
@@ -174,7 +174,7 @@ def test_dwd_mosmix_s():
         mosmix_type=DwdMosmixType.SMALL,
         humanize=False,
         tidy=True,
-    ).filter(
+    ).filter_by_station_id(
         station_id=["01028"],
     )
     response = next(request.values.query())
@@ -185,7 +185,7 @@ def test_dwd_mosmix_s():
     # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
-    station_names = list(response.stations.df["station_name"].unique())
+    station_names = list(response.stations.df["name"].unique())
     assert station_names == ["BJORNOYA"]
 
     # Verify forecast data.
@@ -258,7 +258,7 @@ def test_mosmix_l_parameters():
         mosmix_type=DwdMosmixType.LARGE,
         parameter=["DD", "ww"],
         humanize=False,
-    ).filter(
+    ).filter_by_station_id(
         station_id=("01001", "123"),
     )
     response = next(request.values.query())

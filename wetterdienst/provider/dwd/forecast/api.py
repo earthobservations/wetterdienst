@@ -298,7 +298,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         Columns.HEIGHT.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
-        Columns.STATION_NAME.value,
+        Columns.NAME.value,
         Columns.STATE.value,
     ]
 
@@ -335,7 +335,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         Columns.HEIGHT.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
-        Columns.STATION_NAME.value,
+        Columns.NAME.value,
         Columns.STATE.value,
     ]
 
@@ -463,7 +463,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         df.columns = [
             Columns.STATION_ID.value,
             Columns.ICAO_ID.value,
-            Columns.STATION_NAME.value,
+            Columns.NAME.value,
             Columns.LATITUDE.value,
             Columns.LONGITUDE.value,
             Columns.HEIGHT.value,

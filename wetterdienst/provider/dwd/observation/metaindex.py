@@ -42,7 +42,7 @@ METADATA_COLUMNS = [
     Columns.HEIGHT.value,
     Columns.LATITUDE.value,
     Columns.LONGITUDE.value,
-    Columns.STATION_NAME.value,
+    Columns.NAME.value,
     Columns.STATE.value,
 ]
 
@@ -241,9 +241,9 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
 
-    missing_to_date_index = pd.isnull(meta_index_df[DwdColumns.TO_DATE.value])
+    missing_to_date_index = pd.isnull(meta_index_df[Columns.TO_DATE.value])
 
-    meta_index_df.loc[missing_to_date_index, DwdColumns.TO_DATE.value] = pd.Timestamp(
+    meta_index_df.loc[missing_to_date_index, Columns.TO_DATE.value] = pd.Timestamp(
         dt.date.today() - dt.timedelta(days=1)
     ).strftime("%Y%m%d")
 

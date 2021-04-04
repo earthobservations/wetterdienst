@@ -32,7 +32,7 @@ def mosmix_example():
         humanize=True,
     )
 
-    stations = request.filter(
+    stations = request.filter_by_station_id(
         station_id=["01001", "01008"],
     )
 
@@ -52,7 +52,7 @@ def mosmix_example():
         humanize=True,
     )
 
-    stations = request.filter(
+    stations = request.filter_by_station_id(
         station_id=["01001", "01008"],
     )
 

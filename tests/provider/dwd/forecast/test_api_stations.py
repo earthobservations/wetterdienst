@@ -31,7 +31,7 @@ def test_dwd_mosmix_stations_success():
                 "height": [10.0],
                 "latitude": [70.93],
                 "longitude": [-8.0],
-                "station_name": ["JAN MAYEN"],
+                "name": ["JAN MAYEN"],
                 "state": ["nan"],
             }
         ),

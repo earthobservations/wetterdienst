@@ -32,7 +32,7 @@ def test_dwd_stations_basic():
     )
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "00011"
-    assert response.json()["data"][0]["station_name"] == "Donaueschingen (Landeplatz)"
+    assert response.json()["data"][0]["name"] == "Donaueschingen (Landeplatz)"
     assert response.json()["data"][0]["latitude"] == 47.9737
     assert response.json()["data"][0]["longitude"] == 8.5205
 
@@ -65,13 +65,12 @@ def test_dwd_stations_sql():
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
-            "sql": "SELECT * FROM data WHERE lower(station_name) "
-            "LIKE lower('%dresden%');",
+            "sql": "SELECT * FROM data WHERE lower(name) " "LIKE lower('%dresden%');",
         },
     )
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "01048"
-    assert response.json()["data"][0]["station_name"] == "Dresden-Klotzsche"
+    assert response.json()["data"][0]["name"] == "Dresden-Klotzsche"
 
 
 def test_dwd_readings_success(dicts_are_same):

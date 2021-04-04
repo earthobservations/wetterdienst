@@ -16,6 +16,6 @@ GERMAN_TO_ENGLISH_COLUMNS_MAPPING = {
     DwdOrigColumns.LATITUDE_ALTERNATIVE.value: Columns.LATITUDE.value,
     DwdOrigColumns.LONGITUDE.value: Columns.LONGITUDE.value,
     DwdOrigColumns.LONGITUDE_ALTERNATIVE.value: Columns.LONGITUDE.value,
-    DwdOrigColumns.STATION_NAME.value: Columns.STATION_NAME.value,
+    DwdOrigColumns.STATION_NAME.value: Columns.NAME.value,
     DwdOrigColumns.STATE.value: Columns.STATE.value,
 }
