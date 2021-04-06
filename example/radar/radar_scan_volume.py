@@ -28,7 +28,7 @@ import logging
 import os
 from itertools import chain
 
-import matplotlib.pyplot as pl
+import matplotlib.pyplot as plt
 import wradlib as wrl
 
 from wetterdienst.provider.dwd.radar import (
@@ -56,7 +56,7 @@ def plot(data: wrl.io.XRadVolume):
     swp0 = swp0.pipe(wrl.georef.georeference_dataset)
 
     # Plot and display data using cartopy.
-    fig = pl.figure(figsize=(20, 8))
+    fig = plt.figure(figsize=(20, 8))
     ax1 = fig.add_subplot(121, aspect="equal")
     swp0.DBZH[0].plot(x="x", y="y", ax=ax1)
     ax2 = fig.add_subplot(122, aspect="equal")
@@ -118,7 +118,7 @@ def radar_scan_volume():
     # Plot and display data.
     plot(data)
     if "PYTEST_CURRENT_TEST" not in os.environ:
-        pl.show()
+        plt.show()
 
 
 def main():

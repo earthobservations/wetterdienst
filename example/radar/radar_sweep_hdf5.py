@@ -26,7 +26,7 @@ Setup
 import logging
 import os
 
-import matplotlib.pyplot as pl
+import matplotlib.pyplot as plt
 import numpy as np
 import wradlib as wrl
 
@@ -48,7 +48,7 @@ def plot(data: np.ndarray):
     Convenience function for plotting radar data.
     """
 
-    fig = pl.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
     wrl.vis.plot_ppi(data["dataset1/data1/data"], fig=fig, proj="cg")
 
 
@@ -86,7 +86,7 @@ def radar_hdf5_example():
         # Plot and display data.
         plot(data)
         if "PYTEST_CURRENT_TEST" not in os.environ:
-            pl.show()
+            plt.show()
 
 
 def main():
