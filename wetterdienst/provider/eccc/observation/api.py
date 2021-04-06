@@ -162,7 +162,7 @@ class EcccObservationValues(ScalarValuesCore):
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
 
-                payload = self._http.get(url, timeout=60)
+                payload = self._http.get(url, timeout=60, verify=False)
 
                 df_temp = pd.read_csv(BytesIO(payload.content))
 
