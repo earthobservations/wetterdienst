@@ -45,6 +45,7 @@ real-time for Germany.
 - Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product # noqa
 """
 import logging
+import os
 
 import matplotlib.pyplot as pl
 import numpy as np
@@ -135,7 +136,7 @@ def radolan_rw_example():
         start_date=DwdRadarDate.LATEST,
     )
 
-    for item in radolan.collect_data():
+    for item in radolan.query():
 
         # Decode data using wradlib.
         log.info("Parsing RADOLAN RW composite data for %s", item.timestamp)
@@ -146,7 +147,8 @@ def radolan_rw_example():
 
         # Plot and display data.
         plot(data, attributes, label)
-        pl.show()
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            pl.show()
 
 
 def main():

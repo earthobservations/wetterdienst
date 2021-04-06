@@ -2,6 +2,7 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import re
+from io import BytesIO
 
 import dateparser
 
@@ -46,3 +47,16 @@ def get_date_from_filename(filename):
         )
     except IndexError:
         pass
+
+
+def verify_hdf5(buffer: BytesIO):
+    import h5netcdf
+
+    buffer.seek(0)
+    try:
+        nc = h5netcdf.File(buffer, mode="r")
+        nc.close()
+        buffer.seek(0)
+    except Exception:
+        buffer.seek(0)
+        raise

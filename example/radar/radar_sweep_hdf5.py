@@ -24,6 +24,7 @@ Setup
 
 """
 import logging
+import os
 
 import matplotlib.pyplot as pl
 import numpy as np
@@ -73,7 +74,7 @@ def radar_hdf5_example():
         subset=DwdRadarDataSubset.SIMPLE,
     )
 
-    for item in request.collect_data():
+    for item in request.query():
 
         # Decode data using wradlib.
         log.info(f"Parsing radar data for {request.site} at '{item.timestamp}'")
@@ -84,7 +85,8 @@ def radar_hdf5_example():
 
         # Plot and display data.
         plot(data)
-        pl.show()
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            pl.show()
 
 
 def main():

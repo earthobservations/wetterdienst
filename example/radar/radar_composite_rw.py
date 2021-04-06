@@ -5,7 +5,7 @@
 =====
 About
 =====
-Example for DWD RADOLAN Composite RX using wetterdienst and wradlib.
+Example for DWD RADOLAN Composite RW using wetterdienst and wradlib.
 
 See also:
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
@@ -24,6 +24,7 @@ Setup
 
 """
 import logging
+import os
 
 import matplotlib.pyplot as pl
 import numpy as np
@@ -88,29 +89,30 @@ def radar_info(data: np.ndarray, attributes: dict):
         print(f"- {key}: {value}")
 
 
-def radar_rx_example():
+def radar_rw_example():
 
-    log.info("Acquiring radar RX composite data")
+    log.info("Acquiring radar RW composite data")
     radolan = DwdRadarValues(
-        parameter=DwdRadarParameter.RX_REFLECTIVITY,
+        parameter=DwdRadarParameter.RW_REFLECTIVITY,
         start_date=DwdRadarDate.LATEST,
     )
 
-    for item in radolan.collect_data():
+    for item in radolan.query():
 
         # Decode data using wradlib.
-        log.info("Parsing radar RX composite data for %s", item.timestamp)
+        log.info("Parsing radar RW composite data for %s", item.timestamp)
         data, attributes = wrl.io.read_radolan_composite(item.data)
 
         radar_info(data, attributes)
 
         # Plot and display data.
         plot(data, attributes)
-        pl.show()
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            pl.show()
 
 
 def main():
-    radar_rx_example()
+    radar_rw_example()
 
 
 if __name__ == "__main__":

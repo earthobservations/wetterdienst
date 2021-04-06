@@ -130,6 +130,7 @@ ipython-genutils = { version = "^0.2.0", optional = true }
 requests-ftp = "^0.3.1"
 zarr = {version = "^2.7.0", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')"}  # not supported through numcodecs
 xarray = {version = "^0.17.0", optional = true}
+h5netcdf = "^0.10.0"
 
 
 [tool.poetry.dev-dependencies]
