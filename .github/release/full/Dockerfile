@@ -45,7 +45,7 @@ COPY --from=build-step /usr/local/lib /usr/local/lib
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[http,sql,export,duckdb,influxdb,cratedb,mysql,postgresql,radar,bufr,ui]
+RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[sql,export,duckdb,influxdb,cratedb,mysql,postgresql,radar,bufr,restapi,explorer]
 
 # Purge /tmp directory
 RUN rm /tmp/*

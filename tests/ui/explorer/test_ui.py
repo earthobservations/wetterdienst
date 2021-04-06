@@ -24,7 +24,7 @@ from bs4 import BeautifulSoup
 
 
 @pytest.mark.slow
-@pytest.mark.ui
+@pytest.mark.explorer
 def test_app_layout(wetterdienst_ui, dash_tre):
 
     # Sanity check if we are on the right page.
@@ -37,7 +37,7 @@ def test_app_layout(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
-@pytest.mark.ui
+@pytest.mark.explorer
 def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
     Verify if data for "stations" has been correctly propagated.
@@ -67,7 +67,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
-@pytest.mark.ui
+@pytest.mark.explorer
 def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     """
     Verify if data for "stations" has been correctly propagated.
@@ -89,7 +89,7 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
-@pytest.mark.ui
+@pytest.mark.explorer
 def test_app_data_values(wetterdienst_ui, dash_tre):
     """
     Verify if data for "values" has been correctly propagated.

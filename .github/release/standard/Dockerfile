@@ -7,7 +7,7 @@ ENV TERM linux
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[http,sql,export]
+RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[sql,export,restapi]
 
 # Purge /tmp directory
 RUN rm /tmp/*
