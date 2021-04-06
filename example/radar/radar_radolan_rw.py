@@ -47,7 +47,7 @@ real-time for Germany.
 import logging
 import os
 
-import matplotlib.pyplot as pl
+import matplotlib.pyplot as plt
 import numpy as np
 import wradlib as wrl
 
@@ -85,21 +85,21 @@ def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = N
 
     Thanks!
     """
-    fig = pl.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
     x = grid[:, :, 0]
     y = grid[:, :, 1]
     pm = ax.pcolormesh(x, y, data, cmap="viridis", shading="auto")
     cb = fig.colorbar(pm, shrink=0.75)
     cb.set_label(clabel)
-    pl.xlabel("x [km]")
-    pl.ylabel("y [km]")
-    pl.title(
+    plt.xlabel("x [km]")
+    plt.ylabel("y [km]")
+    plt.title(
         "{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat())
     )
-    pl.xlim((x[0, 0], x[-1, -1]))
-    pl.ylim((y[0, 0], y[-1, -1]))
-    pl.grid(color="r")
+    plt.xlim((x[0, 0], x[-1, -1]))
+    plt.ylim((y[0, 0], y[-1, -1]))
+    plt.grid(color="r")
 
 
 def radolan_info(data: np.ndarray, attributes: dict):
@@ -148,7 +148,7 @@ def radolan_rw_example():
         # Plot and display data.
         plot(data, attributes, label)
         if "PYTEST_CURRENT_TEST" not in os.environ:
-            pl.show()
+            plt.show()
 
 
 def main():
