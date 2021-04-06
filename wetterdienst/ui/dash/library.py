@@ -52,7 +52,7 @@ def default_figure(climate_data: pd.DataFrame, column: str) -> go.Figure:
 
 def add_annotation_no_data(fig: go.Figure):
     fig.add_annotation(
-        text="No matching data found",
+        text="No data to display",
         xref="paper",
         yref="paper",
         showarrow=False,

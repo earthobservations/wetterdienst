@@ -252,7 +252,7 @@ def run():
         listen_address = options.listen
         log.info(f"Starting {appname}")
         log.info(f"Starting HTTP web service on http://{listen_address}")
-        from wetterdienst.service import start_service
+        from wetterdienst.ui.fastapi import start_service
 
         start_service(listen_address, reload=options.reload)
         return
@@ -262,7 +262,7 @@ def run():
         listen_address = options.listen
         log.info(f"Starting {appname}")
         log.info(f"Starting UI web service on http://{listen_address}")
-        from wetterdienst.ui.app import start_service
+        from wetterdienst.ui.dash.app import start_service
 
         start_service(listen_address, reload=options.reload)
         return

@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from wetterdienst import __appname__, __version__
 from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
-from wetterdienst.util.cli import read_list
+from wetterdienst.util.cli import read_list, setup_logging
 
 app = FastAPI(debug=False)
 
@@ -42,17 +42,14 @@ def index():
                 <a href="{producer_link}">{producer_link}</a></li>
             <li>Data copyright: {dwd_copyright}</li>
             </ul>
-            <h3>List of stations</h3>
+            <h3>Examples</h3>
             <ul>
-            <li><a href="api/dwd/stations">List of stations</a></li>
-            </ul>
-            <h3>Observations</h3>
-            <ul>
-            <li><a href="api/dwd/readings">Observations</a></li>
+            <li><a href="api/dwd/observation/stations?parameter=kl&resolution=daily&period=recent">Observation stations</a></li>
+            <li><a href="api/dwd/observation/values?parameter=kl&resolution=daily&period=recent&stations=00011">Observation values</a></li>
             </ul>
         </body>
     </html>
-    """
+    """  # noqa:E501,B950
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -211,8 +208,11 @@ def make_json_response(data):
 
 
 def start_service(listen_address, reload: bool = False):  # pragma: no cover
+
+    setup_logging()
+
     host, port = listen_address.split(":")
     port = int(port)
     from uvicorn.main import run
 
-    run(app="wetterdienst.service:app", host=host, port=port, reload=reload)
+    run(app="wetterdienst.ui.fastapi:app", host=host, port=port, reload=reload)

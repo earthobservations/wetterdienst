@@ -8,7 +8,7 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 
-from wetterdienst.ui.layout.observations_germany import dashboard_layout
+from wetterdienst.ui.dash.layout.observations_germany import dashboard_layout
 
 
 def get_about_modal():

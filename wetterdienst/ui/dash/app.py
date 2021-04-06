@@ -12,8 +12,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 from dash.dependencies import Input, Output, State
-from dash.exceptions import PreventUpdate
 
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.provider.dwd.observation import (
@@ -22,9 +22,9 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.ui.layout.main import get_app_layout
-from wetterdienst.ui.library import add_annotation_no_data, default_figure
-from wetterdienst.ui.util import frame_summary
+from wetterdienst.ui.dash.layout.main import get_app_layout
+from wetterdienst.ui.dash.library import add_annotation_no_data, default_figure
+from wetterdienst.ui.dash.util import frame_summary
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +36,8 @@ app = dash.Dash(
 )
 app.title = "Wetterdienst UI"
 app.layout = get_app_layout()
+
+empty_frame = pd.DataFrame().to_json(date_format="iso", orient="split")
 
 
 @app.callback(
@@ -77,8 +79,11 @@ def fetch_stations(parameter: str, resolution: str, period: str):
             resolution=DwdObservationResolution(resolution),
             period=DwdObservationPeriod(period),
         ).all()
-    except InvalidParameterCombination:
-        raise PreventUpdate
+    except (requests.exceptions.ConnectionError, InvalidParameterCombination) as ex:
+        log.warning(ex)
+        # raise PreventUpdate
+        log.error("Unable to connect to data source")
+        return empty_frame
 
     df = stations.df
 
@@ -104,8 +109,6 @@ def fetch_values(parameter: str, resolution: str, period: str, station_id: int):
 
     The data will be stored on a hidden within the browser DOM.
     """
-
-    empty_frame = pd.DataFrame().to_json(date_format="iso", orient="split")
 
     # Sanity checks.
     if station_id is None:
@@ -150,6 +153,8 @@ def render_navigation_stations(payload):
     chooser element.
     """
     stations_data = pd.read_json(payload, orient="split")
+    if stations_data.empty:
+        return []
     log.info(f"Rendering stations dropdown from {frame_summary(stations_data)}")
     return [
         {"label": name, "value": station_id}
@@ -298,25 +303,8 @@ def render_map(payload):
     Create a "map" Figure element from "stations" data.
     """
     stations_data = pd.read_json(payload, orient="split")
-    log.info(f"Rendering stations map from {frame_summary(stations_data)}")
-    fig = go.Figure(
-        go.Scattermapbox(
-            lat=stations_data.latitude,
-            lon=stations_data.longitude,
-            mode="markers",
-            marker=go.scattermapbox.Marker(size=5),
-            text=[
-                f"Name: {name}<br>Id: {station_id}<br>Height: {altitude}m "
-                for name, altitude, station_id in zip(
-                    stations_data.station_name,
-                    stations_data.height,
-                    stations_data.station_id,
-                )
-            ],
-        )
-    )
 
-    fig.update_layout(
+    layout_germany = dict(
         hovermode="closest",
         mapbox=dict(
             bearing=0,
@@ -334,7 +322,33 @@ def render_map(payload):
     )
 
     if stations_data.empty:
+        fig = go.Figure(
+            data=go.Scattermapbox(
+                mode="markers",
+            ),
+            layout=layout_germany,
+        )
         add_annotation_no_data(fig)
+        return fig
+
+    log.info(f"Rendering stations map from {frame_summary(stations_data)}")
+    fig = go.Figure(
+        data=go.Scattermapbox(
+            lat=stations_data.latitude,
+            lon=stations_data.longitude,
+            mode="markers",
+            marker=go.scattermapbox.Marker(size=5),
+            text=[
+                f"Name: {name}<br>Id: {station_id}<br>Height: {altitude}m "
+                for name, altitude, station_id in zip(
+                    stations_data.station_name,
+                    stations_data.height,
+                    stations_data.station_id,
+                )
+            ],
+        ),
+        layout=layout_germany,
+    )
 
     return fig
 

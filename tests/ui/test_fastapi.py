@@ -4,7 +4,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from wetterdienst.service import app
+from wetterdienst.ui.fastapi import app
 
 client = TestClient(app)
 

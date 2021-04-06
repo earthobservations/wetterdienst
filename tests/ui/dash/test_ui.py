@@ -84,7 +84,7 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     # Wait for status element.
     dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=1)
     dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=1)
-    dash_tre.wait_for_contains_text("#map", "No matching data found", timeout=1)
+    dash_tre.wait_for_contains_text("#map", "No data to display", timeout=1)
     dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=1)
 
 
