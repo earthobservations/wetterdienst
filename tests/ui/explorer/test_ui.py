@@ -45,7 +45,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-stations", timeout=5)
-    time.sleep(0.5)
+    time.sleep(1)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
