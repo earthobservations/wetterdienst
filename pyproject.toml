@@ -221,7 +221,7 @@ pycodestyle = ["-E501", "-B950"]
 
 [tool.flakehell.exceptions."wetterdienst/ui/cli.py"]
 pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/ui/fastapi.py"]
+[tool.flakehell.exceptions."wetterdienst/ui/restapi.py"]
 flake8-bugbear = ["-B008"]
 [tool.flakehell.exceptions."wetterdienst/core/scalar/export.py"]
 pycodestyle = ["-E501", "-B950"]

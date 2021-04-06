@@ -5,7 +5,7 @@ Development
 ***********
 
 - Add capability to export data to Zarr format
-- Add Wetterdienst UI. Thanks, @meteoDaniel!
+- Add Wetterdienst Explorer UI. Thanks, @meteoDaniel!
 - Add MAC ARM64 supoort with dependency restrictions
 - Radar: Verify HDF5 responses instead of returning invalid data
 
@@ -24,7 +24,7 @@ Development
 - Repair CLI and I/O subsystem
 - Add capability to export to Feather- and Parquet-files to I/O subsystem
 - Deprecate support for Python 3.6
-- Add ``--reload`` parameter to ``wetterdienst service`` for supporting development
+- Add ``--reload`` parameter to ``wetterdienst restapi`` for supporting development
 - Improve spreadsheet export
 - Increase I/O subsystem test coverage
 - Make all DWD observation field names lowercase

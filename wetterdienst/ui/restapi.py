@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse
@@ -207,12 +208,17 @@ def make_json_response(data):
     return response
 
 
-def start_service(listen_address, reload: bool = False):  # pragma: no cover
+def start_service(
+    listen_address: Optional[str] = None, reload: Optional[bool] = False
+):  # pragma: no cover
 
     setup_logging()
+
+    if listen_address is None:
+        listen_address = "127.0.0.1:7890"
 
     host, port = listen_address.split(":")
     port = int(port)
     from uvicorn.main import run
 
-    run(app="wetterdienst.ui.fastapi:app", host=host, port=port, reload=reload)
+    run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload)

@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup
 def test_app_layout(wetterdienst_ui, dash_tre):
 
     # Sanity check if we are on the right page.
-    assert dash_tre.find_element("h1").text == "Wetterdienst UI"
+    assert dash_tre.find_element("h1").text == "Wetterdienst Explorer"
 
     # Roughly verify the application elements.
     assert dash_tre.find_element("#navigation")

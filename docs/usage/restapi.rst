@@ -3,7 +3,7 @@ HTTP API
 
 Wetterdienst has an integrated HTTP API which can be started by invoking::
 
-    wetterdienst service
+    wetterdienst restapi
 
 
 Examples
