@@ -68,8 +68,8 @@ def dwd_stations(
     resolution: str = Query(default=None),
     period: str = Query(default=None),
     mosmix_type: str = Query(default=None),
-    lon: float = Query(default=None),
-    lat: float = Query(default=None),
+    longitude: float = Query(default=None),
+    latitude: float = Query(default=None),
     number_nearby: int = Query(default=None),
     max_distance_in_km: int = Query(default=None),
     sql: str = Query(default=None),
@@ -94,14 +94,16 @@ def dwd_stations(
     else:
         stations = DwdMosmixRequest(parameter=parameter, mosmix_type=mosmix_type)
 
-    if lon and lat and (number_nearby or max_distance_in_km):
+    if longitude and latitude and (number_nearby or max_distance_in_km):
         if number_nearby:
             results = stations.nearby_number(
-                latitude=lat, longitude=lon, number=number_nearby
+                latitude=latitude, longitude=longitude, number=number_nearby
             )
         else:
             results = stations.nearby_radius(
-                latitude=lat, longitude=lon, max_distance_in_km=max_distance_in_km
+                latitude=latitude,
+                longitude=longitude,
+                max_distance_in_km=max_distance_in_km,
             )
     else:
         results = stations.all()
