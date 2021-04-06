@@ -184,7 +184,7 @@ radar = ["wradlib", "pybufrkit", "h5py"]
 bufr = ["pybufrkit"]
 
 [tool.poetry.scripts]
-wetterdienst = 'wetterdienst.cli:run'
+wetterdienst = 'wetterdienst.ui.cli:run'
 wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
 
 [tool.dephell.main]
@@ -219,9 +219,9 @@ pycodestyle = ["-E501", "-B950"]
 [tool.flakehell.exceptions."tests/provider/dwd/observations/util/test_parameter.py"]
 pycodestyle = ["-E501", "-B950"]
 
-[tool.flakehell.exceptions."wetterdienst/cli.py"]
+[tool.flakehell.exceptions."wetterdienst/ui/cli.py"]
 pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/service.py"]
+[tool.flakehell.exceptions."wetterdienst/ui/fastapi.py"]
 flake8-bugbear = ["-B008"]
 [tool.flakehell.exceptions."wetterdienst/core/scalar/export.py"]
 pycodestyle = ["-E501", "-B950"]

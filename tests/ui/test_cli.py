@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import docopt
 import pytest
 
-from wetterdienst import cli
+from wetterdienst.ui import cli
 
 # Individual settings for observation and forecast
 SETTINGS_STATIONS = [

@@ -48,7 +48,7 @@ class DashCompositePlus(DashComposite):
 def wetterdienst_ui(dash_tre):
 
     # Import Dash application in testing mode.
-    app = import_app("wetterdienst.ui.app")
+    app = import_app("wetterdienst.ui.dash.app")
 
     # Start testing server and wait until page is loaded.
     dash_tre.start_server(app)
