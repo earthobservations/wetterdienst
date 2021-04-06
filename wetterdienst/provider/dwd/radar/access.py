@@ -12,6 +12,7 @@ from typing import Generator, Optional, Tuple
 
 import pandas as pd
 
+from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
@@ -167,7 +168,10 @@ def collect_radar_data(
             # Iterate list of files and yield "RadarResult" items.
             for _, row in file_index.iterrows():
                 url = row[DwdColumns.FILENAME.value]
-                yield download_radolan_data(start_date, url)
+                try:
+                    yield download_radolan_data(start_date, url)
+                except FailedDownload:
+                    log.exception()
 
         else:
             file_index = create_fileindex_radar(
@@ -361,6 +365,11 @@ def _extract_radolan_data(
                 raise FileNotFoundError(
                     f"RADOLAN file for {date_time_string} not found."
                 )  # pragma: no cover
+
+    except EOFError as ex:
+        raise FailedDownload(
+            f"RADOLAN file for {date_time_string} is invalid: {ex}"
+        )  # pragma: no cover
 
     # Otherwise if there's an error the data is from recent time period and only has to
     # be unpacked once
