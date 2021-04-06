@@ -4,9 +4,9 @@ Usage
    :maxdepth: 1
 
    introduction
-   api
-   code_snippets
+   python-api
+   python-examples
    cli
-   http_api
-   dash-ui
+   restapi
+   explorer
    docker

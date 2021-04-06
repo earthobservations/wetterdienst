@@ -1,8 +1,8 @@
-.. _dash-ui:
+.. _explorer-ui:
 
-###########
-Dash Web UI
-###########
+#####################
+Wetterdienst Explorer
+#####################
 
 Navigator for DWD open weather data.
 
@@ -11,8 +11,9 @@ Navigator for DWD open weather data.
 Introduction
 ************
 
-Welcome to Wetterdienst UI, your friendly web-based GUI for the Wetterdienst
-weather service library for Python. This web UI can easily be self-hosted.
+Welcome to Wetterdienst Explorer, your friendly web-based GUI for the
+Wetterdienst weather service library for Python. This web UI can easily be
+self-hosted.
 
 The implementation is still in its infancy, so we are happy about further
 contributions.
@@ -23,7 +24,7 @@ Screenshot
 **********
 
 .. figure:: https://user-images.githubusercontent.com/453543/113444787-dcc2f680-93f4-11eb-8ca5-ad71c2e15007.png
-    :name: Wetterdienst UI screenshot
+    :name: Wetterdienst Explorer UI screenshot
     :target: https://user-images.githubusercontent.com/453543/113444866-febc7900-93f4-11eb-827a-5af0e5e624de.png
 
 
@@ -33,7 +34,7 @@ Features
 
 Coverage
 ========
-Wetterdienst UI currently covers access to:
+Wetterdienst Explorer currently covers access to:
 
 - Weather observation data from DWD. Historical, recent and near real time.
 
@@ -47,14 +48,14 @@ Invoke service
 
 Install Wetterdienst and invoke the user interface::
 
-    # Install Wetterdienst
-    pip install --user wetterdienst[ui]
+    # Install Wetterdienst with Explorer extension
+    pip install --user wetterdienst[explorer]
 
-    # Run Wetterdienst UI
-    wetterdienst ui
+    # Run Wetterdienst Explorer UI
+    wetterdienst explorer
 
     # Navigate to web UI
-    open http://localhost:7890
+    open http://localhost:7891
 
 
 Invoke using Docker
@@ -62,7 +63,7 @@ Invoke using Docker
 
 Run the Wetterdienst user interface using Docker::
 
-    docker run -it --rm --publish=7890:7890 ghcr.io/earthobservations/wetterdienst-full wetterdienst ui --listen 0.0.0.0:7890
+    docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst-full wetterdienst explorer --listen 0.0.0.0:7890
 
 
 *******

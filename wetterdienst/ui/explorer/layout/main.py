@@ -2,28 +2,28 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
-Wetterdienst UI layout.
+Wetterdienst Explorer UI layout.
 """
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 
-from wetterdienst.ui.dash.layout.observations_germany import dashboard_layout
+from wetterdienst.ui.explorer.layout.observations_germany import dashboard_layout
 
 
 def get_about_modal():
     return dbc.Modal(
         [
-            dbc.ModalHeader(html.P("About Wetterdienst UI")),
+            dbc.ModalHeader(html.P("About Wetterdienst Explorer")),
             dbc.ModalBody(
                 dcc.Markdown(
                     """
-                        Wetterdienst UI is a Dash user interface on top of Wetterdienst.
+                    Wetterdienst Explorer is a Dash user interface on top of Wetterdienst.
 
-                        **Resources**:
-                        - https://wetterdienst.readthedocs.io/en/latest/overview.html
-                        - https://github.com/earthobservations/wetterdienst
-                                    """
+                    **Resources**:
+                    - https://wetterdienst.readthedocs.io/en/latest/overview.html
+                    - https://github.com/earthobservations/wetterdienst
+                    """
                 )
             ),
             dbc.ModalFooter(dbc.Button("Close", id="close-about", className="ml-auto")),
@@ -45,7 +45,7 @@ def get_app_layout():
             dcc.Location(id="url", refresh=False),
             html.Div(
                 [
-                    html.H1("Wetterdienst UI"),
+                    html.H1("Wetterdienst Explorer"),
                     # html.P("Hello world"),
                     dbc.Navbar(
                         [dbc.NavLink("About", id="open-about")],

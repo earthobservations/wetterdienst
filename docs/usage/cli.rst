@@ -8,15 +8,18 @@ Command Line Interface
     $ wetterdienst --help
 
     Usage:
-      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --station=<station> [--period=<period>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--persist] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecast stations [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--persist] [--sql=<sql>] [--format=<format>]
-      wetterdienst dwd forecast values --mosmix-type=<mosmix-type> --station=<station> [--parameter=<parameter>] [--persist] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> [--station=<station>] [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecast stations [--parameter=<parameter>] [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecast values --parameter=<parameter> [--mosmix-type=<mosmix-type>] --station=<station> [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
       wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
-      wetterdienst service [--listen=<listen>]
+      wetterdienst radar stations [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
+      wetterdienst dwd radar stations
+      wetterdienst restapi [--listen=<listen>] [--reload]
+      wetterdienst explorer [--listen=<listen>] [--reload]
       wetterdienst --version
       wetterdienst (-h | --help)
 
@@ -29,7 +32,6 @@ Command Line Interface
       --longitude=<longitude>       Longitude for filtering by geoposition.
       --number=<number>             Number of nearby stations when filtering by geoposition.
       --distance=<distance>         Maximum distance in km when filtering by geoposition.
-      --persist                     Save and restore data to filesystem w/o going to the network
       --date=<date>                 Date for filtering data. Can be either a single date(time) or
                                     an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
       --mosmix-type=<mosmix-type>   type of mosmix, either 'small' or 'large'
@@ -39,11 +41,12 @@ Command Line Interface
       --language=<language>         Output language. [Default: en]
       --version                     Show version information
       --debug                       Enable debug messages
-      --listen=<listen>             HTTP server listen address. [Default: localhost:7890]
+      --listen=<listen>             HTTP server listen address.
+      --reload                      Run service and dynamically reload changed files
       -h --help                     Show this screen
 
 
-    Examples requesting stations:
+    Examples requesting observation stations:
 
       # Get list of all stations for daily climate summary data in JSON format
       wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent
@@ -57,13 +60,16 @@ Command Line Interface
       # Get list of specific stations in GeoJSON format
       wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --station=1,1048,4411 --format=geojson
 
-    Examples requesting values:
+    Examples requesting observation values:
 
       # Get daily climate summary data for specific stations
       wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
 
-      # Optionally save/restore to/from disk in order to avoid asking upstream servers each time
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --persist
+      # Get daily climate summary data for specific stations in CSV format
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
+
+      # Get daily climate summary data for specific stations in tidy format
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --tidy
 
       # Limit output to specific date
       wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01
@@ -72,30 +78,38 @@ Command Line Interface
       wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
 
       # The real power horse: Acquire data across historical+recent data sets
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=historical,recent --date=1969-01-01/2020-06-11
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --date=1969-01-01/2020-06-11
 
       # Acquire monthly data for 2020-05
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=monthly --period=recent,historical --date=2020-05
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=monthly --date=2020-05
 
       # Acquire monthly data from 2017-01 to 2019-12
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=monthly --period=recent,historical --date=2017-01/2019-12
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=monthly --date=2017-01/2019-12
 
       # Acquire annual data for 2019
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=annual --period=recent,historical --date=2019
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=annual --date=2019
 
       # Acquire annual data from 2010 to 2020
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=annual --period=recent,historical --date=2010/2020
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=annual --date=2010/2020
 
       # Acquire hourly data
       wetterdienst dwd observation values --station=1048,4411 --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12
 
+    Examples requesting forecast stations:
+
+      wetterdienst dwd forecast stations
+
+    Examples requesting forecast values:
+
+      wetterdienst dwd forecast values --parameter=ttt,ff --station=65510
+
     Examples using geospatial features:
 
-      # Acquire stations and values by geoposition, request specific number of nearby stations.
+      # Acquire stations and readings by geoposition, request specific number of nearby stations.
       wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5
       wetterdienst dwd observation values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30
 
-      # Acquire stations and values by geoposition, request stations within specific radius.
+      # Acquire stations and readings by geoposition, request stations within specific distance.
       wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
       wetterdienst dwd observation values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25 --date=2020-06-30
 
@@ -110,8 +124,12 @@ Command Line Interface
       # Find stations by name (regexp query).
       wetterdienst dwd observation stations --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
 
-      # Filter measurements: Display daily climate observation values where the maximum temperature is below two degrees.
-      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE element='temperature_air_max_200' AND value < 2.0;"
+      # Filter measurements: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE temperature_air_max_200 < 2.0;"
+
+      # Filter measurements: Same as above, but use tidy format.
+      # FIXME: Currently, this does not work, see https://github.com/earthobservations/wetterdienst/issues/377.
+      wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 2.0;" --tidy
 
     Examples for inquiring metadata:
 
@@ -134,21 +152,61 @@ Command Line Interface
       # Tell me all parameters available for 'daily' resolution.
       wetterdienst dwd about coverage --resolution=daily
 
+    Examples for exporting data to files:
+
+      # Export list of stations into spreadsheet
+      wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent --target=file://stations.xlsx
+
+      # Shortcut command for fetching readings
+      alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+
+      # Export readings into spreadsheet (Excel-compatible)
+      fetch --target="file://observations.xlsx"
+
+      # Export readings into Parquet format and display head of Parquet file
+      fetch --target="file://observations.parquet"
+
+      # Check Parquet file
+      parquet-tools schema observations.parquet
+      parquet-tools head observations.parquet
+
+      # Export readings into Zarr format
+      fetch --target="file://observations.zarr"
+
     Examples for exporting data to databases:
 
-      # Shortcut command for fetching values from DWD
-      alias fetch="wetterdienst dwd values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+      # Shortcut command for fetching readings
+      alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
 
-      # Store values to DuckDB
-      fetch --target="duckdb://database=dwd.duckdb&table=weather"
+      # Store readings to DuckDB
+      fetch --target="duckdb:///dwd.duckdb?table=weather"
 
-      # Store values to InfluxDB
+      # Store readings to InfluxDB
       fetch --target="influxdb://localhost/?database=dwd&table=weather"
 
-      # Store values to CrateDB
+      # Store readings to CrateDB
       fetch --target="crate://localhost/?database=dwd&table=weather"
 
-    Run as HTTP service:
+    Invoke the HTTP REST API service:
 
-      wetterdienst dwd service
-      wetterdienst dwd service --listen=0.0.0.0:9999
+      # Start service on standard port, listening on http://localhost:7890.
+      wetterdienst restapi
+
+      # Start service on standard port and watch filesystem changes.
+      # This is suitable for development.
+      wetterdienst restapi --reload
+
+      # Start service on public interface and specific port.
+      wetterdienst restapi --listen=0.0.0.0:8890
+
+    Invoke the Wetterdienst Explorer UI service:
+
+      # Start service on standard port, listening on http://localhost:7891.
+      wetterdienst explorer
+
+      # Start service on standard port and watch filesystem changes.
+      # This is suitable for development.
+      wetterdienst explorer --reload
+
+      # Start service on public interface and specific port.
+      wetterdienst explorer --listen=0.0.0.0:8891

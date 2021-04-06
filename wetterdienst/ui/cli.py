@@ -38,8 +38,8 @@ def run():
       wetterdienst dwd about fields --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
       wetterdienst radar stations [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
       wetterdienst dwd radar stations
-      wetterdienst service [--listen=<listen>] [--reload]
-      wetterdienst ui [--listen=<listen>] [--reload]
+      wetterdienst restapi [--listen=<listen>] [--reload]
+      wetterdienst explorer [--listen=<listen>] [--reload]
       wetterdienst --version
       wetterdienst (-h | --help)
 
@@ -61,7 +61,7 @@ def run():
       --language=<language>         Output language. [Default: en]
       --version                     Show version information
       --debug                       Enable debug messages
-      --listen=<listen>             HTTP server listen address. [Default: 127.0.0.1:7890]
+      --listen=<listen>             HTTP server listen address.
       --reload                      Run service and dynamically reload changed files
       -h --help                     Show this screen
 
@@ -207,29 +207,29 @@ def run():
       # Store readings to CrateDB
       fetch --target="crate://localhost/?database=dwd&table=weather"
 
-    Invoke the HTTP service:
+    Invoke the HTTP REST API service:
 
       # Start service on standard port, listening on http://localhost:7890.
-      wetterdienst service
+      wetterdienst restapi
 
       # Start service on standard port and watch filesystem changes.
       # This is suitable for development.
-      wetterdienst service --reload
+      wetterdienst restapi --reload
 
       # Start service on public interface and specific port.
-      wetterdienst service --listen=0.0.0.0:9999
+      wetterdienst restapi --listen=0.0.0.0:8890
 
-    Invoke the UI service:
+    Invoke the Wetterdienst Explorer UI service:
 
-      # Start service on standard port, listening on http://localhost:7890.
-      wetterdienst ui
+      # Start service on standard port, listening on http://localhost:7891.
+      wetterdienst explorer
 
       # Start service on standard port and watch filesystem changes.
       # This is suitable for development.
-      wetterdienst ui --reload
+      wetterdienst explorer --reload
 
       # Start service on public interface and specific port.
-      wetterdienst ui --listen=0.0.0.0:9999
+      wetterdienst explorer --listen=0.0.0.0:8891
 
     """
     appname = f"{__appname__} {__version__}"
@@ -248,21 +248,21 @@ def run():
     setup_logging(log_level)
 
     # Run HTTP service.
-    if options.service:  # pragma: no cover
+    if options.restapi:  # pragma: no cover
         listen_address = options.listen
         log.info(f"Starting {appname}")
         log.info(f"Starting HTTP web service on http://{listen_address}")
-        from wetterdienst.ui.fastapi import start_service
+        from wetterdienst.ui.restapi import start_service
 
         start_service(listen_address, reload=options.reload)
         return
 
     # Run UI service.
-    if options.ui:  # pragma: no cover
+    if options.explorer:  # pragma: no cover
         listen_address = options.listen
         log.info(f"Starting {appname}")
         log.info(f"Starting UI web service on http://{listen_address}")
-        from wetterdienst.ui.dash.app import start_service
+        from wetterdienst.ui.explorer.app import start_service
 
         start_service(listen_address, reload=options.reload)
         return

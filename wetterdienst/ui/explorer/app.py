@@ -2,9 +2,10 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
-Wetterdienst UI Dash application.
+Wetterdienst Explorer UI Dash application.
 """
 import logging
+from typing import Optional
 
 import dash
 import dash_bootstrap_components as dbc
@@ -22,9 +23,10 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.ui.dash.layout.main import get_app_layout
-from wetterdienst.ui.dash.library import add_annotation_no_data, default_figure
-from wetterdienst.ui.dash.util import frame_summary
+from wetterdienst.ui.explorer.layout.main import get_app_layout
+from wetterdienst.ui.explorer.library import add_annotation_no_data, default_figure
+from wetterdienst.ui.explorer.util import frame_summary
+from wetterdienst.util.cli import setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +36,7 @@ app = dash.Dash(
     meta_tags=[{"name": "viewport", "content": "width=device-width"}],
     external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.themes.SANDSTONE],
 )
-app.title = "Wetterdienst UI"
+app.title = "Wetterdienst Explorer"
 app.layout = get_app_layout()
 
 empty_frame = pd.DataFrame().to_json(date_format="iso", orient="split")
@@ -386,10 +388,18 @@ def render_graph(variable, payload):
     return fig
 
 
-def start_service(listen_address, reload: bool = False):  # pragma: no cover
+def start_service(
+    listen_address: Optional[str] = None, reload: Optional[bool] = False
+):  # pragma: no cover
     """
     This entrypoint will be used by `wetterdienst.cli`.
     """
+
+    setup_logging()
+
+    if listen_address is None:
+        listen_address = "127.0.0.1:7891"
+
     host, port = listen_address.split(":")
     port = int(port)
     app.server.run(host=host, port=port, debug=reload)
