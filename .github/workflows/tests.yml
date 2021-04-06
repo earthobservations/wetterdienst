@@ -54,7 +54,7 @@ jobs:
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
     - name: Install dependencies
-      #run: poetry install --no-interaction --no-root --extras=http --extras=sql --extras=export --extras=ui
+      #run: poetry install --no-interaction --no-root --extras=sql --extras=export --extras=restapi --extras=explorer
       run: .github/workflows/install.sh testing
       #if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
 

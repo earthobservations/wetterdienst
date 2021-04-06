@@ -2586,20 +2586,20 @@ bufr = []
 cratedb = ["crate"]
 docs = ["sphinx", "sphinx-material", "tomlkit", "sphinx-autodoc-typehints", "sphinxcontrib-svg2pdfconverter", "matplotlib", "ipython"]
 duckdb = ["duckdb"]
+explorer = ["plotly", "dash", "dash-bootstrap-components"]
 export = ["openpyxl", "sqlalchemy", "pyarrow", "xarray", "zarr"]
-http = ["fastapi", "uvicorn"]
 influxdb = ["influxdb"]
 ipython = ["ipython", "ipython-genutils", "matplotlib"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
 radar = ["wradlib"]
+restapi = ["fastapi", "uvicorn"]
 sql = ["duckdb"]
-ui = ["plotly", "dash", "dash-bootstrap-components"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.1"
-content-hash = "0e946dc00c136767ad33d42a182d5b31a785d6d05e34d10c6cbd91d61b20ec15"
+content-hash = "e9020c44ed421f78265a1f5d4da1317d018dd397142478d1a00d59bcc34b31cf"
 
 [metadata.files]
 aiohttp = [
