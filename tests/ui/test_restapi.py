@@ -20,7 +20,7 @@ def test_robots():
     assert response.status_code == 200
 
 
-def test_dwd_stations():
+def test_dwd_stations_basic():
 
     response = client.get(
         "/api/dwd/observation/stations",
@@ -33,6 +33,28 @@ def test_dwd_stations():
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "00011"
     assert response.json()["data"][0]["station_name"] == "Donaueschingen (Landeplatz)"
+    assert response.json()["data"][0]["latitude"] == 47.9737
+    assert response.json()["data"][0]["longitude"] == 8.5205
+
+
+def test_dwd_stations_geo():
+
+    response = client.get(
+        "/api/dwd/observation/stations",
+        params={
+            "parameter": "kl",
+            "resolution": "daily",
+            "period": "recent",
+            "latitude": 45.54,
+            "longitude": 10.10,
+            "number_nearby": 5,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["data"][0]["station_id"] == "03730"
+    assert response.json()["data"][0]["station_name"] == "Oberstdorf"
+    assert response.json()["data"][0]["latitude"] == 47.3984
+    assert response.json()["data"][0]["longitude"] == 10.2759
 
 
 def test_dwd_stations_sql():
