@@ -198,7 +198,6 @@ def test_radar_request_composite_historic_fx_timerange():
     )
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday():
     """
@@ -213,8 +212,12 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         start_date=timestamp,
     )
 
-    buffer = next(request.query())[1]
-    payload = buffer.getvalue()
+    results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
+    payload = results[0].data.getvalue()
 
     # Verify data.
     # TODO: Use wradlib to parse binary format.
@@ -222,7 +225,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"RW{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT  60GP 900x 900MF 00000001MS "  # noqa:E501,B950
+        f"RW{date_time}10000{month_year}BY.......VS 3SW   2.28..PR E-01INT  60GP 900x 900MF 00000001MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
@@ -889,7 +892,6 @@ def test_radar_request_radvor_re_timerange():
     # TODO: Verify data.
 
 
-@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday():
     """
@@ -923,7 +925,7 @@ def test_radar_request_radvor_rq_yesterday():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"RQ{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
+        f"RQ{date_time}10000{month_year}BY.......VS 3SW   2.28..PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_sorted}"  # noqa:E501,B950
     )
 

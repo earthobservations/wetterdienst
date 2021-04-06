@@ -12,7 +12,7 @@ See also:
 - https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5) # noqa
 
 This program will request the most recent complete SWEEP_PCP data
-for Boostedt and plot the outcome with matplotlib.
+for Essen and plot the outcome with matplotlib.
 
 
 =====
@@ -82,27 +82,25 @@ def radar_scan_precip():
     request_velocity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DwdRadarDate.MOST_RECENT,
-        site=DwdRadarSite.BOO,
+        site=DwdRadarSite.ESS,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
     )
     request_reflectivity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
         start_date=DwdRadarDate.MOST_RECENT,
-        site=DwdRadarSite.BOO,
+        site=DwdRadarSite.ESS,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
     )
 
     log.info(
-        f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.BOO} at "
+        f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at "
         f"{request_velocity.start_date}"
     )
 
     # Submit requests.
-    results = chain(
-        request_velocity.collect_data(), request_reflectivity.collect_data()
-    )
+    results = chain(request_velocity.query(), request_reflectivity.query())
 
     # Collect list of buffers.
     files = list(map(lambda item: item.data, results))
@@ -115,11 +113,8 @@ def radar_scan_precip():
 
     # Plot and display data.
     plot(data)
-    pl.show()
-
-    # Remove temporary files.
-    for tmpfile in files:
-        os.unlink(tmpfile)
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        pl.show()
 
 
 def main():

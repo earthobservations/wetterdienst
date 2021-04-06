@@ -7,6 +7,7 @@ Development
 - Add capability to export data to Zarr format
 - Add Wetterdienst UI. Thanks, @meteoDaniel!
 - Add MAC ARM64 supoort with dependency restrictions
+- Radar: Verify HDF5 responses instead of returning invalid data
 
 0.16.1 (31.03.2021)
 *******************

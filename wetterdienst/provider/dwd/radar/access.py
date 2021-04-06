@@ -29,7 +29,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarResolution,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
-from wetterdienst.provider.dwd.radar.util import get_date_from_filename
+from wetterdienst.provider.dwd.radar.util import get_date_from_filename, verify_hdf5
 from wetterdienst.util.cache import (
     payload_cache_five_minutes,
     payload_cache_twelve_hours,
@@ -68,7 +68,7 @@ class RadarResult:
 
 
 def collect_radar_data(
-    parameter: DwdRadarParameter,
+    parameter: Optional[DwdRadarParameter],
     resolution: Optional[DwdRadarResolution] = None,
     period: Optional[DwdRadarPeriod] = None,
     site: Optional[DwdRadarSite] = None,
@@ -77,21 +77,23 @@ def collect_radar_data(
     elevation: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    verify: Optional[bool] = True,
 ) -> RadarResult:
     """
     Collect radar data for given parameters.
 
     :param parameter:       The radar moment to request
+    :param resolution:      Time resolution for RadarParameter.RADOLAN_CDC,
+                            either daily or hourly or 5 minutes.
+    :param period:          Period type for RadarParameter.RADOLAN_CDC
     :param site:            Site/station if parameter is one of
                             RADAR_PARAMETERS_SITES
-    :param fmt:          Data format (BINARY, BUFR, HDF5)
+    :param fmt:             Data format (BINARY, BUFR, HDF5)
     :param subset:          The subset (simple or polarimetric) for HDF5 data.
     :param elevation:
     :param start_date:      Start date
     :param end_date:        End date
-    :param resolution: Time resolution for RadarParameter.RADOLAN_CDC,
-                            either daily or hourly or 5 minutes.
-    :param period:     Period type for RadarParameter.RADOLAN_CDC
+    :param verify:          Whether to verify the response
 
     :return:                ``RadarResult`` item
     """
@@ -201,10 +203,19 @@ def collect_radar_data(
                 date_time = row[DwdColumns.DATETIME.value]
                 url = row[DwdColumns.FILENAME.value]
 
-                for result in _download_generic_data(url=url):
-                    if result.timestamp is None:
-                        result.timestamp = date_time
-                    yield result
+                try:
+                    for result in _download_generic_data(url=url):
+                        if result.timestamp is None:
+                            result.timestamp = date_time
+
+                        if verify:
+                            if fmt == DwdRadarDataFormat.HDF5:
+                                verify_hdf5(result.data)
+
+                        yield result
+
+                except Exception:  # pragma: no cover
+                    log.exception("Unable to read HDF5 file")
 
 
 def should_cache_download(*args, **kwargs) -> bool:  # pragma: no cover

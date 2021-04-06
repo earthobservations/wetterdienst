@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Union
 
 import pandas as pd
+from tqdm import tqdm
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -238,7 +239,17 @@ class DwdRadarValues:
 
         :return: Generator of ``RadarResult`` instances.
         """
-        return collect_radar_data(
+        log.info(
+            f"Collecting radar data for "
+            f"site={self.site}, "
+            f"parameter={self.parameter}, "
+            f"subset={self.subset}, "
+            f"elevation={self.elevation}, "
+            f"resolution={self.resolution}, "
+            f"period={self.period}"
+        )
+        progressbar = tqdm(total=240)
+        for item in collect_radar_data(
             parameter=self.parameter,
             site=self.site,
             fmt=self.format,
@@ -248,7 +259,9 @@ class DwdRadarValues:
             end_date=self.end_date,
             resolution=self.resolution,
             period=self.period,
-        )
+        ):
+            progressbar.update()
+            yield item
 
 
 class DwdRadarSites(OperaRadarSites):

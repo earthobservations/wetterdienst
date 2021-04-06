@@ -14,3 +14,4 @@ docs/_build/
 dist/
 tmp/
 geckodriver.log
+troubleshooting
