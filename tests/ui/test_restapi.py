@@ -47,12 +47,12 @@ def test_dwd_stations_geo():
             "period": "recent",
             "latitude": 45.54,
             "longitude": 10.10,
-            "number_nearby": 5,
+            "rank": 5,
         },
     )
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "03730"
-    assert response.json()["data"][0]["station_name"] == "Oberstdorf"
+    assert response.json()["data"][0]["name"] == "Oberstdorf"
     assert response.json()["data"][0]["latitude"] == 47.3984
     assert response.json()["data"][0]["longitude"] == 10.2759
 

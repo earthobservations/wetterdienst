@@ -28,10 +28,10 @@ log = logging.getLogger(__name__)
 def run():
     """
     Usage:
-      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation stations --parameter=<parameter> --resolution=<resolution> --period=<period> [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--rank=<rank>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> [--station=<station>] [--period=<period>] [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--number=<number>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
-      wetterdienst dwd forecast stations [--parameter=<parameter>] [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--number=<number>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd observation values --parameter=<parameter> --resolution=<resolution> --latitude=<latitude> --longitude=<longitude> [--period=<period>] [--rank=<rank>] [--distance=<distance>] [--tidy] [--date=<date>] [--sql=<sql>] [--format=<format>] [--target=<target>]
+      wetterdienst dwd forecast stations [--parameter=<parameter>] [--mosmix-type=<mosmix-type>] [--date=<date>] [--station=<station>] [--latitude=<latitude>] [--longitude=<longitude>] [--rank=<rank>] [--distance=<distance>] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd forecast values --parameter=<parameter> [--mosmix-type=<mosmix-type>] --station=<station> [--date=<date>] [--tidy] [--sql=<sql>] [--format=<format>] [--target=<target>]
       wetterdienst dwd about [parameters] [resolutions] [periods]
       wetterdienst dwd about coverage [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
@@ -50,7 +50,7 @@ def run():
       --station=<station>           Comma-separated list of station identifiers
       --latitude=<latitude>         Latitude for filtering by geoposition.
       --longitude=<longitude>       Longitude for filtering by geoposition.
-      --number=<number>             Number of nearby stations when filtering by geoposition.
+      --rank=<rank>                 Rank of nearby stations when filtering by geoposition.
       --distance=<distance>         Maximum distance in km when filtering by geoposition.
       --date=<date>                 Date for filtering data. Can be either a single date(time) or
                                     an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
@@ -126,8 +126,8 @@ def run():
     Examples using geospatial features:
 
       # Acquire stations and readings by geoposition, request specific number of nearby stations.
-      wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5
-      wetterdienst dwd observation values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --num=5 --date=2020-06-30
+      wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --rank=5
+      wetterdienst dwd observation values --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --rank=5 --date=2020-06-30
 
       # Acquire stations and readings by geoposition, request stations within specific distance.
       wetterdienst dwd observation stations --resolution=daily --parameter=kl --period=recent --lat=49.9195 --lon=8.9671 --distance=25
@@ -312,11 +312,11 @@ def run():
         )
 
     if options.latitude and options.longitude:
-        if options.number:
+        if options.rank:
             stations = stations.filter_by_rank(
                 latitude=float(options.latitude),
                 longitude=float(options.longitude),
-                rank=int(options.number),
+                rank=int(options.rank),
             )
         elif options.distance:
             stations = stations.filter_by_distance(
@@ -325,7 +325,7 @@ def run():
                 distance=int(options.distance),
             )
         else:
-            raise DocoptExit("Geospatial queries need either --number or --distance")
+            raise DocoptExit("Geospatial queries need either --rank or --distance")
         results = stations
 
     elif options.station:

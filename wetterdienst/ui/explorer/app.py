@@ -340,16 +340,16 @@ def render_map(payload):
     log.info(f"Rendering stations map from {frame_summary(stations_data)}")
     fig = go.Figure(
         data=go.Scattermapbox(
-            lat=stations_data.latitude,
-            lon=stations_data.longitude,
+            lat=stations_data[Columns.LATITUDE.value],
+            lon=stations_data[Columns.LONGITUDE.value],
             mode="markers",
             marker=go.scattermapbox.Marker(size=5),
             text=[
                 f"Name: {name}<br>Id: {station_id}<br>Height: {altitude}m "
                 for name, altitude, station_id in zip(
-                    stations_data.station_name,
-                    stations_data.height,
-                    stations_data.station_id,
+                    stations_data[Columns.NAME.value],
+                    stations_data[Columns.HEIGHT.value],
+                    stations_data[Columns.STATION_ID.value],
                 )
             ],
         ),
