@@ -6,6 +6,7 @@ import pytest
 from wetterdienst import Wetterdienst
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     "provider,kind,kwargs",
     [

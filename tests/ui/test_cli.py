@@ -118,7 +118,7 @@ def invoke_wetterdienst_stations_export(setting, station, target):
 
 def invoke_wetterdienst_stations_geo(setting, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --number=5 "
+        f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --rank=5 "
         f"--format={fmt}"
     )
     sys.argv = argv
@@ -149,7 +149,7 @@ def invoke_wetterdienst_values_static_tidy(setting, station, fmt="json"):
 
 def invoke_wetterdienst_values_geo(setting, fmt="json"):
     argv = shlex.split(
-        f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --number=5 "
+        f"wetterdienst dwd {setting} --latitude=51.1280 --longitude=13.7543 --rank=5 "
         f"--format={fmt}"
     )
     sys.argv = argv

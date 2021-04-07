@@ -6187,7 +6187,7 @@ THE SOFTWARE.
 
 
 jupyter-client
-6.1.12
+6.1.13
 BSD License
 Jupyter Development Team
 https://jupyter.org
@@ -6218,7 +6218,7 @@ software without specific prior written permission.
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
 FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -6240,8 +6240,8 @@ Jupyter uses a shared copyright model. Each contributor maintains copyright
 over their contributions to Jupyter. But, it is important to note that these
 contributions are typically only changes to the repositories. Thus, the Jupyter
 source code, in its entirety is not the copyright of any single person or
-institution.  Instead, it is the collective copyright of the entire Jupyter
-Development Team.  If individual contributors want to maintain a record of what
+institution. Instead, it is the collective copyright of the entire Jupyter
+Development Team. If individual contributors want to maintain a record of what
 changes/contributions they have specific copyright on, they should indicate
 their copyright in the commit message of the change, when they commit the
 change to one of the Jupyter repositories.
@@ -6918,6 +6918,38 @@ to indicate the copyright and license terms:
 
     # Copyright (c) Jupyter Development Team.
     # Distributed under the terms of the Modified BSD License.
+
+
+nest-asyncio
+1.5.1
+BSD License
+Ewald R. de Wit
+https://github.com/erdewit/nest_asyncio
+BSD 2-Clause License
+
+Copyright (c) 2018-2020, Ewald de Wit
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 notebook
@@ -8400,13 +8432,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-python-Levenshtein
-0.12.2
-GNU General Public License v2 or later (GPLv2+)
-Antti Haapala
-http://github.com/ztane/python-Levenshtein
-UNKNOWN
-
 python-dateutil
 2.8.1
 BSD License, Apache Software License
@@ -8743,7 +8768,7 @@ https://github.com/rholder/retrying
 UNKNOWN
 
 ruamel.yaml
-0.17.2
+0.17.4
 MIT License
 Anthon van der Neut
 https://sourceforge.net/p/ruamel-yaml/code/ci/default/tree
@@ -10468,7 +10493,7 @@ http://www.tornadoweb.org/
 UNKNOWN
 
 tqdm
-4.59.0
+4.60.0
 MIT License, Mozilla Public License 2.0 (MPL 2.0)
 UNKNOWN
 https://github.com/tqdm/tqdm

@@ -70,8 +70,8 @@ def dwd_stations(
     mosmix_type: str = Query(default=None),
     longitude: float = Query(default=None),
     latitude: float = Query(default=None),
-    number_nearby: int = Query(default=None),
-    max_distance_in_km: int = Query(default=None),
+    rank: int = Query(default=None),
+    distance: int = Query(default=None),
     sql: str = Query(default=None),
 ):
     if kind not in ["observation", "forecast"]:
@@ -94,16 +94,14 @@ def dwd_stations(
     else:
         stations = DwdMosmixRequest(parameter=parameter, mosmix_type=mosmix_type)
 
-    if longitude and latitude and (number_nearby or max_distance_in_km):
-        if number_nearby:
+    if longitude and latitude and (rank or distance):
+        if rank:
             results = stations.filter_by_rank(
-                latitude=latitude, longitude=longitude, number=number_nearby
+                latitude=latitude, longitude=longitude, rank=rank
             )
         else:
             results = stations.filter_by_distance(
-                latitude=latitude,
-                longitude=longitude,
-                max_distance_in_km=max_distance_in_km,
+                latitude=latitude, longitude=longitude, distance=distance, unit="km"
             )
     else:
         results = stations.all()

@@ -26,6 +26,7 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
 )
 
 
+@pytest.mark.remote
 def test_dwd_observation_data_dataset():
     """ Request a parameter set"""
     request = DwdObservationRequest(
@@ -72,6 +73,7 @@ def test_dwd_observation_data_dataset():
     ]
 
 
+@pytest.mark.remote
 def test_dwd_observation_data_parameter():
     request = DwdObservationRequest(
         parameter=["precipitation_height"],
@@ -99,6 +101,7 @@ def test_dwd_observation_data_parameter():
     ]
 
 
+@pytest.mark.remote
 def test_dwd_observation_data_fails():
     # station id
     assert (
@@ -261,6 +264,7 @@ def test_request_period_empty():
     assert request.period == []
 
 
+@pytest.mark.remote
 def test_dwd_observation_data_result_missing_data():
     """Test for DataFrame having empty values for dates where the station should not
     have values"""

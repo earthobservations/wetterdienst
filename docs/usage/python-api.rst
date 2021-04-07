@@ -242,7 +242,8 @@ Distance with default (kilometers)
     df = stations.filter_by_distance(
         latitude=50.0,
         longitude=8.9,
-        distance=30
+        distance=30,
+        unit="km"
     ).df
 
     print(df.head())
@@ -289,7 +290,7 @@ Rank selection
     df = stations.filter_by_rank(
         latitude=50.0,
         longitude=8.9,
-        number=5
+        rank=5
     ).df
 
     print(df.head())
@@ -309,11 +310,11 @@ Bbox selection
         end_date=datetime(2020, 1, 20)
     )
 
-    df = stations.bbox(
-        bottom=50.0,
+    df = stations.filter_by_bbox(
         left=8.9,
-        top=50.01,
+        bottom=50.0,
         right=8.91,
+        top=50.01,
     ).df
 
     print(df.head())
