@@ -34,6 +34,7 @@ from wetterdienst.provider.dwd.metadata.constants import (
     DWD_SERVER,
 )
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.util.cache import metaindex_cache
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import list_remote_files
@@ -433,30 +434,27 @@ class DwdMosmixRequest(ScalarRequestCore):
         """ Required for typing """
         return self.issue_end
 
+    @metaindex_cache.cache_on_arguments()
     def _all(self) -> pd.DataFrame:
         """ Create meta data DataFrame from available station list """
         # TODO: Cache payload with FSSPEC
         payload = requests.get(self._url, headers={"User-Agent": ""})
 
-        # List is unsorted with repeating interruptions with "TABLE" string in the
-        # beginning of the line
-        lines = payload.text.split("\n")
-        table_lines = [i for i, line in enumerate(lines) if line.startswith("TABLE")]
-
-        lines_filtered = []
-
-        for start, end in zip(table_lines[:-1], table_lines[1:]):
-            lines_filtered.extend(lines[(start + 3) : (end - 1)])
-
-        data = StringIO("\n".join(lines_filtered))
-
         df = pd.read_fwf(
-            data,
+            StringIO(payload.text),
+            skiprows=4,
+            skip_blank_lines=True,
             colspecs=self._colspecs,
             na_values=["----"],
             header=None,
             dtype="str",
         )
+
+        df = df[
+            (df.iloc[:, 0] != "=====")
+            & (df.iloc[:, 0] != "TABLE")
+            & (df.iloc[:, 0] != "clu")
+        ]
 
         df = df.iloc[:, [2, 3, 4, 5, 6, 7]]
 
