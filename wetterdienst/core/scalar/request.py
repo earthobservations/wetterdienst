@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
-import warnings
 from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
@@ -13,13 +12,9 @@ import dateutil.parser
 import numpy as np
 import pandas as pd
 import pytz
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")  # ignore missing python-levenhstein
-    from fuzzywuzzy import fuzz, process
-
 from measurement.measures import Distance
 from measurement.utils import guess
+from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
