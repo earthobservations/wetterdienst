@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+...
+
+0.17.0 (08.04.2021)
+*******************
+
 - Add capability to export data to Zarr format
 - Add Wetterdienst Explorer UI. Thanks, @meteoDaniel!
 - Add MAC ARM64 supoort with dependency restrictions
