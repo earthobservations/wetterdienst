@@ -132,7 +132,7 @@ zarr = {version = "^2.7.0", optional = true, markers = "sys_platform != 'darwin'
 xarray = {version = "^0.17.0", optional = true}
 h5netcdf = {version = "^0.10.0", markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')"}
 measurement = "^3.2.0"
-fuzzywuzzy = "^0.18.0"
+rapidfuzz = "^1.4.1"
 
 
 [tool.poetry.dev-dependencies]
