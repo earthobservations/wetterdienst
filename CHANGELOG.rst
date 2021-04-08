@@ -13,6 +13,7 @@ Development
 - Rename station_name to name
 - Rename filter methods to .filter_by_station_id and .filter_by_name, use same convention for bbox, filter_by_rank
   (previously nearby_number), filter_by_distance (nearby_distance)
+- Mosmix: Use cached stations to improve performance
 
 0.16.1 (31.03.2021)
 *******************
