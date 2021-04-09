@@ -143,6 +143,24 @@ class ScalarRequestCore(Core):
 
     @property
     @abstractmethod
+    def _origin_unit_tree(self):
+        pass
+
+    @property
+    @abstractmethod
+    def _metric_unit_tree(self):
+        pass
+
+    @property
+    def datasets(self):
+        datasets = self._dataset_tree[self._dataset_accessor].__dict__.keys()
+
+        datasets = list(filter(lambda x: x not in ("__module__", "__doc__"), datasets))
+
+        return datasets
+
+    @property
+    @abstractmethod
     def _values(self):
         """ Class to get the values for a request """
         pass
@@ -276,10 +294,18 @@ class ScalarRequestCore(Core):
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         humanize: bool = True,
         tidy: bool = True,
+        metric: bool = True,
     ) -> None:
         """
+
+        :param parameter:
+        :param resolution:
+        :param period:
         :param start_date: Start date for filtering stations for their available data
         :param end_date:   End date for filtering stations for their available data
+        :param humanize:
+        :param tidy:
+        :param metric:
         """
 
         super().__init__()
@@ -301,6 +327,7 @@ class ScalarRequestCore(Core):
             )
 
         self.tidy = tidy
+        self.metric = metric
 
         log.info(
             f"Processing request for "
@@ -311,7 +338,8 @@ class ScalarRequestCore(Core):
             f"start_date={self.start_date}, "
             f"end_date={self.end_date}, "
             f"humanize={self.humanize}, "
-            f"tidy={self.tidy}"
+            f"tidy={self.tidy}, "
+            f"metric={self.metric}"
         )
 
     @staticmethod
@@ -359,14 +387,19 @@ class ScalarRequestCore(Core):
         return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
     @classmethod
-    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
+    def discover(
+        cls, filter_=None, dataset=None, metric: bool = True, flatten: bool = True
+    ) -> str:
         """ Function to print/discover available parameters """
-        # TODO: Refactor this!
+        # TODO: Refactor this!!!
         flatten = cls._unique_dataset or flatten
 
         filter_ = cls._setup_discover_filter(filter_)
 
-        filter_ = [f.name for f in filter_]
+        if metric:
+            unit_tree = cls._metric_unit_tree
+        else:
+            unit_tree = cls._origin_unit_tree
 
         if flatten:
             if dataset:
@@ -375,9 +408,27 @@ class ScalarRequestCore(Core):
             parameters = {}
 
             for f in filter_:
-                parameters[f.lower()] = []
-                for parameter in cls._parameter_base[f]:
-                    parameters[f.lower()].append(parameter.name.lower())
+                parameters[f.name.lower()] = {}
+                for parameter in cls._parameter_base[f.name]:
+
+                    if cls._unique_dataset:
+                        unit = unit_tree[f.name][parameter.name].value
+                    else:
+                        dataset = cls._parameter_to_dataset_mapping[f][parameter]
+
+                        unit = unit_tree[f.name][dataset.name][parameter.name].value
+
+                    try:
+                        unit = unit.units
+                    except AttributeError:
+                        pass
+
+                    unit_string = format(unit, "~")
+
+                    if unit_string == "":
+                        unit_string = "-"
+
+                    parameters[f.name.lower()][parameter.name.lower()] = unit_string
 
             return json.dumps(parameters, indent=4)
 
@@ -393,31 +444,51 @@ class ScalarRequestCore(Core):
         parameters = {}
 
         for f in filter_:
-            parameters[f.lower()] = {}
+            parameters[f.name.lower()] = {}
 
-            for dataset in cls._dataset_tree[f].__dict__:
+            for dataset in cls._dataset_tree[f.name].__dict__:
                 if dataset.startswith("_") or dataset not in datasets_filter:
                     continue
 
-                parameters[f.lower()][dataset.lower()] = []
+                parameters[f.name.lower()][dataset.lower()] = {}
 
-                for parameter in cls._dataset_tree[f][dataset]:
-                    parameters[f.lower()][dataset.lower()].append(
+                for parameter in cls._dataset_tree[f.name][dataset]:
+                    unit = unit_tree[f.name][dataset][parameter.name].value
+
+                    try:
+                        unit = unit.units
+                    except AttributeError:
+                        pass
+
+                    unit_string = format(unit, "~")
+
+                    if unit_string == "":
+                        unit_string = "-"
+
+                    parameters[f.name.lower()][dataset.lower()][
                         parameter.name.lower()
-                    )
+                    ] = unit_string
 
         return json.dumps(parameters, indent=4)
 
     @classmethod
     def _setup_discover_filter(cls, filter_):
+        """Helper method to create filter for discover method, can be overwritten by subclasses to use other then the
+        resolutoon for filtering"""
         if cls._resolution_type == ResolutionType.FIXED:
             log.warning("resolution filter will be ignored due to fixed resolution")
 
             filter_ = [cls.resolution]
+        elif not filter_:
+            filter_ = [*cls._resolution_base]
 
-        filter_ = pd.Series(filter_).apply(
-            parse_enumeration_from_template, args=(cls._resolution_base,)
-        ).tolist() or [*cls._resolution_base]
+        filter_ = (
+            pd.Series(filter_)
+            .apply(
+                parse_enumeration_from_template, args=(cls._resolution_base, Resolution)
+            )
+            .tolist()
+        )
 
         return filter_
 

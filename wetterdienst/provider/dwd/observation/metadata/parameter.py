@@ -421,7 +421,7 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             )
 
         # sun
-        class SUN(Enum):
+        class SUNSHINE_DURATION(Enum):
             QUALITY = "qn_7"
             SUNSHINE_DURATION = "sd_so"
 

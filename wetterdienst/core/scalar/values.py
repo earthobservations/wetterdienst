@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import operator
 from abc import abstractmethod
 from enum import Enum
 from typing import Dict, Generator, Tuple, Union
 
 import pandas as pd
+from pint import Quantity
 from pytz import timezone
 from tqdm import tqdm
 
@@ -13,6 +15,7 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
+from wetterdienst.metadata.unit import REGISTRY, MetricUnit, OriginUnit
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
@@ -96,6 +99,86 @@ class ScalarValuesCore:
     @staticmethod
     def _determine_resolution(series: pd.Series) -> Resolution:
         pass
+
+    def convert_values_to_metric(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+        def _convert_values_to_metric(series):
+            op, factor = conversion_factors.get(series.name, (None, None))
+
+            if not (op and factor):
+                return series
+
+            return op(series, factor)
+
+        conversion_factors = self._create_conversion_factors(dataset)
+
+        if self.stations.stations.tidy:
+            df.loc[:, Columns.VALUE.value] = df.groupby(Columns.PARAMETER.value)[
+                Columns.VALUE.value
+            ].apply(_convert_values_to_metric)
+        else:
+            df = df.apply(_convert_values_to_metric, axis=0)
+
+        return df
+
+    def _create_conversion_factors(
+        self, dataset
+    ) -> Dict[str, Tuple[Union[operator.add, operator.mul], float]]:
+        dataset = dataset.name
+
+        dataset_accessor = self.stations.stations._dataset_accessor
+
+        origin_units = self.stations.stations._origin_unit_tree[dataset_accessor][
+            dataset
+        ]
+        metric_units = self.stations.stations._metric_unit_tree[dataset_accessor][
+            dataset
+        ]
+
+        conversion_factors = {}
+
+        # TODO eventually we may
+        for origin_unit, metric_unit in zip(origin_units, metric_units):
+            # Get parameter name
+            parameter = origin_unit.name
+            parameter_value = self.stations.stations._dataset_tree[dataset_accessor][
+                dataset
+            ][parameter].value
+
+            if metric_unit.value == MetricUnit.KILOGRAM_PER_SQUARE_METER.value:
+                # Fixed conversion factors to kg / m², as it only applies
+                # for water with density 1 g / cm³
+                if origin_unit.value == OriginUnit.MILLIMETER.value:
+                    conversion_factors[parameter_value] = (operator.mul, 1)
+                else:
+                    raise ValueError(
+                        "manually set conversion factor for precipitation unit"
+                    )
+            elif metric_unit.value == MetricUnit.DEGREE_KELVIN.value:
+                # Apply offset addition to temperature measurements
+                # Take 0 as this is appropriate for adding on other numbers
+                # (just the difference)
+                degree_offset = (
+                    Quantity(0, origin_unit.value).to(metric_unit.value).magnitude
+                )
+
+                conversion_factors[parameter_value] = (operator.add, degree_offset)
+            elif metric_unit.value == MetricUnit.PERCENT.value:
+                factor = (
+                    REGISTRY(str(origin_unit.value))
+                    .to(str(metric_unit.value))
+                    .magnitude
+                )
+
+                conversion_factors[parameter_value] = (operator.mul, factor)
+            else:
+                # For multiplicative units we need to use 1 as quantity to apply the
+                # appropriate factor
+                conversion_factors[parameter_value] = (
+                    operator.mul,
+                    Quantity(1, origin_unit.value).to(metric_unit.value).magnitude,
+                )
+
+        return conversion_factors
 
     def __init__(self, stations: StationsResult) -> None:
         self.stations = stations
@@ -275,6 +358,8 @@ class ScalarValuesCore:
             for parameter in self.stations.parameter:
                 parameter_df = self._collect_station_parameter(station_id, parameter)
 
+                dataset = parameter[1]
+
                 # TODO: solve exceptional case where empty df and dynamic resolution
                 if self.stations._resolution_type == ResolutionType.DYNAMIC:
                     self.stations.resolution = self._determine_resolution(
@@ -288,21 +373,28 @@ class ScalarValuesCore:
                     parameter_df = self._get_empty_station_parameter_df(
                         station_id, parameter
                     )
-                else:
-                    # Merge on full date range if values are found to ensure result
-                    # even if no actual values exist
-                    self._coerce_date_fields(parameter_df)
 
-                    parameter_df = self._build_complete_df(
-                        parameter_df, station_id, parameter
-                    )
+                    station_data.append(parameter_df)
+                    continue
+
+                # Merge on full date range if values are found to ensure result
+                # even if no actual values exist
+                self._coerce_date_fields(parameter_df)
+
+                parameter_df = self._build_complete_df(
+                    parameter_df, station_id, parameter
+                )
+
+                parameter_df = self._coerce_parameter_types(parameter_df)
+
+                if self.stations.stations.metric:
+                    parameter_df = self.convert_values_to_metric(parameter_df, dataset)
 
                 station_data.append(parameter_df)
 
             station_df = pd.concat(station_data, ignore_index=True)
 
             station_df = self._coerce_meta_fields(station_df)
-            station_df = self._coerce_parameter_types(station_df)
 
             # Filter for dates range if start_date and end_date are defined
             if self.stations.start_date:
@@ -315,6 +407,8 @@ class ScalarValuesCore:
                     ]
                 except KeyError:
                     pass
+
+            station_df = self._coerce_parameter_types(station_df)
 
             # Assign meaningful parameter names (humanized).
             if self.stations.humanize:
