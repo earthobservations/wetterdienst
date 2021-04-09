@@ -6,14 +6,14 @@ from enum import Enum
 from wetterdienst.util.parameter import DatasetTreeCore
 
 
-class EccObservationDataset(Enum):
+class EcccObservationDataset(Enum):
     HOURLY = "hourly"
     DAILY = "daily"
     MONTHLY = "monthly"
     # ANNUAL = "annual"
 
 
-class EccObservationDatasetTree(DatasetTreeCore):
+class EcccObservationDatasetTree(DatasetTreeCore):
     class HOURLY(Enum):
         TEMPERATURE_AIR_200 = "temp (°c)"
         QUALITY_TEMPERATURE_AIR_200 = "temp flag"

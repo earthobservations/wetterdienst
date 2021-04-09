@@ -3,9 +3,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import gzip
 import logging
+from datetime import datetime
 from enum import Enum
 from io import BytesIO
-from typing import Generator, Tuple
+from typing import Generator, Tuple, Union, Optional
 
 import pandas as pd
 import requests
@@ -22,14 +23,18 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.eccc.observation.metadata.dataset import (
-    EccObservationDataset,
-    EccObservationDatasetTree,
+    EcccObservationDataset,
+    EcccObservationDatasetTree,
 )
 from wetterdienst.provider.eccc.observation.metadata.parameter import (
-    EccObservationParameter,
+    EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EccObservationResolution,
+)
+from wetterdienst.provider.eccc.observation.metadata.unit import (
+    EcccObservationUnitMetric,
+    EcccObservationUnitOrigin,
 )
 from wetterdienst.util.cache import payload_cache_twelve_hours
 
@@ -244,12 +249,15 @@ class EcccObservationRequest(ScalarRequestCore):
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
     _period_base = Period.HISTORICAL
-    _parameter_base = EccObservationParameter  # replace with parameter enumeration
+    _parameter_base = EcccObservationParameter  # replace with parameter enumeration
 
     _has_datasets = True
-    _dataset_base = EccObservationDataset
-    _dataset_tree = EccObservationDatasetTree
+    _dataset_base = EcccObservationDataset
+    _dataset_tree = EcccObservationDatasetTree
     _unique_dataset = True
+
+    _origin_unit_tree = EcccObservationUnitOrigin
+    _metric_unit_tree = EcccObservationUnitMetric
 
     _values = EcccObservationValues
 
@@ -298,12 +306,13 @@ class EcccObservationRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter,
-        resolution,
-        start_date=None,
-        end_date=None,
-        humanize=True,
-        tidy=True,
+        parameter: Tuple[Union[str, EcccObservationParameter]],
+        resolution: Union[EccObservationResolution, Resolution],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        humanize: bool = True,
+        tidy: bool = True,
+        metric: bool = True
     ):
         super(EcccObservationRequest, self).__init__(
             parameter=parameter,
@@ -313,6 +322,7 @@ class EcccObservationRequest(ScalarRequestCore):
             end_date=end_date,
             humanize=humanize,
             tidy=tidy,
+            metric=metric
         )
 
     def _all(self) -> pd.DataFrame:

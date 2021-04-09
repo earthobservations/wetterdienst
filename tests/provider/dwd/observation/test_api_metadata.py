@@ -14,17 +14,17 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def test_dwd_observation_metadata_discover_parameters():
-    parameters = DwdObservationRequest.discover(filter_="minute_1", flatten=True)
+    parameters = DwdObservationRequest.discover(filter_="minute_1", flatten=True, metric=True)
 
     assert (
         json.dumps(
             {
-                Resolution.MINUTE_1.name.lower(): [
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT.name.lower(),
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_DROPLET.name.lower(),
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_ROCKER.name.lower(),
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_FORM.name.lower(),
-                ]
+                "minute_1": {
+                    "precipitation_height": "kg / m ** 2",
+                    "precipitation_height_droplet": "kg / m ** 2",
+                    "precipitation_height_rocker": "kg / m ** 2",
+                    "precipitation_form": "-"
+                }
             },
             indent=4,
         )

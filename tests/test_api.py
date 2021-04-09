@@ -21,16 +21,17 @@ from wetterdienst import Wetterdienst
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}),
     ],
 )
-def test_api(provider, kind, kwargs):
+@pytest.mark.parametrize("metric", (False, True))
+def test_api(provider, kind, kwargs, metric):
     """ Test main wetterdienst API """
     # Build API
     api = Wetterdienst(provider, kind)
 
     # Discover parameters
-    assert api.discover()
+    assert api.discover(metric=metric)
 
     # All stations
-    request = api(**kwargs).all()
+    request = api(**kwargs, metric=metric).all()
 
     stations = request.df
 

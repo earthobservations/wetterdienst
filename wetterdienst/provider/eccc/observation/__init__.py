@@ -3,8 +3,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 from wetterdienst.provider.eccc.observation.metadata.dataset import (
-    EccObservationDataset,
+    EcccObservationDataset,
 )
 from wetterdienst.provider.eccc.observation.metadata.parameter import (
-    EccObservationParameter,
+    EcccObservationParameter,
 )

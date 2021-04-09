@@ -50,7 +50,7 @@ QUALITY_PARAMETERS = {
     # solar
     DwdObservationDatasetTree.HOURLY.SOLAR.QUALITY.value,
     # sun
-    DwdObservationDatasetTree.HOURLY.SUN.QUALITY.value,
+    DwdObservationDatasetTree.HOURLY.SUNSHINE_DURATION.QUALITY.value,
     # visibility
     DwdObservationDatasetTree.HOURLY.VISIBILITY.QUALITY.value,
     # wind
