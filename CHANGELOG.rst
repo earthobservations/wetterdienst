@@ -6,6 +6,9 @@ Development
 
 - Add origin and metric unit mappings to services
 - Use argument "metric" in request classes to convert origin units to metric, set to default
+- Improve caching behaviour by introducing optional ``WD_CACHE_DIR`` and
+  ``WD_CACHE_DISABLE`` environment variables. Thanks, @meteoDaniel!
+
 
 0.17.0 (08.04.2021)
 *******************
