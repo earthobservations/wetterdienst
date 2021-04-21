@@ -82,10 +82,10 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     time.sleep(0.5)
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=1)
-    dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=1)
-    dash_tre.wait_for_contains_text("#map", "No data to display", timeout=1)
-    dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=1)
+    dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=2)
+    dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=2)
+    dash_tre.wait_for_contains_text("#map", "No data to display", timeout=2)
+    dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=2)
 
 
 @pytest.mark.slow
@@ -120,8 +120,8 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     dash_tre.wait_for_element_by_id("dataframe-values")
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=1)
-    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=1)
+    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=2)
+    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=2)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
