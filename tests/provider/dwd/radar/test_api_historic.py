@@ -225,7 +225,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"RW{date_time}10000{month_year}BY.......VS 3SW   2.28..PR E-01INT  60GP 900x 900MF 00000001MS "  # noqa:E501,B950
+        f"RW{date_time}10000{month_year}BY.......VS 3SW   ......PR E-01INT  60GP 900x 900MF 00000001MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
@@ -925,7 +925,7 @@ def test_radar_request_radvor_rq_yesterday():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"RQ{date_time}10000{month_year}BY.......VS 3SW   2.28..PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
+        f"RQ{date_time}10000{month_year}BY.......VS 3SW   ......PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_sorted}"  # noqa:E501,B950
     )
 
