@@ -769,7 +769,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (360, 720))
+    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (360, 720), (361, 720))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(
