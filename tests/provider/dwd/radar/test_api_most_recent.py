@@ -142,7 +142,7 @@ def test_radar_request_radolan_cdc_most_recent():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"SF{date_time}10000{month_year}BY.......VS 3SW   2.28.1PR E-01INT1440GP 900x 900MS "  # noqa:E501,B950
+        f"SF{date_time}10000{month_year}BY.......VS 3SW   ......PR E-01INT1440GP 900x 900MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
