@@ -20,9 +20,9 @@ if platform == "Windows":
 
 # Compute cache directory.
 try:
-    CACHING_DIR = os.environ['CACHE_DIR']
+    cache_dir = os.environ['CACHE_DIR']
 except KeyError:
-    CACHING_DIR = appdirs.user_cache_dir(appname="wetterdienst")
+    cache_dir = appdirs.user_cache_dir(appname="wetterdienst")
 
 if not os.path.exists(cache_dir):
     os.makedirs(cache_dir)
