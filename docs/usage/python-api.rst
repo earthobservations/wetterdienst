@@ -519,6 +519,12 @@ For more examples, please have a look at `example/radar/`_.
 
         # Do something with the data (numpy.ndarray) here.
 
+Caching
+=====
+
+The backbone of wetterdienst uses dogpile caching. It requires to create a directory under `/home/` for the most cases.
+If you are not allowed to write into `/home/` you will run into `OSError`. For this purpose you can set an environment variable
+CACHE_DIR to define the place where the caching directory should be created.
 
 .. _wradlib: https://wradlib.org/
 .. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/main/example/radar
