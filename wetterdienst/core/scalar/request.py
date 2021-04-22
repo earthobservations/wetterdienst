@@ -298,14 +298,14 @@ class ScalarRequestCore(Core):
     ) -> None:
         """
 
-        :param parameter:
-        :param resolution:
-        :param period:
+        :param parameter: requested parameter(s)
+        :param resolution: requested resolution
+        :param period: requested period(s)
         :param start_date: Start date for filtering stations for their available data
         :param end_date:   End date for filtering stations for their available data
-        :param humanize:
-        :param tidy:
-        :param metric:
+        :param humanize: boolean if parameters should be humanized
+        :param tidy: boolean if data should be tidied
+        :param metric: boolean if values should be converted to metric units
         """
 
         super().__init__()
@@ -387,19 +387,12 @@ class ScalarRequestCore(Core):
         return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
     @classmethod
-    def discover(
-        cls, filter_=None, dataset=None, metric: bool = True, flatten: bool = True
-    ) -> str:
+    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
         """ Function to print/discover available parameters """
         # TODO: Refactor this!!!
         flatten = cls._unique_dataset or flatten
 
         filter_ = cls._setup_discover_filter(filter_)
-
-        if metric:
-            unit_tree = cls._metric_unit_tree
-        else:
-            unit_tree = cls._origin_unit_tree
 
         if flatten:
             if dataset:
@@ -410,27 +403,34 @@ class ScalarRequestCore(Core):
             for f in filter_:
                 parameters[f.name.lower()] = {}
                 for parameter in cls._parameter_base[f.name]:
+                    parameters[f.name.lower()][parameter.name.lower()] = {}
 
-                    if cls._unique_dataset:
-                        unit = unit_tree[f.name][parameter.name].value
-                    else:
-                        dataset = cls._parameter_to_dataset_mapping[f][parameter]
+                    for unit_type, unit_tree in zip(
+                        ("origin", "metric"),
+                        (cls._origin_unit_tree, cls._metric_unit_tree),
+                    ):
+                        if cls._unique_dataset:
+                            unit = unit_tree[f.name][parameter.name].value
+                        else:
+                            dataset = cls._parameter_to_dataset_mapping[f][parameter]
 
-                        unit = unit_tree[f.name][dataset.name][parameter.name].value
+                            unit = unit_tree[f.name][dataset.name][parameter.name].value
 
-                    try:
-                        unit = unit.units
-                    except AttributeError:
-                        pass
+                        try:
+                            unit = unit.units
+                        except AttributeError:
+                            pass
 
-                    unit_string = format(unit, "~")
+                        unit_string = format(unit, "~")
 
-                    if unit_string == "":
-                        unit_string = "-"
+                        if unit_string == "":
+                            unit_string = "-"
 
-                    parameters[f.name.lower()][parameter.name.lower()] = unit_string
+                        parameters[f.name.lower()][parameter.name.lower()][
+                            unit_type
+                        ] = unit_string
 
-            return json.dumps(parameters, indent=4)
+            return json.dumps(parameters, indent=4, ensure_ascii=False)
 
         datasets_filter = (
             pd.Series(dataset)
@@ -453,28 +453,38 @@ class ScalarRequestCore(Core):
                 parameters[f.name.lower()][dataset.lower()] = {}
 
                 for parameter in cls._dataset_tree[f.name][dataset]:
-                    unit = unit_tree[f.name][dataset][parameter.name].value
-
-                    try:
-                        unit = unit.units
-                    except AttributeError:
-                        pass
-
-                    unit_string = format(unit, "~")
-
-                    if unit_string == "":
-                        unit_string = "-"
 
                     parameters[f.name.lower()][dataset.lower()][
                         parameter.name.lower()
-                    ] = unit_string
+                    ] = {}
 
-        return json.dumps(parameters, indent=4)
+                    for unit_type, unit_tree in zip(
+                        ("origin", "metric"),
+                        (cls._origin_unit_tree, cls._metric_unit_tree),
+                    ):
+
+                        unit = unit_tree[f.name][dataset][parameter.name].value
+
+                        try:
+                            unit = unit.units
+                        except AttributeError:
+                            pass
+
+                        unit_string = format(unit, "~")
+
+                        if unit_string == "":
+                            unit_string = "-"
+
+                        parameters[f.name.lower()][dataset.lower()][
+                            parameter.name.lower()
+                        ][unit_type] = unit_string
+
+        return json.dumps(parameters, indent=4, ensure_ascii=False)
 
     @classmethod
     def _setup_discover_filter(cls, filter_):
-        """Helper method to create filter for discover method, can be overwritten by subclasses to use other then the
-        resolutoon for filtering"""
+        """Helper method to create filter for discover method, can be overwritten by
+        subclasses to use other then the resolution for filtering"""
         if cls._resolution_type == ResolutionType.FIXED:
             log.warning("resolution filter will be ignored due to fixed resolution")
 

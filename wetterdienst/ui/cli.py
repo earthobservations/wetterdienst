@@ -303,12 +303,14 @@ def run():
             resolution=options.resolution,
             period=options.period,
             tidy=options.tidy,
+            metric=False,
         )
     elif options.forecast:
         stations = DwdMosmixRequest(
             parameter=read_list(options.parameter),
             mosmix_type=DwdMosmixType.LARGE,
             tidy=options.tidy,
+            metric=False,
         )
 
     if options.latitude and options.longitude:

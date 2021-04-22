@@ -28,7 +28,7 @@ def test_api(provider, kind, kwargs, metric):
     api = Wetterdienst(provider, kind)
 
     # Discover parameters
-    assert api.discover(metric=metric)
+    assert api.discover()
 
     # All stations
     request = api(**kwargs, metric=metric).all()

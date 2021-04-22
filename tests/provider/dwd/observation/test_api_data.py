@@ -322,7 +322,7 @@ def test_dwd_observation_data_result_tabular():
         end_date="1934-01-01",  # few days after official start,
         tidy=False,
         humanize=False,
-        metric=False
+        metric=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -390,7 +390,7 @@ def test_dwd_observation_data_result_tidy():
         end_date="1934-01-01",  # few days after official start,
         tidy=True,
         humanize=False,
-        metric=False
+        metric=False,
     ).filter_by_station_id(
         station_id=(1048,),
     )

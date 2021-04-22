@@ -87,12 +87,12 @@ def dwd_stations(
             )
 
         stations = DwdObservationRequest(
-            parameter=parameter,
-            resolution=resolution,
-            period=period,
+            parameter=parameter, resolution=resolution, period=period, metric=False
         )
     else:
-        stations = DwdMosmixRequest(parameter=parameter, mosmix_type=mosmix_type)
+        stations = DwdMosmixRequest(
+            parameter=parameter, mosmix_type=mosmix_type, metric=False
+        )
 
     if longitude and latitude and (rank or distance):
         if rank:
@@ -170,6 +170,7 @@ def dwd_values(
             resolution=resolution,
             period=period,
             tidy=tidy,
+            metric=False,
         )
     else:
         if parameter is None or mosmix_type is None:
@@ -177,10 +178,9 @@ def dwd_values(
                 status_code=400, detail="Query argument 'mosmix_type' is required"
             )
 
-        request = DwdMosmixRequest(parameter=parameter, mosmix_type=mosmix_type)
-
-    if not resolution:
-        resolution = request.resolution
+        request = DwdMosmixRequest(
+            parameter=parameter, mosmix_type=mosmix_type, metric=False
+        )
 
     # Postprocessing.
     results = request.filter_by_station_id(station_id=station_ids).values.all()
