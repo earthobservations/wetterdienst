@@ -12,15 +12,16 @@ from dogpile.cache.util import kwarg_function_key_generator
 log = logging.getLogger()
 
 # Python on Windows has no "fcntl", which is required by the dbm backend.
-
+# TODO: Make cache backend configurable, e.g. optionally use Redis for running
+#       in multi-threaded environments.
 platform = platform.system()
 backend = "dogpile.cache.dbm"
-if platform == "Windows":
+if "WD_CACHE_DISABLE" in os.environ or platform == "Windows":
     backend = "dogpile.cache.memory"
 
 # Compute cache directory.
 try:
-    cache_dir = os.environ['CACHE_DIR']
+    cache_dir = os.environ['WD_CACHE_DIR']
 except KeyError:
     cache_dir = appdirs.user_cache_dir(appname="wetterdienst")
 
