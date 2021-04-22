@@ -296,10 +296,11 @@ Development
     cd wetterdienst
 
     # Install package in editable mode.
-    pip install --editable=.[http,sql,export,ui]
+    pip install --editable=.[sql,export,restapi,explorer]
 
     # Alternatively, when using Poetry.
-    poetry install --extras=http --extras=sql --extras=export --extras=ui
+    poetry install --extras=sql --extras=export --extras=restapi --extras=explorer
+    poetry shell
 
 2. For running the whole test suite, you will need to have Firefox and
    geckodriver installed on your machine. Install them like::
