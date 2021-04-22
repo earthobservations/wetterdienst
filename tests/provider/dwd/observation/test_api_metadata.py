@@ -3,10 +3,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
-    DwdObservationParameter,
     DwdObservationPeriod,
     DwdObservationRequest,
     DwdObservationResolution,
@@ -14,16 +12,22 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def test_dwd_observation_metadata_discover_parameters():
-    parameters = DwdObservationRequest.discover(filter_="minute_1", flatten=True, metric=True)
+    parameters = DwdObservationRequest.discover(filter_="minute_1", flatten=True)
 
     assert (
         json.dumps(
             {
                 "minute_1": {
-                    "precipitation_height": "kg / m ** 2",
-                    "precipitation_height_droplet": "kg / m ** 2",
-                    "precipitation_height_rocker": "kg / m ** 2",
-                    "precipitation_form": "-"
+                    "precipitation_height": {"origin": "mm", "metric": "kg / m ** 2"},
+                    "precipitation_height_droplet": {
+                        "origin": "mm",
+                        "metric": "kg / m ** 2",
+                    },
+                    "precipitation_height_rocker": {
+                        "origin": "mm",
+                        "metric": "kg / m ** 2",
+                    },
+                    "precipitation_form": {"origin": "-", "metric": "-"},
                 }
             },
             indent=4,

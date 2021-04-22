@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from enum import Enum
 from io import BytesIO
-from typing import Generator, Tuple, Union, Optional
+from typing import Generator, Optional, Tuple, Union
 
 import pandas as pd
 import requests
@@ -312,7 +312,7 @@ class EcccObservationRequest(ScalarRequestCore):
         end_date: Optional[datetime] = None,
         humanize: bool = True,
         tidy: bool = True,
-        metric: bool = True
+        metric: bool = True,
     ):
         super(EcccObservationRequest, self).__init__(
             parameter=parameter,
@@ -322,7 +322,7 @@ class EcccObservationRequest(ScalarRequestCore):
             end_date=end_date,
             humanize=humanize,
             tidy=tidy,
-            metric=metric
+            metric=metric,
         )
 
     def _all(self) -> pd.DataFrame:

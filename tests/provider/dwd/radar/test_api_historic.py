@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
+import h5py
 import pybufrkit
 import pytest
 
-from tests import mac_arm64, mac_arm64_unsupported
 from tests.provider.dwd.radar import (
     station_reference_pattern_de,
     station_reference_pattern_sorted,
@@ -25,9 +25,6 @@ from wetterdienst.provider.dwd.radar import (
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
-
-if not mac_arm64:
-    import h5py
 
 HERE = Path(__file__).parent
 
@@ -639,7 +636,6 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_timerange():
     # TODO: Verify data.
 
 
-@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
     """
@@ -725,7 +721,6 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
     # TODO: Verify data.
 
 
-@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     """

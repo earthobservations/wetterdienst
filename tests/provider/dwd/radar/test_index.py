@@ -244,8 +244,7 @@ def test_radar_fileindex_radolan_cdc_5minutes():
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
-    for url in urls:
-        print(url)
+
     assert all(
         PurePath(url).match(
             "*/climate_environment/CDC/grids_germany/5_minutes/radolan/reproc/2017_002/bin/*/YW2017*.tar"

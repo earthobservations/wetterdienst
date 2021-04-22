@@ -127,12 +127,16 @@ class ScalarValuesCore:
 
         dataset_accessor = self.stations.stations._dataset_accessor
 
-        origin_units = self.stations.stations._origin_unit_tree[dataset_accessor][
-            dataset
-        ]
-        metric_units = self.stations.stations._metric_unit_tree[dataset_accessor][
-            dataset
-        ]
+        if self.stations.stations._unique_dataset:
+            origin_units = self.stations.stations._origin_unit_tree[dataset_accessor]
+            metric_units = self.stations.stations._metric_unit_tree[dataset_accessor]
+        else:
+            origin_units = self.stations.stations._origin_unit_tree[dataset_accessor][
+                dataset
+            ]
+            metric_units = self.stations.stations._metric_unit_tree[dataset_accessor][
+                dataset
+            ]
 
         conversion_factors = {}
 
@@ -140,9 +144,15 @@ class ScalarValuesCore:
         for origin_unit, metric_unit in zip(origin_units, metric_units):
             # Get parameter name
             parameter = origin_unit.name
-            parameter_value = self.stations.stations._dataset_tree[dataset_accessor][
-                dataset
-            ][parameter].value
+
+            if self.stations.stations._unique_dataset:
+                parameter_value = self.stations.stations._dataset_tree[
+                    dataset_accessor
+                ][parameter].value
+            else:
+                parameter_value = self.stations.stations._dataset_tree[
+                    dataset_accessor
+                ][dataset][parameter].value
 
             if metric_unit.value == MetricUnit.KILOGRAM_PER_SQUARE_METER.value:
                 # Fixed conversion factors to kg / m², as it only applies

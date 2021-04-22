@@ -4,7 +4,8 @@ Changelog
 Development
 ***********
 
-...
+- Add origin and metric unit mappings to services
+- Use argument "metric" in request classes to convert origin units to metric, set to default
 
 0.17.0 (08.04.2021)
 *******************

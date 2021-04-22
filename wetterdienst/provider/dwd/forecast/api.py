@@ -383,6 +383,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         end_date: Optional[Union[str, datetime]] = None,
         humanize: bool = True,
         tidy: bool = True,
+        metric: bool = True,
     ) -> None:
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
@@ -392,6 +393,7 @@ class DwdMosmixRequest(ScalarRequestCore):
             end_date=end_date,
             resolution=Resolution.HOURLY,
             period=Period.FUTURE,
+            metric=metric,
         )
 
         # Parse issue date if not set to fixed "latest" string
