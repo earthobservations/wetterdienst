@@ -188,7 +188,7 @@ class DwdMosmixUnitOrigin(DatasetTreeCore):
         WEATHER_SIGNIFICANT_OPTIONAL_LAST_24H = OriginUnit.SIGNIFICANT_WEATHER.value
 
 
-class DwdMosmixUnitMetric(DatasetTreeCore):
+class DwdMosmixUnitSI(DatasetTreeCore):
     class SMALL(UnitEnum):
         TEMPERATURE_AIR_200 = MetricUnit.DEGREE_KELVIN.value
         TEMPERATURE_DEW_POINT_200 = MetricUnit.DEGREE_KELVIN.value

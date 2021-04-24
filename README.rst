@@ -215,18 +215,42 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
 
 .. code-block:: python
 
+    >>> import pandas as pd
+    >>> pd.set_option('max_columns', 8)
     >>> from wetterdienst import Wetterdienst
     >>> API = Wetterdienst("dwd", "observation")
     >>> request = API(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
-    ...    start_date="1990-01-01",  # Timezone: UTC
-    ...    end_date="2020-01-01",  # Timezone: UTC
+    ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
+    ...    end_date="2020-01-01",  # if not given timezone defaulted to UTC
     ...    tidy=True,  # default, tidy data
     ...    humanize=True,  # default, humanized parameters
+    ...    si_units=True  # default, convert values to SI units
     ... ).filter_by_station_id(station_id=(1048, 4411))
-    >>> stations = request.df  # station list
-    >>> values = request.values.all().df  # values
+    >>> request.df.head()  # station list
+         station_id                 from_date                   to_date  height  \
+    209      01048 1934-01-01 00:00:00+00:00 2021-04-23 00:00:00+00:00   227.0
+    818      04411 1979-12-01 00:00:00+00:00 2021-04-23 00:00:00+00:00   155.0
+    <BLANKLINE>
+         latitude  longitude                    name    state
+    209   51.1280    13.7543       Dresden-Klotzsche  Sachsen
+    818   49.9195     8.9671  Schaafheim-Schlierbach   Hessen
+
+    >>> request.values.all().df.head()  # values
+                           date station_id          dataset      parameter value  \
+    0 1990-01-01 00:00:00+00:00      01048  climate_summary  wind_gust_max  <NA>
+    1 1990-01-02 00:00:00+00:00      01048  climate_summary  wind_gust_max  <NA>
+    2 1990-01-03 00:00:00+00:00      01048  climate_summary  wind_gust_max   5.0
+    3 1990-01-04 00:00:00+00:00      01048  climate_summary  wind_gust_max   9.0
+    4 1990-01-05 00:00:00+00:00      01048  climate_summary  wind_gust_max   7.0
+    <BLANKLINE>
+      quality
+    0     NaN
+    1     NaN
+    2      10
+    3      10
+    4      10
 
 Receiving of stations for defined parameters using the ``wetterdienst`` client:
 

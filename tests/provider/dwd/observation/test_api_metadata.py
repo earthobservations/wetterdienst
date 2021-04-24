@@ -18,16 +18,16 @@ def test_dwd_observation_metadata_discover_parameters():
         json.dumps(
             {
                 "minute_1": {
-                    "precipitation_height": {"origin": "mm", "metric": "kg / m ** 2"},
+                    "precipitation_height": {"origin": "mm", "si": "kg / m ** 2"},
                     "precipitation_height_droplet": {
                         "origin": "mm",
-                        "metric": "kg / m ** 2",
+                        "si": "kg / m ** 2",
                     },
                     "precipitation_height_rocker": {
                         "origin": "mm",
-                        "metric": "kg / m ** 2",
+                        "si": "kg / m ** 2",
                     },
-                    "precipitation_form": {"origin": "-", "metric": "-"},
+                    "precipitation_form": {"origin": "-", "si": "-"},
                 }
             },
             indent=4,

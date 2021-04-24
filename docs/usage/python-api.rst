@@ -104,13 +104,15 @@ Other arguments for the request are
 - ``end_date``
 - ``tidy``
 - ``humanize``
+- ``si_units``
 
 Arguments start_date and end_date are possible replacements for the period argument if
 the period of a weather service is fixed. In case both arguments are given they are
 combined thus data is only taken from the given period and between the given time span.
 The argument `tidy` can be used to reshape the returned data to a `tidy format`_.
 The argument `humanize` can be used to rename parameters to more meaningful
-names. Both `tidy` and `humanize` are defaulted to True.
+names. The argument `si_units` can be used to convert values to SI units.
+All of `tidy`, `humanize` and `si_units` are defaulted to True.
 
 .. _tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
 

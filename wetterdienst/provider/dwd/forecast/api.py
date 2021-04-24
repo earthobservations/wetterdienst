@@ -28,8 +28,8 @@ from wetterdienst.provider.dwd.forecast.metadata import (
 )
 from wetterdienst.provider.dwd.forecast.metadata.field_types import INTEGER_PARAMETERS
 from wetterdienst.provider.dwd.forecast.metadata.unit import (
-    DwdMosmixUnitMetric,
     DwdMosmixUnitOrigin,
+    DwdMosmixUnitSI,
 )
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
@@ -321,7 +321,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _dataset_base = DwdMosmixDataset
 
     _origin_unit_tree = DwdMosmixUnitOrigin
-    _metric_unit_tree = DwdMosmixUnitMetric
+    _si_unit_tree = DwdMosmixUnitSI
 
     @property
     def _dataset_accessor(self) -> str:
@@ -383,7 +383,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         end_date: Optional[Union[str, datetime]] = None,
         humanize: bool = True,
         tidy: bool = True,
-        metric: bool = True,
+        si_units: bool = True,
     ) -> None:
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
@@ -393,7 +393,7 @@ class DwdMosmixRequest(ScalarRequestCore):
             end_date=end_date,
             resolution=Resolution.HOURLY,
             period=Period.FUTURE,
-            metric=metric,
+            si_units=si_units,
         )
 
         # Parse issue date if not set to fixed "latest" string

@@ -107,7 +107,7 @@ class EcccObservationUnitOrigin(DatasetTreeCore):
         # 'most snow on the ground data quality'
 
 
-class EcccObservationUnitMetric(DatasetTreeCore):
+class EcccObservationUnitSI(DatasetTreeCore):
     class HOURLY(UnitEnum):
         TEMPERATURE_AIR_200 = MetricUnit.DEGREE_KELVIN.value
         QUALITY_TEMPERATURE_AIR_200 = MetricUnit.DIMENSIONLESS

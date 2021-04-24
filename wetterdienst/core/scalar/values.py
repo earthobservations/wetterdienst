@@ -101,6 +101,8 @@ class ScalarValuesCore:
         pass
 
     def convert_values_to_metric(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+        """ Function to convert values to metric units with help of conversion factors """
+
         def _convert_values_to_metric(series):
             op, factor = conversion_factors.get(series.name, (None, None))
 
@@ -112,9 +114,9 @@ class ScalarValuesCore:
         conversion_factors = self._create_conversion_factors(dataset)
 
         if self.stations.stations.tidy:
-            df.loc[:, Columns.VALUE.value] = df.groupby(Columns.PARAMETER.value)[
-                Columns.VALUE.value
-            ].apply(_convert_values_to_metric)
+            df.loc[:, Columns.VALUE.value] = df.groupby(
+                Columns.PARAMETER.value, sort=False
+            )[Columns.VALUE.value].apply(_convert_values_to_metric)
         else:
             df = df.apply(_convert_values_to_metric, axis=0)
 
@@ -129,12 +131,12 @@ class ScalarValuesCore:
 
         if self.stations.stations._unique_dataset:
             origin_units = self.stations.stations._origin_unit_tree[dataset_accessor]
-            metric_units = self.stations.stations._metric_unit_tree[dataset_accessor]
+            metric_units = self.stations.stations._si_unit_tree[dataset_accessor]
         else:
             origin_units = self.stations.stations._origin_unit_tree[dataset_accessor][
                 dataset
             ]
-            metric_units = self.stations.stations._metric_unit_tree[dataset_accessor][
+            metric_units = self.stations.stations._si_unit_tree[dataset_accessor][
                 dataset
             ]
 
@@ -397,7 +399,7 @@ class ScalarValuesCore:
 
                 parameter_df = self._coerce_parameter_types(parameter_df)
 
-                if self.stations.stations.metric:
+                if self.stations.stations.si_units:
                     parameter_df = self.convert_values_to_metric(parameter_df, dataset)
 
                 station_data.append(parameter_df)
@@ -504,7 +506,11 @@ class ScalarValuesCore:
     def _coerce_integers(series: pd.Series) -> pd.Series:
         """Method to parse integers for type coercion. Uses pandas.Int64Dtype() to
         allow missing values."""
-        return pd.to_numeric(series, errors="coerce").astype(pd.Int64Dtype())
+        return (
+            pd.to_numeric(series, errors="coerce")
+            .astype(pd.Float64Dtype())
+            .astype(pd.Int64Dtype())
+        )
 
     @staticmethod
     def _coerce_strings(series: pd.Series) -> pd.Series:

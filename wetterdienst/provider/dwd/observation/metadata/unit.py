@@ -356,7 +356,7 @@ class DwdObservationUnitOrigin(DatasetTreeCore):
             DEW = OriginUnit.DIMENSIONLESS.value
 
 
-class DwdObservationUnitMetric(DatasetTreeCore):
+class DwdObservationUnitSI(DatasetTreeCore):
     # 1_minute
     class MINUTE_1(DatasetTreeCore):  # noqa
         # precipitation
