@@ -33,8 +33,8 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EccObservationResolution,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import (
-    EcccObservationUnitMetric,
     EcccObservationUnitOrigin,
+    EcccObservationUnitSI,
 )
 from wetterdienst.util.cache import payload_cache_twelve_hours
 
@@ -257,7 +257,7 @@ class EcccObservationRequest(ScalarRequestCore):
     _unique_dataset = True
 
     _origin_unit_tree = EcccObservationUnitOrigin
-    _metric_unit_tree = EcccObservationUnitMetric
+    _si_unit_tree = EcccObservationUnitSI
 
     _values = EcccObservationValues
 
@@ -312,7 +312,7 @@ class EcccObservationRequest(ScalarRequestCore):
         end_date: Optional[datetime] = None,
         humanize: bool = True,
         tidy: bool = True,
-        metric: bool = True,
+        si_units: bool = True,
     ):
         super(EcccObservationRequest, self).__init__(
             parameter=parameter,
@@ -322,7 +322,7 @@ class EcccObservationRequest(ScalarRequestCore):
             end_date=end_date,
             humanize=humanize,
             tidy=tidy,
-            metric=metric,
+            si_units=si_units,
         )
 
     def _all(self) -> pd.DataFrame:

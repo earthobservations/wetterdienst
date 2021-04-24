@@ -2671,7 +2671,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "zarr"
-version = "2.7.1"
+version = "2.8.0"
 description = "An implementation of chunked, compressed, N-dimensional arrays for Python."
 category = "main"
 optional = true
@@ -4568,8 +4568,8 @@ yaspin = [
     {file = "yaspin-1.5.0.tar.gz", hash = "sha256:d8fc9bc1c8be225877ea6e2e08fec96c2b52e233525a5c40b92d373f015439c6"},
 ]
 zarr = [
-    {file = "zarr-2.7.1-py3-none-any.whl", hash = "sha256:df22469b425d23f6d6f93872d7af239ace58b4aaf4bf8ab6e14cb6ddbd5a8a08"},
-    {file = "zarr-2.7.1.tar.gz", hash = "sha256:fa522b042c08f9d49914135faf80f03a29ee8309a3a858048f14bdf51c8cfd65"},
+    {file = "zarr-2.8.0-py3-none-any.whl", hash = "sha256:580e3fb634e01cf043f76042568e2de83942cdf3317aa1ab0301349153bef1d5"},
+    {file = "zarr-2.8.0.tar.gz", hash = "sha256:66bede4493c04c6dbfde6f98fd040bc6c6ae533f23ed07500236f0b4cf353006"},
 ]
 zipp = [
     {file = "zipp-3.4.1-py3-none-any.whl", hash = "sha256:51cb66cc54621609dd593d1787f286ee42a5c0adbb4b29abea5a63edc3e03098"},

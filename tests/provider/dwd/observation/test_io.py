@@ -226,7 +226,7 @@ def test_export_spreadsheet(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -330,7 +330,7 @@ def test_export_parquet(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -398,7 +398,7 @@ def test_export_zarr(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -466,7 +466,7 @@ def test_export_feather(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -531,7 +531,7 @@ def test_export_sqlite(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -597,7 +597,7 @@ def test_export_cratedb():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -627,7 +627,7 @@ def test_export_duckdb():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_connection = mock.MagicMock()
@@ -654,7 +654,7 @@ def test_export_influxdb_tabular():
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
@@ -687,7 +687,7 @@ def test_export_influxdb_tidy():
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy=True,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()

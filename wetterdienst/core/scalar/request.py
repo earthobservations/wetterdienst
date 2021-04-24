@@ -148,7 +148,7 @@ class ScalarRequestCore(Core):
 
     @property
     @abstractmethod
-    def _metric_unit_tree(self):
+    def _si_unit_tree(self):
         pass
 
     @property
@@ -294,7 +294,7 @@ class ScalarRequestCore(Core):
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         humanize: bool = True,
         tidy: bool = True,
-        metric: bool = True,
+        si_units: bool = True,
     ) -> None:
         """
 
@@ -305,7 +305,7 @@ class ScalarRequestCore(Core):
         :param end_date:   End date for filtering stations for their available data
         :param humanize: boolean if parameters should be humanized
         :param tidy: boolean if data should be tidied
-        :param metric: boolean if values should be converted to metric units
+        :param si_units: boolean if values should be converted to si units
         """
 
         super().__init__()
@@ -327,7 +327,7 @@ class ScalarRequestCore(Core):
             )
 
         self.tidy = tidy
-        self.metric = metric
+        self.si_units = si_units
 
         log.info(
             f"Processing request for "
@@ -339,7 +339,7 @@ class ScalarRequestCore(Core):
             f"end_date={self.end_date}, "
             f"humanize={self.humanize}, "
             f"tidy={self.tidy}, "
-            f"metric={self.metric}"
+            f"si_units={self.si_units}"
         )
 
     @staticmethod
@@ -406,8 +406,8 @@ class ScalarRequestCore(Core):
                     parameters[f.name.lower()][parameter.name.lower()] = {}
 
                     for unit_type, unit_tree in zip(
-                        ("origin", "metric"),
-                        (cls._origin_unit_tree, cls._metric_unit_tree),
+                        ("origin", "si"),
+                        (cls._origin_unit_tree, cls._si_unit_tree),
                     ):
                         if cls._unique_dataset:
                             unit = unit_tree[f.name][parameter.name].value
@@ -459,8 +459,8 @@ class ScalarRequestCore(Core):
                     ] = {}
 
                     for unit_type, unit_tree in zip(
-                        ("origin", "metric"),
-                        (cls._origin_unit_tree, cls._metric_unit_tree),
+                        ("origin", "si"),
+                        (cls._origin_unit_tree, cls._si_unit_tree),
                     ):
 
                         unit = unit_tree[f.name][dataset][parameter.name].value
@@ -482,9 +482,15 @@ class ScalarRequestCore(Core):
         return json.dumps(parameters, indent=4, ensure_ascii=False)
 
     @classmethod
-    def _setup_discover_filter(cls, filter_):
-        """Helper method to create filter for discover method, can be overwritten by
-        subclasses to use other then the resolution for filtering"""
+    def _setup_discover_filter(cls, filter_) -> list:
+        """
+            Helper method to create filter for discover method, can be overwritten by
+            subclasses to use other then the resolution for filtering
+
+        :param filter_: typically resolution, if used in subclass can be directed
+            towards something else
+        :return:
+        """
         if cls._resolution_type == ResolutionType.FIXED:
             log.warning("resolution filter will be ignored due to fixed resolution")
 

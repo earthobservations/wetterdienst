@@ -322,7 +322,7 @@ def test_dwd_observation_data_result_tabular():
         end_date="1934-01-01",  # few days after official start,
         tidy=False,
         humanize=False,
-        metric=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -381,8 +381,76 @@ def test_dwd_observation_data_result_tabular():
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tidy():
-    """ Test for actual values (tidy) """
+def test_dwd_observation_data_result_tabular_metric():
+    """ Test for actual values (tabular) in metric units """
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
+        resolution=DwdObservationResolution.DAILY,
+        start_date="1933-12-31",  # few days before official start
+        end_date="1934-01-01",  # few days after official start,
+        tidy=False,
+        humanize=False,
+        si_units=True,
+    ).filter_by_station_id(
+        station_id=[1048],
+    )
+
+    df = request.values.all().df
+
+    assert list(df.columns.values) == [
+        "date",
+        "station_id",
+        "qn_3",
+        "fx",
+        "fm",
+        "qn_4",
+        "rsk",
+        "rskf",
+        "sdk",
+        "shk_tag",
+        "nm",
+        "vpm",
+        "pm",
+        "tmk",
+        "upm",
+        "txk",
+        "tnk",
+        "tgk",
+    ]
+
+    assert_frame_equal(
+        df,
+        pd.DataFrame(
+            {
+                "date": [
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                ],
+                "station_id": pd.Categorical(["01048", "01048"]),
+                "qn_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
+                "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "qn_4": pd.Series([pd.NA, 1], dtype=pd.Int64Dtype()),
+                "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
+                "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
+                "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+                "shk_tag": pd.Series([pd.NA, 0], dtype=pd.Int64Dtype()),
+                "nm": pd.to_numeric([pd.NA, 100.0], errors="coerce"),
+                "vpm": pd.to_numeric([pd.NA, 640.0], errors="coerce"),
+                "pm": pd.to_numeric([pd.NA, 100860.0], errors="coerce"),
+                "tmk": pd.to_numeric([pd.NA, 273.65], errors="coerce"),
+                "upm": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
+                "txk": pd.to_numeric([pd.NA, 273.84999999999997], errors="coerce"),
+                "tnk": pd.to_numeric([pd.NA, 273.34999999999997], errors="coerce"),
+                "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            }
+        ),
+    )
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_result_tidy_metric():
+    """ Test for actual values (tidy) in metric units """
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -390,7 +458,7 @@ def test_dwd_observation_data_result_tidy():
         end_date="1934-01-01",  # few days after official start,
         tidy=True,
         humanize=False,
-        metric=False,
+        si_units=True,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -558,25 +626,25 @@ def test_dwd_observation_data_result_tidy():
                         0,
                         # NM
                         pd.NA,
-                        8.0,
+                        100.0,
                         # VPM
                         pd.NA,
-                        6.4,
+                        640.0,
                         # PM
                         pd.NA,
-                        1008.60,
+                        100860.0,
                         # TMK
                         pd.NA,
-                        0.5,
+                        273.65,
                         # UPM
                         pd.NA,
                         97.00,
                         # TXK
                         pd.NA,
-                        0.7,
+                        273.84999999999997,
                         # TNK
                         pd.NA,
-                        0.2,
+                        273.34999999999997,
                         # TGK
                         pd.NA,
                         pd.NA,

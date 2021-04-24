@@ -82,7 +82,7 @@ def create_file_index_for_climate_observations(
 
     file_index = file_index.dropna().reset_index(drop=True)
 
-    file_index[DwdColumns.STATION_ID.value] = file_index[
+    file_index.loc[:, DwdColumns.STATION_ID.value] = file_index[
         DwdColumns.STATION_ID.value
     ].astype(str)
 
