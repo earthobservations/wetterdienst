@@ -23,7 +23,7 @@ class EcccObservationDatasetTree(DatasetTreeCore):
         QUALITY_HUMIDITY = "rel hum flag"
         WIND_DIRECTION = "wind dir (10s deg)"
         QUALITY_WIND_DIRECTION = "wind dir flag"
-        WIND_SPREED = "wind spd (km/h)"
+        WIND_SPEED = "wind spd (km/h)"
         QUALITY_WIND_SPEED = "wind spd flag"
         VISIBILITY = "visibility (km)"
         QUALITY_VISIBILITY = "visibility flag"

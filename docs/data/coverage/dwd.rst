@@ -119,10 +119,10 @@ parameters can be queried. Take a look at the massive amount of data:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    observations_meta = DwdObservationRequest.discover(flatten=False)
+    meta = DwdObservationRequest.discover(flatten=False)
 
     # Selection of daily historical data
-    print(observations_meta)
+    print(meta)
 
 .. _file_server: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/
 
@@ -253,6 +253,15 @@ stations worldwide and is available in two versions, Mosmix-S and Mosmix-L. Mosm
 comes with a set of 40 parameters and is published every hour while MOSMIX-L has a set
 of about 115 parameters and is released every 6 hours (3am, 9am, 3pm, 9pm). Both
 versions have a forecast limit of 240h.
+
+.. ipython:: python
+
+    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+
+    meta = DwdMosmixRequest.discover(flatten=False)
+
+    # Selection of daily historical data
+    print(meta)
 
 .. _Mosmix: https://www.dwd.de/EN/ourservices/met_application_mosmix/met_application_mosmix.html
 

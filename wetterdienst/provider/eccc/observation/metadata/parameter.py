@@ -19,7 +19,7 @@ class EcccObservationParameter(DatasetTreeCore):
         )
         HUMIDITY = EcccObservationDatasetTree.HOURLY.HUMIDITY.value
         WIND_DIRECTION = EcccObservationDatasetTree.HOURLY.WIND_DIRECTION.value
-        WIND_SPREED = EcccObservationDatasetTree.HOURLY.WIND_SPREED.value
+        WIND_SPEED = EcccObservationDatasetTree.HOURLY.WIND_SPEED.value
         VISIBILITY = EcccObservationDatasetTree.HOURLY.VISIBILITY.value
         PRESSURE_AIR_STATION_HEIGHT = (
             EcccObservationDatasetTree.HOURLY.PRESSURE_AIR_STATION_HEIGHT.value

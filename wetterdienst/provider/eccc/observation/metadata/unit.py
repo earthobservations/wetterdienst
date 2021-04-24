@@ -15,7 +15,7 @@ class EcccObservationUnitOrigin(DatasetTreeCore):
         QUALITY_HUMIDITY = OriginUnit.DIMENSIONLESS.value
         WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value
         QUALITY_WIND_DIRECTION = OriginUnit.DIMENSIONLESS.value
-        WIND_SPREED = OriginUnit.KILOMETER_PER_HOUR.value
+        WIND_SPEED = OriginUnit.KILOMETER_PER_HOUR.value
         QUALITY_WIND_SPEED = OriginUnit.DIMENSIONLESS.value
         VISIBILITY = OriginUnit.KILOMETER.value
         QUALITY_VISIBILITY = OriginUnit.DIMENSIONLESS.value
@@ -117,7 +117,7 @@ class EcccObservationUnitSI(DatasetTreeCore):
         QUALITY_HUMIDITY = MetricUnit.DIMENSIONLESS.value
         WIND_DIRECTION = MetricUnit.WIND_DIRECTION.value
         QUALITY_WIND_DIRECTION = MetricUnit.DIMENSIONLESS.value
-        WIND_SPREED = MetricUnit.METER_PER_SECOND.value
+        WIND_SPEED = MetricUnit.METER_PER_SECOND.value
         QUALITY_WIND_SPEED = MetricUnit.DIMENSIONLESS.value
         VISIBILITY = MetricUnit.METER.value
         QUALITY_VISIBILITY = MetricUnit.DIMENSIONLESS.value
