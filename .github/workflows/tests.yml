@@ -63,4 +63,4 @@ jobs:
     #  #if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
 
     - name: Test
-      run: poetry run poe test-parallel
+      run: poetry run poe test
