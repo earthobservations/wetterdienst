@@ -13,15 +13,10 @@ from dogpile.cache.util import kwarg_function_key_generator
 
 log = logging.getLogger()
 
-# Python on Windows has no "fcntl", which is required by the dbm backend.
-# TODO: Make cache backend configurable, e.g. optionally use Redis for running
-#       in multi-threaded environments.
-platform = platform.system()
-backend = "dogpile.cache.dbm"
-if "WD_CACHE_DISABLE" in os.environ or platform == "Windows":
-    backend = "dogpile.cache.memory"
+# Whether caching should be disabled at all.
+WD_CACHE_DISABLE = "WD_CACHE_DISABLE" in os.environ
 
-# Compute cache directory.
+# Configure cache directory.
 try:
     cache_dir = os.environ["WD_CACHE_DIR"]
 except KeyError:
@@ -33,13 +28,23 @@ sys.stderr.write("Wetterdienst cache directory is %s" % cache_dir)
 # Ensure cache directories exist.
 # FIXME: Get rid of this as it executes "os.makedirs()" on the module level.
 #        This is not really good style but it is needed for the dogpile setup.
-cache_directories = [
-    os.path.join(cache_dir, "dogpile"),
-    os.path.join(cache_dir, "fsspec"),
-]
-for cache_directory in cache_directories:
-    if not os.path.exists(cache_directory):
-        os.makedirs(cache_directory)
+if not WD_CACHE_DISABLE:
+    cache_directories = [
+        os.path.join(cache_dir, "dogpile"),
+        os.path.join(cache_dir, "fsspec"),
+    ]
+    for cache_directory in cache_directories:
+        if not os.path.exists(cache_directory):
+            os.makedirs(cache_directory)
+
+# Configure cache backend.
+# TODO: Make cache backend configurable, e.g. optionally use Redis for running
+#       in multi-threaded environments.
+platform = platform.system()
+backend = "dogpile.cache.dbm"
+# Python on Windows has no "fcntl", which is required by the dbm backend.
+if WD_CACHE_DISABLE or platform == "Windows":
+    backend = "dogpile.cache.memory"
 
 
 class CacheExpiry(Enum):

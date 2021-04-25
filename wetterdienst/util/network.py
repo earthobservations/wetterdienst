@@ -16,6 +16,9 @@ from wetterdienst.util.cache import CacheExpiry, cache_dir
 # v1: Global HTTP session object for custom implementation based on "requests".
 session = requests.Session()
 
+# Whether caching should be disabled at all.
+WD_CACHE_DISABLE = "WD_CACHE_DISABLE" in os.environ
+
 
 # v2: Remote filesystem access through FSSPEC.
 class NetworkFilesystemManager:
@@ -42,12 +45,16 @@ class NetworkFilesystemManager:
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(cache_dir, "fsspec", key)
-        filesystem = WholeFileCacheFileSystem(
-            fs=HTTPFileSystem(use_listings_cache=True),
-            cache_storage=real_cache_dir,
-            expiry_time=ttl_value,
-        )
-        cls.filesystems[key] = filesystem
+        filesystem_real = HTTPFileSystem(use_listings_cache=True)
+        if WD_CACHE_DISABLE:
+            filesystem_effective = filesystem_real
+        else:
+            filesystem_effective = WholeFileCacheFileSystem(
+                fs=filesystem_real,
+                cache_storage=real_cache_dir,
+                expiry_time=ttl_value,
+            )
+        cls.filesystems[key] = filesystem_effective
 
     @classmethod
     def get(cls, ttl=CacheExpiry.NO_CACHE):
@@ -108,6 +115,20 @@ def list_remote_files_legacy(url: str, recursive: bool) -> List[str]:
 def list_remote_files_fsspec(
     url: str, recursive: bool = False, ttl: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> List[str]:
+    """
+    A function used to create a listing of all files of a given path on the server.
+
+    The default ttl with ``CacheExpiry.FILEINDEX`` is "5 minutes".
+
+    Args:
+        :param url:         The URL which should be searched for files.
+        :param recursive:   Definition if the function should iteratively list files
+                            from sub folders.
+        :param ttl:         The cache expiration time.
+
+    Returns:
+        A list of strings representing the files from the path.
+    """
 
     # Acquire filesystem instance.
     filesystem = NetworkFilesystemManager.get(ttl=ttl)
