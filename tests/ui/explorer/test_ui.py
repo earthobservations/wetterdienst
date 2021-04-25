@@ -24,6 +24,7 @@ from bs4 import BeautifulSoup
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_layout(wetterdienst_ui, dash_tre):
 
@@ -37,6 +38,7 @@ def test_app_layout(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
@@ -67,6 +69,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     """
@@ -89,6 +92,7 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_data_values(wetterdienst_ui, dash_tre):
     """
