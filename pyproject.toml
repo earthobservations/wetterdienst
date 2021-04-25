@@ -102,6 +102,8 @@ aenum = "^3.0.0"
 click = "^7.1.2"
 click-params = "^0.1.1"
 cloup = "^0.8.0"
+requests-ftp = "^0.3.1"
+fsspec = {git = "https://github.com/earthobservations/filesystem_spec", rev = "integration"}
 
 # Optional dependencies aka. "extras"
 matplotlib =  { version = "^3.3.2", optional = true }
@@ -161,6 +163,7 @@ selenium = "^3.141.0"
 percy = "^2.0.2"
 h5py = "^3.1.0"
 h5netcdf = "^0.11.0"
+pytest-xdist = "^2.2.1"
 
 [tool.poetry.extras]
 mpl = ["matplotlib"]
@@ -245,7 +248,11 @@ isort = "isort wetterdienst example tests"
 format = ["black", "isort"]
 lint = "flakehell lint wetterdienst example tests"
 test = "pytest tests"
-export_requirements = "poetry export --without-hashes --dev --output requirements.txt"
+test-parallel = "pytest --numprocesses=4 -m 'not explorer' tests"
+coverage = "pytest --cov=wetterdienst tests"
+coverage-parallel = "pytest --cov=wetterdienst --numprocesses=4 -m 'not explorer' tests"
+#export_requirements = "poetry export --without-hashes --dev --output requirements.txt"
+export_requirements = "dephell deps convert"
 export_licenses = "pip-licenses --from=mixed --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 export = ["export_requirements", "export_licenses"]
 

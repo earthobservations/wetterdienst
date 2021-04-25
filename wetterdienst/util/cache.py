@@ -4,6 +4,8 @@
 import logging
 import os
 import platform
+import sys
+from enum import Enum
 
 import appdirs
 from dogpile.cache import make_region
@@ -25,9 +27,37 @@ try:
 except KeyError:
     cache_dir = appdirs.user_cache_dir(appname="wetterdienst")
 
-if not os.path.exists(cache_dir):
-    os.makedirs(cache_dir)
-log.info("Cache directory is %s", cache_dir)
+# Early reporting.
+sys.stderr.write("Wetterdienst cache directory is %s" % cache_dir)
+
+# Ensure cache directories exist.
+# FIXME: Get rid of this as it executes "os.makedirs()" on the module level.
+#        This is not really good style but it is needed for the dogpile setup.
+cache_directories = [
+    os.path.join(cache_dir, "dogpile"),
+    os.path.join(cache_dir, "fsspec"),
+]
+for cache_directory in cache_directories:
+    if not os.path.exists(cache_directory):
+        os.makedirs(cache_directory)
+
+
+class CacheExpiry(Enum):
+    """
+    Describe some convenient caching expiry presets.
+    This is part of the new network i/o subsystem based on FSSPEC.
+    """
+
+    INFINITE = False
+    NO_CACHE = 0.01
+    FIVE_SECONDS = 5
+    FIVE_MINUTES = 60 * 5
+    ONE_HOUR = 60 * 60
+    TWELVE_HOURS = 60 * 60 * 12
+
+    METAINDEX = TWELVE_HOURS
+    FILEINDEX = FIVE_MINUTES
+
 
 # Define cache regions.
 metaindex_cache = make_region(
@@ -35,7 +65,7 @@ metaindex_cache = make_region(
 ).configure(
     backend,
     expiration_time=60 * 60 * 12,
-    arguments={"filename": os.path.join(cache_dir, "metaindex.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "metaindex.dbm")},
 )
 
 fileindex_cache_five_minutes = make_region(
@@ -43,7 +73,7 @@ fileindex_cache_five_minutes = make_region(
 ).configure(
     backend,
     expiration_time=60 * 5,
-    arguments={"filename": os.path.join(cache_dir, "fileindex_5m.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "fileindex_5m.dbm")},
 )
 
 fileindex_cache_one_hour = make_region(
@@ -51,7 +81,7 @@ fileindex_cache_one_hour = make_region(
 ).configure(
     backend,
     expiration_time=60 * 60,
-    arguments={"filename": os.path.join(cache_dir, "fileindex_1h.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "fileindex_1h.dbm")},
 )
 
 fileindex_cache_twelve_hours = make_region(
@@ -59,7 +89,7 @@ fileindex_cache_twelve_hours = make_region(
 ).configure(
     backend,
     expiration_time=60 * 60 * 12,
-    arguments={"filename": os.path.join(cache_dir, "fileindex_12h.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "fileindex_12h.dbm")},
 )
 
 payload_cache_five_minutes = make_region(
@@ -67,7 +97,7 @@ payload_cache_five_minutes = make_region(
 ).configure(
     backend,
     expiration_time=60 * 5,
-    arguments={"filename": os.path.join(cache_dir, "payload_5m.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "payload_5m.dbm")},
 )
 
 payload_cache_one_hour = make_region(
@@ -75,7 +105,7 @@ payload_cache_one_hour = make_region(
 ).configure(
     backend,
     expiration_time=60 * 60,
-    arguments={"filename": os.path.join(cache_dir, "payload_1h.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "payload_1h.dbm")},
 )
 
 payload_cache_twelve_hours = make_region(
@@ -83,5 +113,5 @@ payload_cache_twelve_hours = make_region(
 ).configure(
     backend,
     expiration_time=60 * 60 * 12,
-    arguments={"filename": os.path.join(cache_dir, "payload_12h.dbm")},
+    arguments={"filename": os.path.join(cache_dir, "dogpile", "payload_12h.dbm")},
 )
