@@ -10,7 +10,7 @@ def test_readme():
     failures, _ = doctest.testfile(
         filename=str(readme_file),
         module_relative=False,
-        optionflags=doctest.NORMALIZE_WHITESPACE,
+        optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS,
     )
 
     assert failures == 0
