@@ -272,7 +272,10 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        file = download_file(metadata_file, CacheExpiry.ONE_MINUTE)
+        # Attention: Currently, a FSSPEC-based cache must not be used here as Windows
+        #            would croak when concurrently accessing those resources badly.
+        # TODO: Revisit this place after completely getting rid of dogpile.cache.
+        file = download_file(metadata_file, ttl=CacheExpiry.NO_CACHE)
     except InvalidURL as e:
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 
