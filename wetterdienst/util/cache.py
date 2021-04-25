@@ -35,7 +35,7 @@ if not WD_CACHE_DISABLE:
     ]
     for cache_directory in cache_directories:
         if not os.path.exists(cache_directory):
-            os.makedirs(cache_directory)
+            os.makedirs(cache_directory, exist_ok=True)
 
 # Configure cache backend.
 # TODO: Make cache backend configurable, e.g. optionally use Redis for running
