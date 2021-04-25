@@ -78,7 +78,7 @@ library that make it better and better every day.
 Coverage
 ********
 
-DWD (German Weather Service / Deutscher Wetterdienst / Germany)
+DWD (Deutscher Wetterdienst / German Weather Service / Germany)
     - Historical Weather Observations
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
         - Every minute to yearly resolution
@@ -94,7 +94,7 @@ DWD (German Weather Service / Deutscher Wetterdienst / Germany)
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
 
-ECCC (Environnement et Changement Climatique Canada, Environment and Climate Change Canada, Canada)
+ECCC (Environnement et Changement Climatique Canada / Environment and Climate Change Canada / Canada)
     - Historical Weather Observations
         - Historical (last ~180 years)
         - Hourly, daily, monthly, (annual) resolution

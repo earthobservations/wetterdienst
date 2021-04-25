@@ -12,6 +12,7 @@ import pandas as pd
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -68,8 +69,6 @@ class DwdObservationValues(ScalarValuesCore):
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
     """
-
-    provider = Provider.DWD
 
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
@@ -376,6 +375,7 @@ class DwdObservationRequest(ScalarRequestCore):
     """
 
     provider = Provider.DWD
+    kind = Kind.OBSERVATION
 
     _values = DwdObservationValues
     _parameter_base = DwdObservationParameter

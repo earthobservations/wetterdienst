@@ -76,7 +76,7 @@ def create_file_index_for_climate_observations(
         file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value)
     ]
 
-    file_index[DwdColumns.STATION_ID.value] = (
+    file_index.loc[:, DwdColumns.STATION_ID.value] = (
         file_index[DwdColumns.FILENAME.value].str.findall(STATION_ID_REGEX).str[0]
     )
 

@@ -5,28 +5,41 @@ import json
 import logging
 from typing import Optional
 
+from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
-from wetterdienst import __appname__, __version__
-from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
-from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
-from wetterdienst.util.cli import read_list, setup_logging
+from wetterdienst import Provider, Wetterdienst, __appname__, __version__
+from wetterdienst.core.scalar.request import ScalarRequestCore
+from wetterdienst.exceptions import ProviderError
+from wetterdienst.ui.cli import get_api
+from wetterdienst.ui.core import get_stations, get_values, set_logging_level
+from wetterdienst.util.cli import setup_logging
 
 app = FastAPI(debug=False)
 
 log = logging.getLogger(__name__)
 
-dwd_source = "https://opendata.dwd.de/climate_environment/CDC/"
-dwd_copyright = "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)"
-producer_name = "Wetterdienst"
-producer_link = "https://github.com/earthobservations/wetterdienst"
+PRODUCER_NAME = "Wetterdienst"
+PRODUCER_LINK = "https://github.com/earthobservations/wetterdienst"
+
+CommaSeparator = StringListParamType(",")
 
 
 @app.get("/", response_class=HTMLResponse)
 def index():
     appname = f"{__appname__} {__version__}"
+
     about = "Wetterdienst - Open weather data for humans."
+
+    sources = ""
+    for provider in Provider:
+        shortname = provider.name
+        _, name, country, copyright_, url = provider.value
+        sources += (
+            f"<li><a href={url}>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
+        )
+
     return f"""
     <html>
         <head>
@@ -34,19 +47,23 @@ def index():
         </head>
         <body>
             <h3>About</h3>
-            {about}
+            <h3>{about}</h3>
+            <h4>Providers</h4>
             <ul>
-            <li>Source: DWD » CDC - <a href="{dwd_source}">{dwd_source}</a></li>
-            <li>
-                Producer: {producer_name}
-                -
-                <a href="{producer_link}">{producer_link}</a></li>
-            <li>Data copyright: {dwd_copyright}</li>
+                {sources}
             </ul>
-            <h3>Examples</h3>
+            <h4>Providers</h4>
             <ul>
-            <li><a href="api/dwd/observation/stations?parameter=kl&resolution=daily&period=recent">Observation stations</a></li>
-            <li><a href="api/dwd/observation/values?parameter=kl&resolution=daily&period=recent&stations=00011">Observation values</a></li>
+                <li><a href=restapi/coverage>coverage</a></li>
+                <li><a href=restapi/stations>stations</a></li>
+                <li><a href=restapi/values>values</a></li>
+            </ul>
+            <h4>Producer</h4>
+            {PRODUCER_NAME} - <a href="{PRODUCER_LINK}">{PRODUCER_LINK}</a></li>
+            <h4>Examples</h4>
+            <ul>
+            <li><a href="restapi/stations?provider=dwd&kind=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations</a></li>
+            <li><a href="restapi/values?provider=dwd&kind=observation&parameter=kl&resolution=daily&period=recent&station-id=00011">DWD Observation values</a></li>
             </ul>
         </body>
     </html>
@@ -61,147 +78,287 @@ Disallow: /api/
     """.strip()
 
 
-@app.get("/api/dwd/{kind}/stations")
-def dwd_stations(
-    kind: str,
+@app.get("/restapi/coverage")
+def coverage(
+    provider: str = Query(default=None),
+    kind: str = Query(default=None),
+    debug: bool = Query(default=False),
+    filter_=Query(alias="filter", default=None),
+):
+    set_logging_level(debug)
+
+    if not provider or not kind:
+        cov = Wetterdienst.discover()
+
+        return Response(
+            content=json.dumps(cov, indent=4), media_type="application/json"
+        )
+
+    api = get_api(provider=provider, kind=kind)
+
+    # dataset = kwargs.get("dataset")
+    # if dataset:
+    #     dataset = read_list(dataset)
+
+    cov = api.discover(
+        filter_=filter_,
+        # dataset=dataset,
+        flatten=False,
+    )
+
+    return Response(content=json.dumps(cov, indent=4), media_type="application/json")
+
+
+@app.get("/restapi/stations")
+def stations(
+    provider: str = Query(default=None),
+    kind: str = Query(default=None),
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
-    mosmix_type: str = Query(default=None),
-    longitude: float = Query(default=None),
-    latitude: float = Query(default=None),
+    all_: str = Query(alias="all", default=False),
+    station_id: str = Query(default=None),
+    name: str = Query(default=None),
+    coordinates: str = Query(default=None),
     rank: int = Query(default=None),
-    distance: int = Query(default=None),
+    distance: float = Query(default=None),
+    bbox: str = Query(default=None),
     sql: str = Query(default=None),
+    fmt: str = Query(alias="format", default="json"),
+    debug: bool = Query(default=False),
+    pretty: bool = Query(default=False),
 ):
-    if kind not in ["observation", "forecast"]:
-        return HTTPException(status_code=404, detail=f"product {kind} not found")
-
-    # Data acquisition.
-    if kind == "observation":
-        if parameter is None or resolution is None or period is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Query arguments 'parameter', 'resolution' "
-                "and 'period' are required",
-            )
-
-        stations = DwdObservationRequest(
-            parameter=parameter, resolution=resolution, period=period, si_units=False
-        )
-    else:
-        stations = DwdMosmixRequest(
-            parameter=parameter, mosmix_type=mosmix_type, si_units=False
+    if provider is None or kind is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Query arguments 'provider' and 'kind' are required",
         )
 
-    if longitude and latitude and (rank or distance):
-        if rank:
-            results = stations.filter_by_rank(
-                latitude=latitude, longitude=longitude, rank=rank
-            )
-        else:
-            results = stations.filter_by_distance(
-                latitude=latitude, longitude=longitude, distance=distance, unit="km"
-            )
-    else:
-        results = stations.all()
+    if parameter is None or resolution is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Query arguments 'parameter', 'resolution' "
+            "and 'period' are required",
+        )
+
+    if fmt not in ("json", "geojson"):
+        raise HTTPException(
+            status_code=400,
+            detail="format argument must be one of json, geojson",
+        )
+
+    set_logging_level(debug)
+
+    try:
+        api = Wetterdienst(provider, kind)
+    except ProviderError:
+        return HTTPException(
+            status_code=404,
+            detail=f"Choose provider and kind from {app.url_path_for('coverage')}",
+        )
+
+    parameter = parameter.split(",")
+    if period:
+        period = period.split(",")
+    if station_id:
+        station_id = station_id.split(",")
+
+    try:
+        stations_ = get_stations(
+            api=api,
+            parameter=parameter,
+            resolution=resolution,
+            period=period,
+            all_=all_,
+            station_id=station_id,
+            name=name,
+            coordinates=coordinates,
+            rank=rank,
+            distance=distance,
+            bbox=bbox,
+            sql=sql,
+            date=None,
+            tidy=False,
+            si_units=False,
+        )
+    except (KeyError, ValueError) as e:
+        return HTTPException(status_code=404, detail=str(e))
+
+    if not stations_.parameter or not stations_.resolution:
+        return HTTPException(
+            status_code=404,
+            detail=f"No parameter found for provider {provider}, kind {kind}, "
+            f"parameter(s) {parameter} and resolution {resolution}.",
+        )
 
     # Postprocessing.
-    if sql is not None:
-        results.filter_by_sql(sql)
-    results.fill_gaps()
+    # if sql is not None:
+    #     results.filter_by_sql(sql)
 
-    return make_json_response(results.to_dict())
+    stations_.fill_gaps()
+
+    indent = None
+    if pretty:
+        indent = 4
+
+    if fmt == "json":
+        output = stations_.to_dict()
+    elif fmt == "geojson":
+        output = stations_._to_ogc_feature_collection()
+
+    output = make_json_response(output, api.provider)
+
+    output = json.dumps(output, indent=indent, ensure_ascii=False)
+
+    return Response(content=output, media_type="application/json")
 
 
-@app.get("/api/dwd/{kind}/values")
-def dwd_values(
-    kind: str,
-    stations: str = Query(default=None),
+@app.get("/restapi/values")
+def values(
+    provider: str = Query(default=None),
+    kind: str = Query(default=None),
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
-    mosmix_type: str = Query(default=None),
     date: str = Query(default=None),
+    all_: str = Query(alias="all", default=False),
+    station: str = Query(default=None),
+    name: str = Query(default=None),
+    coordinates: str = Query(default=None),
+    rank: int = Query(default=None),
+    distance: float = Query(default=None),
+    bbox: str = Query(default=None),
     sql: str = Query(default=None),
+    sql_values: str = Query(alias="sql-values", default=None),
+    # fmt: str = Query(alias="format", default="json"),
     tidy: bool = Query(default=True),
+    si_units: bool = Query(alias="si-units", default=True),
+    pretty: bool = Query(default=False),
+    debug: bool = Query(default=False),
 ):
     """
     Acquire data from DWD.
 
-    # TODO: Obtain lat/lon distance/number information.
-
     :param provider:
     :param kind:        string for product, either observation or forecast
-    :param stations:     Comma-separated list of station identifiers.
     :param parameter:   Observation measure
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
-    :param mosmix_type: MOSMIX type. Either "small" or "large".
     :param date:        Date or date range
+    :param all_:
+    :param station:
+    :param name:
+    :param coordinates:
+    :param rank:
+    :param distance:
+    :param bbox:
     :param sql:         SQL expression
+    :param sql_values:
+    :param fmt:
     :param tidy:        Whether to return data in tidy format. Default: True.
+    :param si_units:
+    :param pretty:
+    :param debug:
     :return:
     """
-    if kind not in ["observation", "mosmix"]:
+    # TODO: Add geojson support
+    fmt = "json"
+
+    if provider is None or kind is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Query arguments 'provider' and 'kind' are required",
+        )
+
+    if parameter is None or resolution is None or date is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Query arguments 'parameter', 'resolution' "
+            "and 'date' are required",
+        )
+
+    if fmt not in ("json", "geojson"):
+        raise HTTPException(
+            status_code=400,
+            detail="format argument must be one of json, geojson",
+        )
+
+    set_logging_level(debug)
+
+    try:
+        api: ScalarRequestCore = Wetterdienst(provider, kind)
+    except ProviderError:
         return HTTPException(
             status_code=404,
-            detail=f"Unknown value for query argument 'kind={kind}' {kind}",
+            detail=f"Given combination of provider and kind not available. "
+            f"Choose provider and kind from {Wetterdienst.discover()}",
         )
 
-    if stations is None:
-        raise HTTPException(
-            status_code=400, detail="Query argument 'stations' is required"
-        )
+    parameter = parameter.split(",")
+    if period:
+        period = period.split(",")
+    if station:
+        station = station.split(",")
 
-    station_ids = map(str, read_list(stations))
-
-    if kind == "observation":
-        if parameter is None or resolution is None or period is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Query arguments 'parameter', 'resolution' "
-                "and 'period' are required",
-            )
-
-        # Data acquisition.
-        request = DwdObservationRequest(
+    try:
+        values_ = get_values(
+            api=api,
             parameter=parameter,
             resolution=resolution,
+            date=date,
             period=period,
+            all_=all_,
+            station_id=station,
+            name=name,
+            coordinates=coordinates,
+            rank=rank,
+            distance=distance,
+            bbox=bbox,
+            sql=sql,
+            sql_values=sql_values,
+            si_units=si_units,
             tidy=tidy,
-            si_units=False,
         )
-    else:
-        if parameter is None or mosmix_type is None:
-            raise HTTPException(
-                status_code=400, detail="Query argument 'mosmix_type' is required"
-            )
+    except Exception as e:
+        log.exception(e)
 
-        request = DwdMosmixRequest(
-            parameter=parameter, mosmix_type=mosmix_type, si_units=False
-        )
+        return HTTPException(status_code=404, detail=e)
 
-    # Postprocessing.
-    results = request.filter_by_station_id(station_id=station_ids).values.all()
+    indent = None
+    if pretty:
+        indent = 4
 
-    if date is not None:
-        results.filter_by_date(date)
+    output = values_.to_dict()
 
-    if sql is not None:
-        results.filter_by_sql(sql)
+    # if fmt == "json":
+    #     output = stations_.to_dict()
+    # elif fmt == "geojson":
+    #     output = stations_._to_ogc_feature_collection()
 
-    data = json.loads(results.to_json())
+    output = make_json_response(output, api.provider)
 
-    return make_json_response(data)
+    output = json.dumps(output, indent=indent, ensure_ascii=False)
+
+    return Response(content=output, media_type="application/json")
 
 
-def make_json_response(data):
+def make_json_response(data, provider):
+    name_local, name_english, country, copyright_, url = provider.value
+
     response = {
         "meta": {
-            "source": dwd_source,
-            "copyright": dwd_copyright,
-            "producer": f"{producer_name} - {producer_link}",
+            "provider": {
+                "name_local": name_local,
+                "name_english": name_english,
+                "country": country,
+                "copyright": copyright_,
+                "url": url,
+            },
+            "producer": {
+                "name": PRODUCER_NAME,
+                "url": PRODUCER_LINK,
+                "doi": "10.5281/zenodo.3960624",
+            },
         },
         "data": data,
     }

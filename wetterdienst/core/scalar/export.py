@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from urllib.parse import urlunparse
 
 import pandas as pd
+import pytz
 
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.url import ConnectionString
@@ -42,22 +43,46 @@ class ExportMixin:
         # Return dictionary with scalar types.
         return df.to_dict(orient="records")
 
-    def to_json(self):
-        output = self.df.to_json(orient="records", date_format="iso", indent=4)
+    def to_json(self, indent: int = 4):
+        output = self.df.to_json(
+            orient="records", date_format="iso", indent=indent, force_ascii=False
+        )
         return output
 
     def to_csv(self):
         output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
         return output
 
-    def to_geojson(self) -> str:
+    def to_geojson(self, indent: int = 4) -> str:
         """
         Convert station information into GeoJSON format.
 
         Return:
              JSON string in GeoJSON FeatureCollection format.
         """
-        return json.dumps(self.to_ogc_feature_collection(), indent=4)
+        return json.dumps(
+            self.to_ogc_feature_collection(), indent=indent, ensure_ascii=False
+        )
+
+    def to_format(self, fmt: str, **kwargs) -> str:
+        """
+        Wrapper to create output based on a format string
+
+        :param fmt: string defining the output format
+        :return: string of formatted data
+        """
+        fmt = fmt.lower()
+
+        if fmt == "json":
+            output = self.to_json(indent=kwargs.get("indent"))
+        elif fmt == "csv":
+            output = self.to_csv()
+        elif fmt == "geojson":
+            output = self.to_geojson(indent=kwargs.get("indent"))
+        else:
+            raise KeyError("Unknown output format")
+
+        return output
 
     @staticmethod
     def _filter_by_sql(df: pd.DataFrame, sql: str) -> pd.DataFrame:
@@ -76,11 +101,23 @@ class ExportMixin:
         """
         import duckdb
 
-        return duckdb.query_df(df, "data", sql).df()
+        df = duckdb.query_df(df, "data", sql).df()
+
+        for column in (
+            Columns.FROM_DATE.value,
+            Columns.TO_DATE.value,
+            Columns.DATE.value,
+        ):
+            try:
+                df[column] = df[column].dt.tz_localize(pytz.UTC)
+            except KeyError:
+                pass
+
+        return df
 
     @abstractmethod
     def to_ogc_feature_collection(self):
-        raise NotImplementedError()
+        pass
 
     def to_target(self, target: str):
         """
@@ -425,7 +462,7 @@ def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
     """
     Convert all datetime columns to ISO format.
 
-    :param df:
+    :param df:        df[Columns.FROM_DATE] = df[Columns.FROM_DATE].dt.tz_localize(self.tz)
     :return:
     """
     df: pd.DataFrame = df.copy(deep=True)

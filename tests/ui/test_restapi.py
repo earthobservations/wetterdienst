@@ -23,11 +23,14 @@ def test_robots():
 def test_dwd_stations_basic():
 
     response = client.get(
-        "/api/dwd/observation/stations",
+        "/restapi/stations",
         params={
+            "provider": "dwd",
+            "kind": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
+            "all": "true",
         },
     )
     assert response.status_code == 200
@@ -40,13 +43,14 @@ def test_dwd_stations_basic():
 def test_dwd_stations_geo():
 
     response = client.get(
-        "/api/dwd/observation/stations",
+        "/restapi/stations",
         params={
+            "provider": "dwd",
+            "kind": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
-            "latitude": 45.54,
-            "longitude": 10.10,
+            "coordinates": "45.54,10.10",
             "rank": 5,
         },
     )
@@ -60,12 +64,14 @@ def test_dwd_stations_geo():
 def test_dwd_stations_sql():
 
     response = client.get(
-        "/api/dwd/observation/stations",
+        "/restapi/stations",
         params={
+            "provider": "dwd",
+            "kind": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
-            "sql": "SELECT * FROM data WHERE lower(name) " "LIKE lower('%dresden%');",
+            "sql": "SELECT * FROM data WHERE lower(name) LIKE lower('%dresden%');",
         },
     )
     assert response.status_code == 200
@@ -73,19 +79,20 @@ def test_dwd_stations_sql():
     assert response.json()["data"][0]["name"] == "Dresden-Klotzsche"
 
 
-def test_dwd_readings_success(dicts_are_same):
+def test_dwd_values_success(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/observation/values",
+        "/restapi/values",
         params={
-            "stations": "01359",
+            "provider": "dwd",
+            "kind": "observation",
+            "station": "01359",
             "parameter": "kl",
             "resolution": "daily",
             "period": "historical",
             "date": "1982-01-01",
         },
     )
-
     assert response.status_code == 200
     assert dicts_are_same(
         response.json()["data"][0],
@@ -93,18 +100,20 @@ def test_dwd_readings_success(dicts_are_same):
             "station_id": "01359",
             "dataset": "climate_summary",
             "parameter": "wind_gust_max",
-            "date": "1982-01-01T00:00:00.000Z",
+            "date": "1982-01-01T00:00:00+00:00",  # "1982-01-01T00:00:00.000Z",
             "value": 4.2,
-            "quality": 10,
+            "quality": 10.0,
         },
     )
 
 
-def test_dwd_readings_no_station():
+def test_dwd_values_no_station():
 
     response = client.get(
-        "/api/dwd/observation/values",
+        "/restapi/values",
         params={
+            "provider": "dwd",
+            "kind": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -112,31 +121,37 @@ def test_dwd_readings_no_station():
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'stations' is required"}
-
-
-def test_dwd_readings_no_parameter():
-
-    response = client.get(
-        "/api/dwd/observation/values",
-        params={
-            "stations": "01048,4411",
-            "resolution": "daily",
-            "period": "recent",
-        },
-    )
-
-    assert response.status_code == 400
     assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'period' are required"
+        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
     }
 
 
-def test_dwd_readings_no_resolution():
+def test_dwd_values_no_parameter():
 
     response = client.get(
-        "/api/dwd/observation/values",
+        "/restapi/values",
         params={
+            "provider": "dwd",
+            "kind": "observation",
+            "station": "01048,4411",
+            "resolution": "daily",
+            "period": "recent",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
+    }
+
+
+def test_dwd_values_no_resolution():
+
+    response = client.get(
+        "/restapi/values",
+        params={
+            "provider": "dwd",
+            "kind": "observation",
             "stations": "01048,4411",
             "parameter": "kl",
             "period": "recent",
@@ -145,15 +160,17 @@ def test_dwd_readings_no_resolution():
 
     assert response.status_code == 400
     assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'period' are required"
+        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
     }
 
 
-def test_dwd_readings_no_period():
+def test_dwd_values_no_period():
 
     response = client.get(
-        "/api/dwd/observation/values",
+        "/restapi/values",
         params={
+            "provider": "dwd",
+            "kind": "observation",
             "stations": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
@@ -162,7 +179,7 @@ def test_dwd_readings_no_period():
 
     assert response.status_code == 400
     assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'period' are required"
+        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
     }
 
 
@@ -170,15 +187,18 @@ def test_dwd_readings_no_period():
 def test_dwd_values_sql_tabular(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/observation/values",
+        "/restapi/values",
         params={
-            "stations": "01048,4411",
+            "provider": "dwd",
+            "kind": "observation",
+            "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
             "date": "2019/2022",
-            "sql": "SELECT * FROM data WHERE temperature_air_max_200 < 2.0",
+            "sql-values": "SELECT * FROM data WHERE temperature_air_max_200 < 2.0",
             "tidy": False,
+            "si-units": False,
         },
     )
 
@@ -191,16 +211,16 @@ def test_dwd_values_sql_tabular(dicts_are_same):
         data[0],
         {
             "station_id": "01048",
-            "date": "2019-12-28T00:00:00.000Z",
+            "date": "2019-12-28T00:00:00+00:00",  # "2019-12-28T00:00:00.000Z",
             "qn_3": 10.0,
-            "qn_4": 3,
+            "qn_4": 3.0,
             "cloud_cover_total": 7.4,
             "humidity": 82.54,
-            "precipitation_form": 7,
+            "precipitation_form": 7.0,
             "precipitation_height": 0.4,
             "pressure_air": 1011.49,
             "pressure_vapor": 5.2,
-            "snow_depth": 0,
+            "snow_depth": 0.0,
             "sunshine_duration": 0.0,
             "temperature_air_200": 0.4,
             "temperature_air_max_200": 1.3,
@@ -216,15 +236,17 @@ def test_dwd_values_sql_tabular(dicts_are_same):
 def test_dwd_values_sql_tidy(dicts_are_same):
 
     response = client.get(
-        "/api/dwd/observation/values",
+        "/restapi/values",
         params={
-            "stations": "01048,4411",
+            "provider": "dwd",
+            "kind": "observation",
+            "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
-            "period": "recent",
-            "date": "2019/2022",
-            "sql": "SELECT * FROM data "
+            "date": "2019-12-01/2019-12-31",
+            "sql-values": "SELECT * FROM data "
             "WHERE parameter='temperature_air_max_200' AND value < 1.5",
+            "si-units": False,
         },
     )
     assert response.status_code == 200
@@ -234,8 +256,8 @@ def test_dwd_values_sql_tidy(dicts_are_same):
             "station_id": "01048",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_200",
-            "date": "2019-12-28T00:00:00.000Z",
+            "date": "2019-12-28T00:00:00+00:00",  # "2019-12-28T00:00:00.000Z",
             "value": 1.3,
-            "quality": 3,
+            "quality": 3.0,
         },
     )

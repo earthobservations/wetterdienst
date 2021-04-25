@@ -83,7 +83,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
         raise pytest.skip("Data currently not available")
 
     # Verify number of results.
-    assert len(results) == 10
+    assert 8 <= len(results) <= 10
 
     buffer = results[0].data
     payload = buffer.getvalue()
