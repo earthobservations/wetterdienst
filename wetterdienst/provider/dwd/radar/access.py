@@ -8,7 +8,7 @@ import tarfile
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from typing import Generator, Optional, Tuple
+from typing import Generator, Optional
 
 import pandas as pd
 
@@ -18,7 +18,6 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.provider.dwd.network import download_file_from_dwd
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,
@@ -31,10 +30,8 @@ from wetterdienst.provider.dwd.radar.metadata import (
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import get_date_from_filename, verify_hdf5
-from wetterdienst.util.cache import (
-    payload_cache_five_minutes,
-    payload_cache_twelve_hours,
-)
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
 
@@ -222,7 +219,7 @@ def collect_radar_data(
                     log.exception("Unable to read HDF5 file")
 
 
-def should_cache_download(*args, **kwargs) -> bool:  # pragma: no cover
+def should_cache_download(url) -> bool:  # pragma: no cover
     """
     Determine whether this specific result should be cached.
 
@@ -232,15 +229,9 @@ def should_cache_download(*args, **kwargs) -> bool:  # pragma: no cover
     :param kwargs: Keyword arguments of decorated function.
     :return: When cache should be dimissed, return False. Otherwise, return True.
     """
-    url = args[0]
     if "-latest-" in url:
         return False
     return True
-
-
-@payload_cache_five_minutes.cache_on_arguments(should_cache_fn=should_cache_download)
-def _download_generic_data_cached(url: str) -> Tuple[str, BytesIO]:
-    return url, download_file_from_dwd(url)
 
 
 def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
@@ -253,7 +244,11 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
                         or an archive of multiple files.
     """
 
-    _, data = _download_generic_data_cached(url)
+    ttl = CacheExpiry.FIVE_MINUTES
+    if not should_cache_download(url):
+        ttl = CacheExpiry.NO_CACHE
+
+    data = download_file(url, ttl=ttl)
 
     data.seek(0)
 
@@ -312,7 +307,6 @@ def download_radolan_data(
     return result
 
 
-@payload_cache_twelve_hours.cache_on_arguments()
 def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     """
     Function (cached) that downloads the RADOLAN_CDC file.
@@ -324,7 +318,7 @@ def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
         the file in binary, either an archive of one file or an archive of multiple
         files
     """
-    return download_file_from_dwd(remote_radolan_filepath)
+    return download_file(remote_radolan_filepath, ttl=CacheExpiry.TWELVE_HOURS)
 
 
 def _extract_radolan_data(

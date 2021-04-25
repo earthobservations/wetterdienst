@@ -30,7 +30,7 @@ from wetterdienst.provider.dwd.radar.util import (
     get_date_from_filename,
 )
 from wetterdienst.util.cache import fileindex_cache_five_minutes
-from wetterdienst.util.network import list_remote_files
+from wetterdienst.util.network import list_remote_files_fsspec
 
 
 def use_cache() -> int:  # pragma: no cover
@@ -89,7 +89,7 @@ def create_fileindex_radar(
 
     url = urljoin(DWD_SERVER, parameter_path)
 
-    files_server = list_remote_files(url, recursive=True)
+    files_server = list_remote_files_fsspec(url, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
