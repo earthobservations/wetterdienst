@@ -46,7 +46,7 @@ class NetworkFilesystemManager:
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(cache_dir, "fsspec", key)
         filesystem_real = HTTPFileSystem(use_listings_cache=True)
-        if WD_CACHE_DISABLE:
+        if WD_CACHE_DISABLE or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = filesystem_real
         else:
             filesystem_effective = WholeFileCacheFileSystem(
