@@ -272,7 +272,7 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        file = download_file(metadata_file, CacheExpiry.FIVE_SECONDS)
+        file = download_file(metadata_file, CacheExpiry.ONE_MINUTE)
     except InvalidURL as e:
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 

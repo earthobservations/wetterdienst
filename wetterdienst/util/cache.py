@@ -56,6 +56,7 @@ class CacheExpiry(Enum):
     INFINITE = False
     NO_CACHE = 0.01
     FIVE_SECONDS = 5
+    ONE_MINUTE = 60 * 1
     FIVE_MINUTES = 60 * 5
     ONE_HOUR = 60 * 60
     TWELVE_HOURS = 60 * 60 * 12
