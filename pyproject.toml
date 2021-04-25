@@ -247,6 +247,7 @@ isort = "isort wetterdienst example tests"
 format = ["black", "isort"]
 lint = "flakehell lint wetterdienst example tests"
 test = "pytest -vvv tests"
+test-cflakes = "pytest -vvv -m cflake tests"
 test-parallel = "pytest -vvv --numprocesses=4 -m 'not (explorer or cflake)' tests"
 coverage = "pytest --cov=wetterdienst tests"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=4 -m 'not (explorer or cflake)' tests"
