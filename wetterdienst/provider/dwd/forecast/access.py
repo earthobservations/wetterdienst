@@ -15,8 +15,10 @@ from lxml.etree import XMLParser, parse  # noqa: S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
 
-from wetterdienst.provider.dwd.network import create_dwd_session
 from wetterdienst.util.logging import TqdmToLogger
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.io import read_in_chunks
+from wetterdienst.util.network import NetworkFilesystemManager
 
 log = logging.getLogger(__name__)
 
@@ -34,15 +36,16 @@ class KMLReader:
         self.timesteps = []
         self.items = []
 
-        self.dwd_session = create_dwd_session()
+        self.dwdfs = NetworkFilesystemManager.get(ttl=CacheExpiry.FIVE_MINUTES)
 
     def download(self, url: str):
         # https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests  # noqa:E501,B950
 
-        response = self.dwd_session.get(url, stream=True)
-        response.raise_for_status()
-
-        total = int(response.headers.get("content-length", 0))
+        # block_size: int or None
+        #             Bytes to download in one request; use instance value if None. If
+        #             zero, will return a streaming Requests file-like instance.
+        response = self.dwdfs.open(url, block_size=0)
+        total = self.dwdfs.size(url)
 
         buffer = BytesIO()
 
@@ -56,7 +59,7 @@ class KMLReader:
             unit_divisor=1024,
             file=tqdm_out,
         ) as bar:
-            for data in response.iter_content(chunk_size=1024):
+            for data in read_in_chunks(response, chunk_size=1024):
                 size = buffer.write(data)
                 bar.update(size)
 

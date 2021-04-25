@@ -9,8 +9,8 @@ from zipfile import BadZipFile, ZipFile
 from requests.exceptions import InvalidURL
 
 from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
-from wetterdienst.provider.dwd.network import download_file_from_dwd
-from wetterdienst.util.cache import payload_cache_five_minutes
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.network import download_file
 
 PRODUCT_FILE_IDENTIFIER = "produkt"
 
@@ -48,11 +48,10 @@ def _download_climate_observations_data(remote_file: str) -> BytesIO:
     return BytesIO(__download_climate_observations_data(remote_file=remote_file))
 
 
-@payload_cache_five_minutes.cache_on_arguments()
 def __download_climate_observations_data(remote_file: str) -> bytes:
 
     try:
-        zip_file = download_file_from_dwd(remote_file)
+        zip_file = download_file(remote_file, ttl=CacheExpiry.FIVE_MINUTES)
     except InvalidURL as e:
         raise InvalidURL(
             f"Error: the station data {remote_file} could not be reached."
