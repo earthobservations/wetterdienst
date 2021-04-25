@@ -4,7 +4,8 @@ Changelog
 Development
 ***********
 
-...
+- Change cli base to click
+- Add support for wetterdienst core API in cli and restapi
 
 0.19.0 (14.05.2021)
 *******************

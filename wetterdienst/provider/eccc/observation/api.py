@@ -18,6 +18,7 @@ from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -42,6 +43,7 @@ log = logging.getLogger(__name__)
 
 
 class EcccObservationValues(ScalarValuesCore):
+
     _string_parameters = []
     _integer_parameters = []
     _irregular_parameters = []
@@ -250,6 +252,7 @@ class EcccObservationRequest(ScalarRequestCore):
     """
 
     provider = Provider.ECCC
+    kind = Kind.OBSERVATION
 
     _tz = Timezone.UTC
 

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import json
 import logging
 from abc import abstractmethod
 from datetime import datetime
@@ -20,7 +19,9 @@ from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
 from wetterdienst.exceptions import InvalidEnumeration, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
@@ -32,6 +33,18 @@ EARTH_RADIUS_KM = 6371
 
 class ScalarRequestCore(Core):
     """ Core for stations information of a source """
+
+    @property
+    @abstractmethod
+    def provider(self) -> Provider:
+        """ Optional enumeration for multiple resolutions """
+        pass
+
+    @property
+    @abstractmethod
+    def kind(self) -> Kind:
+        """ Optional enumeration for multiple resolutions """
+        pass
 
     @property
     @abstractmethod
@@ -384,7 +397,7 @@ class ScalarRequestCore(Core):
         return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
     @classmethod
-    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
+    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> dict:
         """
         Function to print/discover available parameters
 
@@ -434,7 +447,7 @@ class ScalarRequestCore(Core):
                             unit_type
                         ] = unit_string
 
-            return json.dumps(parameters, indent=4, ensure_ascii=False)
+            return parameters
 
         datasets_filter = (
             pd.Series(dataset)
@@ -483,7 +496,7 @@ class ScalarRequestCore(Core):
                             parameter.name.lower()
                         ][unit_type] = unit_string
 
-        return json.dumps(parameters, indent=4, ensure_ascii=False)
+        return parameters
 
     @classmethod
     def _setup_discover_filter(cls, filter_) -> list:
@@ -759,6 +772,27 @@ class ScalarRequestCore(Core):
             df[Columns.LATITUDE.value].apply(lambda x: x in lat_interval)
             & df[Columns.LONGITUDE.value].apply(lambda x: x in lon_interval)
         ]
+
+        result = StationsResult(stations=self, df=df.reset_index(drop=True))
+
+        return result
+
+    def filter_by_sql(self, sql: str) -> pd.DataFrame:
+        """
+
+        :param sql:
+        :return:
+        """
+        import duckdb
+
+        df = self.all().df
+
+        df = duckdb.query_df(df, "data", sql).df()
+
+        df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(
+            self.tz
+        )
+        df[Columns.TO_DATE.value] = df[Columns.TO_DATE.value].dt.tz_localize(self.tz)
 
         result = StationsResult(stations=self, df=df.reset_index(drop=True))
 

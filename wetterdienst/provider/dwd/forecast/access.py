@@ -16,6 +16,7 @@ from pandas import DatetimeIndex
 from tqdm import tqdm
 
 from wetterdienst.provider.dwd.network import create_dwd_session
+from wetterdienst.util.logging import TqdmToLogger
 
 log = logging.getLogger(__name__)
 
@@ -44,12 +45,16 @@ class KMLReader:
         total = int(response.headers.get("content-length", 0))
 
         buffer = BytesIO()
+
+        tqdm_out = TqdmToLogger(log, level=logging.INFO)
+
         with tqdm(
             desc=url,
             total=total,
             unit="iB",
             unit_scale=True,
             unit_divisor=1024,
+            file=tqdm_out,
         ) as bar:
             for data in response.iter_content(chunk_size=1024):
                 size = buffer.write(data)

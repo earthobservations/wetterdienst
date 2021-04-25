@@ -16,6 +16,7 @@ from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -310,6 +311,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     """ Implementation of sites for MOSMIX forecast sites """
 
     provider = Provider.DWD
+    kind = Kind.FORECAST
 
     _url = (
         "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"

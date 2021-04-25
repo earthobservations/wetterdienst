@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import logging
 import operator
 from abc import abstractmethod
 from enum import Enum
@@ -17,6 +18,9 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, MetricUnit, OriginUnit
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.logging import TqdmToLogger
+
+log = logging.getLogger(__name__)
 
 
 class ScalarValuesCore:
@@ -694,7 +698,12 @@ class ScalarValuesCore:
         """
         data = []
 
-        for result in tqdm(self.query(), total=len(self.stations.station_id)):
+        tqdm_out = TqdmToLogger(log, level=logging.INFO)
+
+        # TODO: write tqdm progressbar to logging stream
+        for result in tqdm(
+            self.query(), total=len(self.stations.station_id), file=tqdm_out
+        ):
             data.append(result.df)
 
         if not data:
