@@ -45,7 +45,7 @@ from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.util.cache import metaindex_cache
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
-from wetterdienst.util.network import list_remote_files
+from wetterdienst.util.network import list_remote_files_legacy
 
 log = logging.getLogger(__name__)
 
@@ -287,7 +287,7 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date: date used for filtering of the available files
         :return: file url based on the filtering
         """
-        urls = list_remote_files(url, False)
+        urls = list_remote_files_legacy(url, False)
 
         if date == DwdForecastDate.LATEST:
             try:

@@ -9,6 +9,7 @@ from wetterdienst.provider.dwd.radar import (
     DwdRadarDataSubset,
     DwdRadarDate,
     DwdRadarParameter,
+    DwdRadarPeriod,
     DwdRadarResolution,
     DwdRadarValues,
 )
@@ -153,12 +154,15 @@ def test_radar_request_radolan_cdc_current(resolution):
         parameter=DwdRadarParameter.RADOLAN_CDC,
         start_date=DwdRadarDate.CURRENT,
         resolution=resolution,
+        period=DwdRadarPeriod.RECENT,
     )
 
     results = list(request.query())
 
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
+
+    assert len(results) == 1
 
 
 @pytest.mark.remote
