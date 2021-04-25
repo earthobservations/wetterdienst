@@ -230,8 +230,8 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
     ... ).filter_by_station_id(station_id=(1048, 4411))
     >>> request.df.head()  # station list
          station_id                 from_date                   to_date  height  \
-    209      01048 1934-01-01 00:00:00+00:00 2021-04-23 00:00:00+00:00   227.0
-    818      04411 1979-12-01 00:00:00+00:00 2021-04-23 00:00:00+00:00   155.0
+    209      01048 1934-01-01 00:00:00+00:00 ... 00:00:00+00:00   227.0
+    818      04411 1979-12-01 00:00:00+00:00 ... 00:00:00+00:00   155.0
     <BLANKLINE>
          latitude  longitude                    name    state
     209   51.1280    13.7543       Dresden-Klotzsche  Sachsen
