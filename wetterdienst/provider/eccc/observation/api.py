@@ -199,6 +199,8 @@ class EcccObservationValues(ScalarValuesCore):
 
             df = df.reset_index(drop=True)
 
+        df = df.drop(columns=["data quality"], errors="ignore")
+
         if self.stations.stations.tidy:
             df = self._tidy_up_dataframe(df)
 
@@ -213,21 +215,30 @@ class EcccObservationValues(ScalarValuesCore):
         self, station_id: str, start_year: int, end_year: int
     ) -> Generator[str, None, None]:
         # TODO: make faster, requests per month take too long!
-        if self.stations.stations.resolution != Resolution.HOURLY:
+        # if self.stations.stations.resolution != Resolution.HOURLY:
+        #     url = self._base_url.format(int(station_id), self._timeframe)
+        #
+        #     yield url
+        # else:
+        resolution = self.stations.stations.resolution
+
+        freq = "Y"
+        if resolution == Resolution.HOURLY:
+            freq = "M"
+
+        # For hourly data request only necessary data to reduce amount of data being
+        # downloaded and parsed
+        for date in pd.date_range(
+            f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, closed=None
+        ):
             url = self._base_url.format(int(station_id), self._timeframe)
 
+            url += f"&Year={date.year}"
+
+            if resolution == Resolution.HOURLY:
+                url += f"&Month={date.month}"
+
             yield url
-        else:
-            # For hourly data request only necessary data to reduce amount of data being
-            # downloaded and parsed
-            for date in pd.date_range(
-                f"{start_year}-01-01", f"{end_year + 1}-01-01", freq="M", closed=None
-            ):
-                url = self._base_url.format(int(station_id), self._timeframe)
-
-                url += f"&Year={date.year}&Month={date.month}"
-
-                yield url
 
 
 class EcccObservationRequest(ScalarRequestCore):
