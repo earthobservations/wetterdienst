@@ -82,36 +82,12 @@ fileindex_cache_five_minutes = make_region(
     arguments={"filename": os.path.join(cache_dir, "dogpile", "fileindex_5m.dbm")},
 )
 
-fileindex_cache_one_hour = make_region(
-    function_key_generator=kwarg_function_key_generator
-).configure(
-    backend,
-    expiration_time=60 * 60,
-    arguments={"filename": os.path.join(cache_dir, "dogpile", "fileindex_1h.dbm")},
-)
-
 fileindex_cache_twelve_hours = make_region(
     function_key_generator=kwarg_function_key_generator
 ).configure(
     backend,
     expiration_time=60 * 60 * 12,
     arguments={"filename": os.path.join(cache_dir, "dogpile", "fileindex_12h.dbm")},
-)
-
-payload_cache_five_minutes = make_region(
-    function_key_generator=kwarg_function_key_generator
-).configure(
-    backend,
-    expiration_time=60 * 5,
-    arguments={"filename": os.path.join(cache_dir, "dogpile", "payload_5m.dbm")},
-)
-
-payload_cache_one_hour = make_region(
-    function_key_generator=kwarg_function_key_generator
-).configure(
-    backend,
-    expiration_time=60 * 60,
-    arguments={"filename": os.path.join(cache_dir, "dogpile", "payload_1h.dbm")},
 )
 
 payload_cache_twelve_hours = make_region(

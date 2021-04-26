@@ -52,7 +52,6 @@ def _create_file_index_for_dwd_server(
 def reset_file_index_cache() -> None:
     """ Function to reset the cached file index for all kinds of parameters """
     fileindex_cache_five_minutes.invalidate()
-    fileindex_cache_one_hour.invalidate()
 
 
 def build_path_to_parameter(
