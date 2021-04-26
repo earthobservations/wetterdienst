@@ -32,7 +32,7 @@ from wetterdienst.provider.dwd.metadata.constants import (
 )
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.util.cache import CacheExpiry, metaindex_cache
-from wetterdienst.util.network import download_file, list_remote_files_legacy
+from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 METADATA_COLUMNS = [
     Columns.STATION_ID.value,
@@ -143,7 +143,7 @@ def _create_meta_index_for_climate_observations(
         ],
     )
 
-    files_server = list_remote_files_legacy(url, recursive=True)
+    files_server = list_remote_files_fsspec(url, recursive=True)
 
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(files_server, url)
@@ -220,7 +220,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
         ],
     )
 
-    metadata_file_paths = list_remote_files_legacy(url, recursive=False)
+    metadata_file_paths = list_remote_files_fsspec(url, recursive=False)
 
     station_ids = [
         re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths
