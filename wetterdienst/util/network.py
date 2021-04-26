@@ -134,7 +134,10 @@ def list_remote_files_fsspec(
     filesystem = NetworkFilesystemManager.get(ttl=ttl)
 
     # Recursively list remote directory.
-    remote_urls = filesystem.expand_path(url, recursive=recursive)
+    if not recursive:
+        remote_urls = filesystem.glob(url + "/*")
+    else:
+        remote_urls = filesystem.expand_path(url, recursive=recursive)
 
     # Only list files, so remove all directories.
     try:

@@ -2,6 +2,7 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """ tests for file index creation """
+import aiohttp
 import pytest
 import requests
 
@@ -26,7 +27,9 @@ def test_meta_index_creation():
 
     assert not meta_index.empty
 
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(
+        (requests.exceptions.HTTPError, aiohttp.client_exceptions.ClientResponseError)
+    ):
         create_meta_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
             Resolution.MINUTE_1,
