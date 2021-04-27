@@ -217,9 +217,11 @@ Acquisition of historical data for specific stations using ``wetterdienst`` as l
 
     >>> import pandas as pd
     >>> pd.set_option('max_columns', 8)
-    >>> from wetterdienst import Wetterdienst
-    >>> API = Wetterdienst("dwd", "observation")
-    >>> request = API(
+    >>> from wetterdienst.dwd.observation import DwdObservationRequest
+    # Alternatively, though without argument/type hinting
+    # >>> from wetterdienst import Wetterdienst
+    # >>> API = Wetterdienst("dwd", "observation")
+    >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
     ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
@@ -390,7 +392,10 @@ Development
 Known Issues
 ************
 
-Under Mac ARM64 you need to install **pandas, numpy and scipy** as follows before continuing with the regular setup:
+MAC ARM64 (M1)
+==============
+
+You need to install **pandas, numpy and scipy** as follows before continuing with the regular setup:
 
 .. code-block:: bash
 
@@ -409,6 +414,18 @@ Further additional libraries are affected and have to be installed in a similar 
 
 Furthermore as h5py is currently bound to versions of numpy that conflict with the ARM64 ready libraries, h5py itself as
 well as wradlib are not available for users with that architecture!
+
+LINUX ARM (Raspberry Pi)
+========================
+
+Running wetterdienst on Raspberry Pi, you need to install **numpy**
+and **lxml** prior to installing wetterdienst running the following
+lines:
+
+.. code-block:: bash
+
+    sudo apt-get install libatlas-base-dev
+    sudo apt-get install python3-lxml
 
 Important Links
 ***************
