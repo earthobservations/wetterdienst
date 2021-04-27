@@ -9,6 +9,7 @@ from pathlib import Path
 import h5py
 import pybufrkit
 import pytest
+import requests
 
 from tests.provider.dwd.radar import (
     station_reference_pattern_de,
@@ -91,8 +92,15 @@ def test_radar_request_radolan_cdc_historic_hourly_data():
         start_date=datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0),
     )
 
-    with Path(HERE, "radolan_hourly_201908080050").open("rb") as f:
-        radolan_hourly = BytesIO(f.read())
+    radolan_hourly_backup_url = (
+        "https://github.com/earthobservations/testdata/raw/main/"
+        "opendata.dwd.de/climate_environment/CDC/grids_germany/"
+        "hourly/radolan/historical/bin/2019/radolan_hourly_201908080050"
+    )
+
+    payload = requests.get(radolan_hourly_backup_url)
+
+    radolan_hourly = BytesIO(payload.content)
 
     radolan_hourly_test = next(request.query()).data
 
@@ -119,8 +127,15 @@ def test_radar_request_radolan_cdc_historic_daily_data():
         start_date=datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0),
     )
 
-    with Path(HERE, "radolan_daily_201908080050").open("rb") as f:
-        radolan_hourly = BytesIO(f.read())
+    radolan_daily_backup_url = (
+        "https://github.com/earthobservations/testdata/raw/main/"
+        "opendata.dwd.de/climate_environment/CDC/grids_germany/"
+        "daily/radolan/historical/bin/2019/radolan_daily_201908080050"
+    )
+
+    payload = requests.get(radolan_daily_backup_url)
+
+    radolan_hourly = BytesIO(payload.content)
 
     radolan_hourly_test = next(request.query()).data
 
