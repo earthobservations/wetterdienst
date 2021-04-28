@@ -9,7 +9,6 @@ from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider import dwd, eccc, eumetnet
 
 # Single-sourcing the package version
 # https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/
