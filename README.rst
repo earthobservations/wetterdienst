@@ -213,14 +213,25 @@ Example
 
 Acquisition of historical data for specific stations using ``wetterdienst`` as library:
 
+Load required request class:
+
 .. code-block:: python
 
     >>> import pandas as pd
     >>> pd.set_option('max_columns', 8)
-    >>> from wetterdienst.dwd.observation import DwdObservationRequest
-    # Alternatively, though without argument/type hinting
-    # >>> from wetterdienst import Wetterdienst
-    # >>> API = Wetterdienst("dwd", "observation")
+    >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+Alternatively, though without argument/type hinting:
+
+.. code-block:: python
+
+    >>> from wetterdienst import Wetterdienst
+    >>> API = Wetterdienst("dwd", "observation")
+
+Get data:
+
+.. code-block:: python
+
     >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
