@@ -244,8 +244,8 @@ def test_export_spreadsheet(tmpdir_factory):
     # Validate header row.
     header = list(worksheet.iter_cols(min_row=1, max_row=1, values_only=True))
     assert header == [
-        ("date",),
         ("station_id",),
+        ("date",),
         ("qn_3",),
         ("wind_gust_max",),
         ("wind_speed",),
@@ -269,8 +269,8 @@ def test_export_spreadsheet(tmpdir_factory):
 
     first_record = list(worksheet.iter_cols(min_row=2, max_row=2, values_only=True))
     assert first_record == [
-        ("2019-01-01T00:00:00+00:00",),
         ("01048",),
+        ("2019-01-01T00:00:00+00:00",),
         (10,),
         (19.9,),
         (8.5,),
@@ -295,8 +295,8 @@ def test_export_spreadsheet(tmpdir_factory):
         )
     )
     assert last_record == [
-        ("2020-01-01T00:00:00+00:00",),
         ("01048",),
+        ("2020-01-01T00:00:00+00:00",),
         (10,),
         (6.9,),
         (3.2,),
@@ -350,8 +350,8 @@ def test_export_parquet(tmpdir_factory):
 
     # Validate column names.
     assert table.column_names == [
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "wind_gust_max",
         "wind_speed",
@@ -419,8 +419,8 @@ def test_export_zarr(tmpdir_factory):
     # Validate column names.
     assert set(group.keys()) == {
         "index",
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "wind_gust_max",
         "wind_speed",
@@ -486,8 +486,8 @@ def test_export_feather(tmpdir_factory):
 
     # Validate column names.
     assert table.column_names == [
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "wind_gust_max",
         "wind_speed",
@@ -549,8 +549,8 @@ def test_export_sqlite(tmpdir_factory):
     connection.close()
 
     assert results[0] == (
-        "2019-01-01 00:00:00.000000",
         "01048",
+        "2019-01-01 00:00:00.000000",
         10,
         19.9,
         8.5,
@@ -570,8 +570,8 @@ def test_export_sqlite(tmpdir_factory):
     )
 
     assert results[-1] == (
-        "2020-01-01 00:00:00.000000",
         "01048",
+        "2020-01-01 00:00:00.000000",
         10,
         6.9,
         3.2,

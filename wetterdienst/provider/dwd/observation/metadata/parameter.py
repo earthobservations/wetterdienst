@@ -62,21 +62,21 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # cloud_type
         CLOUD_COVER_TOTAL = "v_n"  # int
-        CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+        # CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
         CLOUD_TYPE_LAYER1 = "v_s1_cs"  # int
-        CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
+        # CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
         CLOUD_HEIGHT_LAYER1 = "v_s1_hhs"
         CLOUD_COVER_LAYER1 = "v_s1_ns"  # int
         CLOUD_TYPE_LAYER2 = "v_s2_cs"  # int
-        CLOUD_TYPE_LAYER2_ABBREVIATION = "v_s2_csa"  # str
+        # CLOUD_TYPE_LAYER2_ABBREVIATION = "v_s2_csa"  # str
         CLOUD_HEIGHT_LAYER2 = "v_s2_hhs"
         CLOUD_COVER_LAYER2 = "v_s2_ns"  # int
         CLOUD_TYPE_LAYER3 = "v_s3_cs"  # int
-        CLOUD_TYPE_LAYER3_ABBREVIATION = "v_s3_csa"  # str
+        # CLOUD_TYPE_LAYER3_ABBREVIATION = "v_s3_csa"  # str
         CLOUD_HEIGHT_LAYER3 = "v_s3_hhs"
         CLOUD_COVER_LAYER3 = "v_s3_ns"  # int
         CLOUD_TYPE_LAYER4 = "v_s4_cs"  # int
-        CLOUD_TYPE_LAYER4_ABBREVIATION = "v_s4_csa"  # str
+        # CLOUD_TYPE_LAYER4_ABBREVIATION = "v_s4_csa"  # str
         CLOUD_HEIGHT_LAYER4 = "v_s4_hhs"
         CLOUD_COVER_LAYER4 = "v_s4_ns"  # int
 
@@ -106,19 +106,19 @@ class DwdObservationParameter(DatasetTreeCore):
         TEMPERATURE_SOIL_100 = "v_te100"
 
         # solar
-        END_OF_INTERVAL = "end_of_interval"  # modified, does not exist in original
+        # END_OF_INTERVAL = "end_of_interval"  # modified, does not exist in original
         RADIATION_SKY_LONG_WAVE = "atmo_lberg"
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_lberg"
         RADIATION_GLOBAL = "fg_lberg"
         SUNSHINE_DURATION = "sd_lberg"
         SUN_ZENITH = "zenit"
-        TRUE_LOCAL_TIME = "true_local_time"  # original name was adjusted to this one
+        # TRUE_LOCAL_TIME = "true_local_time"  # original name was adjusted to this one
 
         # sun
         # SUNSHINE_DURATION = "sd_so"
 
         # visibility
-        VISIBILITY_INDICATOR = "v_vv_i"  # str
+        # VISIBILITY_INDICATOR = "v_vv_i"  # str
         VISIBILITY = "v_vv"  # int
 
         # wind
@@ -692,24 +692,24 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.HOURLY.HUMIDITY: DwdObservationDataset.TEMPERATURE_AIR,
         # cloudiness
         DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL: DwdObservationDataset.CLOUDINESS,
-        DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL_INDICATOR: DwdObservationDataset.CLOUDINESS,
+        # DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL_INDICATOR: DwdObservationDataset.CLOUDINESS,
         # cloud_type
         # DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL: DwdObservationParameterSet.CLOUD_TYPE,
         # DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL_INDICATOR: DwdObservationParameterSet.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER1: DwdObservationDataset.CLOUD_TYPE,
-        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER1_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
+        # DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER1_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER1: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER1: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER2: DwdObservationDataset.CLOUD_TYPE,
-        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER2_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
+        # DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER2_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER2: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER2: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER3: DwdObservationDataset.CLOUD_TYPE,
-        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER3_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
+        # DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER3_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER3: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER3: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER4: DwdObservationDataset.CLOUD_TYPE,
-        DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER4_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
+        # DwdObservationParameter.HOURLY.CLOUD_TYPE_LAYER4_ABBREVIATION: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_HEIGHT_LAYER4: DwdObservationDataset.CLOUD_TYPE,
         DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER4: DwdObservationDataset.CLOUD_TYPE,
         # dew_point
@@ -732,15 +732,15 @@ PARAMETER_TO_DATASET_MAPPING = {
         # sun
         DwdObservationParameter.HOURLY.SUNSHINE_DURATION: DwdObservationDataset.SUNSHINE_DURATION,
         # solar
-        DwdObservationParameter.HOURLY.END_OF_INTERVAL: DwdObservationDataset.SOLAR,
+        # DwdObservationParameter.HOURLY.END_OF_INTERVAL: DwdObservationDataset.SOLAR,
         DwdObservationParameter.HOURLY.RADIATION_SKY_LONG_WAVE: DwdObservationDataset.SOLAR,
         DwdObservationParameter.HOURLY.RADIATION_SKY_SHORT_WAVE_DIFFUSE: DwdObservationDataset.SOLAR,
         DwdObservationParameter.HOURLY.RADIATION_GLOBAL: DwdObservationDataset.SOLAR,
         # DwdObservationParameter.HOURLY.SUNSHINE_DURATION:                 DwdObservationParameterSetStructure.HOURLY.SOLAR.SUNSHINE_DURATION,
         DwdObservationParameter.HOURLY.SUN_ZENITH: DwdObservationDataset.SOLAR,
-        DwdObservationParameter.HOURLY.TRUE_LOCAL_TIME: DwdObservationDataset.SOLAR,
+        # DwdObservationParameter.HOURLY.TRUE_LOCAL_TIME: DwdObservationDataset.SOLAR,
         # visibility
-        DwdObservationParameter.HOURLY.VISIBILITY_INDICATOR: DwdObservationDataset.VISIBILITY,
+        # DwdObservationParameter.HOURLY.VISIBILITY_INDICATOR: DwdObservationDataset.VISIBILITY,
         DwdObservationParameter.HOURLY.VISIBILITY: DwdObservationDataset.VISIBILITY,
         # wind
         DwdObservationParameter.HOURLY.WIND_SPEED: DwdObservationDataset.WIND,

@@ -76,7 +76,7 @@ class ExportMixin:
         """
         import duckdb
 
-        return duckdb.query(df, "data", sql).df()
+        return duckdb.query_df(df, "data", sql).df()
 
     @abstractmethod
     def to_ogc_feature_collection(self):
