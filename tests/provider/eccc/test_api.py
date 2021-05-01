@@ -51,11 +51,8 @@ def test_eccc_api_values():
 
     expected_df = pd.DataFrame(
         {
-            "date": [
-                pd.Timestamp("1980-01-01", tz=pytz.UTC),
-                pd.Timestamp("1980-01-02", tz=pytz.UTC),
-            ]
-            * 11,
+            "station_id": pd.Categorical(["1652"] * 22),
+            "dataset": pd.Categorical(["daily"] * 22),
             "parameter": pd.Categorical(
                 [
                     "temperature_air_max_200",
@@ -82,6 +79,11 @@ def test_eccc_api_values():
                     "wind_gust_max",
                 ]
             ),
+            "date": [
+                pd.Timestamp("1980-01-01", tz=pytz.UTC),
+                pd.Timestamp("1980-01-02", tz=pytz.UTC),
+            ]
+            * 11,
             "value": [
                 -16.3,
                 -16.4,
@@ -106,9 +108,7 @@ def test_eccc_api_values():
                 np.NaN,
                 np.NaN,
             ],
-            "quality": pd.Categorical([np.NaN] * 22),
-            "station_id": pd.Categorical(["1652"] * 22),
-            "dataset": pd.Categorical(["daily"] * 22),
+            "quality": pd.Series([np.NaN] * 22, dtype=float),
         }
     )
 

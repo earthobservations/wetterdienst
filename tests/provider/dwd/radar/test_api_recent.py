@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from datetime import datetime, timedelta
 
-import h5py
 import pytest
 
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
@@ -19,6 +18,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
     """
     Example for testing radar sites SWEEP_PCP with timerange.
     """
+    import h5py
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -63,6 +63,7 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5():
     """
     Example for testing radar sites SWEEP_VOL with timerange.
     """
+    import h5py
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,

@@ -33,11 +33,12 @@ def test_dwd_mosmix_l():
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
-    assert len(response.df.columns) == 5
+    assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
         "station_id",
-        "date",
+        "dataset",
         "parameter",
+        "date",
         "value",
         "quality",
     ]
@@ -193,11 +194,12 @@ def test_dwd_mosmix_s():
     assert station_ids == ["01028"]
     assert len(response.df) > 200
 
-    assert len(response.df.columns) == 5
+    assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
         "station_id",
-        "date",
+        "dataset",
         "parameter",
+        "date",
         "value",
         "quality",
     ]
@@ -268,11 +270,12 @@ def test_mosmix_l_parameters():
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
-    assert len(response.df.columns) == 5
+    assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
         "station_id",
-        "date",
+        "dataset",
         "parameter",
+        "date",
         "value",
         "quality",
     ]

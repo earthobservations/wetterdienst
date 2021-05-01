@@ -34,22 +34,6 @@ class ScalarRequestCore(Core):
     """ Core for stations information of a source """
 
     @property
-    def resolution(self) -> Optional[Resolution]:
-        """ Resolution accessor"""
-        return self._resolution
-
-    @resolution.setter
-    def resolution(self, res) -> None:
-        # TODO: add functionality to parse arbitrary resolutions for cases where
-        #  resolution has to be determined based on returned data
-        if self._resolution_type in (ResolutionType.FIXED, ResolutionType.UNDEFINED):
-            self._resolution = res
-        else:
-            self._resolution = parse_enumeration_from_template(
-                res, self._resolution_base, Resolution
-            )
-
-    @property
     @abstractmethod
     def _resolution_base(self) -> Optional[Resolution]:
         """ Optional enumeration for multiple resolutions """
@@ -189,6 +173,12 @@ class ScalarRequestCore(Core):
     }
 
     def _parse_period(self, period: Period) -> Optional[List[Period]]:
+        """
+        Method to parse period(s)
+
+        :param period:
+        :return:
+        """
         if not period:
             return None
         elif self._period_type == PeriodType.FIXED:
@@ -269,9 +259,14 @@ class ScalarRequestCore(Core):
 
     @staticmethod
     def _parse_station_id(series: pd.Series) -> pd.Series:
-        """Dedicated method for parsing station ids, by default uses the same method as
-        parse_strings but could be modified by the implementation class"""
-        return series.astype(pd.StringDtype())
+        """
+        Dedicated method for parsing station ids, by default uses the same method as
+        parse_strings but could be modified by the implementation class
+
+        :param series:
+        :return:
+        """
+        return series.astype(str)
 
     def __eq__(self, other) -> bool:
         """ Equal method of request object """
@@ -310,7 +305,9 @@ class ScalarRequestCore(Core):
 
         super().__init__()
 
-        self.resolution = resolution
+        self.resolution = parse_enumeration_from_template(
+            resolution, self._resolution_base, Resolution
+        )
         self.period = self._parse_period(period)
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
@@ -388,7 +385,14 @@ class ScalarRequestCore(Core):
 
     @classmethod
     def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
-        """ Function to print/discover available parameters """
+        """
+        Function to print/discover available parameters
+
+        :param filter_:
+        :param dataset:
+        :param flatten:
+        :return:
+        """
         # TODO: Refactor this!!!
         flatten = cls._unique_dataset or flatten
 
@@ -509,7 +513,12 @@ class ScalarRequestCore(Core):
         return filter_
 
     def _coerce_meta_fields(self, df) -> pd.DataFrame:
-        """ Method for filed coercion. """
+        """
+        Method for filed coercion.
+
+        :param df:
+        :return:
+        """
         df = df.astype(self._dtype_mapping)
 
         df[Columns.FROM_DATE.value] = pd.to_datetime(

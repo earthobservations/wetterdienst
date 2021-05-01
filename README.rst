@@ -251,19 +251,20 @@ Get data:
     818   49.9195     8.9671  Schaafheim-Schlierbach   Hessen
 
     >>> request.values.all().df.head()  # values
-                           date station_id          dataset      parameter value  \
-    0 1990-01-01 00:00:00+00:00      01048  climate_summary  wind_gust_max  <NA>
-    1 1990-01-02 00:00:00+00:00      01048  climate_summary  wind_gust_max  <NA>
-    2 1990-01-03 00:00:00+00:00      01048  climate_summary  wind_gust_max   5.0
-    3 1990-01-04 00:00:00+00:00      01048  climate_summary  wind_gust_max   9.0
-    4 1990-01-05 00:00:00+00:00      01048  climate_summary  wind_gust_max   7.0
+      station_id          dataset      parameter                      date  value  \
+    0      01048  climate_summary  wind_gust_max 1990-01-01 00:00:00+00:00    NaN
+    1      01048  climate_summary  wind_gust_max 1990-01-02 00:00:00+00:00    NaN
+    2      01048  climate_summary  wind_gust_max 1990-01-03 00:00:00+00:00    5.0
+    3      01048  climate_summary  wind_gust_max 1990-01-04 00:00:00+00:00    9.0
+    4      01048  climate_summary  wind_gust_max 1990-01-05 00:00:00+00:00    7.0
     <BLANKLINE>
-      quality
-    0     NaN
-    1     NaN
-    2      10
-    3      10
-    4      10
+       quality
+    0      NaN
+    1      NaN
+    2     10.0
+    3     10.0
+    4     10.0
+
 
 Receiving of stations for defined parameters using the ``wetterdienst`` client:
 

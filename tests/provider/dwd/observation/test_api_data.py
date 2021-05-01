@@ -10,7 +10,6 @@ import pytz
 from freezegun import freeze_time
 from pandas._testing import assert_frame_equal
 
-from wetterdienst.core.process import tidy_up_data
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -296,17 +295,18 @@ def test_dwd_observation_data_result_missing_data():
         station_id=["03348"],
     )
 
-    df = request.values.all().df.drop("quality", axis=1)
+    df = request.values.all().df  # .drop("quality", axis=1)
 
     assert_frame_equal(
         df,
         pd.DataFrame(
             {
-                "date": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
                 "station_id": pd.Categorical(["03348"]),
                 "dataset": pd.Categorical(["temperature_air"]),
                 "parameter": pd.Categorical(["temperature_air_200"]),
+                "date": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
                 "value": [np.nan],
+                "quality": [np.nan],
             }
         ),
     )
@@ -330,8 +330,8 @@ def test_dwd_observation_data_result_tabular():
     df = request.values.all().df
 
     assert list(df.columns.values) == [
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "fx",
         "fm",
@@ -354,11 +354,11 @@ def test_dwd_observation_data_result_tabular():
         df,
         pd.DataFrame(
             {
+                "station_id": pd.Categorical(["01048", "01048"]),
                 "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                 ],
-                "station_id": pd.Categorical(["01048", "01048"]),
                 "qn_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
                 "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
                 "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
@@ -398,8 +398,8 @@ def test_dwd_observation_data_result_tabular_metric():
     df = request.values.all().df
 
     assert list(df.columns.values) == [
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "fx",
         "fm",
@@ -422,11 +422,11 @@ def test_dwd_observation_data_result_tabular_metric():
         df,
         pd.DataFrame(
             {
+                "station_id": pd.Categorical(["01048", "01048"]),
                 "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                 ],
-                "station_id": pd.Categorical(["01048", "01048"]),
                 "qn_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
                 "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
                 "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
@@ -466,10 +466,10 @@ def test_dwd_observation_data_result_tidy_metric():
     df = request.values.all().df
 
     assert list(df.columns.values) == [
-        "date",
         "station_id",
         "dataset",
         "parameter",
+        "date",
         "value",
         "quality",
     ]
@@ -478,100 +478,8 @@ def test_dwd_observation_data_result_tidy_metric():
         df,
         pd.DataFrame(
             {
-                "date": [
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                ],
-                "station_id": pd.Categorical(
-                    [
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                        "01048",
-                    ]
-                ),
-                "dataset": pd.Categorical(
-                    [
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                        "climate_summary",
-                    ]
-                ),
+                "station_id": pd.Categorical(["01048"] * 28),
+                "dataset": pd.Categorical(["climate_summary"] * 28),
                 "parameter": pd.Categorical(
                     [
                         "fx",
@@ -604,6 +512,36 @@ def test_dwd_observation_data_result_tidy_metric():
                         "tgk",
                     ]
                 ),
+                "date": [
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                    datetime(1933, 12, 31, tzinfo=pytz.UTC),
+                    datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                ],
                 "value": pd.to_numeric(
                     [
                         # FX
@@ -650,52 +588,53 @@ def test_dwd_observation_data_result_tidy_metric():
                         pd.NA,
                     ],
                     errors="coerce",
-                ).astype(pd.Float64Dtype),
-                "quality": pd.Categorical(
+                ).astype(float),
+                "quality": pd.Series(
                     [
                         # FX
-                        pd.NA,
-                        pd.NA,
+                        np.NaN,
+                        np.NaN,
                         # FM
-                        pd.NA,
-                        pd.NA,
+                        np.NaN,
+                        np.NaN,
                         # RSK
-                        pd.NA,
+                        np.NaN,
                         1,
                         # RSKF
-                        pd.NA,
+                        np.NaN,
                         1,
                         # SDK
-                        pd.NA,
-                        pd.NA,
+                        np.NaN,
+                        np.NaN,
                         # SHK_TAG
-                        pd.NA,
+                        np.NaN,
                         1,
                         # NM
-                        pd.NA,
+                        np.NaN,
                         1,
                         # VPM
-                        pd.NA,
+                        np.NaN,
                         1,
                         # PM
-                        pd.NA,
+                        np.NaN,
                         1,
                         # TMK
-                        pd.NA,
+                        np.NaN,
                         1,
                         # UPM
-                        pd.NA,
+                        np.NaN,
                         1,
                         # TXK
-                        pd.NA,
+                        np.NaN,
                         1,
                         # TNK
-                        pd.NA,
+                        np.NaN,
                         1,
                         # TGK
-                        pd.NA,
-                        pd.NA,
-                    ]
+                        np.NaN,
+                        np.NaN,
+                    ],
+                    dtype=float,
                 ),
             },
         ),
@@ -741,6 +680,15 @@ def test_create_humanized_column_names_mapping():
 
 def test_tidy_up_data():
     """ Test for function to tidy data"""
+    request = DwdObservationRequest(
+        "kl",
+        "daily",
+        "historical",
+        start_date="2019-01-23 00:00:00",
+        tidy=True,
+        humanize=False,
+    ).filter_by_station_id((1048,))
+
     df = pd.DataFrame(
         {
             "station_id": [1048],
@@ -764,10 +712,13 @@ def test_tidy_up_data():
         }
     )
 
+    df_tidied = request.values.tidy_up_df(df, request.parameter[0][1])
+    df_tidied_organized = request.values._organize_df_columns(df_tidied)
+
     df_tidy = pd.DataFrame(
         {
             "station_id": [1048] * 14,
-            "date": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
+            "dataset": ["climate_summary"] * 14,
             "parameter": [
                 "fx",
                 "fm",
@@ -784,6 +735,7 @@ def test_tidy_up_data():
                 "tnk",
                 "tgk",
             ],
+            "date": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
             "value": [
                 11.8,
                 5.8,
@@ -801,17 +753,9 @@ def test_tidy_up_data():
                 -11.4,
             ],
             "quality": pd.Series(
-                [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=pd.Int64Dtype()
+                [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=float
             ),
         }
     )
 
-    df_tidy = df_tidy.astype(
-        {
-            "station_id": "category",
-            "parameter": "category",
-            "quality": "category",
-        }
-    )
-
-    assert_frame_equal(tidy_up_data(df), df_tidy)
+    assert_frame_equal(df_tidied_organized, df_tidy)

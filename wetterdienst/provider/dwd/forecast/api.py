@@ -71,9 +71,9 @@ class DwdMosmixValues(ScalarValuesCore):
     _data_tz = Timezone.UTC
     _has_quality = False
 
-    @property
-    def _tidy(self) -> bool:
-        return self.stations.tidy
+    # @property
+    # def _tidy(self) -> bool:
+    #     return self.stations.tidy
 
     _irregular_parameters = tuple()
     _integer_parameters = INTEGER_PARAMETERS
@@ -115,29 +115,46 @@ class DwdMosmixValues(ScalarValuesCore):
 
     @property
     def metadata(self) -> pd.DataFrame:
-        """ Wrapper for forecast metadata """
+        """
+        Wrapper for forecast metadata
+
+        :return:
+        """
         return self.stations.df
 
     def query(self) -> Generator[ValuesResult, None, None]:
-        """Replace collect data method as all information is read once from kml file"""
-        for forecast_df in self._collect_station_parameter():
-            forecast_df = self._coerce_meta_fields(forecast_df)
-            forecast_df = self._coerce_parameter_types(forecast_df)
+        """
+        Replace collect data method as all information is read once from kml file
+
+        :return:
+        """
+        for df in self._collect_station_parameter():
+            df = self._coerce_parameter_types(df)
+
+            if self.stations.stations.tidy:
+                df = self._tidy_up_df(df)
+                df[Columns.DATASET.value] = self.stations.stations.mosmix_type.value
+
+            df = self._coerce_meta_fields(df)
 
             if self.stations.humanize:
-                forecast_df = self._humanize(forecast_df)
+                df = self._humanize(df)
 
-            result = ValuesResult(stations=self.stations, df=forecast_df)
+            df = self._organize_df_columns(df)
+
+            result = ValuesResult(stations=self.stations, df=df)
 
             yield result
 
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
-        """Wrapper of read_mosmix to collect forecast data (either latest or for
-        defined dates)"""
+        """
+        Wrapper of read_mosmix to collect forecast data (either latest or for
+        defined dates)
+
+        :return:
+        """
         if self.stations.start_issue == DwdForecastDate.LATEST:
             df = next(self.read_mosmix(self.stations.stations.start_issue))
-
-            df[Columns.QUALITY.value] = pd.NA
 
             yield df
         else:
@@ -149,12 +166,29 @@ class DwdMosmixValues(ScalarValuesCore):
                 try:
                     df = next(self.read_mosmix(date))
 
-                    df[Columns.QUALITY.value] = pd.NA
-
                     yield df
                 except IndexError as e:
                     log.warning(e)
                     continue
+
+    def _tidy_up_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+
+        :param df:
+        :return:
+        """
+        df_tidy = df.melt(
+            id_vars=[
+                DwdColumns.STATION_ID.value,
+                DwdColumns.DATE.value,
+            ],
+            var_name=DwdColumns.PARAMETER.value,
+            value_name=DwdColumns.VALUE.value,
+        )
+
+        df[Columns.QUALITY.value] = pd.NA
+
+        return df_tidy
 
     def read_mosmix(
         self, date: Union[datetime, DwdForecastDate]
@@ -174,23 +208,18 @@ class DwdMosmixValues(ScalarValuesCore):
                 }
             )
 
-            if self.stations.tidy:
-                df_forecast = df_forecast.melt(
-                    id_vars=[
-                        DwdColumns.STATION_ID.value,
-                        DwdColumns.DATE.value,
-                    ],
-                    var_name=DwdColumns.PARAMETER.value,
-                    value_name=DwdColumns.VALUE.value,
-                )
-
             yield df_forecast
 
     def _read_mosmix(
         self, date: Union[DwdForecastDate, datetime]
     ) -> Generator[pd.DataFrame, None, None]:
-        """Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
-        defined period type"""
+        """
+        Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
+        defined period type
+
+        :param date:
+        :return:
+        """
         if self.stations.stations.mosmix_type == DwdMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
         else:
@@ -199,8 +228,13 @@ class DwdMosmixValues(ScalarValuesCore):
     def read_mosmix_small(
         self, date: Union[DwdForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
-        """Reads single MOSMIX-S file with all stations and returns every forecast that
-        matches with one of the defined station ids."""
+        """
+        Reads single MOSMIX-S file with all stations and returns every forecast that
+        matches with one of the defined station ids.
+
+        :param date:
+        :return:
+        """
         url = urljoin(DWD_SERVER, DWD_MOSMIX_S_PATH)
 
         file_url = self.get_url_for_date(url, date)
@@ -213,8 +247,13 @@ class DwdMosmixValues(ScalarValuesCore):
     def read_mosmix_large(
         self, date: Union[DwdForecastDate, datetime]
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
-        """Reads multiple MOSMIX-L files with one per each station and returns a
-        forecast per file."""
+        """
+        Reads multiple MOSMIX-L files with one per each station and returns a
+        forecast per file.
+
+        :param date:
+        :return:
+        """
         url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH)
 
         for station_id in self.stations.station_id:
@@ -236,12 +275,9 @@ class DwdMosmixValues(ScalarValuesCore):
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
 
-        Args:
-            url:    MOSMIX-S/MOSMIX-L path on the dwd server
-            date:   date used for filtering of the available files
-
-        Returns:
-            file url based on the filtering
+        :param url: MOSMIX-S/MOSMIX-L path on the dwd server
+        :param date: date used for filtering of the available files
+        :return: file url based on the filtering
         """
         urls = list_remote_files(url, False)
 
@@ -312,7 +348,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _values = DwdMosmixValues
 
     _resolution_type = ResolutionType.FIXED
-    _resolution_base = None
+    _resolution_base = Resolution  # use general Resolution for fixed Resolution
     _period_type = PeriodType.FIXED
     _period_base = None
 
@@ -325,10 +361,20 @@ class DwdMosmixRequest(ScalarRequestCore):
 
     @property
     def _dataset_accessor(self) -> str:
+        """
+
+        :return:
+        """
         return self.mosmix_type.name
 
     @classmethod
     def _setup_discover_filter(cls, filter_):
+        """
+        Use SMALL and LARGE instead of resolution, which is fixed for Mosmix
+
+        :param filter_:
+        :return:
+        """
         filter_ = pd.Series(filter_).apply(
             parse_enumeration_from_template, args=(cls._dataset_base,)
         ).tolist() or [*cls._dataset_base]
@@ -354,11 +400,8 @@ class DwdMosmixRequest(ScalarRequestCore):
         that is only released very 6 hours (3, 9, 15, 21). Datetime is floored
         to closest release time e.g. if hour is 14, it will be rounded to 9
 
-        Args:
-            datetime_: datetime that is adjusted
-
-        Returns:
-            adjusted datetime with floored hour
+        :param datetime_: datetime that is adjusted
+        :return: adjusted datetime with floored hour
         """
         regular_date = datetime_ + pd.offsets.DateOffset(hour=3)
 
@@ -385,6 +428,19 @@ class DwdMosmixRequest(ScalarRequestCore):
         tidy: bool = True,
         si_units: bool = True,
     ) -> None:
+        """
+
+        :param parameter: parameter(s) to be collected
+        :param mosmix_type: mosmix type, either small or large
+        :param start_issue: start of issue of mosmix which should be caught
+        (Mosmix run at time XX:YY)
+        :param end_issue: end of issue
+        :param start_date: start date for filtering returned dataframe
+        :param end_date: end date
+        :param humanize: humanize parameter names
+        :param tidy: tidy data to be row-wise
+        :param si_units: convert to si units
+        """
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
         super().__init__(
@@ -445,7 +501,11 @@ class DwdMosmixRequest(ScalarRequestCore):
 
     @metaindex_cache.cache_on_arguments()
     def _all(self) -> pd.DataFrame:
-        """ Create meta data DataFrame from available station list """
+        """
+        Create meta data DataFrame from available station list
+
+        :return:
+        """
         # TODO: Cache payload with FSSPEC
         payload = requests.get(self._url, headers={"User-Agent": ""})
 
