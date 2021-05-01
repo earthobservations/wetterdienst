@@ -699,7 +699,7 @@ stevedore = ">=3.0.0"
 
 [[package]]
 name = "duckdb"
-version = "0.2.6.dev634"
+version = "0.2.6.dev767"
 description = "DuckDB embedded database"
 category = "main"
 optional = true
@@ -1954,11 +1954,11 @@ six = ">=1.5"
 
 [[package]]
 name = "python-slugify"
-version = "4.0.1"
+version = "5.0.0"
 description = "A Python Slugify application that handles Unicode"
 category = "main"
 optional = true
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+python-versions = "!=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.dependencies]
 text-unidecode = ">=1.3"
@@ -3154,27 +3154,27 @@ docutils = [
     {file = "dogpile.cache-1.1.2.tar.gz", hash = "sha256:2134464672a3deb7ef1366a8691726686d8c62540e4208f1a40c9aaa1a0b6a45"},
 ]
 duckdb = [
-    {file = "duckdb-0.2.6.dev634-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:2c7fa5ce3b063cd5c5405a40f44784f8542599e70850d2dda1a70b20631f46d3"},
-    {file = "duckdb-0.2.6.dev634-cp36-cp36m-manylinux2010_i686.whl", hash = "sha256:e638e7480a0d6b45327b12fb197f0f64f38a13bca962476ae3dd693d65d68317"},
-    {file = "duckdb-0.2.6.dev634-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:44cd85a2e8a5854c4a81d428be3bcc604947fbd734dc9c65701b6cd106e872ff"},
-    {file = "duckdb-0.2.6.dev634-cp36-cp36m-win32.whl", hash = "sha256:692e65998d9cbc3bd4af6220ea3cb854c1abbc20614232d136feede087c6cc43"},
-    {file = "duckdb-0.2.6.dev634-cp36-cp36m-win_amd64.whl", hash = "sha256:80eb204212b2cabdba4c65c8f3108966993253d748ad4306768d649ee4065eba"},
-    {file = "duckdb-0.2.6.dev634-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:ee26bb263e060ff35d1ffc40a9087d2a58c1c61378e1ad1a0b47cf7a027449d5"},
-    {file = "duckdb-0.2.6.dev634-cp37-cp37m-manylinux2010_i686.whl", hash = "sha256:be2e268df2e50ac89331c105592214ba4d3db731bf62a31af068cb3a38f201b8"},
-    {file = "duckdb-0.2.6.dev634-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:77cf0e5c2c870cffadd501fd9a2cc251d19738718578300c1cef3c0b78ff6ba4"},
-    {file = "duckdb-0.2.6.dev634-cp37-cp37m-win32.whl", hash = "sha256:3e174fdcaa5a17bc920384996d2d7e60f20946e4078d67fa62226e9ca46a3262"},
-    {file = "duckdb-0.2.6.dev634-cp37-cp37m-win_amd64.whl", hash = "sha256:1d34a74c9c34fa008dd27703fce4df7192ae52dea2a1ac7388d5d1c01fdf4cb5"},
-    {file = "duckdb-0.2.6.dev634-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:bcc9c2d438b15ccf0447ae889d78e8e2d0eb0d32c773bfba856eb6703b382341"},
-    {file = "duckdb-0.2.6.dev634-cp38-cp38-manylinux2010_i686.whl", hash = "sha256:6b0908e9b0d0c6690f05b6c6caf368c8304f4025b3f88b3e1ba6f621ea6db260"},
-    {file = "duckdb-0.2.6.dev634-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:aa8494d62b423763cf8ec65a51cbba38eddd7035c9837e536f31c46e4569a549"},
-    {file = "duckdb-0.2.6.dev634-cp38-cp38-win32.whl", hash = "sha256:05688a152ad3a3c91b1341b5d8533e592f18a146a1e52e4776d6695e91606119"},
-    {file = "duckdb-0.2.6.dev634-cp38-cp38-win_amd64.whl", hash = "sha256:181f9a0018e8e49a55a5d73dcfdf7932ddc753040f67a6bfbc019f5f54a3af9d"},
-    {file = "duckdb-0.2.6.dev634-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:61b43cdac2ae65598da26789e046d0f3ab07ae0ac1c2d0b15a31a78b3828894c"},
-    {file = "duckdb-0.2.6.dev634-cp39-cp39-manylinux2010_i686.whl", hash = "sha256:c26b940f21168809b811d20066cb3d1ed354c23a154a6ee37656b5657a1d78d1"},
-    {file = "duckdb-0.2.6.dev634-cp39-cp39-manylinux2010_x86_64.whl", hash = "sha256:a088443dbe27073fe130a11b05a19df5b45b43ddd1da03d750b12529913646bc"},
-    {file = "duckdb-0.2.6.dev634-cp39-cp39-win32.whl", hash = "sha256:0c014dff59743f03840464eb758dc249bd400979116631cdfef1453737039758"},
-    {file = "duckdb-0.2.6.dev634-cp39-cp39-win_amd64.whl", hash = "sha256:8e1aa5636d9cd267a8524e2999fac6d3943a16d27d578e0accb107d0592dbec6"},
-    {file = "duckdb-0.2.6.dev634.tar.gz", hash = "sha256:39ea8835335aaefd3365366387bc66015f8429568e613e219c2f3534d8c35f13"},
+    {file = "duckdb-0.2.6.dev767-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:63031e6f8ae60479f98e934dd7e6155190f9ac94b450e03633450a62b6e630ab"},
+    {file = "duckdb-0.2.6.dev767-cp36-cp36m-manylinux2010_i686.whl", hash = "sha256:97022d30fb7fefef6c3905d440b2914f52cf3ced07c45a694f1a1179f16e8133"},
+    {file = "duckdb-0.2.6.dev767-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:9cc685bf66f190f57f3a80836c421792792f700343f10a1079d5a2308c424c63"},
+    {file = "duckdb-0.2.6.dev767-cp36-cp36m-win32.whl", hash = "sha256:fbcc608b8b8ff7cfedd98ec6f30d2d0518428db466aacc953a2bf8f6c122efa3"},
+    {file = "duckdb-0.2.6.dev767-cp36-cp36m-win_amd64.whl", hash = "sha256:79c9669791d18149988d6977e876d3dd9ab7cbb6d81d05397b2140b40f02734f"},
+    {file = "duckdb-0.2.6.dev767-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:04ac52b18c3e3b8ac283fef5a67e53c3d14159055a5e4544f259497d1ed0f38d"},
+    {file = "duckdb-0.2.6.dev767-cp37-cp37m-manylinux2010_i686.whl", hash = "sha256:d3fee49536188350bed693c1da8bcc20dd1cf39f0e573a5796ae5dadc85e0c16"},
+    {file = "duckdb-0.2.6.dev767-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:bf0ba610ca20f756dee521320bc120c33a17f38a5bac59b1cf546e4aed1b68a6"},
+    {file = "duckdb-0.2.6.dev767-cp37-cp37m-win32.whl", hash = "sha256:e11a9cbd76f9d1657f8ba7cd3f2aa09ac5dd582593b2150aba9f813e11b66aec"},
+    {file = "duckdb-0.2.6.dev767-cp37-cp37m-win_amd64.whl", hash = "sha256:63a4ee580ffeb186929b32801b86d0b3b67392b410024c878d5aa707c9af40a0"},
+    {file = "duckdb-0.2.6.dev767-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:a5e8d34d00f2f6e91fbf998b7fcf287bfb6a5da6bae94b4808fc69eed48277d0"},
+    {file = "duckdb-0.2.6.dev767-cp38-cp38-manylinux2010_i686.whl", hash = "sha256:e7559206fa797c1157cc706e7d6eff072c13bfb061f25ea54baed3aaa197368f"},
+    {file = "duckdb-0.2.6.dev767-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:e07ce8ca2c742dd1b2449ad7d43e61bc089c42040f753d9299bce1f252ca9452"},
+    {file = "duckdb-0.2.6.dev767-cp38-cp38-win32.whl", hash = "sha256:1510cca23b666f7b954ee4c1c803febed690841c049d62cf3d6ce06f91fe9bca"},
+    {file = "duckdb-0.2.6.dev767-cp38-cp38-win_amd64.whl", hash = "sha256:9caab92ca6c2554f8ebc881f6a08ebde1b8b2f75a48f4b9408e4c5ce24598463"},
+    {file = "duckdb-0.2.6.dev767-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:b5fd0b049ba6f02bcc411d75fe044aeda1fe3b80c91a566f2ccded7f66b008d0"},
+    {file = "duckdb-0.2.6.dev767-cp39-cp39-manylinux2010_i686.whl", hash = "sha256:fed656a2054582cbf65ebfb2ce2feb2340808bad581da2566f664feb309d7437"},
+    {file = "duckdb-0.2.6.dev767-cp39-cp39-manylinux2010_x86_64.whl", hash = "sha256:5121159829380751b4338034bac42ed18ad4f8213807332c42784ed64b22063f"},
+    {file = "duckdb-0.2.6.dev767-cp39-cp39-win32.whl", hash = "sha256:01350fb88be03df97f713ee527d0d67f6562081a52869e2f2c2d3df5ef24c497"},
+    {file = "duckdb-0.2.6.dev767-cp39-cp39-win_amd64.whl", hash = "sha256:70fa660aab8b1c74b8005020ee7a459e66dc289d68731a364579b2018ac636a7"},
+    {file = "duckdb-0.2.6.dev767.tar.gz", hash = "sha256:c6eba5e50376c7e8fc9b91fec2d598bcff6f88256da9101816e996f1a8f09a5c"},
 ]
 entrypoints = [
     {file = "entrypoints-0.3-py2.py3-none-any.whl", hash = "sha256:589f874b313739ad35be6e0cd7efde2a4e9b6fea91edcc34e58ecbb8dbe56d19"},
@@ -3200,6 +3200,7 @@ flake8-bandit = [
 ]
 flake8-black = [
     {file = "flake8-black-0.2.1.tar.gz", hash = "sha256:f26651bc10db786c03f4093414f7c9ea982ed8a244cec323c984feeffdf4c118"},
+    {file = "flake8_black-0.2.1-py3-none-any.whl", hash = "sha256:941514149cb8b489cb17a4bb1cf18d84375db3b34381bb018de83509437931a0"},
 ]
 flake8-bugbear = [
     {file = "flake8-bugbear-20.11.1.tar.gz", hash = "sha256:528020129fea2dea33a466b9d64ab650aa3e5f9ffc788b70ea4bc6cf18283538"},
@@ -3973,7 +3974,8 @@ python-dateutil = [
     {file = "python_dateutil-2.8.1-py2.py3-none-any.whl", hash = "sha256:75bb3f31ea686f1197762692a9ee6a7550b59fc6ca3a1f4b5d7e32fb98e2da2a"},
 ]
 python-slugify = [
-    {file = "python-slugify-4.0.1.tar.gz", hash = "sha256:69a517766e00c1268e5bbfc0d010a0a8508de0b18d30ad5a1ff357f8ae724270"},
+    {file = "python-slugify-5.0.0.tar.gz", hash = "sha256:744cd5d42b381687657f3b652d1d9b183c0870ec43de23be682b6d83d69c6962"},
+    {file = "python_slugify-5.0.0-py2.py3-none-any.whl", hash = "sha256:2a497206413bebbab1d9004c44443b71f65a402653446af7246904ad1c0927d3"},
 ]
 pytz = [
     {file = "pytz-2021.1-py2.py3-none-any.whl", hash = "sha256:eb10ce3e7736052ed3623d49975ce333bcd712c7bb19a58b9e2089d4057d0798"},
