@@ -9,6 +9,7 @@ Development
 - Improve caching behaviour by introducing optional ``WD_CACHE_DIR`` and
   ``WD_CACHE_DISABLE`` environment variables. Thanks, @meteoDaniel!
 - Add baseline test for ECCC observations
+- Add DWD Observation hourly moisture to catalogue
 
 0.17.0 (08.04.2021)
 *******************

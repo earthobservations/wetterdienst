@@ -165,6 +165,16 @@ class DwdObservationUnitOrigin(DatasetTreeCore):
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value
             WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value
 
+        class MOISTURE(UnitEnum):
+            QUALITY = OriginUnit.DIMENSIONLESS.value
+            HUMIDITY_ABSOLUTE = OriginUnit.DIMENSIONLESS.value
+            PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value
+            TEMPERATURE_WET = OriginUnit.DEGREE_CELSIUS.value
+            PRESSURE_AIR = OriginUnit.HECTOPASCAL.value
+            TEMPERATURE_AIR_200 = OriginUnit.DEGREE_CELSIUS.value
+            HUMIDITY = OriginUnit.PERCENT.value
+            TEMPERATURE_DEW_POINT_200 = OriginUnit.DEGREE_CELSIUS.value
+
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa
         # air_temperature
@@ -513,6 +523,17 @@ class DwdObservationUnitSI(DatasetTreeCore):
             QUALITY = MetricUnit.DIMENSIONLESS.value
             WIND_SPEED = MetricUnit.METER_PER_SECOND.value
             WIND_DIRECTION = MetricUnit.WIND_DIRECTION.value
+
+        # moisture
+        class MOISTURE(UnitEnum):
+            QUALITY = MetricUnit.DIMENSIONLESS.value
+            HUMIDITY_ABSOLUTE = MetricUnit.DIMENSIONLESS.value
+            PRESSURE_VAPOR = MetricUnit.PASCAL.value
+            TEMPERATURE_WET = MetricUnit.DEGREE_KELVIN.value
+            PRESSURE_AIR = MetricUnit.PASCAL.value
+            TEMPERATURE_AIR_200 = MetricUnit.DEGREE_KELVIN.value
+            HUMIDITY = MetricUnit.PERCENT.value
+            TEMPERATURE_DEW_POINT_200 = MetricUnit.DEGREE_KELVIN.value
 
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa

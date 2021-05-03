@@ -32,8 +32,8 @@ class DwdObservationDataset(Enum):
     SUNSHINE_DURATION = "sun"
     VISIBILITY = "visibility"
     WIND_SYNOPTIC = "wind_synop"
-    # subdaily - left out: standard_format
     MOISTURE = "moisture"
+    # subdaily - left out: standard_format
     SOIL = "soil"
     # daily
     CLIMATE_SUMMARY = "kl"
@@ -130,6 +130,10 @@ RESOLUTION_DATASET_MAPPING: Dict[
             Period.RECENT,
         ],
         DwdObservationDataset.WIND_SYNOPTIC: [
+            Period.HISTORICAL,
+            Period.RECENT,
+        ],
+        DwdObservationDataset.MOISTURE: [
             Period.HISTORICAL,
             Period.RECENT,
         ],
