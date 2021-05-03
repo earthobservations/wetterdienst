@@ -12,7 +12,7 @@ dephell==0.*,>=0.8.3
 deprecation==2.*,>=2.1.0
 docopt==0.*,>=0.6.2
 dogpile.cache==1.*,>=1.0.2
-duckdb==0.*,>=0.2.3
+duckdb==0.*,>=0.2.4
 fastapi==0.*,>=0.61.1
 flake8-bandit==2.*,>=2.1.2
 flake8-black==0.*,>=0.2.1

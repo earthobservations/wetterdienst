@@ -129,6 +129,14 @@ class DwdObservationParameter(DatasetTreeCore):
         # WIND_SPEED = "ff"
         # WIND_DIRECTION = "dd"  # int
 
+        HUMIDITY_ABSOLUTE = "absf_std"
+        PRESSURE_VAPOR = "vp_std"
+        TEMPERATURE_WET = "tf_std"
+        PRESSURE_AIR = "p_std"
+        # TEMPERATURE_AIR_200 = "tt_std"
+        # HUMIDITY = "rf_std"
+        # TEMPERATURE_DEW_POINT_200 = "td_std"
+
     # subdaily
     class SUBDAILY(Enum):  # noqa
         # air_temperature
@@ -443,6 +451,16 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             WIND_SPEED = "ff"
             WIND_DIRECTION = "dd"  # int
 
+        class MOISTURE(Enum):
+            QUALITY = "qn_4"
+            HUMIDITY_ABSOLUTE = "absf_std"
+            PRESSURE_VAPOR = "vp_std"
+            TEMPERATURE_WET = "tf_std"
+            PRESSURE_AIR = "p_std"
+            TEMPERATURE_AIR_200 = "tt_std"
+            HUMIDITY = "rf_std"
+            TEMPERATURE_DEW_POINT_200 = "td_std"
+
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa
         # air_temperature
@@ -730,6 +748,11 @@ PARAMETER_TO_DATASET_MAPPING = {
         # wind_synop
         # DwdObservationParameter.HOURLY.WIND_SPEED: "ff"
         # DwdObservationParameter.HOURLY.WIND_DIRECTION: "dd"  # int
+        # moisture
+        DwdObservationParameter.HOURLY.HUMIDITY_ABSOLUTE: DwdObservationDataset.MOISTURE,
+        DwdObservationParameter.HOURLY.PRESSURE_VAPOR: DwdObservationDataset.MOISTURE,
+        DwdObservationParameter.HOURLY.TEMPERATURE_WET: DwdObservationDataset.MOISTURE,
+        DwdObservationParameter.HOURLY.PRESSURE_AIR: DwdObservationDataset.MOISTURE,
     },
     Resolution.SUBDAILY: {
         # air_temperature
