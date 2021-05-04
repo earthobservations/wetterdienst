@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+...
+
+0.18.0 (04.05.2021)
+*******************
+
 - Add origin and si unit mappings to services
 - Use argument "si_units" in request classes to convert origin units to si, set to default
 - Improve caching behaviour by introducing optional ``WD_CACHE_DIR`` and
