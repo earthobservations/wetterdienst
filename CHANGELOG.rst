@@ -4,7 +4,7 @@ Changelog
 Development
 ***********
 
-...
+- Make tidy method a abstract core method of Values class
 
 0.18.0 (04.05.2021)
 *******************

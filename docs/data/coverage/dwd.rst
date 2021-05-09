@@ -126,6 +126,49 @@ parameters can be queried. Take a look at the massive amount of data:
 
 .. _file_server: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/
 
+Parameter details
+_________________
+
+Cloud types
+^^^^^^^^^^^
+
++---------------+------+
+| Cloud type    | Code |
++===============+======+
+| Cirrus        | 0    |
++---------------+------+
+| Cirrocumulus  | 1    |
++---------------+------+
+| Cirrostratus  | 2    |
++---------------+------+
+| Altocumulus   | 3    |
++---------------+------+
+| Altostratus   | 4    |
++---------------+------+
+| Nimbostratus  | 5    |
++---------------+------+
+| Stratocumulus | 6    |
++---------------+------+
+| Stratus       | 7    |
++---------------+------+
+| Cumulus       | 8    |
++---------------+------+
+| Cumulonimbus  | 9    |
++---------------+------+
+| Automated     | -1   |
++---------------+------+
+
+Tidy parameters
+^^^^^^^^^^^^^^^
+
+The tidy version of DWD observation data excludes several parameters
+which contain strings. Those parameters are:
+
+- cloud type abbreviations (1 - 4) in **hourly cloud type** dataset
+- total cloud cover indicator in in **hourly cloudiness** dataset
+- true local time in **hourly solar** dataset
+- visibility indicator in **hourly visibility** dataset
+
 Quality
 _______
 
