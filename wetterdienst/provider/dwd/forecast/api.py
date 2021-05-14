@@ -154,9 +154,8 @@ class DwdMosmixValues(ScalarValuesCore):
         :return:
         """
         if self.stations.start_issue == DwdForecastDate.LATEST:
-            df = next(self.read_mosmix(self.stations.stations.start_issue))
-
-            yield df
+            for df in self.read_mosmix(self.stations.stations.start_issue):
+                yield df
         else:
             for date in pd.date_range(
                 self.stations.stations.start_issue,
@@ -164,9 +163,8 @@ class DwdMosmixValues(ScalarValuesCore):
                 freq=self.stations.frequency.value,
             ):
                 try:
-                    df = next(self.read_mosmix(date))
-
-                    yield df
+                    for df in self.read_mosmix(date):
+                        yield df
                 except IndexError as e:
                     log.warning(e)
                     continue
