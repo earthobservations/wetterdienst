@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+...
+
+0.19.0 (14.05.2021)
+*******************
+
 - Make tidy method a abstract core method of Values class
 - Fix DWD Mosmix generator to return all contained dataframes
 
