@@ -11,13 +11,10 @@ from bs4 import BeautifulSoup
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 
-from wetterdienst.util.cache import CacheExpiry, cache_dir
+from wetterdienst.util.cache import CacheExpiry, cache_dir, WD_CACHE_DISABLE
 
 # v1: Global HTTP session object for custom implementation based on "requests".
 session = requests.Session()
-
-# Whether caching should be disabled at all.
-WD_CACHE_DISABLE = "WD_CACHE_DISABLE" in os.environ
 
 
 # v2: Remote filesystem access through FSSPEC.
