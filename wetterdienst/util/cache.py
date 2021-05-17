@@ -23,7 +23,10 @@ except KeyError:
     cache_dir = appdirs.user_cache_dir(appname="wetterdienst")
 
 # Early reporting.
-sys.stderr.write("Wetterdienst cache directory is %s" % cache_dir)
+if WD_CACHE_DISABLE:
+    sys.stderr.write("INFO: Wetterdienst cache is disabled\n")
+else:
+    sys.stderr.write("INFO: Wetterdienst cache directory is %s\n" % cache_dir)
 
 # Ensure cache directories exist.
 # FIXME: Get rid of this as it executes "os.makedirs()" on the module level.
