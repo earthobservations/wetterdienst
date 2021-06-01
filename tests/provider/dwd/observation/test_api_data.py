@@ -94,8 +94,8 @@ def test_dwd_observation_data_parameter():
 
     assert request.parameter == [
         (
-            DwdObservationDatasetTree.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
-            DwdObservationDataset.PRECIPITATION_MORE,
+            DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
+            DwdObservationDataset.CLIMATE_SUMMARY,
         )
     ]
 

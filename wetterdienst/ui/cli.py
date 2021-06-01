@@ -21,17 +21,7 @@ from wetterdienst.ui.core import get_stations, get_values, set_logging_level
 
 log = logging.getLogger(__name__)
 
-
 appname = f"{__appname__} {__version__}"
-
-# def output(thing):
-#     for item in thing:
-#         if item:
-#             if hasattr(item, "value"):
-#                 value = item.value
-#             else:
-#                 value = item
-#             print("-", value)
 
 provider_opt = cloup.option_group(
     "Provider",
@@ -41,6 +31,7 @@ provider_opt = cloup.option_group(
         required=True,
     ),
 )
+
 kind_opt = cloup.option_group(
     "Kind",
     click.option(
@@ -52,11 +43,14 @@ kind_opt = cloup.option_group(
         required=True,
     ),
 )
+
 debug_opt = click.option("--debug", is_flag=True)
 
 
 def get_api(provider: str, kind: str):
     """
+    Function to get API for provider and kind, if non found click.Abort()
+    is casted with the error message
 
     :param provider:
     :param kind:
@@ -72,6 +66,7 @@ def get_api(provider: str, kind: str):
 
 def station_options(command):
     """
+    Station options for cli, which can be used for stations and values endpoint
 
     :param command:
     :return:
@@ -139,13 +134,13 @@ def cli():
         wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
         wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
 
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
 
     Options:
         --parameter=<parameter>               Parameter Set/Parameter, e.g. "kl" or "precipitation_height", etc.
@@ -167,6 +162,7 @@ def cli():
         --language=<language>                 Output language. [Default: en]
         --version                             Show version information
         --tidy                                Tidy DataFrame
+        --humanize                            Humanize parameters
         --si-units                            Convert to SI units
         --pretty                              Pretty json with indent 4
         --debug                               Enable debug messages
@@ -401,7 +397,7 @@ def about():
 )
 @cloup.option("--filter", "filter_", type=click.STRING, default=False)
 @debug_opt
-def coverage(provider, kind, filter_, debug, **kwargs):
+def coverage(provider, kind, filter_, debug):
     set_logging_level(debug)
 
     if not provider or not kind:
@@ -471,6 +467,7 @@ def fields(provider, kind, dataset, resolution, period, language, **kwargs):
     If("coordinates", then=RequireExactly(1), else_=accept_none),
     ["rank", "distance"],
 )
+@cloup.option("--pretty", is_flag=True)
 @debug_opt
 def stations(
     provider: str,
@@ -501,6 +498,7 @@ def stations(
         resolution=resolution,
         period=period,
         date=None,
+        issue=None,
         all_=all_,
         station_id=station,
         name=name,
@@ -511,6 +509,7 @@ def stations(
         sql=sql,
         tidy=False,
         si_units=False,
+        humanize=False,
     )
 
     if stations_.df.empty:
@@ -536,7 +535,7 @@ def stations(
 @provider_opt
 @kind_opt
 @station_options
-@cloup.option("--date", type=click.STRING, required=True)
+@cloup.option("--date", type=click.STRING)
 @cloup.option("--tidy", is_flag=True)
 @cloup.option("--sql-values", type=click.STRING)
 @cloup.option_group(
@@ -550,7 +549,9 @@ def stations(
     cloup.option("--target", type=click.STRING),
     help="Provide either --format or --target.",
 )
+@cloup.option("--issue", type=click.STRING)
 @cloup.option("--si-units", type=click.BOOL, default=True)
+@cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
 @debug_opt
 def values(
@@ -560,6 +561,7 @@ def values(
     resolution: str,
     period: List[str],
     date: str,
+    issue: str,
     all_: bool,
     station: List[str],
     name: str,
@@ -573,6 +575,7 @@ def values(
     target: str,
     tidy: bool,
     si_units: bool,
+    humanize: bool,
     pretty: bool,
     debug: bool,
 ):
@@ -587,6 +590,7 @@ def values(
             resolution=resolution,
             period=period,
             date=date,
+            issue=issue,
             all_=all_,
             station_id=station,
             name=name,
@@ -598,6 +602,7 @@ def values(
             sql_values=sql_values,
             si_units=si_units,
             tidy=tidy,
+            humanize=humanize,
         )
     except ValueError as ex:
         log.exception(ex)

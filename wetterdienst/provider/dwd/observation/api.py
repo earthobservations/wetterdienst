@@ -12,6 +12,7 @@ import pandas as pd
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
@@ -189,7 +190,7 @@ class DwdObservationValues(ScalarValuesCore):
                 log.info(
                     f"No files found for {parameter_identifier}. Station will be skipped."
                 )
-                return pd.DataFrame()
+                continue
 
             # TODO: replace with FSSPEC caching
             filenames_and_files = download_climate_observations_data_parallel(
@@ -282,7 +283,7 @@ class DwdObservationValues(ScalarValuesCore):
             )
 
         else:
-            quality = df.pop(df.columns[0])
+            quality = df.pop(df.columns[2])
             quality = pd.Series(repeat(quality, df.shape[1])).explode()
 
         possible_id_vars = (
@@ -385,7 +386,7 @@ class DwdObservationRequest(ScalarRequestCore):
     _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
     _period_base = DwdObservationPeriod
-
+    _data_range = DataRange.FIXED
     _has_datasets = True
     _unique_dataset = False
     _dataset_base = DwdObservationDataset

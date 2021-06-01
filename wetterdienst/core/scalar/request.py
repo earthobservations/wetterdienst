@@ -19,6 +19,7 @@ from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
 from wetterdienst.exceptions import InvalidEnumeration, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
@@ -58,12 +59,6 @@ class ScalarRequestCore(Core):
         """ Resolution type, multi, fixed, ..."""
         pass
 
-    # TODO: implement for source with dynamic resolution
-    @staticmethod
-    def _determine_resolution(dates: pd.Series) -> Resolution:
-        """ Function to determine resolution from a pandas Series of dates """
-        pass
-
     @property
     def frequency(self) -> Frequency:
         """Frequency for the given resolution, used to create a full date range for
@@ -87,6 +82,13 @@ class ScalarRequestCore(Core):
     def _parameter_base(self) -> Enum:
         """parameter base enumeration from which parameters can be parsed e.g.
         DWDObservationParameter"""
+        pass
+
+    @property
+    @abstractmethod
+    def _data_range(self) -> DataRange:
+        """State whether data from this provider is given in fixed data chunks
+        or has to be defined over start and end date"""
         pass
 
     @property

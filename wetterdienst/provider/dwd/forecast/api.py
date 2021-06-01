@@ -15,7 +15,9 @@ from requests import HTTPError
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.exceptions import InvalidParameter
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
@@ -351,7 +353,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _resolution_base = Resolution  # use general Resolution for fixed Resolution
     _period_type = PeriodType.FIXED
     _period_base = None
-
+    _data_range = DataRange.FIXED
     _has_datasets = True
     _unique_dataset = True
     _dataset_base = DwdMosmixDataset
@@ -451,6 +453,14 @@ class DwdMosmixRequest(ScalarRequestCore):
             period=Period.FUTURE,
             si_units=si_units,
         )
+
+        if not start_issue:
+            start_issue = DwdForecastDate.LATEST
+
+        try:
+            start_issue = parse_enumeration_from_template(start_issue, DwdForecastDate)
+        except InvalidParameter:
+            pass
 
         # Parse issue date if not set to fixed "latest" string
         if start_issue is DwdForecastDate.LATEST and end_issue:

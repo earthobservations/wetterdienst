@@ -28,7 +28,6 @@ class StationsResult(ExportMixin):
     ) -> None:
         # TODO: add more attributes from ScalarStations class
         self.stations = stations
-
         self.df = df
         self._kwargs = kwargs
 
