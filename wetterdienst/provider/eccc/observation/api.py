@@ -18,6 +18,7 @@ from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
@@ -261,7 +262,7 @@ class EcccObservationRequest(ScalarRequestCore):
     _period_type = PeriodType.FIXED
     _period_base = Period.HISTORICAL
     _parameter_base = EcccObservationParameter  # replace with parameter enumeration
-
+    _data_range = DataRange.LOOSELY
     _has_datasets = True
     _dataset_base = EcccObservationDataset
     _dataset_tree = EcccObservationDatasetTree

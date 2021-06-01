@@ -14,7 +14,7 @@ from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.exceptions import ProviderError
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import get_stations, get_values, set_logging_level
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.cli import read_list, setup_logging
 
 app = FastAPI(debug=False)
 
@@ -157,11 +157,11 @@ def stations(
             detail=f"Choose provider and kind from {app.url_path_for('coverage')}",
         )
 
-    parameter = parameter.split(",")
+    parameter = read_list(parameter)
     if period:
-        period = period.split(",")
+        period = read_list(period)
     if station_id:
-        station_id = station_id.split(",")
+        station_id = read_list(station_id)
 
     try:
         stations_ = get_stations(
@@ -169,6 +169,8 @@ def stations(
             parameter=parameter,
             resolution=resolution,
             period=period,
+            date=None,
+            issue=None,
             all_=all_,
             station_id=station_id,
             name=name,
@@ -177,9 +179,9 @@ def stations(
             distance=distance,
             bbox=bbox,
             sql=sql,
-            date=None,
             tidy=False,
             si_units=False,
+            humanize=False,
         )
     except (KeyError, ValueError) as e:
         return HTTPException(status_code=404, detail=str(e))
@@ -221,6 +223,7 @@ def values(
     resolution: str = Query(default=None),
     period: str = Query(default=None),
     date: str = Query(default=None),
+    issue: str = Query(default="latest"),
     all_: str = Query(alias="all", default=False),
     station: str = Query(default=None),
     name: str = Query(default=None),
@@ -230,7 +233,8 @@ def values(
     bbox: str = Query(default=None),
     sql: str = Query(default=None),
     sql_values: str = Query(alias="sql-values", default=None),
-    # fmt: str = Query(alias="format", default="json"),
+    # fmt: str = Query(alias="format", default="json"),  missing geojson support
+    humanize: bool = Query(default=True),
     tidy: bool = Query(default=True),
     si_units: bool = Query(alias="si-units", default=True),
     pretty: bool = Query(default=False),
@@ -245,6 +249,7 @@ def values(
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
     :param date:        Date or date range
+    :param issue:
     :param all_:
     :param station:
     :param name:
@@ -255,6 +260,7 @@ def values(
     :param sql:         SQL expression
     :param sql_values:
     :param fmt:
+    :param humanize:
     :param tidy:        Whether to return data in tidy format. Default: True.
     :param si_units:
     :param pretty:
@@ -270,7 +276,7 @@ def values(
             detail="Query arguments 'provider' and 'kind' are required",
         )
 
-    if parameter is None or resolution is None or date is None:
+    if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'parameter', 'resolution' "
@@ -294,11 +300,11 @@ def values(
             f"Choose provider and kind from {Wetterdienst.discover()}",
         )
 
-    parameter = parameter.split(",")
+    parameter = read_list(parameter)
     if period:
-        period = period.split(",")
+        period = read_list(period)
     if station:
-        station = station.split(",")
+        station = read_list(station)
 
     try:
         values_ = get_values(
@@ -306,6 +312,7 @@ def values(
             parameter=parameter,
             resolution=resolution,
             date=date,
+            issue=issue,
             period=period,
             all_=all_,
             station_id=station,
@@ -318,22 +325,18 @@ def values(
             sql_values=sql_values,
             si_units=si_units,
             tidy=tidy,
+            humanize=humanize,
         )
     except Exception as e:
         log.exception(e)
 
-        return HTTPException(status_code=404, detail=e)
+        return HTTPException(status_code=404, detail=str(e))
 
     indent = None
     if pretty:
         indent = 4
 
     output = values_.to_dict()
-
-    # if fmt == "json":
-    #     output = stations_.to_dict()
-    # elif fmt == "geojson":
-    #     output = stations_._to_ogc_feature_collection()
 
     output = make_json_response(output, api.provider)
 
@@ -343,6 +346,14 @@ def values(
 
 
 def make_json_response(data, provider):
+    """
+    Function to add wetterdienst metadata information, citation, etc as well as
+    information about the data provider
+
+    :param data:
+    :param provider:
+    :return:
+    """
     name_local, name_english, country, copyright_, url = provider.value
 
     response = {

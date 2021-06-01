@@ -20,6 +20,57 @@ def test_robots():
     assert response.status_code == 200
 
 
+def test_no_provider():
+    response = client.get(
+        "/restapi/stations",
+        params={
+            "provider": "abc",
+            "kind": "abc",
+            "parameter": "kl",
+            "resolution": "daily",
+            "period": "recent",
+            "all": "true",
+        },
+    )
+
+    assert "Choose provider and kind from /restapi/coverage" in response.text
+
+
+def test_no_kind():
+    response = client.get(
+        "/restapi/stations",
+        params={
+            "provider": "dwd",
+            "kind": "abc",
+            "parameter": "kl",
+            "resolution": "daily",
+            "period": "recent",
+            "all": "true",
+        },
+    )
+
+    assert "Choose provider and kind from /restapi/coverage" in response.text
+
+
+def test_data_range(capsys):
+    response = client.get(
+        "/restapi/values",
+        params={
+            "provider": "eccc",
+            "kind": "observation",
+            "parameter": "precipitation_height",
+            "resolution": "daily",
+            "period": "historical",
+            "name": "toronto",
+        },
+    )
+
+    assert (
+        "Combination of provider ECCC and kind OBSERVATION requires start and end date"
+        in response.text
+    )
+
+
 def test_dwd_stations_basic():
 
     response = client.get(
@@ -120,10 +171,13 @@ def test_dwd_values_no_station():
         },
     )
 
-    assert response.status_code == 400
-    assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
-    }
+    assert response.status_code == 200
+    assert (
+        "'Give one of the parameters: all (boolean), station (string), "
+        "name (string), coordinates (float,float) and rank (integer), "
+        "coordinates (float,float) and distance (float), "
+        "bbox (left float, bottom float, right float, top float)'" in response.text
+    )
 
 
 def test_dwd_values_no_parameter():
@@ -155,25 +209,6 @@ def test_dwd_values_no_resolution():
             "stations": "01048,4411",
             "parameter": "kl",
             "period": "recent",
-        },
-    )
-
-    assert response.status_code == 400
-    assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
-    }
-
-
-def test_dwd_values_no_period():
-
-    response = client.get(
-        "/restapi/values",
-        params={
-            "provider": "dwd",
-            "kind": "observation",
-            "stations": "01048,4411",
-            "parameter": "kl",
-            "resolution": "daily",
         },
     )
 

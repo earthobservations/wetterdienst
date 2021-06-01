@@ -156,10 +156,7 @@ def invoke_wetterdienst_stations_geo(provider, kind, setting, fmt="json"):
 
 def invoke_wetterdienst_values_static(provider, kind, setting, station, fmt="json"):
     runner = CliRunner()
-    print(
-        f"values --provider={provider} --kind={kind} "
-        f"{setting} --station={station} --format={fmt}"
-    )
+
     result = runner.invoke(
         cli,
         f"values --provider={provider} --kind={kind} "
@@ -205,6 +202,40 @@ def invoke_wetterdienst_values_geo(provider, kind, setting, fmt="json"):
     )
 
     return result
+
+
+def test_no_provider():
+    runner = CliRunner()
+
+    result = runner.invoke(cli, "stations --provider=abc --kind=abc")
+
+    assert (
+        "Error: Invalid value for '--provider': invalid choice: abc." in result.output
+    )
+
+
+def test_no_kind():
+    runner = CliRunner()
+
+    result = runner.invoke(cli, "stations --provider=dwd --kind=abc")
+
+    assert "Invalid value for '--kind': invalid choice: abc." in result.output
+
+
+def test_data_range(capsys):
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        "values --provider=eccc --kind=observation --parameter=precipitation_height "
+        "--resolution=daily --name=toronto",
+    )
+
+    assert isinstance(result.exception, TypeError)
+    assert (
+        "Combination of provider ECCC and kind OBSERVATION requires start and end date"
+        in str(result.exception)
+    )
 
 
 @pytest.mark.parametrize(
@@ -277,8 +308,8 @@ def test_cli_stations_excel(
     provider, kind, setting, station_id, station_name, tmpdir_factory
 ):
 
-    filename = tmpdir_factory.mktemp("data").join("stations.xlsx")
-    # filename = "stations.xlsx"
+    # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")
+    filename = "stations.xlsx"
 
     _ = invoke_wetterdienst_stations_export(
         provider=provider,
@@ -384,8 +415,8 @@ def test_cli_values_excel(
     provider, kind, setting, station_id, station_name, tmpdir_factory
 ):
 
-    filename = tmpdir_factory.mktemp("data").join("values.xlsx")
-    # filename = "values.xlsx"
+    # filename = tmpdir_factory.mktemp("data").join("values.xlsx")
+    filename = "values.xlsx"
 
     _ = invoke_wetterdienst_values_export(
         provider=provider,

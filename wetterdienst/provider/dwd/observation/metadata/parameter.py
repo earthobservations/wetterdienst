@@ -778,9 +778,9 @@ PARAMETER_TO_DATASET_MAPPING = {
     },
     Resolution.DAILY: {
         # more_precip
-        DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: DwdObservationDataset.PRECIPITATION_MORE,
-        DwdObservationParameter.DAILY.PRECIPITATION_FORM: DwdObservationDataset.PRECIPITATION_MORE,
-        DwdObservationParameter.DAILY.SNOW_DEPTH: DwdObservationDataset.PRECIPITATION_MORE,
+        # DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: DwdObservationDataset.PRECIPITATION_MORE,
+        # DwdObservationParameter.DAILY.PRECIPITATION_FORM: DwdObservationDataset.PRECIPITATION_MORE,
+        # DwdObservationParameter.DAILY.SNOW_DEPTH: DwdObservationDataset.PRECIPITATION_MORE,
         DwdObservationParameter.DAILY.SNOW_DEPTH_NEW: DwdObservationDataset.PRECIPITATION_MORE,
         # solar
         DwdObservationParameter.DAILY.RADIATION_SKY_LONG_WAVE: DwdObservationDataset.SOLAR,
@@ -790,10 +790,10 @@ PARAMETER_TO_DATASET_MAPPING = {
         # kl
         DwdObservationParameter.DAILY.WIND_GUST_MAX: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.WIND_SPEED: DwdObservationDataset.CLIMATE_SUMMARY,
-        # DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: "RSK",
-        # DwdObservationParameter.DAILY.PRECIPITATION_FORM: "RSKF",
+        DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.DAILY.PRECIPITATION_FORM: DwdObservationDataset.CLIMATE_SUMMARY,
         # DwdObservationParameter.DAILY.SUNSHINE_DURATION: DwdObservationParameterSet.CLIMATE_SUMMARY,
-        # DwdObservationParameter.DAILY.SNOW_DEPTH: "SHK_TAG",
+        DwdObservationParameter.DAILY.SNOW_DEPTH: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.CLOUD_COVER_TOTAL: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.PRESSURE_VAPOR: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.PRESSURE_AIR: DwdObservationDataset.CLIMATE_SUMMARY,

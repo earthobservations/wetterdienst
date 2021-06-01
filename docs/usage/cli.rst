@@ -53,6 +53,7 @@ Command Line Interface
         --language=<language>                 Output language. [Default: en]
         --version                             Show version information
         --tidy                                Tidy DataFrame
+        --humanize                            Humanize parameters
         --si-units                            Convert to SI units
         --pretty                              Pretty json with indent 4
         --debug                               Enable debug messages

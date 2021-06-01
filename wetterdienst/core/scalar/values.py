@@ -301,6 +301,9 @@ class ScalarValuesCore:
                 parameter = [*dataset_tree[resolution.name][dataset.name]]
 
         if self.stations.stations.tidy:
+            if not self.stations.stations.start_date:
+                return pd.DataFrame(None, columns=self._meta_fields)
+
             data = []
             for par in pd.Series(parameter):
                 if par.name.startswith("QUALITY"):
@@ -320,11 +323,15 @@ class ScalarValuesCore:
 
             return df
         else:
-            df = self._base_df
             parameter = pd.Series(parameter).map(lambda x: x.value).tolist()
 
             # Base columns
-            columns = [Columns.STATION_ID.value, Columns.DATE.value, *parameter]
+            columns = [*self._meta_fields, *parameter]
+
+            if self.stations.stations.start_date:
+                return pd.DataFrame(None, columns=columns)
+
+            df = self._base_df
 
             df = df.reindex(columns=columns)
 
@@ -443,11 +450,6 @@ class ScalarValuesCore:
                 parameter_df = self._collect_station_parameter(station_id, parameter)
 
                 if parameter_df.empty:
-                    parameter_df = self._create_empty_station_parameter_df(
-                        station_id, parameter
-                    )
-
-                    station_data.append(parameter_df)
                     continue
 
                 # Merge on full date range if values are found to ensure result
@@ -476,21 +478,21 @@ class ScalarValuesCore:
 
                 station_data.append(parameter_df)
 
-            station_df = pd.concat(station_data, ignore_index=True)
+            try:
+                station_df = pd.concat(station_data, ignore_index=True)
+            except ValueError:
+                station_df = self._create_empty_station_parameter_df(
+                    station_id, parameter
+                )
 
             station_df = self._coerce_meta_fields(station_df)
 
             # Filter for dates range if start_date and end_date are defined
-            if self.stations.start_date:
-                # df_station may be empty depending on if station has data for given
-                # constraints
-                try:
-                    station_df = station_df[
-                        (station_df[Columns.DATE.value] >= self.stations.start_date)
-                        & (station_df[Columns.DATE.value] <= self.stations.end_date)
-                    ]
-                except KeyError:
-                    pass
+            if not station_df.empty and self.stations.start_date:
+                station_df = station_df[
+                    (station_df[Columns.DATE.value] >= self.stations.start_date)
+                    & (station_df[Columns.DATE.value] <= self.stations.end_date)
+                ]
 
             station_df = self._coerce_parameter_types(station_df)
 

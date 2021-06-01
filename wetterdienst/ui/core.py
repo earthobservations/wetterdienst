@@ -9,6 +9,7 @@ from wetterdienst import Kind, Provider
 from wetterdienst.core.process import create_date_range
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
+from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.provider.dwd.forecast import DwdMosmixType
@@ -23,6 +24,7 @@ def get_stations(
     resolution: str,
     period: List[str],
     date: Optional[str],
+    issue: str,
     all_,
     station_id: List[str],
     name: str,
@@ -33,14 +35,17 @@ def get_stations(
     sql: str,
     si_units: bool,
     tidy: bool,
+    humanize: bool,
 ) -> StationsResult:
     """
+    Core function for querying stations via cli and restapi
 
     :param api:
     :param parameter:
     :param resolution:
     :param period:
     :param date:
+    :param issue:
     :param all_:
     :param station_id:
     :param name:#
@@ -52,6 +57,7 @@ def get_stations(
     :param date:
     :param si_units:
     :param tidy:
+    :param humanize:
     :return:
     """
     # TODO: move this into Request core
@@ -72,6 +78,12 @@ def get_stations(
         # Split date string into start and end date string
         start_date, end_date = create_date_range(date=date, resolution=res)
 
+    if api._data_range == DataRange.LOOSELY and not start_date and not end_date:
+        raise TypeError(
+            f"Combination of provider {api.provider.name} and kind {api.kind.name} "
+            f"requires start and end date"
+        )
+
     # Todo: We may have to apply other measures to allow for
     #  different request initializations
     # DWD Mosmix has fixed resolution and rather uses SMALL
@@ -83,10 +95,12 @@ def get_stations(
         "end_date": end_date,
         "si_units": si_units,
         "tidy": tidy,
+        "humanize": humanize,
     }
 
     if api.provider == Provider.DWD and api.kind == Kind.FORECAST:
         kwargs["mosmix_type"] = resolution
+        kwargs["start_issue"] = issue
     elif api._resolution_type == ResolutionType.MULTI:
         kwargs["resolution"] = resolution
 
@@ -158,6 +172,7 @@ def get_values(
     parameter: List[str],
     resolution: str,
     date: str,
+    issue: str,
     period: List[str],
     all_,
     station_id: List[str],
@@ -170,13 +185,38 @@ def get_values(
     sql_values: str,
     si_units: bool,
     tidy: bool,
+    humanize: bool,
 ) -> ValuesResult:
+    """
+    Core function for querying values via cli and restapi
+
+    :param api:
+    :param parameter:
+    :param resolution:
+    :param date:
+    :param issue:
+    :param period:
+    :param all_:
+    :param station_id:
+    :param name:
+    :param coordinates:
+    :param rank:
+    :param distance:
+    :param bbox:
+    :param sql:
+    :param sql_values:
+    :param si_units:
+    :param tidy:
+    :param humanize:
+    :return:
+    """
     stations_ = get_stations(
         api=api,
         parameter=parameter,
         resolution=resolution,
         period=period,
         date=date,
+        issue=issue,
         all_=all_,
         station_id=station_id,
         name=name,
@@ -187,6 +227,7 @@ def get_values(
         sql=sql,
         si_units=si_units,
         tidy=tidy,
+        humanize=humanize,
     )
 
     try:

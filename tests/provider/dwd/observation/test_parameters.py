@@ -23,12 +23,12 @@ parameters_reference = [
         DwdObservationDataset.CLIMATE_SUMMARY,
     ),
     (
-        DwdObservationDatasetTree.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
-        DwdObservationDataset.PRECIPITATION_MORE,
+        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+        DwdObservationDataset.CLIMATE_SUMMARY,
     ),
     (
-        DwdObservationDatasetTree.DAILY.PRECIPITATION_MORE.PRECIPITATION_FORM,
-        DwdObservationDataset.PRECIPITATION_MORE,
+        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_FORM,
+        DwdObservationDataset.CLIMATE_SUMMARY,
     ),
 ]
 
