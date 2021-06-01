@@ -434,7 +434,9 @@ def coverage(provider, kind, filter_, debug, **kwargs):
 def fields(provider, kind, dataset, resolution, period, language, **kwargs):
     api = get_api(provider, kind)
 
-    if not (api.provider == Provider.DWD and api.kind == Kind.OBSERVATION) and kwargs.get("fields"):
+    if not (
+        api.provider == Provider.DWD and api.kind == Kind.OBSERVATION
+    ) and kwargs.get("fields"):
         raise click.BadParameter("'fields' command only available for provider 'DWD'")
 
     metadata = api.describe_fields(
