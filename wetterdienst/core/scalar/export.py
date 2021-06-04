@@ -142,12 +142,13 @@ class ExportMixin:
 
         log.info(f"Exporting records to {target}\n{self.df.count()}")
 
-        t = ConnectionString(target)
-        database = t.get_database()
-        tablename = t.get_table()
+        connspec = ConnectionString(target)
+        protocol = connspec.url.scheme
+        database = connspec.get_database()
+        tablename = connspec.get_table()
 
         if target.startswith("file://"):
-            filepath = t.get_path()
+            filepath = connspec.get_path()
 
             if target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
@@ -278,7 +279,7 @@ class ExportMixin:
             connection.close()
             log.info("Writing to DuckDB finished")
 
-        elif target.startswith("influxdb://"):
+        elif protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
             """
             ======================
             InfluxDB database sink
@@ -347,7 +348,14 @@ class ExportMixin:
                         tag_columns.append(column)
 
             # Setup the connection.
-            c = DataFrameClient(database=database)
+            c = DataFrameClient(
+                host=connspec.url.hostname,
+                port=connspec.url.port or 8086,
+                username=connspec.url.username,
+                password=connspec.url.password,
+                database=database,
+                ssl=protocol.endswith("s"),
+            )
             c.create_database(database)
 
             # Need pandas>=1.2, otherwise InfluxDB's `field_df = dataframe[field_columns].replace([np.inf, -np.inf], np.nan)`
@@ -394,7 +402,7 @@ class ExportMixin:
             log.info(f"Writing to CrateDB. target={target}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            cratedb_url = t.url._replace(path="", query=None)
+            cratedb_url = connspec.url._replace(path="", query=None)
             cratedb_target = urlunparse(cratedb_url)
 
             # Convert timezone-aware datetime fields to naive ones.
