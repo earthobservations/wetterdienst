@@ -647,7 +647,7 @@ def test_export_duckdb():
 
 
 @surrogate("influxdb.InfluxDBClient")
-def test_export_influxdb_tabular():
+def test_export_influxdb1_tabular():
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -705,7 +705,7 @@ def test_export_influxdb_tabular():
 
 
 @surrogate("influxdb.InfluxDBClient")
-def test_export_influxdb_tidy():
+def test_export_influxdb1_tidy():
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -752,3 +752,73 @@ def test_export_influxdb_tidy():
         assert list(points[0]["fields"].keys()) == [
             "value",
         ]
+
+
+@surrogate("influxdb_client.InfluxDBClient")
+@surrogate("influxdb_client.Point")
+@surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
+def test_export_influxdb2_tabular():
+
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
+        tidy=False,
+        si_units=False,
+    ).filter_by_station_id(station_id=[1048])
+
+    mock_client = mock.MagicMock()
+    with mock.patch(
+        "influxdb_client.InfluxDBClient",
+        side_effect=[mock_client],
+        create=True,
+    ) as mock_connect:
+
+        with mock.patch(
+            "influxdb_client.Point",
+            create=True,
+        ):
+
+            df = request.values.all().df
+            ExportMixin(df=df).to_target(
+                "influxdb2://orga:token@localhost/?database=dwd&table=weather"
+            )
+
+            mock_connect.assert_called_once_with(
+                url="http://localhost:8086", org="orga", token="token"
+            )
+
+
+@surrogate("influxdb_client.InfluxDBClient")
+@surrogate("influxdb_client.Point")
+@surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
+def test_export_influxdb2_tidy():
+
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
+        tidy=True,
+        si_units=False,
+    ).filter_by_station_id(station_id=[1048])
+
+    mock_client = mock.MagicMock()
+    with mock.patch(
+        "influxdb_client.InfluxDBClient",
+        side_effect=[mock_client],
+        create=True,
+    ) as mock_connect:
+
+        with mock.patch(
+            "influxdb_client.Point",
+            create=True,
+        ):
+
+            df = request.values.all().df
+            ExportMixin(df=df).to_target(
+                "influxdb2://orga:token@localhost/?database=dwd&table=weather"
+            )
+
+            mock_connect.assert_called_once_with(
+                url="http://localhost:8086", org="orga", token="token"
+            )

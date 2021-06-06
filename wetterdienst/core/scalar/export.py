@@ -280,11 +280,11 @@ class ExportMixin:
             connection.close()
             log.info("Writing to DuckDB finished")
 
-        elif protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
+        elif protocol.startswith("influxdb"):
             """
-            ======================
-            InfluxDB database sink
-            ======================
+            ==========================
+            InfluxDB 1.x database sink
+            ==========================
 
             Install Python driver::
 
@@ -296,15 +296,51 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --target="influxdb://localhost/?database=dwd&table=weather"
+                alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                fetch --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
 
                 http 'localhost:8086/query?db=dwd&q=SELECT * FROM weather;'
                 http 'localhost:8086/query?db=dwd&q=SELECT COUNT(*) FROM weather;'
+
+
+            ==========================
+            InfluxDB 2.x database sink
+            ==========================
+
+            Install Python driver::
+
+                pip install influxdb_client
+
+            Run database::
+
+                docker run -it --rm --publish=8086:8086 influxdb:2.0
+                influx setup --name=default --username=root --password=12345678 --org=acme --bucket=dwd --retention=0 --force
+
+            Acquire data::
+
+                INFLUXDB_ORGANIZATION=acme
+                INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+
+                alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                fetch --target="influxdb2://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@localhost/?database=dwd&table=weather"
+
+            Example queries::
+
+                influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
             """
-            log.info(f"Writing to InfluxDB. database={database}, table={tablename}")
-            from influxdb import InfluxDBClient
+
+            if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
+                version = 1
+            elif protocol in ["influxdb2", "influxdb2s"]:
+                version = 2
+            else:
+                raise KeyError(f"Unknown protocol variant '{protocol}' for InfluxDB")
+
+            log.info(
+                f"Writing to InfluxDB version {version}. database={database}, table={tablename}"
+            )
 
             # 1. Mungle the data frame.
             # Use the "date" column as appropriate timestamp index.
@@ -344,15 +380,28 @@ class ExportMixin:
                         tag_columns.append(column)
 
             # Setup the connection.
-            c = InfluxDBClient(
-                host=connspec.url.hostname,
-                port=connspec.url.port or 8086,
-                username=connspec.url.username,
-                password=connspec.url.password,
-                database=database,
-                ssl=protocol.endswith("s"),
-            )
-            c.create_database(database)
+            if version == 1:
+                from influxdb import InfluxDBClient
+
+                client = InfluxDBClient(
+                    host=connspec.url.hostname,
+                    port=connspec.url.port or 8086,
+                    username=connspec.url.username,
+                    password=connspec.url.password,
+                    database=database,
+                    ssl=protocol.endswith("s"),
+                )
+                client.create_database(database)
+            elif version == 2:
+                from influxdb_client import InfluxDBClient, Point
+                from influxdb_client.client.write_api import SYNCHRONOUS
+
+                ssl = protocol.endswith("s")
+                url = f"http{ssl and 's' or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
+                client = InfluxDBClient(
+                    url=url, org=connspec.url.username, token=connspec.url.password
+                )
+                write_api = client.write_api(write_options=SYNCHRONOUS)
 
             points = []
             for items in chunker(df, chunksize=50000):
@@ -363,21 +412,37 @@ class ExportMixin:
                     if record.empty:
                         continue
 
-                    point = {
-                        "measurement": tablename,
-                        "tags": {
-                            tag: record.pop(tag) for tag in tag_columns if tag in record
-                        },
-                        "time": date.isoformat(),
-                        "fields": record.dropna().to_dict(),
+                    time = date.isoformat()
+                    tags = {
+                        tag: record.pop(tag) for tag in tag_columns if tag in record
                     }
+                    fields = record.dropna().to_dict()
+                    if version == 1:
+                        point = {
+                            "measurement": tablename,
+                            "time": time,
+                            "tags": tags,
+                            "fields": fields,
+                        }
+                    elif version == 2:
+                        point = Point(tablename).time(date.isoformat())
+                        for tag, value in tags.items():
+                            point = point.tag(tag, value)
+                        for field, value in fields.items():
+                            point = point.field(field, value)
+
                     points.append(point)
 
             # Write to InfluxDB.
-            c.write_points(
-                points=points,
-                batch_size=50000,
-            )
+            if version == 1:
+                client.write_points(
+                    points=points,
+                    batch_size=50000,
+                )
+            elif version == 2:
+                write_api.write(bucket=database, record=points)
+                write_api.close()
+
             log.info("Writing to InfluxDB finished")
 
         elif target.startswith("crate://"):
