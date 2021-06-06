@@ -646,7 +646,7 @@ def test_export_duckdb():
         mock_connection.close.assert_called_once()
 
 
-@surrogate("influxdb.dataframe_client.DataFrameClient")
+@surrogate("influxdb.InfluxDBClient")
 def test_export_influxdb_tabular():
 
     request = DwdObservationRequest(
@@ -659,7 +659,7 @@ def test_export_influxdb_tabular():
 
     mock_client = mock.MagicMock()
     with mock.patch(
-        "influxdb.dataframe_client.DataFrameClient",
+        "influxdb.InfluxDBClient",
         side_effect=[mock_client],
         create=True,
     ) as mock_connect:
@@ -667,19 +667,44 @@ def test_export_influxdb_tabular():
         df = request.values.all().df
         ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
 
-        mock_connect.assert_called_once_with(database="dwd")
+        mock_connect.assert_called_once_with(
+            host="localhost",
+            port=8086,
+            username=None,
+            password=None,
+            database="dwd",
+            ssl=False,
+        )
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
 
         mock_client.write_points.assert_called_with(
-            dataframe=mock.ANY,
-            measurement="weather",
-            tag_columns=["station_id", "qn_3", "qn_4"],
+            points=mock.ANY,
             batch_size=50000,
         )
 
+        points = mock_client.write_points.call_args.kwargs["points"]
+        assert points[0]["measurement"] == "weather"
+        assert list(points[0]["tags"].keys()) == ["station_id", "qn_3", "qn_4"]
+        assert list(points[0]["fields"].keys()) == [
+            "wind_gust_max",
+            "wind_speed",
+            "precipitation_height",
+            "precipitation_form",
+            "sunshine_duration",
+            "snow_depth",
+            "cloud_cover_total",
+            "pressure_vapor",
+            "pressure_air",
+            "temperature_air_200",
+            "humidity",
+            "temperature_air_max_200",
+            "temperature_air_min_200",
+            "temperature_air_min_005",
+        ]
 
-@surrogate("influxdb.dataframe_client.DataFrameClient")
+
+@surrogate("influxdb.InfluxDBClient")
 def test_export_influxdb_tidy():
 
     request = DwdObservationRequest(
@@ -692,7 +717,7 @@ def test_export_influxdb_tidy():
 
     mock_client = mock.MagicMock()
     with mock.patch(
-        "influxdb.dataframe_client.DataFrameClient",
+        "influxdb.InfluxDBClient",
         side_effect=[mock_client],
         create=True,
     ) as mock_connect:
@@ -700,13 +725,30 @@ def test_export_influxdb_tidy():
         df = request.values.all().df
         ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
 
-        mock_connect.assert_called_once_with(database="dwd")
+        mock_connect.assert_called_once_with(
+            host="localhost",
+            port=8086,
+            username=None,
+            password=None,
+            database="dwd",
+            ssl=False,
+        )
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
 
         mock_client.write_points.assert_called_with(
-            dataframe=mock.ANY,
-            measurement="weather",
-            tag_columns=["station_id", "quality", "dataset", "parameter"],
+            points=mock.ANY,
             batch_size=50000,
         )
+
+        points = mock_client.write_points.call_args.kwargs["points"]
+        assert points[0]["measurement"] == "weather"
+        assert list(points[0]["tags"].keys()) == [
+            "station_id",
+            "quality",
+            "dataset",
+            "parameter",
+        ]
+        assert list(points[0]["fields"].keys()) == [
+            "value",
+        ]

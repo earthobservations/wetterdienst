@@ -11,6 +11,7 @@ import pandas as pd
 import pytz
 
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.util.pandas import chunker
 from wetterdienst.util.url import ConnectionString
 
 log = logging.getLogger(__name__)
@@ -295,7 +296,7 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="influxdb://localhost/?database=dwd&table=weather"
+                wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
 
@@ -303,7 +304,7 @@ class ExportMixin:
                 http 'localhost:8086/query?db=dwd&q=SELECT COUNT(*) FROM weather;'
             """
             log.info(f"Writing to InfluxDB. database={database}, table={tablename}")
-            from influxdb.dataframe_client import DataFrameClient
+            from influxdb import InfluxDBClient
 
             # 1. Mungle the data frame.
             # Use the "date" column as appropriate timestamp index.
@@ -327,11 +328,6 @@ class ExportMixin:
             categorical_columns = df.select_dtypes(["category"]).columns
             df[categorical_columns] = df[categorical_columns].astype("str")
 
-            # When using the tidy format, don't export empty records.
-            # Otherwise, the InfluxDB dataframe driver adapter will croak.
-            if df.attrs.get("tidy"):
-                df = df.dropna()
-
             # Compute designated tag fields from some candidates.
             tag_columns = []
             tag_candidates = [
@@ -348,7 +344,7 @@ class ExportMixin:
                         tag_columns.append(column)
 
             # Setup the connection.
-            c = DataFrameClient(
+            c = InfluxDBClient(
                 host=connspec.url.hostname,
                 port=connspec.url.port or 8086,
                 username=connspec.url.username,
@@ -358,16 +354,28 @@ class ExportMixin:
             )
             c.create_database(database)
 
-            # Need pandas>=1.2, otherwise InfluxDB's `field_df = dataframe[field_columns].replace([np.inf, -np.inf], np.nan)`
-            # will erroneously cast `Int64` to `object`, so `int_columns = df.select_dtypes(include=['integer']).columns`
-            # will fail.
-            # https://github.com/pandas-dev/pandas/issues/32988
+            points = []
+            for items in chunker(df, chunksize=50000):
+
+                for date, record in items.iterrows():
+
+                    record = record.dropna()
+                    if record.empty:
+                        continue
+
+                    point = {
+                        "measurement": tablename,
+                        "tags": {
+                            tag: record.pop(tag) for tag in tag_columns if tag in record
+                        },
+                        "time": date.isoformat(),
+                        "fields": record.dropna().to_dict(),
+                    }
+                    points.append(point)
 
             # Write to InfluxDB.
             c.write_points(
-                dataframe=df,
-                measurement=tablename,
-                tag_columns=tag_columns,
+                points=points,
                 batch_size=50000,
             )
             log.info("Writing to InfluxDB finished")

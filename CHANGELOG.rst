@@ -6,6 +6,7 @@ Development
 
 - Change cli base to click
 - Add support for wetterdienst core API in cli and restapi
+- Export: Use InfluxDBClient instead of DataFrameClient and improve connection handling with InfluxDB 1.x
 
 0.19.0 (14.05.2021)
 *******************
