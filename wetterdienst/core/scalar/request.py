@@ -452,7 +452,7 @@ class ScalarRequestCore(Core):
             return parameters
 
         datasets_filter = (
-            pd.Series(dataset)
+            pd.Series(dataset, dtype=str)
             .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
             .tolist()
             or cls._dataset_base

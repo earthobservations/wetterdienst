@@ -527,6 +527,12 @@ class DwdObservationRequest(ScalarRequestCore):
             si_units=si_units,
         )
 
+        if self.start_date and self.period:
+            log.warning(
+                f"start_date and end_date filtering limited to defined "
+                f"periods {self.period}"
+            )
+
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
         if not self.period:
@@ -534,12 +540,6 @@ class DwdObservationRequest(ScalarRequestCore):
                 self.period = self._get_periods()
             else:
                 self.period = self._parse_period([*self._period_base])
-
-        if self.start_date and self.period:
-            log.warning(
-                f"start_date and end_date filtering limited to defined "
-                f"periods {self.period}"
-            )
 
     @classmethod
     def describe_fields(cls, dataset, resolution, period, language: str = "en") -> dict:
