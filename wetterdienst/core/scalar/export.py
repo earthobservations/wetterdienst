@@ -347,23 +347,6 @@ class ExportMixin:
             df = self.df.set_index(pd.DatetimeIndex(self.df["date"]))
             df = df.drop(["date"], axis=1)
 
-            # Work around `ValueError: fill value must be in categories`.
-            # The reason is that the InfluxDB Pandas adapter tries to apply
-            # `tag_df.fillna('')  # replace NA with empty string`.
-            # However, it is not possible to apply `.fillna` to categorical
-            # columns. See:
-            # - https://github.com/pandas-dev/pandas/issues/24079
-            # - https://stackoverflow.com/questions/65316023/filling-np-nan-entries-of-float-column-gives-valueerror-fill-value-must-be-in-c/65316190
-            # - https://stackoverflow.com/questions/53664948/pandas-fillna-throws-valueerror-fill-value-must-be-in-categories
-            # - https://stackoverflow.com/questions/32718639/pandas-filling-nans-in-categorical-data/44633307
-            #
-            # So, let's convert all categorical columns back to their designated type representations.
-            # https://stackoverflow.com/questions/32011359/convert-categorical-data-in-pandas-dataframe/32011969#32011969
-            if "quality" in df:
-                df.quality = df.quality.astype("Int64")
-            categorical_columns = df.select_dtypes(["category"]).columns
-            df[categorical_columns] = df[categorical_columns].astype("str")
-
             # Compute designated tag fields from some candidates.
             tag_columns = []
             tag_candidates = [
@@ -407,16 +390,15 @@ class ExportMixin:
             for items in chunker(df, chunksize=50000):
 
                 for date, record in items.iterrows():
-
-                    record = record.dropna()
-                    if record.empty:
-                        continue
-
                     time = date.isoformat()
                     tags = {
                         tag: record.pop(tag) for tag in tag_columns if tag in record
                     }
+
                     fields = record.dropna().to_dict()
+                    if not fields:
+                        continue
+
                     if version == 1:
                         point = {
                             "measurement": tablename,

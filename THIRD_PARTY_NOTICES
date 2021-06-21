@@ -130,7 +130,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 GitPython
-3.1.17
+3.1.18
 BSD License
 Sebastian Thiel, Michael Trier
 https://github.com/gitpython-developers/GitPython
@@ -1675,7 +1675,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 anyio
-3.1.0
+3.2.0
 MIT License
 Alex Grönholm
 UNKNOWN
@@ -5176,6 +5176,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 
+influxdb
+5.3.1
+MIT License
+UNKNOWN
+https://github.com/influxdb/influxdb-python
+The MIT License (MIT)
+
+Copyright (c) 2020 InfluxDB
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
 iniconfig
 1.1.1
 MIT License
@@ -5210,7 +5237,7 @@ http://ipython.org
 UNKNOWN
 
 isort
-5.8.0
+5.9.1
 MIT License
 Timothy Crosley
 https://pycqa.github.io/isort/
@@ -5551,7 +5578,7 @@ to indicate the copyright and license terms:
 
 
 jupyter-server-mathjax
-0.2.2
+0.2.3
 BSD License
 Jupyter Development Team
 http://jupyter.org
@@ -9906,7 +9933,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 terminado
-0.10.0
+0.10.1
 BSD License
 Jupyter Development Team
 https://github.com/jupyter/terminado
@@ -10416,7 +10443,7 @@ http://www.tornadoweb.org/
 
 
 tqdm
-4.61.0
+4.61.1
 MIT License, Mozilla Public License 2.0 (MPL 2.0)
 UNKNOWN
 https://tqdm.github.io
@@ -11255,7 +11282,7 @@ https://github.com/SimonSapin/python-webencodings
 UNKNOWN
 
 websocket-client
-1.0.1
+1.1.0
 GNU Lesser General Public License v2 or later (LGPLv2+)
 liris
 https://github.com/websocket-client/websocket-client.git

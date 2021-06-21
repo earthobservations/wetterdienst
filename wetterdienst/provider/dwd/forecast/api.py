@@ -8,6 +8,7 @@ from io import StringIO
 from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
+import numpy as np
 import pandas as pd
 import requests
 from requests import HTTPError
@@ -136,7 +137,13 @@ class DwdMosmixValues(ScalarValuesCore):
 
             if self.stations.stations.tidy:
                 df = self._tidy_up_df(df)
-                df[Columns.DATASET.value] = self.stations.stations.mosmix_type.value
+
+                df[
+                    Columns.DATASET.value
+                ] = self.stations.stations.mosmix_type.value.lower()
+                df[Columns.VALUE.value] = pd.to_numeric(
+                    df[Columns.VALUE.value], errors="coerce"
+                ).astype(float)
 
             df = self._coerce_meta_fields(df)
 
@@ -180,14 +187,16 @@ class DwdMosmixValues(ScalarValuesCore):
         """
         df_tidy = df.melt(
             id_vars=[
-                DwdColumns.STATION_ID.value,
-                DwdColumns.DATE.value,
+                Columns.STATION_ID.value,
+                Columns.DATE.value,
             ],
             var_name=DwdColumns.PARAMETER.value,
             value_name=DwdColumns.VALUE.value,
         )
 
-        df[Columns.QUALITY.value] = pd.NA
+        df[Columns.QUALITY.value] = np.nan
+
+        df[Columns.QUALITY.value] = df[Columns.QUALITY.value].astype(float)
 
         return df_tidy
 
