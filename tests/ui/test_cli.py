@@ -54,8 +54,8 @@ def test_cli_help():
 
     assert "Options:\n --help  Show this message and exit."
     assert (
-        "Commands:\n  about\n  explorer\n  radar\n  restapi\n  stations\n  values\n"
-        in result.output
+        "Commands:\n  about\n  explorer\n  radar\n  "
+        "restapi\n  show\n  stations\n  values\n" in result.output
     )
 
 

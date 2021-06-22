@@ -372,6 +372,15 @@ def explorer(listen: str, reload: bool, debug: bool):
     return
 
 
+@cli.command("show")
+def show():
+    from wetterdienst import show
+
+    show()
+
+    return
+
+
 @cli.group()
 def about():
     pass

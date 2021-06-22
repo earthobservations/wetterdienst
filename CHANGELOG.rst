@@ -9,6 +9,7 @@ Development
 - Export: Use InfluxDBClient instead of DataFrameClient and improve connection handling with InfluxDB 1.x
 - Export: Add support for InfluxDB 2.x
 - Fix InfluxDB export by skipping empty fields
+- Add show() method with basic information on the wetterdienst instance
 
 0.19.0 (14.05.2021)
 *******************
