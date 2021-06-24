@@ -333,10 +333,22 @@ Development
     git clone https://github.com/earthobservations/wetterdienst
     cd wetterdienst
 
-    # Install package in editable mode.
-    pip install --editable=.[sql,export,restapi,explorer]
+    # Prerequisites
+    brew install --cask firefox
+    brew install git python geckodriver
 
-    # Alternatively, when using Poetry.
+    # Option 1: Basic
+    git clone https://github.com/earthobservations/wetterdienst
+    cd wetterdienst
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install --requirement=requirements.txt
+    python setup.py develop
+
+    # (Option 2: Install package with extras)
+    pip install ".[sql,export,restapi,explorer]"
+
+    # Option 3: Install package with extras using poetry.
     poetry install --extras=sql --extras=export --extras=restapi --extras=explorer
     poetry shell
 
