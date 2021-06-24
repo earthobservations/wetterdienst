@@ -6,7 +6,6 @@ from datetime import datetime
 from itertools import repeat
 from typing import Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import pandas as pd
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -302,8 +301,6 @@ class DwdObservationValues(ScalarValuesCore):
         )
 
         df_tidy[Columns.QUALITY.value] = quality.reset_index(drop=True)
-
-        df_tidy.loc[df_tidy[Columns.VALUE.value].isna(), Columns.QUALITY.value] = np.NaN
 
         return df_tidy
 
