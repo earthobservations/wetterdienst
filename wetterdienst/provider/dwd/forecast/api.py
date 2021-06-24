@@ -75,10 +75,6 @@ class DwdMosmixValues(ScalarValuesCore):
     _data_tz = Timezone.UTC
     _has_quality = False
 
-    # @property
-    # def _tidy(self) -> bool:
-    #     return self.stations.tidy
-
     _irregular_parameters = tuple()
     _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = tuple()
@@ -136,14 +132,16 @@ class DwdMosmixValues(ScalarValuesCore):
             df = self._coerce_parameter_types(df)
 
             if self.stations.stations.tidy:
-                df = self._tidy_up_df(df)
+                df = self.tidy_up_df(df, self.stations.stations.mosmix_type)
 
-                df[
-                    Columns.DATASET.value
-                ] = self.stations.stations.mosmix_type.value.lower()
-                df[Columns.VALUE.value] = pd.to_numeric(
-                    df[Columns.VALUE.value], errors="coerce"
-                ).astype(float)
+                # df = self._tidy_up_df(df)
+
+                # df[
+                #     Columns.DATASET.value
+                # ] = self.stations.stations.mosmix_type.value.lower()
+                # df[Columns.VALUE.value] = pd.to_numeric(
+                #     df[Columns.VALUE.value], errors="coerce"
+                # ).astype(float)
 
             df = self._coerce_meta_fields(df)
 
@@ -179,7 +177,7 @@ class DwdMosmixValues(ScalarValuesCore):
                     log.warning(e)
                     continue
 
-    def _tidy_up_df(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
 
         :param df:

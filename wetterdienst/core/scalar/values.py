@@ -7,6 +7,7 @@ from abc import abstractmethod
 from enum import Enum
 from typing import Dict, Generator, List, Tuple, Union
 
+import numpy as np
 import pandas as pd
 from pint import Quantity
 from pytz import timezone
@@ -539,9 +540,14 @@ class ScalarValuesCore:
 
         df[Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(float)
 
+        if Columns.QUALITY.value not in df:
+            df[Columns.QUALITY.value] = np.nan
+
         df[Columns.QUALITY.value] = pd.to_numeric(df[Columns.QUALITY.value]).astype(
             float
         )
+
+        df.loc[df[Columns.VALUE.value].isna(), Columns.QUALITY.value] = np.NaN
 
         return df
 
@@ -592,6 +598,14 @@ class ScalarValuesCore:
         if self.stations.stations.tidy:
             for column in (Columns.DATASET.value, Columns.PARAMETER.value):
                 df[column] = self._coerce_strings(df[column]).astype("category")
+
+            df[Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(
+                float
+            )
+
+            df[Columns.QUALITY.value] = pd.to_numeric(df[Columns.QUALITY.value]).astype(
+                float
+            )
 
         return df
 
@@ -702,7 +716,6 @@ class ScalarValuesCore:
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
-        # TODO: write tqdm progressbar to logging stream
         for result in tqdm(
             self.query(), total=len(self.stations.station_id), file=tqdm_out
         ):
@@ -715,18 +728,6 @@ class ScalarValuesCore:
 
         # Have to reapply category dtype after concatenation
         df = self._coerce_meta_fields(df)
-
-        # for column in (
-        #     Columns.STATION_ID.value,
-        #     Columns.PARAMETER.value,
-        #     Columns.QUALITY.value,
-        # ):
-        #     try:
-        #         df[column] = df[column].astype("category")
-        #     except KeyError:
-        #         pass
-
-        # df.attrs["tidy"] = self.stations.tidy
 
         return ValuesResult(stations=self.stations, df=df)
 
