@@ -4,7 +4,7 @@ Changelog
 Development
 ***********
 
-...
+- Update readme on sandbox developer installation
 
 0.20.0 (23.06.2021)
 *******************
