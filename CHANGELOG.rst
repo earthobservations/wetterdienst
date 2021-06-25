@@ -5,6 +5,7 @@ Development
 ***********
 
 - Update readme on sandbox developer installation
+- Fix show method
 
 0.20.0 (23.06.2021)
 *******************
