@@ -6,11 +6,16 @@ Development
 
 ...
 
+0.20.2 (26.06.2021)
+*******************
+
+- Bugfix tidy method for DWD observation data
+
 0.20.1 (26.06.2021)
 *******************
 
 - Update readme on sandbox developer installation
-- Fix show method
+- Bugfix show method
 
 0.20.0 (23.06.2021)
 *******************
