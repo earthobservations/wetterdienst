@@ -266,7 +266,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         elif (
             resolution in (Resolution.MONTHLY, Resolution.ANNUAL)
-            and dataset == DwdObservationDataset.MONTHLY.CLIMATE_SUMMARY
+            and dataset == DwdObservationDataset.CLIMATE_SUMMARY
         ):
             quality_general = df.pop(
                 DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value
