@@ -3,12 +3,21 @@ Wetterdienst - Open weather data for humans
 
 .. container:: align-center
 
+    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
+        :alt: German weather stations managed by Deutscher Wetterdienst
+
+    *“You must be the change you wish to see in the world.” — Gandhi*
+
     .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
         :alt: temperature timeseries of Hohenpeissenberg/Germany
 
     *"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
     Hohenpeissenberg I got with the help of wetterdienst; and I'm not sure about the universe." - Albert Einstein*
 
+    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
+        :alt: warming stripes of Hohenpeissenberg/Germany
+
+    *"We are the first generation to feel the effect of climate change and the last generation who can do something about it." - Barack Obama*
 
 .. overview_start_marker
 
