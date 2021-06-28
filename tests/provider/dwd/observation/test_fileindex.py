@@ -47,6 +47,7 @@ def test_file_index_creation():
         )
 
 
+@pytest.mark.remote
 def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
         station_id="01048",
