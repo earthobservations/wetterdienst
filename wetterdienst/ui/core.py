@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 import sys
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 from wetterdienst import Kind, Provider
 from wetterdienst.core.process import create_date_range
@@ -16,6 +16,38 @@ from wetterdienst.provider.dwd.forecast import DwdMosmixType
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 log = logging.getLogger(__name__)
+
+
+def unpack_parameters(parameter: str) -> List[str]:
+    """Parse parameters to either
+    - list of str, each representing a parameter or
+    - list of tuple of str representing a pair of parameter and dataset
+    e.g.
+       "precipitation_height,temperature_air_200" ->
+           ["precipitation_height", "temperature_air_200"]
+
+       "precipitation_height/precipitation_more,temperature_air_200/kl" ->
+           [("precipitation_height", "precipitation_more"), ("temperature_air_200", "kl")]
+
+    """
+
+    def unpack_parameter(par: str) -> Union[str, Tuple[str, str]]:
+        try:
+            parameter_, dataset_ = par.split("/")
+        except ValueError:
+            return par
+
+        return parameter_, dataset_
+
+    # Create list of parameters from string if required
+    try:
+        parameter = parameter.split(",")
+    except AttributeError:
+        pass
+
+    parameter = [unpack_parameter(p) for p in parameter]
+
+    return parameter
 
 
 def get_stations(
@@ -90,7 +122,7 @@ def get_stations(
     # and large for the different datasets
 
     kwargs = {
-        "parameter": parameter,
+        "parameter": unpack_parameters(parameter),
         "start_date": start_date,
         "end_date": end_date,
         "si_units": si_units,

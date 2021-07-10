@@ -50,7 +50,7 @@ Get stations for daily historical precipitation:
 
     print(stations.all().df.head())
 
-Get data for a parameter set:
+Get data for a dataset:
 
 .. ipython:: python
 
@@ -84,6 +84,21 @@ Get data for a parameter:
 
     print(next(stations.all().values.query()))
 
+Get data for a parameter from another dataset:
+
+.. ipython:: python
+
+    from wetterdienst import Wetterdienst, Resolution, Period
+
+    API = Wetterdienst(provider="dwd", kind="observation")
+
+    observation_data = API(
+        parameter=[("precipitation_height", "precipitation_more")],
+        resolution=Resolution.DAILY,
+        period=Period.HISTORICAL
+    )
+
+    print(next(stations.all().values.query()))
 
 *********************
 DWD: MOSMIX forecasts

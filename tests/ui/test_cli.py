@@ -345,7 +345,7 @@ def test_cli_values_json(setting, expected_columns, capsys, caplog):
 
     assert station_id in station_ids
 
-    expected_columns = set(("station_id", "date")).union(expected_columns)
+    expected_columns = {"station_id", "date"}.union(expected_columns)
 
     first = response[0]
     assert set(list(first.keys())).issuperset(expected_columns)

@@ -72,8 +72,8 @@ def create_file_index_for_climate_observations(
         parameter_set, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS
     )
 
-    file_index = file_index[
-        file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value)
+    file_index = file_index.loc[
+        file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :
     ]
 
     file_index.loc[:, DwdColumns.STATION_ID.value] = (

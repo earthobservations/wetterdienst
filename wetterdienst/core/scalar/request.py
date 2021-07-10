@@ -103,7 +103,7 @@ class ScalarRequestCore(Core):
         """ Dataset base that is used to differ between different datasets """
         if self._has_datasets:
             raise NotImplementedError(
-                "implement _dataset_base Enumeration that contains available datasets"
+                "implement _dataset_base enumeration that contains available datasets"
             )
         return
 
@@ -208,7 +208,9 @@ class ScalarRequestCore(Core):
                 .tolist()
             )
 
-    def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
+    def _parse_parameter(
+        self, parameter: List[Union[str, Enum]]
+    ) -> List[Tuple[Enum, Enum]]:
         """
         Method to parse parameters, either from string or enum. Case independent for
         strings.
@@ -227,45 +229,57 @@ class ScalarRequestCore(Core):
         parameters = []
 
         for parameter in pd.Series(parameter):
-            parameter_ = None
 
-            if self._dataset_base:
-                try:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter, self._dataset_base
-                    )
-                except InvalidEnumeration:
-                    pass
-                else:
-                    parameters.append((parameter_, parameter_))
-                    continue
+            # Each parameter can either be
+            #  - a dataset : gets all data from the dataset
+            #  - a parameter : gets prefixed parameter from a resolution e.g.
+            #      precipitation height of daily values is taken from climate summary
+            #  - a tuple of parameter -> dataset : to decide from which dataset
+            #    the parameter is taken
+            try:
+                parameter, dataset = pd.Series(parameter)
+            except (ValueError, TypeError):
+                parameter, dataset = parameter, parameter
 
-                try:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter, self._parameter_base[self._dataset_accessor]
-                    )
-                    if self._unique_dataset:
-                        dataset = self._dataset_base[self._dataset_accessor]
-                    else:
-                        dataset = self._parameter_to_dataset_mapping[self.resolution][
-                            parameter_
-                        ]
-                        parameter_ = self._dataset_tree[self._dataset_accessor][
-                            dataset.name
-                        ][parameter_.name]
-                except InvalidEnumeration:
-                    pass
-                else:
-                    parameters.append((parameter_, dataset))
-                    continue
+            # Prefix return values
+            parameter_, dataset_ = None, None
+
+            # Try to parse dataset
+            try:
+                dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
+            except InvalidEnumeration:
+                pass
+
+            if parameter == dataset and dataset_:
+                parameters.append((dataset_, dataset_))
+                continue
 
             try:
+                # First parse parameter
                 parameter_ = parse_enumeration_from_template(
                     parameter, self._parameter_base[self._dataset_accessor]
                 )
-                parameters.append(parameter_)
             except InvalidEnumeration:
                 pass
+            else:
+                if self._unique_dataset:
+                    # If unique dataset the dataset is given by the accessor
+                    # and the parameter is not a subset of a dataset
+                    dataset_ = self._dataset_base[self._dataset_accessor]
+                elif not dataset_:
+                    # If there's multiple datasets the mapping defines which one
+                    # is taken for the given parameter
+                    dataset_ = self._parameter_to_dataset_mapping[self.resolution][
+                        parameter_
+                    ]
+
+                if not self._unique_dataset:
+                    # Parameter then has to be taken from the datasets definition
+                    parameter_ = self._dataset_tree[self._dataset_accessor][
+                        dataset_.name
+                    ][parameter_.name]
+
+                parameters.append((parameter_, dataset_))
 
             if not parameter_:
                 log.info(f"parameter {parameter} could not be parsed from ({enums})")

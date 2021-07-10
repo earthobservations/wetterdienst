@@ -149,8 +149,8 @@ class KMLReader:
 
                     assert len(measurement_values) == len(  # noqa:S101
                         self.timesteps
-                    ), "Number of timesteps does not match number of measurement values"
+                    ), "Number of time steps does not match number of measurement values"
 
-                    df[measurement_parameter.lower()] = measurement_values
+                    df.loc[:, measurement_parameter.lower()] = measurement_values
 
             yield df

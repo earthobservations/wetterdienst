@@ -63,7 +63,7 @@ different ways:
 
         "kl"
 
-This leaves a lot flexibility to the user defining the arguments either by what they
+This leaves a lot of flexibility to the user defining the arguments either by what they
 know from the weather service or what they know from `wetterdienst` itself.
 
 Typical requests are defined by three arguments:
@@ -126,7 +126,7 @@ to discover available parameters based on the given filter arguments.
 Stations
 --------
 
-Get station information for a given *parameter/parameter_set*, *resolution* and
+Get station information for a given *parameter/dataset*, *resolution* and
 *period*.
 
 .. ipython:: python
