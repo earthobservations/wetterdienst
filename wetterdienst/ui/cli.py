@@ -223,6 +223,9 @@ def cli():
         # Acquire hourly data
         wetterdienst values --provider=dwd --kind=observation --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12 --station=1048,4411
 
+        # Acquire data for specific parameter and dataset
+        wetterdienst values --provider=dwd --kind=observation --parameter=precipitation_height/precipitation_more,temperature_air_200/kl --resolution=hourly --period=recent --date=2020-06-15T12 --station=1048,4411
+
     Examples requesting forecast values:
 
         wetterdienst values --provider=dwd --kind=forecast --parameter=ttt,ff --resolution=large --station=65510

@@ -4,7 +4,23 @@ Changelog
 Development
 ***********
 
-...
+Added
+=====
+
+- Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
+  [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
+
+Changed
+=======
+
+Deprecated
+==========
+
+Removed
+=======
+
+Fixed
+=====
 
 0.20.3 (15.07.2021)
 *******************

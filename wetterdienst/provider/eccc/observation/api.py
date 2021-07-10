@@ -124,15 +124,15 @@ class EcccObservationValues(ScalarValuesCore):
         return df_tidy
 
     def _collect_station_parameter(
-        self, station_id: str, parameter: Tuple[Enum, Enum]
+        self, station_id: str, parameter: EcccObservationParameter, dataset: Enum
     ) -> pd.DataFrame:
         """
 
-        :param station_id:
-        :param parameter:
-        :return:
+        :param station_id: station id being queried
+        :param parameter: parameter being queried
+        :param dataset: dataset of query, can be skipped as ECCC has unique dataset
+        :return: pandas.DataFrame with data
         """
-        # parameter, dataset = parameter
         meta = self.stations.df[
             self.stations.df[Columns.STATION_ID.value] == station_id
         ]

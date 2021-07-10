@@ -4,7 +4,7 @@
 import logging
 from datetime import datetime
 from itertools import repeat
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -124,10 +124,8 @@ class DwdObservationValues(ScalarValuesCore):
     def _collect_station_parameter(
         self,
         station_id: str,
-        parameter: Tuple[
-            Union[DwdObservationParameter, DwdObservationDataset],
-            DwdObservationDataset,
-        ],
+        parameter: Union[DwdObservationParameter, DwdObservationDataset],
+        dataset: DwdObservationDataset,
     ) -> pd.DataFrame:
         """
         Method to collect data for one specified parameter. Manages restoring,
@@ -139,8 +137,6 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return: pandas.DataFrame for given parameter of station
         """
-        parameter, dataset = parameter
-
         periods_and_date_ranges = []
 
         for period in self.stations.period:

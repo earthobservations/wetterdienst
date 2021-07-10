@@ -367,6 +367,7 @@ def test_radar_request_site_historic_pe_binary_yesterday():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_bufr():
     """
@@ -447,6 +448,7 @@ def test_radar_request_site_historic_pe_timerange(format):
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_yesterday():
     """

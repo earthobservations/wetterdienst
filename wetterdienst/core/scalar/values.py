@@ -278,7 +278,7 @@ class ScalarValuesCore:
         pass
 
     def _create_empty_station_parameter_df(
-        self, station_id: str, parameter: Union[Enum, Tuple[Enum, Enum]]
+        self, station_id: str, parameter: Enum, dataset: Enum
     ) -> pd.DataFrame:
         """
         Function to create an empty DataFrame
@@ -288,11 +288,6 @@ class ScalarValuesCore:
         """
         dataset_tree = self.stations.stations._dataset_tree
         resolution = self.stations.stations.resolution
-
-        dataset = None
-        # Split parameter into parameter and dataset if parameters are stored in dataset
-        if self.stations.stations._has_datasets:
-            parameter, dataset = parameter
 
         # if parameter is a whole dataset, take every parameter from the dataset instead
         if parameter == dataset:
@@ -341,17 +336,13 @@ class ScalarValuesCore:
             return df
 
     def _build_complete_df(
-        self, df: pd.DataFrame, station_id: str, parameter: Enum
+        self, df: pd.DataFrame, station_id: str, parameter: Enum, dataset: Enum
     ) -> pd.DataFrame:
         # For cases where requests are not defined by start and end date but rather by
         # periods, use the returned df without modifications
         # We may put a standard date range here if no data is found
         if not self.stations.start_date:
             return df
-
-        dataset = None
-        if self.stations.stations._has_datasets:
-            parameter, dataset = parameter
 
         if parameter != dataset or not self.stations.stations.tidy:
             df = pd.merge(
@@ -442,13 +433,10 @@ class ScalarValuesCore:
             #  station id not available
             station_data = []
 
-            for parameter in self.stations.parameter:
-                # TODO: remove doubling of parameter, here parameter is (parameter,
-                #  dataset),
-                #  while parameter_ is only the parameter
-                parameter_, dataset = parameter
-
-                parameter_df = self._collect_station_parameter(station_id, parameter)
+            for parameter, dataset in self.stations.parameter:
+                parameter_df = self._collect_station_parameter(
+                    station_id, parameter, dataset
+                )
 
                 if parameter_df.empty:
                     continue
@@ -465,14 +453,14 @@ class ScalarValuesCore:
                 if self.stations.stations.tidy:
                     parameter_df = self.tidy_up_df(parameter_df, dataset)
 
-                    if parameter_ != dataset:
+                    if parameter != dataset:
                         parameter_df = parameter_df[
                             parameter_df[Columns.PARAMETER.value]
-                            == parameter_.value.lower()
+                            == parameter.value.lower()
                         ]
 
                 parameter_df = self._build_complete_df(
-                    parameter_df, station_id, parameter
+                    parameter_df, station_id, parameter, dataset
                 )
 
                 parameter_df = self._organize_df_columns(parameter_df)
@@ -509,7 +497,9 @@ class ScalarValuesCore:
             yield ValuesResult(stations=self.stations, df=station_df)
 
     @abstractmethod
-    def _collect_station_parameter(self, station_id: str, parameter) -> pd.DataFrame:
+    def _collect_station_parameter(
+        self, station_id: str, parameter: Enum, dataset: Enum
+    ) -> pd.DataFrame:
         """
         Implementation of data collection for a station id plus parameter from the
         specified weather service. Takes care of the gathering of the data and putting
@@ -517,9 +507,8 @@ class ScalarValuesCore:
         of station id, date, parameter, value and quality in one row.
 
         :param station_id: station id for which the data is being collected
-        :param parameter: parameter for which the data is collected, parameter could
-        also be a tuple or a more complex object depending on the self._parse_parameters
-        function
+        :param parameter: parameter for which the data is collected
+        :param dataset: dataset for which the data is collected
         :return: pandas.DataFrame with the data for given station id and parameter
         """
         pass

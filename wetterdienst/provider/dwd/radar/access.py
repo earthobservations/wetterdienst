@@ -170,8 +170,8 @@ def collect_radar_data(
                 url = row[DwdColumns.FILENAME.value]
                 try:
                     yield download_radolan_data(start_date, url)
-                except FailedDownload:
-                    log.exception()
+                except FailedDownload as e:
+                    log.exception(e)
 
         else:
             file_index = create_fileindex_radar(
