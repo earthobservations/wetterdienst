@@ -380,6 +380,7 @@ def test_dwd_observation_data_result_tabular():
 
     assert list(df.columns.values) == [
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "fx",
@@ -403,7 +404,8 @@ def test_dwd_observation_data_result_tabular():
         df,
         pd.DataFrame(
             {
-                "station_id": pd.Categorical(["01048", "01048"]),
+                "station_id": pd.Categorical(["01048"] * 2),
+                "dataset": pd.Categorical(["climate_summary"] * 2),
                 "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
@@ -448,6 +450,7 @@ def test_dwd_observation_data_result_tabular_metric():
 
     assert list(df.columns.values) == [
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "fx",
@@ -471,7 +474,8 @@ def test_dwd_observation_data_result_tabular_metric():
         df,
         pd.DataFrame(
             {
-                "station_id": pd.Categorical(["01048", "01048"]),
+                "station_id": pd.Categorical(["01048"] * 2),
+                "dataset": pd.Categorical(["climate_summary"] * 2),
                 "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),

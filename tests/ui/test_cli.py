@@ -403,7 +403,6 @@ def test_cli_values_csv(provider, kind, setting, station_id, station_name):
     result = invoke_wetterdienst_values_static(
         provider=provider, kind=kind, setting=setting, station=station_id, fmt="csv"
     )
-
     assert station_id in result.output
 
 

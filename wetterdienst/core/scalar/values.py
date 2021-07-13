@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime
 import logging
 import operator
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
+from datetime import timedelta
 from enum import Enum
-from typing import Dict, Generator, List, Tuple, Union
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import pytz
 from pint import Quantity
 from pytz import timezone
 from tqdm import tqdm
@@ -24,7 +27,7 @@ from wetterdienst.util.logging import TqdmToLogger
 log = logging.getLogger(__name__)
 
 
-class ScalarValuesCore:
+class ScalarValuesCore(metaclass=ABCMeta):
     """ Core for sources of point data where data is related to a station """
 
     # Fields for type coercion, needed for separation from fields with actual data
@@ -40,6 +43,7 @@ class ScalarValuesCore:
         if not self.stations.stations.tidy:
             fields = [
                 Columns.STATION_ID.value,
+                Columns.DATASET.value,
                 Columns.DATE.value,
             ]
         else:
@@ -58,12 +62,6 @@ class ScalarValuesCore:
     _date_fields = [Columns.DATE.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
 
     # TODO: add data type (forecast, observation, ...)
-    # @property
-    # @abstractmethod
-    # def _has_quality(self) -> bool:
-    #     """Attribute that tells if a weather service has quality, which otherwise will
-    #     have to be set to NaN"""
-    #     pass
 
     @property
     def data_tz(self) -> timezone:
@@ -74,6 +72,13 @@ class ScalarValuesCore:
     @abstractmethod
     def _data_tz(self) -> Timezone:
         """ Timezone enumeration of published data. """
+        pass
+
+    @property
+    @abstractmethod
+    def _date_parameters(self) -> Tuple[str]:
+        """Declaration of irregular parameters which will have to be parsed differently
+        then others e.g. when a parameter is a date."""
         pass
 
     @property
@@ -95,8 +100,7 @@ class ScalarValuesCore:
         """ String parameters that will be parsed to integers. """
         pass
 
-    @property
-    def _complete_dates(self) -> pd.DatetimeIndex:
+    def _get_complete_dates(self, station_id) -> pd.DatetimeIndex:
         """
         Complete datetime index for the requested start and end date, used for
         building a complementary pandas DataFrame with the date column on which
@@ -111,24 +115,69 @@ class ScalarValuesCore:
         elif self.stations.stations.resolution == Resolution.ANNUAL:
             end_date += pd.Timedelta(year=366)
 
+        if self._data_tz == Timezone.DYNAMIC:
+            timezone_ = self._get_timezone_from_station(station_id)
+        else:
+            timezone_ = self.data_tz
+
+        tz_delta = self._get_timedelta_from_timezones(timezone_, pytz.UTC)
+
+        # TODO: better manage start and end date and its timezone
         date_range = pd.date_range(
-            start_date,
-            end_date,
+            start_date + datetime.timedelta(hours=tz_delta),
+            end_date + datetime.timedelta(hours=tz_delta),
             freq=self.stations.frequency.value,
-            tz=self.data_tz,
+            tz=pytz.UTC,
         )
 
         return date_range
 
-    @property
-    def _base_df(self) -> pd.DataFrame:
+    def _get_timezone_from_station(self, station_id: str) -> timezone:
+        """
+        Get timezone information for explicit station that is used to set the
+        correct timezone for the timestamps of the returned values
+
+        :param station_id: station id string
+        :return: timezone
+        """
+
+        stations = self.stations.df
+
+        station = stations[stations[Columns.STATION_ID.value] == station_id]
+
+        longitude, latitude = station.loc[
+            :, [Columns.LONGITUDE.value, Columns.LATITUDE.value]
+        ].T.values
+
+        tz_string = self._tf.timezone_at(lng=longitude, lat=latitude)
+
+        return timezone(tz_string)
+
+    @staticmethod
+    def _get_timedelta_from_timezones(tz1: timezone, tz2: timezone) -> timedelta:
+        """Method to get timedelta in hours from two timezones
+
+        :param tz1:
+        :param tz2:
+        :return:
+        """
+        dt_1970 = datetime.datetime(1970, 1, 1)
+
+        dt_1970_tz1 = tz1.localize(dt_1970)
+        dt_1970_tz2 = tz2.localize(dt_1970).astimezone(tz1)
+
+        dt_diff = dt_1970_tz1 - dt_1970_tz2
+
+        return dt_diff.days * 24 + dt_diff.seconds / 3600
+
+    def _get_base_df(self, station_id: str) -> pd.DataFrame:
         """
         Base dataframe which is used for creating empty dataframes if no data is
         found or for merging other dataframes on the full dates
 
         :return: pandas DataFrame with a date column with complete dates
         """
-        return pd.DataFrame({Columns.DATE.value: self._complete_dates})
+        return pd.DataFrame({Columns.DATE.value: self._get_complete_dates(station_id)})
 
     def convert_values_to_si(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
@@ -138,15 +187,19 @@ class ScalarValuesCore:
         :param dataset: dataset for which the conversion factors are created
         :return: pandas DataFrame with converted (SI) values
         """
-
-        def _convert_values_to_si(series):
+        # TODO: THIS DOESNT CURRENTLY WORK WITH PREFIXED TIDY DATA
+        def _convert_values_to_si(series, parameter: Optional[str] = None) -> pd.Series:
             """
             Helper function to apply conversion factors column wise to a pandas DataFrame
 
             :param series: pandas Series that should be converted
+            :param parameter: optional parameter string used for tidy data
             :return: converted pandas Series
             """
-            op, factor = conversion_factors.get(series.name, (None, None))
+            if not parameter:
+                parameter = series.name
+
+            op, factor = conversion_factors.get(parameter, (None, None))
 
             if not op or not factor:
                 return series
@@ -155,9 +208,18 @@ class ScalarValuesCore:
 
         conversion_factors = self._create_conversion_factors(dataset)
 
-        df = df.apply(_convert_values_to_si, axis=0)
+        if self.stations.stations._has_tidy_data:
+            df_si = pd.DataFrame()
+            for par, group in df.groupby(Columns.PARAMETER.value):
+                group[Columns.VALUE.value] = _convert_values_to_si(
+                    group[Columns.VALUE.value], par
+                )
 
-        return df
+                df_si = df_si.append(group)
+        else:
+            df_si = df.apply(_convert_values_to_si, axis=0)
+
+        return df_si
 
     def _create_conversion_factors(
         self, dataset
@@ -295,7 +357,7 @@ class ScalarValuesCore:
                 if par.name.startswith("QUALITY"):
                     continue
 
-                par_df = self._base_df
+                par_df = self._get_base_df(station_id)
                 par_df[Columns.PARAMETER.value] = par.value
 
                 data.append(par_df)
@@ -317,11 +379,12 @@ class ScalarValuesCore:
             if self.stations.stations.start_date:
                 return pd.DataFrame(None, columns=columns)
 
-            df = self._base_df
+            df = self._get_base_df(station_id)
 
             df = df.reindex(columns=columns)
 
             df[Columns.STATION_ID.value] = station_id
+            df[Columns.DATASET.value] = dataset.name.lower()
 
             return df
 
@@ -335,8 +398,10 @@ class ScalarValuesCore:
             return df
 
         if parameter != dataset or not self.stations.stations.tidy:
+            base_df = self._get_base_df(station_id)
+
             df = pd.merge(
-                left=self._base_df,
+                left=base_df,
                 right=df,
                 left_on=Columns.DATE.value,
                 right_on=Columns.DATE.value,
@@ -377,7 +442,7 @@ class ScalarValuesCore:
                     )
 
                 df = pd.merge(
-                    left=self._base_df,
+                    left=self._get_base_df(station_id),
                     right=group,
                     left_on=Columns.DATE.value,
                     right_on=Columns.DATE.value,
@@ -425,6 +490,20 @@ class ScalarValuesCore:
             station_data = []
 
             for parameter, dataset in self.stations.parameter:
+                # TODO: For now skip date based parameters as we didn't
+                #  yet decide how to convert those values to floats to
+                #  make them conform with tidy shape
+                single_tidy_date_parameters = (
+                    self.stations.stations.tidy
+                    and parameter.value in self._date_parameters
+                )
+                if single_tidy_date_parameters:
+                    log.warning(
+                        f"parameter {parameter.value} is skipped in tidy format "
+                        f"as the date parameter is currently not converted to float"
+                    )
+                    continue
+
                 parameter_df = self._collect_station_parameter(
                     station_id, parameter, dataset
                 )
@@ -432,27 +511,49 @@ class ScalarValuesCore:
                 if parameter_df.empty:
                     continue
 
-                # Merge on full date range if values are found to ensure result
-                # even if no actual values exist
-                self._coerce_date_fields(parameter_df)
+                self._coerce_date_fields(parameter_df, station_id)
 
+                # TODO: we are coercing values here for conversion of units
+                #  however we later again coerce when concatenating DataFrames
                 parameter_df = self._coerce_parameter_types(parameter_df)
 
                 if self.stations.stations.si_units:
                     parameter_df = self.convert_values_to_si(parameter_df, dataset)
 
                 if self.stations.stations.tidy:
-                    parameter_df = self.tidy_up_df(parameter_df, dataset)
+                    if not self.stations.stations._has_tidy_data:
+                        parameter_df = self.tidy_up_df(parameter_df, dataset)
 
                     if parameter != dataset:
                         parameter_df = parameter_df[
                             parameter_df[Columns.PARAMETER.value]
                             == parameter.value.lower()
                         ]
+                elif self.stations.stations._has_tidy_data:
+                    parameter_df = self.tabulate_df(parameter_df)
 
+                # Skip date fields in tidy format, no further check required as still
+                # "normal" parameters should be available
+                if self.stations.stations.tidy and self._date_parameters:
+                    parameter_df = parameter_df[
+                        ~parameter_df[Columns.PARAMETER.value].isin(
+                            self._date_parameters
+                        )
+                    ]
+                    log.warning(
+                        f"parameters {self._date_parameters} are skipped in tidy format "
+                        f"as the date parameters are currently not converted to floats"
+                    )
+                    if parameter_df.empty:
+                        continue
+
+                # Merge on full date range if values are found to ensure result
+                # even if no actual values exist
                 parameter_df = self._build_complete_df(
                     parameter_df, station_id, parameter, dataset
                 )
+
+                parameter_df[Columns.DATASET.value] = dataset.name.lower()
 
                 parameter_df = self._organize_df_columns(parameter_df)
 
@@ -514,10 +615,7 @@ class ScalarValuesCore:
         """
         df = self._tidy_up_df(df, dataset)
 
-        df[Columns.DATASET.value] = pd.Series(
-            dataset.name.lower(), index=df.index, dtype=str
-        )
-
+        df[Columns.DATASET.value] = dataset.name.lower()
         df[Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(float)
 
         if Columns.QUALITY.value not in df:
@@ -527,34 +625,77 @@ class ScalarValuesCore:
             float
         )
 
+        # Set quality of NaN values to NaN as well
         df.loc[df[Columns.VALUE.value].isna(), Columns.QUALITY.value] = np.NaN
 
         return df
 
-    @abstractmethod
     def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
-        Abstract method to be implemented by services to tidy a DataFrame
+        Abstract method to be implemented by services to tidy a DataFrame if
+        tidy is not provided tidy by default
 
         :param df:
         :return:
         """
-        pass
+        if not self.stations.stations._has_tidy_data:
+            raise NotImplementedError("implement _tidy_up_df method to tidy data")
 
-    def _coerce_date_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def tabulate_df(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Method to tabulate a dataframe with each row having one timestamp and
+        all parameter values and corresponding quality levels.
+
+        Example:
+
+        date         parameter                  value   quality
+        1971-01-01   precipitation_height       0       0
+        1971-01-01   temperature_air_mean_200   10      0
+
+        becomes
+
+        date         precipitation_height   qn_precipitation_height
+        1971-01-01   0                      0
+            temperature_air_mean_200    ...
+            10                          ...
+
+        :param df: pandas.DataFrame with tidy data
+        :returns pandas.DataFrame with tabulated data e.g. pairwise columns of values
+        and quality flags
+        """
+        df_tabulated = pd.DataFrame({Columns.DATE.value: df[Columns.DATE.value]})
+
+        for parameter, parameter_df in df.groupby(by=[df[Columns.PARAMETER.value]]):
+            # Build quality columm name
+            parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
+
+            # Add values
+            df_tabulated[parameter] = parameter_df[Columns.VALUE.value]
+            # Add quality levels
+            df_tabulated[parameter_quality] = parameter_df[Columns.QUALITY.value]
+
+        return df_tabulated
+
+    def _coerce_date_fields(self, df: pd.DataFrame, station_id: str) -> pd.DataFrame:
         """
         Function for coercion of possible date fields
 
         :param df:
         :return:
         """
+        if self._data_tz == Timezone.DYNAMIC:
+            timezone_ = self._get_timezone_from_station(station_id)
+        else:
+            timezone_ = self.data_tz
+
         for column in (
             Columns.DATE.value,
             Columns.FROM_DATE.value,
             Columns.TO_DATE.value,
         ):
             try:
-                df[column] = self._coerce_dates(df[column])
+                df[column] = self._coerce_dates(df[column], timezone_)
             except KeyError:
                 pass
 
@@ -575,17 +716,27 @@ class ScalarValuesCore:
             df[Columns.STATION_ID.value]
         ).astype("category")
 
-        if self.stations.stations.tidy:
-            for column in (Columns.DATASET.value, Columns.PARAMETER.value):
-                df[column] = self._coerce_strings(df[column]).astype("category")
+        # TODO: why do we need this (again)?
+        df[Columns.DATE.value] = pd.to_datetime(
+            df[Columns.DATE.value], infer_datetime_format=True
+        )
 
+        df[Columns.DATASET.value] = self._coerce_strings(
+            df[Columns.DATASET.value]
+        ).astype("category")
+
+        if self.stations.stations.tidy:
+            df[Columns.PARAMETER.value] = self._coerce_strings(
+                df[Columns.PARAMETER.value]
+            ).astype("category")
             df[Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(
                 float
             )
 
-            df[Columns.QUALITY.value] = pd.to_numeric(df[Columns.QUALITY.value]).astype(
-                float
-            )
+            # TODO: may coerce more carefully quality codes or replace them by numbers
+            df[Columns.QUALITY.value] = pd.to_numeric(
+                df[Columns.QUALITY.value], errors="coerce"
+            ).astype(float)
 
         return df
 
@@ -599,7 +750,7 @@ class ScalarValuesCore:
         """
         return self.stations.stations._parse_station_id(series)
 
-    def _coerce_dates(self, series: pd.Series) -> pd.Series:
+    def _coerce_dates(self, series: pd.Series, timezone_: timezone) -> pd.Series:
         """
         Method to parse dates in the pandas.DataFrame. Leverages the data timezone
         attribute to ensure correct comparison of dates.
@@ -607,9 +758,14 @@ class ScalarValuesCore:
         :param series:
         :return:
         """
-        return pd.to_datetime(series, infer_datetime_format=True).dt.tz_localize(
-            self.data_tz
-        )
+        series = pd.to_datetime(series, infer_datetime_format=True)
+
+        try:
+            series = series.dt.tz_localize(timezone_)
+        except TypeError:
+            pass
+
+        return series
 
     @staticmethod
     def _coerce_integers(series: pd.Series) -> pd.Series:
@@ -701,10 +857,11 @@ class ScalarValuesCore:
         ):
             data.append(result.df)
 
-        if not data:
-            raise ValueError("No data available for given constraints")
-
-        df = pd.concat(data, ignore_index=True)
+        try:
+            df = pd.concat(data, ignore_index=True)
+        except ValueError:
+            log.error("No data available for given constraints")
+            return ValuesResult(stations=self.stations, df=pd.DataFrame())
 
         # Have to reapply category dtype after concatenation
         df = self._coerce_meta_fields(df)
@@ -736,9 +893,12 @@ class ScalarValuesCore:
 
         :return:
         """
+
         hcnm = {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base
+            for parameter in self.stations.stations._parameter_base[
+                self.stations.stations.resolution.name
+            ]
         }
 
         return hcnm

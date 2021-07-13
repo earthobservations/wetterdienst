@@ -35,7 +35,7 @@ stations in Germany according to the report referenced above. The amount of stat
 that cover a specific parameter may differ strongly, so don't expect the amount of data
 to be that generous for all the parameters.
 
-Available dataa/parameters on the file server is sorted in different time resolutions:
+Available data/parameters on the file server is sorted in different time resolutions:
 
 - **1_minute** - measured every minute
 - **10_minutes** - measured every 10 minutes

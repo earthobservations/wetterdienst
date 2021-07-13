@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add NOAA GHCN API
+
 0.23.0 (21.11.2021)
 *******************
 

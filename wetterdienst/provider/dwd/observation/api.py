@@ -2,7 +2,7 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import repeat
 from typing import Dict, List, Optional, Union
 
@@ -74,7 +74,8 @@ class DwdObservationValues(ScalarValuesCore):
 
     _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = STRING_PARAMETERS
-    _irregular_parameters = DATE_PARAMETERS_IRREGULAR
+    _irregular_parameters = ()
+    _date_parameters = DATE_PARAMETERS_IRREGULAR
 
     _resolution_type = ResolutionType.MULTI
     _resolution_base = DwdObservationResolution
@@ -184,7 +185,6 @@ class DwdObservationValues(ScalarValuesCore):
                 )
                 continue
 
-            # TODO: replace with FSSPEC caching
             filenames_and_files = download_climate_observations_data_parallel(
                 remote_files
             )
@@ -242,7 +242,6 @@ class DwdObservationValues(ScalarValuesCore):
         :param dataset:
         :return:
         """
-        resolution = self.stations.stations.resolution
 
         droppable_columns = [
             # Hourly
@@ -265,6 +264,8 @@ class DwdObservationValues(ScalarValuesCore):
             columns=droppable_columns,
             errors="ignore",
         )
+
+        resolution = self.stations.stations.resolution
 
         if (
             resolution == Resolution.DAILY
@@ -324,7 +325,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         return df_tidy
 
-    def _coerce_dates(self, series: pd.Series) -> pd.Series:
+    def _coerce_dates(self, series: pd.Series, timezone_: timezone) -> pd.Series:
         """
         Use predefined datetime format for given resolution to reduce processing
         time.
@@ -416,6 +417,7 @@ class DwdObservationRequest(ScalarRequestCore):
     _period_base = DwdObservationPeriod
     _data_range = DataRange.FIXED
     _has_datasets = True
+    _has_tidy_data = False
     _unique_dataset = False
     _dataset_base = DwdObservationDataset
     _dataset_tree = DwdObservationDatasetTree

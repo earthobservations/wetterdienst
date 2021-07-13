@@ -538,21 +538,42 @@ class DwdObservationUnit(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_STORM_STRONG_WIND = (
+            COUNT_WEATHER_TYPE_FOG = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            COUNT_STORM_STORMIER_WIND = (
+            COUNT_WEATHER_TYPE_THUNDER = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            COUNT_DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_RIPE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_STORM_STRONG_WIND = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_DEW = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_GLAZE = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_RIPE = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_SLEET = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_HAIL = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
 
     # monthly
     class MONTHLY(DatasetTreeCore):
@@ -619,20 +640,38 @@ class DwdObservationUnit(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_STORM_STRONG_WIND = (
+            COUNT_WEATHER_TYPE_STORM_STRONG_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            COUNT_STORM_STORMIER_WIND = (
+            COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            COUNT_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_THUNDER = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_GLAZE = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_SLEET = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_HAIL = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_FOG = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_DEW = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
 
     # annual
     class ANNUAL(DatasetTreeCore):
@@ -699,17 +738,35 @@ class DwdObservationUnit(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_STORM_STRONG_WIND = (
+            COUNT_WEATHER_TYPE_STORM_STRONG_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            COUNT_STORM_STORMIER_WIND = (
+            COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            COUNT_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            COUNT_DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_THUNDER = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_GLAZE = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_SLEET = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_HAIL = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_FOG = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            COUNT_WEATHER_TYPE_DEW = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )

@@ -245,6 +245,7 @@ def test_export_spreadsheet(tmpdir_factory):
     header = list(worksheet.iter_cols(min_row=1, max_row=1, values_only=True))
     assert header == [
         ("station_id",),
+        ("dataset",),
         ("date",),
         ("qn_3",),
         ("wind_gust_max",),
@@ -270,6 +271,7 @@ def test_export_spreadsheet(tmpdir_factory):
     first_record = list(worksheet.iter_cols(min_row=2, max_row=2, values_only=True))
     assert first_record == [
         ("01048",),
+        ("climate_summary",),
         ("2019-01-01T00:00:00+00:00",),
         (10,),
         (19.9,),
@@ -296,6 +298,7 @@ def test_export_spreadsheet(tmpdir_factory):
     )
     assert last_record == [
         ("01048",),
+        ("climate_summary",),
         ("2020-01-01T00:00:00+00:00",),
         (10,),
         (6.9,),
@@ -345,12 +348,13 @@ def test_export_parquet(tmpdir_factory):
     table = pq.read_table(filename)
 
     # Validate dimensions.
-    assert table.num_columns == 18
+    assert table.num_columns == 19
     assert table.num_rows == 366
 
     # Validate column names.
     assert table.column_names == [
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "wind_gust_max",
@@ -413,13 +417,14 @@ def test_export_zarr(tmpdir_factory):
     group = zarr.open(str(filename), mode="r")
 
     # Validate dimensions.
-    assert len(group) == 19
+    assert len(group) == 20
     assert len(group.index) == 366
 
     # Validate column names.
     assert set(group.keys()) == {
         "index",
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "wind_gust_max",
@@ -481,12 +486,13 @@ def test_export_feather(tmpdir_factory):
     table = feather.read_table(filename)
 
     # Validate dimensions.
-    assert table.num_columns == 18
+    assert table.num_columns == 19
     assert table.num_rows == 366
 
     # Validate column names.
     assert table.column_names == [
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "wind_gust_max",
@@ -550,6 +556,7 @@ def test_export_sqlite(tmpdir_factory):
 
     assert results[0] == (
         "01048",
+        "climate_summary",
         "2019-01-01 00:00:00.000000",
         10,
         19.9,
@@ -571,6 +578,7 @@ def test_export_sqlite(tmpdir_factory):
 
     assert results[-1] == (
         "01048",
+        "climate_summary",
         "2020-01-01 00:00:00.000000",
         10,
         6.9,
@@ -685,7 +693,12 @@ def test_export_influxdb1_tabular():
 
         points = mock_client.write_points.call_args.kwargs["points"]
         assert points[0]["measurement"] == "weather"
-        assert list(points[0]["tags"].keys()) == ["station_id", "qn_3", "qn_4"]
+        assert list(points[0]["tags"].keys()) == [
+            "station_id",
+            "qn_3",
+            "qn_4",
+            "dataset",
+        ]
         assert list(points[0]["fields"].keys()) == [
             "wind_gust_max",
             "wind_speed",
