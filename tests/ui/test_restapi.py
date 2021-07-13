@@ -246,6 +246,7 @@ def test_dwd_values_sql_tabular(dicts_are_same):
         data[0],
         {
             "cloud_cover_total": 6.9,
+            "dataset": "climate_summary",
             "date": "2020-01-25T00:00:00+00:00",
             "humidity": 88.88,
             "precipitation_form": 0.0,

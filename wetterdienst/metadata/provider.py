@@ -21,9 +21,17 @@ class Provider(Enum):
         "https://opendata.dwd.de/climate_environment/CDC/",
     )
     ECCC = (
-        "Environnement et Changement Climatique Canada",
-        "Environment and Climate Change Canada",
+        "Environnement Et Changement Climatique Canada",
+        "Environment And Climate Change Canada",
         "Canada",
-        "© Environment and Climate Change Canada (ECCC)",
+        "© Environment And Climate Change Canada (ECCC)",
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
+    )
+    NOAA = (
+        "National Oceanic And Atmospheric Administration",
+        "National Oceanic And Atmospheric Administration",
+        "United States Of America",
+        "© National Oceanic And Atmospheric Administration (NOAA), "
+        "Global Historical Climatology Network",
+        "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/",
     )

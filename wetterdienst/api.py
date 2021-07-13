@@ -10,6 +10,7 @@ from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
+from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 API_ENDPOINTS = {
@@ -19,6 +20,9 @@ API_ENDPOINTS = {
         Kind.RADAR: DwdRadarValues,
     },
     Provider.ECCC: {Kind.OBSERVATION: EcccObservationRequest},
+    # TODO: this has to be rethought because of things like "NOAA Tides and Currents"
+    #  which are also observations
+    Provider.NOAA: {Kind.OBSERVATION: NoaaGhcnRequest},
 }
 
 

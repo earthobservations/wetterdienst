@@ -95,19 +95,19 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        NDAYS_HEATING_DEGREE = (
+        COUNT_DAYS_HEATING_DEGREE = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_NDAYS_HEATING_DEGREE = (
+        QUALITY_COUNT_DAYS_HEATING_DEGREE = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        NDAYS_COOLING_DEGREE = (
+        COUNT_DAYS_COOLING_DEGREE = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_NDAYS_COOLING_DEGREE = (
+        QUALITY_COUNT_DAYS_COOLING_DEGREE = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )

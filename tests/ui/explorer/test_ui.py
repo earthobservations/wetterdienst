@@ -137,9 +137,10 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     # Verify data.
     assert data["columns"] == [
         "station_id",
+        "dataset",
         "date",
         "qn_9",
         "temperature_air_mean_200",
         "humidity",
     ]
-    assert len(data["data"]) == 13081
+    assert len(data["data"]) == 13200

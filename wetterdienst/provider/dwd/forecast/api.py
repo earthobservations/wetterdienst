@@ -75,10 +75,15 @@ class DwdMosmixValues(ScalarValuesCore):
     _irregular_parameters = ()
     _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = ()
+    _date_parameters = ()
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
-        """Method for creation of parameter name mappings based on
-        self._parameter_base"""
+        """
+        Method for creation of parameter name mappings based on
+        self._parameter_base
+
+        :return:
+        """
         hcnm = {
             parameter.value: parameter.name.lower()
             for parameter in self.stations.stations._parameter_base[
@@ -89,7 +94,10 @@ class DwdMosmixValues(ScalarValuesCore):
         return hcnm
 
     def __init__(self, stations: StationsResult) -> None:
-        """"""
+        """
+
+        :param stations:
+        """
         super(DwdMosmixValues, self).__init__(stations=stations)
 
         parameter_base = self.stations.stations._parameter_base
@@ -131,14 +139,7 @@ class DwdMosmixValues(ScalarValuesCore):
             if self.stations.stations.tidy:
                 df = self.tidy_up_df(df, self.stations.stations.mosmix_type)
 
-                # df = self._tidy_up_df(df)
-
-                # df[
-                #     Columns.DATASET.value
-                # ] = self.stations.stations.mosmix_type.value.lower()
-                # df[Columns.VALUE.value] = pd.to_numeric(
-                #     df[Columns.VALUE.value], errors="coerce"
-                # ).astype(float)
+            df[Columns.DATASET.value] = self.stations.stations.mosmix_type.value.lower()
 
             df = self._coerce_meta_fields(df)
 
@@ -156,7 +157,7 @@ class DwdMosmixValues(ScalarValuesCore):
         Wrapper of read_mosmix to collect forecast data (either latest or for
         defined dates)
 
-        :return:
+        :return: pandas DataFrame with data corresponding to station id and parameter
         """
         if self.stations.start_issue == DwdForecastDate.LATEST:
             for df in self.read_mosmix(self.stations.stations.start_issue):
@@ -174,19 +175,20 @@ class DwdMosmixValues(ScalarValuesCore):
                     log.warning(e)
                     continue
 
-    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+    def _tidy_up_df(self, df: pd.DataFrame, dataset: Enum) -> pd.DataFrame:
         """
 
-        :param df:
-        :return:
+        :param df: pandas DataFrame that is being tidied
+        :param dataset: enum of dataset, used for writing dataset in pandas DataFrame
+        :return: tidied pandas DataFrame
         """
         df_tidy = df.melt(
             id_vars=[
                 Columns.STATION_ID.value,
                 Columns.DATE.value,
             ],
-            var_name=DwdColumns.PARAMETER.value,
-            value_name=DwdColumns.VALUE.value,
+            var_name=Columns.PARAMETER.value,
+            value_name=Columns.VALUE.value,
         )
 
         df[Columns.QUALITY.value] = np.nan
@@ -203,7 +205,7 @@ class DwdMosmixValues(ScalarValuesCore):
         on the MOSMIX path of the DWD server.
 
         :param date: datetime or enumeration for latest MOSMIX forecast
-        :return: DWDMosmixResult with gathered information
+        :return: pandas DataFrame with gathered information
         """
         for df_forecast in self._read_mosmix(date):
             df_forecast = df_forecast.rename(
@@ -222,8 +224,8 @@ class DwdMosmixValues(ScalarValuesCore):
         Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type
 
-        :param date:
-        :return:
+        :param date: datetime or enumeration for latest MOSMIX forecast
+        :return: pandas DataFrame
         """
         if self.stations.stations.mosmix_type == DwdMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
@@ -232,13 +234,13 @@ class DwdMosmixValues(ScalarValuesCore):
 
     def read_mosmix_small(
         self, date: Union[DwdForecastDate, datetime]
-    ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+    ) -> Generator[pd.DataFrame, None, None]:
         """
         Reads single MOSMIX-S file with all stations and returns every forecast that
         matches with one of the defined station ids.
 
-        :param date:
-        :return:
+        :param date: datetime or enumeration for latest MOSMIX forecast
+        :return: pandas DataFrame with data
         """
         url = urljoin(DWD_SERVER, DWD_MOSMIX_S_PATH)
 
@@ -319,6 +321,23 @@ class DwdMosmixRequest(ScalarRequestCore):
     provider = Provider.DWD
     kind = Kind.FORECAST
 
+    _tz = Timezone.GERMANY
+    _parameter_base = DwdMosmixParameter
+    _values = DwdMosmixValues
+
+    _resolution_type = ResolutionType.FIXED
+    _resolution_base = Resolution  # use general Resolution for fixed Resolution
+    _period_type = PeriodType.FIXED
+    _period_base = None
+    _data_range = DataRange.FIXED
+    _has_datasets = True
+    _dataset_tree = DwdMosmixParameter
+    _unique_dataset = True
+    _has_tidy_data = False
+
+    _dataset_base = DwdMosmixDataset
+    _unit_tree = DwdMosmixUnit
+
     _url = (
         "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
         "mosmix_stationskatalog.cfg?view=nasPublication"
@@ -337,37 +356,10 @@ class DwdMosmixRequest(ScalarRequestCore):
         (72, 76),
     ]
 
-    _columns = [
-        Columns.STATION_ID.value,
-        Columns.ICAO_ID.value,
-        Columns.FROM_DATE.value,
-        Columns.TO_DATE.value,
-        Columns.HEIGHT.value,
-        Columns.LATITUDE.value,
-        Columns.LONGITUDE.value,
-        Columns.NAME.value,
-        Columns.STATE.value,
-    ]
-
-    _tz = Timezone.GERMANY
-    _parameter_base = DwdMosmixParameter
-    _values = DwdMosmixValues
-
-    _resolution_type = ResolutionType.FIXED
-    _resolution_base = Resolution  # use general Resolution for fixed Resolution
-    _period_type = PeriodType.FIXED
-    _period_base = None
-    _data_range = DataRange.FIXED
-    _has_datasets = True
-    _dataset_tree = DwdMosmixParameter
-    _unique_dataset = True
-    _dataset_base = DwdMosmixDataset
-
-    _unit_tree = DwdMosmixUnit
-
     @property
     def _dataset_accessor(self) -> str:
         """
+        Implementation for tidying mosmix data
 
         :return:
         """
@@ -381,7 +373,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         :param filter_:
         :return:
         """
-        filter_ = pd.Series(filter_).apply(
+        filter_ = pd.Series(filter_, dtype=object).apply(
             parse_enumeration_from_template, args=(cls._dataset_base,)
         ).tolist() or [*cls._dataset_base]
 
@@ -559,6 +551,6 @@ class DwdMosmixRequest(ScalarRequestCore):
             df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
         )
 
-        df = df.reindex(columns=self._columns)
+        df = df.reindex(columns=self._base_columns)
 
         return df
