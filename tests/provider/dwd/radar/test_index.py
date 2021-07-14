@@ -5,14 +5,13 @@ from pathlib import PurePath
 
 import pytest
 
+from wetterdienst import Period, Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.radar.index import create_fileindex_radar
 from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarParameter,
-    DwdRadarPeriod,
-    DwdRadarResolution,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
@@ -168,8 +167,8 @@ def test_radar_fileindex_radolan_cdc_daily_recent():
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=DwdRadarResolution.DAILY,
-        period=DwdRadarPeriod.RECENT,
+        resolution=Resolution.DAILY,
+        period=Period.RECENT,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -186,8 +185,8 @@ def test_radar_fileindex_radolan_cdc_daily_historical():
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=DwdRadarResolution.DAILY,
-        period=DwdRadarPeriod.HISTORICAL,
+        resolution=Resolution.DAILY,
+        period=Period.HISTORICAL,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -204,8 +203,8 @@ def test_radar_fileindex_radolan_cdc_hourly_recent():
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=DwdRadarResolution.HOURLY,
-        period=DwdRadarPeriod.RECENT,
+        resolution=Resolution.HOURLY,
+        period=Period.RECENT,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -222,8 +221,8 @@ def test_radar_fileindex_radolan_cdc_hourly_historical():
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=DwdRadarResolution.HOURLY,
-        period=DwdRadarPeriod.HISTORICAL,
+        resolution=Resolution.HOURLY,
+        period=Period.HISTORICAL,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -240,7 +239,7 @@ def test_radar_fileindex_radolan_cdc_5minutes():
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=DwdRadarResolution.MINUTE_5,
+        resolution=Resolution.MINUTE_5,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
