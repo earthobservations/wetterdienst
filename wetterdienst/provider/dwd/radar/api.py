@@ -75,10 +75,12 @@ class DwdRadarValues:
         self.format = parse_enumeration_from_template(fmt, DwdRadarDataFormat)
         self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
-        self.resolution = parse_enumeration_from_template(
+        self.resolution: Resolution = parse_enumeration_from_template(
             resolution, DwdRadarResolution, Resolution
         )
-        self.period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
+        self.period: Period = parse_enumeration_from_template(
+            period, DwdRadarPeriod, Period
+        )
 
         # Sanity checks.
         if self.parameter == DwdRadarParameter.RADOLAN_CDC:
@@ -111,7 +113,7 @@ class DwdRadarValues:
                 raise ValueError("HDF5 data has no '-latest-' files")
 
         if start_date == DwdRadarDate.CURRENT and not self.period:
-            self.period = DwdRadarPeriod.RECENT
+            self.period = Period.RECENT
 
         # Evaluate "RadarDate.MOST_RECENT" for "start_date".
         #

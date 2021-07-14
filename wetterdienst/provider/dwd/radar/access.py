@@ -14,6 +14,8 @@ import pandas as pd
 
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.extension import Extension
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.network import download_file_from_dwd
@@ -26,8 +28,6 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataSubset,
     DwdRadarDate,
     DwdRadarParameter,
-    DwdRadarPeriod,
-    DwdRadarResolution,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import get_date_from_filename, verify_hdf5
@@ -70,8 +70,8 @@ class RadarResult:
 
 def collect_radar_data(
     parameter: Optional[DwdRadarParameter],
-    resolution: Optional[DwdRadarResolution] = None,
-    period: Optional[DwdRadarPeriod] = None,
+    resolution: Optional[Resolution] = None,
+    period: Optional[Period] = None,
     site: Optional[DwdRadarSite] = None,
     fmt: Optional[DwdRadarDataFormat] = None,
     subset: Optional[DwdRadarDataSubset] = None,
@@ -125,8 +125,8 @@ def collect_radar_data(
                 period_types = [period]
             else:
                 period_types = [
-                    DwdRadarPeriod.RECENT,
-                    DwdRadarPeriod.HISTORICAL,
+                    Period.RECENT,
+                    Period.HISTORICAL,
                 ]
 
             results = []
@@ -137,7 +137,7 @@ def collect_radar_data(
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                if period == DwdRadarPeriod.RECENT:
+                if period == Period.RECENT:
                     file_index = file_index[
                         (file_index[DwdColumns.DATETIME.value] >= start_date)
                         & (file_index[DwdColumns.DATETIME.value] < end_date)

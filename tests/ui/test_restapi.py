@@ -241,28 +241,28 @@ def test_dwd_values_sql_tabular(dicts_are_same):
 
     data = response.json()["data"]
 
-    assert len(data) >= 49
+    assert len(data) >= 48
     assert dicts_are_same(
         data[0],
         {
-            "station_id": "01048",
-            "date": "2019-12-28T00:00:00+00:00",  # "2019-12-28T00:00:00.000Z",
+            "cloud_cover_total": 6.9,
+            "date": "2020-01-25T00:00:00+00:00",
+            "humidity": 88.88,
+            "precipitation_form": 0.0,
+            "precipitation_height": 0.0,
+            "pressure_air": 993.88,
+            "pressure_vapor": 4.6,
             "qn_3": 10.0,
-            "qn_4": 3.0,
-            "cloud_cover_total": 7.4,
-            "humidity": 82.54,
-            "precipitation_form": 7.0,
-            "precipitation_height": 0.4,
-            "pressure_air": 1011.49,
-            "pressure_vapor": 5.2,
-            "snow_depth": 0.0,
+            "qn_4": 3,
+            "snow_depth": 0,
+            "station_id": "01048",
             "sunshine_duration": 0.0,
-            "temperature_air_200": 0.4,
-            "temperature_air_max_200": 1.3,
-            "temperature_air_min_005": -1.0,
-            "temperature_air_min_200": -0.7,
-            "wind_gust_max": 7.7,
-            "wind_speed": 3.1,
+            "temperature_air_200": -2.2,
+            "temperature_air_max_200": -0.6,
+            "temperature_air_min_005": -6.6,
+            "temperature_air_min_200": -4.6,
+            "wind_gust_max": 4.6,
+            "wind_speed": 1.9,
         },
     )
 
