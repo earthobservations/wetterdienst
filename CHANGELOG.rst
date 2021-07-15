@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+...
+
+0.20.3 (15.07.2021)
+*******************
+
 - Bugfix acquisition of DWD radar data
 - Adjust DWD radar composite parameters to new index
 
