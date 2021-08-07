@@ -564,4 +564,4 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         df = df.reindex(columns=self._columns)
 
-        return df.copy()
+        return df

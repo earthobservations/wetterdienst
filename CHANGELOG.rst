@@ -4,6 +4,10 @@ Changelog
 Development
 ***********
 
+
+0.20.4 (07.08.2021)
+*******************
+
 Added
 =====
 
@@ -12,6 +16,8 @@ Added
 
 Changed
 =======
+
+- Switch to non-threaded data acquisition for DWD observations
 
 Deprecated
 ==========

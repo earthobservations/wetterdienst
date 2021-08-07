@@ -229,8 +229,8 @@ def test_dwd_values_sql_tabular(dicts_are_same):
             "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
-            "period": "recent",
-            "date": "2019/2022",
+            "period": "historical",
+            "date": "2020/2021",
             "sql-values": "SELECT * FROM data WHERE temperature_air_max_200 < 2.0",
             "tidy": False,
             "si-units": False,
@@ -241,7 +241,7 @@ def test_dwd_values_sql_tabular(dicts_are_same):
 
     data = response.json()["data"]
 
-    assert len(data) >= 48
+    assert len(data) >= 8
     assert dicts_are_same(
         data[0],
         {
