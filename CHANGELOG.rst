@@ -4,6 +4,10 @@ Changelog
 Development
 ***********
 
+
+0.20.4 (07.08.2021)
+*******************
+
 Added
 =====
 
@@ -21,6 +25,9 @@ Removed
 
 Fixed
 =====
+
+-Test of restapi with recent period
+-Get rid of pandas performance warning from DWD Mosmix data
 
 0.20.3 (15.07.2021)
 *******************
