@@ -131,7 +131,8 @@ class KMLReader:
             measurement_list = station_forecast.findall(
                 "kml:ExtendedData/dwd:Forecast", self.root.nsmap
             )
-            df = pd.DataFrame({"station_id": station_ids, "datetime": self.timesteps})
+
+            data_dict = {"station_id": station_ids, "datetime": self.timesteps}
 
             for measurement_item in measurement_list:
 
@@ -151,6 +152,6 @@ class KMLReader:
                         self.timesteps
                     ), "Number of time steps does not match number of measurement values"
 
-                    df.loc[:, measurement_parameter.lower()] = measurement_values
+                    data_dict[measurement_parameter.lower()] = measurement_values
 
-            yield df
+            yield pd.DataFrame.from_dict(data_dict)

@@ -107,7 +107,7 @@ class EcccObservationValues(ScalarValuesCore):
         :return:
         """
 
-        df_tidy = pd.DataFrame()
+        data = []
 
         columns = df.columns
         for parameter_column, quality_column in zip(columns[1::2], columns[2::2]):
@@ -119,7 +119,12 @@ class EcccObservationValues(ScalarValuesCore):
                 }
             )
             df_parameter[Columns.PARAMETER.value] = parameter_column
-            df_tidy = df_tidy.append(df_parameter)
+            data.append(df_parameter)
+
+        try:
+            df_tidy = pd.concat(data, ignore_index=True)
+        except ValueError:
+            df_tidy = pd.DataFrame()
 
         return df_tidy
 
