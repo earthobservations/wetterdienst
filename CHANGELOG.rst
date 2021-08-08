@@ -4,30 +4,23 @@ Changelog
 Development
 ***********
 
+- Start migrating from ``dogpile.cache`` to FSSPEC
+
 
 0.20.4 (07.08.2021)
 *******************
 
-Added
-=====
+Features
+========
 
 - Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
   [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
 
-Changed
-=======
-
 - Rename wetterdienst show to wetterdienst info, make version accessible via cli with
   wetterdienst version
 
-Deprecated
-==========
-
-Removed
-=======
-
-Fixed
-=====
+Bugfixes
+========
 
 - Bug when querying an entire DWD dataset for 10_minutes/1_minute resolution without providing start_date/end_date,
   which results in the interval of the request being None
