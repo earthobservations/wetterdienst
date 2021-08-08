@@ -17,6 +17,8 @@ Added
 Changed
 =======
 
+- Start migrating from ``dogpile.cache`` to FSSPEC
+
 Deprecated
 ==========
 
