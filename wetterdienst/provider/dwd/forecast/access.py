@@ -15,9 +15,9 @@ from lxml.etree import XMLParser, parse  # noqa: S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
 
-from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.io import read_in_chunks
+from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
 log = logging.getLogger(__name__)
