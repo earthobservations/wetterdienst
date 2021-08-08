@@ -10,8 +10,8 @@ EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
 
 
 @pytest.mark.slow
-@pytest.mark.skip(
-    "nbconvert stack has problems, see "
+@pytest.mark.xfail(
+    reason="nbconvert stack has problems, see "
     "https://github.com/jupyter/jupyter_client/issues/637"
 )
 def test_jupyter_example():
