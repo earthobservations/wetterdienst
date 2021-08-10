@@ -16,7 +16,7 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 
 
 @pytest.mark.remote
-def test_meta_index_creation():
+def test_meta_index_creation_success():
 
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
@@ -27,8 +27,16 @@ def test_meta_index_creation():
 
     assert not meta_index.empty
 
+
+@pytest.mark.remote
+def test_meta_index_creation_failure():
+
     with pytest.raises(
-        (requests.exceptions.HTTPError, aiohttp.client_exceptions.ClientResponseError)
+        (
+            requests.exceptions.HTTPError,
+            aiohttp.client_exceptions.ClientResponseError,
+            FileNotFoundError,
+        )
     ):
         create_meta_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
