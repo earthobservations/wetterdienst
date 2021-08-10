@@ -21,7 +21,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 
 
 @pytest.mark.remote
-def test_file_index_creation():
+def test_file_index_creation_success():
 
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
@@ -40,8 +40,16 @@ def test_file_index_creation():
         "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
     ]
 
+
+@pytest.mark.remote
+def test_file_index_creation_failure():
+
     with pytest.raises(
-        (requests.exceptions.HTTPError, aiohttp.client_exceptions.ClientResponseError)
+        (
+            requests.exceptions.HTTPError,
+            aiohttp.client_exceptions.ClientResponseError,
+            FileNotFoundError,
+        )
     ):
         create_file_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
