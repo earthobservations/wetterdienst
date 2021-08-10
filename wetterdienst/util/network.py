@@ -132,7 +132,7 @@ def list_remote_files_fsspec(
 
     # Recursively list remote directory.
     if not recursive:
-        remote_urls = filesystem.glob(url + "/*")
+        remote_urls = filesystem.find(url)
     else:
         remote_urls = filesystem.expand_path(url, recursive=recursive)
 
