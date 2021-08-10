@@ -758,7 +758,7 @@ python-dateutil = ">=2.7"
 
 [[package]]
 name = "fsspec"
-version = "2021.5.0"
+version = "2021.7.0"
 description = "File-system specification"
 category = "main"
 optional = false
@@ -2552,7 +2552,7 @@ watchdog = ["watchdog"]
 
 [[package]]
 name = "wradlib"
-version = "1.10.3"
+version = "1.10.4"
 description = "wradlib - An Open Source Library for Weather Radar Data Processing"
 category = "main"
 optional = true
@@ -2664,7 +2664,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.1"
-content-hash = "558ac745d1d29cb22788d480e0c2e0d4b264dd90ee9cf21b17fde4999fa1ada0"
+content-hash = "0a3610483dbac433fb0838c156440a04036a0c23ba8b5e23ee58f6784b5b4377"
 
 [metadata.files]
 aenum = [
@@ -3144,8 +3144,8 @@ freezegun = [
     {file = "freezegun-1.1.0.tar.gz", hash = "sha256:177f9dd59861d871e27a484c3332f35a6e3f5d14626f2bf91be37891f18927f3"},
 ]
 fsspec = [
-    {file = "fsspec-2021.5.0-py3-none-any.whl", hash = "sha256:a08daa28ecb98544350d62f8307a7678e410c4b5245e04d14fcf4a3f13e959a7"},
-    {file = "fsspec-2021.5.0.tar.gz", hash = "sha256:30064d89b00c6acfe5d8e027b6c0ef3df25ca17fd1d5cad2e8208c9aa5300f8d"},
+    {file = "fsspec-2021.7.0-py3-none-any.whl", hash = "sha256:86822ccf367da99957f49db64f7d5fd3d8d21444fac4dfdc8ebc38ee93d478c6"},
+    {file = "fsspec-2021.7.0.tar.gz", hash = "sha256:792ebd3b54de0b30f1ce73f0ba0a8bcc864724f2d9f248cb8d0ece47db0cbde8"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -4415,7 +4415,7 @@ werkzeug = [
     {file = "Werkzeug-2.0.1.tar.gz", hash = "sha256:1de1db30d010ff1af14a009224ec49ab2329ad2cde454c8a708130642d579c42"},
 ]
 wradlib = [
-    {file = "wradlib-1.10.3.tar.gz", hash = "sha256:05331be2c4ec8b8cad41b15430513a6c70c1e33d6f4fa6b29c623b707d7ae104"},
+    {file = "wradlib-1.10.4.tar.gz", hash = "sha256:86070782c4058899b7b7af8bd65eb695583faf5bff79f2ebe6dd1d0a728848d8"},
 ]
 xarray = [
     {file = "xarray-0.17.0-py3-none-any.whl", hash = "sha256:ce204fb5015c3d382036f7c065c927df5684276976810aef43d78908c3ceb440"},
