@@ -899,6 +899,10 @@ def test_radar_request_radvor_re_timerange():
 
     # Verify number of elements.
     results = list(request.query())
+
+    if len(results) == 0:
+        raise pytest.skip("Data currently not available")
+
     assert len(results) == 3 * 25
 
     # TODO: Verify data.
