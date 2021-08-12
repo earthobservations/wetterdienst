@@ -463,9 +463,8 @@ lines:
 Important Links
 ***************
 
-`Wetterdienst API`_
+- `Usage documentation and examples`_
+- `Changelog`_
 
-Changelog_
-
-.. _Wetterdienst API: https://wetterdienst.readthedocs.io/en/latest/usage/api.html
+.. _Usage documentation and examples: https://wetterdienst.readthedocs.io/en/latest/usage/
 .. _Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
