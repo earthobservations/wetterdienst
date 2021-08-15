@@ -249,6 +249,8 @@ format = ["black", "isort"]
 lint = "flakehell lint wetterdienst example tests"
 docs = { shell = "cd docs && poetry run make html" }
 test = "pytest -vvv tests"
+# TODO: When parallel testing works on CI, use this:
+# test = ["test-parallel", "test-cflakes"]
 test-cflakes = "pytest -vvv -m cflake tests"
 test-parallel = "pytest -vvv --numprocesses=4 -m 'not (explorer or cflake)' tests"
 coverage = "pytest --cov=wetterdienst tests"

@@ -2,9 +2,7 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """ tests for file index creation """
-import aiohttp
 import pytest
-import requests
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -44,13 +42,7 @@ def test_file_index_creation_success():
 @pytest.mark.remote
 def test_file_index_creation_failure():
 
-    with pytest.raises(
-        (
-            requests.exceptions.HTTPError,
-            aiohttp.client_exceptions.ClientResponseError,
-            FileNotFoundError,
-        )
-    ):
+    with pytest.raises(FileNotFoundError):
         create_file_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
             DwdObservationResolution.MINUTE_1,

@@ -39,7 +39,7 @@ ENV TERM linux
 
 # Install libgdal.
 RUN apt-get update
-RUN apt-get --yes install libgdal20 git
+RUN apt-get --yes install libgdal20
 
 # Copy build artefacts from first build step.
 COPY --from=build-step /usr/local/lib /usr/local/lib
