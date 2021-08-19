@@ -9,8 +9,9 @@ Command Line Interface
 
     Usage:
 
-        wetterdienst --version
         wetterdienst (-h | --help)
+        wetterdienst version
+        wetterdienst info
 
         wetterdienst radar [--dwd=<dwd>] [--all=<all>] [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
 
@@ -51,7 +52,6 @@ Command Line Interface
         --target=<target>                     Output target for storing data into different data sinks.
         --format=<format>                     Output format. [Default: json]
         --language=<language>                 Output language. [Default: en]
-        --version                             Show version information
         --tidy                                Tidy DataFrame
         --humanize                            Humanize parameters
         --si-units                            Convert to SI units

@@ -118,8 +118,9 @@ def cli():
     """
     Usage:
 
-        wetterdienst --version
         wetterdienst (-h | --help)
+        wetterdienst version
+        wetterdienst info
 
         wetterdienst radar [--dwd=<dwd>] [--all=<all>] [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
 
@@ -160,7 +161,6 @@ def cli():
         --target=<target>                     Output target for storing data into different data sinks.
         --format=<format>                     Output format. [Default: json]
         --language=<language>                 Output language. [Default: en]
-        --version                             Show version information
         --tidy                                Tidy DataFrame
         --humanize                            Humanize parameters
         --si-units                            Convert to SI units
@@ -342,6 +342,22 @@ def cli():
     pass
 
 
+@cli.command("info")
+def info():
+    from wetterdienst import info
+
+    info()
+
+    return
+
+
+@cli.command("version")
+def version():
+    print(__version__)
+
+    return
+
+
 @cli.command("restapi")
 @cloup.option("--listen", type=click.STRING, default=None)
 @cloup.option("--reload", is_flag=True)
@@ -372,15 +388,6 @@ def explorer(listen: str, reload: bool, debug: bool):
     from wetterdienst.ui.explorer.app import start_service
 
     start_service(listen, reload=reload)
-    return
-
-
-@cli.command("show")
-def show():
-    from wetterdienst import show
-
-    show()
-
     return
 
 
