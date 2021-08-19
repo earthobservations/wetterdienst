@@ -351,12 +351,21 @@ class DwdObservationValues(ScalarValuesCore):
             dataset, self.stations.resolution, Period.HISTORICAL
         )
 
+        # The request interval may be None, if no start and end date
+        # is given but rather the entire available data is queried.
+        # In this case the interval should overlap with all files
+        interval = self.stations.stations._interval
+
+        if not interval:
+            from_date_min = file_index[Columns.FROM_DATE.value].min()
+            to_date_max = file_index[Columns.TO_DATE.value].max()
+
+            interval = pd.Interval(from_date_min, to_date_max, closed="both")
+
         # Filter for from date and end date
         file_index_filtered = file_index[
             (file_index[Columns.STATION_ID.value] == station_id)
-            & file_index[Columns.INTERVAL.value].array.overlaps(
-                self.stations.stations._interval
-            )
+            & file_index[Columns.INTERVAL.value].array.overlaps(interval)
         ]
 
         return file_index_filtered[Columns.DATE_RANGE.value].tolist()
@@ -397,7 +406,7 @@ class DwdObservationRequest(ScalarRequestCore):
         :return:
         """
         if self.start_date:
-            return pd.Interval(self.start_date, self.end_date, "both")
+            return pd.Interval(self.start_date, self.end_date, closed="both")
 
         return None
 

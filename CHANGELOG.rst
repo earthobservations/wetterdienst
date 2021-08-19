@@ -26,6 +26,9 @@ Removed
 Fixed
 =====
 
+- Bug when querying an entire DWD dataset for 10_minutes/1_minute resolution without providing start_date/end_date,
+  which results in the interval of the request being None
+
 -Test of restapi with recent period
 -Get rid of pandas performance warning from DWD Mosmix data
 
