@@ -214,8 +214,9 @@ The ``wetterdienst`` command is also available:
     # Make an alias to use it conveniently from your shell.
     alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst-standard wetterdienst'
 
-    wetterdienst --version
     wetterdienst --help
+    wetterdienst version
+    wetterdienst info
 
 Example
 *******
@@ -299,7 +300,7 @@ as we make progress with this library:
 
 https://wetterdienst.readthedocs.io/
 
-For the whole functionality, check out the `Wetterdienst API`_ section of our
+For the whole functionality, check out the `Usage documentation and examples`_ section of our
 documentation, which will be constantly updated. To stay up to date with the
 development, take a look at the changelog_. Also, don't miss out our examples_.
 

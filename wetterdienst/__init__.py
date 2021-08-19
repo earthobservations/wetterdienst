@@ -24,7 +24,7 @@ except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
 
 
-def show() -> None:
+def info() -> None:
     """ Function that prints some basic information about the wetterdienst instance """
     wd_info = {
         "version": __version__,
