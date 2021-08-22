@@ -68,7 +68,7 @@ class OriginUnit(Enum):
     KILOJOULE_PER_SQUARE_METER = REGISTRY.kilojoule / (REGISTRY.meter ** 2)
 
 
-class MetricUnit(Enum):
+class SIUnit(Enum):
     DIMENSIONLESS = REGISTRY.dimensionless
 
     # Length

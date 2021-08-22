@@ -47,10 +47,7 @@ from wetterdienst.provider.dwd.observation.metadata.resolution import (
     HIGH_RESOLUTIONS,
     RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
-from wetterdienst.provider.dwd.observation.metadata.unit import (
-    DwdObservationUnitOrigin,
-    DwdObservationUnitSI,
-)
+from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
@@ -395,8 +392,7 @@ class DwdObservationRequest(ScalarRequestCore):
     _dataset_tree = DwdObservationDatasetTree
     _parameter_to_dataset_mapping = PARAMETER_TO_DATASET_MAPPING
 
-    _origin_unit_tree = DwdObservationUnitOrigin
-    _si_unit_tree = DwdObservationUnitSI
+    _unit_tree = DwdObservationUnit
 
     @property
     def _interval(self) -> Optional[pd.Interval]:

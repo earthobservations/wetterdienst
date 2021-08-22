@@ -17,7 +17,7 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import REGISTRY, MetricUnit, OriginUnit
+from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.logging import TqdmToLogger
 
@@ -130,7 +130,7 @@ class ScalarValuesCore:
         """
         return pd.DataFrame({Columns.DATE.value: self._complete_dates})
 
-    def convert_values_to_metric(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+    def convert_values_to_si(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
         Function to convert values to metric units with help of conversion factors
 
@@ -139,7 +139,7 @@ class ScalarValuesCore:
         :return: pandas DataFrame with converted (SI) values
         """
 
-        def _convert_values_to_metric(series):
+        def _convert_values_to_si(series):
             """
             Helper function to apply conversion factors column wise to a pandas DataFrame
 
@@ -148,14 +148,14 @@ class ScalarValuesCore:
             """
             op, factor = conversion_factors.get(series.name, (None, None))
 
-            if not (op and factor):
+            if not op or not factor:
                 return series
 
             return op(series, factor)
 
         conversion_factors = self._create_conversion_factors(dataset)
 
-        df = df.apply(_convert_values_to_metric, axis=0)
+        df = df.apply(_convert_values_to_si, axis=0)
 
         return df
 
@@ -173,22 +173,18 @@ class ScalarValuesCore:
         dataset_accessor = self.stations.stations._dataset_accessor
 
         if self.stations.stations._unique_dataset:
-            origin_units = self.stations.stations._origin_unit_tree[dataset_accessor]
-            metric_units = self.stations.stations._si_unit_tree[dataset_accessor]
+            units = self.stations.stations._unit_tree[dataset_accessor]
         else:
-            origin_units = self.stations.stations._origin_unit_tree[dataset_accessor][
-                dataset
-            ]
-            metric_units = self.stations.stations._si_unit_tree[dataset_accessor][
-                dataset
-            ]
+            units = self.stations.stations._unit_tree[dataset_accessor][dataset]
 
         conversion_factors = {}
 
-        # TODO eventually we may
-        for origin_unit, metric_unit in zip(origin_units, metric_units):
+        # TODO eventually we may split this into smaller functions
+        for parameter in units:
+            origin_unit, si_unit = parameter.value
+
             # Get parameter name
-            parameter = origin_unit.name
+            parameter = parameter.name
 
             if self.stations.stations._unique_dataset:
                 parameter_value = self.stations.stations._dataset_tree[
@@ -199,30 +195,24 @@ class ScalarValuesCore:
                     dataset_accessor
                 ][dataset][parameter].value
 
-            if metric_unit.value == MetricUnit.KILOGRAM_PER_SQUARE_METER.value:
+            if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
                 # Fixed conversion factors to kg / m², as it only applies
                 # for water with density 1 g / cm³
-                if origin_unit.value == OriginUnit.MILLIMETER.value:
+                if origin_unit == OriginUnit.MILLIMETER.value:
                     conversion_factors[parameter_value] = (operator.mul, 1)
                 else:
                     raise ValueError(
                         "manually set conversion factor for precipitation unit"
                     )
-            elif metric_unit.value == MetricUnit.DEGREE_KELVIN.value:
+            elif si_unit == SIUnit.DEGREE_KELVIN.value:
                 # Apply offset addition to temperature measurements
                 # Take 0 as this is appropriate for adding on other numbers
                 # (just the difference)
-                degree_offset = (
-                    Quantity(0, origin_unit.value).to(metric_unit.value).magnitude
-                )
+                degree_offset = Quantity(0, origin_unit).to(si_unit).magnitude
 
                 conversion_factors[parameter_value] = (operator.add, degree_offset)
-            elif metric_unit.value == MetricUnit.PERCENT.value:
-                factor = (
-                    REGISTRY(str(origin_unit.value))
-                    .to(str(metric_unit.value))
-                    .magnitude
-                )
+            elif si_unit == SIUnit.PERCENT.value:
+                factor = REGISTRY(str(origin_unit)).to(str(si_unit)).magnitude
 
                 conversion_factors[parameter_value] = (operator.mul, factor)
             else:
@@ -230,7 +220,7 @@ class ScalarValuesCore:
                 # appropriate factor
                 conversion_factors[parameter_value] = (
                     operator.mul,
-                    Quantity(1, origin_unit.value).to(metric_unit.value).magnitude,
+                    Quantity(1, origin_unit).to(si_unit).magnitude,
                 )
 
         return conversion_factors
@@ -448,7 +438,7 @@ class ScalarValuesCore:
                 parameter_df = self._coerce_parameter_types(parameter_df)
 
                 if self.stations.stations.si_units:
-                    parameter_df = self.convert_values_to_metric(parameter_df, dataset)
+                    parameter_df = self.convert_values_to_si(parameter_df, dataset)
 
                 if self.stations.stations.tidy:
                     parameter_df = self.tidy_up_df(parameter_df, dataset)

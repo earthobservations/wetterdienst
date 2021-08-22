@@ -1,367 +1,564 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from wetterdienst.metadata.unit import MetricUnit, OriginUnit, UnitEnum
+from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.parameter import DatasetTreeCore
 
 
-class DwdMosmixUnitOrigin(DatasetTreeCore):
+class DwdMosmixUnit(DatasetTreeCore):
     class SMALL(UnitEnum):
-        TEMPERATURE_AIR_200 = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_DEW_POINT_200 = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MAX_200 = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MIN_200 = OriginUnit.DEGREE_KELVIN.value
-        WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value
-        WIND_SPEED = OriginUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_1H = OriginUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_3H = OriginUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_12H = OriginUnit.METER_PER_SECOND.value
-        PRECIPITATION_CONSIST_LAST_1H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_3H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_1H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_3H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        WEATHER_SIGNIFICANT = OriginUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_LAST_6H = OriginUnit.DIMENSIONLESS.value
-        CLOUD_COVER_TOTAL = OriginUnit.PERCENT.value
-        CLOUD_COVER_EFFECTIVE = OriginUnit.PERCENT.value
-        CLOUD_COVER_BELOW_500_FT = OriginUnit.PERCENT.value
-        CLOUD_COVER_BELOW_1000_FT = OriginUnit.PERCENT.value
-        CLOUD_COVER_BETWEEN_2_TO_7_KM = OriginUnit.PERCENT.value
-        CLOUD_COVER_ABOVE_7_KM = OriginUnit.PERCENT.value
-        PRESSURE_AIR_SURFACE_REDUCED = OriginUnit.PASCAL.value
-        TEMPERATURE_AIR_005 = OriginUnit.DEGREE_KELVIN.value
-        RADIATION_GLOBAL = OriginUnit.GLOBAL_IRRADIANCE.value
-        VISIBILITY = OriginUnit.METER.value
-        SUNSHINE_DURATION = OriginUnit.SECOND.value
-        PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_40_KN_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_55_KN_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_24H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_24H = OriginUnit.PERCENT.value
+        TEMPERATURE_AIR_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_DEW_POINT_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_AIR_MAX_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_AIR_MIN_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        WIND_DIRECTION = (
+            OriginUnit.WIND_DIRECTION.value,
+            SIUnit.WIND_DIRECTION.value,
+        )
+        WIND_SPEED = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        WIND_GUST_MAX_LAST_1H = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        WIND_GUST_MAX_LAST_3H = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        WIND_GUST_MAX_LAST_12H = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        PRECIPITATION_CONSIST_LAST_1H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_CONSIST_LAST_3H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_SNOW_EQUIV_LAST_1H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_SNOW_EQUIV_LAST_3H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        WEATHER_SIGNIFICANT = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
+        WEATHER_LAST_6H = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+        CLOUD_COVER_TOTAL = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_EFFECTIVE = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_BELOW_500_FT = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_BELOW_1000_FT = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_BETWEEN_2_TO_7_KM = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        CLOUD_COVER_ABOVE_7_KM = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PRESSURE_AIR_SURFACE_REDUCED = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
+        TEMPERATURE_AIR_005 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        RADIATION_GLOBAL = (
+            OriginUnit.GLOBAL_IRRADIANCE.value,
+            SIUnit.GLOBAL_IRRADIANCE.value,
+        )
+        VISIBILITY = OriginUnit.METER.value, SIUnit.METER.value
+        SUNSHINE_DURATION = OriginUnit.SECOND.value, SIUnit.SECOND.value
+        PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_WIND_GUST_GE_40_KN_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_WIND_GUST_GE_55_KN_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_FOG_LAST_1H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_FOG_LAST_6H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_FOG_LAST_12H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
 
     class LARGE(UnitEnum):
         # https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
-        TEMPERATURE_AIR_200 = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_DEW_POINT_200 = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MAX_200 = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MIN_200 = OriginUnit.DEGREE_KELVIN.value
-        WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value
-        WIND_SPEED = OriginUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_1H = OriginUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_3H = OriginUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_12H = OriginUnit.METER_PER_SECOND.value
-        PRECIPITATION_CONSIST_LAST_1H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_LAST_1H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_3H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_LAST_3H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_1H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_3H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        WEATHER_SIGNIFICANT = OriginUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_LAST_6H = OriginUnit.DIMENSIONLESS.value
-        CLOUD_COVER_TOTAL = OriginUnit.PERCENT.value
-        CLOUD_COVER_EFFECTIVE = OriginUnit.PERCENT.value
-        CLOUD_COVER_BELOW_500_FT = OriginUnit.PERCENT.value
-        CLOUD_COVER_BELOW_1000_FT = OriginUnit.PERCENT.value
-        CLOUD_COVER_BETWEEN_2_TO_7_KM = OriginUnit.PERCENT.value
-        CLOUD_COVER_ABOVE_7_KM = OriginUnit.PERCENT.value
-        PRESSURE_AIR_SURFACE_REDUCED = OriginUnit.PASCAL.value
-        TEMPERATURE_AIR_005 = OriginUnit.DEGREE_KELVIN.value
+        TEMPERATURE_AIR_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_DEW_POINT_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_AIR_MAX_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_AIR_MIN_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        WIND_DIRECTION = (
+            OriginUnit.WIND_DIRECTION.value,
+            SIUnit.WIND_DIRECTION.value,
+        )
+        WIND_SPEED = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        WIND_GUST_MAX_LAST_1H = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        WIND_GUST_MAX_LAST_3H = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        WIND_GUST_MAX_LAST_12H = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        PRECIPITATION_CONSIST_LAST_1H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_LAST_1H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_CONSIST_LAST_3H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_LAST_3H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_SNOW_EQUIV_LAST_1H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_SNOW_EQUIV_LAST_3H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        WEATHER_SIGNIFICANT = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
+        WEATHER_LAST_6H = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+        CLOUD_COVER_TOTAL = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_EFFECTIVE = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_BELOW_500_FT = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_BELOW_1000_FT = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        CLOUD_COVER_BETWEEN_2_TO_7_KM = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        CLOUD_COVER_ABOVE_7_KM = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PRESSURE_AIR_SURFACE_REDUCED = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
+        TEMPERATURE_AIR_005 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
         RADIATION_SHORT_WAVE_BALANCE_LAST_3H = (
-            OriginUnit.KILOJOULE_PER_SQUARE_METER.value
+            OriginUnit.KILOJOULE_PER_SQUARE_METER.value,
+            SIUnit.JOULE_PER_SQUARE_METER.value,
         )
-        RADIATION_GLOBAL = OriginUnit.GLOBAL_IRRADIANCE.value
+        RADIATION_GLOBAL = (
+            OriginUnit.GLOBAL_IRRADIANCE.value,
+            SIUnit.GLOBAL_IRRADIANCE.value,
+        )
         RADIATION_LONG_WAVE_BALANCE_LAST_3H = (
-            OriginUnit.KILOJOULE_PER_SQUARE_METER.value
+            OriginUnit.KILOJOULE_PER_SQUARE_METER.value,
+            SIUnit.JOULE_PER_SQUARE_METER.value,
         )
-        VISIBILITY = OriginUnit.METER.value
-        SUNSHINE_DURATION = OriginUnit.SECOND.value
-        PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_40_KN_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_55_KN_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_24H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_24H = OriginUnit.PERCENT.value
-        TEMPERATURE_AIR_MIN_005_LAST_12H = OriginUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_200_LAST_24H = OriginUnit.DEGREE_KELVIN.value
-        PRECIPITATION_DURATION = OriginUnit.SECOND.value
-        PROBABILITY_DRIZZLE_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_STRAT_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_CONV_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_THUNDERSTORM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LIQUID_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_SOLID_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_FREEZING_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_VISIBILITY_BELOW_1000_M = OriginUnit.PERCENT.value
-        ERROR_ABSOLUTE_TEMPERATURE_AIR_200 = OriginUnit.DEGREE_KELVIN.value
-        ERROR_ABSOLUTE_WIND_SPEED = OriginUnit.METER_PER_SECOND.value
-        ERROR_ABSOLUTE_WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value
-        ERROR_ABSOLUTE_TEMPERATURE_DEW_POINT_200 = OriginUnit.DEGREE_KELVIN.value
-        PRECIPITATION_LAST_6H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_6H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_1_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_3_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_5_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_7_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_2_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        SUNSHINE_DURATION_YESTERDAY = OriginUnit.SECOND.value
-        SUNSHINE_DURATION_RELATIVE_LAST_24H = OriginUnit.DIMENSIONLESS.value
+        VISIBILITY = OriginUnit.METER.value, SIUnit.METER.value
+        SUNSHINE_DURATION = OriginUnit.SECOND.value, SIUnit.SECOND.value
+        PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_WIND_GUST_GE_40_KN_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_WIND_GUST_GE_55_KN_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_FOG_LAST_1H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_FOG_LAST_6H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_FOG_LAST_12H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        TEMPERATURE_AIR_MIN_005_LAST_12H = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        TEMPERATURE_AIR_200_LAST_24H = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        PRECIPITATION_DURATION = OriginUnit.SECOND.value, SIUnit.SECOND.value
+        PROBABILITY_DRIZZLE_LAST_1H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_PRECIPITATION_STRAT_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_CONV_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_THUNDERSTORM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_LIQUID_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_SOLID_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_FREEZING_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_VISIBILITY_BELOW_1000_M = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        ERROR_ABSOLUTE_TEMPERATURE_AIR_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        ERROR_ABSOLUTE_WIND_SPEED = (
+            OriginUnit.METER_PER_SECOND.value,
+            SIUnit.METER_PER_SECOND.value,
+        )
+        ERROR_ABSOLUTE_WIND_DIRECTION = (
+            OriginUnit.WIND_DIRECTION.value,
+            SIUnit.WIND_DIRECTION.value,
+        )
+        ERROR_ABSOLUTE_TEMPERATURE_DEW_POINT_200 = (
+            OriginUnit.DEGREE_KELVIN.value,
+            SIUnit.DEGREE_KELVIN.value,
+        )
+        PRECIPITATION_LAST_6H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_CONSIST_LAST_6H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_1_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_3_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_5_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_0_7_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_2_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        SUNSHINE_DURATION_YESTERDAY = OriginUnit.SECOND.value, SIUnit.SECOND.value
+        SUNSHINE_DURATION_RELATIVE_LAST_24H = (
+            OriginUnit.DIMENSIONLESS.value,
+            SIUnit.DIMENSIONLESS.value,
+        )
         PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_0_PCT_LAST_24H = (
-            OriginUnit.PERCENT.value
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
         )
         PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_30_PCT_LAST_24H = (
-            OriginUnit.PERCENT.value
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
         )
         PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_60_PCT_LAST_24H = (
-            OriginUnit.PERCENT.value
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
         )
-        PROBABILITY_RADIATION_GLOBAL_LAST_1H = OriginUnit.PERCENT.value
+        PROBABILITY_RADIATION_GLOBAL_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
         EVAPOTRANSPIRATION_POTENTIAL_LAST_24H = (
-            OriginUnit.KILOGRAM_PER_SQUARE_METER.value
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        PROBABILITY_PRECIPITATION_GT_3_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_10_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_15_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_25_0_MM_LAST_1H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_STRAT_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_CONV_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_THUNDERSTORM_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LIQUID_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_FREEZING_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_SOLID_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_DRIZZLE_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_24H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_25_KN_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_40_KN_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_55_KN_LAST_6H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_STRAT_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_CONV_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_THUNDERSTORM_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LIQUID_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_FREEZING_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_SOLID_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_DRIZZLE_LAST_12H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_6H = OriginUnit.PERCENT.value
-        PRECIPITATION_LAST_12H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_12H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        WEATHER_SIGNIFICANT_LAST_3H = OriginUnit.SIGNIFICANT_WEATHER.value
+        PROBABILITY_PRECIPITATION_GT_3_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_10_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_15_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_25_0_MM_LAST_1H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_STRAT_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_CONV_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_THUNDERSTORM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_LIQUID_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_FREEZING_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_SOLID_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_DRIZZLE_LAST_6H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_FOG_LAST_24H = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_WIND_GUST_GE_25_KN_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_WIND_GUST_GE_40_KN_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_WIND_GUST_GE_55_KN_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_STRAT_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_CONV_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_THUNDERSTORM_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_LIQUID_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_FREEZING_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_SOLID_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_DRIZZLE_LAST_12H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_6H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        PRECIPITATION_LAST_12H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        PRECIPITATION_CONSIST_LAST_12H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+        )
+        WEATHER_SIGNIFICANT_LAST_3H = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
         PRECIPITATION_LIQUID_CONSIST_LAST_1H = (
-            OriginUnit.KILOGRAM_PER_SQUARE_METER.value
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_24H = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_24H = OriginUnit.PERCENT.value
-        PRECIPITATION_LAST_24H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_24H = OriginUnit.KILOGRAM_PER_SQUARE_METER.value
-        CLOUD_COVER_BELOW_7000_M = OriginUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_24H = OriginUnit.PERCENT.value
-        CLOUD_BASE_CONVECTIVE = OriginUnit.METER.value
-        PROBABILITY_THUNDERSTORM_LAST_24H = OriginUnit.PERCENT.value
-        ERROR_ABSOLUTE_PRESSURE_AIR_SURFACE = OriginUnit.PASCAL.value
-        SUNSHINE_DURATION_LAST_3H = OriginUnit.SECOND.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_1H = OriginUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_3H = OriginUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_6H = OriginUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_12H = OriginUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_24H = OriginUnit.SIGNIFICANT_WEATHER.value
-
-
-class DwdMosmixUnitSI(DatasetTreeCore):
-    class SMALL(UnitEnum):
-        TEMPERATURE_AIR_200 = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_DEW_POINT_200 = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MAX_200 = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MIN_200 = MetricUnit.DEGREE_KELVIN.value
-        WIND_DIRECTION = MetricUnit.WIND_DIRECTION.value
-        WIND_SPEED = MetricUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_1H = MetricUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_3H = MetricUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_12H = MetricUnit.METER_PER_SECOND.value
-        PRECIPITATION_CONSIST_LAST_1H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_3H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_1H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_3H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        WEATHER_SIGNIFICANT = MetricUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_LAST_6H = MetricUnit.DIMENSIONLESS.value
-        CLOUD_COVER_TOTAL = MetricUnit.PERCENT.value
-        CLOUD_COVER_EFFECTIVE = MetricUnit.PERCENT.value
-        CLOUD_COVER_BELOW_500_FT = MetricUnit.PERCENT.value
-        CLOUD_COVER_BELOW_1000_FT = MetricUnit.PERCENT.value
-        CLOUD_COVER_BETWEEN_2_TO_7_KM = MetricUnit.PERCENT.value
-        CLOUD_COVER_ABOVE_7_KM = MetricUnit.PERCENT.value
-        PRESSURE_AIR_SURFACE_REDUCED = MetricUnit.PASCAL.value
-        TEMPERATURE_AIR_005 = MetricUnit.DEGREE_KELVIN.value
-        RADIATION_GLOBAL = MetricUnit.GLOBAL_IRRADIANCE.value
-        VISIBILITY = MetricUnit.METER.value
-        SUNSHINE_DURATION = MetricUnit.SECOND.value
-        PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_40_KN_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_55_KN_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_24H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_24H = MetricUnit.PERCENT.value
-
-    class LARGE(UnitEnum):
-        # https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
-        TEMPERATURE_AIR_200 = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_DEW_POINT_200 = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MAX_200 = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MIN_200 = MetricUnit.DEGREE_KELVIN.value
-        WIND_DIRECTION = MetricUnit.WIND_DIRECTION.value
-        WIND_SPEED = MetricUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_1H = MetricUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_3H = MetricUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX_LAST_12H = MetricUnit.METER_PER_SECOND.value
-        PRECIPITATION_CONSIST_LAST_1H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_LAST_1H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_3H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_LAST_3H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_1H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_SNOW_EQUIV_LAST_3H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        WEATHER_SIGNIFICANT = MetricUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_LAST_6H = MetricUnit.DIMENSIONLESS.value
-        CLOUD_COVER_TOTAL = MetricUnit.PERCENT.value
-        CLOUD_COVER_EFFECTIVE = MetricUnit.PERCENT.value
-        CLOUD_COVER_BELOW_500_FT = MetricUnit.PERCENT.value
-        CLOUD_COVER_BELOW_1000_FT = MetricUnit.PERCENT.value
-        CLOUD_COVER_BETWEEN_2_TO_7_KM = MetricUnit.PERCENT.value
-        CLOUD_COVER_ABOVE_7_KM = MetricUnit.PERCENT.value
-        PRESSURE_AIR_SURFACE_REDUCED = MetricUnit.PASCAL.value
-        TEMPERATURE_AIR_005 = MetricUnit.DEGREE_KELVIN.value
-        RADIATION_SHORT_WAVE_BALANCE_LAST_3H = MetricUnit.JOULE_PER_SQUARE_METER.value
-        RADIATION_GLOBAL = MetricUnit.GLOBAL_IRRADIANCE.value
-        RADIATION_LONG_WAVE_BALANCE_LAST_3H = MetricUnit.JOULE_PER_SQUARE_METER.value
-        VISIBILITY = MetricUnit.METER.value
-        SUNSHINE_DURATION = MetricUnit.SECOND.value
-        PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_40_KN_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_55_KN_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_24H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_24H = MetricUnit.PERCENT.value
-        TEMPERATURE_AIR_MIN_005_LAST_12H = MetricUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_200_LAST_24H = MetricUnit.DEGREE_KELVIN.value
-        PRECIPITATION_DURATION = MetricUnit.SECOND.value
-        PROBABILITY_DRIZZLE_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_STRAT_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_CONV_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_THUNDERSTORM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LIQUID_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_SOLID_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_FREEZING_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_VISIBILITY_BELOW_1000_M = MetricUnit.PERCENT.value
-        ERROR_ABSOLUTE_TEMPERATURE_AIR_200 = MetricUnit.DEGREE_KELVIN.value
-        ERROR_ABSOLUTE_WIND_SPEED = MetricUnit.METER_PER_SECOND.value
-        ERROR_ABSOLUTE_WIND_DIRECTION = MetricUnit.WIND_DIRECTION.value
-        ERROR_ABSOLUTE_TEMPERATURE_DEW_POINT_200 = MetricUnit.DEGREE_KELVIN.value
-        PRECIPITATION_LAST_6H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_6H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_1_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_2_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_3_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_5_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_0_7_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_2_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        SUNSHINE_DURATION_YESTERDAY = MetricUnit.SECOND.value
-        SUNSHINE_DURATION_RELATIVE_LAST_24H = MetricUnit.DIMENSIONLESS.value
-        PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_0_PCT_LAST_24H = (
-            MetricUnit.PERCENT.value
+        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
         )
-        PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_30_PCT_LAST_24H = (
-            MetricUnit.PERCENT.value
+        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
         )
-        PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_60_PCT_LAST_24H = (
-            MetricUnit.PERCENT.value
+        PRECIPITATION_LAST_24H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        PROBABILITY_RADIATION_GLOBAL_LAST_1H = MetricUnit.PERCENT.value
-        EVAPOTRANSPIRATION_POTENTIAL_LAST_24H = (
-            MetricUnit.KILOGRAM_PER_SQUARE_METER.value
+        PRECIPITATION_CONSIST_LAST_24H = (
+            OriginUnit.KILOGRAM_PER_SQUARE_METER.value,
+            SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        PROBABILITY_PRECIPITATION_GT_3_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_5_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_10_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_15_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_25_0_MM_LAST_1H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_STRAT_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_CONV_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_THUNDERSTORM_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LIQUID_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_FREEZING_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_SOLID_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_DRIZZLE_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_FOG_LAST_24H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_25_KN_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_40_KN_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_WIND_GUST_GE_55_KN_LAST_6H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_STRAT_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_CONV_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_THUNDERSTORM_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LIQUID_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_FREEZING_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_SOLID_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_DRIZZLE_LAST_12H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_6H = MetricUnit.PERCENT.value
-        PRECIPITATION_LAST_12H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_12H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        WEATHER_SIGNIFICANT_LAST_3H = MetricUnit.SIGNIFICANT_WEATHER.value
-        PRECIPITATION_LIQUID_CONSIST_LAST_1H = (
-            MetricUnit.KILOGRAM_PER_SQUARE_METER.value
+        CLOUD_COVER_BELOW_7000_M = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        PROBABILITY_PRECIPITATION_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
         )
-        PROBABILITY_PRECIPITATION_GT_0_0_MM_LAST_24H = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_GT_1_0_MM_LAST_24H = MetricUnit.PERCENT.value
-        PRECIPITATION_LAST_24H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_CONSIST_LAST_24H = MetricUnit.KILOGRAM_PER_SQUARE_METER.value
-        CLOUD_COVER_BELOW_7000_M = MetricUnit.PERCENT.value
-        PROBABILITY_PRECIPITATION_LAST_24H = MetricUnit.PERCENT.value
-        CLOUD_BASE_CONVECTIVE = MetricUnit.METER.value
-        PROBABILITY_THUNDERSTORM_LAST_24H = MetricUnit.PERCENT.value
-        ERROR_ABSOLUTE_PRESSURE_AIR_SURFACE = MetricUnit.PASCAL.value
-        SUNSHINE_DURATION_LAST_3H = MetricUnit.SECOND.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_1H = MetricUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_3H = MetricUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_6H = MetricUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_12H = MetricUnit.SIGNIFICANT_WEATHER.value
-        WEATHER_SIGNIFICANT_OPTIONAL_LAST_24H = MetricUnit.SIGNIFICANT_WEATHER.value
+        CLOUD_BASE_CONVECTIVE = OriginUnit.METER.value, SIUnit.METER.value
+        PROBABILITY_THUNDERSTORM_LAST_24H = (
+            OriginUnit.PERCENT.value,
+            SIUnit.PERCENT.value,
+        )
+        ERROR_ABSOLUTE_PRESSURE_AIR_SURFACE = (
+            OriginUnit.PASCAL.value,
+            SIUnit.PASCAL.value,
+        )
+        SUNSHINE_DURATION_LAST_3H = OriginUnit.SECOND.value, SIUnit.SECOND.value
+        WEATHER_SIGNIFICANT_OPTIONAL_LAST_1H = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
+        WEATHER_SIGNIFICANT_OPTIONAL_LAST_3H = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
+        WEATHER_SIGNIFICANT_OPTIONAL_LAST_6H = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
+        WEATHER_SIGNIFICANT_OPTIONAL_LAST_12H = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
+        WEATHER_SIGNIFICANT_OPTIONAL_LAST_24H = (
+            OriginUnit.SIGNIFICANT_WEATHER.value,
+            SIUnit.SIGNIFICANT_WEATHER.value,
+        )
