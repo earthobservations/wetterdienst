@@ -31,10 +31,7 @@ from wetterdienst.provider.dwd.forecast.metadata import (
     DwdMosmixType,
 )
 from wetterdienst.provider.dwd.forecast.metadata.field_types import INTEGER_PARAMETERS
-from wetterdienst.provider.dwd.forecast.metadata.unit import (
-    DwdMosmixUnitOrigin,
-    DwdMosmixUnitSI,
-)
+from wetterdienst.provider.dwd.forecast.metadata.unit import DwdMosmixUnit
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
     DWD_MOSMIX_L_SINGLE_PATH,
@@ -365,8 +362,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _unique_dataset = True
     _dataset_base = DwdMosmixDataset
 
-    _origin_unit_tree = DwdMosmixUnitOrigin
-    _si_unit_tree = DwdMosmixUnitSI
+    _unit_tree = DwdMosmixUnit
 
     @property
     def _dataset_accessor(self) -> str:

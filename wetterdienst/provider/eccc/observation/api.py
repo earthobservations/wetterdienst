@@ -34,10 +34,7 @@ from wetterdienst.provider.eccc.observation.metadata.parameter import (
 from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EccObservationResolution,
 )
-from wetterdienst.provider.eccc.observation.metadata.unit import (
-    EcccObservationUnitOrigin,
-    EcccObservationUnitSI,
-)
+from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
 from wetterdienst.util.cache import payload_cache_twelve_hours
 
 log = logging.getLogger(__name__)
@@ -273,8 +270,7 @@ class EcccObservationRequest(ScalarRequestCore):
     _dataset_tree = EcccObservationDatasetTree
     _unique_dataset = True
 
-    _origin_unit_tree = EcccObservationUnitOrigin
-    _si_unit_tree = EcccObservationUnitSI
+    _unit_tree = EcccObservationUnit
 
     _values = EcccObservationValues
 

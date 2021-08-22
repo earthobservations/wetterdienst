@@ -142,12 +142,7 @@ class ScalarRequestCore(Core):
 
     @property
     @abstractmethod
-    def _origin_unit_tree(self):
-        pass
-
-    @property
-    @abstractmethod
-    def _si_unit_tree(self):
+    def _unit_tree(self):
         pass
 
     @property
@@ -412,6 +407,25 @@ class ScalarRequestCore(Core):
 
         return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
+    @staticmethod
+    def _format_unit(unit) -> str:
+        """
+        Method to format unit and create a string
+        :param unit: pint Unit
+        :return: unit as string
+        """
+        try:
+            unit = unit.units
+        except AttributeError:
+            pass
+
+        unit_string = format(unit, "~")
+
+        if unit_string == "":
+            unit_string = "-"
+
+        return unit_string
+
     @classmethod
     def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> dict:
         """
@@ -438,30 +452,24 @@ class ScalarRequestCore(Core):
                 for parameter in cls._parameter_base[f.name]:
                     parameters[f.name.lower()][parameter.name.lower()] = {}
 
-                    for unit_type, unit_tree in zip(
-                        ("origin", "si"),
-                        (cls._origin_unit_tree, cls._si_unit_tree),
-                    ):
-                        if cls._unique_dataset:
-                            unit = unit_tree[f.name][parameter.name].value
-                        else:
-                            dataset = cls._parameter_to_dataset_mapping[f][parameter]
+                    if cls._unique_dataset:
+                        origin_unit, si_unit = cls._unit_tree[f.name][
+                            parameter.name
+                        ].value
+                    else:
+                        dataset = cls._parameter_to_dataset_mapping[f][parameter]
 
-                            unit = unit_tree[f.name][dataset.name][parameter.name].value
+                        origin_unit, si_unit = cls._unit_tree[f.name][dataset.name][
+                            parameter.name
+                        ].value
 
-                        try:
-                            unit = unit.units
-                        except AttributeError:
-                            pass
+                    parameters[f.name.lower()][parameter.name.lower()][
+                        "origin"
+                    ] = cls._format_unit(origin_unit)
 
-                        unit_string = format(unit, "~")
-
-                        if unit_string == "":
-                            unit_string = "-"
-
-                        parameters[f.name.lower()][parameter.name.lower()][
-                            unit_type
-                        ] = unit_string
+                    parameters[f.name.lower()][parameter.name.lower()][
+                        "si"
+                    ] = cls._format_unit(si_unit)
 
             return parameters
 
@@ -491,26 +499,17 @@ class ScalarRequestCore(Core):
                         parameter.name.lower()
                     ] = {}
 
-                    for unit_type, unit_tree in zip(
-                        ("origin", "si"),
-                        (cls._origin_unit_tree, cls._si_unit_tree),
-                    ):
+                    origin_unit, si_unit = cls._unit_tree[f.name][dataset][
+                        parameter.name
+                    ].value
 
-                        unit = unit_tree[f.name][dataset][parameter.name].value
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()][
+                        "origin"
+                    ] = cls._format_unit(origin_unit)
 
-                        try:
-                            unit = unit.units
-                        except AttributeError:
-                            pass
-
-                        unit_string = format(unit, "~")
-
-                        if unit_string == "":
-                            unit_string = "-"
-
-                        parameters[f.name.lower()][dataset.lower()][
-                            parameter.name.lower()
-                        ][unit_type] = unit_string
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()][
+                        "si"
+                    ] = cls._format_unit(si_unit)
 
         return parameters
 
