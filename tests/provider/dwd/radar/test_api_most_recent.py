@@ -154,8 +154,8 @@ def test_radar_request_radolan_cdc_most_recent():
         'ncol': 900,
         'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft', 'eis',
                            'tur', 'isn', 'fbg', 'mem'],
-        'radardays': ['asb 4', 'boo 24', 'drs 24', 'eis 24', 'ess 24', 'fbg 24', 'fld 24', 'hnr 24', 'isn 24', 'mem 24',
-                      'neu 24', 'nhb 24', 'oft 24', 'pro 24', 'ros 24', 'tur 24', 'umd 24']
+        'radardays': ['asb 24', 'boo 24', 'drs 24', 'eis 24', 'ess 24', 'fbg 24', 'fld 24', 'hnr 24', 'isn 24',
+                      'mem 24', 'neu 24', 'nhb 24', 'oft 24', 'pro 24', 'ros 24', 'tur 24', 'umd 24']
     }
 
     assert requested_attrs == attrs
