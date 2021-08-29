@@ -27,19 +27,15 @@ def test_radar_request_composite_latest_rx_reflectivity():
     )
 
     buffer = next(request.query())[1]
-    requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+    payload = buffer.getvalue()
 
-    # Verify data.
-    attrs = {
-
-    }
-    print(requested_attrs)
-    assert requested_attrs == attrs
+    month_year = datetime.utcnow().strftime("%m%y")
     header = (
         f"RX......10000{month_year}BY 8101..VS 3SW   ......PR E\\+00INT   5GP 900x 900MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
+
+    assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
 @pytest.mark.remote
@@ -47,11 +43,6 @@ def test_radar_request_composite_latest_rw_reflectivity():
     """
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
-
-    timestamp_aligned = round_minutes(datetime.utcnow(), 5)
-    print(timestamp_aligned)
-    timestamp = datetime.utcnow() - timedelta(days=1)
-    print(timestamp)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
@@ -66,12 +57,11 @@ def test_radar_request_composite_latest_rw_reflectivity():
     buffer = results[0][1]
     requested_header = wrl.io.read_radolan_header(buffer)
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
-    print(requested_attrs)
-    print(datetime.utcnow().strftime('%m%y'))
+
     # Verify data.
     attrs = {
         'producttype': 'RW',
-        'datetime': 'TODO',
+        # 'datetime': 'TODO',
         'radarid': '10000',
         'datasize': 1620000,
         'maxrange': '150 km',
@@ -85,15 +75,10 @@ def test_radar_request_composite_latest_rw_reflectivity():
         'moduleflag': 1
     }
 
-    #for key in ['datetime', 'radolanversion']:
-    #    del requested_attrs[key]
+    # TODO check datetime
+    del requested_attrs['datetime']
 
     assert requested_attrs == attrs
-    header = (
-        f"RW......10000{month_year}"
-        f"BY16201..VS 3SW   ......PR E-01INT  60GP 900x 900MF 00000001MS "
-        f"..<{station_reference_pattern_unsorted}>"
-    )
 
 
 @pytest.mark.remote
@@ -110,17 +95,10 @@ def test_radar_request_site_latest_dx_reflectivity():
 
     buffer = next(request.query())[1]
     requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
-    print(requested_attrs)
 
     timestamp_aligned = round_minutes(datetime.utcnow(), 5)
     month_year = timestamp_aligned.strftime("%m%y")
 
     # Verify data.
-    attrs = {
-
-    }
-
-    assert requested_attrs == attrs
-
     header = f"DX......10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
+    assert re.match(header, requested_header)

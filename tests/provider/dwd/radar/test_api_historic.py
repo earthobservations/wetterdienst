@@ -165,19 +165,19 @@ def test_radar_request_composite_historic_fx_yesterday():
     # Verify number of results.
     assert len(results) == 25
 
-    buffer = results[0].data
-
     # Verify data.
-    requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+    payload = results[0].data.getvalue()
+
+    # TODO: Use wradlib to parse binary format.
+    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
+    date_time = request.start_date.strftime("%d%H%M")
+    month_year = request.start_date.strftime("%m%y")
     header = (
         f"FX{date_time}10000{month_year}BY.......VS 3SW   2.12.0PR E-01INT   5GP 900x 900VV 000MF 00000002MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_unsorted}>"
     )
-    attrs = {
-            }
-    print(requested_attrs)
-    assert requested_attrs == attrs
+
+    assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
 @pytest.mark.xfail(reason="Out of service", strict=True)
@@ -247,8 +247,8 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         'intervalseconds': 3600,
         'nrow': 900,
         'ncol': 900,
-        'radarlocations': ['boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft', 'eis', 'tur',
-                           'isn', 'fbg', 'mem'],
+        'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft', 'eis',
+                           'tur', 'isn', 'fbg', 'mem'],
         'moduleflag': 1
     }
     assert requested_attrs == attrs
@@ -273,7 +273,32 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     # Verify number of results.
     assert len(results) == 3
 
-    # TODO: Verify data.
+    buffer = results[0].data
+
+    # Verify data.
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+
+    attrs = {
+        'producttype': 'RW',
+        # 'datetime': 'TODO',
+        'radarid': '10000',
+        'datasize': 1620000,
+        'maxrange': '150 km',
+        'radolanversion': '2.29.1',
+        'precision': 0.1,
+        'intervalseconds': 3600,
+        'nrow': 900,
+        'ncol': 900,
+        'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft',
+                           'eis', 'tur', 'isn', 'fbg', 'mem'],
+        'moduleflag': 1
+    }
+
+    # TODO check datetime
+    del requested_attrs['datetime']
+
+    assert requested_attrs == attrs
 
 
 @pytest.mark.remote
@@ -300,12 +325,11 @@ def test_radar_request_site_historic_dx_yesterday():
 
     # Verify data.
     requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
-
-    attrs = {}
-    print(requested_attrs)
-    assert requested_attrs == attrs
+    timestamp_aligned = round_minutes(timestamp, 5)
+    date_time = timestamp_aligned.strftime("%d%H%M")
+    month_year = timestamp_aligned.strftime("%m%y")
     header = f"DX{date_time}10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
+    assert re.match(header, requested_header)
 
 
 @pytest.mark.remote
@@ -332,7 +356,17 @@ def test_radar_request_site_historic_dx_timerange():
 
     assert len(results) == 6
 
-    # TODO: Verify data.
+    buffer = results[0].data
+
+    # Verify data.
+    requested_header = wrl.io.read_radolan_header(buffer)
+
+    timestamp_aligned = round_minutes(timestamp, 5)
+    date_time = timestamp_aligned.strftime("%d%H%M")
+    month_year = timestamp_aligned.strftime("%m%y")
+    header = f"DX{date_time}10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS "  # noqa:E501,B950
+
+    assert re.match(header, requested_header)
 
 
 @pytest.mark.remote
@@ -363,15 +397,15 @@ def test_radar_request_site_historic_pe_binary_yesterday():
 
     # Verify data.
     requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
-    attrs = {}
-    print(requested_attrs)
-    assert requested_attrs == attrs
+    date_time = request.start_date.strftime("%d%H")
+    month_year = request.start_date.strftime("%m%y")
     header = (
         f"PE{date_time}..10132{month_year}BY ....?VS 1LV12  1.0  2.0  3.0  4.0  5.0  "  # noqa:E501,B950
         f"6.0  7.0  8.0  9.0 10.0 11.0 12.0CO0CD0CS0ET 5.0FL....MS"
     )
+
+    assert re.match(header, requested_header)
 
 
 @pytest.mark.xfail
@@ -882,12 +916,12 @@ def test_radar_request_radvor_re_yesterday():
              'radarid': '10000',
              'datasize': 1620000,
              'maxrange': '150 km',
-             'radolanversion': 'P200002H',
+             'radolanversion': 'P200003H',
              'precision': 0.001,
              'intervalseconds': 3600,
              'nrow': 900,
              'ncol': 900,
-             'radarlocations': ['deboo', 'dedrs', 'deeis', 'deess', 'defbg', 'defld', 'dehnr', 'deisn', 'demem',
+             'radarlocations': ['deasb', 'deboo', 'dedrs', 'deeis', 'deess', 'defbg', 'defld', 'dehnr', 'deisn', 'demem',
                                 'deneu', 'denhb', 'deoft', 'depro', 'deros', 'detur', 'deumd'],
              'predictiontime': 0,
              'moduleflag': 8,
@@ -968,8 +1002,8 @@ def test_radar_request_radvor_rq_yesterday():
         'intervalseconds': 3600,
         'nrow': 900,
         'ncol': 900,
-        'radarlocations': ['boo', 'drs', 'eis', 'ess', 'fbg', 'fld', 'hnr', 'isn', 'mem', 'neu', 'nhb', 'oft', 'pro',
-                           'ros', 'tur', 'umd'],
+        'radarlocations': ['asb', 'boo', 'drs', 'eis', 'ess', 'fbg', 'fld', 'hnr', 'isn', 'mem', 'neu', 'nhb', 'oft',
+                           'pro', 'ros', 'tur', 'umd'],
         'predictiontime': 0,
         'moduleflag': 8,
         'quantification': 1
