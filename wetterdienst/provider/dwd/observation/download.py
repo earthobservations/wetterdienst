@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import List, Tuple
 from zipfile import BadZipFile, ZipFile
 
+from fsspec.implementations.zip import ZipFileSystem
 from requests.exceptions import InvalidURL
 
 from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
@@ -51,7 +52,7 @@ def _download_climate_observations_data(remote_file: str) -> BytesIO:
 def __download_climate_observations_data(remote_file: str) -> bytes:
 
     try:
-        zip_file = download_file(remote_file, ttl=CacheExpiry.FIVE_MINUTES)
+        file = download_file(remote_file, ttl=CacheExpiry.FIVE_MINUTES)
     except InvalidURL as e:
         raise InvalidURL(
             f"Error: the station data {remote_file} could not be reached."
@@ -60,17 +61,18 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
         raise FailedDownload(f"Download failed for {remote_file}")
 
     try:
-        zip_file_opened = ZipFile(zip_file)
+        # zip_file_opened = ZipFile(zip_file)
+        zf = ZipFileSystem(file)
 
         # Files of archive
-        archive_files = zip_file_opened.namelist()
+        # archive_files = zip_file_opened.namelist()
 
-        for file in archive_files:
+        for file in zf.find():
             # If found file load file in bytes, close zipfile and return bytes
             if file.startswith(PRODUCT_FILE_IDENTIFIER):
-                file_in_bytes = zip_file_opened.open(file).read()
+                file_in_bytes = zf.open(file).read()
 
-                zip_file_opened.close()
+                # zip_file_opened.close()
 
                 return file_in_bytes
 
