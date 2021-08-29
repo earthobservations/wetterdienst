@@ -65,7 +65,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "2.29.1",
+        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -94,6 +94,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
 
     # TODO check datetime
     del requested_attrs["datetime"]
+    del requested_attrs["radolanversion"]
 
     assert requested_attrs == attrs
 

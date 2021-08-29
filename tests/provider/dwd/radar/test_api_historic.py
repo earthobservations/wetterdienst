@@ -238,7 +238,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "2.29.1",
+        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -264,6 +264,8 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         ],
         "moduleflag": 1,
     }
+    del requested_attrs["radolanversion"]
+
     assert requested_attrs == attrs
 
 
@@ -298,7 +300,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "2.29.1",
+        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -327,6 +329,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
 
     # TODO check datetime
     del requested_attrs["datetime"]
+    del requested_attrs["radolanversion"]
 
     assert requested_attrs == attrs
 
@@ -947,7 +950,7 @@ def test_radar_request_radvor_re_yesterday():
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "P200003H",
+        # "radolanversion": "P200003H",
         "precision": 0.001,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -975,6 +978,7 @@ def test_radar_request_radvor_re_yesterday():
         "moduleflag": 8,
         "quantification": 16,
     }
+    del requested_attrs["radolanversion"]
 
     assert requested_attrs == attrs
 
@@ -1045,7 +1049,7 @@ def test_radar_request_radvor_rq_yesterday():
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "2.29.1",
+        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -1073,6 +1077,7 @@ def test_radar_request_radvor_rq_yesterday():
         "moduleflag": 8,
         "quantification": 1,
     }
+    del requested_attrs["radolanversion"]
 
     assert requested_attrs == attrs
 

@@ -142,7 +142,7 @@ def test_radar_request_radolan_cdc_most_recent():
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "2.29.1",
+        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 86400,
         "nrow": 900,
@@ -186,5 +186,6 @@ def test_radar_request_radolan_cdc_most_recent():
             "umd 24",
         ],
     }
+    del requested_attrs["radolanversion"]
 
     assert requested_attrs == attrs
