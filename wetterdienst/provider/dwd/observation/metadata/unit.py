@@ -33,20 +33,20 @@ class DwdObservationUnit(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            PRESSURE_AIR_STATION_HEIGHT = (
+            PRESSURE_AIR_SITE = (
                 OriginUnit.HECTOPASCAL.value,
                 SIUnit.PASCAL.value,
             )
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_005 = (
+            TEMPERATURE_AIR_MEAN_005 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_DEW_POINT_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -86,7 +86,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.METER_PER_SECOND.value,
                 SIUnit.METER_PER_SECOND.value,
             )
-            WIND_DIRECTION_MAX_VELOCITY = (
+            WIND_DIRECTION_GUST_MAX = (
                 OriginUnit.WIND_DIRECTION.value,
                 SIUnit.WIND_DIRECTION.value,
             )
@@ -107,7 +107,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # solar
         class SOLAR(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            RADIATION_SKY_DIFFUSE = (
+            RADIATION_SKY_SHORT_WAVE_DIFFUSE = (
                 OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value,
                 SIUnit.JOULE_PER_SQUARE_METER.value,
             )
@@ -135,7 +135,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -202,11 +202,11 @@ class DwdObservationUnit(DatasetTreeCore):
         # dew_point
         class DEW_POINT(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_DEW_POINT_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -234,7 +234,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.HECTOPASCAL.value,
                 SIUnit.PASCAL.value,
             )
-            PRESSURE_AIR_STATION_HEIGHT = (
+            PRESSURE_AIR_SITE = (
                 OriginUnit.HECTOPASCAL.value,
                 SIUnit.PASCAL.value,
             )
@@ -242,27 +242,27 @@ class DwdObservationUnit(DatasetTreeCore):
         # soil_temperature
         class TEMPERATURE_SOIL(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_002 = (
+            TEMPERATURE_SOIL_MEAN_002 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_005 = (
+            TEMPERATURE_SOIL_MEAN_005 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_010 = (
+            TEMPERATURE_SOIL_MEAN_010 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_020 = (
+            TEMPERATURE_SOIL_MEAN_020 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_050 = (
+            TEMPERATURE_SOIL_MEAN_050 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_100 = (
+            TEMPERATURE_SOIL_MEAN_100 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -287,7 +287,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.JOULE_PER_SQUARE_METER.value,
             )
             SUNSHINE_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
-            SUN_ZENITH = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
+            SUN_ZENITH_ANGLE = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
             TRUE_LOCAL_TIME = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
@@ -338,17 +338,17 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_WET = (
+            TEMPERATURE_WET_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            PRESSURE_AIR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_200 = (
+            PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_DEW_POINT_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -358,7 +358,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -377,11 +377,11 @@ class DwdObservationUnit(DatasetTreeCore):
         class MOISTURE(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_005 = (
+            TEMPERATURE_AIR_MEAN_005 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -390,12 +390,12 @@ class DwdObservationUnit(DatasetTreeCore):
         # pressure
         class PRESSURE(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            PRESSURE_AIR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
 
         # soil
         class SOIL(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_005 = (
+            TEMPERATURE_SOIL_MEAN_005 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -443,8 +443,8 @@ class DwdObservationUnit(DatasetTreeCore):
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            PRESSURE_AIR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_200 = (
+            PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -479,23 +479,27 @@ class DwdObservationUnit(DatasetTreeCore):
         # soil_temperature
         class TEMPERATURE_SOIL(UnitEnum):  # noqa
             QUALITY = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_002 = (
+            TEMPERATURE_SOIL_MEAN_002 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_005 = (
+            TEMPERATURE_SOIL_MEAN_005 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_010 = (
+            TEMPERATURE_SOIL_MEAN_010 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_020 = (
+            TEMPERATURE_SOIL_MEAN_020 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_050 = (
+            TEMPERATURE_SOIL_MEAN_050 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_100 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -522,11 +526,11 @@ class DwdObservationUnit(DatasetTreeCore):
             QN_6 = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             SNOW_DEPTH_EXCELLED = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = (
+            WATER_EQUIVALENT_SNOW_DEPTH = (
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            WATER_EQUIVALENT_SNOW = (
+            WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED = (
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
@@ -534,21 +538,21 @@ class DwdObservationUnit(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            STORM_STRONG_WIND = (
+            COUNT_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_STORM_STRONG_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            STORM_STORMIER_WIND = (
+            COUNT_STORM_STORMIER_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            RIPE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_RIPE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
 
     # monthly
     class MONTHLY(DatasetTreeCore):
@@ -559,15 +563,15 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MAX_MEAN_200 = (
+            TEMPERATURE_AIR_MAX_200_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_MEAN_200 = (
+            TEMPERATURE_AIR_MIN_200_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -615,20 +619,20 @@ class DwdObservationUnit(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            STORM_STRONG_WIND = (
+            COUNT_STORM_STRONG_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            STORM_STORMIER_WIND = (
+            COUNT_STORM_STORMIER_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
 
     # annual
     class ANNUAL(DatasetTreeCore):
@@ -639,15 +643,15 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_MEAN_200 = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MAX_MEAN_200 = (
+            TEMPERATURE_AIR_MAX_200_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_MEAN_200 = (
+            TEMPERATURE_AIR_MIN_200_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -695,17 +699,17 @@ class DwdObservationUnit(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            STORM_STRONG_WIND = (
+            COUNT_STORM_STRONG_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            STORM_STORMIER_WIND = (
+            COUNT_STORM_STORMIER_WIND = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_GLAZE = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_DEW = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value

@@ -26,9 +26,6 @@ from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.eccc.observation.metadata.dataset import (
     EcccObservationDataset,
-    EcccObservationDatasetTree,
-)
-from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.resolution import (
@@ -267,7 +264,7 @@ class EcccObservationRequest(ScalarRequestCore):
     _data_range = DataRange.LOOSELY
     _has_datasets = True
     _dataset_base = EcccObservationDataset
-    _dataset_tree = EcccObservationDatasetTree
+    _dataset_tree = EcccObservationParameter
     _unique_dataset = True
 
     _unit_tree = EcccObservationUnit

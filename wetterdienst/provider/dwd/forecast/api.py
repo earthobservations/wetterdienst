@@ -359,6 +359,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _period_base = None
     _data_range = DataRange.FIXED
     _has_datasets = True
+    _dataset_tree = DwdMosmixParameter
     _unique_dataset = True
     _dataset_base = DwdMosmixDataset
 

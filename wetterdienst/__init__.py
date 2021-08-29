@@ -6,6 +6,7 @@ __appname__ = "wetterdienst"
 
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution

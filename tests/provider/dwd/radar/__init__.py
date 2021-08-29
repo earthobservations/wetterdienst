@@ -11,6 +11,6 @@ station_reference_pattern_sorted = (
     "(mem,)?(neu,)?(nhb,)?oft,pro,(ros,)?(tur,)?umd"
 )
 station_reference_pattern_de = (
-    "(deasb,)?(deboo,)?(dedrs,)?deeis,deess,(defbg,)?defld,dehnr,"
+    "(deasb,)?(deboo,)?(dedrs,)?deeis,deess,(defbg,)?defld,(dehnr,)?"
     "(deisn,)?(demem,)?(deneu,denhb,deoft,depro,deros(,detur)?(,deumd)?)?"
 )

@@ -21,11 +21,11 @@ class DwdObservationParameter(DatasetTreeCore):
     # 10_minutes
     class MINUTE_10(Enum):  # noqa
         # air_temperature
-        PRESSURE_AIR_STATION_HEIGHT = "pp_10"
-        TEMPERATURE_AIR_200 = "tt_10"
-        TEMPERATURE_AIR_005 = "tm5_10"
+        PRESSURE_AIR_SITE = "pp_10"
+        TEMPERATURE_AIR_MEAN_200 = "tt_10"
+        TEMPERATURE_AIR_MEAN_005 = "tm5_10"
         HUMIDITY = "rf_10"
-        TEMPERATURE_DEW_POINT_200 = "td_10"
+        TEMPERATURE_DEW_POINT_MEAN_200 = "td_10"
 
         # extreme_temperature
         TEMPERATURE_AIR_MAX_200 = "tx_10"
@@ -37,7 +37,7 @@ class DwdObservationParameter(DatasetTreeCore):
         WIND_GUST_MAX = "fx_10"
         WIND_SPEED_MIN = "fnx_10"
         WIND_SPEED_ROLLING_MEAN_MAX = "fmx_10"
-        WIND_DIRECTION_MAX_VELOCITY = "dx_10"  # int
+        WIND_DIRECTION_GUST_MAX = "dx_10"  # int
 
         # precipitation
         PRECIPITATION_DURATION = "rws_dau_10"
@@ -45,7 +45,7 @@ class DwdObservationParameter(DatasetTreeCore):
         PRECIPITATION_INDICATOR_WR = "rws_ind_10"  # int
 
         # solar
-        RADIATION_SKY_DIFFUSE = "ds_10"
+        RADIATION_SKY_SHORT_WAVE_DIFFUSE = "ds_10"
         RADIATION_GLOBAL = "gs_10"
         SUNSHINE_DURATION = "sd_10"
         RADIATION_SKY_LONG_WAVE = "ls_10"
@@ -57,7 +57,7 @@ class DwdObservationParameter(DatasetTreeCore):
     # hourly
     class HOURLY(Enum):
         # air_temperature
-        TEMPERATURE_AIR_200 = "tt_tu"
+        TEMPERATURE_AIR_MEAN_200 = "tt_tu"
         HUMIDITY = "rf_tu"
 
         # cloud_type
@@ -86,7 +86,7 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # dew_point
         # TEMPERATURE_AIR_200 = "tt"
-        TEMPERATURE_DEW_POINT_200 = "td"
+        TEMPERATURE_DEW_POINT_MEAN_200 = "td"
 
         # precipitation
         PRECIPITATION_HEIGHT = "r1"
@@ -95,15 +95,15 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # pressure
         PRESSURE_AIR_SEA_LEVEL = "p"
-        PRESSURE_AIR_STATION_HEIGHT = "p0"
+        PRESSURE_AIR_SITE = "p0"
 
         # soil_temperature
-        TEMPERATURE_SOIL_002 = "v_te002"
-        TEMPERATURE_SOIL_005 = "v_te005"
-        TEMPERATURE_SOIL_010 = "v_te010"
-        TEMPERATURE_SOIL_020 = "v_te020"
-        TEMPERATURE_SOIL_050 = "v_te050"
-        TEMPERATURE_SOIL_100 = "v_te100"
+        TEMPERATURE_SOIL_MEAN_002 = "v_te002"
+        TEMPERATURE_SOIL_MEAN_005 = "v_te005"
+        TEMPERATURE_SOIL_MEAN_010 = "v_te010"
+        TEMPERATURE_SOIL_MEAN_020 = "v_te020"
+        TEMPERATURE_SOIL_MEAN_050 = "v_te050"
+        TEMPERATURE_SOIL_MEAN_100 = "v_te100"
 
         # solar
         # END_OF_INTERVAL = "end_of_interval"  # modified, does not exist in original
@@ -111,14 +111,14 @@ class DwdObservationParameter(DatasetTreeCore):
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_lberg"
         RADIATION_GLOBAL = "fg_lberg"
         SUNSHINE_DURATION = "sd_lberg"
-        SUN_ZENITH = "zenit"
+        SUN_ZENITH_ANGLE = "zenit"
         # TRUE_LOCAL_TIME = "true_local_time"  # original name was adjusted to this one
 
         # sun
         # SUNSHINE_DURATION = "sd_so"
 
         # visibility
-        # VISIBILITY_INDICATOR = "v_vv_i"  # str
+        VISIBILITY_INDICATOR = "v_vv_i"  # str
         VISIBILITY = "v_vv"  # int
 
         # wind
@@ -131,8 +131,8 @@ class DwdObservationParameter(DatasetTreeCore):
 
         HUMIDITY_ABSOLUTE = "absf_std"
         PRESSURE_VAPOR = "vp_std"
-        TEMPERATURE_WET = "tf_std"
-        PRESSURE_AIR = "p_std"
+        TEMPERATURE_WET_MEAN_200 = "tf_std"
+        # PRESSURE_AIR_SH = "p_std"
         # TEMPERATURE_AIR_200 = "tt_std"
         # HUMIDITY = "rf_std"
         # TEMPERATURE_DEW_POINT_200 = "td_std"
@@ -140,7 +140,7 @@ class DwdObservationParameter(DatasetTreeCore):
     # subdaily
     class SUBDAILY(Enum):  # noqa
         # air_temperature
-        TEMPERATURE_AIR_200 = "tt_ter"
+        TEMPERATURE_AIR_MEAN_200 = "tt_ter"
         HUMIDITY = "rf_ter"
 
         # cloudiness
@@ -149,15 +149,15 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # moisture
         PRESSURE_VAPOR = "vp_ter"
-        TEMPERATURE_AIR_005 = "e_tf_ter"
+        TEMPERATURE_AIR_MEAN_005 = "e_tf_ter"
         # TEMPERATURE_AIR_200 = "tf_ter"
         # HUMIDITY = "rf_ter"
 
         # pressure
-        PRESSURE_AIR = "pp_ter"
+        PRESSURE_AIR_SITE = "pp_ter"
 
         # soil
-        TEMPERATURE_SOIL_005 = "ek_ter"  # int
+        TEMPERATURE_SOIL_MEAN_005 = "ek_ter"  # int
 
         # visibility
         VISIBILITY = "vk_ter"  # int
@@ -177,8 +177,8 @@ class DwdObservationParameter(DatasetTreeCore):
         SNOW_DEPTH = "shk_tag"
         CLOUD_COVER_TOTAL = "nm"
         PRESSURE_VAPOR = "vpm"
-        PRESSURE_AIR = "pm"
-        TEMPERATURE_AIR_200 = "tmk"
+        PRESSURE_AIR_SITE = "pm"
+        TEMPERATURE_AIR_MEAN_200 = "tmk"
         HUMIDITY = "upm"
         TEMPERATURE_AIR_MAX_200 = "txk"
         TEMPERATURE_AIR_MIN_200 = "tnk"
@@ -191,11 +191,12 @@ class DwdObservationParameter(DatasetTreeCore):
         SNOW_DEPTH_NEW = "nsh_tag"  # int
 
         # soil_temperature
-        TEMPERATURE_SOIL_002 = "v_te002m"
-        TEMPERATURE_SOIL_005 = "v_te005m"
-        TEMPERATURE_SOIL_010 = "v_te010m"
-        TEMPERATURE_SOIL_020 = "v_te020m"
-        TEMPERATURE_SOIL_050 = "v_te050m"
+        TEMPERATURE_SOIL_MEAN_002 = "v_te002m"
+        TEMPERATURE_SOIL_MEAN_005 = "v_te005m"
+        TEMPERATURE_SOIL_MEAN_010 = "v_te010m"
+        TEMPERATURE_SOIL_MEAN_020 = "v_te020m"
+        TEMPERATURE_SOIL_MEAN_050 = "v_te050m"
+        TEMPERATURE_SOIL_MEAN_100 = "v_te050m"
 
         # solar
         RADIATION_SKY_LONG_WAVE = "atmo_strahl"
@@ -206,27 +207,27 @@ class DwdObservationParameter(DatasetTreeCore):
         # water_equiv
         SNOW_DEPTH_EXCELLED = "ash_6"  # int
         # SNOW_DEPTH = "sh_tag"  # int
-        WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = "wash_6"
-        WATER_EQUIVALENT_SNOW = "waas_6"
+        WATER_EQUIVALENT_SNOW_DEPTH = "wash_6"
+        WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED = "waas_6"
 
         # weather_phenomena
-        FOG = "nebel"  # int
-        THUNDER = "gewitter"  # int
-        STORM_STRONG_WIND = "sturm_6"  # int
-        STORM_STORMIER_WIND = "sturm_8"  # int
-        DEW = "tau"  # int
-        GLAZE = "glatteis"  # int
-        RIPE = "reif"  # int
-        SLEET = "graupel"  # int
-        HAIL = "hagel"  # int
+        COUNT_FOG = "nebel"  # int
+        COUNT_THUNDER = "gewitter"  # int
+        COUNT_STORM_STRONG_WIND = "sturm_6"  # int
+        COUNT_STORM_STORMIER_WIND = "sturm_8"  # int
+        COUNT_DEW = "tau"  # int
+        COUNT_GLAZE = "glatteis"  # int
+        COUNT_RIPE = "reif"  # int
+        COUNT_SLEET = "graupel"  # int
+        COUNT_HAIL = "hagel"  # int
 
     # monthly
     class MONTHLY(Enum):
         # kl
         CLOUD_COVER_TOTAL = "mo_n"
-        TEMPERATURE_AIR_200 = "mo_tt"
-        TEMPERATURE_AIR_MAX_MEAN_200 = "mo_tx"
-        TEMPERATURE_AIR_MIN_MEAN_200 = "mo_tn"
+        TEMPERATURE_AIR_MEAN_200 = "mo_tt"
+        TEMPERATURE_AIR_MAX_200_MEAN = "mo_tx"
+        TEMPERATURE_AIR_MIN_200_MEAN = "mo_tn"
         WIND_FORCE_BEAUFORT = "mo_fk"
         TEMPERATURE_AIR_MAX_200 = "mx_tx"
         WIND_GUST_MAX = "mx_fx"
@@ -242,22 +243,22 @@ class DwdObservationParameter(DatasetTreeCore):
         # PRECIPITATION_HEIGHT_MAX = "mx_rs"
 
         # weather_phenomena
-        STORM_STRONG_WIND = "mo_sturm_6"  # int
-        STORM_STORMIER_WIND = "mo_sturm_8"  # int
-        THUNDER = "mo_gewitter"  # int
-        GLAZE = "mo_glatteis"  # int
-        SLEET = "mo_graupel"  # int
-        HAIL = "mo_hagel"  # int
-        FOG = "mo_nebel"  # int
-        DEW = "mo_tau"  # int
+        COUNT_STORM_STRONG_WIND = "mo_sturm_6"  # int
+        COUNT_STORM_STORMIER_WIND = "mo_sturm_8"  # int
+        COUNT_THUNDER = "mo_gewitter"  # int
+        COUNT_GLAZE = "mo_glatteis"  # int
+        COUNT_SLEET = "mo_graupel"  # int
+        COUNT_HAIL = "mo_hagel"  # int
+        COUNT_FOG = "mo_nebel"  # int
+        COUNT_DEW = "mo_tau"  # int
 
     # annual
     class ANNUAL(Enum):
         # kl
         CLOUD_COVER_TOTAL = "ja_n"
-        TEMPERATURE_AIR_200 = "ja_tt"
-        TEMPERATURE_AIR_MAX_MEAN_200 = "ja_tx"
-        TEMPERATURE_AIR_MIN_MEAN_200 = "ja_tn"
+        TEMPERATURE_AIR_MEAN_200 = "ja_tt"
+        TEMPERATURE_AIR_MAX_200_MEAN = "ja_tx"
+        TEMPERATURE_AIR_MIN_200_MEAN = "ja_tn"
         WIND_FORCE_BEAUFORT = "ja_fk"
         SUNSHINE_DURATION = "ja_sd_s"
         WIND_GUST_MAX = "ja_mx_fx"
@@ -273,14 +274,14 @@ class DwdObservationParameter(DatasetTreeCore):
         # PRECIPITATION_HEIGHT_MAX = "ja_mx_rs"
 
         # weather_phenomena
-        STORM_STRONG_WIND = "ja_sturm_6"  # int
-        STORM_STORMIER_WIND = "ja_sturm_8"  # int
-        THUNDER = "ja_gewitter"  # int
-        GLAZE = "ja_glatteis"  # int
-        SLEET = "ja_graupel"  # int
-        HAIL = "ja_hagel"  # int
-        FOG = "ja_nebel"  # int
-        DEW = "ja_tau"  # int
+        COUNT_STORM_STRONG_WIND = "ja_sturm_6"  # int
+        COUNT_STORM_STORMIER_WIND = "ja_sturm_8"  # int
+        COUNT_THUNDER = "ja_gewitter"  # int
+        COUNT_GLAZE = "ja_glatteis"  # int
+        COUNT_SLEET = "ja_graupel"  # int
+        COUNT_HAIL = "ja_hagel"  # int
+        COUNT_FOG = "ja_nebel"  # int
+        COUNT_DEW = "ja_tau"  # int
 
 
 class DwdObservationDatasetTree(DatasetTreeCore):
@@ -307,11 +308,11 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
             QUALITY = "qn"
-            PRESSURE_AIR_STATION_HEIGHT = "pp_10"
-            TEMPERATURE_AIR_200 = "tt_10"
-            TEMPERATURE_AIR_005 = "tm5_10"
+            PRESSURE_AIR_SITE = "pp_10"
+            TEMPERATURE_AIR_MEAN_200 = "tt_10"
+            TEMPERATURE_AIR_MEAN_005 = "tm5_10"
             HUMIDITY = "rf_10"
-            TEMPERATURE_DEW_POINT_200 = "td_10"
+            TEMPERATURE_DEW_POINT_MEAN_200 = "td_10"
 
         # extreme_temperature
         class TEMPERATURE_EXTREME(Enum):  # noqa
@@ -327,7 +328,7 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             WIND_GUST_MAX = "fx_10"
             WIND_SPEED_MIN = "fnx_10"
             WIND_SPEED_ROLLING_MEAN_MAX = "fmx_10"
-            WIND_DIRECTION_MAX_VELOCITY = "dx_10"  # int
+            WIND_DIRECTION_GUST_MAX = "dx_10"  # int
 
         # precipitation
         class PRECIPITATION(Enum):
@@ -339,7 +340,7 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # solar
         class SOLAR(Enum):
             QUALITY = "qn"
-            RADIATION_SKY_DIFFUSE = "ds_10"
+            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "ds_10"
             RADIATION_GLOBAL = "gs_10"
             SUNSHINE_DURATION = "sd_10"
             RADIATION_SKY_LONG_WAVE = "ls_10"
@@ -355,7 +356,7 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
             QUALITY = "qn_9"
-            TEMPERATURE_AIR_200 = "tt_tu"
+            TEMPERATURE_AIR_MEAN_200 = "tt_tu"
             HUMIDITY = "rf_tu"
 
         # cloud_type
@@ -389,8 +390,8 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # dew_point
         class DEW_POINT(Enum):  # noqa
             QUALITY = "qn_8"
-            TEMPERATURE_AIR_200 = "tt"
-            TEMPERATURE_DEW_POINT_200 = "td"
+            TEMPERATURE_AIR_MEAN_200 = "tt"
+            TEMPERATURE_DEW_POINT_MEAN_200 = "td"
 
         # precipitation
         class PRECIPITATION(Enum):
@@ -403,17 +404,17 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         class PRESSURE(Enum):
             QUALITY = "qn_8"
             PRESSURE_AIR_SEA_LEVEL = "p"
-            PRESSURE_AIR_STATION_HEIGHT = "p0"
+            PRESSURE_AIR_SITE = "p0"
 
         # soil_temperature
         class TEMPERATURE_SOIL(Enum):  # noqa
             QUALITY = "qn_2"
-            TEMPERATURE_SOIL_002 = "v_te002"
-            TEMPERATURE_SOIL_005 = "v_te005"
-            TEMPERATURE_SOIL_010 = "v_te010"
-            TEMPERATURE_SOIL_020 = "v_te020"
-            TEMPERATURE_SOIL_050 = "v_te050"
-            TEMPERATURE_SOIL_100 = "v_te100"
+            TEMPERATURE_SOIL_MEAN_002 = "v_te002"
+            TEMPERATURE_SOIL_MEAN_005 = "v_te005"
+            TEMPERATURE_SOIL_MEAN_010 = "v_te010"
+            TEMPERATURE_SOIL_MEAN_020 = "v_te020"
+            TEMPERATURE_SOIL_MEAN_050 = "v_te050"
+            TEMPERATURE_SOIL_MEAN_100 = "v_te100"
 
         # solar
         class SOLAR(Enum):
@@ -423,7 +424,7 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_lberg"
             RADIATION_GLOBAL = "fg_lberg"
             SUNSHINE_DURATION = "sd_lberg"
-            SUN_ZENITH = "zenit"
+            SUN_ZENITH_ANGLE = "zenit"
             TRUE_LOCAL_TIME = (
                 "true_local_time"  # original name was adjusted to this one
             )
@@ -455,18 +456,18 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             QUALITY = "qn_4"
             HUMIDITY_ABSOLUTE = "absf_std"
             PRESSURE_VAPOR = "vp_std"
-            TEMPERATURE_WET = "tf_std"
-            PRESSURE_AIR = "p_std"
-            TEMPERATURE_AIR_200 = "tt_std"
+            TEMPERATURE_WET_MEAN_200 = "tf_std"
+            PRESSURE_AIR_SITE = "p_std"
+            TEMPERATURE_AIR_MEAN_200 = "tt_std"
             HUMIDITY = "rf_std"
-            TEMPERATURE_DEW_POINT_200 = "td_std"
+            TEMPERATURE_DEW_POINT_MEAN_200 = "td_std"
 
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
             QUALITY = "qn_4"
-            TEMPERATURE_AIR_200 = "tt_ter"
+            TEMPERATURE_AIR_MEAN_200 = "tt_ter"
             HUMIDITY = "rf_ter"
 
         # cloudiness
@@ -479,19 +480,19 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         class MOISTURE(Enum):
             QUALITY = "qn_4"
             PRESSURE_VAPOR = "vp_ter"
-            TEMPERATURE_AIR_005 = "e_tf_ter"
-            TEMPERATURE_AIR_200 = "tf_ter"
+            TEMPERATURE_AIR_MEAN_005 = "e_tf_ter"
+            TEMPERATURE_AIR_MEAN_200 = "tf_ter"
             HUMIDITY = "rf_ter"
 
         # pressure
         class PRESSURE(Enum):
             QUALITY = "qn_4"
-            PRESSURE_AIR = "pp_ter"
+            PRESSURE_AIR_SITE = "pp_ter"
 
         # soil
         class SOIL(Enum):
             QUALITY = "qn_4"
-            TEMPERATURE_SOIL_005 = "ek_ter"  # int
+            TEMPERATURE_SOIL_MEAN_005 = "ek_ter"  # int
 
         # visibility
         class VISIBILITY(Enum):
@@ -518,8 +519,8 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             SNOW_DEPTH = "shk_tag"
             CLOUD_COVER_TOTAL = "nm"
             PRESSURE_VAPOR = "vpm"
-            PRESSURE_AIR = "pm"
-            TEMPERATURE_AIR_200 = "tmk"
+            PRESSURE_AIR_SITE = "pm"
+            TEMPERATURE_AIR_MEAN_200 = "tmk"
             HUMIDITY = "upm"
             TEMPERATURE_AIR_MAX_200 = "txk"
             TEMPERATURE_AIR_MIN_200 = "tnk"
@@ -536,11 +537,12 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # soil_temperature
         class TEMPERATURE_SOIL(Enum):  # noqa
             QUALITY = "qn_2"
-            TEMPERATURE_SOIL_002 = "v_te002m"
-            TEMPERATURE_SOIL_005 = "v_te005m"
-            TEMPERATURE_SOIL_010 = "v_te010m"
-            TEMPERATURE_SOIL_020 = "v_te020m"
-            TEMPERATURE_SOIL_050 = "v_te050m"
+            TEMPERATURE_SOIL_MEAN_002 = "v_te002m"
+            TEMPERATURE_SOIL_MEAN_005 = "v_te005m"
+            TEMPERATURE_SOIL_MEAN_010 = "v_te010m"
+            TEMPERATURE_SOIL_MEAN_020 = "v_te020m"
+            TEMPERATURE_SOIL_MEAN_050 = "v_te050m"
+            TEMPERATURE_SOIL_MEAN_100 = "v_te100m"
 
         # solar
         class SOLAR(Enum):
@@ -555,21 +557,21 @@ class DwdObservationDatasetTree(DatasetTreeCore):
             QN_6 = "qn_6"
             SNOW_DEPTH_EXCELLED = "ash_6"  # int
             SNOW_DEPTH = "sh_tag"  # int
-            WATER_EQUIVALENT_TOTAL_SNOW_DEPTH = "wash_6"
-            WATER_EQUIVALENT_SNOW = "waas_6"
+            WATER_EQUIVALENT_SNOW_DEPTH = "wash_6"
+            WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED = "waas_6"
 
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QUALITY = "qn_4"
-            FOG = "nebel"  # int
-            THUNDER = "gewitter"  # int
-            STORM_STRONG_WIND = "sturm_6"  # int
-            STORM_STORMIER_WIND = "sturm_8"  # int
-            DEW = "tau"  # int
-            GLAZE = "glatteis"  # int
-            RIPE = "reif"  # int
-            SLEET = "graupel"  # int
-            HAIL = "hagel"  # int
+            COUNT_FOG = "nebel"  # int
+            COUNT_THUNDER = "gewitter"  # int
+            COUNT_STORM_STRONG_WIND = "sturm_6"  # int
+            COUNT_STORM_STORMIER_WIND = "sturm_8"  # int
+            COUNT_DEW = "tau"  # int
+            COUNT_GLAZE = "glatteis"  # int
+            COUNT_RIPE = "reif"  # int
+            COUNT_SLEET = "graupel"  # int
+            COUNT_HAIL = "hagel"  # int
 
     # monthly
     class MONTHLY(DatasetTreeCore):
@@ -577,9 +579,9 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         class CLIMATE_SUMMARY(Enum):  # noqa
             QUALITY_GENERAL = "qn_4"
             CLOUD_COVER_TOTAL = "mo_n"
-            TEMPERATURE_AIR_200 = "mo_tt"
-            TEMPERATURE_AIR_MAX_MEAN_200 = "mo_tx"
-            TEMPERATURE_AIR_MIN_MEAN_200 = "mo_tn"
+            TEMPERATURE_AIR_MEAN_200 = "mo_tt"
+            TEMPERATURE_AIR_MAX_200_MEAN = "mo_tx"
+            TEMPERATURE_AIR_MIN_200_MEAN = "mo_tn"
             WIND_FORCE_BEAUFORT = "mo_fk"
             TEMPERATURE_AIR_MAX_200 = "mx_tx"
             WIND_GUST_MAX = "mx_fx"
@@ -600,14 +602,14 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QUALITY = "qn_4"
-            STORM_STRONG_WIND = "mo_sturm_6"  # int
-            STORM_STORMIER_WIND = "mo_sturm_8"  # int
-            THUNDER = "mo_gewitter"  # int
-            GLAZE = "mo_glatteis"  # int
-            SLEET = "mo_graupel"  # int
-            HAIL = "mo_hagel"  # int
-            FOG = "mo_nebel"  # int
-            DEW = "mo_tau"  # int
+            COUNT_STORM_STRONG_WIND = "mo_sturm_6"  # int
+            COUNT_STORM_STORMIER_WIND = "mo_sturm_8"  # int
+            COUNT_THUNDER = "mo_gewitter"  # int
+            COUNT_GLAZE = "mo_glatteis"  # int
+            COUNT_SLEET = "mo_graupel"  # int
+            COUNT_HAIL = "mo_hagel"  # int
+            COUNT_FOG = "mo_nebel"  # int
+            COUNT_DEW = "mo_tau"  # int
 
     # annual
     class ANNUAL(DatasetTreeCore):
@@ -615,9 +617,9 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         class CLIMATE_SUMMARY(Enum):  # noqa
             QUALITY_GENERAL = "qn_4"
             CLOUD_COVER_TOTAL = "ja_n"
-            TEMPERATURE_AIR_200 = "ja_tt"
-            TEMPERATURE_AIR_MAX_MEAN_200 = "ja_tx"
-            TEMPERATURE_AIR_MIN_MEAN_200 = "ja_tn"
+            TEMPERATURE_AIR_MEAN_200 = "ja_tt"
+            TEMPERATURE_AIR_MAX_200_MEAN = "ja_tx"
+            TEMPERATURE_AIR_MIN_200_MEAN = "ja_tn"
             WIND_FORCE_BEAUFORT = "ja_fk"
             SUNSHINE_DURATION = "ja_sd_s"
             WIND_GUST_MAX = "ja_mx_fx"
@@ -638,14 +640,14 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QUALITY = "qn_4"
-            STORM_STRONG_WIND = "ja_sturm_6"  # int
-            STORM_STORMIER_WIND = "ja_sturm_8"  # int
-            THUNDER = "ja_gewitter"  # int
-            GLAZE = "ja_glatteis"  # int
-            SLEET = "ja_graupel"  # int
-            HAIL = "ja_hagel"  # int
-            FOG = "ja_nebel"  # int
-            DEW = "ja_tau"  # int
+            COUNT_STORM_STRONG_WIND = "ja_sturm_6"  # int
+            COUNT_STORM_STORMIER_WIND = "ja_sturm_8"  # int
+            COUNT_THUNDER = "ja_gewitter"  # int
+            COUNT_GLAZE = "ja_glatteis"  # int
+            COUNT_SLEET = "ja_graupel"  # int
+            COUNT_HAIL = "ja_hagel"  # int
+            COUNT_FOG = "ja_nebel"  # int
+            COUNT_DEW = "ja_tau"  # int
 
 
 PARAMETER_TO_DATASET_MAPPING = {
@@ -658,11 +660,11 @@ PARAMETER_TO_DATASET_MAPPING = {
     },
     Resolution.MINUTE_10: {
         # air_temperature
-        DwdObservationParameter.MINUTE_10.PRESSURE_AIR_STATION_HEIGHT: DwdObservationDataset.TEMPERATURE_AIR,
-        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_200: DwdObservationDataset.TEMPERATURE_AIR,
-        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_005: DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationParameter.MINUTE_10.PRESSURE_AIR_SITE: DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MEAN_200: DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MEAN_005: DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationParameter.MINUTE_10.HUMIDITY: DwdObservationDataset.TEMPERATURE_AIR,
-        DwdObservationParameter.MINUTE_10.TEMPERATURE_DEW_POINT_200: DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationParameter.MINUTE_10.TEMPERATURE_DEW_POINT_MEAN_200: DwdObservationDataset.TEMPERATURE_AIR,
         # extreme_temperature
         DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MAX_200: DwdObservationDataset.TEMPERATURE_EXTREME,
         DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR_MAX_005: DwdObservationDataset.TEMPERATURE_EXTREME,
@@ -672,13 +674,13 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.MINUTE_10.WIND_GUST_MAX: DwdObservationDataset.WIND_EXTREME,
         DwdObservationParameter.MINUTE_10.WIND_SPEED_MIN: DwdObservationDataset.WIND_EXTREME,
         DwdObservationParameter.MINUTE_10.WIND_SPEED_ROLLING_MEAN_MAX: DwdObservationDataset.WIND_EXTREME,
-        DwdObservationParameter.MINUTE_10.WIND_DIRECTION_MAX_VELOCITY: DwdObservationDataset.WIND_EXTREME,
+        DwdObservationParameter.MINUTE_10.WIND_DIRECTION_GUST_MAX: DwdObservationDataset.WIND_EXTREME,
         # precipitation
         DwdObservationParameter.MINUTE_10.PRECIPITATION_DURATION: DwdObservationDataset.PRECIPITATION,
         DwdObservationParameter.MINUTE_10.PRECIPITATION_HEIGHT: DwdObservationDataset.PRECIPITATION,
         DwdObservationParameter.MINUTE_10.PRECIPITATION_INDICATOR_WR: DwdObservationDataset.PRECIPITATION,
         # solar
-        DwdObservationParameter.MINUTE_10.RADIATION_SKY_DIFFUSE: DwdObservationDataset.SOLAR,
+        DwdObservationParameter.MINUTE_10.RADIATION_SKY_SHORT_WAVE_DIFFUSE: DwdObservationDataset.SOLAR,
         DwdObservationParameter.MINUTE_10.RADIATION_GLOBAL: DwdObservationDataset.SOLAR,
         DwdObservationParameter.MINUTE_10.SUNSHINE_DURATION: DwdObservationDataset.SOLAR,
         DwdObservationParameter.MINUTE_10.RADIATION_SKY_LONG_WAVE: DwdObservationDataset.SOLAR,
@@ -688,7 +690,7 @@ PARAMETER_TO_DATASET_MAPPING = {
     },
     Resolution.HOURLY: {
         # air_temperature
-        DwdObservationParameter.HOURLY.TEMPERATURE_AIR_200: DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationParameter.HOURLY.TEMPERATURE_AIR_MEAN_200: DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationParameter.HOURLY.HUMIDITY: DwdObservationDataset.TEMPERATURE_AIR,
         # cloudiness
         DwdObservationParameter.HOURLY.CLOUD_COVER_TOTAL: DwdObservationDataset.CLOUDINESS,
@@ -714,21 +716,21 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.HOURLY.CLOUD_COVER_LAYER4: DwdObservationDataset.CLOUD_TYPE,
         # dew_point
         # TEMPERATURE_AIR_200: "tt"
-        DwdObservationParameter.HOURLY.TEMPERATURE_DEW_POINT_200: DwdObservationDataset.DEW_POINT,
+        DwdObservationParameter.HOURLY.TEMPERATURE_DEW_POINT_MEAN_200: DwdObservationDataset.DEW_POINT,
         # precipitation
         DwdObservationParameter.HOURLY.PRECIPITATION_HEIGHT: DwdObservationDataset.PRECIPITATION,
         DwdObservationParameter.HOURLY.PRECIPITATION_INDICATOR: DwdObservationDataset.PRECIPITATION,
         DwdObservationParameter.HOURLY.PRECIPITATION_FORM: DwdObservationDataset.PRECIPITATION,
         # pressure
         DwdObservationParameter.HOURLY.PRESSURE_AIR_SEA_LEVEL: DwdObservationDataset.PRESSURE,
-        DwdObservationParameter.HOURLY.PRESSURE_AIR_STATION_HEIGHT: DwdObservationDataset.PRESSURE,
+        DwdObservationParameter.HOURLY.PRESSURE_AIR_SITE: DwdObservationDataset.PRESSURE,
         # soil_temperature
-        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_002: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_005: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_010: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_020: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_050: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_100: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_MEAN_002: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_MEAN_005: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_MEAN_010: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_MEAN_020: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_MEAN_050: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.HOURLY.TEMPERATURE_SOIL_MEAN_100: DwdObservationDataset.TEMPERATURE_SOIL,
         # sun
         DwdObservationParameter.HOURLY.SUNSHINE_DURATION: DwdObservationDataset.SUNSHINE_DURATION,
         # solar
@@ -737,10 +739,10 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.HOURLY.RADIATION_SKY_SHORT_WAVE_DIFFUSE: DwdObservationDataset.SOLAR,
         DwdObservationParameter.HOURLY.RADIATION_GLOBAL: DwdObservationDataset.SOLAR,
         # DwdObservationParameter.HOURLY.SUNSHINE_DURATION:                 DwdObservationParameterSetStructure.HOURLY.SOLAR.SUNSHINE_DURATION,
-        DwdObservationParameter.HOURLY.SUN_ZENITH: DwdObservationDataset.SOLAR,
+        DwdObservationParameter.HOURLY.SUN_ZENITH_ANGLE: DwdObservationDataset.SOLAR,
         # DwdObservationParameter.HOURLY.TRUE_LOCAL_TIME: DwdObservationDataset.SOLAR,
         # visibility
-        # DwdObservationParameter.HOURLY.VISIBILITY_INDICATOR: DwdObservationDataset.VISIBILITY,
+        DwdObservationParameter.HOURLY.VISIBILITY_INDICATOR: DwdObservationDataset.VISIBILITY,
         DwdObservationParameter.HOURLY.VISIBILITY: DwdObservationDataset.VISIBILITY,
         # wind
         DwdObservationParameter.HOURLY.WIND_SPEED: DwdObservationDataset.WIND,
@@ -751,25 +753,25 @@ PARAMETER_TO_DATASET_MAPPING = {
         # moisture
         DwdObservationParameter.HOURLY.HUMIDITY_ABSOLUTE: DwdObservationDataset.MOISTURE,
         DwdObservationParameter.HOURLY.PRESSURE_VAPOR: DwdObservationDataset.MOISTURE,
-        DwdObservationParameter.HOURLY.TEMPERATURE_WET: DwdObservationDataset.MOISTURE,
-        DwdObservationParameter.HOURLY.PRESSURE_AIR: DwdObservationDataset.MOISTURE,
+        DwdObservationParameter.HOURLY.TEMPERATURE_WET_MEAN_200: DwdObservationDataset.MOISTURE,
+        DwdObservationParameter.HOURLY.PRESSURE_AIR_SITE: DwdObservationDataset.MOISTURE,
     },
     Resolution.SUBDAILY: {
         # air_temperature
-        DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_200: DwdObservationDataset.TEMPERATURE_AIR,
+        DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_MEAN_200: DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationParameter.SUBDAILY.HUMIDITY: DwdObservationDataset.TEMPERATURE_AIR,
         # cloudiness
         DwdObservationParameter.SUBDAILY.CLOUD_COVER_TOTAL: DwdObservationDataset.CLOUDINESS,
         DwdObservationParameter.SUBDAILY.CLOUD_DENSITY: DwdObservationDataset.CLOUDINESS,
         # moisture
         DwdObservationParameter.SUBDAILY.PRESSURE_VAPOR: DwdObservationDataset.MOISTURE,
-        DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_005: DwdObservationDataset.MOISTURE,
+        DwdObservationParameter.SUBDAILY.TEMPERATURE_AIR_MEAN_005: DwdObservationDataset.MOISTURE,
         # TEMPERATURE_AIR_200: "TF_TER"
         # HUMIDITY: "RF_TER"
         # pressure
-        DwdObservationParameter.SUBDAILY.PRESSURE_AIR: DwdObservationDataset.PRESSURE,
+        DwdObservationParameter.SUBDAILY.PRESSURE_AIR_SITE: DwdObservationDataset.PRESSURE,
         # soil
-        DwdObservationParameter.SUBDAILY.TEMPERATURE_SOIL_005: DwdObservationDataset.SOIL,
+        DwdObservationParameter.SUBDAILY.TEMPERATURE_SOIL_MEAN_005: DwdObservationDataset.SOIL,
         # visibility
         DwdObservationParameter.SUBDAILY.VISIBILITY: DwdObservationDataset.VISIBILITY,
         # wind
@@ -796,33 +798,33 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.DAILY.SNOW_DEPTH: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.CLOUD_COVER_TOTAL: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.PRESSURE_VAPOR: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.DAILY.PRESSURE_AIR: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.DAILY.TEMPERATURE_AIR_200: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.DAILY.PRESSURE_AIR_SITE: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.DAILY.TEMPERATURE_AIR_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.HUMIDITY: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.TEMPERATURE_AIR_MAX_200: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.TEMPERATURE_AIR_MIN_200: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.DAILY.TEMPERATURE_AIR_MIN_005: DwdObservationDataset.CLIMATE_SUMMARY,
         # soil_temperature
-        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_002: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_005: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_010: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_020: DwdObservationDataset.TEMPERATURE_SOIL,
-        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_050: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_MEAN_002: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_MEAN_005: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_MEAN_010: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_MEAN_020: DwdObservationDataset.TEMPERATURE_SOIL,
+        DwdObservationParameter.DAILY.TEMPERATURE_SOIL_MEAN_050: DwdObservationDataset.TEMPERATURE_SOIL,
         # water_equiv
         DwdObservationParameter.DAILY.SNOW_DEPTH_EXCELLED: DwdObservationDataset.WATER_EQUIVALENT,
         # SNOW_DEPTH: "SH_TAG"  # int
-        DwdObservationParameter.DAILY.WATER_EQUIVALENT_TOTAL_SNOW_DEPTH: DwdObservationDataset.WATER_EQUIVALENT,
-        DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW: DwdObservationDataset.WATER_EQUIVALENT,
+        DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW_DEPTH: DwdObservationDataset.WATER_EQUIVALENT,
+        DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED: DwdObservationDataset.WATER_EQUIVALENT,
         # weather_phenomena
-        DwdObservationParameter.DAILY.FOG: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.DEW: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.RIPE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_RIPE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
     },
     Resolution.MONTHLY: {
         # more_precip
@@ -832,9 +834,9 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT_MAX: DwdObservationDataset.PRECIPITATION_MORE,
         # kl
         DwdObservationParameter.MONTHLY.CLOUD_COVER_TOTAL: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_200: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MAX_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MIN_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MAX_200_MEAN: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MIN_200_MEAN: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.MONTHLY.WIND_FORCE_BEAUFORT: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.MONTHLY.TEMPERATURE_AIR_MAX_200: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.MONTHLY.WIND_GUST_MAX: DwdObservationDataset.CLIMATE_SUMMARY,
@@ -843,14 +845,14 @@ PARAMETER_TO_DATASET_MAPPING = {
         # DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT: DwdObservationParameterSet.CLIMATE_SUMMARY,
         # DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT_MAX: DwdObservationParameterSet.CLIMATE_SUMMARY,
         # weather_phenomena
-        DwdObservationParameter.MONTHLY.STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.FOG: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.DEW: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
     },
     Resolution.ANNUAL: {
         # more_precip
@@ -860,9 +862,9 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: DwdObservationDataset.PRECIPITATION_MORE,
         # kl
         DwdObservationParameter.ANNUAL.CLOUD_COVER_TOTAL: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_200: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MAX_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MIN_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MEAN_200: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MAX_200_MEAN: DwdObservationDataset.CLIMATE_SUMMARY,
+        DwdObservationParameter.ANNUAL.TEMPERATURE_AIR_MIN_200_MEAN: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.ANNUAL.WIND_FORCE_BEAUFORT: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.ANNUAL.SUNSHINE_DURATION: DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationParameter.ANNUAL.WIND_GUST_MAX: DwdObservationDataset.CLIMATE_SUMMARY,
@@ -871,13 +873,13 @@ PARAMETER_TO_DATASET_MAPPING = {
         # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT: "JA_RR",
         # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: "JA_MX_RS",
         # weather_phenomena
-        DwdObservationParameter.ANNUAL.STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.FOG: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.DEW: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
     },
 }

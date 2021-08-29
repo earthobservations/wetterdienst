@@ -4,7 +4,5 @@
 from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 from wetterdienst.provider.eccc.observation.metadata.dataset import (
     EcccObservationDataset,
-)
-from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationParameter,
 )
