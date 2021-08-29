@@ -1,17 +1,12 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import re
 
 import pytest
 import wradlib as wrl
 
+from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
-from wetterdienst.provider.dwd.radar import (
-    DwdRadarParameter,
-    DwdRadarPeriod,
-    DwdRadarValues,
-)
 from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -142,20 +137,54 @@ def test_radar_request_radolan_cdc_most_recent():
 
     # Verify data.
     attrs = {
-        'producttype': 'SF',
-        'datetime': request.start_date.to_pydatetime(),
-        'radarid': '10000',
-        'datasize': 1620000,
-        'maxrange': '150 km',
-        'radolanversion': '2.29.1',
-        'precision': 0.1,
-        'intervalseconds': 86400,
-        'nrow': 900,
-        'ncol': 900,
-        'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft', 'eis',
-                           'tur', 'isn', 'fbg', 'mem'],
-        'radardays': ['asb 24', 'boo 24', 'drs 24', 'eis 24', 'ess 24', 'fbg 24', 'fld 24', 'hnr 24', 'isn 24',
-                      'mem 24', 'neu 24', 'nhb 24', 'oft 24', 'pro 24', 'ros 24', 'tur 24', 'umd 24']
+        "producttype": "SF",
+        "datetime": request.start_date.to_pydatetime(),
+        "radarid": "10000",
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "radolanversion": "2.29.1",
+        "precision": 0.1,
+        "intervalseconds": 86400,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "radardays": [
+            "asb 24",
+            "boo 24",
+            "drs 24",
+            "eis 24",
+            "ess 24",
+            "fbg 24",
+            "fld 24",
+            "hnr 24",
+            "isn 24",
+            "mem 24",
+            "neu 24",
+            "nhb 24",
+            "oft 24",
+            "pro 24",
+            "ros 24",
+            "tur 24",
+            "umd 24",
+        ],
     }
 
     assert requested_attrs == attrs

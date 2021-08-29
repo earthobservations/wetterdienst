@@ -2,10 +2,10 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import re
-from datetime import datetime, timedelta
-import wradlib as wrl
+from datetime import datetime
 
 import pytest
+import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -60,23 +60,40 @@ def test_radar_request_composite_latest_rw_reflectivity():
 
     # Verify data.
     attrs = {
-        'producttype': 'RW',
+        "producttype": "RW",
         # 'datetime': 'TODO',
-        'radarid': '10000',
-        'datasize': 1620000,
-        'maxrange': '150 km',
-        'radolanversion': '2.29.1',
-        'precision': 0.1,
-        'intervalseconds': 3600,
-        'nrow': 900,
-        'ncol': 900,
-        'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft', 'eis',
-                           'tur', 'isn', 'fbg', 'mem'],
-        'moduleflag': 1
+        "radarid": "10000",
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "radolanversion": "2.29.1",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "moduleflag": 1,
     }
 
     # TODO check datetime
-    del requested_attrs['datetime']
+    del requested_attrs["datetime"]
 
     assert requested_attrs == attrs
 

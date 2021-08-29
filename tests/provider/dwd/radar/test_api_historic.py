@@ -12,11 +12,7 @@ import pytest
 import requests
 import wradlib as wrl
 
-from tests.provider.dwd.radar import (
-    station_reference_pattern_de,
-    station_reference_pattern_sorted,
-    station_reference_pattern_unsorted,
-)
+from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -237,19 +233,36 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     attrs = {
-        'producttype': 'RW',
-        'datetime': request.start_date.to_pydatetime(),
-        'radarid': '10000',
-        'datasize': 1620000,
-        'maxrange': '150 km',
-        'radolanversion': '2.29.1',
-        'precision': 0.1,
-        'intervalseconds': 3600,
-        'nrow': 900,
-        'ncol': 900,
-        'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft', 'eis',
-                           'tur', 'isn', 'fbg', 'mem'],
-        'moduleflag': 1
+        "producttype": "RW",
+        "datetime": request.start_date.to_pydatetime(),
+        "radarid": "10000",
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "radolanversion": "2.29.1",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "moduleflag": 1,
     }
     assert requested_attrs == attrs
 
@@ -280,23 +293,40 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     attrs = {
-        'producttype': 'RW',
+        "producttype": "RW",
         # 'datetime': 'TODO',
-        'radarid': '10000',
-        'datasize': 1620000,
-        'maxrange': '150 km',
-        'radolanversion': '2.29.1',
-        'precision': 0.1,
-        'intervalseconds': 3600,
-        'nrow': 900,
-        'ncol': 900,
-        'radarlocations': ['asb', 'boo', 'ros', 'hnr', 'umd', 'pro', 'ess', 'fld', 'drs', 'neu', 'nhb', 'oft',
-                           'eis', 'tur', 'isn', 'fbg', 'mem'],
-        'moduleflag': 1
+        "radarid": "10000",
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "radolanversion": "2.29.1",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "moduleflag": 1,
     }
 
     # TODO check datetime
-    del requested_attrs['datetime']
+    del requested_attrs["datetime"]
 
     assert requested_attrs == attrs
 
@@ -911,22 +941,40 @@ def test_radar_request_radvor_re_yesterday():
     requested_header = wrl.io.read_radolan_header(buffer)
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
-    attrs = {'producttype': 'RE',
-             'datetime': request.start_date.to_pydatetime(),
-             'radarid': '10000',
-             'datasize': 1620000,
-             'maxrange': '150 km',
-             'radolanversion': 'P200003H',
-             'precision': 0.001,
-             'intervalseconds': 3600,
-             'nrow': 900,
-             'ncol': 900,
-             'radarlocations': ['deasb', 'deboo', 'dedrs', 'deeis', 'deess', 'defbg', 'defld', 'dehnr', 'deisn', 'demem',
-                                'deneu', 'denhb', 'deoft', 'depro', 'deros', 'detur', 'deumd'],
-             'predictiontime': 0,
-             'moduleflag': 8,
-             'quantification': 16
-             }
+    attrs = {
+        "producttype": "RE",
+        "datetime": request.start_date.to_pydatetime(),
+        "radarid": "10000",
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "radolanversion": "P200003H",
+        "precision": 0.001,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "deasb",
+            "deboo",
+            "dedrs",
+            "deeis",
+            "deess",
+            "defbg",
+            "defld",
+            "dehnr",
+            "deisn",
+            "demem",
+            "deneu",
+            "denhb",
+            "deoft",
+            "depro",
+            "deros",
+            "detur",
+            "deumd",
+        ],
+        "predictiontime": 0,
+        "moduleflag": 8,
+        "quantification": 16,
+    }
 
     assert requested_attrs == attrs
 
@@ -992,21 +1040,38 @@ def test_radar_request_radvor_rq_yesterday():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     attrs = {
-        'producttype': 'RQ',
-        'datetime': request.start_date.to_pydatetime(),
-        'radarid': '10000',
-        'datasize': 1620000,
-        'maxrange': '150 km',
-        'radolanversion': '2.29.1',
-        'precision': 0.1,
-        'intervalseconds': 3600,
-        'nrow': 900,
-        'ncol': 900,
-        'radarlocations': ['asb', 'boo', 'drs', 'eis', 'ess', 'fbg', 'fld', 'hnr', 'isn', 'mem', 'neu', 'nhb', 'oft',
-                           'pro', 'ros', 'tur', 'umd'],
-        'predictiontime': 0,
-        'moduleflag': 8,
-        'quantification': 1
+        "producttype": "RQ",
+        "datetime": request.start_date.to_pydatetime(),
+        "radarid": "10000",
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "radolanversion": "2.29.1",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "drs",
+            "eis",
+            "ess",
+            "fbg",
+            "fld",
+            "hnr",
+            "isn",
+            "mem",
+            "neu",
+            "nhb",
+            "oft",
+            "pro",
+            "ros",
+            "tur",
+            "umd",
+        ],
+        "predictiontime": 0,
+        "moduleflag": 8,
+        "quantification": 1,
     }
 
     assert requested_attrs == attrs
