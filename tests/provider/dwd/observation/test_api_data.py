@@ -336,7 +336,7 @@ def test_dwd_observation_data_result_missing_data():
     assert not df_1934.empty and not df_1934.dropna().empty
 
     request = DwdObservationRequest(
-        parameter=DwdObservationParameter.HOURLY.TEMPERATURE_AIR_200,
+        parameter=DwdObservationParameter.HOURLY.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.HOURLY,
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end_date="2020-06-09 12:00:00",
@@ -352,7 +352,7 @@ def test_dwd_observation_data_result_missing_data():
             {
                 "station_id": pd.Categorical(["03348"]),
                 "dataset": pd.Categorical(["temperature_air"]),
-                "parameter": pd.Categorical(["temperature_air_200"]),
+                "parameter": pd.Categorical(["temperature_air_mean_200"]),
                 "date": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
                 "value": [np.nan],
                 "quality": [np.nan],
@@ -705,8 +705,8 @@ def test_create_humanized_column_names_mapping():
         "shk_tag": "snow_depth",
         "nm": "cloud_cover_total",
         "vpm": "pressure_vapor",
-        "pm": "pressure_air",
-        "tmk": "temperature_air_200",
+        "pm": "pressure_air_site",
+        "tmk": "temperature_air_mean_200",
         "upm": "humidity",
         "txk": "temperature_air_max_200",
         "tnk": "temperature_air_min_200",

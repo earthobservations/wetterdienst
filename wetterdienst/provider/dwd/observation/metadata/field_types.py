@@ -109,7 +109,7 @@ INTEGER_PARAMETERS = {
     DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_FORM.value,
     # 10_minutes
     # wind_extreme
-    DwdObservationDatasetTree.MINUTE_10.WIND_EXTREME.WIND_DIRECTION_MAX_VELOCITY.value,
+    DwdObservationDatasetTree.MINUTE_10.WIND_EXTREME.WIND_DIRECTION_GUST_MAX.value,
     # precipitation
     DwdObservationDatasetTree.MINUTE_10.PRECIPITATION.PRECIPITATION_INDICATOR_WR.value,
     # hourly
@@ -139,7 +139,7 @@ INTEGER_PARAMETERS = {
     DwdObservationDatasetTree.SUBDAILY.CLOUDINESS.CLOUD_COVER_TOTAL.value,
     DwdObservationDatasetTree.SUBDAILY.CLOUDINESS.CLOUD_DENSITY.value,
     # soil
-    DwdObservationDatasetTree.SUBDAILY.SOIL.TEMPERATURE_SOIL_005.value,
+    DwdObservationDatasetTree.SUBDAILY.SOIL.TEMPERATURE_SOIL_MEAN_005.value,
     # visibility
     DwdObservationDatasetTree.SUBDAILY.VISIBILITY.VISIBILITY.value,
     # wind
@@ -156,41 +156,41 @@ INTEGER_PARAMETERS = {
     DwdObservationDatasetTree.DAILY.WATER_EQUIVALENT.SNOW_DEPTH_EXCELLED.value,
     DwdObservationDatasetTree.DAILY.WATER_EQUIVALENT.SNOW_DEPTH.value,
     # weather_phenomena
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.FOG.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.THUNDER.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.STORM_STRONG_WIND.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.STORM_STORMIER_WIND.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.DEW.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.GLAZE.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.RIPE.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.SLEET.value,
-    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.HAIL.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_FOG.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_THUNDER.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_STORM_STRONG_WIND.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_STORM_STORMIER_WIND.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_DEW.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_GLAZE.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_RIPE.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_SLEET.value,
+    DwdObservationDatasetTree.DAILY.WEATHER_PHENOMENA.COUNT_HAIL.value,
     # monthly
     # more_precip
     DwdObservationDatasetTree.MONTHLY.PRECIPITATION_MORE.SNOW_DEPTH_NEW.value,
     DwdObservationDatasetTree.MONTHLY.PRECIPITATION_MORE.SNOW_DEPTH.value,
     # weather_phenomena
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.STORM_STRONG_WIND.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.STORM_STORMIER_WIND.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.THUNDER.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.GLAZE.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.SLEET.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.HAIL.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.FOG.value,
-    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.DEW.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_STORM_STRONG_WIND.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_STORM_STORMIER_WIND.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_THUNDER.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_GLAZE.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_SLEET.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_HAIL.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_FOG.value,
+    DwdObservationDatasetTree.MONTHLY.WEATHER_PHENOMENA.COUNT_DEW.value,
     # annual
     # more_precip
     DwdObservationDatasetTree.ANNUAL.PRECIPITATION_MORE.SNOW_DEPTH_NEW.value,
     DwdObservationDatasetTree.ANNUAL.PRECIPITATION_MORE.SNOW_DEPTH.value,
     # weather_phenomena
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.STORM_STRONG_WIND.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.STORM_STORMIER_WIND.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.THUNDER.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.GLAZE.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.SLEET.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.HAIL.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.FOG.value,
-    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.DEW.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_STORM_STRONG_WIND.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_STORM_STORMIER_WIND.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_THUNDER.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_GLAZE.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_SLEET.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_HAIL.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_FOG.value,
+    DwdObservationDatasetTree.ANNUAL.WEATHER_PHENOMENA.COUNT_DEW.value,
 }
 STRING_PARAMETERS = {
     # hourly

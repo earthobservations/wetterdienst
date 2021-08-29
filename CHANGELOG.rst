@@ -4,7 +4,8 @@ Changelog
 Development
 ***********
 
-...
+- [BREAKING] Introduce core Parameter enum with fixed set of parameter names. Several parameters may have been
+  renamed!
 
 0.21.0 (10.09.2021)
 *******************

@@ -3257,7 +3257,7 @@ That's all there is to it!
 
 
 charset-normalizer
-2.0.4
+2.0.5
 MIT License
 Ahmed TAHRI @Ousret
 https://github.com/ousret/charset_normalizer
@@ -4499,7 +4499,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 decorator
-5.0.9
+5.1.0
 BSD License
 Michele Simionato
 https://github.com/micheles/decorator
@@ -8710,7 +8710,7 @@ under the terms of *both* these licenses.
 
 
 pandas
-1.3.2
+1.3.3
 BSD License
 The Pandas Development Team
 https://pandas.pydata.org
@@ -8748,7 +8748,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 pandocfilters
-1.4.3
+1.5.0
 BSD License
 John MacFarlane
 http://github.com/jgm/pandocfilters
@@ -10518,7 +10518,7 @@ DEALINGS IN THE SOFTWARE.
 
 
 pyzmq
-22.2.1
+22.3.0
 BSD License; GNU Library or Lesser General Public License (LGPL)
 Brian E. Granger, Min Ragan-Kelley
 https://pyzmq.readthedocs.org
@@ -10557,7 +10557,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 rapidfuzz
-1.5.1
+1.6.2
 MIT License
 Max Bachmann
 https://github.com/maxbachmann/rapidfuzz

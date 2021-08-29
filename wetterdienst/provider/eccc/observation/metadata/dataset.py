@@ -13,12 +13,12 @@ class EcccObservationDataset(Enum):
     # ANNUAL = "annual"
 
 
-class EcccObservationDatasetTree(DatasetTreeCore):
+class EcccObservationParameter(DatasetTreeCore):
     class HOURLY(Enum):
-        TEMPERATURE_AIR_200 = "temp (°c)"
-        QUALITY_TEMPERATURE_AIR_200 = "temp flag"
-        TEMPERATURE_DEW_POINT_200 = "dew point temp (°c)"
-        QUALITY_TEMPERATURE_DEW_POINT_200 = "dew point temp flag"
+        TEMPERATURE_AIR_MEAN_200 = "temp (°c)"
+        QUALITY_TEMPERATURE_AIR_MEAN_200 = "temp flag"
+        TEMPERATURE_DEW_POINT_MEAN_200 = "dew point temp (°c)"
+        QUALITY_TEMPERATURE_DEW_POINT_MEAN_200 = "dew point temp flag"
         HUMIDITY = "rel hum (%)"
         QUALITY_HUMIDITY = "rel hum flag"
         WIND_DIRECTION = "wind dir (10s deg)"
@@ -27,12 +27,12 @@ class EcccObservationDatasetTree(DatasetTreeCore):
         QUALITY_WIND_SPEED = "wind spd flag"
         VISIBILITY = "visibility (km)"
         QUALITY_VISIBILITY = "visibility flag"
-        PRESSURE_AIR_STATION_HEIGHT = "stn press (kpa)"
-        QUALITY_PRESSURE_AIR_STATION_HEIGHT = "stn press flag"
+        PRESSURE_AIR_SITE = "stn press (kpa)"
+        QUALITY_PRESSURE_AIR_SITE = "stn press flag"
         HUMIDEX = "hmdx"
         QUALITY_HUMIDEX = "hmdx flag"
-        WIND_GUST = "wind chill"
-        QUALITY_WIND_GUST = "wind chill flag"
+        WIND_GUST_MAX = "wind chill"
+        QUALITY_WIND_GUST_MAX = "wind chill flag"
         WEATHER = "weather"
 
     class DAILY(Enum):
@@ -41,38 +41,38 @@ class EcccObservationDatasetTree(DatasetTreeCore):
         QUALITY_TEMPERATURE_AIR_MAX_200 = "max temp flag"
         TEMPERATURE_AIR_MIN_200 = "min temp (°c)"
         QUALITY_TEMPERATURE_AIR_MIN_200 = "min temp flag"
-        TEMPERATURE_AIR_200 = "mean temp (°c)"
-        QUALITY_TEMPERATURE_AIR_200 = "mean temp flag"
-        HEATING_DEGREE_DAYS = "heat deg days (°c)"
-        QUALITY_HEATING_DEGREE_DAYS = "heat deg days flag"
-        COOLING_DEGREE_DAYS = "cool deg days (°c)"
-        QUALITY_COOLING_DEGREE_DAYS = "cool deg days flag"
-        PRECIPITATION_HEIGHT_RAIN = "total rain (mm)"  # rain
-        QUALITY_PRECIPITATION_HEIGHT_RAIN = "total rain flag"
+        TEMPERATURE_AIR_MEAN_200 = "mean temp (°c)"
+        QUALITY_TEMPERATURE_AIR_MEAN_200 = "mean temp flag"
+        NDAYS_HEATING_DEGREE = "heat deg days (°c)"
+        QUALITY_NDAYS_HEATING_DEGREE = "heat deg days flag"
+        NDAYS_COOLING_DEGREE = "cool deg days (°c)"
+        QUALITY_NDAYS_COOLING_DEGREE = "cool deg days flag"
+        PRECIPITATION_HEIGHT_LIQUID = "total rain (mm)"  # rain
+        QUALITY_PRECIPITATION_HEIGHT_LIQUID = "total rain flag"
         SNOW_DEPTH_NEW = "total snow (cm)"  # new snow?
         QUALITY_SNOW_DEPTH_NEW = "total snow flag"
         PRECIPITATION_HEIGHT = "total precip (mm)"  # rain + snow?
         QUALITY_PRECIPITATION_HEIGHT = "total precip flag"
         SNOW_DEPTH = "snow on grnd (cm)"
         QUALITY_SNOW_DEPTH = "snow on grnd flag"
-        WIND_DIRECTION_MAX_VELOCITY = "dir of max gust (10s deg)"
-        QUALITY_WIND_DIRECTION_MAX_VELOCITY = "dir of max gust flag"
+        WIND_DIRECTION_GUST_MAX = "dir of max gust (10s deg)"
+        QUALITY_WIND_DIRECTION_GUST_MAX = "dir of max gust flag"
         WIND_GUST_MAX = "spd of max gust (km/h)"
         QUALITY_WIND_GUST_MAX = "spd of max gust flag"
 
     class MONTHLY(Enum):
-        TEMPERATURE_AIR_MAX_MEAN_200 = "mean max temp (°c)"
-        QUALITY_TEMPERATURE_AIR_MAX_MEAN_200 = "mean max temp flag"
-        TEMPERATURE_AIR_MIN_MEAN_200 = "mean min temp (°c)"
-        QUALITY_TEMPERATURE_AIR_MIN_MEAN_200 = "mean min temp flag"
-        TEMPERATURE_AIR_200 = "mean temp (°c)"
-        QUALITY_TEMPERATURE_AIR_200 = "mean temp flag"
+        TEMPERATURE_AIR_MAX_200_MEAN = "mean max temp (°c)"
+        QUALITY_TEMPERATURE_AIR_MAX_200_MEAN = "mean max temp flag"
+        TEMPERATURE_AIR_MIN_200_MEAN = "mean min temp (°c)"
+        QUALITY_TEMPERATURE_AIR_MIN_200_MEAN = "mean min temp flag"
+        TEMPERATURE_AIR_MEAN_200 = "mean temp (°c)"
+        QUALITY_TEMPERATURE_AIR_MEAN_200 = "mean temp flag"
         TEMPERATURE_AIR_MAX_200 = "extr max temp (°c)"
         QUALITY_TEMPERATURE_AIR_MAX_200 = "extr max temp flag"
         TEMPERATURE_AIR_MIN_200 = "extr min temp (°c)"
         QUALITY_TEMPERATURE_AIR_MIN_200 = "extr min temp flag"
-        PRECIPITATION_HEIGHT_RAIN = "total rain (mm)"
-        QUALITY_PRECIPITATION_HEIGHT_RAIN = "total rain flag"
+        PRECIPITATION_HEIGHT_LIQUID = "total rain (mm)"
+        QUALITY_PRECIPITATION_HEIGHT_LIQUID = "total rain flag"
         SNOW_DEPTH_NEW = "total snow (cm)"
         QUALITY_SNOW_DEPTH_NEW = "total snow flag"
         PRECIPITATION_HEIGHT = "total precip (mm)"
@@ -80,14 +80,14 @@ class EcccObservationDatasetTree(DatasetTreeCore):
         # should name include previous day? how is it measured?
         SNOW_DEPTH = "snow grnd last day (cm)"
         QUALITY_SNOW_DEPTH = "snow grnd last day flag"
-        WIND_DIRECTION_MAX_VELOCITY = "dir of max gust (10's deg)"
-        QUALITY_WIND_DIRECTION_MAX_VELOCITY = "dir of max gust flag"
+        WIND_DIRECTION_GUST_MAX = "dir of max gust (10's deg)"
+        QUALITY_WIND_DIRECTION_GUST_MAX = "dir of max gust flag"
         WIND_GUST_MAX = "spd of max gust(km/h)"
         QUALITY_WIND_GUST_MAX = "spd of max gust flag"
 
     class ANNUAL(Enum):
-        TEMPERATURE_AIR_MAX_MEAN_200 = "average max. temp. (°c)"
-        TEMPERATURE_AIR_MIN_MEAN_200 = "average min. temp. (°c)"
+        TEMPERATURE_AIR_MAX_200_MEAN = "average max. temp. (°c)"
+        TEMPERATURE_AIR_MIN_200_MEAN = "average min. temp. (°c)"
         PRECIPITATION_FREQUENCY = "frequency of precip. (%)"
         TEMPERATURE_AIR_MAX_200 = "highest temp. (°c)"
         # 'highest temp.year'
@@ -101,7 +101,7 @@ class EcccObservationDatasetTree(DatasetTreeCore):
         # 'greatest precip. year'
         # 'greatest precip. period'
         # 'greatest precip. data quality'
-        PRECIPITATION_HEIGHT_RAIN_MAX = "greatest rainfall (mm)"
+        PRECIPITATION_HEIGHT_LIQUID_MAX = "greatest rainfall (mm)"
         # 'greatest rainfall year'
         # 'greatest rainfall period'
         # 'greatest rainfall data quality'

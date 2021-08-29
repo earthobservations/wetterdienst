@@ -78,11 +78,17 @@ class ScalarRequestCore(Core):
         pass
 
     @property
-    @abstractmethod
+    # @abstractmethod
     def _parameter_base(self) -> Enum:
         """parameter base enumeration from which parameters can be parsed e.g.
         DWDObservationParameter"""
-        pass
+        if self._has_datasets:
+            if not self._unique_dataset:
+                raise NotImplementedError(
+                    "implement _parameter_base enumeration that "
+                    "all parameters of one resolution stored together"
+                )
+        return
 
     @property
     @abstractmethod
@@ -254,13 +260,13 @@ class ScalarRequestCore(Core):
                 parameter_ = parse_enumeration_from_template(
                     parameter, self._parameter_base[self._dataset_accessor]
                 )
-            except InvalidEnumeration:
+            except (InvalidEnumeration, TypeError):
                 pass
             else:
                 if self._unique_dataset:
                     # If unique dataset the dataset is given by the accessor
                     # and the parameter is not a subset of a dataset
-                    dataset_ = self._dataset_base[self._dataset_accessor]
+                    dataset_ = self._dataset_tree[self._dataset_accessor]
                 elif not dataset_:
                     # If there's multiple datasets the mapping defines which one
                     # is taken for the given parameter

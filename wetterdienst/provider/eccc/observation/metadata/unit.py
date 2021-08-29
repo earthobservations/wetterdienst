@@ -7,16 +7,19 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 class EcccObservationUnit(DatasetTreeCore):
     class HOURLY(UnitEnum):
-        TEMPERATURE_AIR_200 = (
+        TEMPERATURE_AIR_MEAN_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_TEMPERATURE_AIR_200 = OriginUnit.DIMENSIONLESS, SIUnit.DIMENSIONLESS
-        TEMPERATURE_DEW_POINT_200 = (
+        QUALITY_TEMPERATURE_AIR_MEAN_200 = (
+            OriginUnit.DIMENSIONLESS.value,
+            SIUnit.DIMENSIONLESS.value,
+        )
+        TEMPERATURE_DEW_POINT_MEAN_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_TEMPERATURE_DEW_POINT_200 = (
+        QUALITY_TEMPERATURE_DEW_POINT_MEAN_200 = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -46,21 +49,21 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        PRESSURE_AIR_STATION_HEIGHT = (
+        PRESSURE_AIR_SITE = (
             OriginUnit.KILOPASCAL.value,
             SIUnit.PASCAL.value,
         )
-        QUALITY_PRESSURE_AIR_STATION_HEIGHT = (
+        QUALITY_PRESSURE_AIR_SITE = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
         HUMIDEX = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
         QUALITY_HUMIDEX = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-        WIND_GUST = (
+        WIND_GUST_MAX = (
             OriginUnit.KILOMETER_PER_HOUR.value,
             SIUnit.METER_PER_SECOND.value,
         )
-        QUALITY_WIND_GUST = (
+        QUALITY_WIND_GUST_MAX = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -84,35 +87,35 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        TEMPERATURE_AIR_200 = (
+        TEMPERATURE_AIR_MEAN_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_TEMPERATURE_AIR_200 = (
+        QUALITY_TEMPERATURE_AIR_MEAN_200 = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        HEATING_DEGREE_DAYS = (
+        NDAYS_HEATING_DEGREE = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_HEATING_DEGREE_DAYS = (
+        QUALITY_NDAYS_HEATING_DEGREE = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        COOLING_DEGREE_DAYS = (
+        NDAYS_COOLING_DEGREE = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_COOLING_DEGREE_DAYS = (
+        QUALITY_NDAYS_COOLING_DEGREE = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        PRECIPITATION_HEIGHT_RAIN = (
+        PRECIPITATION_HEIGHT_LIQUID = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        QUALITY_PRECIPITATION_HEIGHT_RAIN = (
+        QUALITY_PRECIPITATION_HEIGHT_LIQUID = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -134,11 +137,11 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        WIND_DIRECTION_MAX_VELOCITY = (
+        WIND_DIRECTION_GUST_MAX = (
             OriginUnit.WIND_DIRECTION.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        QUALITY_WIND_DIRECTION_MAX_VELOCITY = (
+        QUALITY_WIND_DIRECTION_GUST_MAX = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -152,27 +155,27 @@ class EcccObservationUnit(DatasetTreeCore):
         )
 
     class MONTHLY(UnitEnum):
-        TEMPERATURE_AIR_MAX_MEAN_200 = (
+        TEMPERATURE_AIR_MAX_200_MEAN = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_TEMPERATURE_AIR_MAX_MEAN_200 = (
+        QUALITY_TEMPERATURE_AIR_MAX_200_MEAN = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        TEMPERATURE_AIR_MIN_MEAN_200 = (
+        TEMPERATURE_AIR_MIN_200_MEAN = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_TEMPERATURE_AIR_MIN_MEAN_200 = (
+        QUALITY_TEMPERATURE_AIR_MIN_200_MEAN = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        TEMPERATURE_AIR_200 = (
+        TEMPERATURE_AIR_MEAN_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        QUALITY_TEMPERATURE_AIR_200 = (
+        QUALITY_TEMPERATURE_AIR_MEAN_200 = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -192,11 +195,11 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        PRECIPITATION_HEIGHT_RAIN = (
+        PRECIPITATION_HEIGHT_LIQUID = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        QUALITY_PRECIPITATION_HEIGHT_RAIN = (
+        QUALITY_PRECIPITATION_HEIGHT_LIQUID = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -219,11 +222,11 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        WIND_DIRECTION_MAX_VELOCITY = (
+        WIND_DIRECTION_GUST_MAX = (
             OriginUnit.WIND_DIRECTION.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        QUALITY_WIND_DIRECTION_MAX_VELOCITY = (
+        QUALITY_WIND_DIRECTION_GUST_MAX = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
@@ -237,11 +240,11 @@ class EcccObservationUnit(DatasetTreeCore):
         )
 
     class ANNUAL(UnitEnum):
-        TEMPERATURE_AIR_MAX_MEAN_200 = (
+        TEMPERATURE_AIR_MAX_200_MEAN = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        TEMPERATURE_AIR_MIN_MEAN_200 = (
+        TEMPERATURE_AIR_MIN_200_MEAN = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
@@ -267,7 +270,7 @@ class EcccObservationUnit(DatasetTreeCore):
         # 'greatest precip. year'
         # 'greatest precip. period'
         # 'greatest precip. data quality'
-        PRECIPITATION_HEIGHT_RAIN_MAX = (
+        PRECIPITATION_HEIGHT_LIQUID_MAX = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )

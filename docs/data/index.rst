@@ -5,5 +5,6 @@ Data
    :maxdepth: 1
 
    introduction
+   parameters
    coverage
    license

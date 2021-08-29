@@ -139,7 +139,7 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
         "station_id",
         "date",
         "qn_9",
-        "temperature_air_200",
+        "temperature_air_mean_200",
         "humidity",
     ]
     assert len(data["data"]) == 13081
