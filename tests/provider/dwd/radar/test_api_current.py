@@ -99,7 +99,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
 
     shape = hdf["/dataset1/data1/data"].shape
 
-    assert shape == (360, 180) or shape == (360, 720)
+    assert shape == (360, 180) or shape == (360, 720) or shape == (361, 720)
 
 
 @pytest.mark.remote
