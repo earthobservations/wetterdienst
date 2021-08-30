@@ -45,8 +45,8 @@ def test_file_index_creation_failure():
     with pytest.raises(FileNotFoundError):
         create_file_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
-            DwdObservationResolution.MINUTE_1,
-            DwdObservationPeriod.HISTORICAL,
+            Resolution.MINUTE_1,
+            Period.HISTORICAL,
         )
 
 

@@ -40,7 +40,11 @@ def _create_file_index_for_dwd_server(
 
     url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
 
-    files_server = list_remote_files_fsspec(url, recursive=True)
+    if resolution in [Resolution.MINUTE_1] and period in [Period.HISTORICAL]:
+        recursive = True
+    else:
+        recursive = False
+    files_server = list_remote_files_fsspec(url, recursive=recursive)
 
     files_server = pd.DataFrame(
         files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
