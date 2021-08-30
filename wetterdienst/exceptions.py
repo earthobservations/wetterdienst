@@ -33,6 +33,10 @@ class ProductFileNotFound(FileNotFoundError):
     pass
 
 
+class MultipleProductFilesFound(Exception):
+    pass
+
+
 class StartDateEndDateError(Exception):
     pass
 

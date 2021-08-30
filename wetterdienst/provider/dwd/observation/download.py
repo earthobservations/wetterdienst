@@ -4,12 +4,16 @@
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import List, Tuple
-from zipfile import BadZipFile, ZipFile
+from zipfile import BadZipFile
 
 from fsspec.implementations.zip import ZipFileSystem
 from requests.exceptions import InvalidURL
 
-from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
+from wetterdienst.exceptions import (
+    FailedDownload,
+    MultipleProductFilesFound,
+    ProductFileNotFound,
+)
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
@@ -61,25 +65,23 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
         raise FailedDownload(f"Download failed for {remote_file}")
 
     try:
-        # zip_file_opened = ZipFile(zip_file)
         zf = ZipFileSystem(file)
 
-        # Files of archive
-        # archive_files = zip_file_opened.namelist()
+        # Find product files in archive.
+        product_files = zf.glob(PRODUCT_FILE_IDENTIFIER + "*")
 
-        for file in zf.find():
-            # If found file load file in bytes, close zipfile and return bytes
-            if file.startswith(PRODUCT_FILE_IDENTIFIER):
-                file_in_bytes = zf.open(file).read()
+        # Raise exceptions if no corresponding file was found or if there are multiple product files.
+        if not product_files:
+            raise ProductFileNotFound(
+                f"The archive {remote_file} does not contain a '{PRODUCT_FILE_IDENTIFIER}*' file."
+            )
+        elif len(product_files) > 1:
+            raise MultipleProductFilesFound(
+                f"The archive {remote_file} contains multiple product files, which is ambiguous."
+            )
 
-                # zip_file_opened.close()
-
-                return file_in_bytes
-
-        # If whatsoever no file was found and returned already throw exception
-        raise ProductFileNotFound(
-            f"The archive of {remote_file} does not hold a 'produkt' file."
-        )
+        file_in_bytes = zf.open(product_files[0]).read()
+        return file_in_bytes
 
     except BadZipFile as e:
         raise BadZipFile(f"The archive of {remote_file} seems to be corrupted.") from e
