@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import List, Tuple
 from zipfile import BadZipFile
 
 from fsspec.implementations.zip import ZipFileSystem
-from requests.exceptions import InvalidURL
 
 from wetterdienst.exceptions import (
     FailedDownload,
@@ -16,6 +16,9 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
+
+log = logging.getLogger(__name__)
+
 
 PRODUCT_FILE_IDENTIFIER = "produkt"
 
@@ -57,12 +60,11 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
 
     try:
         file = download_file(remote_file, ttl=CacheExpiry.FIVE_MINUTES)
-    except InvalidURL as e:
-        raise InvalidURL(
-            f"Error: the station data {remote_file} could not be reached."
-        ) from e
-    except Exception:
-        raise FailedDownload(f"Download failed for {remote_file}")
+    except Exception as ex:
+        ex_type = ex.__class__.__name__
+        msg = f"Download failed for {remote_file}: {ex_type}({ex})"
+        log.exception(msg)
+        raise FailedDownload(msg)
 
     try:
         zf = ZipFileSystem(file)
@@ -73,15 +75,15 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
         # Raise exceptions if no corresponding file was found or if there are multiple product files.
         if not product_files:
             raise ProductFileNotFound(
-                f"The archive {remote_file} does not contain a '{PRODUCT_FILE_IDENTIFIER}*' file."
+                f"The archive {remote_file} does not contain a '{PRODUCT_FILE_IDENTIFIER}*' file"
             )
         elif len(product_files) > 1:
             raise MultipleProductFilesFound(
-                f"The archive {remote_file} contains multiple product files, which is ambiguous."
+                f"The archive {remote_file} contains multiple product files, which is ambiguous"
             )
 
         file_in_bytes = zf.open(product_files[0]).read()
         return file_in_bytes
 
     except BadZipFile as e:
-        raise BadZipFile(f"The archive of {remote_file} seems to be corrupted.") from e
+        raise BadZipFile(f"The Zip archive {remote_file} seems to be corrupted") from e
