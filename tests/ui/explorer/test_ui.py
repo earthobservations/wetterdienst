@@ -114,11 +114,13 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     # Select weather station.
     dash_tre.wait_for_element_by_id("select-station")
     dash_tre.select_dcc_dropdown("#select-station", value="Anklam")
+    time.sleep(0.25)
 
     # Select variable.
     dash_tre.wait_for_element_by_id("select-variable")
     dash_tre.wait_for_element_by_id_clickable("select-variable")
     dash_tre.select_dcc_dropdown("#select-variable", value="temperature_air_200")
+    time.sleep(0.25)
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-values")
