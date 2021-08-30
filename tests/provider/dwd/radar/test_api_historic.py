@@ -294,9 +294,15 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     requested_header = wrl.io.read_radolan_header(buffer)
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
+    assert request.start_date.strftime("m%y") == requested_attrs["datetime"].strftime(
+        "m%y"
+    )
+    assert request.start_date.strftime("%d%H%M") == requested_attrs[
+        "datetime"
+    ].strftime("%d%H%M")
+
     attrs = {
         "producttype": "RW",
-        # 'datetime': 'TODO',
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
@@ -326,8 +332,6 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
         ],
         "moduleflag": 1,
     }
-
-    # TODO check datetime
     del requested_attrs["datetime"]
     del requested_attrs["radolanversion"]
 
@@ -358,11 +362,30 @@ def test_radar_request_site_historic_dx_yesterday():
 
     # Verify data.
     requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
+
     timestamp_aligned = round_minutes(timestamp, 5)
-    date_time = timestamp_aligned.strftime("%d%H%M")
-    month_year = timestamp_aligned.strftime("%m%y")
-    header = f"DX{date_time}10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
-    assert re.match(header, requested_header)
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
+        "%d%H%M"
+    )
+    del requested_attrs["datetime"]
+
+    attrs = {
+        "producttype": "DX",
+        "radarid": "10132",
+        "version": " 2",
+        "cluttermap": 0,
+        "dopplerfilter": 4,
+        "statfilter": 0,
+        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        "message": "",
+    }
+    del requested_attrs["bytes"]
+
+    assert requested_attrs == attrs
 
 
 @pytest.mark.remote
@@ -393,13 +416,31 @@ def test_radar_request_site_historic_dx_timerange():
 
     # Verify data.
     requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
 
     timestamp_aligned = round_minutes(timestamp, 5)
-    date_time = timestamp_aligned.strftime("%d%H%M")
-    month_year = timestamp_aligned.strftime("%m%y")
-    header = f"DX{date_time}10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS "  # noqa:E501,B950
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
+        "%d%H%M"
+    )
+    del requested_attrs["datetime"]
 
-    assert re.match(header, requested_header)
+    attrs = {
+        "producttype": "DX",
+        "radarid": "10132",
+        # 'bytes': 43563,
+        "version": " 2",
+        "cluttermap": 0,
+        "dopplerfilter": 4,
+        "statfilter": 0,
+        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        "message": "",
+    }
+    del requested_attrs["bytes"]
+
+    assert requested_attrs == attrs
 
 
 @pytest.mark.remote
@@ -1075,7 +1116,7 @@ def test_radar_request_radvor_rq_yesterday():
         ],
         "predictiontime": 0,
         "moduleflag": 8,
-        "quantification": 1,
+        "quantification": 0,
     }
     del requested_attrs["radolanversion"]
 

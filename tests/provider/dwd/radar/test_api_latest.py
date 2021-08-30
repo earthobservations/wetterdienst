@@ -59,9 +59,13 @@ def test_radar_request_composite_latest_rw_reflectivity():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     # Verify data.
+    assert datetime.utcnow().strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+    del requested_attrs["datetime"]
+
     attrs = {
         "producttype": "RW",
-        # 'datetime': 'TODO',
         "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
@@ -91,9 +95,6 @@ def test_radar_request_composite_latest_rw_reflectivity():
         ],
         "moduleflag": 1,
     }
-
-    # TODO check datetime
-    del requested_attrs["datetime"]
     del requested_attrs["radolanversion"]
 
     assert requested_attrs == attrs
@@ -113,10 +114,25 @@ def test_radar_request_site_latest_dx_reflectivity():
 
     buffer = next(request.query())[1]
     requested_header = wrl.io.read_radolan_header(buffer)
-
-    timestamp_aligned = round_minutes(datetime.utcnow(), 5)
-    month_year = timestamp_aligned.strftime("%m%y")
+    requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
 
     # Verify data.
-    header = f"DX......10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
-    assert re.match(header, requested_header)
+    timestamp_aligned = round_minutes(datetime.utcnow(), 5)
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+    del requested_attrs["datetime"]
+
+    attrs = {
+        "producttype": "DX",
+        "radarid": "10132",
+        "version": " 2",
+        "cluttermap": 0,
+        "dopplerfilter": 4,
+        "statfilter": 0,
+        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        "message": "",
+    }
+    del requested_attrs["bytes"]
+
+    assert requested_attrs == attrs
