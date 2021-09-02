@@ -5,6 +5,7 @@ Development
 ***********
 
 - Start migrating from ``dogpile.cache`` to ``filesystem_spec``
+- Temporarily allow pre-releases for scipy to make installation under Mac ARM work again
 
 
 0.20.4 (07.08.2021)

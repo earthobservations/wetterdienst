@@ -48,7 +48,7 @@ jobs:
       uses: actions/cache@v2
       env:
         # Increase this value to reset cache if `poetry.lock` has not changed.
-        CACHE_NUMBER: 1
+        CACHE_NUMBER: 2
       with:
         path: ${{ steps.poetry-cache-dir.outputs.dir }}
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}

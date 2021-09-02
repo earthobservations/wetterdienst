@@ -75,11 +75,16 @@ classifiers = [
 "Issues" = "https://github.com/earthobservations/wetterdienst/issues"
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
 
+[[tool.poetry.source]]
+name = "scipy"
+url = "https://pypi.anaconda.org/scipy-wheels-nightly/simple"
+secondary = true
+
 [tool.poetry.dependencies]
 python = "^3.7.1"
 pandas = "^1.2,!=1.3"
 numpy = "^1.19.5"
-scipy = "^1.5.2"
+scipy = { version = "^1.5.2*", allow-prereleases = true }
 cachetools = "^4.1.1"
 dateparser = "^1.0.0"
 beautifulsoup4 = "^4.9.1"
