@@ -65,7 +65,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
         "name",
         "state",
     ]
-    assert len(data["data"]) == 511
+    assert len(data["data"]) >= 511
 
 
 @pytest.mark.slow
