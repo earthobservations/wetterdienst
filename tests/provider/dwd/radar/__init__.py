@@ -7,7 +7,7 @@ station_reference_pattern_unsorted = (
     "(neu,)?(nhb,)?(oft,)?eis,(tur,)?(isn,)?(fbg,)?(mem)?"
 )
 station_reference_pattern_sorted = (
-    "(asb,)?(boo,)?(drs,)?eis,ess,(fbg,)?fld,hnr,(isn,)?"
+    "(asb,)?(boo,)?(drs,)?eis,ess,(fbg,)?fld,(hnr,)?(isn,)?"
     "(mem,)?(neu,)?(nhb,)?oft,pro,(ros,)?(tur,)?umd"
 )
 station_reference_pattern_de = (
