@@ -4,8 +4,12 @@ Changelog
 Development
 ***********
 
-- Start migrating from ``dogpile.cache`` to ``filesystem_spec``
+...
 
+0.21.0 (10.09.2021)
+*******************
+
+- Start migrating from ``dogpile.cache`` to ``filesystem_spec``
 
 0.20.4 (07.08.2021)
 *******************

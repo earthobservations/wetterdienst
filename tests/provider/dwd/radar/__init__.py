@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 
 station_reference_pattern_unsorted = (
-    "(asb,)?(boo,)?(ros,)?hnr,umd,pro,ess,fld,(drs,)?"
+    "(asb,)?(boo,)?(ros,)?(hnr,)?umd,pro,ess,fld,(drs,)?"
     "(neu,)?(nhb,)?(oft,)?eis,(tur,)?(isn,)?(fbg,)?(mem)?"
 )
 station_reference_pattern_sorted = (
