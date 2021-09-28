@@ -2,11 +2,13 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 
-
 import pytest
-import wradlib as wrl
 
-from tests.provider.dwd.radar import station_reference_pattern_unsorted
+from tests import windows, windows_unsupported
+
+if not windows:
+    import wradlib as wrl
+
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
     DwdRadarPeriod,
@@ -117,6 +119,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 2
 
 
+@windows_unsupported
 def test_radar_request_radolan_cdc_most_recent():
     """
     Example for testing radar sites most recent RADOLAN_CDC.
@@ -194,8 +197,8 @@ def test_radar_request_radolan_cdc_most_recent():
     del requested_attrs["radolanversion"]
     del requested_attrs["radardays"]
 
-    # radarlocations can change over time -> check if at least 10 radar locations were found
-    # and at least 5 of them match with the provided one
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
     assert (
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))

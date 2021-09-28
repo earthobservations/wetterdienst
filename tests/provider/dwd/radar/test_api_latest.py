@@ -5,7 +5,11 @@ import re
 from datetime import datetime
 
 import pytest
-import wradlib as wrl
+
+from tests import windows, windows_unsupported
+
+if not windows:
+    import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -38,6 +42,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity():
     """
@@ -97,8 +102,8 @@ def test_radar_request_composite_latest_rw_reflectivity():
     }
     del requested_attrs["radolanversion"]
 
-    # radarlocations can change over time -> check if at least 10 radar locations were found
-    # and at least 5 of them match with the provided one
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
     assert (
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
@@ -110,6 +115,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_latest_dx_reflectivity():
     """

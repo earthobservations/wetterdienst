@@ -10,7 +10,11 @@ import h5py
 import pybufrkit
 import pytest
 import requests
-import wradlib as wrl
+
+from tests import windows, windows_unsupported
+
+if not windows:
+    import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import (
@@ -207,6 +211,7 @@ def test_radar_request_composite_historic_fx_timerange():
     )
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday():
     """
@@ -266,8 +271,8 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     }
     del requested_attrs["radolanversion"]
 
-    # radarlocations can change over time -> check if at least 10 radar locations were found
-    # and at least 5 of them match with the provided one
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
     assert (
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
@@ -279,6 +284,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_timerange():
     """
@@ -345,8 +351,8 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     del requested_attrs["datetime"]
     del requested_attrs["radolanversion"]
 
-    # radarlocations can change over time -> check if at least 10 radar locations were found
-    # and at least 5 of them match with the provided one
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
     assert (
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
@@ -358,6 +364,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_yesterday():
     """
@@ -408,6 +415,7 @@ def test_radar_request_site_historic_dx_yesterday():
     assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_timerange():
     """
@@ -463,6 +471,7 @@ def test_radar_request_site_historic_dx_timerange():
     assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_binary_yesterday():
     """
@@ -974,6 +983,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     # TODO: Verify data.
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_radvor_re_yesterday():
     """
@@ -1037,12 +1047,13 @@ def test_radar_request_radvor_re_yesterday():
         ],
         "predictiontime": 0,
         "moduleflag": 8,
-        "quantification": 16,
+        # "quantification": 16,
     }
     del requested_attrs["radolanversion"]
+    del requested_attrs["quantification"]
 
-    # radarlocations can change over time -> check if at least 10 radar locations were found
-    # and at least 5 of them match with the provided one
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
     assert (
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
@@ -1083,6 +1094,7 @@ def test_radar_request_radvor_re_timerange():
     # TODO: Verify data.
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday():
     """
@@ -1146,12 +1158,13 @@ def test_radar_request_radvor_rq_yesterday():
         ],
         "predictiontime": 0,
         "moduleflag": 8,
-        "quantification": 0,
+        # "quantification": 0,
     }
     del requested_attrs["radolanversion"]
+    del requested_attrs["quantification"]
 
-    # radarlocations can change over time -> check if at least 10 radar locations were found
-    # and at least 5 of them match with the provided one
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
     assert (
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
