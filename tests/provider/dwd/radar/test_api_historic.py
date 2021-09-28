@@ -266,6 +266,16 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     }
     del requested_attrs["radolanversion"]
 
+    # radarlocations can change over time -> check if at least 10 radar locations were found
+    # and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
+    )
+    del requested_attrs["radarlocations"]
+    del attrs["radarlocations"]
+
     assert requested_attrs == attrs
 
 
@@ -334,6 +344,16 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     }
     del requested_attrs["datetime"]
     del requested_attrs["radolanversion"]
+
+    # radarlocations can change over time -> check if at least 10 radar locations were found
+    # and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
+    )
+    del requested_attrs["radarlocations"]
+    del attrs["radarlocations"]
 
     assert requested_attrs == attrs
 
@@ -1021,6 +1041,16 @@ def test_radar_request_radvor_re_yesterday():
     }
     del requested_attrs["radolanversion"]
 
+    # radarlocations can change over time -> check if at least 10 radar locations were found
+    # and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
+    )
+    del requested_attrs["radarlocations"]
+    del attrs["radarlocations"]
+
     assert requested_attrs == attrs
 
 
@@ -1119,6 +1149,16 @@ def test_radar_request_radvor_rq_yesterday():
         "quantification": 0,
     }
     del requested_attrs["radolanversion"]
+
+    # radarlocations can change over time -> check if at least 10 radar locations were found
+    # and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
+    )
+    del requested_attrs["radarlocations"]
+    del attrs["radarlocations"]
 
     assert requested_attrs == attrs
 
