@@ -21,6 +21,7 @@ from wetterdienst.exceptions import InvalidEnumeration, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
@@ -818,3 +819,117 @@ class ScalarRequestCore(Core):
         result = StationsResult(stations=self, df=df.reset_index(drop=True))
 
         return result
+
+    def interpolate(self, latitude, longitude) -> None:
+        """
+        Method to interpolate values
+
+        :param latitude:
+        :param longitude:
+        :return:
+        """
+
+        # TODO: should we disallow interpolation for data "intense" resolutions?
+        if self.resolution in (
+            Resolution.MINUTE_1,
+            Resolution.MINUTE_5,
+            Resolution.MINUTE_5,
+            Resolution.MINUTE_10,
+        ):
+            raise NotImplementedError(
+                "interpolation is not currently allowed for high resolutions due to mass of data"
+            )
+
+        # This should be defined somewhere else and we may differ between
+        #   - heterogeneous parameters such as precipitation_height
+        #   - homogeneous parameters such as temperature_air_200
+        interpolatable_parameters = [Parameter.TEMPERATURE_AIR_MEAN_200.name]
+
+        for parameter, dataset in self.parameter:
+            if parameter == dataset:
+                log.info("only individual parameters can be interpolated")
+                continue
+
+            if parameter not in interpolatable_parameters:
+                log.info(f"parameter {parameter.name} can not be interpolated")
+                continue
+
+            stations, values = self._get_interpolation_stations_and_values(
+                latitude=latitude, longitude=longitude
+            )
+
+            # Run through values and interpolate
+            interpolated_values = pd.DataFrame()
+            for i in values.iterrows():
+                # first three available stations
+                available_stations = i.dropna().columns
+
+                locations = stations.loc[stations[Columns.STATION_ID.value].isin(available_stations)]
+
+                # Calculate value here
+
+            return InterpolatedValuesResult(interpolated_values)
+
+    def _get_interpolation_stations_and_values(
+        self, latitude: float, longitude: float
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        critical_threshold = 0.05
+
+        # TODO: rank should be stepwise increased until we have enough stations for interpolation
+        # TODO: we will first have to find our first k stations that are minimum requirement for
+        #  interpolation
+        # TODO: we will have to make sure that the set of those k stations has at least one day
+        #   of data in common, obviously this is only our minimum requirement
+        # TODO: we will have to select a representative station that should be used to calculate
+        #  correlations with other stations. This will help us define a stoppage criteria so that
+        #   no further stations are being included. Say we have set a minimum correlation of 0.8 .
+        #   then with the help of the representative station we can stop including more and more
+        #   stations by calculating the correlation and aborting when getting below 0.8 .
+        stations_ranked = self.filter_by_rank(
+            latitude=latitude, longitude=longitude, rank=20
+        )
+
+        interpolation_stations = pd.DataFrame()
+
+        # Store values of included stations
+        # TODO: should we store data tidy or tabular? we will have to calculate the correlation
+        #  probably more often
+        values = pd.DataFrame()
+
+        while interpolation_stations.shape[0] < 3:
+            # TODO: Iterate through stations
+            # Get first station
+            stations_ranked
+            # get values
+            # check values, any not NaN?, any common values with other stations?
+            # what if one station only has few values?
+            if self._increase_of_value_sets(values) < critical_threshold:
+                break
+
+        return interpolation_stations, values
+
+    @staticmethod
+    def _increase_of_value_sets(values: pd.DataFrame, _store: dict = {}) -> float:
+        """
+        Method to calculate the increase of value sets within the last added station
+        e.g. dates where a minimum of three values are available for interpolation
+        :param values:
+        :param _store: value store
+        :return:
+        """
+
+        def _get_number_of_sets(df: pd.DataFrame) -> float:
+            """Get number of value sets with at least 3 values"""
+            return df.isna().apply(lambda x: np.nansum(x) > 2).sum()
+
+        n = values.shape[1]  # use number of cols to store previous values result
+
+        previous = _store.get(n)
+        if not previous:
+            previous = _get_number_of_sets(values.iloc[:, 1:-1])
+
+        current = _get_number_of_sets(values.iloc[:, 1:])
+
+        _store[n + 1] = current
+
+        return (current / previous) - 1
