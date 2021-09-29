@@ -272,7 +272,7 @@ name = "cftime"
 version = "1.5.1"
 description = "Time-handling functionality from netcdf4-python"
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [package.dependencies]
@@ -322,7 +322,7 @@ name = "cloudpickle"
 version = "2.0.0"
 description = "Extended pickling support for Python objects"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -388,7 +388,7 @@ name = "cycler"
 version = "0.10.0"
 description = "Composable style cycles"
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [package.dependencies]
@@ -458,7 +458,7 @@ name = "dask"
 version = "2021.9.1"
 description = "Parallel PyData with Task Scheduling"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -1158,7 +1158,7 @@ name = "kiwisolver"
 version = "1.3.2"
 description = "A fast implementation of the Cassowary constraint solver"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [[package]]
@@ -1178,7 +1178,7 @@ name = "locket"
 version = "0.2.1"
 description = "File-based locks for Python for Linux and Windows"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
@@ -1208,7 +1208,7 @@ name = "matplotlib"
 version = "3.4.3"
 description = "Python plotting package"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -1396,7 +1396,7 @@ name = "netcdf4"
 version = "1.5.7"
 description = "Provides an object-oriented python interface to the netCDF version 4 library."
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [package.dependencies]
@@ -1488,7 +1488,7 @@ name = "partd"
 version = "1.2.0"
 description = "Appendable key-value storage"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.5"
 
 [package.dependencies]
@@ -1557,7 +1557,7 @@ name = "pillow"
 version = "8.3.2"
 description = "Python Imaging Library (Fork)"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -2410,7 +2410,7 @@ name = "toolz"
 version = "0.11.1"
 description = "List processing tools and functional utilities"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.5"
 
 [[package]]
@@ -2583,7 +2583,7 @@ name = "wradlib"
 version = "1.11.0"
 description = "wradlib - An Open Source Library for Weather Radar Data Processing"
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [package.dependencies]
@@ -2608,7 +2608,7 @@ name = "xarray"
 version = "0.17.0"
 description = "N-D labeled arrays and datasets in Python"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -2628,7 +2628,7 @@ name = "xmltodict"
 version = "0.12.0"
 description = "Makes working with XML feel like you are working with JSON"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
