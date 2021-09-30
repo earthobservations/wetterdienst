@@ -137,7 +137,7 @@ http://www.gdal.org
 UNKNOWN
 
 GitPython
-3.1.23
+3.1.24
 BSD License
 Sebastian Thiel, Michael Trier
 https://github.com/gitpython-developers/GitPython
@@ -1928,7 +1928,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 anyio
-3.3.1
+3.3.2
 MIT License
 Alex Grönholm
 UNKNOWN
@@ -2644,7 +2644,7 @@ limitations under the License.
 
 
 cachetools
-4.2.2
+4.2.4
 MIT License
 Thomas Kemmer
 https://github.com/tkem/cachetools/
@@ -3257,7 +3257,7 @@ That's all there is to it!
 
 
 charset-normalizer
-2.0.5
+2.0.6
 MIT License
 Ahmed TAHRI @Ousret
 https://github.com/ousret/charset_normalizer
@@ -6395,7 +6395,7 @@ THE SOFTWARE.
 
 
 jsonschema
-3.2.0
+4.0.1
 MIT License
 Julian Berman
 https://github.com/Julian/jsonschema
@@ -6421,7 +6421,7 @@ THE SOFTWARE.
 
 
 jupyter-client
-7.0.2
+7.0.5
 BSD License
 Jupyter Development Team
 https://jupyter.org
@@ -6488,7 +6488,7 @@ to indicate the copyright and license terms:
 
 
 jupyter-core
-4.7.1
+4.8.1
 BSD License
 Jupyter Development Team
 https://jupyter.org
@@ -10343,7 +10343,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 pytest-xdist
-2.3.0
+2.4.0
 MIT License
 holger krekel and contributors
 https://github.com/pytest-dev/pytest-xdist
@@ -10557,7 +10557,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 rapidfuzz
-1.6.2
+1.7.0
 MIT License
 Max Bachmann
 https://github.com/maxbachmann/rapidfuzz
@@ -10584,7 +10584,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 regex
-2021.8.28
+2021.9.24
 Apache Software License
 Matthew Barnett
 https://bitbucket.org/mrabarnett/mrab-regex
@@ -12824,7 +12824,7 @@ https://github.com/jupyter/terminado
 
 
 testfixtures
-6.18.1
+6.18.3
 MIT License
 Chris Withers
 https://github.com/Simplistix/testfixtures
@@ -13334,7 +13334,7 @@ http://www.tornadoweb.org/
 
 
 tqdm
-4.62.2
+4.62.3
 MIT License; Mozilla Public License 2.0 (MPL 2.0)
 UNKNOWN
 https://tqdm.github.io
@@ -13362,7 +13362,7 @@ Mozilla Public Licence (MPL) v. 2.0 - Exhibit A
 
 This Source Code Form is subject to the terms of the
 Mozilla Public License, v. 2.0.
-If a copy of the MPL was not distributed with this file,
+If a copy of the MPL was not distributed with this project,
 You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
@@ -14043,7 +14043,7 @@ SOFTWARE.
 
 
 urllib3
-1.26.6
+1.26.7
 MIT License
 Andrey Petrov
 https://urllib3.readthedocs.io/
@@ -14818,7 +14818,7 @@ https://github.com/aio-libs/yarl/
 
 
 zipp
-3.5.0
+3.6.0
 MIT License
 Jason R. Coombs
 https://github.com/jaraco/zipp

@@ -11,7 +11,12 @@ from bs4 import BeautifulSoup
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 
-from wetterdienst.util.cache import WD_CACHE_DISABLE, CacheExpiry, cache_dir
+from wetterdienst.util.cache import (
+    FSSPEC_CLIENT_KWARGS,
+    WD_CACHE_DISABLE,
+    CacheExpiry,
+    cache_dir,
+)
 
 # v1: Global HTTP session object for custom implementation based on "requests".
 session = requests.Session()
@@ -42,7 +47,9 @@ class NetworkFilesystemManager:
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(cache_dir, "fsspec", key)
-        filesystem_real = HTTPFileSystem(use_listings_cache=True)
+        filesystem_real = HTTPFileSystem(
+            use_listings_cache=True, client_kwargs=FSSPEC_CLIENT_KWARGS
+        )
         if WD_CACHE_DISABLE or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = filesystem_real
         else:

@@ -4,8 +4,14 @@ Changelog
 Development
 ***********
 
+...
+
+0.22.0 (01.10.2021)
+*******************
+
 - [BREAKING] Introduce core Parameter enum with fixed set of parameter names. Several parameters may have been
   renamed!
+- Add FSSPEC_CLIENT_KWARGS variable at wetterdienst.util.cache for passing extra settings to fsspec request client
 
 0.21.0 (10.09.2021)
 *******************

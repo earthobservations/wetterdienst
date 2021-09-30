@@ -524,9 +524,20 @@ For more examples, please have a look at `example/radar/`_.
 Caching
 =======
 
-The backbone of wetterdienst uses dogpile caching. It requires to create a directory under ``/home`` for the most cases.
-If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set an environment variable
-``WD_CACHE_DIR`` to define the place where the caching directory should be created.
+The backbone of wetterdienst uses dogpile + fsspec caching. It requires to create a directory under ``/home`` for the
+most cases. If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set
+an environment variable ``WD_CACHE_DIR`` to define the place where the caching directory should be created.
+
+FSSPEC is used for flexible file caching. It relies on the two libraries requests and aiohttp. Aiohttp is used for
+asynchronous requests and may swallow some errors related to proxies, ssl or similar. Use the defined variable
+FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
+
+.. ipython:: python
+
+    from wetterdienst.util.cache import FSSPEC_CLIENT_KWARGS
+
+    FSSPEC_CLIENT_KWARGS["trust_env"] = True  # use proxy from environment variables
+
 
 .. _wradlib: https://wradlib.org/
 .. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/main/example/radar
