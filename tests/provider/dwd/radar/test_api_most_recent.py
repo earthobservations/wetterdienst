@@ -147,10 +147,6 @@ def test_radar_request_radolan_cdc_most_recent():
     attrs = {
         "producttype": "SF",
         "datetime": request.start_date.to_pydatetime(),
-        "radarid": "10000",
-        "datasize": 1620000,
-        "maxrange": "150 km",
-        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 86400,
         "nrow": 900,
@@ -174,28 +170,7 @@ def test_radar_request_radolan_cdc_most_recent():
             "fbg",
             "mem",
         ],
-        # "radardays": [
-        #     "asb 24",
-        #     "boo 24",
-        #     "drs 24",
-        #     "eis 24",
-        #     "ess 24",
-        #     "fbg 24",
-        #     "fld 24",
-        #     "hnr 24",
-        #     "isn 24",
-        #     "mem 24",
-        #     "neu 24",
-        #     "nhb 24",
-        #     "oft 24",
-        #     "pro 24",
-        #     "ros 24",
-        #     "tur 24",
-        #     "umd 24",
-        # ],
     }
-    del requested_attrs["radolanversion"]
-    del requested_attrs["radardays"]
 
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
@@ -204,7 +179,17 @@ def test_radar_request_radolan_cdc_most_recent():
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
         >= 5
     )
-    del requested_attrs["radarlocations"]
+
+    skip_attrs = [
+        "radolanversion",
+        "radardays",
+        "radarlocations",
+        "radarid",
+        "maxrange",
+        "datasize",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
     del attrs["radarlocations"]
 
     assert requested_attrs == attrs
