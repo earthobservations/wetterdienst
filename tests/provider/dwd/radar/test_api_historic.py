@@ -240,10 +240,6 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     attrs = {
         "producttype": "RW",
         "datetime": request.start_date.to_pydatetime(),
-        "radarid": "10000",
-        "datasize": 1620000,
-        "maxrange": "150 km",
-        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -269,7 +265,6 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         ],
         "moduleflag": 1,
     }
-    del requested_attrs["radolanversion"]
 
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
@@ -278,7 +273,10 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
         >= 5
     )
-    del requested_attrs["radarlocations"]
+
+    skip_attrs = ["radarid", "datasize", "maxrange", "radarlocations", "radolanversion"]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
     del attrs["radarlocations"]
 
     assert requested_attrs == attrs
@@ -319,10 +317,6 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
 
     attrs = {
         "producttype": "RW",
-        "radarid": "10000",
-        "datasize": 1620000,
-        "maxrange": "150 km",
-        # "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
@@ -348,8 +342,6 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
         ],
         "moduleflag": 1,
     }
-    del requested_attrs["datetime"]
-    del requested_attrs["radolanversion"]
 
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
@@ -358,7 +350,17 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
         >= 5
     )
-    del requested_attrs["radarlocations"]
+
+    skip_attrs = [
+        "datetime",
+        "radarid",
+        "datasize",
+        "maxrange",
+        "radarlocations",
+        "radolanversion",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
     del attrs["radarlocations"]
 
     assert requested_attrs == attrs
@@ -398,11 +400,9 @@ def test_radar_request_site_historic_dx_yesterday():
     assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
         "%d%H%M"
     )
-    del requested_attrs["datetime"]
 
     attrs = {
         "producttype": "DX",
-        "radarid": "10132",
         "version": " 2",
         "cluttermap": 0,
         "dopplerfilter": 4,
@@ -410,7 +410,10 @@ def test_radar_request_site_historic_dx_yesterday():
         "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
         "message": "",
     }
-    del requested_attrs["bytes"]
+
+    skip_attrs = ["datetime", "bytes", "radarid"]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
 
     assert requested_attrs == attrs
 
@@ -1043,9 +1046,6 @@ def test_radar_request_radvor_re_yesterday():
         "predictiontime": 0,
         "moduleflag": 8,
     }
-    skip_attrs = ["radarid", "datasize", "radolanversion", "quantification", "maxrange"]
-    for attr in skip_attrs:
-        requested_attrs.pop(attr, None)
 
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
@@ -1054,7 +1054,17 @@ def test_radar_request_radvor_re_yesterday():
         len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
         >= 5
     )
-    del requested_attrs["radarlocations"]
+
+    skip_attrs = [
+        "radarid",
+        "datasize",
+        "radolanversion",
+        "quantification",
+        "maxrange",
+        "radarlocations",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
     del attrs["radarlocations"]
 
     assert requested_attrs == attrs
