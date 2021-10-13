@@ -72,7 +72,7 @@ jobs:
     - name: Install wradlib (Linux only)
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo add-apt-repository ppa:ubuntugis/ppa && sudo apt-get update && sudo apt-get install gdal-bin && poetry install --extras=radar
+            sudo add-apt-repository ppa:ubuntugis/ppa && sudo apt-get update && sudo apt-get install libgdal-dev && sudo apt-get install gdal-bin && poetry install --extras=radar
         fi
       shell: bash
 
