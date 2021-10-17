@@ -23,11 +23,13 @@ EXAMPLES = (
 )
 
 
+@pytest.mark.cflake
 @pytest.mark.parametrize("example", EXAMPLES)
 def test_regular_examples(example):
     assert example.main() is None
 
 
+@pytest.mark.cflake
 def test_radar_examples():
 
     pytest.importorskip("osgeo.gdal")

@@ -226,6 +226,7 @@ def test_export_spreadsheet(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -243,8 +244,8 @@ def test_export_spreadsheet(tmpdir_factory):
     # Validate header row.
     header = list(worksheet.iter_cols(min_row=1, max_row=1, values_only=True))
     assert header == [
-        ("date",),
         ("station_id",),
+        ("date",),
         ("qn_3",),
         ("wind_gust_max",),
         ("wind_speed",),
@@ -255,8 +256,8 @@ def test_export_spreadsheet(tmpdir_factory):
         ("snow_depth",),
         ("cloud_cover_total",),
         ("pressure_vapor",),
-        ("pressure_air",),
-        ("temperature_air_200",),
+        ("pressure_air_site",),
+        ("temperature_air_mean_200",),
         ("humidity",),
         ("temperature_air_max_200",),
         ("temperature_air_min_200",),
@@ -268,8 +269,8 @@ def test_export_spreadsheet(tmpdir_factory):
 
     first_record = list(worksheet.iter_cols(min_row=2, max_row=2, values_only=True))
     assert first_record == [
-        ("2019-01-01T00:00:00+00:00",),
         ("01048",),
+        ("2019-01-01T00:00:00+00:00",),
         (10,),
         (19.9,),
         (8.5,),
@@ -294,8 +295,8 @@ def test_export_spreadsheet(tmpdir_factory):
         )
     )
     assert last_record == [
-        ("2020-01-01T00:00:00+00:00",),
         ("01048",),
+        ("2020-01-01T00:00:00+00:00",),
         (10,),
         (6.9,),
         (3.2,),
@@ -329,6 +330,7 @@ def test_export_parquet(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -348,8 +350,8 @@ def test_export_parquet(tmpdir_factory):
 
     # Validate column names.
     assert table.column_names == [
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "wind_gust_max",
         "wind_speed",
@@ -360,8 +362,8 @@ def test_export_parquet(tmpdir_factory):
         "snow_depth",
         "cloud_cover_total",
         "pressure_vapor",
-        "pressure_air",
-        "temperature_air_200",
+        "pressure_air_site",
+        "temperature_air_mean_200",
         "humidity",
         "temperature_air_max_200",
         "temperature_air_min_200",
@@ -396,6 +398,7 @@ def test_export_zarr(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -416,8 +419,8 @@ def test_export_zarr(tmpdir_factory):
     # Validate column names.
     assert set(group.keys()) == {
         "index",
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "wind_gust_max",
         "wind_speed",
@@ -428,8 +431,8 @@ def test_export_zarr(tmpdir_factory):
         "snow_depth",
         "cloud_cover_total",
         "pressure_vapor",
-        "pressure_air",
-        "temperature_air_200",
+        "pressure_air_site",
+        "temperature_air_mean_200",
         "humidity",
         "temperature_air_max_200",
         "temperature_air_min_200",
@@ -463,6 +466,7 @@ def test_export_feather(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -482,8 +486,8 @@ def test_export_feather(tmpdir_factory):
 
     # Validate column names.
     assert table.column_names == [
-        "date",
         "station_id",
+        "date",
         "qn_3",
         "wind_gust_max",
         "wind_speed",
@@ -494,8 +498,8 @@ def test_export_feather(tmpdir_factory):
         "snow_depth",
         "cloud_cover_total",
         "pressure_vapor",
-        "pressure_air",
-        "temperature_air_200",
+        "pressure_air_site",
+        "temperature_air_mean_200",
         "humidity",
         "temperature_air_max_200",
         "temperature_air_min_200",
@@ -527,6 +531,7 @@ def test_export_sqlite(tmpdir_factory):
         start_date="2019",
         end_date="2020",
         tidy=False,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -544,8 +549,8 @@ def test_export_sqlite(tmpdir_factory):
     connection.close()
 
     assert results[0] == (
-        "2019-01-01 00:00:00.000000",
         "01048",
+        "2019-01-01 00:00:00.000000",
         10,
         19.9,
         8.5,
@@ -565,8 +570,8 @@ def test_export_sqlite(tmpdir_factory):
     )
 
     assert results[-1] == (
-        "2020-01-01 00:00:00.000000",
         "01048",
+        "2020-01-01 00:00:00.000000",
         10,
         6.9,
         3.2,
@@ -592,6 +597,7 @@ def test_export_cratedb():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
+        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -621,6 +627,7 @@ def test_export_duckdb():
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
+        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_connection = mock.MagicMock()
@@ -639,19 +646,20 @@ def test_export_duckdb():
         mock_connection.close.assert_called_once()
 
 
-@surrogate("influxdb.dataframe_client.DataFrameClient")
-def test_export_influxdb_tabular():
+@surrogate("influxdb.InfluxDBClient")
+def test_export_influxdb1_tabular():
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy=False,
+        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
     with mock.patch(
-        "influxdb.dataframe_client.DataFrameClient",
+        "influxdb.InfluxDBClient",
         side_effect=[mock_client],
         create=True,
     ) as mock_connect:
@@ -659,31 +667,57 @@ def test_export_influxdb_tabular():
         df = request.values.all().df
         ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
 
-        mock_connect.assert_called_once_with(database="dwd")
+        mock_connect.assert_called_once_with(
+            host="localhost",
+            port=8086,
+            username=None,
+            password=None,
+            database="dwd",
+            ssl=False,
+        )
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
 
         mock_client.write_points.assert_called_with(
-            dataframe=mock.ANY,
-            measurement="weather",
-            tag_columns=["station_id", "qn_3", "qn_4"],
+            points=mock.ANY,
             batch_size=50000,
         )
 
+        points = mock_client.write_points.call_args.kwargs["points"]
+        assert points[0]["measurement"] == "weather"
+        assert list(points[0]["tags"].keys()) == ["station_id", "qn_3", "qn_4"]
+        assert list(points[0]["fields"].keys()) == [
+            "wind_gust_max",
+            "wind_speed",
+            "precipitation_height",
+            "precipitation_form",
+            "sunshine_duration",
+            "snow_depth",
+            "cloud_cover_total",
+            "pressure_vapor",
+            "pressure_air_site",
+            "temperature_air_mean_200",
+            "humidity",
+            "temperature_air_max_200",
+            "temperature_air_min_200",
+            "temperature_air_min_005",
+        ]
 
-@surrogate("influxdb.dataframe_client.DataFrameClient")
-def test_export_influxdb_tidy():
+
+@surrogate("influxdb.InfluxDBClient")
+def test_export_influxdb1_tidy():
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         tidy=True,
+        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
     with mock.patch(
-        "influxdb.dataframe_client.DataFrameClient",
+        "influxdb.InfluxDBClient",
         side_effect=[mock_client],
         create=True,
     ) as mock_connect:
@@ -691,13 +725,100 @@ def test_export_influxdb_tidy():
         df = request.values.all().df
         ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
 
-        mock_connect.assert_called_once_with(database="dwd")
+        mock_connect.assert_called_once_with(
+            host="localhost",
+            port=8086,
+            username=None,
+            password=None,
+            database="dwd",
+            ssl=False,
+        )
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
 
         mock_client.write_points.assert_called_with(
-            dataframe=mock.ANY,
-            measurement="weather",
-            tag_columns=["station_id", "quality", "dataset", "parameter"],
+            points=mock.ANY,
             batch_size=50000,
         )
+
+        points = mock_client.write_points.call_args.kwargs["points"]
+        assert points[0]["measurement"] == "weather"
+        assert list(points[0]["tags"].keys()) == [
+            "station_id",
+            "quality",
+            "dataset",
+            "parameter",
+        ]
+        assert list(points[0]["fields"].keys()) == [
+            "value",
+        ]
+
+
+@surrogate("influxdb_client.InfluxDBClient")
+@surrogate("influxdb_client.Point")
+@surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
+def test_export_influxdb2_tabular():
+
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
+        tidy=False,
+        si_units=False,
+    ).filter_by_station_id(station_id=[1048])
+
+    mock_client = mock.MagicMock()
+    with mock.patch(
+        "influxdb_client.InfluxDBClient",
+        side_effect=[mock_client],
+        create=True,
+    ) as mock_connect:
+
+        with mock.patch(
+            "influxdb_client.Point",
+            create=True,
+        ):
+
+            df = request.values.all().df
+            ExportMixin(df=df).to_target(
+                "influxdb2://orga:token@localhost/?database=dwd&table=weather"
+            )
+
+            mock_connect.assert_called_once_with(
+                url="http://localhost:8086", org="orga", token="token"
+            )
+
+
+@surrogate("influxdb_client.InfluxDBClient")
+@surrogate("influxdb_client.Point")
+@surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
+def test_export_influxdb2_tidy():
+
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
+        tidy=True,
+        si_units=False,
+    ).filter_by_station_id(station_id=[1048])
+
+    mock_client = mock.MagicMock()
+    with mock.patch(
+        "influxdb_client.InfluxDBClient",
+        side_effect=[mock_client],
+        create=True,
+    ) as mock_connect:
+
+        with mock.patch(
+            "influxdb_client.Point",
+            create=True,
+        ):
+
+            df = request.values.all().df
+            ExportMixin(df=df).to_target(
+                "influxdb2://orga:token@localhost/?database=dwd&table=weather"
+            )
+
+            mock_connect.assert_called_once_with(
+                url="http://localhost:8086", org="orga", token="token"
+            )

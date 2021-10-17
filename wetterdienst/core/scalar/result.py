@@ -28,7 +28,6 @@ class StationsResult(ExportMixin):
     ) -> None:
         # TODO: add more attributes from ScalarStations class
         self.stations = stations
-
         self.df = df
         self._kwargs = kwargs
 
@@ -95,7 +94,6 @@ class StationsResult(ExportMixin):
     def humanize(self) -> bool:
         return self.stations.humanize
 
-    # TODO make compatible with forecast (instead of station_id, use wmo_id)
     def to_ogc_feature_collection(self) -> dict:
         """
         Format station information as OGC feature collection.
@@ -143,9 +141,6 @@ class ValuesResult(ExportMixin):
 
     stations: StationsResult
     df: pd.DataFrame
-
-    def __add__(self, other):
-        pass
 
     def to_ogc_feature_collection(self):
         raise NotImplementedError()

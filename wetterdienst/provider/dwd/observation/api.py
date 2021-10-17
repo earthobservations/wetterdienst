@@ -3,14 +3,16 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+from itertools import repeat
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
-from wetterdienst.core.process import tidy_up_data
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -45,6 +47,7 @@ from wetterdienst.provider.dwd.observation.metadata.resolution import (
     HIGH_RESOLUTIONS,
     RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
 )
+from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
@@ -64,8 +67,6 @@ class DwdObservationValues(ScalarValuesCore):
     observation data as provided by the DWD service.
     """
 
-    provider = Provider.DWD
-
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = True
@@ -81,19 +82,30 @@ class DwdObservationValues(ScalarValuesCore):
 
     @property
     def _datetime_format(self):
+        """
+
+        :return:
+        """
         return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(
             self.stations.stations.resolution
         )
 
     def __eq__(self, other):
-        """ Add resolution and periods """
+        """
+
+        :param other:
+        :return:
+        """
         return super(DwdObservationValues, self).__eq__(other) and (
             self.stations.resolution == other.stations.resolution
             and self.stations.period == other.stations.period
         )
 
     def __str__(self):
-        """ Add resolution and periods """
+        """
+
+        :return:
+        """
         periods_joined = "& ".join(
             [period_type.value for period_type in self.stations.period]
         )
@@ -109,25 +121,19 @@ class DwdObservationValues(ScalarValuesCore):
     def _collect_station_parameter(
         self,
         station_id: str,
-        parameter: Tuple[
-            Union[DwdObservationParameter, DwdObservationDataset],
-            DwdObservationDataset,
-        ],
+        parameter: Union[DwdObservationParameter, DwdObservationDataset],
+        dataset: DwdObservationDataset,
     ) -> pd.DataFrame:
         """
         Method to collect data for one specified parameter. Manages restoring,
         collection and storing of data, transformation and combination of different
         periods.
 
-        Args:
-            station_id: station id for which parameter is collected
-            parameter: chosen parameter-dataset combination that is collected
+        :param station_id: station id for which parameter is collected
+        :param parameter: chosen parameter-dataset combination that is collected
 
-        Returns:
-            pandas.DataFrame for given parameter of station
+        :return: pandas.DataFrame for given parameter of station
         """
-        parameter, dataset = parameter
-
         periods_and_date_ranges = []
 
         for period in self.stations.period:
@@ -176,7 +182,7 @@ class DwdObservationValues(ScalarValuesCore):
                 log.info(
                     f"No files found for {parameter_identifier}. Station will be skipped."
                 )
-                return pd.DataFrame()
+                continue
 
             # TODO: replace with FSSPEC caching
             filenames_and_files = download_climate_observations_data_parallel(
@@ -199,38 +205,127 @@ class DwdObservationValues(ScalarValuesCore):
 
             parameter_df = parameter_df.append(period_df)
 
-        if self.stations.tidy:
-            parameter_df = tidy_up_data(parameter_df)
-
-            # TODO: remove this column and rather move it into metadata of resulting
-            #  data model
-            parameter_df.insert(2, Columns.DATASET.value, dataset.name.lower())
-            parameter_df[Columns.DATASET.value] = parameter_df[
-                Columns.DATASET.value
-            ].astype("category")
-
-        if parameter not in DwdObservationDataset:
-            parameter_df = parameter_df[
-                parameter_df[DwdColumns.PARAMETER.value] == parameter.value.lower()
-            ]
-
         return parameter_df
 
+    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+        """
+        Implementation of _tidy_up_df for DWD Observations
+
+        :param df:
+        :param dataset:
+        :return:
+        """
+        resolution = self.stations.stations.resolution
+
+        droppable_columns = [
+            # Hourly
+            # Cloud type
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,  # noqa:E501
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,  # noqa:E501
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,  # noqa:E501
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,  # noqa:E501
+            # Cloudiness
+            DwdObservationDatasetTree.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,  # noqa:E501
+            # Solar
+            DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value,
+            DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+            # Visibility
+            DwdObservationDatasetTree.HOURLY.VISIBILITY.VISIBILITY_INDICATOR.value,
+        ]
+
+        # Drop string columns, can't be coerced to float
+        df = df.drop(
+            columns=droppable_columns,
+            errors="ignore",
+        )
+
+        if (
+            resolution == Resolution.DAILY
+            and dataset == DwdObservationDataset.CLIMATE_SUMMARY
+        ):
+            quality_wind = df.pop(
+                DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value
+            )
+            quality_general = df.pop(
+                DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value
+            )
+
+            quality = pd.concat(
+                [
+                    pd.Series(repeat(quality_wind.tolist(), 2)).explode(),
+                    pd.Series(repeat(quality_general.tolist(), 12)).explode(),
+                ]
+            )
+
+        elif (
+            resolution in (Resolution.MONTHLY, Resolution.ANNUAL)
+            and dataset == DwdObservationDataset.CLIMATE_SUMMARY
+        ):
+            quality_general = df.pop(
+                DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value
+            )
+            quality_precipitation = df.pop(
+                DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value  # noqa: E501
+            )
+            quality = pd.concat(
+                [
+                    pd.Series(repeat(quality_general, 9)).explode(),
+                    pd.Series(repeat(quality_precipitation, 2)).explode(),
+                ]
+            )
+
+        else:
+            quality = df.pop(df.columns[2])
+            quality = pd.Series(repeat(quality, df.shape[1])).explode()
+
+        possible_id_vars = (
+            Columns.STATION_ID.value,
+            Columns.DATE.value,
+            Columns.FROM_DATE.value,
+            Columns.TO_DATE.value,
+        )
+
+        id_vars = df.columns.intersection(possible_id_vars)
+
+        df_tidy = df.melt(
+            id_vars=id_vars,
+            var_name=Columns.PARAMETER.value,
+            value_name=Columns.VALUE.value,
+        )
+
+        df_tidy[Columns.QUALITY.value] = quality.reset_index(drop=True)
+
+        return df_tidy
+
     def _coerce_dates(self, series: pd.Series) -> pd.Series:
-        """Use predefined datetime format for given resolution to reduce processing
-        time."""
+        """
+        Use predefined datetime format for given resolution to reduce processing
+        time.
+
+        :param series:
+        :return:
+        """
         return pd.to_datetime(series, format=self._datetime_format).dt.tz_localize(
             self.data_tz
         )
 
     def _coerce_irregular_parameter(self, series: pd.Series) -> pd.Series:
-        """Only one particular parameter is irregular which is the related to some
-        datetime found in solar."""
+        """
+        Only one particular parameter is irregular which is the related to some
+        datetime found in solar.
+
+        :param series:
+        :return:
+        """
         return pd.to_datetime(series, format=DatetimeFormat.YMDH_COLUMN_M.value)
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
-        """Reduce the creation of parameter mapping of the massive amount of parameters
-        by specifying the resolution."""
+        """
+        Reduce the creation of parameter mapping of the massive amount of parameters
+        by specifying the resolution.
+
+        :return:
+        """
         hcnm = {
             parameter.value: parameter.name.lower()
             for parameter in DwdObservationParameter[self.stations.resolution.name]
@@ -241,18 +336,33 @@ class DwdObservationValues(ScalarValuesCore):
     def _get_historical_date_ranges(
         self, station_id: str, dataset: DwdObservationDataset
     ) -> List[str]:
-        """Get particular files for historical data which for high resolution is
-        released in data chunks e.g. decades or monthly chunks"""
+        """
+        Get particular files for historical data which for high resolution is
+        released in data chunks e.g. decades or monthly chunks
+
+        :param station_id:
+        :param dataset:
+        :return:
+        """
         file_index = create_file_index_for_climate_observations(
             dataset, self.stations.resolution, Period.HISTORICAL
         )
 
+        # The request interval may be None, if no start and end date
+        # is given but rather the entire available data is queried.
+        # In this case the interval should overlap with all files
+        interval = self.stations.stations._interval
+
+        if not interval:
+            from_date_min = file_index[Columns.FROM_DATE.value].min()
+            to_date_max = file_index[Columns.TO_DATE.value].max()
+
+            interval = pd.Interval(from_date_min, to_date_max, closed="both")
+
         # Filter for from date and end date
         file_index_filtered = file_index[
             (file_index[Columns.STATION_ID.value] == station_id)
-            & file_index[Columns.INTERVAL.value].array.overlaps(
-                self.stations.stations._interval
-            )
+            & file_index[Columns.INTERVAL.value].array.overlaps(interval)
         ]
 
         return file_index_filtered[Columns.DATE_RANGE.value].tolist()
@@ -265,6 +375,7 @@ class DwdObservationRequest(ScalarRequestCore):
     """
 
     provider = Provider.DWD
+    kind = Kind.OBSERVATION
 
     _values = DwdObservationValues
     _parameter_base = DwdObservationParameter
@@ -274,27 +385,35 @@ class DwdObservationRequest(ScalarRequestCore):
     _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
     _period_base = DwdObservationPeriod
-
+    _data_range = DataRange.FIXED
     _has_datasets = True
     _unique_dataset = False
     _dataset_base = DwdObservationDataset
     _dataset_tree = DwdObservationDatasetTree
     _parameter_to_dataset_mapping = PARAMETER_TO_DATASET_MAPPING
 
+    _unit_tree = DwdObservationUnit
+
     @property
     def _interval(self) -> Optional[pd.Interval]:
-        """ Interval of the request if date given """
+        """
+        Interval of the request if date given
+
+        :return:
+        """
         if self.start_date:
-            return pd.Interval(self.start_date, self.end_date, "both")
+            return pd.Interval(self.start_date, self.end_date, closed="both")
 
         return None
 
     @property
     def _historical_interval(self) -> pd.Interval:
-        """Interval of historical data release schedule. Historical data is typically
-        release once in a year somewhere in the first few months with updated quality
         """
+        Interval of historical data release schedule. Historical data is typically
+        release once in a year somewhere in the first few months with updated quality
 
+        :return:
+        """
         historical_end = self._now_local.replace(month=1, day=1)
 
         if self.start_date < historical_end:
@@ -310,8 +429,12 @@ class DwdObservationRequest(ScalarRequestCore):
 
     @property
     def _recent_interval(self) -> pd.Interval:
-        """Interval of recent data release schedule. Recent data is released every day
-        somewhere after midnight with data reaching back 500 days."""
+        """
+        Interval of recent data release schedule. Recent data is released every day
+        somewhere after midnight with data reaching back 500 days.
+
+        :return:
+        """
         recent_end = self._now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - pd.Timedelta(days=500)
 
@@ -323,8 +446,12 @@ class DwdObservationRequest(ScalarRequestCore):
 
     @property
     def _now_interval(self) -> pd.Interval:
-        """Interval of now data release schedule. Now data is released every hour (near
-        real time) reaching back to beginning of the previous day."""
+        """
+        Interval of now data release schedule. Now data is released every hour (near
+        real time) reaching back to beginning of the previous day.
+
+        :return:
+        """
         now_end = self._now_local
         now_begin = now_end.replace(hour=0, minute=0, second=0) - pd.Timedelta(days=1)
 
@@ -333,12 +460,16 @@ class DwdObservationRequest(ScalarRequestCore):
         return now_interval
 
     def _get_periods(self) -> List[Period]:
-        """Set periods automatically depending on the given start date and end date.
+        """
+        Set periods automatically depending on the given start date and end date.
         Overlapping of historical and recent interval will cause both periods to appear
         if values from last year are queried within the 500 day range of recent. This is
         okay as we'd prefer historical values with quality checks, but may encounter
         that in the beginning of a new year historical data is not yet updated and only
-        recent periods cover this data."""
+        recent periods cover this data.
+
+        :return:
+        """
         periods = []
 
         interval = self._interval
@@ -353,6 +484,11 @@ class DwdObservationRequest(ScalarRequestCore):
         return periods
 
     def _parse_station_id(self, series: pd.Series) -> pd.Series:
+        """
+
+        :param series:
+        :return:
+        """
         series = super(DwdObservationRequest, self)._parse_station_id(series)
 
         series = series.str.pad(5, "left", "0")
@@ -368,6 +504,7 @@ class DwdObservationRequest(ScalarRequestCore):
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         humanize: bool = True,
         tidy: bool = True,
+        si_units: bool = True,
     ):
         """
 
@@ -385,7 +522,14 @@ class DwdObservationRequest(ScalarRequestCore):
             end_date=end_date,
             humanize=humanize,
             tidy=tidy,
+            si_units=si_units,
         )
+
+        if self.start_date and self.period:
+            log.warning(
+                f"start_date and end_date filtering limited to defined "
+                f"periods {self.period}"
+            )
 
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
@@ -395,14 +539,16 @@ class DwdObservationRequest(ScalarRequestCore):
             else:
                 self.period = self._parse_period([*self._period_base])
 
-        if self.start_date and self.period:
-            log.warning(
-                f"start_date and end_date filtering limited to defined "
-                f"periods {self.period}"
-            )
-
     @classmethod
     def describe_fields(cls, dataset, resolution, period, language: str = "en") -> dict:
+        """
+
+        :param dataset:
+        :param resolution:
+        :param period:
+        :param language:
+        :return:
+        """
         dataset = parse_enumeration_from_template(dataset, DwdObservationDataset)
         resolution = parse_enumeration_from_template(
             resolution, cls._resolution_base, Resolution
@@ -437,6 +583,10 @@ class DwdObservationRequest(ScalarRequestCore):
         return document
 
     def _all(self) -> pd.DataFrame:
+        """
+
+        :return:
+        """
         datasets = pd.Series(self.parameter).map(lambda x: x[1]).unique()
 
         stations_df = pd.DataFrame()
@@ -445,7 +595,6 @@ class DwdObservationRequest(ScalarRequestCore):
             # First "now" period as it has more updated end date up to the last "now"
             # values
             for period in reversed(self.period):
-                # TODO: move to _all and replace error with logging + empty dataframe
                 if not check_dwd_observations_dataset(dataset, self.resolution, period):
                     log.warning(
                         f"The combination of {dataset.value}, "

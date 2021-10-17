@@ -9,6 +9,8 @@ import pandas as pd
 from dateparser import parse
 
 from wetterdienst.metadata.extension import Extension
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
@@ -21,8 +23,6 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarParameter,
-    DwdRadarPeriod,
-    DwdRadarResolution,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import (
@@ -30,7 +30,7 @@ from wetterdienst.provider.dwd.radar.util import (
     get_date_from_filename,
 )
 from wetterdienst.util.cache import fileindex_cache_five_minutes
-from wetterdienst.util.network import list_remote_files
+from wetterdienst.util.network import list_remote_files_fsspec
 
 
 def use_cache() -> int:  # pragma: no cover
@@ -56,8 +56,8 @@ def create_fileindex_radar(
     site: Optional[DwdRadarSite] = None,
     fmt: Optional[DwdRadarDataFormat] = None,
     subset: Optional[DwdRadarDataSubset] = None,
-    resolution: Optional[DwdRadarResolution] = None,
-    period: Optional[DwdRadarPeriod] = None,
+    resolution: Optional[Resolution] = None,
+    period: Optional[Period] = None,
     parse_datetime: bool = False,
 ) -> pd.DataFrame:
     """
@@ -89,7 +89,7 @@ def create_fileindex_radar(
 
     url = urljoin(DWD_SERVER, parameter_path)
 
-    files_server = list_remote_files(url, recursive=True)
+    files_server = list_remote_files_fsspec(url, recursive=True)
 
     files_server = pd.DataFrame(
         files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
@@ -122,7 +122,7 @@ def create_fileindex_radar(
 
 @fileindex_cache_five_minutes.cache_on_arguments()
 def create_fileindex_radolan_cdc(
-    resolution: DwdRadarResolution, period: DwdRadarPeriod
+    resolution: Resolution, period: Period
 ) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
@@ -165,8 +165,8 @@ def build_path_to_parameter(
     site: Optional[DwdRadarSite] = None,
     fmt: Optional[DwdRadarDataFormat] = None,
     subset: Optional[DwdRadarDataSubset] = None,
-    resolution: Optional[DwdRadarResolution] = None,
-    period: Optional[DwdRadarPeriod] = None,
+    resolution: Optional[Resolution] = None,
+    period: Optional[Period] = None,
 ) -> str:
     """
     Compute URL path to data product.
@@ -198,7 +198,7 @@ def build_path_to_parameter(
     :return:                URL path to data product
     """
     if parameter == DwdRadarParameter.RADOLAN_CDC:
-        if resolution == DwdRadarResolution.MINUTE_5:
+        if resolution == Resolution.MINUTE_5:
             # See also page 4 on
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf  # noqa:E501,B950
             parameter_path = f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950

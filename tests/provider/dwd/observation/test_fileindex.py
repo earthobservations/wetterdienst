@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """ tests for file index creation """
 import pytest
-import requests
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -20,7 +19,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 
 
 @pytest.mark.remote
-def test_file_index_creation():
+def test_file_index_creation_success():
 
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
@@ -39,14 +38,19 @@ def test_file_index_creation():
         "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
     ]
 
-    with pytest.raises(requests.exceptions.HTTPError):
+
+@pytest.mark.remote
+def test_file_index_creation_failure():
+
+    with pytest.raises(FileNotFoundError):
         create_file_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
-            DwdObservationResolution.MINUTE_1,
-            DwdObservationPeriod.HISTORICAL,
+            Resolution.MINUTE_1,
+            Period.HISTORICAL,
         )
 
 
+@pytest.mark.remote
 def test_create_file_list_for_dwd_server():
     remote_file_path = create_file_list_for_climate_observations(
         station_id="01048",

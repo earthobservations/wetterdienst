@@ -3,10 +3,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
-    DwdObservationParameter,
     DwdObservationPeriod,
     DwdObservationRequest,
     DwdObservationResolution,
@@ -16,20 +14,22 @@ from wetterdienst.provider.dwd.observation import (
 def test_dwd_observation_metadata_discover_parameters():
     parameters = DwdObservationRequest.discover(filter_="minute_1", flatten=True)
 
-    assert (
-        json.dumps(
-            {
-                Resolution.MINUTE_1.name.lower(): [
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT.name.lower(),
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_DROPLET.name.lower(),
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_HEIGHT_ROCKER.name.lower(),
-                    DwdObservationParameter.MINUTE_1.PRECIPITATION_FORM.name.lower(),
-                ]
+    expected = {
+        "minute_1": {
+            "precipitation_height": {"origin": "mm", "si": "kg / m ** 2"},
+            "precipitation_height_droplet": {
+                "origin": "mm",
+                "si": "kg / m ** 2",
             },
-            indent=4,
-        )
-        in parameters
-    )
+            "precipitation_height_rocker": {
+                "origin": "mm",
+                "si": "kg / m ** 2",
+            },
+            "precipitation_form": {"origin": "-", "si": "-"},
+        }
+    }
+
+    assert json.dumps(expected) in json.dumps(parameters)
 
 
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():

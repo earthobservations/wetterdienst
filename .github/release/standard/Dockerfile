@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
 RUN apt-get update
+RUN apt-get --yes install git
 
 # Use "poetry build --format=wheel" to build wheel packages.
 COPY dist/wetterdienst-*.whl /tmp/

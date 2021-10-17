@@ -5,7 +5,6 @@ from io import BytesIO
 import pytest
 import requests
 
-from tests import mac_arm64_unsupported
 from wetterdienst.provider.dwd.radar.util import get_date_from_filename, verify_hdf5
 
 
@@ -34,7 +33,6 @@ hdf5_example = (
 )
 
 
-@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_verify_hdf5_valid():
     buffer = BytesIO(requests.get(hdf5_example).content)
@@ -42,7 +40,6 @@ def test_radar_verify_hdf5_valid():
     verify_hdf5(buffer)
 
 
-@mac_arm64_unsupported
 def test_radar_verify_hdf5_invalid():
     with pytest.raises(Exception) as ex:
         buffer = BytesIO()

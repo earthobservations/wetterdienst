@@ -24,6 +24,7 @@ from bs4 import BeautifulSoup
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_layout(wetterdienst_ui, dash_tre):
 
@@ -37,6 +38,7 @@ def test_app_layout(wetterdienst_ui, dash_tre):
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
@@ -63,10 +65,11 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
         "name",
         "state",
     ]
-    assert len(data["data"]) == 511
+    assert len(data["data"]) >= 511
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     """
@@ -82,13 +85,14 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     time.sleep(0.5)
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=1)
-    dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=1)
-    dash_tre.wait_for_contains_text("#map", "No data to display", timeout=1)
-    dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=1)
+    dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=2)
+    dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=2)
+    dash_tre.wait_for_contains_text("#map", "No data to display", timeout=2)
+    dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=2)
 
 
 @pytest.mark.slow
+@pytest.mark.cflake
 @pytest.mark.explorer
 def test_app_data_values(wetterdienst_ui, dash_tre):
     """
@@ -110,18 +114,20 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     # Select weather station.
     dash_tre.wait_for_element_by_id("select-station")
     dash_tre.select_dcc_dropdown("#select-station", value="Anklam")
+    time.sleep(0.25)
 
     # Select variable.
     dash_tre.wait_for_element_by_id("select-variable")
     dash_tre.wait_for_element_by_id_clickable("select-variable")
     dash_tre.select_dcc_dropdown("#select-variable", value="temperature_air_200")
+    time.sleep(0.25)
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-values")
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=1)
-    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=1)
+    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=2)
+    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=2)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
@@ -133,7 +139,7 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
         "station_id",
         "date",
         "qn_9",
-        "temperature_air_200",
+        "temperature_air_mean_200",
         "humidity",
     ]
     assert len(data["data"]) == 13081

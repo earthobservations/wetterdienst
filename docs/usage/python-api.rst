@@ -63,7 +63,7 @@ different ways:
 
         "kl"
 
-This leaves a lot flexibility to the user defining the arguments either by what they
+This leaves a lot of flexibility to the user defining the arguments either by what they
 know from the weather service or what they know from `wetterdienst` itself.
 
 Typical requests are defined by three arguments:
@@ -104,13 +104,15 @@ Other arguments for the request are
 - ``end_date``
 - ``tidy``
 - ``humanize``
+- ``si_units``
 
 Arguments start_date and end_date are possible replacements for the period argument if
 the period of a weather service is fixed. In case both arguments are given they are
 combined thus data is only taken from the given period and between the given time span.
 The argument `tidy` can be used to reshape the returned data to a `tidy format`_.
 The argument `humanize` can be used to rename parameters to more meaningful
-names. Both `tidy` and `humanize` are defaulted to True.
+names. The argument `si_units` can be used to convert values to SI units.
+All of `tidy`, `humanize` and `si_units` are defaulted to True.
 
 .. _tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
 
@@ -124,7 +126,7 @@ to discover available parameters based on the given filter arguments.
 Stations
 --------
 
-Get station information for a given *parameter/parameter_set*, *resolution* and
+Get station information for a given *parameter/dataset*, *resolution* and
 *period*.
 
 .. ipython:: python
@@ -522,9 +524,20 @@ For more examples, please have a look at `example/radar/`_.
 Caching
 =======
 
-The backbone of wetterdienst uses dogpile caching. It requires to create a directory under ``/home`` for the most cases.
-If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set an environment variable
-``WD_CACHE_DIR`` to define the place where the caching directory should be created.
+The backbone of wetterdienst uses dogpile + fsspec caching. It requires to create a directory under ``/home`` for the
+most cases. If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set
+an environment variable ``WD_CACHE_DIR`` to define the place where the caching directory should be created.
+
+FSSPEC is used for flexible file caching. It relies on the two libraries requests and aiohttp. Aiohttp is used for
+asynchronous requests and may swallow some errors related to proxies, ssl or similar. Use the defined variable
+FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
+
+.. ipython:: python
+
+    from wetterdienst.util.cache import FSSPEC_CLIENT_KWARGS
+
+    FSSPEC_CLIENT_KWARGS["trust_env"] = True  # use proxy from environment variables
+
 
 .. _wradlib: https://wradlib.org/
 .. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/main/example/radar

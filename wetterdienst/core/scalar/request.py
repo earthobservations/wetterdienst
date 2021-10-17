@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import json
 import logging
 from abc import abstractmethod
 from datetime import datetime
@@ -20,7 +19,10 @@ from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
 from wetterdienst.exceptions import InvalidEnumeration, StartDateEndDateError
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
@@ -34,20 +36,16 @@ class ScalarRequestCore(Core):
     """ Core for stations information of a source """
 
     @property
-    def resolution(self) -> Optional[Resolution]:
-        """ Resolution accessor"""
-        return self._resolution
+    @abstractmethod
+    def provider(self) -> Provider:
+        """ Optional enumeration for multiple resolutions """
+        pass
 
-    @resolution.setter
-    def resolution(self, res) -> None:
-        # TODO: add functionality to parse arbitrary resolutions for cases where
-        #  resolution has to be determined based on returned data
-        if self._resolution_type in (ResolutionType.FIXED, ResolutionType.UNDEFINED):
-            self._resolution = res
-        else:
-            self._resolution = parse_enumeration_from_template(
-                res, self._resolution_base, Resolution
-            )
+    @property
+    @abstractmethod
+    def kind(self) -> Kind:
+        """ Optional enumeration for multiple resolutions """
+        pass
 
     @property
     @abstractmethod
@@ -59,12 +57,6 @@ class ScalarRequestCore(Core):
     @abstractmethod
     def _resolution_type(self) -> ResolutionType:
         """ Resolution type, multi, fixed, ..."""
-        pass
-
-    # TODO: implement for source with dynamic resolution
-    @staticmethod
-    def _determine_resolution(dates: pd.Series) -> Resolution:
-        """ Function to determine resolution from a pandas Series of dates """
         pass
 
     @property
@@ -86,10 +78,23 @@ class ScalarRequestCore(Core):
         pass
 
     @property
-    @abstractmethod
+    # @abstractmethod
     def _parameter_base(self) -> Enum:
         """parameter base enumeration from which parameters can be parsed e.g.
         DWDObservationParameter"""
+        if self._has_datasets:
+            if not self._unique_dataset:
+                raise NotImplementedError(
+                    "implement _parameter_base enumeration that "
+                    "all parameters of one resolution stored together"
+                )
+        return
+
+    @property
+    @abstractmethod
+    def _data_range(self) -> DataRange:
+        """State whether data from this provider is given in fixed data chunks
+        or has to be defined over start and end date"""
         pass
 
     @property
@@ -104,7 +109,7 @@ class ScalarRequestCore(Core):
         """ Dataset base that is used to differ between different datasets """
         if self._has_datasets:
             raise NotImplementedError(
-                "implement _dataset_base Enumeration that contains available datasets"
+                "implement _dataset_base enumeration that contains available datasets"
             )
         return
 
@@ -143,6 +148,19 @@ class ScalarRequestCore(Core):
 
     @property
     @abstractmethod
+    def _unit_tree(self):
+        pass
+
+    @property
+    def datasets(self):
+        datasets = self._dataset_tree[self._dataset_accessor].__dict__.keys()
+
+        datasets = list(filter(lambda x: x not in ("__module__", "__doc__"), datasets))
+
+        return datasets
+
+    @property
+    @abstractmethod
     def _values(self):
         """ Class to get the values for a request """
         pass
@@ -171,6 +189,12 @@ class ScalarRequestCore(Core):
     }
 
     def _parse_period(self, period: Period) -> Optional[List[Period]]:
+        """
+        Method to parse period(s)
+
+        :param period:
+        :return:
+        """
         if not period:
             return None
         elif self._period_type == PeriodType.FIXED:
@@ -185,7 +209,9 @@ class ScalarRequestCore(Core):
                 .tolist()
             )
 
-    def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Enum]:
+    def _parse_parameter(
+        self, parameter: List[Union[str, Enum]]
+    ) -> List[Tuple[Enum, Enum]]:
         """
         Method to parse parameters, either from string or enum. Case independent for
         strings.
@@ -204,45 +230,57 @@ class ScalarRequestCore(Core):
         parameters = []
 
         for parameter in pd.Series(parameter):
-            parameter_ = None
 
-            if self._dataset_base:
-                try:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter, self._dataset_base
-                    )
-                except InvalidEnumeration:
-                    pass
-                else:
-                    parameters.append((parameter_, parameter_))
-                    continue
+            # Each parameter can either be
+            #  - a dataset : gets all data from the dataset
+            #  - a parameter : gets prefixed parameter from a resolution e.g.
+            #      precipitation height of daily values is taken from climate summary
+            #  - a tuple of parameter -> dataset : to decide from which dataset
+            #    the parameter is taken
+            try:
+                parameter, dataset = pd.Series(parameter)
+            except (ValueError, TypeError):
+                parameter, dataset = parameter, parameter
 
-                try:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter, self._parameter_base[self._dataset_accessor]
-                    )
-                    if self._unique_dataset:
-                        dataset = self._dataset_base[self._dataset_accessor]
-                    else:
-                        dataset = self._parameter_to_dataset_mapping[self.resolution][
-                            parameter_
-                        ]
-                        parameter_ = self._dataset_tree[self._dataset_accessor][
-                            dataset.name
-                        ][parameter_.name]
-                except InvalidEnumeration:
-                    pass
-                else:
-                    parameters.append((parameter_, dataset))
-                    continue
+            # Prefix return values
+            parameter_, dataset_ = None, None
+
+            # Try to parse dataset
+            try:
+                dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
+            except InvalidEnumeration:
+                pass
+
+            if parameter == dataset and dataset_:
+                parameters.append((dataset_, dataset_))
+                continue
 
             try:
+                # First parse parameter
                 parameter_ = parse_enumeration_from_template(
                     parameter, self._parameter_base[self._dataset_accessor]
                 )
-                parameters.append(parameter_)
-            except InvalidEnumeration:
+            except (InvalidEnumeration, TypeError):
                 pass
+            else:
+                if self._unique_dataset:
+                    # If unique dataset the dataset is given by the accessor
+                    # and the parameter is not a subset of a dataset
+                    dataset_ = self._dataset_tree[self._dataset_accessor]
+                elif not dataset_:
+                    # If there's multiple datasets the mapping defines which one
+                    # is taken for the given parameter
+                    dataset_ = self._parameter_to_dataset_mapping[self.resolution][
+                        parameter_
+                    ]
+
+                if not self._unique_dataset:
+                    # Parameter then has to be taken from the datasets definition
+                    parameter_ = self._dataset_tree[self._dataset_accessor][
+                        dataset_.name
+                    ][parameter_.name]
+
+                parameters.append((parameter_, dataset_))
 
             if not parameter_:
                 log.info(f"parameter {parameter} could not be parsed from ({enums})")
@@ -251,9 +289,14 @@ class ScalarRequestCore(Core):
 
     @staticmethod
     def _parse_station_id(series: pd.Series) -> pd.Series:
-        """Dedicated method for parsing station ids, by default uses the same method as
-        parse_strings but could be modified by the implementation class"""
-        return series.astype(pd.StringDtype())
+        """
+        Dedicated method for parsing station ids, by default uses the same method as
+        parse_strings but could be modified by the implementation class
+
+        :param series:
+        :return:
+        """
+        return series.astype(str)
 
     def __eq__(self, other) -> bool:
         """ Equal method of request object """
@@ -276,15 +319,25 @@ class ScalarRequestCore(Core):
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         humanize: bool = True,
         tidy: bool = True,
+        si_units: bool = True,
     ) -> None:
         """
+
+        :param parameter: requested parameter(s)
+        :param resolution: requested resolution
+        :param period: requested period(s)
         :param start_date: Start date for filtering stations for their available data
         :param end_date:   End date for filtering stations for their available data
+        :param humanize: boolean if parameters should be humanized
+        :param tidy: boolean if data should be tidied
+        :param si_units: boolean if values should be converted to si units
         """
 
         super().__init__()
 
-        self.resolution = resolution
+        self.resolution = parse_enumeration_from_template(
+            resolution, self._resolution_base, Resolution
+        )
         self.period = self._parse_period(period)
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
@@ -301,6 +354,7 @@ class ScalarRequestCore(Core):
             )
 
         self.tidy = tidy
+        self.si_units = si_units
 
         log.info(
             f"Processing request for "
@@ -311,7 +365,8 @@ class ScalarRequestCore(Core):
             f"start_date={self.start_date}, "
             f"end_date={self.end_date}, "
             f"humanize={self.humanize}, "
-            f"tidy={self.tidy}"
+            f"tidy={self.tidy}, "
+            f"si_units={self.si_units}"
         )
 
     @staticmethod
@@ -358,15 +413,39 @@ class ScalarRequestCore(Core):
 
         return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
+    @staticmethod
+    def _format_unit(unit) -> str:
+        """
+        Method to format unit and create a string
+        :param unit: pint Unit
+        :return: unit as string
+        """
+        try:
+            unit = unit.units
+        except AttributeError:
+            pass
+
+        unit_string = format(unit, "~")
+
+        if unit_string == "":
+            unit_string = "-"
+
+        return unit_string
+
     @classmethod
-    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> str:
-        """ Function to print/discover available parameters """
-        # TODO: Refactor this!
+    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> dict:
+        """
+        Function to print/discover available parameters
+
+        :param filter_:
+        :param dataset:
+        :param flatten:
+        :return:
+        """
+        # TODO: Refactor this!!!
         flatten = cls._unique_dataset or flatten
 
         filter_ = cls._setup_discover_filter(filter_)
-
-        filter_ = [f.name for f in filter_]
 
         if flatten:
             if dataset:
@@ -375,14 +454,33 @@ class ScalarRequestCore(Core):
             parameters = {}
 
             for f in filter_:
-                parameters[f.lower()] = []
-                for parameter in cls._parameter_base[f]:
-                    parameters[f.lower()].append(parameter.name.lower())
+                parameters[f.name.lower()] = {}
+                for parameter in cls._parameter_base[f.name]:
+                    parameters[f.name.lower()][parameter.name.lower()] = {}
 
-            return json.dumps(parameters, indent=4)
+                    if cls._unique_dataset:
+                        origin_unit, si_unit = cls._unit_tree[f.name][
+                            parameter.name
+                        ].value
+                    else:
+                        dataset = cls._parameter_to_dataset_mapping[f][parameter]
+
+                        origin_unit, si_unit = cls._unit_tree[f.name][dataset.name][
+                            parameter.name
+                        ].value
+
+                    parameters[f.name.lower()][parameter.name.lower()][
+                        "origin"
+                    ] = cls._format_unit(origin_unit)
+
+                    parameters[f.name.lower()][parameter.name.lower()][
+                        "si"
+                    ] = cls._format_unit(si_unit)
+
+            return parameters
 
         datasets_filter = (
-            pd.Series(dataset)
+            pd.Series(dataset, dtype=str)
             .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
             .tolist()
             or cls._dataset_base
@@ -393,36 +491,68 @@ class ScalarRequestCore(Core):
         parameters = {}
 
         for f in filter_:
-            parameters[f.lower()] = {}
+            parameters[f.name.lower()] = {}
 
-            for dataset in cls._dataset_tree[f].__dict__:
+            for dataset in cls._dataset_tree[f.name].__dict__:
                 if dataset.startswith("_") or dataset not in datasets_filter:
                     continue
 
-                parameters[f.lower()][dataset.lower()] = []
+                parameters[f.name.lower()][dataset.lower()] = {}
 
-                for parameter in cls._dataset_tree[f][dataset]:
-                    parameters[f.lower()][dataset.lower()].append(
+                for parameter in cls._dataset_tree[f.name][dataset]:
+
+                    parameters[f.name.lower()][dataset.lower()][
                         parameter.name.lower()
-                    )
+                    ] = {}
 
-        return json.dumps(parameters, indent=4)
+                    origin_unit, si_unit = cls._unit_tree[f.name][dataset][
+                        parameter.name
+                    ].value
+
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()][
+                        "origin"
+                    ] = cls._format_unit(origin_unit)
+
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()][
+                        "si"
+                    ] = cls._format_unit(si_unit)
+
+        return parameters
 
     @classmethod
-    def _setup_discover_filter(cls, filter_):
+    def _setup_discover_filter(cls, filter_) -> list:
+        """
+            Helper method to create filter for discover method, can be overwritten by
+            subclasses to use other then the resolution for filtering
+
+        :param filter_: typically resolution, if used in subclass can be directed
+            towards something else
+        :return:
+        """
         if cls._resolution_type == ResolutionType.FIXED:
             log.warning("resolution filter will be ignored due to fixed resolution")
 
             filter_ = [cls.resolution]
+        elif not filter_:
+            filter_ = [*cls._resolution_base]
 
-        filter_ = pd.Series(filter_).apply(
-            parse_enumeration_from_template, args=(cls._resolution_base,)
-        ).tolist() or [*cls._resolution_base]
+        filter_ = (
+            pd.Series(filter_)
+            .apply(
+                parse_enumeration_from_template, args=(cls._resolution_base, Resolution)
+            )
+            .tolist()
+        )
 
         return filter_
 
     def _coerce_meta_fields(self, df) -> pd.DataFrame:
-        """ Method for filed coercion. """
+        """
+        Method for filed coercion.
+
+        :param df:
+        :return:
+        """
         df = df.astype(self._dtype_mapping)
 
         df[Columns.FROM_DATE.value] = pd.to_datetime(
@@ -663,6 +793,27 @@ class ScalarRequestCore(Core):
             df[Columns.LATITUDE.value].apply(lambda x: x in lat_interval)
             & df[Columns.LONGITUDE.value].apply(lambda x: x in lon_interval)
         ]
+
+        result = StationsResult(stations=self, df=df.reset_index(drop=True))
+
+        return result
+
+    def filter_by_sql(self, sql: str) -> pd.DataFrame:
+        """
+
+        :param sql:
+        :return:
+        """
+        import duckdb
+
+        df = self.all().df
+
+        df = duckdb.query_df(df, "data", sql).df()
+
+        df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(
+            self.tz
+        )
+        df[Columns.TO_DATE.value] = df[Columns.TO_DATE.value].dt.tz_localize(self.tz)
 
         result = StationsResult(stations=self, df=df.reset_index(drop=True))
 

@@ -6,6 +6,81 @@ Development
 
 ...
 
+0.22.0 (01.10.2021)
+*******************
+
+- [BREAKING] Introduce core Parameter enum with fixed set of parameter names. Several parameters may have been
+  renamed!
+- Add FSSPEC_CLIENT_KWARGS variable at wetterdienst.util.cache for passing extra settings to fsspec request client
+
+0.21.0 (10.09.2021)
+*******************
+
+- Start migrating from ``dogpile.cache`` to ``filesystem_spec``
+
+0.20.4 (07.08.2021)
+*******************
+
+Features
+========
+
+- Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
+  [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
+
+- Rename wetterdienst show to wetterdienst info, make version accessible via cli with
+  wetterdienst version
+
+Bugfixes
+========
+
+- Bug when querying an entire DWD dataset for 10_minutes/1_minute resolution without providing start_date/end_date,
+  which results in the interval of the request being None
+- Test of restapi with recent period
+- Get rid of pandas performance warning from DWD Mosmix data
+
+0.20.3 (15.07.2021)
+*******************
+
+- Bugfix acquisition of DWD radar data
+- Adjust DWD radar composite parameters to new index
+
+0.20.2 (26.06.2021)
+*******************
+
+- Bugfix tidy method for DWD observation data
+
+0.20.1 (26.06.2021)
+*******************
+
+- Update readme on sandbox developer installation
+- Bugfix show method
+
+0.20.0 (23.06.2021)
+*******************
+
+- Change cli base to click
+- Add support for wetterdienst core API in cli and restapi
+- Export: Use InfluxDBClient instead of DataFrameClient and improve connection handling with InfluxDB 1.x
+- Export: Add support for InfluxDB 2.x
+- Fix InfluxDB export by skipping empty fields
+- Add show() method with basic information on the wetterdienst instance
+
+0.19.0 (14.05.2021)
+*******************
+
+- Make tidy method a abstract core method of Values class
+- Fix DWD Mosmix generator to return all contained dataframes
+
+0.18.0 (04.05.2021)
+*******************
+
+- Add origin and si unit mappings to services
+- Use argument "si_units" in request classes to convert origin units to si, set to default
+- Improve caching behaviour by introducing optional ``WD_CACHE_DIR`` and
+  ``WD_CACHE_DISABLE`` environment variables. Thanks, @meteoDaniel!
+- Add baseline test for ECCC observations
+- Add DWD Observation hourly moisture to catalogue
+
 0.17.0 (08.04.2021)
 *******************
 

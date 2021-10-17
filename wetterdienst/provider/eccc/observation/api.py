@@ -3,9 +3,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import gzip
 import logging
+from datetime import datetime
 from enum import Enum
 from io import BytesIO
-from typing import Generator, Tuple
+from typing import Generator, Optional, Tuple, Union
 
 import pandas as pd
 import requests
@@ -17,26 +18,27 @@ from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
+from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.eccc.observation.metadata.dataset import (
-    EccObservationDataset,
-    EccObservationDatasetTree,
-)
-from wetterdienst.provider.eccc.observation.metadata.parameter import (
-    EccObservationParameter,
+    EcccObservationDataset,
+    EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EccObservationResolution,
 )
+from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
 from wetterdienst.util.cache import payload_cache_twelve_hours
 
 log = logging.getLogger(__name__)
 
 
 class EcccObservationValues(ScalarValuesCore):
+
     _string_parameters = []
     _integer_parameters = []
     _irregular_parameters = []
@@ -45,11 +47,13 @@ class EcccObservationValues(ScalarValuesCore):
 
     _has_quality = True
 
-    _http = requests.Session()
-    _http.mount("http://", HTTPAdapter(max_retries=Retry(total=10, connect=5, read=5)))
+    _session = requests.Session()
+    _session.mount(
+        "https://", HTTPAdapter(max_retries=Retry(total=10, connect=5, read=5))
+    )
 
     _base_url = (
-        "http://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
+        "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
         "format=csv&stationID={0}&timeframe={1}"
         "&submit= Download+Data"
     )
@@ -89,12 +93,15 @@ class EcccObservationValues(ScalarValuesCore):
 
         return hcnm
 
-    @staticmethod
-    def _tidy_up_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-        """Tidy up dataframe pairwise by column
-        'DATE', 'Temp (°C)', 'Temp Flag', ...
+    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
-        df_tidy = pd.DataFrame()
+        Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
+
+        :param df:
+        :return:
+        """
+
+        data = []
 
         columns = df.columns
         for parameter_column, quality_column in zip(columns[1::2], columns[2::2]):
@@ -106,23 +113,25 @@ class EcccObservationValues(ScalarValuesCore):
                 }
             )
             df_parameter[Columns.PARAMETER.value] = parameter_column
-            df_tidy = df_tidy.append(df_parameter)
+            data.append(df_parameter)
 
-        df_tidy = df_tidy.reindex(
-            columns=[
-                Columns.DATE.value,
-                Columns.PARAMETER.value,
-                Columns.VALUE.value,
-                Columns.QUALITY.value,
-            ]
-        )
+        try:
+            df_tidy = pd.concat(data, ignore_index=True)
+        except ValueError:
+            df_tidy = pd.DataFrame()
 
         return df_tidy
 
     def _collect_station_parameter(
-        self, station_id: str, parameter: Tuple[Enum, Enum]
+        self, station_id: str, parameter: EcccObservationParameter, dataset: Enum
     ) -> pd.DataFrame:
-        parameter, dataset = parameter
+        """
+
+        :param station_id: station id being queried
+        :param parameter: parameter being queried
+        :param dataset: dataset of query, can be skipped as ECCC has unique dataset
+        :return: pandas.DataFrame with data
+        """
         meta = self.stations.df[
             self.stations.df[Columns.STATION_ID.value] == station_id
         ]
@@ -162,8 +171,8 @@ class EcccObservationValues(ScalarValuesCore):
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
 
-                # TODO change this back to verfiy=False
-                payload = self._http.get(url, timeout=60, verify=False)
+                # TODO change this back to verify=True
+                payload = self._session.get(url, timeout=60)
 
                 df_temp = pd.read_csv(BytesIO(payload.content))
 
@@ -194,11 +203,7 @@ class EcccObservationValues(ScalarValuesCore):
 
             df = df.reset_index(drop=True)
 
-        if self.stations.stations.tidy:
-            df = self._tidy_up_dataframe(df)
-
-            if parameter not in self.stations.stations._dataset_base:
-                df = df[df[Columns.PARAMETER.value] == parameter.value]
+        df = df.drop(columns=["data quality"], errors="ignore")
 
         df[Columns.STATION_ID.value] = station_id
 
@@ -207,22 +212,32 @@ class EcccObservationValues(ScalarValuesCore):
     def _create_file_urls(
         self, station_id: str, start_year: int, end_year: int
     ) -> Generator[str, None, None]:
-        # TODO: make faster, requests per month take too long!
-        if self.stations.stations.resolution != Resolution.HOURLY:
+        """
+
+        :param station_id:
+        :param start_year:
+        :param end_year:
+        :return:
+        """
+        resolution = self.stations.stations.resolution
+
+        freq = "Y"
+        if resolution == Resolution.HOURLY:
+            freq = "M"
+
+        # For hourly data request only necessary data to reduce amount of data being
+        # downloaded and parsed
+        for date in pd.date_range(
+            f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, closed=None
+        ):
             url = self._base_url.format(int(station_id), self._timeframe)
 
+            url += f"&Year={date.year}"
+
+            if resolution == Resolution.HOURLY:
+                url += f"&Month={date.month}"
+
             yield url
-        else:
-            # For hourly data request only necessary data to reduce amount of data being
-            # downloaded and parsed
-            for date in pd.date_range(
-                f"{start_year}-01-01", f"{end_year + 1}-01-01", freq="M", closed=None
-            ):
-                url = self._base_url.format(int(station_id), self._timeframe)
-
-                url += f"&Year={date.year}&Month={date.month}"
-
-                yield url
 
 
 class EcccObservationRequest(ScalarRequestCore):
@@ -237,6 +252,7 @@ class EcccObservationRequest(ScalarRequestCore):
     """
 
     provider = Provider.ECCC
+    kind = Kind.OBSERVATION
 
     _tz = Timezone.UTC
 
@@ -244,12 +260,14 @@ class EcccObservationRequest(ScalarRequestCore):
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
     _period_base = Period.HISTORICAL
-    _parameter_base = EccObservationParameter  # replace with parameter enumeration
-
+    _parameter_base = EcccObservationParameter  # replace with parameter enumeration
+    _data_range = DataRange.LOOSELY
     _has_datasets = True
-    _dataset_base = EccObservationDataset
-    _dataset_tree = EccObservationDatasetTree
+    _dataset_base = EcccObservationDataset
+    _dataset_tree = EcccObservationParameter
     _unique_dataset = True
+
+    _unit_tree = EcccObservationUnit
 
     _values = EcccObservationValues
 
@@ -298,12 +316,13 @@ class EcccObservationRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter,
-        resolution,
-        start_date=None,
-        end_date=None,
-        humanize=True,
-        tidy=True,
+        parameter: Tuple[Union[str, EcccObservationParameter]],
+        resolution: Union[EccObservationResolution, Resolution],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        humanize: bool = True,
+        tidy: bool = True,
+        si_units: bool = True,
     ):
         super(EcccObservationRequest, self).__init__(
             parameter=parameter,
@@ -313,6 +332,7 @@ class EcccObservationRequest(ScalarRequestCore):
             end_date=end_date,
             humanize=humanize,
             tidy=tidy,
+            si_units=si_units,
         )
 
     def _all(self) -> pd.DataFrame:

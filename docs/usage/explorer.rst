@@ -63,7 +63,7 @@ Invoke using Docker
 
 Run the Wetterdienst user interface using Docker::
 
-    docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst-full wetterdienst explorer --listen 0.0.0.0:7890
+    docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst-full wetterdienst explorer --listen 0.0.0.0:7891
 
 
 *******

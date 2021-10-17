@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import json
 from typing import Union
 
+from wetterdienst.exceptions import InvalidEnumeration, ProviderError
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
@@ -34,23 +34,27 @@ class Wetterdienst:
         :param kind: kind of the data e.g. observation
         """
         # Both provider and kind should be fine (if not an exception is raised)
-        provider = parse_enumeration_from_template(provider, Provider)
-        kind = parse_enumeration_from_template(kind, Kind)
+        try:
+            provider_ = parse_enumeration_from_template(provider, Provider)
+            kind_ = parse_enumeration_from_template(kind, Kind)
 
-        api = cls.endpoints.get(provider, {}).get(kind)
+            api = cls.endpoints.get(provider_, {}).get(kind_)
 
-        if not api:
-            raise ValueError(
-                f"No API available for provider {provider.value} and kind {kind.value}"
+            if not api:
+                raise KeyError
+
+        except (InvalidEnumeration, KeyError):
+            raise ProviderError(
+                f"No API available for provider {provider} and kind {kind}"
             )
 
         return api
 
     @classmethod
-    def discover(cls) -> str:
+    def discover(cls) -> dict:
         """ Display available API endpoints """
         api_endpoints = {}
         for provider, kinds in cls.endpoints.items():
             api_endpoints[provider.name.lower()] = [kind.name.lower() for kind in kinds]
 
-        return json.dumps(api_endpoints)
+        return api_endpoints  # json.dumps(api_endpoints)

@@ -97,7 +97,7 @@ how the DWD calls the parameter e.g. "precipitation".
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
 | `WIND_SYNOPTIC = "wind_synop"`                    | |cross|               | |cross|               | |check|               | |cross|               | |cross|               | |cross|               | |cross|               |
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
-| `MOISTURE = "moisture"`                           | |cross|               | |cross|               | |cross|               | |check|               | |cross|               | |cross|               | |cross|               |
+| `MOISTURE = "moisture"`                           | |cross|               | |cross|               | |check|               | |check|               | |cross|               | |cross|               | |cross|               |
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
 | `CLIMATE_SUMMARY = "kl"`                          | |cross|               | |cross|               | |cross|               | |check|               | |check|               | |check|               | |check|               |
 +---------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
@@ -119,12 +119,55 @@ parameters can be queried. Take a look at the massive amount of data:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    observations_meta = DwdObservationRequest.discover(flatten=False)
+    meta = DwdObservationRequest.discover(flatten=False)
 
     # Selection of daily historical data
-    print(observations_meta)
+    print(meta)
 
 .. _file_server: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/
+
+Parameter details
+_________________
+
+Cloud types
+^^^^^^^^^^^
+
++---------------+------+
+| Cloud type    | Code |
++===============+======+
+| Cirrus        | 0    |
++---------------+------+
+| Cirrocumulus  | 1    |
++---------------+------+
+| Cirrostratus  | 2    |
++---------------+------+
+| Altocumulus   | 3    |
++---------------+------+
+| Altostratus   | 4    |
++---------------+------+
+| Nimbostratus  | 5    |
++---------------+------+
+| Stratocumulus | 6    |
++---------------+------+
+| Stratus       | 7    |
++---------------+------+
+| Cumulus       | 8    |
++---------------+------+
+| Cumulonimbus  | 9    |
++---------------+------+
+| Automated     | -1   |
++---------------+------+
+
+Tidy parameters
+^^^^^^^^^^^^^^^
+
+The tidy version of DWD observation data excludes several parameters
+which contain strings. Those parameters are:
+
+- cloud type abbreviations (1 - 4) in **hourly cloud type** dataset
+- total cloud cover indicator in in **hourly cloudiness** dataset
+- true local time in **hourly solar** dataset
+- visibility indicator in **hourly visibility** dataset
 
 Quality
 _______
@@ -253,6 +296,15 @@ stations worldwide and is available in two versions, Mosmix-S and Mosmix-L. Mosm
 comes with a set of 40 parameters and is published every hour while MOSMIX-L has a set
 of about 115 parameters and is released every 6 hours (3am, 9am, 3pm, 9pm). Both
 versions have a forecast limit of 240h.
+
+.. ipython:: python
+
+    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+
+    meta = DwdMosmixRequest.discover(flatten=False)
+
+    # Selection of daily historical data
+    print(meta)
 
 .. _Mosmix: https://www.dwd.de/EN/ourservices/met_application_mosmix/met_application_mosmix.html
 

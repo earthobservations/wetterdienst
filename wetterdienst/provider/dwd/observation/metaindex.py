@@ -30,10 +30,9 @@ from wetterdienst.provider.dwd.metadata.constants import (
     STATION_ID_REGEX,
     DWDCDCBase,
 )
-from wetterdienst.provider.dwd.network import download_file_from_dwd
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
-from wetterdienst.util.cache import metaindex_cache
-from wetterdienst.util.network import list_remote_files
+from wetterdienst.util.cache import CacheExpiry, metaindex_cache
+from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 METADATA_COLUMNS = [
     Columns.STATION_ID.value,
@@ -144,13 +143,13 @@ def _create_meta_index_for_climate_observations(
         ],
     )
 
-    files_server = list_remote_files(url, recursive=True)
+    files_server = list_remote_files_fsspec(url, recursive=True)
 
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(files_server, url)
 
     try:
-        file = download_file_from_dwd(meta_file)
+        file = download_file(meta_file, ttl=CacheExpiry.METAINDEX)
     except InvalidURL as e:
         raise InvalidURL(f"Error: reading metadata {meta_file} file failed.") from e
 
@@ -221,7 +220,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
         ],
     )
 
-    metadata_file_paths = list_remote_files(url, recursive=False)
+    metadata_file_paths = list_remote_files_fsspec(url, recursive=False)
 
     station_ids = [
         re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths
@@ -273,7 +272,10 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        file = download_file_from_dwd(metadata_file)
+        # Attention: Currently, a FSSPEC-based cache must not be used here as Windows
+        #            would croak when concurrently accessing those resources badly.
+        # TODO: Revisit this place after completely getting rid of dogpile.cache.
+        file = download_file(metadata_file, ttl=CacheExpiry.NO_CACHE)
     except InvalidURL as e:
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 

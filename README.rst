@@ -3,12 +3,21 @@ Wetterdienst - Open weather data for humans
 
 .. container:: align-center
 
+    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
+        :alt: German weather stations managed by Deutscher Wetterdienst
+
+    *“You must be the change you wish to see in the world.” — Gandhi*
+
     .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
         :alt: temperature timeseries of Hohenpeissenberg/Germany
 
     *"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
     Hohenpeissenberg I got with the help of wetterdienst; and I'm not sure about the universe." - Albert Einstein*
 
+    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
+        :alt: warming stripes of Hohenpeissenberg/Germany
+
+    *"We are the first generation to feel the effect of climate change and the last generation who can do something about it." - Barack Obama*
 
 .. overview_start_marker
 
@@ -78,7 +87,7 @@ library that make it better and better every day.
 Coverage
 ********
 
-DWD (German Weather Service / Deutscher Wetterdienst / Germany)
+DWD (Deutscher Wetterdienst / German Weather Service / Germany)
     - Historical Weather Observations
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
         - Every minute to yearly resolution
@@ -94,7 +103,7 @@ DWD (German Weather Service / Deutscher Wetterdienst / Germany)
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
 
-ECCC (Environnement et Changement Climatique Canada, Environment and Climate Change Canada, Canada)
+ECCC (Environnement et Changement Climatique Canada / Environment and Climate Change Canada / Canada)
     - Historical Weather Observations
         - Historical (last ~180 years)
         - Hourly, daily, monthly, (annual) resolution
@@ -205,28 +214,67 @@ The ``wetterdienst`` command is also available:
     # Make an alias to use it conveniently from your shell.
     alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst-standard wetterdienst'
 
-    wetterdienst --version
     wetterdienst --help
+    wetterdienst version
+    wetterdienst info
 
 Example
 *******
 
 Acquisition of historical data for specific stations using ``wetterdienst`` as library:
 
+Load required request class:
+
+.. code-block:: python
+
+    >>> import pandas as pd
+    >>> pd.set_option('max_columns', 8)
+    >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+Alternatively, though without argument/type hinting:
+
 .. code-block:: python
 
     >>> from wetterdienst import Wetterdienst
     >>> API = Wetterdienst("dwd", "observation")
-    >>> request = API(
+
+Get data:
+
+.. code-block:: python
+
+    >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
-    ...    start_date="1990-01-01",  # Timezone: UTC
-    ...    end_date="2020-01-01",  # Timezone: UTC
+    ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
+    ...    end_date="2020-01-01",  # if not given timezone defaulted to UTC
     ...    tidy=True,  # default, tidy data
     ...    humanize=True,  # default, humanized parameters
+    ...    si_units=True  # default, convert values to SI units
     ... ).filter_by_station_id(station_id=(1048, 4411))
-    >>> stations = request.df  # station list
-    >>> values = request.values.all().df  # values
+    >>> request.df.head()  # station list
+         station_id                 from_date                   to_date  height  \
+    209      01048 1934-01-01 00:00:00+00:00 ... 00:00:00+00:00   228.0
+    818      04411 1979-12-01 00:00:00+00:00 ... 00:00:00+00:00   155.0
+    <BLANKLINE>
+         latitude  longitude                    name    state
+    209   51.1278    13.7543       Dresden-Klotzsche  Sachsen
+    818   49.9195     8.9671  Schaafheim-Schlierbach   Hessen
+
+    >>> request.values.all().df.head()  # values
+      station_id          dataset      parameter                      date  value  \
+    0      01048  climate_summary  wind_gust_max 1990-01-01 00:00:00+00:00    NaN
+    1      01048  climate_summary  wind_gust_max 1990-01-02 00:00:00+00:00    NaN
+    2      01048  climate_summary  wind_gust_max 1990-01-03 00:00:00+00:00    5.0
+    3      01048  climate_summary  wind_gust_max 1990-01-04 00:00:00+00:00    9.0
+    4      01048  climate_summary  wind_gust_max 1990-01-05 00:00:00+00:00    7.0
+    <BLANKLINE>
+       quality
+    0      NaN
+    1      NaN
+    2     10.0
+    3     10.0
+    4     10.0
+
 
 Receiving of stations for defined parameters using the ``wetterdienst`` client:
 
@@ -252,7 +300,7 @@ as we make progress with this library:
 
 https://wetterdienst.readthedocs.io/
 
-For the whole functionality, check out the `Wetterdienst API`_ section of our
+For the whole functionality, check out the `Usage documentation and examples`_ section of our
 documentation, which will be constantly updated. To stay up to date with the
 development, take a look at the changelog_. Also, don't miss out our examples_.
 
@@ -295,11 +343,24 @@ Development
     git clone https://github.com/earthobservations/wetterdienst
     cd wetterdienst
 
-    # Install package in editable mode.
-    pip install --editable=.[http,sql,export,ui]
+    # Prerequisites
+    brew install --cask firefox
+    brew install git python geckodriver
 
-    # Alternatively, when using Poetry.
-    poetry install --extras=http --extras=sql --extras=export --extras=ui
+    # Option 1: Basic
+    git clone https://github.com/earthobservations/wetterdienst
+    cd wetterdienst
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install --requirement=requirements.txt
+    python setup.py develop
+
+    # (Option 2: Install package with extras)
+    pip install ".[sql,export,restapi,explorer]"
+
+    # Option 3: Install package with extras using poetry.
+    poetry install --extras=sql --extras=export --extras=restapi --extras=explorer
+    poetry shell
 
 2. For running the whole test suite, you will need to have Firefox and
    geckodriver installed on your machine. Install them like::
@@ -365,7 +426,10 @@ Development
 Known Issues
 ************
 
-Under Mac ARM64 you need to install **pandas, numpy and scipy** as follows before continuing with the regular setup:
+MAC ARM64 (M1)
+==============
+
+You need to install **pandas, numpy and scipy** as follows before continuing with the regular setup:
 
 .. code-block:: bash
 
@@ -385,12 +449,23 @@ Further additional libraries are affected and have to be installed in a similar 
 Furthermore as h5py is currently bound to versions of numpy that conflict with the ARM64 ready libraries, h5py itself as
 well as wradlib are not available for users with that architecture!
 
+LINUX ARM (Raspberry Pi)
+========================
+
+Running wetterdienst on Raspberry Pi, you need to install **numpy**
+and **lxml** prior to installing wetterdienst running the following
+lines:
+
+.. code-block:: bash
+
+    sudo apt-get install libatlas-base-dev
+    sudo apt-get install python3-lxml
+
 Important Links
 ***************
 
-`Wetterdienst API`_
+- `Usage documentation and examples`_
+- `Changelog`_
 
-Changelog_
-
-.. _Wetterdienst API: https://wetterdienst.readthedocs.io/en/latest/usage/api.html
+.. _Usage documentation and examples: https://wetterdienst.readthedocs.io/en/latest/usage/
 .. _Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html

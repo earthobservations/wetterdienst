@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """ tests for file index creation """
 import pytest
-import requests
 
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
@@ -15,7 +14,7 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 
 
 @pytest.mark.remote
-def test_meta_index_creation():
+def test_meta_index_creation_success():
 
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
@@ -26,7 +25,11 @@ def test_meta_index_creation():
 
     assert not meta_index.empty
 
-    with pytest.raises(requests.exceptions.HTTPError):
+
+@pytest.mark.remote
+def test_meta_index_creation_failure():
+
+    with pytest.raises(FileNotFoundError):
         create_meta_index_for_climate_observations(
             DwdObservationDataset.CLIMATE_SUMMARY,
             Resolution.MINUTE_1,

@@ -15,7 +15,10 @@ from lxml.etree import XMLParser, parse  # noqa: S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
 
-from wetterdienst.provider.dwd.network import create_dwd_session
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.io import read_in_chunks
+from wetterdienst.util.logging import TqdmToLogger
+from wetterdienst.util.network import NetworkFilesystemManager
 
 log = logging.getLogger(__name__)
 
@@ -33,25 +36,30 @@ class KMLReader:
         self.timesteps = []
         self.items = []
 
-        self.dwd_session = create_dwd_session()
+        self.dwdfs = NetworkFilesystemManager.get(ttl=CacheExpiry.FIVE_MINUTES)
 
     def download(self, url: str):
         # https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests  # noqa:E501,B950
 
-        response = self.dwd_session.get(url, stream=True)
-        response.raise_for_status()
-
-        total = int(response.headers.get("content-length", 0))
+        # block_size: int or None
+        #             Bytes to download in one request; use instance value if None. If
+        #             zero, will return a streaming Requests file-like instance.
+        response = self.dwdfs.open(url, block_size=0)
+        total = self.dwdfs.size(url)
 
         buffer = BytesIO()
+
+        tqdm_out = TqdmToLogger(log, level=logging.INFO)
+
         with tqdm(
             desc=url,
             total=total,
             unit="iB",
             unit_scale=True,
             unit_divisor=1024,
+            file=tqdm_out,
         ) as bar:
-            for data in response.iter_content(chunk_size=1024):
+            for data in read_in_chunks(response, chunk_size=1024):
                 size = buffer.write(data)
                 bar.update(size)
 
@@ -126,7 +134,8 @@ class KMLReader:
             measurement_list = station_forecast.findall(
                 "kml:ExtendedData/dwd:Forecast", self.root.nsmap
             )
-            df = pd.DataFrame({"station_id": station_ids, "datetime": self.timesteps})
+
+            data_dict = {"station_id": station_ids, "datetime": self.timesteps}
 
             for measurement_item in measurement_list:
 
@@ -144,8 +153,8 @@ class KMLReader:
 
                     assert len(measurement_values) == len(  # noqa:S101
                         self.timesteps
-                    ), "Number of timesteps does not match number of measurement values"
+                    ), "Number of time steps does not match number of measurement values"
 
-                    df[measurement_parameter.lower()] = measurement_values
+                    data_dict[measurement_parameter.lower()] = measurement_values
 
-            yield df
+            yield pd.DataFrame.from_dict(data_dict)

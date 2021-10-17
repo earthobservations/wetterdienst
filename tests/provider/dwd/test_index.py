@@ -14,7 +14,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationPeriod,
     DwdObservationResolution,
 )
-from wetterdienst.util.network import list_remote_files
+from wetterdienst.util.network import list_remote_files_fsspec
 
 
 def test_build_index_path():
@@ -28,7 +28,7 @@ def test_build_index_path():
 
 @pytest.mark.remote
 def test_list_files_of_climate_observations():
-    files_server = list_remote_files(
+    files_server = list_remote_files_fsspec(
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "annual/kl/recent",
         recursive=False,

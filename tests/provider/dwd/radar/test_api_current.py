@@ -1,24 +1,21 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import h5py
 import pytest
 
-from tests import mac_arm64, mac_arm64_unsupported
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarDate,
     DwdRadarParameter,
+    DwdRadarPeriod,
     DwdRadarResolution,
     DwdRadarValues,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
-if not mac_arm64:
-    import h5py
 
-
-@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_pcp_v_hdf5():
     """
@@ -62,7 +59,6 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
     assert shape == (360, 600) or shape == (361, 600)
 
 
-@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_vol_v_hdf5_full():
     """
@@ -103,10 +99,9 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
 
     shape = hdf["/dataset1/data1/data"].shape
 
-    assert shape == (360, 180) or shape == (360, 720)
+    assert shape == (360, 180) or shape == (360, 720) or shape == (361, 720)
 
 
-@mac_arm64_unsupported
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_vol_v_hdf5_single():
     """
@@ -159,12 +154,15 @@ def test_radar_request_radolan_cdc_current(resolution):
         parameter=DwdRadarParameter.RADOLAN_CDC,
         start_date=DwdRadarDate.CURRENT,
         resolution=resolution,
+        period=DwdRadarPeriod.RECENT,
     )
 
     results = list(request.query())
 
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
+
+    assert len(results) == 1
 
 
 @pytest.mark.remote

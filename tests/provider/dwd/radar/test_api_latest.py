@@ -30,7 +30,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
 
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
-        f"RX......10000{month_year}BY 8101..VS 3SW   2.28..PR E\\+00INT   5GP 900x 900MS "  # noqa:E501,B950
+        f"RX......10000{month_year}BY 8101..VS 3SW   ......PR E\\+00INT   5GP 900x 900MS "  # noqa:E501,B950
         f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
     )
 
@@ -60,7 +60,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
         f"RW......10000{month_year}"
-        f"BY16201..VS 3SW   2.28..PR E-01INT  60GP 900x 900MF 00000001MS "
+        f"BY16201..VS 3SW   ......PR E-01INT  60GP 900x 900MF 00000001MS "
         f"..<{station_reference_pattern_unsorted}>"
     )
 

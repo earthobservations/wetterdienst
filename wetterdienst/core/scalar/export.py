@@ -8,8 +8,10 @@ from dataclasses import dataclass
 from urllib.parse import urlunparse
 
 import pandas as pd
+import pytz
 
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.util.pandas import chunker
 from wetterdienst.util.url import ConnectionString
 
 log = logging.getLogger(__name__)
@@ -42,22 +44,46 @@ class ExportMixin:
         # Return dictionary with scalar types.
         return df.to_dict(orient="records")
 
-    def to_json(self):
-        output = self.df.to_json(orient="records", date_format="iso", indent=4)
+    def to_json(self, indent: int = 4):
+        output = self.df.to_json(
+            orient="records", date_format="iso", indent=indent, force_ascii=False
+        )
         return output
 
     def to_csv(self):
         output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
         return output
 
-    def to_geojson(self) -> str:
+    def to_geojson(self, indent: int = 4) -> str:
         """
         Convert station information into GeoJSON format.
 
         Return:
              JSON string in GeoJSON FeatureCollection format.
         """
-        return json.dumps(self.to_ogc_feature_collection(), indent=4)
+        return json.dumps(
+            self.to_ogc_feature_collection(), indent=indent, ensure_ascii=False
+        )
+
+    def to_format(self, fmt: str, **kwargs) -> str:
+        """
+        Wrapper to create output based on a format string
+
+        :param fmt: string defining the output format
+        :return: string of formatted data
+        """
+        fmt = fmt.lower()
+
+        if fmt == "json":
+            output = self.to_json(indent=kwargs.get("indent"))
+        elif fmt == "csv":
+            output = self.to_csv()
+        elif fmt == "geojson":
+            output = self.to_geojson(indent=kwargs.get("indent"))
+        else:
+            raise KeyError("Unknown output format")
+
+        return output
 
     @staticmethod
     def _filter_by_sql(df: pd.DataFrame, sql: str) -> pd.DataFrame:
@@ -76,11 +102,23 @@ class ExportMixin:
         """
         import duckdb
 
-        return duckdb.query(df, "data", sql).df()
+        df = duckdb.query_df(df, "data", sql).df()
+
+        for column in (
+            Columns.FROM_DATE.value,
+            Columns.TO_DATE.value,
+            Columns.DATE.value,
+        ):
+            try:
+                df[column] = df[column].dt.tz_localize(pytz.UTC)
+            except KeyError:
+                pass
+
+        return df
 
     @abstractmethod
     def to_ogc_feature_collection(self):
-        raise NotImplementedError()
+        pass
 
     def to_target(self, target: str):
         """
@@ -105,12 +143,13 @@ class ExportMixin:
 
         log.info(f"Exporting records to {target}\n{self.df.count()}")
 
-        t = ConnectionString(target)
-        database = t.get_database()
-        tablename = t.get_table()
+        connspec = ConnectionString(target)
+        protocol = connspec.url.scheme
+        database = connspec.get_database()
+        tablename = connspec.get_table()
 
         if target.startswith("file://"):
-            filepath = t.get_path()
+            filepath = connspec.get_path()
 
             if target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
@@ -241,11 +280,11 @@ class ExportMixin:
             connection.close()
             log.info("Writing to DuckDB finished")
 
-        elif target.startswith("influxdb://"):
+        elif protocol.startswith("influxdb"):
             """
-            ======================
-            InfluxDB database sink
-            ======================
+            ==========================
+            InfluxDB 1.x database sink
+            ==========================
 
             Install Python driver::
 
@@ -257,42 +296,56 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="influxdb://localhost/?database=dwd&table=weather"
+                alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                fetch --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
 
                 http 'localhost:8086/query?db=dwd&q=SELECT * FROM weather;'
                 http 'localhost:8086/query?db=dwd&q=SELECT COUNT(*) FROM weather;'
+
+
+            ==========================
+            InfluxDB 2.x database sink
+            ==========================
+
+            Install Python driver::
+
+                pip install influxdb_client
+
+            Run database::
+
+                docker run -it --rm --publish=8086:8086 influxdb:2.0
+                influx setup --name=default --username=root --password=12345678 --org=acme --bucket=dwd --retention=0 --force
+
+            Acquire data::
+
+                INFLUXDB_ORGANIZATION=acme
+                INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+
+                alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                fetch --target="influxdb2://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@localhost/?database=dwd&table=weather"
+
+            Example queries::
+
+                influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
             """
-            log.info(f"Writing to InfluxDB. database={database}, table={tablename}")
-            from influxdb.dataframe_client import DataFrameClient
+
+            if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
+                version = 1
+            elif protocol in ["influxdb2", "influxdb2s"]:
+                version = 2
+            else:
+                raise KeyError(f"Unknown protocol variant '{protocol}' for InfluxDB")
+
+            log.info(
+                f"Writing to InfluxDB version {version}. database={database}, table={tablename}"
+            )
 
             # 1. Mungle the data frame.
             # Use the "date" column as appropriate timestamp index.
             df = self.df.set_index(pd.DatetimeIndex(self.df["date"]))
             df = df.drop(["date"], axis=1)
-
-            # Work around `ValueError: fill value must be in categories`.
-            # The reason is that the InfluxDB Pandas adapter tries to apply
-            # `tag_df.fillna('')  # replace NA with empty string`.
-            # However, it is not possible to apply `.fillna` to categorical
-            # columns. See:
-            # - https://github.com/pandas-dev/pandas/issues/24079
-            # - https://stackoverflow.com/questions/65316023/filling-np-nan-entries-of-float-column-gives-valueerror-fill-value-must-be-in-c/65316190
-            # - https://stackoverflow.com/questions/53664948/pandas-fillna-throws-valueerror-fill-value-must-be-in-categories
-            # - https://stackoverflow.com/questions/32718639/pandas-filling-nans-in-categorical-data/44633307
-            #
-            # So, let's convert all categorical columns back to their designated type representations.
-            # https://stackoverflow.com/questions/32011359/convert-categorical-data-in-pandas-dataframe/32011969#32011969
-            if "quality" in df:
-                df.quality = df.quality.astype("Int64")
-            categorical_columns = df.select_dtypes(["category"]).columns
-            df[categorical_columns] = df[categorical_columns].astype("str")
-
-            # When using the tidy format, don't export empty records.
-            # Otherwise, the InfluxDB dataframe driver adapter will croak.
-            if df.attrs.get("tidy"):
-                df = df.dropna()
 
             # Compute designated tag fields from some candidates.
             tag_columns = []
@@ -310,21 +363,68 @@ class ExportMixin:
                         tag_columns.append(column)
 
             # Setup the connection.
-            c = DataFrameClient(database=database)
-            c.create_database(database)
+            if version == 1:
+                from influxdb import InfluxDBClient
 
-            # Need pandas>=1.2, otherwise InfluxDB's `field_df = dataframe[field_columns].replace([np.inf, -np.inf], np.nan)`
-            # will erroneously cast `Int64` to `object`, so `int_columns = df.select_dtypes(include=['integer']).columns`
-            # will fail.
-            # https://github.com/pandas-dev/pandas/issues/32988
+                client = InfluxDBClient(
+                    host=connspec.url.hostname,
+                    port=connspec.url.port or 8086,
+                    username=connspec.url.username,
+                    password=connspec.url.password,
+                    database=database,
+                    ssl=protocol.endswith("s"),
+                )
+                client.create_database(database)
+            elif version == 2:
+                from influxdb_client import InfluxDBClient, Point
+                from influxdb_client.client.write_api import SYNCHRONOUS
+
+                ssl = protocol.endswith("s")
+                url = f"http{ssl and 's' or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
+                client = InfluxDBClient(
+                    url=url, org=connspec.url.username, token=connspec.url.password
+                )
+                write_api = client.write_api(write_options=SYNCHRONOUS)
+
+            points = []
+            for items in chunker(df, chunksize=50000):
+
+                for date, record in items.iterrows():
+                    time = date.isoformat()
+                    tags = {
+                        tag: record.pop(tag) for tag in tag_columns if tag in record
+                    }
+
+                    fields = record.dropna().to_dict()
+                    if not fields:
+                        continue
+
+                    if version == 1:
+                        point = {
+                            "measurement": tablename,
+                            "time": time,
+                            "tags": tags,
+                            "fields": fields,
+                        }
+                    elif version == 2:
+                        point = Point(tablename).time(date.isoformat())
+                        for tag, value in tags.items():
+                            point = point.tag(tag, value)
+                        for field, value in fields.items():
+                            point = point.field(field, value)
+
+                    points.append(point)
 
             # Write to InfluxDB.
-            c.write_points(
-                dataframe=df,
-                measurement=tablename,
-                tag_columns=tag_columns,
-                batch_size=50000,
-            )
+            if version == 1:
+                client.write_points(
+                    points=points,
+                    batch_size=50000,
+                )
+            elif version == 2:
+                write_api.write(bucket=database, record=points)
+                write_api.close()
+
             log.info("Writing to InfluxDB finished")
 
         elif target.startswith("crate://"):
@@ -357,7 +457,7 @@ class ExportMixin:
             log.info(f"Writing to CrateDB. target={target}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            cratedb_url = t.url._replace(path="", query=None)
+            cratedb_url = connspec.url._replace(path="", query=None)
             cratedb_target = urlunparse(cratedb_url)
 
             # Convert timezone-aware datetime fields to naive ones.
@@ -425,7 +525,7 @@ def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
     """
     Convert all datetime columns to ISO format.
 
-    :param df:
+    :param df:        df[Columns.FROM_DATE] = df[Columns.FROM_DATE].dt.tz_localize(self.tz)
     :return:
     """
     df: pd.DataFrame = df.copy(deep=True)
