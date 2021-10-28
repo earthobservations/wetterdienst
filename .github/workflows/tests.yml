@@ -62,5 +62,26 @@ jobs:
     #  run: poetry install --no-interaction
     #  #if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
 
+    - name: Install wradlib (Mac only)
+      run: |
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          brew install gdal
+          poetry install --extras=radar
+        fi
+      shell: bash
+
+    - name: Install wradlib (Linux only)
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+          sudo apt-get update
+          sudo apt-get install libgdal-dev
+          sudo apt-get install gdal-bin
+          sudo apt-get install python3-dev
+          pip install --global-option=build_ext --global-option="-I/usr/include/gdal" GDAL==3.2.1
+          poetry install --extras=radar
+        fi
+      shell: bash
+
     - name: Test
       run: poetry run poe test
