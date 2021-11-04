@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import re
 
 import pytest
 
-from tests.provider.dwd.radar import station_reference_pattern_unsorted
+from tests import windows, windows_unsupported
+
+if not windows:
+    import wradlib as wrl
+
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
     DwdRadarPeriod,
@@ -116,6 +119,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 2
 
 
+@windows_unsupported
 def test_radar_request_radolan_cdc_most_recent():
     """
     Example for testing radar sites most recent RADOLAN_CDC.
@@ -135,16 +139,57 @@ def test_radar_request_radolan_cdc_most_recent():
 
     assert len(results) == 1
 
-    payload = results[0].data.getvalue()
+    buffer = results[0].data
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     # Verify data.
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
-    date_time = request.start_date.strftime("%d%H%M")
-    month_year = request.start_date.strftime("%m%y")
-    header = (
-        f"SF{date_time}10000{month_year}BY.......VS 3SW   ......PR E-01INT1440GP 900x 900MS "  # noqa:E501,B950
-        f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
+    attrs = {
+        "producttype": "SF",
+        "datetime": request.start_date.to_pydatetime(),
+        "precision": 0.1,
+        "intervalseconds": 86400,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+    }
+
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
     )
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:180])
+    skip_attrs = [
+        "radolanversion",
+        "radardays",
+        "radarlocations",
+        "radarid",
+        "maxrange",
+        "datasize",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+    del attrs["radarlocations"]
+
+    assert requested_attrs == attrs

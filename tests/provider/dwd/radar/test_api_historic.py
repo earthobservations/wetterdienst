@@ -11,11 +11,12 @@ import pybufrkit
 import pytest
 import requests
 
-from tests.provider.dwd.radar import (
-    station_reference_pattern_de,
-    station_reference_pattern_sorted,
-    station_reference_pattern_unsorted,
-)
+from tests import windows, windows_unsupported
+
+if not windows:
+    import wradlib as wrl
+
+from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -210,6 +211,7 @@ def test_radar_request_composite_historic_fx_timerange():
     )
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday():
     """
@@ -229,21 +231,58 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    payload = results[0].data.getvalue()
+    buffer = results[0].data
 
     # Verify data.
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
-    date_time = request.start_date.strftime("%d%H%M")
-    month_year = request.start_date.strftime("%m%y")
-    header = (
-        f"RW{date_time}10000{month_year}BY.......VS 3SW   ......PR E-01INT  60GP 900x 900MF 00000001MS "  # noqa:E501,B950
-        f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+
+    attrs = {
+        "producttype": "RW",
+        "datetime": request.start_date.to_pydatetime(),
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "moduleflag": 1,
+    }
+
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
     )
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:160])
+    skip_attrs = ["radarid", "datasize", "maxrange", "radarlocations", "radolanversion"]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+    del attrs["radarlocations"]
+
+    assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_timerange():
     """
@@ -263,9 +302,71 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     # Verify number of results.
     assert len(results) == 3
 
-    # TODO: Verify data.
+    buffer = results[0].data
+
+    # Verify data.
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+
+    assert request.start_date.strftime("m%y") == requested_attrs["datetime"].strftime(
+        "m%y"
+    )
+    assert request.start_date.strftime("%d%H%M") == requested_attrs[
+        "datetime"
+    ].strftime("%d%H%M")
+
+    attrs = {
+        "producttype": "RW",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "moduleflag": 1,
+    }
+
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
+    )
+
+    skip_attrs = [
+        "datetime",
+        "radarid",
+        "datasize",
+        "maxrange",
+        "radarlocations",
+        "radolanversion",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+    del attrs["radarlocations"]
+
+    assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_yesterday():
     """
@@ -287,19 +388,37 @@ def test_radar_request_site_historic_dx_yesterday():
         raise pytest.skip("Data currently not available")
 
     buffer = results[0].data
-    payload = buffer.getvalue()
 
     # Verify data.
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
+
     timestamp_aligned = round_minutes(timestamp, 5)
-    date_time = timestamp_aligned.strftime("%d%H%M")
-    month_year = timestamp_aligned.strftime("%m%y")
-    header = f"DX{date_time}10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
+        "%d%H%M"
+    )
 
-    assert re.match(bytes(header, encoding="ascii"), payload)
+    attrs = {
+        "producttype": "DX",
+        "version": " 2",
+        "cluttermap": 0,
+        "dopplerfilter": 4,
+        "statfilter": 0,
+        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        "message": "",
+    }
+
+    skip_attrs = ["datetime", "bytes", "radarid"]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+
+    assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_timerange():
     """
@@ -324,9 +443,37 @@ def test_radar_request_site_historic_dx_timerange():
 
     assert len(results) == 6
 
-    # TODO: Verify data.
+    buffer = results[0].data
+
+    # Verify data.
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
+
+    timestamp_aligned = round_minutes(timestamp, 5)
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
+        "%d%H%M"
+    )
+
+    attrs = {
+        "producttype": "DX",
+        "version": " 2",
+        "cluttermap": 0,
+        "dopplerfilter": 4,
+        "statfilter": 0,
+        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        "message": "",
+    }
+    skip_attrs = ["bytes", "radarid", "datetime"]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+
+    assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_binary_yesterday():
     """
@@ -352,11 +499,10 @@ def test_radar_request_site_historic_pe_binary_yesterday():
         raise pytest.skip("Data currently not available")
 
     buffer = results[0].data
-    payload = buffer.getvalue()
 
     # Verify data.
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
+    requested_header = wrl.io.read_radolan_header(buffer)
+
     date_time = request.start_date.strftime("%d%H")
     month_year = request.start_date.strftime("%m%y")
     header = (
@@ -364,7 +510,7 @@ def test_radar_request_site_historic_pe_binary_yesterday():
         f"6.0  7.0  8.0  9.0 10.0 11.0 12.0CO0CD0CS0ET 5.0FL....MS"
     )
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:160])
+    assert re.match(header, requested_header)
 
 
 @pytest.mark.xfail
@@ -839,6 +985,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     # TODO: Verify data.
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_radvor_re_yesterday():
     """
@@ -864,19 +1011,63 @@ def test_radar_request_radvor_re_yesterday():
 
     assert len(results) == 25
 
-    payload = results[0].data.getvalue()
+    buffer = results[0].data
 
     # Verify data.
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
-    date_time = request.start_date.strftime("%d%H%M")
-    month_year = request.start_date.strftime("%m%y")
-    header = (
-        f"RE{date_time}10000{month_year}BY.......VS 3SW P20000.HPR E-03INT  60GP 900x 900VV 000MF 00000008QN "  # noqa:E501,B950
-        f"016MS...<{station_reference_pattern_de}"  # noqa:E501,B950
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+
+    attrs = {
+        "producttype": "RE",
+        "datetime": request.start_date.to_pydatetime(),
+        "precision": 0.001,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "deasb",
+            "deboo",
+            "dedrs",
+            "deeis",
+            "deess",
+            "defbg",
+            "defld",
+            "dehnr",
+            "deisn",
+            "demem",
+            "deneu",
+            "denhb",
+            "deoft",
+            "depro",
+            "deros",
+            "detur",
+            "deumd",
+        ],
+        "predictiontime": 0,
+        "moduleflag": 8,
+    }
+
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
     )
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:200])
+    skip_attrs = [
+        "radarid",
+        "datasize",
+        "radolanversion",
+        "quantification",
+        "maxrange",
+        "radarlocations",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+    del attrs["radarlocations"]
+
+    assert requested_attrs == attrs
 
 
 @pytest.mark.remote
@@ -908,6 +1099,7 @@ def test_radar_request_radvor_re_timerange():
     # TODO: Verify data.
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday():
     """
@@ -933,19 +1125,63 @@ def test_radar_request_radvor_rq_yesterday():
 
     assert len(results) == 3
 
-    payload = results[0].data.getvalue()
+    buffer = results[0].data
 
     # Verify data.
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
-    date_time = request.start_date.strftime("%d%H%M")
-    month_year = request.start_date.strftime("%m%y")
-    header = (
-        f"RQ{date_time}10000{month_year}BY.......VS 3SW   ......PR E-01INT  60GP 900x 900VV   0MF 00000008QN ...MS "  # noqa:E501,B950
-        f"..<{station_reference_pattern_sorted}"  # noqa:E501,B950
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+
+    attrs = {
+        "producttype": "RQ",
+        "datetime": request.start_date.to_pydatetime(),
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "drs",
+            "eis",
+            "ess",
+            "fbg",
+            "fld",
+            "hnr",
+            "isn",
+            "mem",
+            "neu",
+            "nhb",
+            "oft",
+            "pro",
+            "ros",
+            "tur",
+            "umd",
+        ],
+        "predictiontime": 0,
+        "moduleflag": 8,
+    }
+
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
     )
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:180])
+    skip_attrs = [
+        "datasize",
+        "quantification",
+        "radarid",
+        "maxrange",
+        "radolanversion",
+        "radarlocations",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+    del attrs["radarlocations"]
+
+    assert requested_attrs == attrs
 
 
 @pytest.mark.remote
