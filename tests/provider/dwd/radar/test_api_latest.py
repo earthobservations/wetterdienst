@@ -6,6 +6,11 @@ from datetime import datetime
 
 import pytest
 
+from tests import windows, windows_unsupported
+
+if not windows:
+    import wradlib as wrl
+
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
@@ -37,6 +42,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity():
     """
@@ -54,19 +60,66 @@ def test_radar_request_composite_latest_rw_reflectivity():
         raise pytest.skip("Data currently not available")
 
     buffer = results[0][1]
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
-    payload = buffer.getvalue()
-
-    month_year = datetime.utcnow().strftime("%m%y")
-    header = (
-        f"RW......10000{month_year}"
-        f"BY16201..VS 3SW   ......PR E-01INT  60GP 900x 900MF 00000001MS "
-        f"..<{station_reference_pattern_unsorted}>"
+    # Verify data.
+    assert datetime.utcnow().strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
     )
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:160])
+    attrs = {
+        "producttype": "RW",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "radarlocations": [
+            "asb",
+            "boo",
+            "ros",
+            "hnr",
+            "umd",
+            "pro",
+            "ess",
+            "fld",
+            "drs",
+            "neu",
+            "nhb",
+            "oft",
+            "eis",
+            "tur",
+            "isn",
+            "fbg",
+            "mem",
+        ],
+        "moduleflag": 1,
+    }
+
+    # radar locations can change over time -> check if at least 10 radar locations
+    # were found and at least 5 of them match with the provided one
+    assert len(requested_attrs["radarlocations"]) >= 10
+    assert (
+        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
+        >= 5
+    )
+
+    skip_attrs = [
+        "radarid",
+        "maxrange",
+        "datasize",
+        "datetime",
+        "radarlocations",
+        "radolanversion",
+    ]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+    del attrs["radarlocations"]
+
+    assert requested_attrs == attrs
 
 
+@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_latest_dx_reflectivity():
     """
@@ -80,9 +133,27 @@ def test_radar_request_site_latest_dx_reflectivity():
     )
 
     buffer = next(request.query())[1]
-    payload = buffer.getvalue()
+    requested_header = wrl.io.read_radolan_header(buffer)
+    requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
 
+    # Verify data.
     timestamp_aligned = round_minutes(datetime.utcnow(), 5)
-    month_year = timestamp_aligned.strftime("%m%y")
-    header = f"DX......10132{month_year}BY.....VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS"  # noqa:E501,B950
-    assert re.match(bytes(header, encoding="ascii"), payload[:160])
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
+        "%m%y"
+    )
+
+    attrs = {
+        "producttype": "DX",
+        "version": " 2",
+        "cluttermap": 0,
+        "dopplerfilter": 4,
+        "statfilter": 0,
+        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        "message": "",
+    }
+
+    skip_attrs = ["radarid", "datetime", "bytes"]
+    for attr in skip_attrs:
+        requested_attrs.pop(attr, None)
+
+    assert requested_attrs == attrs
