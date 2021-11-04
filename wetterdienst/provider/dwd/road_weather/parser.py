@@ -7,7 +7,8 @@ import pandas as pd
 import pdbufr
 from io import BytesIO
 from pathlib import Path
-from typing import List, Tuple, Dict
+from datetime import datetime
+from typing import List, Tuple
 
 from wetterdienst.provider.dwd.road_weather.metadata.dataset import DwdObservationRoadWeatherDataset
 
@@ -68,7 +69,7 @@ metadata_columns = ('stationOrSiteName',
 
 def parse_dwd_road_weather_data(
         filenames_and_files: List[Tuple[str, bytes]],
-) -> Tuple[List[Dict[str, pd.DataFrame]], pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     This function is used to read the road weather station data from given bytes object.
     The filename is required to defined if and where an error happened.
@@ -85,7 +86,7 @@ def parse_dwd_road_weather_data(
         _parse_dwd_road_weather_data(filename_and_file)
         for filename_and_file in filenames_and_files
     ]
-    data = [data_tuple[0] for data_tuple in data_and_metadata]
+    data = pd.concat([data_tuple[0] for data_tuple in data_and_metadata])
     metadata = pd.concat([data_tuple[1] for data_tuple in data_and_metadata])
     metadata.drop_duplicates(inplace=True)
 
@@ -94,7 +95,7 @@ def parse_dwd_road_weather_data(
 
 def _parse_dwd_road_weather_data(
         filename_and_file: Tuple[str, BytesIO],
-) -> Tuple[Dict[str, pd.DataFrame], pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     A wrapping function that only handles data for one station id. The files passed to
     it are thus related to this id. This is important for storing the data locally as
@@ -130,4 +131,19 @@ def _parse_dwd_road_weather_data(
 
     TMP_BUFR_FILE_PATH.unlink()
 
-    return data, metadata
+    data = [_adding_multiindex_and_drop_unused_columns(item) for _, item in data.items() if not item.empty]
+    return pd.concat(data, axis=1), metadata
+
+
+def _adding_multiindex_and_drop_unused_columns(
+        dataframe: pd.DataFrame
+) -> pd.DataFrame:
+    """ helping function to restructure data from bufr files """
+    dataframe.index = pd.MultiIndex.from_tuples(
+        [
+            (row['shortStationName'],
+             datetime(row['year'], row['month'], row['day'], row['hour'], row['minute'])
+             ) for idx, row in dataframe.iterrows()
+        ], names=['shortStationName', 'timestamp'])
+    dataframe.drop(['year', 'month', 'day', 'hour', 'minute', 'shortStationName'], axis=1, inplace=True)
+    return dataframe

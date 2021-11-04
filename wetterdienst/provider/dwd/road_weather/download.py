@@ -8,8 +8,6 @@ from zipfile import BadZipFile, ZipFile
 import requests
 
 from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
-from wetterdienst.provider.dwd.network import download_file_from_dwd
-from wetterdienst.util.cache import payload_cache_five_minutes
 
 
 def download_road_weather_observations_parallel(
@@ -31,7 +29,6 @@ def download_road_weather_observations_parallel(
     return list(zip(remote_files, files_in_bytes))
 
 
-@payload_cache_five_minutes.cache_on_arguments()
 def _download_road_weather_observations_data(remote_file: str) -> bytes:
     """
     This function downloads the road weather station data for which the link is

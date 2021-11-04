@@ -86,5 +86,4 @@ class DwdRoadWeatherObservationValues:
 data, metadata = DwdRoadWeatherObservationValues()._collect_data_for_station_group(
     DwdObservationRoadWeatherStationGroups.KK)
 from IPython import embed
-
 embed()

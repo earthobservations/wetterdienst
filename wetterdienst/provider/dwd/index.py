@@ -18,9 +18,8 @@ from wetterdienst.provider.dwd.metadata.constants import (
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.util.cache import (
     fileindex_cache_five_minutes,
-    fileindex_cache_one_hour,
 )
-from wetterdienst.util.network import list_remote_files
+from wetterdienst.util.network import list_remote_files_fsspec
 
 
 def _create_file_index_for_dwd_server(
@@ -60,7 +59,7 @@ def _list_remote_files_as_dataframe(url: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame with listed files
     """
-    files_server = list_remote_files(url, recursive=True)
+    files_server = list_remote_files_fsspec(url, recursive=True)
 
     return pd.DataFrame(
         files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
@@ -70,7 +69,6 @@ def _list_remote_files_as_dataframe(url: str) -> pd.DataFrame:
 def reset_file_index_cache() -> None:
     """ Function to reset the cached file index for all kinds of parameters """
     fileindex_cache_five_minutes.invalidate()
-    fileindex_cache_one_hour.invalidate()
 
 
 def build_path_to_parameter(
