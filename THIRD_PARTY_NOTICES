@@ -174,7 +174,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 Jinja2
-3.0.2
+3.0.3
 BSD License
 Armin Ronacher
 https://palletsprojects.com/p/jinja/
@@ -1672,14 +1672,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 aenum
-3.1.3
+3.1.5
 BSD License
 Ethan Furman
 https://github.com/ethanfurman/aenum
 UNKNOWN
 
 aiohttp
-3.8.0
+3.8.1
 Apache Software License
 UNKNOWN
 https://github.com/aio-libs/aiohttp
@@ -2062,10 +2062,10 @@ SOFTWARE.
 
 
 async-timeout
-4.0.0
+4.0.1
 Apache Software License
-Andrew Svetlov
-https://github.com/aio-libs/async_timeout/
+Andrew Svetlov <andrew.svetlov@gmail.com>
+https://github.com/aio-libs/async-timeout
 Copyright 2016-2020 aio-libs collaboration.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -2144,7 +2144,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 bandit
-1.7.0
+1.7.1
 Apache Software License
 PyCQA
 https://bandit.readthedocs.io/en/latest/
@@ -4913,10 +4913,10 @@ https://gitlab.com/pycqa/flake8-polyfill
 UNKNOWN
 
 flakehell
-0.7.1
+0.8.0
 MIT License
 Gram (@orsinium)
-UNKNOWN
+https://github.com/life4/flakehell
 MIT License 2019 Gram (@orsinium) <master_fess@mail.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -5583,7 +5583,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 h5py
-3.5.0
+3.6.0
 BSD License
 Andrew Collette
 http://www.h5py.org
@@ -5656,7 +5656,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 imagesize
-1.2.0
+1.3.0
 MIT License
 Yoshiki Shibukawa
 https://github.com/shibukawa/imagesize_py
@@ -5830,7 +5830,7 @@ http://ipython.org
 UNKNOWN
 
 isort
-5.10.0
+5.10.1
 MIT License
 Timothy Crosley
 https://pycqa.github.io/isort/
@@ -9947,7 +9947,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 regex
-2021.11.2
+2021.11.10
 Apache Software License
 Matthew Barnett
 https://github.com/mrabarnett/mrab-regex
@@ -11134,7 +11134,7 @@ made under the terms of *both* these licenses.
 
 
 snowballstemmer
-2.1.0
+2.2.0
 BSD License
 Snowball Developers
 https://github.com/snowballstem/snowball
@@ -11170,7 +11170,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 soupsieve
-2.3
+2.3.1
 MIT License
 Isaac Muse
 https://github.com/facelessuser/soupsieve
@@ -12638,7 +12638,7 @@ to indicate the copyright and license terms:
 
 
 typed-ast
-1.4.3
+1.5.0
 Apache License 2.0
 David Fisher
 https://github.com/python/typed_ast
@@ -12935,10 +12935,10 @@ License: Python
 
 
 typing-extensions
-3.10.0.2
+4.0.0
 Python Software Foundation License
-Guido van Rossum, Jukka Lehtosalo, Łukasz Langa, Michael Lee
-https://github.com/python/typing/blob/master/typing_extensions/README.rst
+UNKNOWN
+UNKNOWN
 A. HISTORY OF THE SOFTWARE
 ==========================
 
