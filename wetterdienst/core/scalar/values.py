@@ -303,7 +303,7 @@ class ScalarValuesCore:
             df = pd.concat(data)
 
             df[Columns.STATION_ID.value] = station_id
-            df[Columns.DATASET.value] = dataset.name
+            df[Columns.DATASET.value] = dataset.name.lower()
             df[Columns.VALUE.value] = pd.NA
             df[Columns.QUALITY.value] = pd.NA
 
@@ -418,6 +418,7 @@ class ScalarValuesCore:
 
         :return:
         """
+
         for station_id in self.stations.station_id:
             # TODO: add method to return empty result with correct response string e.g.
             #  station id not available
