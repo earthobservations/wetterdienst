@@ -461,7 +461,7 @@ class ScalarValuesCore:
                 station_df = pd.concat(station_data, ignore_index=True)
             except ValueError:
                 station_df = self._create_empty_station_parameter_df(
-                    station_id, parameter
+                    station_id, parameter, dataset
                 )
 
             station_df = self._coerce_meta_fields(station_df)
