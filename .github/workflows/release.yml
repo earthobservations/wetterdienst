@@ -34,6 +34,19 @@ jobs:
         path: ${{ steps.poetry-cache-dir.outputs.dir }}
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
+    - name: Install wradlib (Linux only)
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo apt-get update
+          sudo apt-get install python3-dev
+          pip install setuptools==57.5.0
+          sudo apt-get install libgdal-dev
+          sudo apt-get install gdal-bin
+          poetry run pip install --global-option=build_ext --global-option="-I/usr/include/gdal" GDAL==$(gdal-config --version)
+          poetry run pip install wradlib
+        fi
+      shell: bash
+
     - name: Install library
       run: .github/workflows/install.sh testing
 
