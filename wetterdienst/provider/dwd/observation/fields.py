@@ -113,7 +113,7 @@ def process(url) -> None:  # pragma: no cover
     # import json; print(json.dumps(parameters, indent=4))
 
     # Output as ASCII table.
-    print(tabulate(list(parameters.items()), tablefmt="psql"))
+    print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T001
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -122,6 +122,6 @@ if __name__ == "__main__":  # pragma: no cover
     daily_kl = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/DESCRIPTION_obsgermany_climate_daily_kl_recent_en.pdf"  # noqa:E501,B950
 
     for item in ten_minutes_air, hourly_solar, daily_kl:
-        print(item)
+        print(item)  # noqa: T001
         process(item)
-        print()
+        print()  # noqa: T001

@@ -164,6 +164,9 @@ percy = "^2.0.2"
 h5py = "^3.1.0"
 h5netcdf = "^0.11.0"
 pytest-xdist = "^2.2.1"
+flake8-print = "^4.0.0"
+flake8-builtins = "^1.5.3"
+flake8-comprehensions = "^3.7.0"
 
 [tool.poetry.extras]
 mpl = ["matplotlib"]
@@ -215,9 +218,15 @@ flake8-bandit = ["+*"]
 flake8-black = ["+*"]
 flake8-bugbear = ["+*"]
 flake8-isort = ["+*"]
+flake8-print = ["+*"]
+flake8-builtins = ["+*", "-A003"]
+flake8-comprehensions = ["+*"]
 
 [tool.flakehell.exceptions."**/__init__.py"]
 pyflakes = ["-F401"]
+
+[tool.flakehell.exceptions."example/"]
+flake8-print = ["-*"]
 
 [tool.flakehell.exceptions."tests/"]
 flake8-bandit = ["-S101", "-S106"]

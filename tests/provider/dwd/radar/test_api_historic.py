@@ -552,13 +552,13 @@ def test_radar_request_site_historic_pe_bufr():
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "format",
+    "fmt",
     [
         DwdRadarDataFormat.BINARY,
         DwdRadarDataFormat.BUFR,
     ],
 )
-def test_radar_request_site_historic_pe_timerange(format):
+def test_radar_request_site_historic_pe_timerange(fmt):
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using date ranges.
@@ -578,7 +578,7 @@ def test_radar_request_site_historic_pe_timerange(format):
         start_date=start_date,
         end_date=end_date,
         site=DwdRadarSite.BOO,
-        fmt=format,
+        fmt=fmt,
     )
 
     assert request.start_date.minute % 5 == 0

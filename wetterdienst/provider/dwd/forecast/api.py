@@ -72,9 +72,9 @@ class DwdMosmixValues(ScalarValuesCore):
     _data_tz = Timezone.UTC
     _has_quality = False
 
-    _irregular_parameters = tuple()
+    _irregular_parameters = ()
     _integer_parameters = INTEGER_PARAMETERS
-    _string_parameters = tuple()
+    _string_parameters = ()
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """Method for creation of parameter name mappings based on

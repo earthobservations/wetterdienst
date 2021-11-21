@@ -310,22 +310,22 @@ def render_map(payload):
     """
     stations_data = pd.read_json(payload, orient="split")
 
-    layout_germany = dict(
-        hovermode="closest",
-        mapbox=dict(
-            bearing=0,
-            center=go.layout.mapbox.Center(lat=51.5, lon=10),
-            style="open-street-map",
-            pitch=0,
-            zoom=4.5,
-        ),
-        margin=go.layout.Margin(
+    layout_germany = {
+        "hovermode": "closest",
+        "mapbox": {
+            "bearing": 0,
+            "center": go.layout.mapbox.Center(lat=51.5, lon=10),
+            "style": "open-street-map",
+            "pitch": 0,
+            "zoom": 4.5,
+        },
+        "margin": go.layout.Margin(
             l=0,
             r=0,
             b=0,
             t=0,
         ),
-    )
+    }
 
     if stations_data.empty:
         fig = go.Figure(

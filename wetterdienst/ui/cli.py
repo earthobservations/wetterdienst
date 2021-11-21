@@ -353,7 +353,7 @@ def info():
 
 @cli.command("version")
 def version():
-    print(__version__)
+    print(__version__)  # noqa: T001
 
     return
 
@@ -429,7 +429,7 @@ def coverage(provider, kind, filter_, debug):
         flatten=False,
     )
 
-    print(cov)
+    print(cov)  # noqa: T001
 
     return
 
@@ -463,7 +463,7 @@ def fields(provider, kind, dataset, resolution, period, language, **kwargs):
 
     output = pformat(dict(metadata))
 
-    print(output)
+    print(output)  # noqa: T001
 
     return
 
@@ -545,7 +545,7 @@ def stations(
 
     output = stations_.to_format(fmt, indent=indent)
 
-    print(output)
+    print(output)  # noqa: T001
 
     return
 
@@ -641,7 +641,7 @@ def values(
 
     output = values_.to_format(fmt, indent=indent)
 
-    print(output)
+    print(output)  # noqa: T001
 
     return
 
@@ -677,7 +677,7 @@ def radar(
 
     output = json.dumps(data, indent=4)
 
-    print(output)
+    print(output)  # noqa: T001
 
     return
 

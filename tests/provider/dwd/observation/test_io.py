@@ -157,7 +157,7 @@ def test_format_json():
     output = ExportMixin(df=df_data).to_json()
 
     response = json.loads(output)
-    station_ids = list(set([reading["station_id"] for reading in response]))
+    station_ids = {reading["station_id"] for reading in response}
 
     assert "01048" in station_ids
 
@@ -168,7 +168,7 @@ def test_format_geojson():
 
     response = json.loads(output)
 
-    station_names = [station["properties"]["name"] for station in response["features"]]
+    station_names = {station["properties"]["name"] for station in response["features"]}
 
     assert "Freyung vorm Wald" in station_names
 
