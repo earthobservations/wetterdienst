@@ -144,7 +144,7 @@ class ScalarRequestCore(Core):
             raise NotImplementedError(
                 "for non unique datasets implement a mapping from parameter to dataset"
             )
-        return dict()
+        return {}
 
     @property
     @abstractmethod

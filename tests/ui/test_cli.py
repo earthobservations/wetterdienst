@@ -341,14 +341,14 @@ def test_cli_values_json(setting, expected_columns, capsys, caplog):
 
     response = json.loads(result.stdout)
 
-    station_ids = list(set([reading["station_id"] for reading in response]))
+    station_ids = {reading["station_id"] for reading in response}
 
     assert station_id in station_ids
 
     expected_columns = {"station_id", "date"}.union(expected_columns)
 
     first = response[0]
-    assert set(list(first.keys())).issuperset(expected_columns)
+    assert set(first.keys()).issuperset(expected_columns)
 
 
 @pytest.mark.parametrize(
@@ -362,7 +362,7 @@ def test_cli_values_json_tidy(provider, kind, setting, station_id, station_name)
 
     response = json.loads(result.output)
 
-    station_ids = list(set([reading["station_id"] for reading in response]))
+    station_ids = {reading["station_id"] for reading in response}
 
     assert station_id in station_ids
 
@@ -461,7 +461,7 @@ def test_cli_stations_geospatial(provider, kind, setting, station_id, station_na
 
     response = json.loads(result.output)
 
-    station_names = [station["name"] for station in response]
+    station_names = {station["name"] for station in response}
 
     assert station_name in station_names
 
@@ -478,7 +478,7 @@ def test_cli_values_geospatial(provider, kind, setting, station_id, station_name
 
     response = json.loads(result.output)
 
-    station_ids = list(set([reading["station_id"] for reading in response]))
+    station_ids = {reading["station_id"] for reading in response}
 
     assert station_id in station_ids
 
