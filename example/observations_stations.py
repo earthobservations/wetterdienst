@@ -32,9 +32,9 @@ def station_example():
         humanize=True,
     )
 
-    df = stations.filter_by_distance(latitude=50.0, longitude=8.9, distance=30).df
+    result = stations.filter_by_distance(latitude=50.0, longitude=8.9, distance=30)
 
-    print(df)
+    print(result.df)
 
 
 def main():
