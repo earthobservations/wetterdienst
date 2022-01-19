@@ -23,9 +23,9 @@ certifi==2021.10.8; python_version >= "3.5" and python_full_version < "3.0.0" or
 cffi==1.15.0; python_full_version >= "3.6.1" and python_version >= "3.7" and implementation_name == "pypy"
 charset-normalizer==2.0.10; python_full_version >= "3.6.0" and python_version >= "3.6"
 click-params==0.1.2; python_version >= "3.6" and python_version < "4.0"
-click==7.1.2; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
+click==8.0.3; python_version >= "3.6"
 cloup==0.8.2; python_version >= "3.6"
-colorama==0.4.4; python_full_version >= "3.6.2" and platform_system == "Windows" and sys_platform == "win32" and python_version >= "3.5" and python_full_version < "4.0.0" and (python_version >= "3.6" and python_full_version < "3.0.0" and sys_platform == "win32" or sys_platform == "win32" and python_version >= "3.6" and python_full_version >= "3.5.0") and (python_version >= "3.7" and python_full_version < "3.0.0" and platform_system == "Windows" or platform_system == "Windows" and python_version >= "3.7" and python_full_version >= "3.5.0") and (python_version >= "3.6" and python_full_version < "3.0.0" and sys_platform == "win32" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6") or sys_platform == "win32" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6") and python_full_version >= "3.5.0") and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
+colorama==0.4.4; python_full_version >= "3.6.2" and platform_system == "Windows" and python_version >= "3.6" and sys_platform == "win32" and python_full_version < "4.0.0" and (python_version >= "3.6" and python_full_version < "3.0.0" and sys_platform == "win32" or sys_platform == "win32" and python_version >= "3.6" and python_full_version >= "3.5.0") and python_version < "4.0" and (python_version >= "3.7" and python_full_version < "3.0.0" and platform_system == "Windows" or platform_system == "Windows" and python_version >= "3.7" and python_full_version >= "3.5.0") and (python_version >= "3.6" and python_full_version < "3.0.0" and sys_platform == "win32" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6") or sys_platform == "win32" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6") and python_full_version >= "3.5.0") and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
 coverage==5.5; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0" and python_version < "4")
 dateparser==1.1.0; python_version >= "3.5"
 decorator==5.1.1; python_version >= "3.6" and python_version < "4.0"
@@ -40,7 +40,7 @@ eradicate==2.0.0; python_version >= "3.6" and python_version < "4.0"
 execnet==1.9.0; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
 flake8-2020==1.6.1; python_full_version >= "3.6.1"
 flake8-bandit==2.1.2
-flake8-black==0.2.3
+flake8-black==0.2.4
 flake8-bugbear==20.11.1; python_version >= "3.6"
 flake8-builtins==1.5.3
 flake8-comprehensions==3.8.0; python_version >= "3.7"
