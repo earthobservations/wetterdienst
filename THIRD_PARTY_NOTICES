@@ -2568,9 +2568,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 click
-7.1.2
+8.0.3
 BSD License
-UNKNOWN
+Armin Ronacher
 https://palletsprojects.com/p/click/
 Copyright 2014 Pallets
 
@@ -5390,7 +5390,7 @@ THE SOFTWARE.
 
 
 flake8-black
-0.2.3
+0.2.4
 MIT License
 Peter J. A. Cock
 https://github.com/peterjc/flake8-black

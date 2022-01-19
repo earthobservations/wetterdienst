@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix cli error with upgraded click ^8.0 where default False would be converted to "False"
+
 0.25.0 (30.01.2022)
 *******************
 

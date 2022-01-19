@@ -171,7 +171,7 @@ def test_no_provider():
 
     result = runner.invoke(cli, "stations --provider=abc --kind=abc")
 
-    assert "Error: Invalid value for '--provider': invalid choice: abc." in result.output
+    assert "Error: Invalid value for '--provider': 'abc' is not one of 'DWD', 'ECCC', 'NOAA'" in result.output
 
 
 def test_no_kind():
@@ -179,7 +179,7 @@ def test_no_kind():
 
     result = runner.invoke(cli, "stations --provider=dwd --kind=abc")
 
-    assert "Invalid value for '--kind': invalid choice: abc." in result.output
+    assert "Invalid value for '--kind': 'abc' is not one of 'OBSERVATION', 'FORECAST'" in result.output
 
 
 def test_data_range():
@@ -337,7 +337,7 @@ def test_cli_values_geojson(provider, kind, setting, station_id, station_name, c
         provider=provider, kind=kind, setting=setting, station=station_id, fmt="geojson"
     )
 
-    assert "Error: Invalid value for '--format': invalid choice: " "geojson. (choose from json, csv)" in result.output
+    assert "Error: Invalid value for '--format': 'geojson' is not one of 'json', 'csv'" in result.output
 
 
 @pytest.mark.parametrize(
@@ -384,7 +384,7 @@ def test_cli_values_format_unknown(provider, kind, setting, station_id, station_
         provider=provider, kind=kind, setting=setting, station=station_id, fmt="foobar"
     )
 
-    assert "Error: Invalid value for '--format': " "invalid choice: foobar. (choose from json, csv)" in result.output
+    assert "Error: Invalid value for '--format': 'foobar' is not one of 'json', 'csv'" in result.output
 
 
 @pytest.mark.parametrize(

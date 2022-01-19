@@ -47,7 +47,7 @@ def check_dwd_observations_dataset(
 ) -> bool:
     """
     Function to check for element (alternative name) and if existing return it
-    Differs from foldername e.g. air_temperature -> tu
+    Differs from folder name e.g. air_temperature -> tu
     """
     check = RESOLUTION_DATASET_MAPPING.get(resolution, {}).get(dataset, [])
 

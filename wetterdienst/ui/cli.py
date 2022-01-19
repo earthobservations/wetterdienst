@@ -408,7 +408,7 @@ def about():
         ),
     ),
 )
-@cloup.option("--filter", "filter_", type=click.STRING, default=False)
+@cloup.option("--filter", "filter_", type=click.STRING, default=None)
 @debug_opt
 def coverage(provider, kind, filter_, debug):
     set_logging_level(debug)
