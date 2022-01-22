@@ -10,6 +10,8 @@ DWD_MOSMIX_S_PATH = "weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/"
 DWD_MOSMIX_L_PATH = "weather/local_forecasts/mos/MOSMIX_L/all_stations/kml/"
 DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations/"
 
+DWD_ROAD_WEATHER_REPORTS = "weather/weather_reports/road_weather_stations/"
+
 
 class DWDCDCBase(Enum):
     CLIMATE_OBSERVATIONS = "observations_germany/climate/"
