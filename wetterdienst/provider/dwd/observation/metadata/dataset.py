@@ -42,9 +42,7 @@ class DwdObservationDataset(Enum):
     WEATHER_PHENOMENA = "weather_phenomena"
 
 
-RESOLUTION_DATASET_MAPPING: Dict[
-    Resolution, Dict[DwdObservationDataset, List[Period]]
-] = {
+RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Period]]] = {
     Resolution.MINUTE_1: {
         DwdObservationDataset.PRECIPITATION: [
             Period.HISTORICAL,

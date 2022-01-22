@@ -8,7 +8,6 @@ from io import StringIO
 from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
-import numpy as np
 import pandas as pd
 import requests
 from requests import HTTPError
@@ -65,7 +64,7 @@ class DwdMosmixValues(ScalarValuesCore):
     parameter: List
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per MOSMIX definition, see
-          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:E501,B950
+          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:B950
     """
 
     _tz = Timezone.GERMANY
@@ -84,14 +83,10 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return:
         """
-        hcnm = {
+        return {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[
-                self.stations.stations.mosmix_type.name
-            ]
+            for parameter in self.stations.stations._parameter_base[self.stations.stations.mosmix_type.name]
         }
-
-        return hcnm
 
     def __init__(self, stations: StationsResult) -> None:
         """
@@ -191,15 +186,11 @@ class DwdMosmixValues(ScalarValuesCore):
             value_name=Columns.VALUE.value,
         )
 
-        df[Columns.QUALITY.value] = np.nan
-
-        df[Columns.QUALITY.value] = df[Columns.QUALITY.value].astype(float)
+        df_tidy[Columns.QUALITY.value] = pd.Series(dtype=float)
 
         return df_tidy
 
-    def read_mosmix(
-        self, date: Union[datetime, DwdForecastDate]
-    ) -> Generator[pd.DataFrame, None, None]:
+    def read_mosmix(self, date: Union[datetime, DwdForecastDate]) -> Generator[pd.DataFrame, None, None]:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -217,9 +208,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
             yield df_forecast
 
-    def _read_mosmix(
-        self, date: Union[DwdForecastDate, datetime]
-    ) -> Generator[pd.DataFrame, None, None]:
+    def _read_mosmix(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
         """
         Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type
@@ -232,9 +221,7 @@ class DwdMosmixValues(ScalarValuesCore):
         else:
             yield from self.read_mosmix_large(date)
 
-    def read_mosmix_small(
-        self, date: Union[DwdForecastDate, datetime]
-    ) -> Generator[pd.DataFrame, None, None]:
+    def read_mosmix_small(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
         """
         Reads single MOSMIX-S file with all stations and returns every forecast that
         matches with one of the defined station ids.
@@ -316,7 +303,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
 
 class DwdMosmixRequest(ScalarRequestCore):
-    """ Implementation of sites for MOSMIX forecast sites """
+    """Implementation of sites for MOSMIX forecast sites"""
 
     provider = Provider.DWD
     kind = Kind.FORECAST
@@ -338,10 +325,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _dataset_base = DwdMosmixDataset
     _unit_tree = DwdMosmixUnit
 
-    _url = (
-        "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/"
-        "mosmix_stationskatalog.cfg?view=nasPublication"
-    )
+    _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/" "mosmix_stationskatalog.cfg?view=nasPublication"
 
     _colspecs = [
         (0, 5),
@@ -373,11 +357,9 @@ class DwdMosmixRequest(ScalarRequestCore):
         :param filter_:
         :return:
         """
-        filter_ = pd.Series(filter_, dtype=object).apply(
+        return pd.Series(filter_, dtype=object).apply(
             parse_enumeration_from_template, args=(cls._dataset_base,)
         ).tolist() or [*cls._dataset_base]
-
-        return filter_
 
     _base_columns = [
         Columns.STATION_ID.value,
@@ -408,17 +390,13 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         delta_hours = (datetime_.hour - regular_date.hour) % 6
 
-        datetime_adjusted = datetime_ - pd.Timedelta(hours=delta_hours)
-
-        return datetime_adjusted
+        return datetime_ - pd.Timedelta(hours=delta_hours)
 
     def __init__(
         self,
         parameter: Optional[Tuple[Union[str, DwdMosmixParameter], ...]],
         mosmix_type: Union[str, DwdMosmixType],
-        start_issue: Optional[
-            Union[str, datetime, DwdForecastDate]
-        ] = DwdForecastDate.LATEST,
+        start_issue: Optional[Union[str, datetime, DwdForecastDate]] = DwdForecastDate.LATEST,
         end_issue: Optional[Union[str, datetime]] = None,
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
@@ -460,9 +438,7 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         # Parse issue date if not set to fixed "latest" string
         if start_issue is DwdForecastDate.LATEST and end_issue:
-            log.info(
-                "end_issue will be ignored as 'latest' was selected for issue date"
-            )
+            log.info("end_issue will be ignored as 'latest' was selected for issue date")
 
         if start_issue is not DwdForecastDate.LATEST:
             if not start_issue and not end_issue:
@@ -472,12 +448,8 @@ class DwdMosmixRequest(ScalarRequestCore):
             elif not start_issue:
                 start_issue = end_issue
 
-            start_issue = pd.to_datetime(start_issue, infer_datetime_format=True).floor(
-                "1H"
-            )
-            end_issue = pd.to_datetime(end_issue, infer_datetime_format=True).floor(
-                "1H"
-            )
+            start_issue = pd.to_datetime(start_issue, infer_datetime_format=True).floor("1H")
+            end_issue = pd.to_datetime(end_issue, infer_datetime_format=True).floor("1H")
 
             # Shift start date and end date to 3, 9, 15, 21 hour format
             if mosmix_type == DwdMosmixType.LARGE:
@@ -497,12 +469,12 @@ class DwdMosmixRequest(ScalarRequestCore):
 
     @property
     def issue_start(self):
-        """ Required for typing """
+        """Required for typing"""
         return self.issue_start
 
     @property
     def issue_end(self):
-        """ Required for typing """
+        """Required for typing"""
         return self.issue_end
 
     @metaindex_cache.cache_on_arguments()
@@ -525,11 +497,7 @@ class DwdMosmixRequest(ScalarRequestCore):
             dtype="str",
         )
 
-        df = df[
-            (df.iloc[:, 0] != "=====")
-            & (df.iloc[:, 0] != "TABLE")
-            & (df.iloc[:, 0] != "clu")
-        ]
+        df = df[(df.iloc[:, 0] != "=====") & (df.iloc[:, 0] != "TABLE") & (df.iloc[:, 0] != "clu")]
 
         df = df.iloc[:, [2, 3, 4, 5, 6, 7]]
 
@@ -543,14 +511,8 @@ class DwdMosmixRequest(ScalarRequestCore):
         ]
 
         # Convert coordinates from degree minutes to decimal degrees
-        df[Columns.LATITUDE.value] = (
-            df[Columns.LATITUDE.value].astype(float).apply(convert_dm_to_dd)
-        )
+        df[Columns.LATITUDE.value] = df[Columns.LATITUDE.value].astype(float).apply(convert_dm_to_dd)
 
-        df[Columns.LONGITUDE.value] = (
-            df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
-        )
+        df[Columns.LONGITUDE.value] = df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
 
-        df = df.reindex(columns=self._base_columns)
-
-        return df
+        return df.reindex(columns=self._base_columns)

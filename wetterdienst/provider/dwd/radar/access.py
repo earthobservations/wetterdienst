@@ -129,9 +129,7 @@ def collect_radar_data(
             results = []
             for period in period_types:
 
-                file_index = create_fileindex_radolan_cdc(
-                    resolution=resolution, period=period
-                )
+                file_index = create_fileindex_radolan_cdc(resolution=resolution, period=period)
 
                 # Filter for dates range if start_date and end_date are defined.
                 if period == Period.RECENT:
@@ -143,14 +141,8 @@ def collect_radar_data(
                 # This is for matching historical data, e.g. "RW-200509.tar.gz".
                 else:
                     file_index = file_index[
-                        (
-                            file_index[DwdColumns.DATETIME.value].dt.year
-                            == start_date.year
-                        )
-                        & (
-                            file_index[DwdColumns.DATETIME.value].dt.month
-                            == start_date.month
-                        )
+                        (file_index[DwdColumns.DATETIME.value].dt.year == start_date.year)
+                        & (file_index[DwdColumns.DATETIME.value].dt.month == start_date.month)
                     ]
 
                 results.append(file_index)
@@ -219,15 +211,14 @@ def collect_radar_data(
                     log.exception("Unable to read HDF5 file")
 
 
-def should_cache_download(url) -> bool:  # pragma: no cover
+def should_cache_download(url: str) -> bool:  # pragma: no cover
     """
     Determine whether this specific result should be cached.
 
     Here, we don't want to cache any files containing "-latest-" in their filenames.
 
-    :param args: Arguments of decorated function.
-    :param kwargs: Keyword arguments of decorated function.
-    :return: When cache should be dimissed, return False. Otherwise, return True.
+    :param url: url string which is used to decide if result is cached
+    :return: When cache should be dismissed, return False. Otherwise, return True.
     """
     if "-latest-" in url:
         return False
@@ -263,7 +254,7 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
                         filename=file.name,
                     )
 
-    # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)
+    # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: E800
     elif url.endswith(Extension.BZ2.value):
         with bz2.BZ2File(data, mode="rb") as archive:
             data = BytesIO(archive.read())
@@ -321,9 +312,7 @@ def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     return download_file(remote_radolan_filepath, ttl=CacheExpiry.TWELVE_HOURS)
 
 
-def _extract_radolan_data(
-    date_time: datetime, archive_in_bytes: BytesIO
-) -> RadarResult:
+def _extract_radolan_data(date_time: datetime, archive_in_bytes: BytesIO) -> RadarResult:
     """
     Function used to extract RADOLAN_CDC file for the requested datetime
     from the downloaded archive.
@@ -356,14 +345,10 @@ def _extract_radolan_data(
                             filename=file.name,
                         )
 
-                raise FileNotFoundError(
-                    f"RADOLAN file for {date_time_string} not found."
-                )  # pragma: no cover
+                raise FileNotFoundError(f"RADOLAN file for {date_time_string} not found.")  # pragma: no cover
 
     except EOFError as ex:
-        raise FailedDownload(
-            f"RADOLAN file for {date_time_string} is invalid: {ex}"
-        )  # pragma: no cover
+        raise FailedDownload(f"RADOLAN file for {date_time_string} is invalid: {ex}")  # pragma: no cover
 
     # Otherwise if there's an error the data is from recent time period and only has to
     # be unpacked once
@@ -372,6 +357,4 @@ def _extract_radolan_data(
         archive_in_bytes.seek(0)
 
         with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
-            return RadarResult(
-                data=BytesIO(gz_file.read()), timestamp=date_time, filename=gz_file.name
-            )
+            return RadarResult(data=BytesIO(gz_file.read()), timestamp=date_time, filename=gz_file.name)

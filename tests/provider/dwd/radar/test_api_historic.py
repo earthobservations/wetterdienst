@@ -47,9 +47,7 @@ def test_radar_request_radolan_cdc_hourly_alignment_1():
         start_date="2019-08-08 00:53:53",
     )
 
-    assert request.start_date == datetime(
-        year=2019, month=8, day=8, hour=0, minute=50, second=0
-    )
+    assert request.start_date == datetime(year=2019, month=8, day=8, hour=0, minute=50, second=0)
 
 
 def test_radar_request_radolan_cdc_hourly_alignment_2():
@@ -68,9 +66,7 @@ def test_radar_request_radolan_cdc_hourly_alignment_2():
         start_date="2019-08-08 00:42:42",
     )
 
-    assert request.start_date == datetime(
-        year=2019, month=8, day=7, hour=23, minute=50, second=0
-    )
+    assert request.start_date == datetime(year=2019, month=8, day=7, hour=23, minute=50, second=0)
 
 
 @pytest.mark.remote
@@ -173,7 +169,7 @@ def test_radar_request_composite_historic_fx_yesterday():
     date_time = request.start_date.strftime("%d%H%M")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"FX{date_time}10000{month_year}BY.......VS 3SW   2.12.0PR E-01INT   5GP 900x 900VV 000MF 00000002MS "  # noqa:E501,B950
+        f"FX{date_time}10000{month_year}BY.......VS 3SW   2.12.0PR E-01INT   5GP 900x 900VV 000MF 00000002MS "
         f"..<{station_reference_pattern_unsorted}>"
     )
 
@@ -205,9 +201,7 @@ def test_radar_request_composite_historic_fx_timerange():
 
     # Verify all timestamps are properly propagated from the tarfile.
     assert all(
-        request.start_date == result.timestamp
-        or request.start_date + timedelta(minutes=5)
-        for result in results
+        request.start_date == result.timestamp or request.start_date + timedelta(minutes=5) for result in results
     )
 
 
@@ -269,10 +263,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
-    assert (
-        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
-        >= 5
-    )
+    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
     skip_attrs = ["radarid", "datasize", "maxrange", "radarlocations", "radolanversion"]
     for attr in skip_attrs:
@@ -308,12 +299,8 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     requested_header = wrl.io.read_radolan_header(buffer)
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
-    assert request.start_date.strftime("m%y") == requested_attrs["datetime"].strftime(
-        "m%y"
-    )
-    assert request.start_date.strftime("%d%H%M") == requested_attrs[
-        "datetime"
-    ].strftime("%d%H%M")
+    assert request.start_date.strftime("m%y") == requested_attrs["datetime"].strftime("m%y")
+    assert request.start_date.strftime("%d%H%M") == requested_attrs["datetime"].strftime("%d%H%M")
 
     attrs = {
         "producttype": "RW",
@@ -346,10 +333,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
-    assert (
-        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
-        >= 5
-    )
+    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
     skip_attrs = [
         "datetime",
@@ -394,12 +378,8 @@ def test_radar_request_site_historic_dx_yesterday():
     requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
 
     timestamp_aligned = round_minutes(timestamp, 5)
-    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
-        "%m%y"
-    )
-    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
-        "%d%H%M"
-    )
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime("%m%y")
+    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime("%d%H%M")
 
     attrs = {
         "producttype": "DX",
@@ -450,12 +430,8 @@ def test_radar_request_site_historic_dx_timerange():
     requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
 
     timestamp_aligned = round_minutes(timestamp, 5)
-    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
-        "%m%y"
-    )
-    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime(
-        "%d%H%M"
-    )
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime("%m%y")
+    assert timestamp_aligned.strftime("%d%H%M") == requested_attrs["datetime"].strftime("%d%H%M")
 
     attrs = {
         "producttype": "DX",
@@ -506,7 +482,7 @@ def test_radar_request_site_historic_pe_binary_yesterday():
     date_time = request.start_date.strftime("%d%H")
     month_year = request.start_date.strftime("%m%y")
     header = (
-        f"PE{date_time}..10132{month_year}BY ....?VS 1LV12  1.0  2.0  3.0  4.0  5.0  "  # noqa:E501,B950
+        f"PE{date_time}..10132{month_year}BY ....?VS 1LV12  1.0  2.0  3.0  4.0  5.0  "
         f"6.0  7.0  8.0  9.0 10.0 11.0 12.0CO0CD0CS0ET 5.0FL....MS"
     )
 
@@ -845,14 +821,8 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
     assert hdf["/dataset1/data1/data"].shape == (360, 600)
 
     timestamp = round_minutes(request.start_date, 5)
-    assert hdf["/what"].attrs.get("date") == bytes(
-        timestamp.strftime("%Y%m%d"), encoding="ascii"
-    )
-    assert (
-        hdf["/what"]
-        .attrs.get("time")
-        .startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
-    )
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
 @pytest.mark.remote
@@ -916,7 +886,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert payload.startswith(b"\x89HDF\r\n")
 
     # Verify more details.
-    # h5dump ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092917055800-boo-10132-hd5  # noqa:E501,B950
+    # h5dump ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092917055800-boo-10132-hd5
 
     hdf = h5py.File(buffer, "r")
 
@@ -930,14 +900,8 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert hdf["/dataset1/data1/data"].shape in ((360, 180), (360, 720), (361, 720))
 
     timestamp = round_minutes(request.start_date, 5)
-    assert hdf["/what"].attrs.get("date") == bytes(
-        timestamp.strftime("%Y%m%d"), encoding="ascii"
-    )
-    assert (
-        hdf["/what"]
-        .attrs.get("time")
-        .startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
-    )
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
     # Verify that the second file is the second scan / elevation level.
     buffer = results[1].data
@@ -946,14 +910,8 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 2
 
     timestamp = round_minutes(request.start_date, 5)
-    assert hdf["/what"].attrs.get("date") == bytes(
-        timestamp.strftime("%Y%m%d"), encoding="ascii"
-    )
-    assert (
-        hdf["/what"]
-        .attrs.get("time")
-        .startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
-    )
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
 @pytest.mark.remote
@@ -1050,10 +1008,7 @@ def test_radar_request_radvor_re_yesterday():
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
-    assert (
-        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
-        >= 5
-    )
+    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
     skip_attrs = [
         "radarid",
@@ -1164,10 +1119,7 @@ def test_radar_request_radvor_rq_yesterday():
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
-    assert (
-        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
-        >= 5
-    )
+    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
     skip_attrs = [
         "datasize",

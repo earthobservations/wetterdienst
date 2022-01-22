@@ -43,7 +43,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
     assert payload.startswith(b"\x89HDF\r\n")
 
     # Verify more details.
-    # wddump ras07-stqual-pcpng01_sweeph5onem_vradh_00-2020093000403400-boo-10132-hd5  # noqa:E501,B950
+    # wddump ras07-stqual-pcpng01_sweeph5onem_vradh_00-2020093000403400-boo-10132-hd5
 
     hdf = h5py.File(buffer, "r")
 
@@ -86,7 +86,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
     assert payload.startswith(b"\x89HDF\r\n")
 
     # Verify more details.
-    # wddump ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092917055800-boo-10132-hd5  # noqa:E501,B950
+    # wddump ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092917055800-boo-10132-hd5
 
     hdf = h5py.File(buffer, "r")
 

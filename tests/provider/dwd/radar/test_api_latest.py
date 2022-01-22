@@ -35,8 +35,8 @@ def test_radar_request_composite_latest_rx_reflectivity():
 
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
-        f"RX......10000{month_year}BY 8101..VS 3SW   ......PR E\\+00INT   5GP 900x 900MS "  # noqa:E501,B950
-        f"..<{station_reference_pattern_unsorted}>"  # noqa:E501,B950
+        f"RX......10000{month_year}BY 8101..VS 3SW   ......PR E\\+00INT   5GP 900x 900MS "
+        f"..<{station_reference_pattern_unsorted}>"
     )
 
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
@@ -64,9 +64,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     # Verify data.
-    assert datetime.utcnow().strftime("%m%y") == requested_attrs["datetime"].strftime(
-        "%m%y"
-    )
+    assert datetime.utcnow().strftime("%m%y") == requested_attrs["datetime"].strftime("%m%y")
 
     attrs = {
         "producttype": "RW",
@@ -99,10 +97,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
-    assert (
-        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
-        >= 5
-    )
+    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
     skip_attrs = [
         "radarid",
@@ -138,9 +133,7 @@ def test_radar_request_site_latest_dx_reflectivity():
 
     # Verify data.
     timestamp_aligned = round_minutes(datetime.utcnow(), 5)
-    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime(
-        "%m%y"
-    )
+    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime("%m%y")
 
     attrs = {
         "producttype": "DX",

@@ -91,9 +91,7 @@ def create_meta_index_for_climate_observations(
     if cond:
         meta_index = _create_meta_index_for_1minute_historical_precipitation()
     else:
-        meta_index = _create_meta_index_for_climate_observations(
-            parameter_set, resolution, period
-        )
+        meta_index = _create_meta_index_for_climate_observations(parameter_set, resolution, period)
 
     # If no state column available, take state information from daily historical
     # precipitation
@@ -162,15 +160,11 @@ def _create_meta_index_for_climate_observations(
     )
 
     # Fix column names, as header is not aligned to fixed column widths
-    meta_index.columns = "".join(
-        [column for column in meta_index.columns if "unnamed" not in column.lower()]
-    ).split(" ")
+    meta_index.columns = "".join([column for column in meta_index.columns if "unnamed" not in column.lower()]).split(
+        " "
+    )
 
-    meta_index = meta_index.rename(columns=str.lower)
-
-    meta_index = meta_index.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-
-    return meta_index
+    return meta_index.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
 
 def _find_meta_file(files: List[str], url: str) -> str:
@@ -205,9 +199,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     """
 
-    parameter_path = (
-        f"{Resolution.MINUTE_1.value}/" f"{DwdObservationDataset.PRECIPITATION.value}/"
-    )
+    parameter_path = f"{Resolution.MINUTE_1.value}/" f"{DwdObservationDataset.PRECIPITATION.value}/"
 
     url = reduce(
         urljoin,
@@ -222,21 +214,15 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     metadata_file_paths = list_remote_files_fsspec(url, recursive=False)
 
-    station_ids = [
-        re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths
-    ]
+    station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
 
     meta_index_df = pd.DataFrame(columns=METADATA_COLUMNS)
 
     with ThreadPoolExecutor() as executor:
-        metadata_files = executor.map(
-            _download_metadata_file_for_1minute_precipitation, metadata_file_paths
-        )
+        metadata_files = executor.map(_download_metadata_file_for_1minute_precipitation, metadata_file_paths)
 
     with ThreadPoolExecutor() as executor:
-        metadata_dfs = executor.map(
-            _parse_geo_metadata, zip(metadata_files, station_ids)
-        )
+        metadata_dfs = executor.map(_parse_geo_metadata, zip(metadata_files, station_ids))
 
     meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
 
@@ -250,9 +236,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     meta_index_df = meta_index_df.drop(labels=Columns.STATE.value, axis=1)
 
     # Make station id str
-    meta_index_df[Columns.STATION_ID.value] = meta_index_df[
-        Columns.STATION_ID.value
-    ].str.pad(5, "left", "0")
+    meta_index_df[Columns.STATION_ID.value] = meta_index_df[Columns.STATION_ID.value].str.pad(5, "left", "0")
 
     return meta_index_df
 
@@ -275,16 +259,12 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
         # Attention: Currently, a FSSPEC-based cache must not be used here as Windows
         #            would croak when concurrently accessing those resources badly.
         # TODO: Revisit this place after completely getting rid of dogpile.cache.
-        file = download_file(metadata_file, ttl=CacheExpiry.NO_CACHE)
+        return download_file(metadata_file, ttl=CacheExpiry.NO_CACHE)
     except InvalidURL as e:
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 
-    return file
 
-
-def _parse_geo_metadata(
-    metadata_file_and_station_id: Tuple[BytesIO, str]
-) -> pd.DataFrame:
+def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd.DataFrame:
     """A function that analysis the given file (bytes) and extracts geography of
     1minute metadata zip and catches the relevant information and create a similar file
     to those that can usually be found already prepared for other
@@ -311,9 +291,7 @@ def _parse_geo_metadata(
 
     metadata_geo_df = metadata_geo_df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    metadata_geo_df[Columns.FROM_DATE.value] = metadata_geo_df.loc[
-        0, Columns.FROM_DATE.value
-    ]
+    metadata_geo_df[Columns.FROM_DATE.value] = metadata_geo_df.loc[0, Columns.FROM_DATE.value]
 
     metadata_geo_df = metadata_geo_df.iloc[[-1], :]
 
@@ -358,5 +336,5 @@ def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
 
 
 def reset_meta_index_cache() -> None:
-    """ Function to reset cache of meta index """
+    """Function to reset cache of meta index"""
     metaindex_cache.invalidate()

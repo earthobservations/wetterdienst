@@ -91,39 +91,28 @@ def create_fileindex_radar(
 
     files_server = list_remote_files_fsspec(url, recursive=True)
 
-    files_server = pd.DataFrame(
-        files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
-    )
+    files_server = pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype="str")
 
     # Some directories have both "---bin" and "---bufr" files within the same directory,
     # so we need to filter here by designated RadarDataFormat. Example:
     # https://opendata.dwd.de/weather/radar/sites/px/boo/
     if fmt is not None:
         if fmt == DwdRadarDataFormat.BINARY:
-            files_server = files_server[
-                files_server[DwdColumns.FILENAME.value].str.contains("--bin")
-            ]
+            files_server = files_server[files_server[DwdColumns.FILENAME.value].str.contains("--bin")]
         elif fmt == DwdRadarDataFormat.BUFR:
-            files_server = files_server[
-                files_server[DwdColumns.FILENAME.value].str.contains("--buf")
-            ]
+            files_server = files_server[files_server[DwdColumns.FILENAME.value].str.contains("--buf")]
 
     # Decode datetime of file for filtering.
     if parse_datetime:
+        files_server[DwdColumns.DATETIME.value] = files_server[DwdColumns.FILENAME.value].apply(get_date_from_filename)
 
-        files_server[DwdColumns.DATETIME.value] = files_server[
-            DwdColumns.FILENAME.value
-        ].apply(get_date_from_filename)
-
-        files_server = files_server.dropna()
+        return files_server.dropna()
 
     return files_server
 
 
 @fileindex_cache_five_minutes.cache_on_arguments()
-def create_fileindex_radolan_cdc(
-    resolution: Resolution, period: Period
-) -> pd.DataFrame:
+def create_fileindex_radolan_cdc(resolution: Resolution, period: Period) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
     will include both recent as well as historical files. A datetime column is created
@@ -144,9 +133,7 @@ def create_fileindex_radolan_cdc(
 
     file_index = file_index[
         file_index[DwdColumns.FILENAME.value].str.contains("/bin/")
-        & file_index[DwdColumns.FILENAME.value].str.endswith(
-            (Extension.GZ.value, Extension.TAR_GZ.value)
-        )
+        & file_index[DwdColumns.FILENAME.value].str.endswith((Extension.GZ.value, Extension.TAR_GZ.value))
     ].copy()
 
     # Decode datetime of file for filtering.
@@ -200,19 +187,20 @@ def build_path_to_parameter(
     if parameter == DwdRadarParameter.RADOLAN_CDC:
         if resolution == Resolution.MINUTE_5:
             # See also page 4 on
-            # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf  # noqa:E501,B950
-            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"  # noqa:E501,B950
+            # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/
+            # Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf
+            return f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"
         else:
-            parameter_path = f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/{period.value}/bin"  # noqa:E501,B950
+            return f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/{period.value}/bin"
 
     elif parameter in RADAR_PARAMETERS_COMPOSITES:
-        parameter_path = f"weather/radar/composit/{parameter.value}"
+        return f"weather/radar/composit/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_RADOLAN:
-        parameter_path = f"weather/radar/radolan/{parameter.value}"
+        return f"weather/radar/radolan/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_RADVOR:
-        parameter_path = f"weather/radar/radvor/{parameter.value}"
+        return f"weather/radar/radvor/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_SITES:
 
@@ -237,9 +225,7 @@ def build_path_to_parameter(
                 candidates = [DwdRadarDataFormat.BUFR, DwdRadarDataFormat.HDF5]
 
             if candidates:
-                raise ValueError(
-                    f"Argument 'format' is missing, use one of {candidates}"
-                )
+                raise ValueError(f"Argument 'format' is missing, use one of {candidates}")
 
         # Compute path to BINARY/BUFR vs. HDF5.
         parameter_path = f"weather/radar/sites/{parameter.value}/{site.value}"
@@ -249,12 +235,10 @@ def build_path_to_parameter(
                     DwdRadarDataSubset.SIMPLE,
                     DwdRadarDataSubset.POLARIMETRIC,
                 ]
-                raise ValueError(
-                    f"Argument 'subset' is missing, use one of {candidates}"
-                )
-            parameter_path = f"{parameter_path}/{fmt.value}/filter_{subset.value}/"
+                raise ValueError(f"Argument 'subset' is missing, use one of {candidates}")
+            return f"{parameter_path}/{fmt.value}/filter_{subset.value}/"
+
+        return parameter_path
 
     else:  # pragma: no cover
         raise NotImplementedError(f"Acquisition for {parameter} not implemented yet")
-
-    return parameter_path

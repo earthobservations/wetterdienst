@@ -51,7 +51,7 @@ df_data = pd.DataFrame.from_dict(
 
 
 def test_to_dict():
-
+    """Test export of DataFrame to dictioanry"""
     data = ExportMixin(df=df_data).to_dict()
 
     assert data == [
@@ -67,7 +67,7 @@ def test_to_dict():
 
 
 def test_filter_by_date():
-
+    """Test filter by date"""
     df = filter_by_date_and_resolution(df_data, "2019-12-28", Resolution.HOURLY)
     assert not df.empty
 
@@ -76,10 +76,8 @@ def test_filter_by_date():
 
 
 def test_filter_by_date_interval():
-
-    df = filter_by_date_and_resolution(
-        df_data, "2019-12-27/2019-12-29", Resolution.HOURLY
-    )
+    """Test filter by date interval"""
+    df = filter_by_date_and_resolution(df_data, "2019-12-27/2019-12-29", Resolution.HOURLY)
     assert not df.empty
 
     df = filter_by_date_and_resolution(df_data, "2020/2022", Resolution.HOURLY)
@@ -87,7 +85,7 @@ def test_filter_by_date_interval():
 
 
 def test_filter_by_date_monthly():
-
+    """Test filter by date in monthly scope"""
     result = pd.DataFrame.from_dict(
         {
             "station_id": ["01048"],
@@ -111,7 +109,7 @@ def test_filter_by_date_monthly():
 
 
 def test_filter_by_date_annual():
-
+    """Test filter by date in annual scope"""
     df = pd.DataFrame.from_dict(
         {
             "station_id": ["01048"],
@@ -124,14 +122,10 @@ def test_filter_by_date_annual():
         }
     )
 
-    df = filter_by_date_and_resolution(
-        df, date="2019-05/2019-09", resolution=Resolution.ANNUAL
-    )
+    df = filter_by_date_and_resolution(df, date="2019-05/2019-09", resolution=Resolution.ANNUAL)
     assert not df.empty
 
-    df = filter_by_date_and_resolution(
-        df, date="2020/2022", resolution=Resolution.ANNUAL
-    )
+    df = filter_by_date_and_resolution(df, date="2020/2022", resolution=Resolution.ANNUAL)
     assert df.empty
 
     df = filter_by_date_and_resolution(df, date="2020", resolution=Resolution.ANNUAL)
@@ -140,7 +134,7 @@ def test_filter_by_date_annual():
 
 @pytest.mark.sql
 def test_filter_by_sql():
-    # TODO: change this to a test of historical data
+    """Test filter by sql statement"""
     df = ExportMixin(df=df_data).filter_by_sql(
         "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
     )
@@ -153,7 +147,7 @@ def test_filter_by_sql():
 
 
 def test_format_json():
-
+    """Test export of DataFrame to json"""
     output = ExportMixin(df=df_data).to_json()
 
     response = json.loads(output)
@@ -163,7 +157,7 @@ def test_format_json():
 
 
 def test_format_geojson():
-
+    """Test export of DataFrame to geojson"""
     output = StationsResult(df=df_station, stations=None).to_geojson()
 
     response = json.loads(output)
@@ -174,18 +168,16 @@ def test_format_geojson():
 
 
 def test_format_csv():
-
+    """Test export of DataFrame to csv"""
     output = ExportMixin(df=df_data).to_csv().strip()
 
     assert "station_id,dataset,parameter,date,value,quality" in output
-    assert (
-        "01048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3,"
-        in output
-    )
+    assert "01048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3," in output
 
 
+@pytest.mark.remote
 def test_request():
-
+    """Test general data request"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -198,7 +190,7 @@ def test_request():
 
 
 def test_export_unknown():
-
+    """Test export of DataFrame to unknown format"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -216,7 +208,7 @@ def test_export_unknown():
 
 
 def test_export_spreadsheet(tmpdir_factory):
-
+    """Test export of DataFrame to spreadsheet"""
     import openpyxl
 
     # 1. Request data and save to .xlsx file.
@@ -291,11 +283,7 @@ def test_export_spreadsheet(tmpdir_factory):
         (1.5,),
     ]
 
-    last_record = list(
-        worksheet.iter_cols(
-            min_row=worksheet.max_row, max_row=worksheet.max_row, values_only=True
-        )
-    )
+    last_record = list(worksheet.iter_cols(min_row=worksheet.max_row, max_row=worksheet.max_row, values_only=True))
     assert last_record == [
         ("01048",),
         ("climate_summary",),
@@ -322,8 +310,9 @@ def test_export_spreadsheet(tmpdir_factory):
 
 
 @mac_arm64_unsupported
+@pytest.mark.remote
 def test_export_parquet(tmpdir_factory):
-
+    """Test export of DataFrame to parquet"""
     import pyarrow.parquet as pq
 
     # Request data.
@@ -377,21 +366,18 @@ def test_export_parquet(tmpdir_factory):
     # Validate content.
     data = table.to_pydict()
 
-    assert data["date"][0] == datetime.datetime(
-        2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-    )
+    assert data["date"][0] == datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == datetime.datetime(
-        2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-    )
+    assert data["date"][-1] == datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     assert data["temperature_air_min_005"][-1] == -4.6
 
     os.unlink(filename)
 
 
 @mac_arm64_unsupported
+@pytest.mark.remote
 def test_export_zarr(tmpdir_factory):
-
+    """Test export of DataFrame to zarr"""
     import numpy as np
     import zarr
 
@@ -447,21 +433,18 @@ def test_export_zarr(tmpdir_factory):
     # Validate content.
     data = group
 
-    assert data["date"][0] == np.datetime64(
-        datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-    )
+    assert data["date"][0] == np.datetime64(datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc))
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == np.datetime64(
-        datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-    )
+    assert data["date"][-1] == np.datetime64(datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc))
     assert data["temperature_air_min_005"][-1] == -4.6
 
     shutil.rmtree(filename)
 
 
 @mac_arm64_unsupported
+@pytest.mark.remote
 def test_export_feather(tmpdir_factory):
-
+    """Test export of DataFrame to feather"""
     import pyarrow.feather as feather
 
     # Request data
@@ -515,20 +498,17 @@ def test_export_feather(tmpdir_factory):
     # Validate content.
     data = table.to_pydict()
 
-    assert data["date"][0] == datetime.datetime(
-        2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-    )
+    assert data["date"][0] == datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == datetime.datetime(
-        2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-    )
+    assert data["date"][-1] == datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     assert data["temperature_air_min_005"][-1] == -4.6
 
     os.unlink(filename)
 
 
+@pytest.mark.remote
 def test_export_sqlite(tmpdir_factory):
-
+    """Test export of DataFrame to sqlite db"""
     import sqlite3
 
     request = DwdObservationRequest(
@@ -599,8 +579,9 @@ def test_export_sqlite(tmpdir_factory):
     )
 
 
+@pytest.mark.remote
 def test_export_cratedb():
-
+    """Test export of DataFrame to cratedb"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -623,14 +604,14 @@ def test_export_cratedb():
             schema="test",
             if_exists="replace",
             index=False,
-            # method="multi",
             chunksize=5000,
         )
 
 
 @surrogate("duckdb.connect")
+@pytest.mark.remote
 def test_export_duckdb():
-
+    """Test export of DataFrame to duckdb"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -639,9 +620,7 @@ def test_export_duckdb():
     ).filter_by_station_id(station_id=[1048])
 
     mock_connection = mock.MagicMock()
-    with mock.patch(
-        "duckdb.connect", side_effect=[mock_connection], create=True
-    ) as mock_connect:
+    with mock.patch("duckdb.connect", side_effect=[mock_connection], create=True) as mock_connect:
 
         df = request.values.all().df
         ExportMixin(df=df).to_target("duckdb:///test.duckdb?table=testdrive")
@@ -650,13 +629,13 @@ def test_export_duckdb():
         mock_connection.register.assert_called_once()
         mock_connection.execute.assert_called()
         mock_connection.table.assert_called_once_with("testdrive")
-        # a.table.to_df.assert_called()
         mock_connection.close.assert_called_once()
 
 
 @surrogate("influxdb.InfluxDBClient")
+@pytest.mark.remote
 def test_export_influxdb1_tabular():
-
+    """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -718,8 +697,9 @@ def test_export_influxdb1_tabular():
 
 
 @surrogate("influxdb.InfluxDBClient")
+@pytest.mark.remote
 def test_export_influxdb1_tidy():
-
+    """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -770,8 +750,9 @@ def test_export_influxdb1_tidy():
 @surrogate("influxdb_client.InfluxDBClient")
 @surrogate("influxdb_client.Point")
 @surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
+@pytest.mark.remote
 def test_export_influxdb2_tabular():
-
+    """Test export of DataFrame to influxdb v2"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -793,20 +774,17 @@ def test_export_influxdb2_tabular():
         ):
 
             df = request.values.all().df
-            ExportMixin(df=df).to_target(
-                "influxdb2://orga:token@localhost/?database=dwd&table=weather"
-            )
+            ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
 
-            mock_connect.assert_called_once_with(
-                url="http://localhost:8086", org="orga", token="token"
-            )
+            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")
 
 
 @surrogate("influxdb_client.InfluxDBClient")
 @surrogate("influxdb_client.Point")
 @surrogate("influxdb_client.client.write_api.SYNCHRONOUS")
+@pytest.mark.remote
 def test_export_influxdb2_tidy():
-
+    """Test export of DataFrame to influxdb v2"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -828,10 +806,6 @@ def test_export_influxdb2_tidy():
         ):
 
             df = request.values.all().df
-            ExportMixin(df=df).to_target(
-                "influxdb2://orga:token@localhost/?database=dwd&table=weather"
-            )
+            ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
 
-            mock_connect.assert_called_once_with(
-                url="http://localhost:8086", org="orga", token="token"
-            )
+            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")

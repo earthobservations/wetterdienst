@@ -5,7 +5,7 @@ from enum import Enum
 
 
 class Columns(Enum):
-    """ Overhauled column names for metadata fields """
+    """Overhauled column names for metadata fields"""
 
     # TODO: remove columns which are only used in context of data wrangling of one of
     #  the weather services e.g. EOR or FILENAME
@@ -31,7 +31,6 @@ class Columns(Enum):
     VALUE = "value"
     # Columns for quality
     QUALITY = "quality"
-    # QUALITY_TERTIARY = "quality_tertiary"  # for later
     # Columns used for RADOLAN
     PERIOD_TYPE = "period_type"
     DATETIME = "datetime"

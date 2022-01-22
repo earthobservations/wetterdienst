@@ -12,7 +12,7 @@ from wetterdienst.metadata.timezone import Timezone
 
 
 class Core(metaclass=ABCMeta):
-    """ Core class for any related requests of wetterdienst """
+    """Core class for any related requests of wetterdienst"""
 
     def __init__(self):
         # Time of request.

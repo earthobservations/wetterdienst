@@ -10,4 +10,3 @@ class EccObservationResolution(Enum):
     DAILY = Resolution.DAILY.value
     HOURLY = Resolution.HOURLY.value
     MONTHLY = Resolution.MONTHLY.value
-    # ANNUAL = Resolution.ANNUAL.value

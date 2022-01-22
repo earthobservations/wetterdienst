@@ -13,13 +13,11 @@ class DwdRadarParameter(Enum):
     # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa:E501,B950
 
     # https://opendata.dwd.de/weather/radar/composit/
-    # FX_REFLECTIVITY = "fx"
     HG_REFLECTIVITY = "hg"
     PG_REFLECTIVITY = "pg"
     RV_REFLECTIVITY = "rv"
     WX_REFLECTIVITY = "wx"
     WN_REFLECTIVITY = "wn"
-    # RX_REFLECTIVITY = "rx"
 
     # /radolan
     # https://opendata.dwd.de/weather/radar/radolan/
@@ -34,7 +32,7 @@ class DwdRadarParameter(Enum):
 
     # /sites
     # https://opendata.dwd.de/weather/radar/sites/
-    # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format  # noqa:E501,B950
+    # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format
     DX_REFLECTIVITY = "dx"
     LMAX_VOLUME_SCAN = "lmax"
     PE_ECHO_TOP = "pe"
@@ -59,13 +57,11 @@ class DwdRadarParameter(Enum):
 
 
 RADAR_PARAMETERS_COMPOSITES = [
-    # DwdRadarParameter.FX_REFLECTIVITY,
     DwdRadarParameter.HG_REFLECTIVITY,
     DwdRadarParameter.PG_REFLECTIVITY,
     DwdRadarParameter.RV_REFLECTIVITY,
     DwdRadarParameter.WX_REFLECTIVITY,
     DwdRadarParameter.WN_REFLECTIVITY,
-    # DwdRadarParameter.RX_REFLECTIVITY,
 ]
 RADAR_PARAMETERS_RADOLAN = [
     DwdRadarParameter.RW_REFLECTIVITY,

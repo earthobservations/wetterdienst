@@ -68,13 +68,9 @@ def create_file_index_for_climate_observations(
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    file_index = _create_file_index_for_dwd_server(
-        parameter_set, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS
-    )
+    file_index = _create_file_index_for_dwd_server(parameter_set, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS)
 
-    file_index = file_index.loc[
-        file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :
-    ]
+    file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
 
     file_index.loc[:, DwdColumns.STATION_ID.value] = (
         file_index[DwdColumns.FILENAME.value].str.findall(STATION_ID_REGEX).str[0]
@@ -82,9 +78,7 @@ def create_file_index_for_climate_observations(
 
     file_index = file_index.dropna().reset_index(drop=True)
 
-    file_index.loc[:, DwdColumns.STATION_ID.value] = file_index[
-        DwdColumns.STATION_ID.value
-    ].astype(str)
+    file_index.loc[:, DwdColumns.STATION_ID.value] = file_index[DwdColumns.STATION_ID.value].astype(str)
 
     if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
@@ -111,17 +105,12 @@ def create_file_index_for_climate_observations(
         # Temporary fix for filenames with wrong ordered/faulty dates
         # Fill those cases with minimum/maximum date to ensure that they are loaded as
         # we don't know what exact date range the included data has
-        wrong_date_order_index = (
-            file_index[DwdColumns.FROM_DATE.value]
-            > file_index[DwdColumns.TO_DATE.value]
-        )
+        wrong_date_order_index = file_index[DwdColumns.FROM_DATE.value] > file_index[DwdColumns.TO_DATE.value]
 
         file_index.loc[wrong_date_order_index, DwdColumns.FROM_DATE.value] = file_index[
             DwdColumns.FROM_DATE.value
         ].min()
-        file_index.loc[wrong_date_order_index, DwdColumns.TO_DATE.value] = file_index[
-            DwdColumns.TO_DATE.value
-        ].max()
+        file_index.loc[wrong_date_order_index, DwdColumns.TO_DATE.value] = file_index[DwdColumns.TO_DATE.value].max()
 
         file_index.loc[:, DwdColumns.INTERVAL.value] = file_index.apply(
             lambda x: pd.Interval(
@@ -132,8 +121,4 @@ def create_file_index_for_climate_observations(
             axis=1,
         )
 
-    file_index = file_index.sort_values(
-        by=[DwdColumns.STATION_ID.value, DwdColumns.FILENAME.value]
-    )
-
-    return file_index
+    return file_index.sort_values(by=[DwdColumns.STATION_ID.value, DwdColumns.FILENAME.value])

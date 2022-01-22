@@ -33,8 +33,7 @@ def parse_section(text, headline):
         if capture:
             buffer.write(line)
             buffer.write("\n")
-    payload = buffer.getvalue()
-    return payload
+    return buffer.getvalue()
 
 
 def parse_parameters(text):
@@ -53,9 +52,7 @@ def parse_parameters(text):
                         # Remove some anomaly.
                         more = more.replace("0\n1\n", "1\n")
                         # Replace newlines after digits with "-".
-                        more = re.sub(
-                            r"^(\d+)\n(.*)", r"\g<1>- \g<2>", more, flags=re.MULTILINE
-                        )
+                        more = re.sub(r"^(\d+)\n(.*)", r"\g<1>- \g<2>", more, flags=re.MULTILINE)
                         # Remove all newlines _within_ text descriptions, per item.
                         more = re.sub(r"\n(?!\d+)", " ", more, flags=re.DOTALL)
                     else:
@@ -98,9 +95,7 @@ def read_description(url, language: str = "en") -> dict:
     data["parameters"] = parse_parameters(parameters_text)
 
     # Read "Quality information" section.
-    data["quality_information"] = parse_section(
-        document, sections["quality_information"]
-    )
+    data["quality_information"] = parse_section(document, sections["quality_information"])
 
     return data
 
@@ -110,16 +105,25 @@ def process(url) -> None:  # pragma: no cover
     parameters = read_description(url)
 
     # Output as JSON.
-    # import json; print(json.dumps(parameters, indent=4))
+    # import json; print(json.dumps(parameters, indent=4))  # noqa: E800
 
     # Output as ASCII table.
     print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T001
 
 
 if __name__ == "__main__":  # pragma: no cover
-    ten_minutes_air = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/recent/DESCRIPTION_obsgermany_climate_10min_tu_recent_en.pdf"  # noqa:E501,B950
-    hourly_solar = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/solar/DESCRIPTION_obsgermany_climate_hourly_solar_en.pdf"  # noqa:E501,B950
-    daily_kl = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/DESCRIPTION_obsgermany_climate_daily_kl_recent_en.pdf"  # noqa:E501,B950
+    ten_minutes_air = (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/"
+        "air_temperature/recent/DESCRIPTION_obsgermany_climate_10min_tu_recent_en.pdf"
+    )
+    hourly_solar = (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/"
+        "solar/DESCRIPTION_obsgermany_climate_hourly_solar_en.pdf"
+    )
+    daily_kl = (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/"
+        "kl/recent/DESCRIPTION_obsgermany_climate_daily_kl_recent_en.pdf"
+    )
 
     for item in ten_minutes_air, hourly_solar, daily_kl:
         print(item)  # noqa: T001

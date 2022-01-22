@@ -45,14 +45,10 @@ class ExportMixin:
         return df.to_dict(orient="records")
 
     def to_json(self, indent: int = 4):
-        output = self.df.to_json(
-            orient="records", date_format="iso", indent=indent, force_ascii=False
-        )
-        return output
+        return self.df.to_json(orient="records", date_format="iso", indent=indent, force_ascii=False)
 
     def to_csv(self):
-        output = self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
-        return output
+        return self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
 
     def to_geojson(self, indent: int = 4) -> str:
         """
@@ -61,9 +57,7 @@ class ExportMixin:
         Return:
              JSON string in GeoJSON FeatureCollection format.
         """
-        return json.dumps(
-            self.to_ogc_feature_collection(), indent=indent, ensure_ascii=False
-        )
+        return json.dumps(self.to_ogc_feature_collection(), indent=indent, ensure_ascii=False)
 
     def to_format(self, fmt: str, **kwargs) -> str:
         """
@@ -75,15 +69,13 @@ class ExportMixin:
         fmt = fmt.lower()
 
         if fmt == "json":
-            output = self.to_json(indent=kwargs.get("indent"))
+            return self.to_json(indent=kwargs.get("indent"))
         elif fmt == "csv":
-            output = self.to_csv()
+            return self.to_csv()
         elif fmt == "geojson":
-            output = self.to_geojson(indent=kwargs.get("indent"))
+            return self.to_geojson(indent=kwargs.get("indent"))
         else:
             raise KeyError("Unknown output format")
-
-        return output
 
     @staticmethod
     def _filter_by_sql(df: pd.DataFrame, sql: str) -> pd.DataFrame:
@@ -233,9 +225,7 @@ class ExportMixin:
                 dimensions = store.get_dimensions()
                 variables = list(store.get_variables().keys())
 
-                log.info(
-                    f"Wrote Zarr file with dimensions={dimensions} and variables={variables}"
-                )
+                log.info(f"Wrote Zarr file with dimensions={dimensions} and variables={variables}")
                 log.info(f"Zarr Dataset Group info:\n{store.ds.info}")
 
             else:
@@ -269,9 +259,7 @@ class ExportMixin:
             connection = duckdb.connect(database=database, read_only=False)
             connection.register("origin", self.df)
             connection.execute(f"DROP TABLE IF EXISTS {tablename};")
-            connection.execute(
-                f"CREATE TABLE {tablename} AS SELECT * FROM origin;"  # noqa:S608
-            )
+            connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa:S608
 
             weather_table = connection.table(tablename)
             print(weather_table)  # noqa: T001
@@ -338,9 +326,7 @@ class ExportMixin:
             else:
                 raise KeyError(f"Unknown protocol variant '{protocol}' for InfluxDB")
 
-            log.info(
-                f"Writing to InfluxDB version {version}. database={database}, table={tablename}"
-            )
+            log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
             # 1. Mungle the data frame.
             # Use the "date" column as appropriate timestamp index.
@@ -381,9 +367,7 @@ class ExportMixin:
 
                 ssl = protocol.endswith("s")
                 url = f"http{ssl and 's' or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
-                client = InfluxDBClient(
-                    url=url, org=connspec.url.username, token=connspec.url.password
-                )
+                client = InfluxDBClient(url=url, org=connspec.url.username, token=connspec.url.password)
                 write_api = client.write_api(write_options=SYNCHRONOUS)
 
             points = []
@@ -391,9 +375,7 @@ class ExportMixin:
 
                 for date, record in items.iterrows():
                     time = date.isoformat()
-                    tags = {
-                        tag: record.pop(tag) for tag in tag_columns if tag in record
-                    }
+                    tags = {tag: record.pop(tag) for tag in tag_columns if tag in record}
 
                     fields = record.dropna().to_dict()
                     if not fields:
@@ -463,7 +445,6 @@ class ExportMixin:
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
             self.df.date = self.df.date.dt.tz_localize(None)
-            # self.df.date = self.df.date.dt.tz_convert(None)
 
             self.df.to_sql(
                 name=tablename,
@@ -471,7 +452,6 @@ class ExportMixin:
                 schema=database,
                 if_exists="replace",
                 index=False,
-                # method="multi",
                 chunksize=5000,
             )
             log.info("Writing to CrateDB finished")

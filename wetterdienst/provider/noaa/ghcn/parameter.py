@@ -7,7 +7,7 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 
 class NoaaGhcnParameter(DatasetTreeCore):
-    """ NOAA Global Historical Climatology Network Parameters"""
+    """NOAA Global Historical Climatology Network Parameters"""
 
     class DAILY(Enum):
         # The five core values are:
@@ -34,94 +34,67 @@ class NoaaGhcnParameter(DatasetTreeCore):
 
         # Additional parameters:
 
-        # ACMC = Average cloudiness midnight to midnight from 30-second
-        #     ceilometer data (percent)
+        # Average cloudiness midnight to midnight from 30-second ceilometer data (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT = "acmc"  # ceilometer
-        # ACMH = Average cloudiness midnight to midnight from manual
-        #     observations (percent)
+        # Average cloudiness midnight to midnight from manual observations (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT_MANUAL = "acmh"  # manual
-        # ACSC = Average cloudiness sunrise to sunset from 30-second
-        #     ceilometer data (percent)
+        # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET = "acsc"  # ceilometer
-        # ACSH = Average cloudiness sunrise to sunset from manual
-        #     observations (percent)
+        # Average cloudiness sunrise to sunset from manual observations (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET_MANUAL = "acsh"  # manual
         # TODO: use one CLOUD_COVER_TOTAL parameter that builds one time series
         #  from the multiple existing parameters
-        # cloud cover total is usually measured on a daily basis ending at midnight
-        # so this is a synonym for midnight-to-midnight
-        # CLOUD_COVER_TOTAL = CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT_MANUAL
+        # TODO: cloud cover total is usually measured on a daily basis ending at midnight
+        #  so this is a synonym for midnight-to-midnight
 
-        # AWND = Average daily wind speed (meters per second or miles
-        #     per hour as per user preference)
+        # Average daily wind speed (meters per second or miles per hour as per user preference)
         WIND_SPEED = "awnd"  # m/s
-        # DAEV = Number of days included in the multiday evaporation
-        #     total (MDEV)
+        # Number of days included in the multiday evaporation total (MDEV)
         COUNT_DAYS_MULTIDAY_EVAPORATION = "daev"
-        # DAPR = Number of days included in the multiday precipitation
-        #     total (MDPR)
+        # Number of days included in the multiday precipitation total (MDPR)
         COUNT_DAYS_MULTIDAY_PRECIPITATION = "dapr"
-        # DASF = Number of days included in the multiday snowfall
-        #     total (MDSF)
+        # Number of days included in the multiday snowfall total (MDSF)
         COUNT_DAYS_MULTIDAY_SNOW_DEPTH_NEW = "dasf"
-        # DATN = Number of days included in the multiday minimum
-        #     temperature (MDTN)
+        # Number of days included in the multiday minimum temperature (MDTN)
         COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MIN_200 = "datn"
-        # DATX = Number of days included in the multiday maximum
-        #     temperature (MDTX)
+        # Number of days included in the multiday maximum temperature (MDTX)
         COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MAX_200 = "datx"
-        # DAWM = Number of days included in the multiday wind
-        #     movement (MDWM)
+        # Number of days included in the multiday wind movement (MDWM)
         COUNT_DAYS_MULTIDAY_WIND_MOVEMENT = "dawm"  # TODO: what kind of parameter ?
-        # DWPR = Number of days with non-zero precipitation included
-        #     in multiday precipitation total (MDPR)
+        # Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
         COUNT_DAYS_MULTIDAY_PRECIPITATION_HEIGHT_GT_0 = "dwpr"
-        # EVAP = Evaporation of water from evaporation pan (mm or
-        #     inches as per user preference, or hundredths of inches
-        #     on Daily Form pdf file)
+        # Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths of inches
+        # on Daily Form pdf file)
         EVAPORATION_HEIGHT = "evap"  # from evaporation pan, mm
-        # FMTM = Time of fastest mile or fastest 1-minute wind
-        #     (hours and minutes, i.e., HHMM)
+        # Time of fastest mile or fastest 1-minute wind (hours and minutes, i.e., HHMM)
         TIME_WIND_GUST_MAX_1MILE_OR_1MIN = "fmtm"  # HH:MM
-        # FRGB = Base of frozen ground layer (cm or inches as per
-        #     user preference)
+        # Base of frozen ground layer (cm or inches as per user preference)
         FROZEN_GROUND_LAYER_BASE = "frgb"  # cm
-        # FRGT = Top of frozen ground layer (cm or inches as per
-        #     user preference)
+        # Top of frozen ground layer (cm or inches as per user preference)
         FROZEN_GROUND_LAYER_TOP = "frgt"
-        # FRTH = Thickness of frozen ground layer (cm or inches as
-        #     per user preference)
+        # Thickness of frozen ground layer (cm or inches as per user preference)
         FROZEN_GROUND_LAYER_THICKNESS = "frth"
-        # GAHT = Difference between river and gauge height (cm or
-        #     inches as per user preference)
+        # Difference between river and gauge height (cm or inches as per user preference)
         DISTANCE_RIVER_GAUGE_HEIGHT = "gaht"
-        # MDEV = Multiday evaporation total (mm or inches as per
-        #     user preference; use with DAEV)
+        # Multiday evaporation total (mm or inches as per user preference; use with DAEV)
         EVAPORATION_HEIGHT_MULTIDAY = "mdev"
-        # MDPR = Multiday precipitation total (mm or inches as per
-        #     user preference; use with DAPR and DWPR, if available)
+        # Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR, if available)
         PRECIPITATION_HEIGHT_MULTIDAY = "mdpr"
-        # MDSF = Multiday snowfall total (mm or inches as per user
-        #     preference)
+        # Multiday snowfall total (mm or inches as per user preference)
         SNOW_DEPTH_NEW_MULTIDAY = "mdsf"
-        # MDTN = Multiday minimum temperature (Fahrenheit or Celsius
-        #     as per user preference ; use with DATN)
+        # Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)
         TEMPERATURE_AIR_MIN_200_MULTIDAY = "mdtn"
-        # MDTX = Multiday maximum temperature (Fahrenheit or Celsius
-        #     as per user preference ; use with DATX)
+        # Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)
         TEMPERATURE_AIR_MAX_200_MULTIDAY = "mdtx"
-        # MDWM = Multiday wind movement (miles or km as per user
-        #     preference)
+        # Multiday wind movement (miles or km as per user preference)
         WIND_MOVEMENT_MULTIDAY = "mdwm"  # km
-        # MNPN = Daily minimum temperature of water in an evaporation
-        #     pan (Fahrenheit or Celsius as per user preference)
+        # Daily minimum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference)
         TEMPERATURE_WATER_EVAPORATION_PAN_MIN = "mnpn"
-        # MXPN = Daily maximum temperature of water in an evaporation
-        #     pan  (Fahrenheit or Celsius as per user preference)
+        # Daily maximum temperature of water in an evaporation pan  (Fahrenheit or Celsius as per user preference)
         TEMPERATURE_WATER_EVAPORATION_PAN_MAX = "mxpn"
-        # PGTM = Peak gust time (hours and minutes, i.e., HHMM)
+        # Peak gust time (hours and minutes, i.e., HHMM)
         TIME_WIND_GUST_MAX = "pgtm"
-        # PSUN = Daily percent of possible sunshine (percent)
+        # Daily percent of possible sunshine (percent)
         SUNSHINE_DURATION_RELATIVE = "psun"
 
         # TODO:
@@ -319,52 +292,41 @@ class NoaaGhcnParameter(DatasetTreeCore):
         TEMPERATURE_SOIL_MAX_BARE_MUCK_150 = "sx86"  # °C
         TEMPERATURE_SOIL_MAX_BARE_MUCK_180 = "sx87"  # °C
 
-        # THIC = Thickness of ice on water (inches or mm as per user preference)
+        # Thickness of ice on water (inches or mm as per user preference)
         ICE_ON_WATER_THICKNESS = "thic"
-        # TOBS = Temperature at the time of observation  (Fahrenheit or Celsius
-        #     as per user preference)
+        # Temperature at the time of observation  (Fahrenheit or Celsius as per user preference)
         TEMPERATURE_AIR_200 = "tobs"
-        # TSUN = Daily total sunshine (minutes)
+        # Daily total sunshine (minutes)
         SUNSHINE_DURATION = "tsun"
-        # WDF5 = Direction
-        #     of fastest 5-second wind (degrees)
+        # Direction of fastest 5-second wind (degrees)
         WIND_DIRECTION_GUST_MAX_5SEC = "wdf5"
-        # WDF1 = Direction of fastest
-        #     1-minute wind (degrees)
+        # Direction of fastest 1-minute wind (degrees)
         WIND_DIRECTION_GUST_MAX_1MIN = "wdf1"
-        # WDF2 = Direction of fastest 2-minute wind (degrees)
+        # Direction of fastest 2-minute wind (degrees)
         WIND_DIRECTION_GUST_MAX_2MIN = "wdf2"
-        # WDFG = Direction of peak wind gust (degrees)
+        # Direction of peak wind gust (degrees)
         WIND_DIRECTION_GUST_MAX = "wdfg"
-        # WDFI = Direction of highest instantaneous wind (degrees)
+        # Direction of highest instantaneous wind (degrees)
         WIND_DIRECTION_GUST_MAX_INSTANT = "wdfi"
-        # WDFM = Fastest mile wind direction (degrees)
+        # Fastest mile wind direction (degrees)
         WIND_DIRECTION_GUST_MAX_1MILE = "wdfm"
-        # WDMV = 24-hour wind movement (km or miles as per user preference,
-        #     miles on Daily Form pdf file)
+        # 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)
         WIND_MOVEMENT_24HOUR = "wdmv"
-        # WESD = Water equivalent of snow on the ground (inches or mm as per
-        #     user preference)
+        # Water equivalent of snow on the ground (inches or mm as per user preference)
         WATER_EQUIVALENT_SNOW_DEPTH = "wesd"
-        # WESF = Water equivalent of snowfall (inches or mm as per user preference)
+        # Water equivalent of snowfall (inches or mm as per user preference)
         WATER_EQUIVALENT_SNOW_DEPTH_NEW = "wesf"
-        # WSF1 = Fastest 1-minute wind speed (miles per hour or  meters per second
-        #     as per user preference)
+        # Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_5SEC = "wsf5"
-        # WSF2 = Fastest 2-minute wind speed (miles per hour or  meters per second
-        #     as per user preference)
+        # Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_1MIN = "wsf1"
-        # WSF5 = Fastest 5-second wind speed (miles per hour or  meters per second
-        #     as per user preference)
+        # Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_2MIN = "wsf2"
-        # WSFG = Peak guest wind speed (miles per hour or  meters per second as
-        #     per user preference)
+        # Peak guest wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX = "wsfg"
-        # WSFI = Highest instantaneous wind speed (miles per hour or  meters per
-        #     second as per user preference)
+        # Highest instantaneous wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_INSTANT = "wsfi"
-        # WSFM = Fastest mile wind speed (miles per hour or  meters per second as
-        #     per user preference)
+        # Fastest mile wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_1MILE = "wsfm"
 
         """

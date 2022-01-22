@@ -45,9 +45,7 @@ def unpack_parameters(parameter: str) -> List[str]:
     except AttributeError:
         pass
 
-    parameter = [unpack_parameter(p) for p in parameter]
-
-    return parameter
+    return [unpack_parameter(p) for p in parameter]
 
 
 def get_stations(
@@ -103,17 +101,14 @@ def get_stations(
             else:
                 res = Resolution.HOUR_6
         else:
-            res = parse_enumeration_from_template(
-                resolution, api._resolution_base, Resolution
-            )
+            res = parse_enumeration_from_template(resolution, api._resolution_base, Resolution)
 
         # Split date string into start and end date string
         start_date, end_date = create_date_range(date=date, resolution=res)
 
     if api._data_range == DataRange.LOOSELY and not start_date and not end_date:
         raise TypeError(
-            f"Combination of provider {api.provider.name} and kind {api.kind.name} "
-            f"requires start and end date"
+            f"Combination of provider {api.provider.name} and kind {api.kind.name} " f"requires start and end date"
         )
 
     # Todo: We may have to apply other measures to allow for
@@ -142,19 +137,19 @@ def get_stations(
     r = api(**kwargs)
 
     if all_:
-        request = r.all()
+        return r.all()
 
     elif station_id:
-        request = r.filter_by_station_id(station_id)
+        return r.filter_by_station_id(station_id)
 
     elif name:
-        request = r.filter_by_name(name)
+        return r.filter_by_name(name)
 
     # Use coordinates twice in main if-elif to get same KeyError
     elif coordinates and rank:
         lat, lon = coordinates.split(",")
 
-        request = r.filter_by_rank(
+        return r.filter_by_rank(
             latitude=float(lat),
             longitude=float(lon),
             rank=rank,
@@ -163,7 +158,7 @@ def get_stations(
     elif coordinates and distance:
         lat, lon = coordinates.split(",")
 
-        request = r.filter_by_distance(
+        return r.filter_by_distance(
             latitude=float(lat),
             longitude=float(lon),
             distance=distance,
@@ -175,7 +170,7 @@ def get_stations(
         except ValueError as e:
             raise ValueError("bbox requires four floats separated by comma") from e
 
-        request = r.filter_by_bbox(
+        return r.filter_by_bbox(
             left=float(left),
             bottom=float(bottom),
             right=float(right),
@@ -183,7 +178,7 @@ def get_stations(
         )
 
     elif sql:
-        request = r.filter_by_sql(sql)
+        return r.filter_by_sql(sql)
 
     else:
         param_options = [
@@ -195,8 +190,6 @@ def get_stations(
             "bbox (left float, bottom float, right float, top float)",
         ]
         raise KeyError(f"Give one of the parameters: {', '.join(param_options)}")
-
-    return request
 
 
 def get_values(

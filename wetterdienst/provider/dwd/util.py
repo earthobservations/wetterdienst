@@ -15,10 +15,10 @@ def build_parameter_set_identifier(
     station_id: str,
     date_range_string: Optional[str] = None,
 ) -> str:
-    """ Create parameter set identifier that is used for storage interactions """
+    """Create parameter set identifier that is used for storage interactions"""
     identifier = f"{dataset.value}/{resolution.value}/" f"{period.value}/{station_id}"
 
     if date_range_string:
-        identifier = f"{identifier}/{date_range_string}"
+        return f"{identifier}/{date_range_string}"
 
     return identifier

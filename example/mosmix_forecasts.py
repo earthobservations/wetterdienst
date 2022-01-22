@@ -12,7 +12,7 @@ stations 01001 and 01008 and parameters DD and ww.
 
 Other MOSMIX variants are also listed and can be
 enabled on demand.
-"""
+"""  # Noqa:D205,D400
 from wetterdienst.provider.dwd.forecast import (
     DwdForecastDate,
     DwdMosmixRequest,
@@ -22,7 +22,7 @@ from wetterdienst.util.cli import setup_logging
 
 
 def mosmix_example():
-
+    """Retrieve Mosmix forecast data by DWD."""
     # A. MOSMIX-L -- Specific stations - each station with own file
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],
@@ -71,6 +71,7 @@ def output_section(title, data):  # pragma: no cover
 
 
 def main():
+    """Run example."""
     setup_logging()
     mosmix_example()
 

@@ -26,20 +26,16 @@ except PackageNotFoundError:  # pragma: no cover
 
 
 def info() -> None:
-    """ Function that prints some basic information about the wetterdienst instance """
+    """Function that prints some basic information about the wetterdienst instance"""
     wd_info = {
         "version": __version__,
-        "authors": "Benjamin Gutzmann <gutzemann@gmail.com>, "
-        "Andreas Motl <andreas.motl@panodata.org>",
+        "authors": "Benjamin Gutzmann <gutzemann@gmail.com>, " "Andreas Motl <andreas.motl@panodata.org>",
         "documentation": "https://wetterdienst.readthedocs.io/",
         "repository": "https://github.com/earthobservations/wetterdienst",
         "cache_dir": cache_dir,
     }
 
-    text = (
-        "Wetterdienst - Open weather data for humans\n"
-        "-------------------------------------------"
-    )
+    text = "Wetterdienst - Open weather data for humans-------------------------------------------"
 
     for key, value in wd_info.items():
         text += f"\n{key}:\t {value}"

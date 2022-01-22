@@ -57,11 +57,9 @@ def get_api(provider: str, kind: str):
     :return:
     """
     try:
-        api = Wetterdienst(provider, kind)
+        return Wetterdienst(provider, kind)
     except ProviderError as e:
         click.Abort(e.str)
-
-    return api
 
 
 def station_options(command):
@@ -86,9 +84,7 @@ def station_options(command):
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
-            cloup.option(
-                "--coordinates", metavar="LATITUDE,LONGITUDE", type=click.STRING
-            ),
+            cloup.option("--coordinates", metavar="LATITUDE,LONGITUDE", type=click.STRING),
             cloup.option("--rank", type=click.INT),
             cloup.option("--distance", type=click.FLOAT),
             help="Provide --coordinates plus either --rank or --distance.",
@@ -355,8 +351,6 @@ def info():
 def version():
     print(__version__)  # noqa: T001
 
-    return
-
 
 @cli.command("restapi")
 @cloup.option("--listen", type=click.STRING, default=None)
@@ -431,7 +425,7 @@ def coverage(provider, kind, filter_, debug):
 
     print(cov)  # noqa: T001
 
-    return
+    return None
 
 
 @about.command("fields")
@@ -449,9 +443,7 @@ def coverage(provider, kind, filter_, debug):
 def fields(provider, kind, dataset, resolution, period, language, **kwargs):
     api = get_api(provider, kind)
 
-    if not (
-        api.provider == Provider.DWD and api.kind == Kind.OBSERVATION
-    ) and kwargs.get("fields"):
+    if not (api.provider == Provider.DWD and api.kind == Kind.OBSERVATION) and kwargs.get("fields"):
         raise click.BadParameter("'fields' command only available for provider 'DWD'")
 
     metadata = api.describe_fields(

@@ -46,15 +46,11 @@ def _create_file_index_for_dwd_server(
         recursive = False
     files_server = list_remote_files_fsspec(url, recursive=recursive)
 
-    files_server = pd.DataFrame(
-        files_server, columns=[DwdColumns.FILENAME.value], dtype="str"
-    )
-
-    return files_server
+    return pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype=str)
 
 
 def reset_file_index_cache() -> None:
-    """ Function to reset the cached file index for all kinds of parameters """
+    """Function to reset the cached file index for all kinds of parameters"""
     fileindex_cache_five_minutes.invalidate()
 
 

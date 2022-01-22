@@ -47,9 +47,7 @@ class NetworkFilesystemManager:
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(cache_dir, "fsspec", key)
-        filesystem_real = HTTPFileSystem(
-            use_listings_cache=True, client_kwargs=FSSPEC_CLIENT_KWARGS
-        )
+        filesystem_real = HTTPFileSystem(use_listings_cache=True, client_kwargs=FSSPEC_CLIENT_KWARGS)
         if WD_CACHE_DISABLE or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = filesystem_real
         else:
@@ -91,9 +89,7 @@ def list_remote_files_legacy(url: str, recursive: bool) -> List[str]:
 
     soup = BeautifulSoup(r.text, "lxml")
 
-    files_and_folders = [
-        link.get("href") for link in soup.find_all("a") if link.get("href") != "../"
-    ]
+    files_and_folders = [link.get("href") for link in soup.find_all("a") if link.get("href") != "../"]
 
     files = []
     folders = []
@@ -105,9 +101,7 @@ def list_remote_files_legacy(url: str, recursive: bool) -> List[str]:
             folders.append(urljoin(url, f))
 
     if recursive:
-        files_in_folders = [
-            list_remote_files_legacy(folder, recursive) for folder in folders
-        ]
+        files_in_folders = [list_remote_files_legacy(folder, recursive) for folder in folders]
 
         for files_in_folder in files_in_folders:
             files.extend(files_in_folder)
@@ -116,9 +110,7 @@ def list_remote_files_legacy(url: str, recursive: bool) -> List[str]:
 
 
 # v2: "Remote directory index" implementation based on FSSPEC.
-def list_remote_files_fsspec(
-    url: str, recursive: bool = False, ttl: CacheExpiry = CacheExpiry.FILEINDEX
-) -> List[str]:
+def list_remote_files_fsspec(url: str, recursive: bool = False, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server.
 
@@ -148,9 +140,7 @@ def list_remote_files_fsspec(
         remote_urls.remove(url)
     except ValueError:
         pass
-    remote_urls = [i for i in remote_urls if not i.endswith("/")]
-
-    return remote_urls
+    return [i for i in remote_urls if not i.endswith("/")]
 
 
 def download_file(url: str, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesIO:

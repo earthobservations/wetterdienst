@@ -26,17 +26,14 @@ def test_parse_enumeration_from_template():
         parse_enumeration_from_template("CLIMATE_SUMMARY", DwdObservationDataset)
         == DwdObservationDataset.CLIMATE_SUMMARY
     )
-    assert (
-        parse_enumeration_from_template("kl", DwdObservationDataset)
-        == DwdObservationDataset.CLIMATE_SUMMARY
-    )
+    assert parse_enumeration_from_template("kl", DwdObservationDataset) == DwdObservationDataset.CLIMATE_SUMMARY
 
     with pytest.raises(InvalidEnumeration):
         parse_enumeration_from_template("climate", DwdObservationDataset)
 
 
 def test_coerce_field_types():
-    """ Test coercion of fields """
+    """Test coercion of fields"""
     # Special cases
     # We require a stations object with hourly resolution in order to accurately parse
     # the hourly timestamp (pandas would fail parsing it because it has a strange
@@ -83,7 +80,7 @@ def test_coerce_field_types():
 
 
 def test_coerce_field_types_with_nans():
-    """ Test field coercion with NaNs """
+    """Test field coercion with NaNs"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
         resolution=DwdObservationResolution.HOURLY,

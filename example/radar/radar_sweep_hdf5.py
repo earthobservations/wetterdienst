@@ -22,7 +22,7 @@ Setup
     brew install gdal
     pip install wradlib
 
-"""
+"""  # Noqa:D205,D400
 import logging
 import os
 
@@ -44,18 +44,13 @@ log = logging.getLogger()
 
 
 def plot(data: np.ndarray):
-    """
-    Convenience function for plotting radar data.
-    """
-
+    """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
     wrl.vis.plot_ppi(data["dataset1/data1/data"], fig=fig, proj="cg")
 
 
 def radar_info(data: dict):
-    """
-    Display data from radar request.
-    """
+    """Display data from radar request."""
     print("Keys:", data.keys())
 
     log.info("Data")
@@ -64,7 +59,7 @@ def radar_info(data: dict):
 
 
 def radar_hdf5_example():
-
+    """Retrieve HDF5 data by DWD as example."""
     log.info("Acquiring radar sweep data in HDF5")
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -90,6 +85,7 @@ def radar_hdf5_example():
 
 
 def main():
+    """Run example."""
     radar_hdf5_example()
 
 

@@ -31,7 +31,6 @@ class Provider(Enum):
         "National Oceanic And Atmospheric Administration",
         "National Oceanic And Atmospheric Administration",
         "United States Of America",
-        "© National Oceanic And Atmospheric Administration (NOAA), "
-        "Global Historical Climatology Network",
+        "© National Oceanic And Atmospheric Administration (NOAA), " "Global Historical Climatology Network",
         "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/",
     )

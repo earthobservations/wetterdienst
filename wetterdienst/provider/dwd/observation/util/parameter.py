@@ -22,34 +22,22 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 def create_parameter_to_dataset_combination(
     parameter: Union[DwdObservationParameter, DwdObservationDataset],
     resolution: Resolution,
-) -> Tuple[
-    Union[DwdObservationParameter, DwdObservationDataset],
-    DwdObservationDataset,
-]:
+) -> Tuple[Union[DwdObservationParameter, DwdObservationDataset], DwdObservationDataset,]:
     """Function to create a mapping from a requested parameter to a provided parameter
     set which has to be downloaded first to extract the parameter from it"""
     try:
-        parameter_ = parse_enumeration_from_template(
-            parameter, DwdObservationParameter[resolution.name]
-        )
+        parameter_ = parse_enumeration_from_template(parameter, DwdObservationParameter[resolution.name])
 
         parameter = PARAMETER_TO_DATASET_MAPPING[resolution][parameter_]
 
-        return parameter, parse_enumeration_from_template(
-            parameter.__class__.__name__, DwdObservationDataset
-        )
+        return parameter, parse_enumeration_from_template(parameter.__class__.__name__, DwdObservationDataset)
     except (KeyError, InvalidEnumeration):
         try:
-            parameter_set = parse_enumeration_from_template(
-                parameter, DwdObservationDataset
-            )
+            parameter_set = parse_enumeration_from_template(parameter, DwdObservationDataset)
 
             return parameter_set, parameter_set
         except InvalidEnumeration:
-            raise InvalidParameter(
-                f"parameter {parameter} could not be parsed for "
-                f"time resolution {resolution}"
-            )
+            raise InvalidParameter(f"parameter {parameter} could not be parsed for " f"time resolution {resolution}")
 
 
 def check_dwd_observations_dataset(

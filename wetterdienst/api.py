@@ -27,7 +27,7 @@ API_ENDPOINTS = {
 
 
 class Wetterdienst:
-    """ Wetterdienst top-level API with links to the different available APIs """
+    """Wetterdienst top-level API with links to the different available APIs"""
 
     endpoints = API_ENDPOINTS
 
@@ -48,15 +48,13 @@ class Wetterdienst:
                 raise KeyError
 
         except (InvalidEnumeration, KeyError):
-            raise ProviderError(
-                f"No API available for provider {provider} and kind {kind}"
-            )
+            raise ProviderError(f"No API available for provider {provider} and kind {kind}")
 
         return api
 
     @classmethod
     def discover(cls) -> dict:
-        """ Display available API endpoints """
+        """Display available API endpoints"""
         api_endpoints = {}
         for provider, kinds in cls.endpoints.items():
             api_endpoints[provider.name.lower()] = [kind.name.lower() for kind in kinds]

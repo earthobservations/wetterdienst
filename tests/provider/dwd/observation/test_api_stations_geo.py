@@ -162,9 +162,7 @@ def test_dwd_observation_stations_bbox():
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
-    nearby_station = request.filter_by_bbox(
-        left=8.7862, bottom=49.9195, right=8.993, top=50.0899
-    )
+    nearby_station = request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0899)
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
     pd.testing.assert_frame_equal(

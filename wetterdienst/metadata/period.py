@@ -28,18 +28,12 @@ class OrderedPeriod(Enum):
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
-            return (
-                self._period_type_order_mapping[self.name]
-                < self._period_type_order_mapping[other.name]
-            )
+            return self._period_type_order_mapping[self.name] < self._period_type_order_mapping[other.name]
         return NotImplemented
 
     def __gt__(self, other):
         if self.__class__ is other.__class__:
-            return (
-                self._period_type_order_mapping[self.name]
-                > self._period_type_order_mapping[other.name]
-            )
+            return self._period_type_order_mapping[self.name] > self._period_type_order_mapping[other.name]
         return NotImplemented
 
     def __ge__(self, other):

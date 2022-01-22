@@ -70,12 +70,7 @@ def fetch_stations(parameter: str, resolution: str, period: str):
 
     The data will be stored on a hidden within the browser DOM.
     """
-    log.info(
-        f"Requesting stations for "
-        f"parameter={parameter}, "
-        f"resolution={resolution}, "
-        f"period={period}"
-    )
+    log.info(f"Requesting stations for " f"parameter={parameter}, " f"resolution={resolution}, " f"period={period}")
     try:
         stations = DwdObservationRequest(
             parameter=DwdObservationDataset(parameter),
@@ -204,9 +199,7 @@ def render_navigation_variables(payload):
         Input("dataframe-stations", "children"),
     ],
 )
-def render_status_response_stations(
-    parameter: str, resolution: str, period: str, payload: str
-):
+def render_status_response_stations(parameter: str, resolution: str, period: str, payload: str):
     """
     Report about the status of the query.
     """
@@ -278,9 +271,7 @@ def render_status_response_values(
                 missing.append(candidate)
 
         if missing:
-            empty_message.append(
-                html.Span(f"Please select all of the missing options {missing}.")
-            )
+            empty_message.append(html.Span(f"Please select all of the missing options {missing}."))
 
         messages += [html.Div(empty_message), html.Br()]
 
@@ -338,7 +329,7 @@ def render_map(payload):
         return fig
 
     log.info(f"Rendering stations map from {frame_summary(stations_data)}")
-    fig = go.Figure(
+    return go.Figure(
         data=go.Scattermapbox(
             lat=stations_data[Columns.LATITUDE.value],
             lon=stations_data[Columns.LONGITUDE.value],
@@ -356,8 +347,6 @@ def render_map(payload):
         layout=layout_germany,
     )
 
-    return fig
-
 
 @app.callback(
     Output("graph-values", "figure"),
@@ -374,9 +363,7 @@ def render_graph(variable, payload):
     except ValueError:
         climate_data = pd.DataFrame()
 
-    log.info(
-        f"Rendering graph for variable={variable} from {frame_summary(climate_data)}"
-    )
+    log.info(f"Rendering graph for variable={variable} from {frame_summary(climate_data)}")
 
     fig = default_figure(climate_data, variable)
 
@@ -392,9 +379,7 @@ def render_graph(variable, payload):
     return fig
 
 
-def start_service(
-    listen_address: Optional[str] = None, reload: Optional[bool] = False
-):  # pragma: no cover
+def start_service(listen_address: Optional[str] = None, reload: Optional[bool] = False):  # pragma: no cover
     """
     This entrypoint will be used by `wetterdienst.cli`.
     """

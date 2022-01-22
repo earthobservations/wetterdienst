@@ -49,9 +49,7 @@ class EcccObservationValues(ScalarValuesCore):
     _has_quality = True
 
     _session = requests.Session()
-    _session.mount(
-        "https://", HTTPAdapter(max_retries=Retry(total=10, connect=5, read=5))
-    )
+    _session.mount("https://", HTTPAdapter(max_retries=Retry(total=10, connect=5, read=5)))
 
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
@@ -68,7 +66,7 @@ class EcccObservationValues(ScalarValuesCore):
 
     @property
     def _timeframe(self) -> str:
-        """ internal timeframe string for resolution """
+        """internal timeframe string for resolution"""
         return self._timeframe_mapping.get(self.stations.stations.resolution)
 
     _time_step_mapping = {
@@ -80,26 +78,22 @@ class EcccObservationValues(ScalarValuesCore):
 
     @property
     def _time_step(self):
-        """ internal time step string for resolution """
+        """internal time step string for resolution"""
         return self._time_step_mapping.get(self.stations.stations.resolution)
 
     def _create_humanized_parameters_mapping(self):
         # TODO: change to something general, depending on ._has_datasets
-        hcnm = {
+        return {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[
-                self.stations.stations.resolution.name
-            ]
+            for parameter in self.stations.stations._parameter_base[self.stations.stations.resolution.name]
         }
-
-        return hcnm
 
     def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
         Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
 
-        :param df:
-        :return:
+        :param df: DataFrame with loaded data
+        :return: tidied DataFrame
         """
 
         data = []
@@ -117,11 +111,10 @@ class EcccObservationValues(ScalarValuesCore):
             data.append(df_parameter)
 
         try:
-            df_tidy = pd.concat(data, ignore_index=True)
+            return pd.concat(data, ignore_index=True)
         except ValueError:
-            df_tidy = pd.DataFrame()
-
-        return df_tidy
+            # TODO: add logging
+            return pd.DataFrame()
 
     def _collect_station_parameter(
         self, station_id: str, parameter: EcccObservationParameter, dataset: Enum
@@ -133,9 +126,7 @@ class EcccObservationValues(ScalarValuesCore):
         :param dataset: dataset of query, can be skipped as ECCC has unique dataset
         :return: pandas.DataFrame with data
         """
-        meta = self.stations.df[
-            self.stations.df[Columns.STATION_ID.value] == station_id
-        ]
+        meta = self.stations.df[self.stations.df[Columns.STATION_ID.value] == station_id]
 
         name, from_date, to_date = (
             meta[
@@ -157,9 +148,7 @@ class EcccObservationValues(ScalarValuesCore):
         start_date = self.stations.stations.start_date
         end_date = self.stations.stations.end_date
 
-        start_year = start_year and max(
-            start_year, start_date and start_date.year or start_year
-        )
+        start_year = start_year and max(start_year, start_date and start_date.year or start_year)
         end_year = end_year and min(end_year, end_date and end_date.year or end_year)
 
         # Following lines may partially be based on @Zeitsperre's canada-climate-python
@@ -210,9 +199,7 @@ class EcccObservationValues(ScalarValuesCore):
 
         return df
 
-    def _create_file_urls(
-        self, station_id: str, start_year: int, end_year: int
-    ) -> Generator[str, None, None]:
+    def _create_file_urls(self, station_id: str, start_year: int, end_year: int) -> Generator[str, None, None]:
         """
 
         :param station_id:
@@ -228,9 +215,7 @@ class EcccObservationValues(ScalarValuesCore):
 
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
-        for date in pd.date_range(
-            f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, closed=None
-        ):
+        for date in pd.date_range(f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, closed=None):
             url = self._base_url.format(int(station_id), self._timeframe)
 
             url += f"&Year={date.year}"
@@ -348,9 +333,7 @@ class EcccObservationRequest(ScalarRequestCore):
 
         df = df.drop(columns=["latitude", "longitude"])
 
-        df = df.rename(columns=self._columns_mapping)
-
-        return df
+        return df.rename(columns=self._columns_mapping)
 
     @staticmethod
     @payload_cache_twelve_hours.cache_on_arguments()
@@ -362,8 +345,7 @@ class EcccObservationRequest(ScalarRequestCore):
         """
 
         ftp_url = (
-            "ftp://client_climate:foobar@ftp.tor.ec.gc.ca"
-            "/Pub/Get_More_Data_Plus_de_donnees/Station Inventory EN.csv"
+            "ftp://client_climate:foobar@ftp.tor.ec.gc.ca" "/Pub/Get_More_Data_Plus_de_donnees/Station Inventory EN.csv"
         )
 
         http_url = (

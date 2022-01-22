@@ -29,14 +29,21 @@ keywords = [
     "recent-data",
     "forecast",
     "radar",
+    # DWD
     "dwd",
     "deutscher wetterdienst",
     "german weather service",
     "mosmix",
     "radolan",
+    # ECCC
     "eccc",
     "environment-and-climate-change-canada",
-    "environnement-et-changement-climatique-canada"
+    "environnement-et-changement-climatique-canada",
+    # NOAA
+    "noaa",
+    "national oceanic and atmospheric administration",
+    "ghcn",
+    "global historical climatology network",
 ]
 classifiers = [
     "Programming Language :: Python",
@@ -78,96 +85,116 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.7.1"
 pandas = "^1.3"
-numpy = "^1.19.5"
-scipy = "^1.5.2"
-cachetools = "^4.1.1"
-dateparser = "^1.0.0"
-beautifulsoup4 = "^4.9.1"
-requests = "^2.20.0"
-requests-ftp = "^0.3.1"
-python-dateutil = "^2.8.0"
-"dogpile.cache" = "^1.0.2"
-appdirs = "^1.4.4"
-lxml = "^4.5.2"
-tqdm = "^4.47.0"
-PyPDF2 = "^1.26.0"
-tabulate = "^0.8.7"
-deprecation = "^2.1.0"
+numpy = "^1.19"
+scipy = "^1.5"
+cachetools = "^4.1"
+dateparser = "^1.0"
+beautifulsoup4 = "^4.9"
+requests = "^2.20"
+requests-ftp = "^0.3"
+python-dateutil = "^2.8"
+"dogpile.cache" = "^1.0"
+appdirs = "^1.4"
+lxml = "^4.5"
+tqdm = "^4.47"
+PyPDF2 = "^1.26"
+tabulate = "^0.8"
+deprecation = "^2.1"
 # Conditionally installed for backward compatibility with older Python versions
-importlib_metadata              = { version = "^1.7.0", python = "<3.8" }
-measurement = "^3.2.0"
-rapidfuzz = "^1.4.1"
+importlib_metadata              = { version = "^1.7", python = "<3.8" }
+measurement = "^3.2"
+rapidfuzz = "^1.4"
 Pint = "^0.17"
-aenum = "^3.0.0"
-click = "^7.1.2"
-click-params = "^0.1.1"
-cloup = "^0.8.0"
-fsspec = "2021.7.0"
-aiohttp = "^3.7.4"
+aenum = "^3.0"
+click = "^7.1"
+click-params = "^0.1"
+cloup = "^0.8"
+fsspec = "2021.7"
+aiohttp = "^3.7"
 
 # Optional dependencies aka. "extras"
-matplotlib =  { version = "^3.3.2", optional = true }
+matplotlib =  { version = "^3.3", optional = true }
 
-openpyxl                        = { version = "^3.0.7", optional = true }
-pyarrow                         = { version = "^3.0.0", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }
-duckdb                          = { version = "^0.2.4", optional = true }
-influxdb                        = { version = "^5.3.1", optional = true }
-influxdb-client                 = { version = "^1.18.0", optional = true }
+openpyxl                        = { version = "^3.0", optional = true }
+pyarrow                         = { version = "^3.0", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }
+duckdb                          = { version = "^0.2", optional = true }
+influxdb                        = { version = "^5.3", optional = true }
+influxdb-client                 = { version = "^1.18", optional = true }
 sqlalchemy                      = { version = "^1.3", optional = true }
-crate                           = { version = "^0.25.0", optional = true, extras = ["sqlalchemy"] }
-mysqlclient                     = { version = "^2.0.1", optional = true }
-psycopg2-binary                 = { version = "^2.8.6", optional = true }
+crate                           = { version = "^0.25", optional = true, extras = ["sqlalchemy"] }
+mysqlclient                     = { version = "^2.0", optional = true }
+psycopg2-binary                 = { version = "^2.8", optional = true }
 
 # HTTP REST API service
-fastapi                         = { version = "^0.61.1", optional = true }
-uvicorn                         = { version = "^0.13.3", optional = true }
-wradlib                         = { version = "^1.9.0", optional = true }
+fastapi                         = { version = "^0.61", optional = true }
+uvicorn                         = { version = "^0.13", optional = true }
+wradlib                         = { version = "^1.9", optional = true }
 
 # Explorer UI service
-plotly                          = { version = "^4.14.3", optional = true }
-dash                            = { version = "^1.19.0", optional = true }
-dash-bootstrap-components       = { version = "^0.12.0", optional = true }
+plotly                          = { version = "^4.14", optional = true }
+dash                            = { version = "^1.19", optional = true }
+dash-bootstrap-components       = { version = "^0.12", optional = true }
 
-sphinx = { version = "^3.2.1", optional = true }
+sphinx = { version = "^3.2", optional = true }
 sphinx-material = { version = "^0.0.30", optional = true }
-sphinx-autodoc-typehints = { version = "^1.11.0", optional = true }
-sphinxcontrib-svg2pdfconverter = { version = "^1.1.0", optional = true }
-tomlkit = { version = "^0.7.0", optional = true }
-ipython = { version = "^7.10.1", optional = true }
-ipython-genutils = { version = "^0.2.0", optional = true }
-zarr = { version = "^2.7.0", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }  # not supported through numcodecs
-xarray = { version = "^0.17.0", optional = true }
-timezonefinder = "^5.2.0"
+sphinx-autodoc-typehints = { version = "^1.11", optional = true }
+sphinxcontrib-svg2pdfconverter = { version = "^1.1", optional = true }
+tomlkit = { version = "^0.7", optional = true }
+ipython = { version = "^7.10", optional = true }
+ipython-genutils = { version = "^0.2", optional = true }
+zarr = { version = "^2.7", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }  # not supported through numcodecs
+xarray = { version = "^0.17", optional = true }
+timezonefinder = "^5.2"
 
 
 [tool.poetry.dev-dependencies]
-black = "^20.8b1"
-flakehell = { git = "https://github.com/mcarans/flakehell.git" }# "^0.7.1"
-isort = "^5.7.0"
-flake8-black = "^0.2.1"
-flake8-bugbear = "^20.1.4"
-flake8-bandit = "^2.1.2"
-flake8-isort = "^4.0.0"
-coverage = { version = "^5.3", extras = ["toml"] }
-pytest = "^6.0.2"
-pytest-cov = "^2.10.1"
-pytest-notebook = "^0.6.1"
-pytest-dictsdiff = "^0.5.8"
-mock = "^4.0.2"
+poethepoet = "^0.9"
+
+pip-licenses = "^3.3"
+
+# Formatting/Linting
+black = "^21.12b0"
+
+isort = "^5.7"
+
+flakeheaven = "^0.11"
+flake8-bandit = "^2.1"
+flake8-black = "^0.2"
+flake8-bugbear = "^20.1"
+flake8-builtins = "^1.5"
+flake8-comprehensions = "^3.7"
+flake8-copyright = "^0.2"
+flake8-docstrings = "^1.6"
+flake8-eradicate = "^1.2"
+flake8-isort = "^4.0"
+flake8-print = "^4.0"
+flake8-return = "^1.1"
+flake8-2020 = "^1.6"
+
+# Testing
+pytest = "^6.0"
+pytest-cov = "^2.10"
+pytest-dictsdiff = "^0.5"
+pytest-notebook = "^0.6"
+pytest-xdist = "^2.2"
+
+mock = "^4.0"
+freezegun = "^1.1"
+
+# Test required libraries
 surrogate = "^0.1"
-pybufrkit = "^0.2.17"
-freezegun = "^1.1.0"
-poethepoet = "^0.9.0"
-pip-licenses = "^3.3.0"
-sphinx-autobuild = "^2020.9.1"
-selenium = "^3.141.0"
-percy = "^2.0.2"
-h5py = "^3.1.0"
-h5netcdf = "^0.11.0"
-pytest-xdist = "^2.2.1"
-flake8-print = "^4.0.0"
-flake8-builtins = "^1.5.3"
-flake8-comprehensions = "^3.7.0"
+pybufrkit = "^0.2"
+selenium = "^3.141"
+percy = "^2.0"
+h5py = "^3.1"
+h5netcdf = "^0.11"
+
+# Coverage
+coverage = { version = "^5.3", extras = ["toml"] }
+
+# Docs
+sphinx-autobuild = "^2020.9"
+docformatter = "^1.4"
 
 [tool.poetry.extras]
 mpl = ["matplotlib"]
@@ -201,62 +228,51 @@ wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
 from = {format = "poetry", path = "pyproject.toml"}
 to = {format = "pip", path = "requirements.txt"}
 
+[tool.black]
+line-length = 120
+
 [tool.isort]
 profile = "black"
 multi_line_output = 3
 
-[tool.flakehell]
+[tool.flakeheaven]
 exclude = [
     "example/climate_observations.ipynb"
 ]
-max-line-length = 88
+format = "grouped"
+max-line-length = 120
 extended_default_ignore = []
 
-[tool.flakehell.plugins]
-pycodestyle = ["+*", "-E203", "-W503"]
+[tool.flakeheaven.plugins]
+pycodestyle = ["+*", "-E203", "-W503", "-E501", "-E231"]
 pyflakes = ["+*"]
 flake8-bandit = ["+*"]
 flake8-black = ["+*"]
 flake8-bugbear = ["+*"]
-flake8-isort = ["+*"]
-flake8-print = ["+*"]
 flake8-builtins = ["+*", "-A003"]
 flake8-comprehensions = ["+*"]
+flake8-copyright = ["+*"]
+flake8-eradicate = ["+*"]
+flake8-isort = ["+*"]
+flake8-print = ["+*"]
+flake8-return = ["+*"]
+flake8-2020 = ["+*"]
 
-[tool.flakehell.exceptions."**/__init__.py"]
+[tool.flakeheaven.exceptions."**/__init__.py"]
 pyflakes = ["-F401"]
-
-[tool.flakehell.exceptions."example/"]
+[tool.flakeheaven.exceptions."example/"]
 flake8-print = ["-*"]
-
-[tool.flakehell.exceptions."tests/"]
+[tool.flakeheaven.exceptions."tests/"]
 flake8-bandit = ["-S101", "-S106"]
-[tool.flakehell.exceptions."tests/provider/dwd/radar/test_index.py"]
-pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."tests/provider/dwd/observation/util/test_parameter.py"]
-pycodestyle = ["-E501", "-B950"]
-
-[tool.flakehell.exceptions."wetterdienst/ui/cli.py"]
-pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/ui/restapi.py"]
+[tool.flakeheaven.exceptions."wetterdienst/ui/restapi.py"]
 flake8-bugbear = ["-B008"]
-[tool.flakehell.exceptions."wetterdienst/core/scalar/export.py"]
-pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/provider/dwd/observation/metadata/field_types.py"]
-pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/provider/dwd/observation/metadata/parameter.py"]
-pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."wetterdienst/provider/dwd/forecast/metadata/field_types.py"]
-pycodestyle = ["-E501", "-B950"]
-[tool.flakehell.exceptions."tests/provider/dwd/observation/test_api_metadata.py"]
-pycodestyle = ["-E501", "-B950"]
 
 [tool.poe.tasks]
 install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
 format = ["black", "isort"]
-lint = "flakehell lint wetterdienst example tests"
+lint = "flakeheaven lint wetterdienst example tests"
 docs = { shell = "cd docs && poetry run make html" }
 test = "pytest -vvv tests"
 # TODO: When parallel testing works on CI, use this:
@@ -268,6 +284,7 @@ coverage-parallel = "pytest --cov=wetterdienst --numprocesses=4 -m 'not (explore
 export_requirements = "poetry export --without-hashes --dev --output requirements.txt"
 export_licenses = "pip-licenses --from=mixed --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 export = ["export_requirements", "export_licenses"]
+update = "poetry update"
 
 [tool.pytest.ini_options]
 markers = [

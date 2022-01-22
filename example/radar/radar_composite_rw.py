@@ -22,7 +22,7 @@ Setup
     brew install gdal
     pip install wradlib
 
-"""
+"""  # Noqa:D205,D400
 import logging
 import os
 
@@ -38,10 +38,7 @@ log = logging.getLogger()
 
 
 def plot(data: np.ndarray, attributes: dict, label: str = None):
-    """
-    Convenience function for plotting RADOLAN data.
-    """
-
+    """Plot RADOLAN data with prefixed settings."""
     # Get coordinates.
     radolan_grid_xy = wrl.georef.get_radolan_grid(900, 900)
 
@@ -53,8 +50,7 @@ def plot(data: np.ndarray, attributes: dict, label: str = None):
 
 
 def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = None):
-    """
-    Plotting function for RADOLAN data.
+    """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
     https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html
@@ -70,18 +66,14 @@ def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = N
     cb.set_label(clabel)
     plt.xlabel("x [km]")
     plt.ylabel("y [km]")
-    plt.title(
-        "{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat())
-    )
+    plt.title("{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat()))
     plt.xlim((x[0, 0], x[-1, -1]))
     plt.ylim((y[0, 0], y[-1, -1]))
     plt.grid(color="r")
 
 
 def radar_info(data: np.ndarray, attributes: dict):
-    """
-    Display metadata from RADOLAN request.
-    """
+    """Display metadata from RADOLAN request."""
     log.info("Data shape: %s", data.shape)
     log.info("Attributes")
 
@@ -90,7 +82,7 @@ def radar_info(data: np.ndarray, attributes: dict):
 
 
 def radar_rw_example():
-
+    """Retrieve radar rw reflectivity data by DWD."""
     log.info("Acquiring radar RW composite data")
     radolan = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
@@ -112,6 +104,7 @@ def radar_rw_example():
 
 
 def main():
+    """Run example."""
     radar_rw_example()
 
 
