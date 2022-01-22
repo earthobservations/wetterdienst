@@ -46,7 +46,7 @@ def default_figure(climate_data: pd.DataFrame, column: str) -> go.Figure:
             )
         ]
     )
-    fig.update_layout(yaxis=dict(title=f"{column}"), showlegend=False)
+    fig.update_layout(yaxis={"title": f"{column}"}, showlegend=False)
     return fig
 
 

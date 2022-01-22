@@ -39,9 +39,10 @@ log = logging.getLogger(__name__)
 
 class EcccObservationValues(ScalarValuesCore):
 
-    _string_parameters = []
-    _integer_parameters = []
-    _irregular_parameters = []
+    _string_parameters = ()
+    _integer_parameters = ()
+    _irregular_parameters = ()
+    _date_parameters = ()
 
     _data_tz = Timezone.UTC
 
@@ -266,6 +267,7 @@ class EcccObservationRequest(ScalarRequestCore):
     _dataset_base = EcccObservationDataset
     _dataset_tree = EcccObservationParameter
     _unique_dataset = True
+    _has_tidy_data = False
 
     _unit_tree = EcccObservationUnit
 

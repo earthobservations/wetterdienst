@@ -11,14 +11,18 @@ from wetterdienst import Wetterdienst
     "provider,kind,kwargs",
     [
         # German Weather Service (DWD)
+        # historical observations
         (
             "dwd",
             "observation",
             {"parameter": "kl", "resolution": "daily", "period": "recent"},
         ),
+        # station forecasts
         ("dwd", "forecast", {"parameter": "large", "mosmix_type": "large"}),
         # Environment and Climate Change Canada
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}),
+        # NOAA Ghcn
+        ("noaa", "observation", {"parameter": "precipitation_height"}),
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))

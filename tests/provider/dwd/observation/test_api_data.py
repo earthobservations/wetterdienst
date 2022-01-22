@@ -380,6 +380,7 @@ def test_dwd_observation_data_result_tabular():
 
     assert list(df.columns.values) == [
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "fx",
@@ -403,7 +404,8 @@ def test_dwd_observation_data_result_tabular():
         df,
         pd.DataFrame(
             {
-                "station_id": pd.Categorical(["01048", "01048"]),
+                "station_id": pd.Categorical(["01048"] * 2),
+                "dataset": pd.Categorical(["climate_summary"] * 2),
                 "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
@@ -448,6 +450,7 @@ def test_dwd_observation_data_result_tabular_metric():
 
     assert list(df.columns.values) == [
         "station_id",
+        "dataset",
         "date",
         "qn_3",
         "fx",
@@ -471,7 +474,8 @@ def test_dwd_observation_data_result_tabular_metric():
         df,
         pd.DataFrame(
             {
-                "station_id": pd.Categorical(["01048", "01048"]),
+                "station_id": pd.Categorical(["01048"] * 2),
+                "dataset": pd.Categorical(["climate_summary"] * 2),
                 "date": [
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
@@ -685,6 +689,63 @@ def test_dwd_observation_data_result_tidy_metric():
                     ],
                     dtype=float,
                 ),
+            },
+        ),
+        # Needed since pandas 1.2?
+        check_categorical=False,
+    )
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_10_minutes_result_tidy():
+    """ Test for actual values (tidy) in metric units """
+    request = DwdObservationRequest(
+        parameter=[
+            DwdObservationDatasetTree.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_SITE
+        ],
+        resolution=DwdObservationResolution.MINUTE_10,
+        start_date="1999-12-31 22:00",
+        end_date="1999-12-31 23:00",
+        tidy=True,
+        humanize=False,
+        si_units=False,
+    ).filter_by_station_id(
+        station_id=(1048,),
+    )
+
+    df = request.values.all().df
+
+    assert_frame_equal(
+        df,
+        pd.DataFrame(
+            {
+                "station_id": pd.Categorical(["01048"] * 7),
+                "dataset": pd.Categorical(["temperature_air"] * 7),
+                "parameter": pd.Categorical(["pp_10"] * 7),
+                "date": [
+                    datetime(1999, 12, 31, 22, 00, tzinfo=pytz.UTC),
+                    datetime(1999, 12, 31, 22, 10, tzinfo=pytz.UTC),
+                    datetime(1999, 12, 31, 22, 20, tzinfo=pytz.UTC),
+                    datetime(1999, 12, 31, 22, 30, tzinfo=pytz.UTC),
+                    datetime(1999, 12, 31, 22, 40, tzinfo=pytz.UTC),
+                    datetime(1999, 12, 31, 22, 50, tzinfo=pytz.UTC),
+                    datetime(1999, 12, 31, 23, 00, tzinfo=pytz.UTC),
+                ],
+                "value": pd.to_numeric(
+                    [
+                        996.1,
+                        996.2,
+                        996.2,
+                        996.2,
+                        996.3,
+                        996.4,
+                        pd.NA,
+                    ],
+                    errors="coerce",
+                ).astype(float),
+                "quality": pd.to_numeric(
+                    [1, 1, 1, 1, 1, 1, pd.NA], errors="coerce"
+                ).astype(float),
             },
         ),
         # Needed since pandas 1.2?

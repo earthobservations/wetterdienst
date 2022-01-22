@@ -62,21 +62,16 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # cloud_type
         CLOUD_COVER_TOTAL = "v_n"  # int
-        # CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
         CLOUD_TYPE_LAYER1 = "v_s1_cs"  # int
-        # CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
         CLOUD_HEIGHT_LAYER1 = "v_s1_hhs"
         CLOUD_COVER_LAYER1 = "v_s1_ns"  # int
         CLOUD_TYPE_LAYER2 = "v_s2_cs"  # int
-        # CLOUD_TYPE_LAYER2_ABBREVIATION = "v_s2_csa"  # str
         CLOUD_HEIGHT_LAYER2 = "v_s2_hhs"
         CLOUD_COVER_LAYER2 = "v_s2_ns"  # int
         CLOUD_TYPE_LAYER3 = "v_s3_cs"  # int
-        # CLOUD_TYPE_LAYER3_ABBREVIATION = "v_s3_csa"  # str
         CLOUD_HEIGHT_LAYER3 = "v_s3_hhs"
         CLOUD_COVER_LAYER3 = "v_s3_ns"  # int
         CLOUD_TYPE_LAYER4 = "v_s4_cs"  # int
-        # CLOUD_TYPE_LAYER4_ABBREVIATION = "v_s4_csa"  # str
         CLOUD_HEIGHT_LAYER4 = "v_s4_hhs"
         CLOUD_COVER_LAYER4 = "v_s4_ns"  # int
 
@@ -211,15 +206,15 @@ class DwdObservationParameter(DatasetTreeCore):
         WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED = "waas_6"
 
         # weather_phenomena
-        COUNT_FOG = "nebel"  # int
-        COUNT_THUNDER = "gewitter"  # int
-        COUNT_STORM_STRONG_WIND = "sturm_6"  # int
-        COUNT_STORM_STORMIER_WIND = "sturm_8"  # int
-        COUNT_DEW = "tau"  # int
-        COUNT_GLAZE = "glatteis"  # int
-        COUNT_RIPE = "reif"  # int
-        COUNT_SLEET = "graupel"  # int
-        COUNT_HAIL = "hagel"  # int
+        COUNT_WEATHER_TYPE_FOG = "nebel"  # int
+        COUNT_WEATHER_TYPE_THUNDER = "gewitter"  # int
+        COUNT_WEATHER_TYPE_STORM_STRONG_WIND = "sturm_6"  # int
+        COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = "sturm_8"  # int
+        COUNT_WEATHER_TYPE_DEW = "tau"  # int
+        COUNT_WEATHER_TYPE_GLAZE = "glatteis"  # int
+        COUNT_WEATHER_TYPE_RIPE = "reif"  # int
+        COUNT_WEATHER_TYPE_SLEET = "graupel"  # int
+        COUNT_WEATHER_TYPE_HAIL = "hagel"  # int
 
     # monthly
     class MONTHLY(Enum):
@@ -243,14 +238,14 @@ class DwdObservationParameter(DatasetTreeCore):
         # PRECIPITATION_HEIGHT_MAX = "mx_rs"
 
         # weather_phenomena
-        COUNT_STORM_STRONG_WIND = "mo_sturm_6"  # int
-        COUNT_STORM_STORMIER_WIND = "mo_sturm_8"  # int
-        COUNT_THUNDER = "mo_gewitter"  # int
-        COUNT_GLAZE = "mo_glatteis"  # int
-        COUNT_SLEET = "mo_graupel"  # int
-        COUNT_HAIL = "mo_hagel"  # int
-        COUNT_FOG = "mo_nebel"  # int
-        COUNT_DEW = "mo_tau"  # int
+        COUNT_WEATHER_TYPE_STORM_STRONG_WIND = "mo_sturm_6"  # int
+        COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = "mo_sturm_8"  # int
+        COUNT_WEATHER_TYPE_THUNDER = "mo_gewitter"  # int
+        COUNT_WEATHER_TYPE_GLAZE = "mo_glatteis"  # int
+        COUNT_WEATHER_TYPE_SLEET = "mo_graupel"  # int
+        COUNT_WEATHER_TYPE_HAIL = "mo_hagel"  # int
+        COUNT_WEATHER_TYPE_FOG = "mo_nebel"  # int
+        COUNT_WEATHER_TYPE_DEW = "mo_tau"  # int
 
     # annual
     class ANNUAL(Enum):
@@ -274,14 +269,14 @@ class DwdObservationParameter(DatasetTreeCore):
         # PRECIPITATION_HEIGHT_MAX = "ja_mx_rs"
 
         # weather_phenomena
-        COUNT_STORM_STRONG_WIND = "ja_sturm_6"  # int
-        COUNT_STORM_STORMIER_WIND = "ja_sturm_8"  # int
-        COUNT_THUNDER = "ja_gewitter"  # int
-        COUNT_GLAZE = "ja_glatteis"  # int
-        COUNT_SLEET = "ja_graupel"  # int
-        COUNT_HAIL = "ja_hagel"  # int
-        COUNT_FOG = "ja_nebel"  # int
-        COUNT_DEW = "ja_tau"  # int
+        COUNT_WEATHER_TYPE_STORM_STRONG_WIND = "ja_sturm_6"  # int
+        COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = "ja_sturm_8"  # int
+        COUNT_WEATHER_TYPE_THUNDER = "ja_gewitter"  # int
+        COUNT_WEATHER_TYPE_GLAZE = "ja_glatteis"  # int
+        COUNT_WEATHER_TYPE_SLEET = "ja_graupel"  # int
+        COUNT_WEATHER_TYPE_HAIL = "ja_hagel"  # int
+        COUNT_WEATHER_TYPE_FOG = "ja_nebel"  # int
+        COUNT_WEATHER_TYPE_DEW = "ja_tau"  # int
 
 
 class DwdObservationDatasetTree(DatasetTreeCore):
@@ -563,15 +558,15 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QUALITY = "qn_4"
-            COUNT_FOG = "nebel"  # int
-            COUNT_THUNDER = "gewitter"  # int
-            COUNT_STORM_STRONG_WIND = "sturm_6"  # int
-            COUNT_STORM_STORMIER_WIND = "sturm_8"  # int
-            COUNT_DEW = "tau"  # int
-            COUNT_GLAZE = "glatteis"  # int
-            COUNT_RIPE = "reif"  # int
-            COUNT_SLEET = "graupel"  # int
-            COUNT_HAIL = "hagel"  # int
+            COUNT_WEATHER_TYPE_FOG = "nebel"  # int
+            COUNT_WEATHER_TYPE_THUNDER = "gewitter"  # int
+            COUNT_WEATHER_TYPE_STORM_STRONG_WIND = "sturm_6"  # int
+            COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = "sturm_8"  # int
+            COUNT_WEATHER_TYPE_DEW = "tau"  # int
+            COUNT_WEATHER_TYPE_GLAZE = "glatteis"  # int
+            COUNT_WEATHER_TYPE_RIPE = "reif"  # int
+            COUNT_WEATHER_TYPE_SLEET = "graupel"  # int
+            COUNT_WEATHER_TYPE_HAIL = "hagel"  # int
 
     # monthly
     class MONTHLY(DatasetTreeCore):
@@ -602,14 +597,14 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QUALITY = "qn_4"
-            COUNT_STORM_STRONG_WIND = "mo_sturm_6"  # int
-            COUNT_STORM_STORMIER_WIND = "mo_sturm_8"  # int
-            COUNT_THUNDER = "mo_gewitter"  # int
-            COUNT_GLAZE = "mo_glatteis"  # int
-            COUNT_SLEET = "mo_graupel"  # int
-            COUNT_HAIL = "mo_hagel"  # int
-            COUNT_FOG = "mo_nebel"  # int
-            COUNT_DEW = "mo_tau"  # int
+            COUNT_WEATHER_TYPE_STORM_STRONG_WIND = "mo_sturm_6"  # int
+            COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = "mo_sturm_8"  # int
+            COUNT_WEATHER_TYPE_THUNDER = "mo_gewitter"  # int
+            COUNT_WEATHER_TYPE_GLAZE = "mo_glatteis"  # int
+            COUNT_WEATHER_TYPE_SLEET = "mo_graupel"  # int
+            COUNT_WEATHER_TYPE_HAIL = "mo_hagel"  # int
+            COUNT_WEATHER_TYPE_FOG = "mo_nebel"  # int
+            COUNT_WEATHER_TYPE_DEW = "mo_tau"  # int
 
     # annual
     class ANNUAL(DatasetTreeCore):
@@ -640,14 +635,14 @@ class DwdObservationDatasetTree(DatasetTreeCore):
         # weather_phenomena
         class WEATHER_PHENOMENA(Enum):  # noqa
             QUALITY = "qn_4"
-            COUNT_STORM_STRONG_WIND = "ja_sturm_6"  # int
-            COUNT_STORM_STORMIER_WIND = "ja_sturm_8"  # int
-            COUNT_THUNDER = "ja_gewitter"  # int
-            COUNT_GLAZE = "ja_glatteis"  # int
-            COUNT_SLEET = "ja_graupel"  # int
-            COUNT_HAIL = "ja_hagel"  # int
-            COUNT_FOG = "ja_nebel"  # int
-            COUNT_DEW = "ja_tau"  # int
+            COUNT_WEATHER_TYPE_STORM_STRONG_WIND = "ja_sturm_6"  # int
+            COUNT_WEATHER_TYPE_STORM_STORMIER_WIND = "ja_sturm_8"  # int
+            COUNT_WEATHER_TYPE_THUNDER = "ja_gewitter"  # int
+            COUNT_WEATHER_TYPE_GLAZE = "ja_glatteis"  # int
+            COUNT_WEATHER_TYPE_SLEET = "ja_graupel"  # int
+            COUNT_WEATHER_TYPE_HAIL = "ja_hagel"  # int
+            COUNT_WEATHER_TYPE_FOG = "ja_nebel"  # int
+            COUNT_WEATHER_TYPE_DEW = "ja_tau"  # int
 
 
 PARAMETER_TO_DATASET_MAPPING = {
@@ -816,15 +811,15 @@ PARAMETER_TO_DATASET_MAPPING = {
         DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW_DEPTH: DwdObservationDataset.WATER_EQUIVALENT,
         DwdObservationParameter.DAILY.WATER_EQUIVALENT_SNOW_DEPTH_EXCELLED: DwdObservationDataset.WATER_EQUIVALENT,
         # weather_phenomena
-        DwdObservationParameter.DAILY.COUNT_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_RIPE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.DAILY.COUNT_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_RIPE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.DAILY.COUNT_WEATHER_TYPE_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
     },
     Resolution.MONTHLY: {
         # more_precip
@@ -845,14 +840,14 @@ PARAMETER_TO_DATASET_MAPPING = {
         # DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT: DwdObservationParameterSet.CLIMATE_SUMMARY,
         # DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT_MAX: DwdObservationParameterSet.CLIMATE_SUMMARY,
         # weather_phenomena
-        DwdObservationParameter.MONTHLY.COUNT_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.MONTHLY.COUNT_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.MONTHLY.COUNT_WEATHER_TYPE_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
     },
     Resolution.ANNUAL: {
         # more_precip
@@ -873,13 +868,13 @@ PARAMETER_TO_DATASET_MAPPING = {
         # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT: "JA_RR",
         # DwdObservationParameter.ANNUAL.PRECIPITATION_HEIGHT_MAX: "JA_MX_RS",
         # weather_phenomena
-        DwdObservationParameter.ANNUAL.COUNT_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
-        DwdObservationParameter.ANNUAL.COUNT_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_STORM_STRONG_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_STORM_STORMIER_WIND: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_THUNDER: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_GLAZE: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_SLEET: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_HAIL: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_FOG: DwdObservationDataset.WEATHER_PHENOMENA,
+        DwdObservationParameter.ANNUAL.COUNT_WEATHER_TYPE_DEW: DwdObservationDataset.WEATHER_PHENOMENA,
     },
 }

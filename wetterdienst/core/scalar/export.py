@@ -274,9 +274,9 @@ class ExportMixin:
             )
 
             weather_table = connection.table(tablename)
-            print(weather_table)
-            print("Cardinalities:")
-            print(weather_table.to_df().count())
+            print(weather_table)  # noqa: T001
+            print("Cardinalities:")  # noqa: T001
+            print(weather_table.to_df().count())  # noqa: T001
             connection.close()
             log.info("Writing to DuckDB finished")
 

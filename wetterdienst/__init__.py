@@ -44,6 +44,6 @@ def info() -> None:
     for key, value in wd_info.items():
         text += f"\n{key}:\t {value}"
 
-    print(text)
+    print(text)  # noqa: T001
 
     return

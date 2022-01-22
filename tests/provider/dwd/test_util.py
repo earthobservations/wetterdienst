@@ -49,11 +49,12 @@ def test_coerce_field_types():
         tidy=False,
     ).all()
 
-    # Here we don't query the actual data because it tales too long
+    # Here we don't query the actual data because it takes too long
     # we rather use a predefined DataFrame to check for coercion
     df = pd.DataFrame(
         {
             "station_id": ["00001"],
+            "dataset": ["climate_summary"],
             "date": ["1970010100"],
             "qn": ["1"],
             "rs_ind_01": [1],
@@ -62,17 +63,18 @@ def test_coerce_field_types():
         }
     )
 
-    df = request.values._coerce_date_fields(df)
+    df = request.values._coerce_date_fields(df, "00001")
     df = request.values._coerce_meta_fields(df)
     df = request.values._coerce_parameter_types(df)
 
     expected_df = pd.DataFrame(
         {
             "station_id": pd.Categorical(["00001"]),
+            "dataset": pd.Categorical(["climate_summary"]),
             "date": [pd.Timestamp("1970-01-01").tz_localize("utc")],
             "qn": pd.Series([1], dtype=pd.Int64Dtype()),
             "rs_ind_01": pd.Series([1], dtype=pd.Int64Dtype()),
-            "end_of_interval": [pd.Timestamp("1970-01-01")],
+            "end_of_interval": [np.NaN],
             "v_vv_i": pd.Series(["p"], dtype=pd.StringDtype()),
         }
     )

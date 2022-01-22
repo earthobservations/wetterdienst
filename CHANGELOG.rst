@@ -4,7 +4,14 @@ Changelog
 Development
 ***********
 
-...
+- Add NOAA GHCN API
+
+0.23.0 (21.11.2021)
+*******************
+
+- [FIX] Add missing positional dataset argument for _create_empty_station_parameter_df
+- [FIX] Timestamps of 1 minute / 10 minutes DWD data now have a gap hour at the end of year 1999
+  due to timezone shifts
 
 0.22.0 (01.10.2021)
 *******************

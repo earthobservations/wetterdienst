@@ -7,3 +7,5 @@ from enum import Enum
 class Timezone(Enum):
     GERMANY = "Europe/Berlin"
     UTC = "UTC"
+    USA = "US/Washington"
+    DYNAMIC = "dynamic"  # station based timezone (get tz from lon/lat)

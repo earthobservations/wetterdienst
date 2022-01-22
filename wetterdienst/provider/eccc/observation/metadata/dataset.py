@@ -43,10 +43,10 @@ class EcccObservationParameter(DatasetTreeCore):
         QUALITY_TEMPERATURE_AIR_MIN_200 = "min temp flag"
         TEMPERATURE_AIR_MEAN_200 = "mean temp (°c)"
         QUALITY_TEMPERATURE_AIR_MEAN_200 = "mean temp flag"
-        NDAYS_HEATING_DEGREE = "heat deg days (°c)"
-        QUALITY_NDAYS_HEATING_DEGREE = "heat deg days flag"
-        NDAYS_COOLING_DEGREE = "cool deg days (°c)"
-        QUALITY_NDAYS_COOLING_DEGREE = "cool deg days flag"
+        COUNT_DAYS_HEATING_DEGREE = "heat deg days (°c)"
+        QUALITY_COUNT_DAYS_HEATING_DEGREE = "heat deg days flag"
+        COUNT_DAYS_COOLING_DEGREE = "cool deg days (°c)"
+        QUALITY_COUNT_DAYS_COOLING_DEGREE = "cool deg days flag"
         PRECIPITATION_HEIGHT_LIQUID = "total rain (mm)"  # rain
         QUALITY_PRECIPITATION_HEIGHT_LIQUID = "total rain flag"
         SNOW_DEPTH_NEW = "total snow (cm)"  # new snow?

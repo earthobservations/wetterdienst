@@ -78,15 +78,14 @@ class ScalarRequestCore(Core):
         pass
 
     @property
-    # @abstractmethod
     def _parameter_base(self) -> Enum:
         """parameter base enumeration from which parameters can be parsed e.g.
         DWDObservationParameter"""
         if self._has_datasets:
             if not self._unique_dataset:
                 raise NotImplementedError(
-                    "implement _parameter_base enumeration that "
-                    "all parameters of one resolution stored together"
+                    "implement _parameter_base enumeration that has "
+                    "all parameters of one resolution stored in one place"
                 )
         return
 
@@ -101,7 +100,7 @@ class ScalarRequestCore(Core):
     @abstractmethod
     def _has_datasets(self) -> bool:
         """Boolean if weather service has datasets (when multiple parameters are stored
-        in one table/file"""
+        in one table/file)"""
         pass
 
     @property
@@ -134,8 +133,16 @@ class ScalarRequestCore(Core):
     @property
     def _dataset_accessor(self) -> str:
         """Accessor for dataset, by default the resolution is used as we expect
-        datasets to be divided in resolutions"""
+        datasets to be divided in resolutions but for some e.g. DWD Mosmix
+        datasets are divided in another way (SMALL/LARGE in this case)"""
         return self.resolution.name
+
+    @property
+    @abstractmethod
+    def _has_tidy_data(self) -> bool:
+        """If data is generally provided tidy -> then data should not be tidied but
+        rather tabulated if data is requested to not being tidy"""
+        pass
 
     @property
     def _parameter_to_dataset_mapping(self) -> dict:
@@ -144,7 +151,7 @@ class ScalarRequestCore(Core):
             raise NotImplementedError(
                 "for non unique datasets implement a mapping from parameter to dataset"
             )
-        return dict()
+        return {}
 
     @property
     @abstractmethod
@@ -266,7 +273,7 @@ class ScalarRequestCore(Core):
                 if self._unique_dataset:
                     # If unique dataset the dataset is given by the accessor
                     # and the parameter is not a subset of a dataset
-                    dataset_ = self._dataset_tree[self._dataset_accessor]
+                    dataset_ = self._dataset_base[self._dataset_accessor]
                 elif not dataset_:
                     # If there's multiple datasets the mapping defines which one
                     # is taken for the given parameter
@@ -529,11 +536,10 @@ class ScalarRequestCore(Core):
             towards something else
         :return:
         """
-        if cls._resolution_type == ResolutionType.FIXED:
-            log.warning("resolution filter will be ignored due to fixed resolution")
-
-            filter_ = [cls.resolution]
-        elif not filter_:
+        # if cls._resolution_type == ResolutionType.FIXED:
+        #     log.warning("resolution filter will be ignored due to fixed resolution")
+        #     filter_ = [cls.resolution]
+        if not filter_:
             filter_ = [*cls._resolution_base]
 
         filter_ = (

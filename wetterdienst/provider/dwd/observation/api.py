@@ -2,11 +2,12 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import repeat
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
+from pandas import Timedelta, Timestamp
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
@@ -73,7 +74,8 @@ class DwdObservationValues(ScalarValuesCore):
 
     _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = STRING_PARAMETERS
-    _irregular_parameters = DATE_PARAMETERS_IRREGULAR
+    _irregular_parameters = ()
+    _date_parameters = DATE_PARAMETERS_IRREGULAR
 
     _resolution_type = ResolutionType.MULTI
     _resolution_base = DwdObservationResolution
@@ -142,7 +144,6 @@ class DwdObservationValues(ScalarValuesCore):
                 and period == Period.HISTORICAL
             ):
                 date_ranges = self._get_historical_date_ranges(station_id, dataset)
-
                 for date_range in date_ranges:
                     periods_and_date_ranges.append((period, date_range))
             else:
@@ -184,7 +185,6 @@ class DwdObservationValues(ScalarValuesCore):
                 )
                 continue
 
-            # TODO: replace with FSSPEC caching
             filenames_and_files = download_climate_observations_data_parallel(
                 remote_files
             )
@@ -205,7 +205,34 @@ class DwdObservationValues(ScalarValuesCore):
 
             parameter_df = parameter_df.append(period_df)
 
+        # TODO: temporary fix -> reduce time steps before 2000 by 1 hour
+        #  for 1minute and 10minutes resolution data
+        if not parameter_df.empty:
+            if self.stations.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_10):
+                # Have to parse dates here although they should actually be parsed
+                # later on in the core API
+                parameter_df[Columns.DATE.value] = pd.to_datetime(
+                    parameter_df[Columns.DATE.value], format=self._datetime_format
+                )
+                parameter_df = self._fix_timestamps(parameter_df)
+
         return parameter_df
+
+    @staticmethod
+    def _fix_timestamps(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This method is used to fix timestamps for 10 minute resolution data provided
+        by DWD. The original document states
+        " The time stamp before the year 2000 is given in MEZ, the time stamp after
+        the year 2000 is given in UTC. "
+        :param df: pandas DataFrame with original timestamps
+        :return: pandas DataFrame with fixed timestamps
+        """
+        before_2000 = df[Columns.DATE.value].dt.year < 2000
+
+        df.loc[before_2000, Columns.DATE.value] -= Timedelta(hours=1)
+
+        return df
 
     def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
@@ -215,7 +242,6 @@ class DwdObservationValues(ScalarValuesCore):
         :param dataset:
         :return:
         """
-        resolution = self.stations.stations.resolution
 
         droppable_columns = [
             # Hourly
@@ -238,6 +264,8 @@ class DwdObservationValues(ScalarValuesCore):
             columns=droppable_columns,
             errors="ignore",
         )
+
+        resolution = self.stations.stations.resolution
 
         if (
             resolution == Resolution.DAILY
@@ -297,7 +325,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         return df_tidy
 
-    def _coerce_dates(self, series: pd.Series) -> pd.Series:
+    def _coerce_dates(self, series: pd.Series, timezone_: timezone) -> pd.Series:
         """
         Use predefined datetime format for given resolution to reduce processing
         time.
@@ -348,6 +376,8 @@ class DwdObservationValues(ScalarValuesCore):
             dataset, self.stations.resolution, Period.HISTORICAL
         )
 
+        file_index = file_index[(file_index[Columns.STATION_ID.value] == station_id)]
+
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
@@ -387,6 +417,7 @@ class DwdObservationRequest(ScalarRequestCore):
     _period_base = DwdObservationPeriod
     _data_range = DataRange.FIXED
     _has_datasets = True
+    _has_tidy_data = False
     _unique_dataset = False
     _dataset_base = DwdObservationDataset
     _dataset_tree = DwdObservationDatasetTree
@@ -402,7 +433,10 @@ class DwdObservationRequest(ScalarRequestCore):
         :return:
         """
         if self.start_date:
-            return pd.Interval(self.start_date, self.end_date, closed="both")
+            # cut of hours, seconds,...
+            start_date = Timestamp(self.start_date.date()).tz_localize(self.tz)
+            end_date = Timestamp(self.end_date.date()).tz_localize(self.tz)
+            return pd.Interval(start_date, end_date, closed="both")
 
         return None
 
@@ -416,11 +450,17 @@ class DwdObservationRequest(ScalarRequestCore):
         """
         historical_end = self._now_local.replace(month=1, day=1)
 
-        if self.start_date < historical_end:
-            historical_begin = self.start_date.tz_convert(historical_end.tz)
-        else:
-            historical_begin = historical_end + pd.tseries.offsets.DateOffset(years=-1)
+        # if self.start_date < historical_end:
+        #     historical_begin = self.start_date.tz_convert(historical_end.tz)
+        # else:
+        #     historical_begin = historical_end + pd.tseries.offsets.DateOffset(years=-1)
 
+        # a year that is way before any data is collected
+        historical_begin = pd.Timestamp(
+            datetime(year=1678, month=1, day=1)
+        ).tz_localize(historical_end.tz)
+
+        # TODO: Use date
         historical_interval = pd.Interval(
             left=historical_begin, right=historical_end, closed="both"
         )
@@ -438,6 +478,7 @@ class DwdObservationRequest(ScalarRequestCore):
         recent_end = self._now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - pd.Timedelta(days=500)
 
+        # TODO: use date
         recent_interval = pd.Interval(
             left=recent_begin, right=recent_end, closed="both"
         )
