@@ -80,8 +80,7 @@ class OperaRadarSites:
         """
         sites = list(
             filter(
-                lambda site: site["country"]
-                and site["country"].lower() == name.lower(),
+                lambda site: site["country"] and site["country"].lower() == name.lower(),
                 self.sites,
             )
         )
@@ -98,9 +97,9 @@ class OperaRadarSitesGenerator:
     """
 
     url = (
-        "https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme"
-        "/current-activities/opera/database/OPERA_Database/OPERA_RADARS_DB.json"
-    )  # noqa: E501
+        "https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/"
+        "current-activities/opera/database/OPERA_Database/OPERA_RADARS_DB.json"
+    )
 
     def get_opera_radar_sites(self) -> List[Dict]:  # pragma: no cover
 
@@ -151,9 +150,7 @@ class OperaRadarSitesGenerator:
 
         def filter_and_convert(elements):
             for element in elements:
-                if (
-                    element["location"] and element["latitude"] and element["longitude"]
-                ):  # noqa: E501
+                if element["location"] and element["latitude"] and element["longitude"]:
                     yield convert_types(element)
 
         return list(filter_and_convert(data))
@@ -170,9 +167,7 @@ class OperaRadarSitesGenerator:
         Generate "sites.json.gz".
         """
         sites = self.get_opera_radar_sites()
-        with gzip.open(
-            OperaRadarSites.data_file, mode="wt", compresslevel=9, encoding="utf-8"
-        ) as fp:
+        with gzip.open(OperaRadarSites.data_file, mode="wt", compresslevel=9, encoding="utf-8") as fp:
             json.dump(sites, fp, indent=4)
 
 
@@ -186,4 +181,3 @@ if __name__ == "__main__":  # pragma: no cover
     """
     orsg = OperaRadarSitesGenerator()
     orsg.export()
-    # print(orsg.to_json())

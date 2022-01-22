@@ -15,25 +15,17 @@ from wetterdienst.provider.dwd.observation import (
 
 def get_parameters():
     return sorted(
-        [
-            {"label": param.value, "value": param.value}
-            for param in DwdObservationDataset
-        ],
+        [{"label": param.value, "value": param.value} for param in DwdObservationDataset],
         key=operator.itemgetter("label"),
     )
 
 
 def get_resolutions():
-    return [
-        {"label": param.value, "value": param.value}
-        for param in DwdObservationResolution
-    ]
+    return [{"label": param.value, "value": param.value} for param in DwdObservationResolution]
 
 
 def get_periods():
-    return [
-        {"label": param.value, "value": param.value} for param in DwdObservationPeriod
-    ]
+    return [{"label": param.value, "value": param.value} for param in DwdObservationPeriod]
 
 
 def dashboard_layout() -> html:
@@ -122,7 +114,6 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            # html.P("Time-series graph", style={"text-align": "center"}),
                             dcc.Graph(id="graph-values"),
                         ],
                         id="graph",

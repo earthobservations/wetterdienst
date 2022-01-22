@@ -33,30 +33,30 @@ EARTH_RADIUS_KM = 6371
 
 
 class ScalarRequestCore(Core):
-    """ Core for stations information of a source """
+    """Core for stations information of a source"""
 
     @property
     @abstractmethod
     def provider(self) -> Provider:
-        """ Optional enumeration for multiple resolutions """
+        """Optional enumeration for multiple resolutions"""
         pass
 
     @property
     @abstractmethod
     def kind(self) -> Kind:
-        """ Optional enumeration for multiple resolutions """
+        """Optional enumeration for multiple resolutions"""
         pass
 
     @property
     @abstractmethod
     def _resolution_base(self) -> Optional[Resolution]:
-        """ Optional enumeration for multiple resolutions """
+        """Optional enumeration for multiple resolutions"""
         pass
 
     @property
     @abstractmethod
     def _resolution_type(self) -> ResolutionType:
-        """ Resolution type, multi, fixed, ..."""
+        """Resolution type, multi, fixed, ..."""
         pass
 
     @property
@@ -68,13 +68,13 @@ class ScalarRequestCore(Core):
     @property
     @abstractmethod
     def _period_type(self) -> PeriodType:
-        """ Period type, fixed, multi, ..."""
+        """Period type, fixed, multi, ..."""
         pass
 
     @property
     @abstractmethod
     def _period_base(self) -> Optional[Period]:
-        """ Period base enumeration from which a period string can be parsed """
+        """Period base enumeration from which a period string can be parsed"""
         pass
 
     @property
@@ -105,22 +105,17 @@ class ScalarRequestCore(Core):
 
     @property
     def _dataset_base(self) -> Optional[Enum]:
-        """ Dataset base that is used to differ between different datasets """
+        """Dataset base that is used to differ between different datasets"""
         if self._has_datasets:
-            raise NotImplementedError(
-                "implement _dataset_base enumeration that contains available datasets"
-            )
-        return
+            raise NotImplementedError("implement _dataset_base enumeration that contains available datasets")
 
     @property
     def _dataset_tree(self) -> Optional[object]:
-        """ Detailed dataset tree with all parameters per dataset """
+        """Detailed dataset tree with all parameters per dataset"""
         if self._has_datasets:
             raise NotImplementedError(
-                "implement _dataset_tree class that contains available datasets "
-                "and their parameters"
+                "implement _dataset_tree class that contains available datasets " "and their parameters"
             )
-        return None
 
     @property
     def _unique_dataset(self) -> bool:
@@ -146,11 +141,9 @@ class ScalarRequestCore(Core):
 
     @property
     def _parameter_to_dataset_mapping(self) -> dict:
-        """ Mapping to go from a (flat) parameter to dataset """
+        """Mapping to go from a (flat) parameter to dataset"""
         if not self._unique_dataset:
-            raise NotImplementedError(
-                "for non unique datasets implement a mapping from parameter to dataset"
-            )
+            raise NotImplementedError("for non unique datasets implement a mapping from parameter to dataset")
         return {}
 
     @property
@@ -162,14 +155,12 @@ class ScalarRequestCore(Core):
     def datasets(self):
         datasets = self._dataset_tree[self._dataset_accessor].__dict__.keys()
 
-        datasets = list(filter(lambda x: x not in ("__module__", "__doc__"), datasets))
-
-        return datasets
+        return list(filter(lambda x: x not in ("__module__", "__doc__"), datasets))
 
     @property
     @abstractmethod
     def _values(self):
-        """ Class to get the values for a request """
+        """Class to get the values for a request"""
         pass
 
     # Columns that should be contained within any stations information
@@ -209,16 +200,12 @@ class ScalarRequestCore(Core):
         else:
             return (
                 pd.Series(period)
-                .apply(
-                    parse_enumeration_from_template, args=(self._period_base, Period)
-                )
+                .apply(parse_enumeration_from_template, args=(self._period_base, Period))
                 .sort_values()
                 .tolist()
             )
 
-    def _parse_parameter(
-        self, parameter: List[Union[str, Enum]]
-    ) -> List[Tuple[Enum, Enum]]:
+    def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Tuple[Enum, Enum]]:
         """
         Method to parse parameters, either from string or enum. Case independent for
         strings.
@@ -264,9 +251,7 @@ class ScalarRequestCore(Core):
 
             try:
                 # First parse parameter
-                parameter_ = parse_enumeration_from_template(
-                    parameter, self._parameter_base[self._dataset_accessor]
-                )
+                parameter_ = parse_enumeration_from_template(parameter, self._parameter_base[self._dataset_accessor])
             except (InvalidEnumeration, TypeError):
                 pass
             else:
@@ -277,15 +262,11 @@ class ScalarRequestCore(Core):
                 elif not dataset_:
                     # If there's multiple datasets the mapping defines which one
                     # is taken for the given parameter
-                    dataset_ = self._parameter_to_dataset_mapping[self.resolution][
-                        parameter_
-                    ]
+                    dataset_ = self._parameter_to_dataset_mapping[self.resolution][parameter_]
 
                 if not self._unique_dataset:
                     # Parameter then has to be taken from the datasets definition
-                    parameter_ = self._dataset_tree[self._dataset_accessor][
-                        dataset_.name
-                    ][parameter_.name]
+                    parameter_ = self._dataset_tree[self._dataset_accessor][dataset_.name][parameter_.name]
 
                 parameters.append((parameter_, dataset_))
 
@@ -306,7 +287,7 @@ class ScalarRequestCore(Core):
         return series.astype(str)
 
     def __eq__(self, other) -> bool:
-        """ Equal method of request object """
+        """Equal method of request object"""
         return (
             self.parameter == other.parameter
             and self.resolution == other.resolution
@@ -342,9 +323,7 @@ class ScalarRequestCore(Core):
 
         super().__init__()
 
-        self.resolution = parse_enumeration_from_template(
-            resolution, self._resolution_base, Resolution
-        )
+        self.resolution = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
         self.period = self._parse_period(period)
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
@@ -353,12 +332,7 @@ class ScalarRequestCore(Core):
 
         tidy = tidy
         if self._has_datasets:
-            tidy = tidy or any(
-                [
-                    parameter not in self._dataset_base
-                    for parameter, dataset in self.parameter
-                ]
-            )
+            tidy = tidy or any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
 
         self.tidy = tidy
         self.si_units = si_units
@@ -414,9 +388,7 @@ class ScalarRequestCore(Core):
 
         # TODO: replace this with a response + logging
         if not start_date <= end_date:
-            raise StartDateEndDateError(
-                "Error: 'start_date' must be smaller or equal to 'end_date'."
-            )
+            raise StartDateEndDateError("Error: 'start_date' must be smaller or equal to 'end_date'.")
 
         return pd.Timestamp(start_date), pd.Timestamp(end_date)
 
@@ -435,7 +407,7 @@ class ScalarRequestCore(Core):
         unit_string = format(unit, "~")
 
         if unit_string == "":
-            unit_string = "-"
+            return "-"
 
         return unit_string
 
@@ -466,30 +438,20 @@ class ScalarRequestCore(Core):
                     parameters[f.name.lower()][parameter.name.lower()] = {}
 
                     if cls._unique_dataset:
-                        origin_unit, si_unit = cls._unit_tree[f.name][
-                            parameter.name
-                        ].value
+                        origin_unit, si_unit = cls._unit_tree[f.name][parameter.name].value
                     else:
                         dataset = cls._parameter_to_dataset_mapping[f][parameter]
 
-                        origin_unit, si_unit = cls._unit_tree[f.name][dataset.name][
-                            parameter.name
-                        ].value
+                        origin_unit, si_unit = cls._unit_tree[f.name][dataset.name][parameter.name].value
 
-                    parameters[f.name.lower()][parameter.name.lower()][
-                        "origin"
-                    ] = cls._format_unit(origin_unit)
+                    parameters[f.name.lower()][parameter.name.lower()]["origin"] = cls._format_unit(origin_unit)
 
-                    parameters[f.name.lower()][parameter.name.lower()][
-                        "si"
-                    ] = cls._format_unit(si_unit)
+                    parameters[f.name.lower()][parameter.name.lower()]["si"] = cls._format_unit(si_unit)
 
             return parameters
 
         datasets_filter = (
-            pd.Series(dataset, dtype=str)
-            .apply(parse_enumeration_from_template, args=(cls._dataset_base,))
-            .tolist()
+            pd.Series(dataset, dtype=str).apply(parse_enumeration_from_template, args=(cls._dataset_base,)).tolist()
             or cls._dataset_base
         )
 
@@ -508,21 +470,17 @@ class ScalarRequestCore(Core):
 
                 for parameter in cls._dataset_tree[f.name][dataset]:
 
-                    parameters[f.name.lower()][dataset.lower()][
-                        parameter.name.lower()
-                    ] = {}
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()] = {}
 
-                    origin_unit, si_unit = cls._unit_tree[f.name][dataset][
-                        parameter.name
-                    ].value
+                    origin_unit, si_unit = cls._unit_tree[f.name][dataset][parameter.name].value
 
-                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()][
-                        "origin"
-                    ] = cls._format_unit(origin_unit)
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()]["origin"] = cls._format_unit(
+                        origin_unit
+                    )
 
-                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()][
-                        "si"
-                    ] = cls._format_unit(si_unit)
+                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()]["si"] = cls._format_unit(
+                        si_unit
+                    )
 
         return parameters
 
@@ -536,28 +494,19 @@ class ScalarRequestCore(Core):
             towards something else
         :return:
         """
-        # if cls._resolution_type == ResolutionType.FIXED:
-        #     log.warning("resolution filter will be ignored due to fixed resolution")
-        #     filter_ = [cls.resolution]
         if not filter_:
             filter_ = [*cls._resolution_base]
 
-        filter_ = (
-            pd.Series(filter_)
-            .apply(
-                parse_enumeration_from_template, args=(cls._resolution_base, Resolution)
-            )
-            .tolist()
+        return (
+            pd.Series(filter_).apply(parse_enumeration_from_template, args=(cls._resolution_base, Resolution)).tolist()
         )
-
-        return filter_
 
     def _coerce_meta_fields(self, df) -> pd.DataFrame:
         """
-        Method for filed coercion.
+        Method for metadata column coercion.
 
-        :param df:
-        :return:
+        :param df: DataFrame with columns as strings
+        :return: DataFrame with columns coerced to date etc.
         """
         df = df.astype(self._dtype_mapping)
 
@@ -592,20 +541,7 @@ class ScalarRequestCore(Core):
 
         df = self._coerce_meta_fields(df)
 
-        # TODO: exchange with more foreceful filtering if user wants
-        # if self.start_date:
-        #     df = df[
-        #         df[Columns.FROM_DATE.value] <= self.start_date
-        #     ]
-        #
-        # if self.end_date:
-        #     df = df[
-        #         df[Columns.TO_DATE.value] >= self.end_date
-        #     ]
-
-        result = StationsResult(self, df.copy().reset_index(drop=True))
-
-        return result
+        return StationsResult(self, df.copy().reset_index(drop=True))
 
     def filter_by_station_id(self, station_id: Tuple[str, ...]) -> StationsResult:
         """
@@ -622,13 +558,9 @@ class ScalarRequestCore(Core):
 
         df = df[df[Columns.STATION_ID.value].isin(station_id)]
 
-        result = StationsResult(self, df)
+        return StationsResult(self, df)
 
-        return result
-
-    def filter_by_name(
-        self, name: str, first: bool = True, threshold: int = 90
-    ) -> StationsResult:
+    def filter_by_name(self, name: str, first: bool = True, threshold: int = 90) -> StationsResult:
         """
         Method to filter stations for station name using string comparison.
 
@@ -667,9 +599,7 @@ class ScalarRequestCore(Core):
         else:
             df = pd.DataFrame().reindex(columns=df.columns)
 
-        result = StationsResult(stations=self, df=df)
-
-        return result
+        return StationsResult(stations=self, df=df)
 
     def filter_by_rank(
         self,
@@ -708,9 +638,7 @@ class ScalarRequestCore(Core):
         # If num_stations_nearby is higher then the actual amount of stations
         # further indices and distances are added which have to be filtered out
         distances = distances[: min(df.shape[0], rank)]
-        indices_nearest_neighbours = indices_nearest_neighbours[
-            : min(df.shape[0], rank)
-        ]
+        indices_nearest_neighbours = indices_nearest_neighbours[: min(df.shape[0], rank)]
 
         distances_km = np.array(distances * EARTH_RADIUS_KM)
 
@@ -720,13 +648,10 @@ class ScalarRequestCore(Core):
 
         if df.empty:
             log.warning(
-                f"No weather stations were found for coordinate "
-                f"{latitude}°N and {longitude}°E and number {rank}"
+                f"No weather stations were found for coordinate " f"{latitude}°N and {longitude}°E and number {rank}"
             )
 
-        result = StationsResult(self, df.reset_index(drop=True))
-
-        return result
+        return StationsResult(self, df.reset_index(drop=True))
 
     def filter_by_distance(
         self, latitude: float, longitude: float, distance: float, unit: str = "km"
@@ -752,13 +677,9 @@ class ScalarRequestCore(Core):
         distance_in_km = guess(distance, unit, [Distance]).km
 
         # TODO: replace the repeating call to self.all()
-        all_nearby_stations = self.filter_by_rank(
-            latitude, longitude, self.all().df.shape[0]
-        ).df
+        all_nearby_stations = self.filter_by_rank(latitude, longitude, self.all().df.shape[0]).df
 
-        df = all_nearby_stations[
-            all_nearby_stations[Columns.DISTANCE.value] <= distance_in_km
-        ]
+        df = all_nearby_stations[all_nearby_stations[Columns.DISTANCE.value] <= distance_in_km]
 
         if df.empty:
             log.warning(
@@ -766,13 +687,9 @@ class ScalarRequestCore(Core):
                 f"{latitude}°N and {longitude}°E and distance {distance_in_km}km"
             )
 
-        result = StationsResult(stations=self, df=df.reset_index(drop=True))
+        return StationsResult(stations=self, df=df.reset_index(drop=True))
 
-        return result
-
-    def filter_by_bbox(
-        self, left: float, bottom: float, right: float, top: float
-    ) -> StationsResult:
+    def filter_by_bbox(self, left: float, bottom: float, right: float, top: float) -> StationsResult:
         """
         Method to filter stations by bounding box.
 
@@ -800,9 +717,7 @@ class ScalarRequestCore(Core):
             & df[Columns.LONGITUDE.value].apply(lambda x: x in lon_interval)
         ]
 
-        result = StationsResult(stations=self, df=df.reset_index(drop=True))
-
-        return result
+        return StationsResult(stations=self, df=df.reset_index(drop=True))
 
     def filter_by_sql(self, sql: str) -> pd.DataFrame:
         """
@@ -816,11 +731,7 @@ class ScalarRequestCore(Core):
 
         df = duckdb.query_df(df, "data", sql).df()
 
-        df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(
-            self.tz
-        )
+        df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(self.tz)
         df[Columns.TO_DATE.value] = df[Columns.TO_DATE.value].dt.tz_localize(self.tz)
 
-        result = StationsResult(stations=self, df=df.reset_index(drop=True))
-
-        return result
+        return StationsResult(stations=self, df=df.reset_index(drop=True))

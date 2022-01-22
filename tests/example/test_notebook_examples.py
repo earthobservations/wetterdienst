@@ -10,12 +10,9 @@ EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(
-    reason="nbconvert stack has problems, see "
-    "https://github.com/jupyter/jupyter_client/issues/637"
-)
+@pytest.mark.xfail(reason="nbconvert stack has problems, see " "https://github.com/jupyter/jupyter_client/issues/637")
 def test_jupyter_example():
-    """ Test for climate_observations jupyter notebook """
+    """Test for climate_observations jupyter notebook"""
     fixture = NBRegressionFixture(
         diff_ignore=(
             "/metadata/language_info",  # Python version depends on testing

@@ -2,9 +2,9 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import json
-import zipfile
 from datetime import datetime, timedelta
 
+import pandas as pd
 import pytest
 from click.testing import CliRunner
 
@@ -48,6 +48,7 @@ SETTINGS_VALUES = (
 
 
 def test_cli_help():
+    """Test cli help"""
     runner = CliRunner()
 
     result = runner.invoke(cli, [])
@@ -59,41 +60,26 @@ def test_cli_help():
     )
 
 
-# def test_cli_about_parameters(capsys):
-#     runner = CliRunner()
-#
-#     result = runner.invoke(cli, "about coverage --provider=dwd --kind=observation")
-#
-#     assert "precipitation" in result.output
-#     assert "temperature_air" in result.output
-#     assert "weather_phenomena" in result.output
+def test_cli_about_parameters():
+    """Test cli coverage of dwd parameters"""
+    runner = CliRunner()
+
+    result = runner.invoke(cli, "about coverage --provider=dwd --kind=observation")
+
+    assert "precipitation" in result.output
+    assert "temperature_air" in result.output
+    assert "weather_phenomena" in result.output
 
 
-# def test_cli_about_resolutions(capsys):
-#     runner = CliRunner()
-#
-#     result = runner.invoke(cli, "about coverage --provider=dwd --kind=observation")
-#
-#     sys.argv = ["wetterdienst", "dwd", "about", "resolutions"]
-#     cli.cli()
-#     stdout, stderr = capsys.readouterr()
-#
-#     response = stdout
-#     assert "1_minute" in response
-#     assert "hourly" in response
-#     assert "annual" in response
+def test_cli_about_resolutions():
+    """Test cli coverage of dwd resolutions"""
+    runner = CliRunner()
 
+    result = runner.invoke(cli, "about coverage --provider=dwd --kind=observation")
 
-# def test_cli_about_periods(capsys):
-#
-#     sys.argv = ["wetterdienst", "dwd", "about", "periods"]
-#     cli.cli()
-#     stdout, stderr = capsys.readouterr()
-#
-#     response = stdout
-#     assert "historical" in response
-#     assert "recent" in response
-#     assert "now" in response
+    assert "minute_1" in result.output
+    assert "hourly" in result.output
+    assert "annual" in result.output
 
 
 def test_cli_about_coverage(capsys):
@@ -108,100 +94,76 @@ def test_cli_about_coverage(capsys):
 def invoke_wetterdienst_stations_empty(provider, kind, setting, fmt="json"):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
-        f"stations --provider={provider} --kind={kind} "
-        f"{setting} --station=123456 --format={fmt}",
+        f"stations --provider={provider} --kind={kind} " f"{setting} --station=123456 --format={fmt}",
     )
-
-    return result
 
 
 def invoke_wetterdienst_stations_static(provider, kind, setting, station, fmt="json"):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
-        f"stations --provider={provider} --kind={kind} "
-        f"{setting} --station={station} --format={fmt}",
+        f"stations --provider={provider} --kind={kind} " f"{setting} --station={station} --format={fmt}",
     )
-
-    return result
 
 
 def invoke_wetterdienst_stations_export(provider, kind, setting, station, target):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
-        f"stations --provider={provider} --kind={kind} "
-        f"{setting} --station={station} --target={target}",
+        f"stations --provider={provider} --kind={kind} " f"{setting} --station={station} --target={target}",
     )
-
-    return result
 
 
 def invoke_wetterdienst_stations_geo(provider, kind, setting, fmt="json"):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
         f"stations --provider={provider} --kind={kind} "
         f"{setting} --coordinates=51.1280,13.7543 --rank=5 "
         f"--format={fmt}",
     )
 
-    return result
-
 
 def invoke_wetterdienst_values_static(provider, kind, setting, station, fmt="json"):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
-        f"values --provider={provider} --kind={kind} "
-        f"{setting} --station={station} --format={fmt}",
+        f"values --provider={provider} --kind={kind} " f"{setting} --station={station} --format={fmt}",
     )
-
-    return result
 
 
 def invoke_wetterdienst_values_export(provider, kind, setting, station, target):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
-        f"values --provider={provider} --kind={kind} "
-        f"{setting} --station={station} --target={target}",
+        f"values --provider={provider} --kind={kind} " f"{setting} --station={station} --target={target}",
     )
 
-    return result
 
-
-def invoke_wetterdienst_values_static_tidy(
-    provider, kind, setting, station, fmt="json"
-):
+def invoke_wetterdienst_values_static_tidy(provider, kind, setting, station, fmt="json"):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
-        f"values --provider={provider} --kind={kind} "
-        f"{setting} --station={station} --format={fmt} --tidy",
+        f"values --provider={provider} --kind={kind} " f"{setting} --station={station} --format={fmt} --tidy",
     )
-
-    return result
 
 
 def invoke_wetterdienst_values_geo(provider, kind, setting, fmt="json"):
     runner = CliRunner()
 
-    result = runner.invoke(
+    return runner.invoke(
         cli,
         f"values --provider={provider} --kind={kind} {setting} "
         f"--coordinates=51.1280,13.7543 --rank=5 --format={fmt}",
     )
-
-    return result
 
 
 def test_no_provider():
@@ -209,9 +171,7 @@ def test_no_provider():
 
     result = runner.invoke(cli, "stations --provider=abc --kind=abc")
 
-    assert (
-        "Error: Invalid value for '--provider': invalid choice: abc." in result.output
-    )
+    assert "Error: Invalid value for '--provider': invalid choice: abc." in result.output
 
 
 def test_no_kind():
@@ -222,7 +182,7 @@ def test_no_kind():
     assert "Invalid value for '--kind': invalid choice: abc." in result.output
 
 
-def test_data_range(capsys):
+def test_data_range():
     runner = CliRunner()
 
     result = runner.invoke(
@@ -232,10 +192,7 @@ def test_data_range(capsys):
     )
 
     assert isinstance(result.exception, TypeError)
-    assert (
-        "Combination of provider ECCC and kind OBSERVATION requires start and end date"
-        in str(result.exception)
-    )
+    assert "Combination of provider ECCC and kind OBSERVATION requires start and end date" in str(result.exception)
 
 
 @pytest.mark.parametrize(
@@ -254,14 +211,10 @@ def test_cli_stations_json(provider, kind, setting, station_id, station_name):
     assert station_name in station_names
 
 
-@pytest.mark.parametrize(
-    "provider,kind,setting,station_id,station_name", SETTINGS_STATIONS
-)
+@pytest.mark.parametrize("provider,kind,setting,station_id,station_name", SETTINGS_STATIONS)
 def test_cli_stations_empty(provider, kind, setting, station_id, station_name, caplog):
 
-    result = invoke_wetterdienst_stations_empty(
-        provider=provider, kind=kind, setting=setting, fmt="json"
-    )
+    result = invoke_wetterdienst_stations_empty(provider=provider, kind=kind, setting=setting, fmt="json")
 
     assert isinstance(result.exception, SystemExit)
     assert "ERROR" in caplog.text
@@ -304,11 +257,9 @@ def test_cli_stations_csv(provider, kind, setting, station_id, station_name):
     "provider,kind,setting,station_id,station_name",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_excel(
-    provider, kind, setting, station_id, station_name, tmpdir_factory
-):
+def test_cli_stations_excel(provider, kind, setting, station_id, station_name, tmpdir_factory):
 
-    # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")
+    # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")  # Noqa:E800
     filename = "stations.xlsx"
 
     _ = invoke_wetterdienst_stations_export(
@@ -319,10 +270,10 @@ def test_cli_stations_excel(
         target=f"file://{filename}",
     )
 
-    with zipfile.ZipFile(filename, "r") as zip_file:
-        payload = zip_file.read("xl/worksheets/sheet1.xml")
+    df = pd.read_excel("stations.xlsx", sheet_name="Sheet1", dtype=str)
 
-        assert bytes(station_name, encoding="utf8") in payload
+    assert "name" in df
+    assert station_name in df["name"].values
 
 
 @pytest.mark.parametrize(
@@ -351,9 +302,7 @@ def test_cli_values_json(setting, expected_columns, capsys, caplog):
     assert set(first.keys()).issuperset(expected_columns)
 
 
-@pytest.mark.parametrize(
-    "provider,kind,setting,station_id,station_name", SETTINGS_VALUES
-)
+@pytest.mark.parametrize("provider,kind,setting,station_id,station_name", SETTINGS_VALUES)
 def test_cli_values_json_tidy(provider, kind, setting, station_id, station_name):
 
     result = invoke_wetterdienst_values_static_tidy(
@@ -388,10 +337,7 @@ def test_cli_values_geojson(provider, kind, setting, station_id, station_name, c
         provider=provider, kind=kind, setting=setting, station=station_id, fmt="geojson"
     )
 
-    assert (
-        "Error: Invalid value for '--format': invalid choice: "
-        "geojson. (choose from json, csv)" in result.output
-    )
+    assert "Error: Invalid value for '--format': invalid choice: " "geojson. (choose from json, csv)" in result.output
 
 
 @pytest.mark.parametrize(
@@ -410,11 +356,9 @@ def test_cli_values_csv(provider, kind, setting, station_id, station_name):
     "provider,kind,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_excel(
-    provider, kind, setting, station_id, station_name, tmpdir_factory
-):
+def test_cli_values_excel(provider, kind, setting, station_id, station_name, tmpdir_factory):
 
-    # filename = tmpdir_factory.mktemp("data").join("values.xlsx")
+    # filename = tmpdir_factory.mktemp("data").join("values.xlsx") # Noqa:E800
     filename = "values.xlsx"
 
     _ = invoke_wetterdienst_values_export(
@@ -425,12 +369,10 @@ def test_cli_values_excel(
         target=f"file://{filename}",
     )
 
-    # pd.read_excel("values.xlsx")
+    df = pd.read_excel("values.xlsx", sheet_name="Sheet1", dtype=str)
 
-    with zipfile.ZipFile(filename, "r") as zip_file:
-        payload = zip_file.read("xl/worksheets/sheet1.xml")
-
-        assert bytes(station_id, encoding="utf8") in payload
+    assert "station_id" in df
+    assert station_id in df["station_id"].values
 
 
 @pytest.mark.parametrize(
@@ -442,10 +384,7 @@ def test_cli_values_format_unknown(provider, kind, setting, station_id, station_
         provider=provider, kind=kind, setting=setting, station=station_id, fmt="foobar"
     )
 
-    assert (
-        "Error: Invalid value for '--format': "
-        "invalid choice: foobar. (choose from json, csv)" in result.output
-    )
+    assert "Error: Invalid value for '--format': " "invalid choice: foobar. (choose from json, csv)" in result.output
 
 
 @pytest.mark.parametrize(
@@ -454,9 +393,7 @@ def test_cli_values_format_unknown(provider, kind, setting, station_id, station_
 )
 def test_cli_stations_geospatial(provider, kind, setting, station_id, station_name):
 
-    result = invoke_wetterdienst_stations_geo(
-        provider=provider, kind=kind, setting=setting, fmt="json"
-    )
+    result = invoke_wetterdienst_stations_geo(provider=provider, kind=kind, setting=setting, fmt="json")
 
     response = json.loads(result.output)
 
@@ -471,9 +408,7 @@ def test_cli_stations_geospatial(provider, kind, setting, station_id, station_na
 )
 def test_cli_values_geospatial(provider, kind, setting, station_id, station_name):
 
-    result = invoke_wetterdienst_values_geo(
-        provider=provider, kind=kind, setting=setting, fmt="json"
-    )
+    result = invoke_wetterdienst_values_geo(provider=provider, kind=kind, setting=setting, fmt="json")
 
     response = json.loads(result.output)
 

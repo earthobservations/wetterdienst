@@ -25,13 +25,11 @@ log = logging.getLogger(__name__)
 # Parameter names used to create full 1 minute precipitation dataset wherever those
 # columns are missing (which is the case for non historical data)
 PRECIPITATION_PARAMETERS = (
-    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,  # Noqa: E501, B950
-    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,  # Noqa: E501, B950
+    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,
+    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,
 )
 
-PRECIPITATION_MINUTE_1_QUALITY = (
-    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.QUALITY
-)
+PRECIPITATION_MINUTE_1_QUALITY = DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.QUALITY
 
 
 def parse_climate_observations_data(
@@ -60,9 +58,7 @@ def parse_climate_observations_data(
         for filename_and_file in filenames_and_files
     ]
 
-    df = pd.concat(data).reset_index(drop=True)
-
-    return df
+    return pd.concat(data).reset_index(drop=True)
 
 
 def _parse_climate_observations_data(
@@ -87,17 +83,13 @@ def _parse_climate_observations_data(
 
     try:
         df = pd.read_csv(
-            filepath_or_buffer=BytesIO(
-                file.read().replace(b" ", b"")
-            ),  # prevent leading/trailing whitespace
+            filepath_or_buffer=BytesIO(file.read().replace(b" ", b"")),  # prevent leading/trailing whitespace
             sep=STATION_DATA_SEP,
             dtype="str",
             na_values=NA_STRING,
         )
     except pd.errors.ParserError:
-        log.warning(
-            f"The file representing {filename} could not be parsed and is skipped."
-        )
+        log.warning(f"The file representing {filename} could not be parsed and is skipped.")
         return pd.DataFrame()
     except ValueError:
         log.warning(f"The file representing {filename} is None and is skipped.")
@@ -118,24 +110,17 @@ def _parse_climate_observations_data(
         # information. Also rename column with true local time to english one
         df = df.rename(
             columns={
-                "mess_datum_woz": (
-                    DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value  # Noqa: E501, B950
-                ),
+                "mess_datum_woz": DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             }
         )
 
         # Duplicate the date column to end of interval column
-        df[DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[
-            DwdOrigColumns.DATE.value
-        ]
+        df[DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
 
         # Fix real date column by cutting of minutes
         df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
 
-    if (
-        resolution == Resolution.MINUTE_1
-        and dataset == DwdObservationDataset.PRECIPITATION
-    ):
+    if resolution == Resolution.MINUTE_1 and dataset == DwdObservationDataset.PRECIPITATION:
         # Need to unfold historical data, as it is encoded in its run length e.g.
         # from time X to time Y precipitation is 0
         if period == Period.HISTORICAL:
@@ -177,6 +162,4 @@ def _parse_climate_observations_data(
                     df[parameter] = pd.NA
 
     # Assign meaningful column names (baseline).
-    df = df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
-
-    return df
+    return df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)

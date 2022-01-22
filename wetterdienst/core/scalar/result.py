@@ -20,12 +20,7 @@ if TYPE_CHECKING:
 
 
 class StationsResult(ExportMixin):
-    def __init__(
-        self,
-        stations: Union["ScalarRequestCore", "DwdMosmixRequest"],
-        df: pd.DataFrame,
-        **kwargs
-    ) -> None:
+    def __init__(self, stations: Union["ScalarRequestCore", "DwdMosmixRequest"], df: pd.DataFrame, **kwargs) -> None:
         # TODO: add more attributes from ScalarStations class
         self.stations = stations
         self.df = df
@@ -146,7 +141,5 @@ class ValuesResult(ExportMixin):
         raise NotImplementedError()
 
     def filter_by_date(self, date: str) -> pd.DataFrame:
-        self.df = filter_by_date_and_resolution(
-            self.df, date=date, resolution=self.stations.resolution
-        )
+        self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
         return self.df

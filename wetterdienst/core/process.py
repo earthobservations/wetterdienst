@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-# import datetime
 from datetime import datetime
 from typing import Optional, Tuple
 
@@ -15,9 +14,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import mktimerange
 
 
-def create_date_range(
-    date: str, resolution: Resolution
-) -> Tuple[Optional[datetime], Optional[datetime]]:
+def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[datetime], Optional[datetime]]:
     date_from, date_to = None, None
 
     if "/" in date:
@@ -54,9 +51,7 @@ def create_date_range(
     return date_from, date_to
 
 
-def filter_by_date_and_resolution(
-    df: pd.DataFrame, date: str, resolution: Resolution
-) -> pd.DataFrame:
+def filter_by_date_and_resolution(df: pd.DataFrame, date: str, resolution: Resolution) -> pd.DataFrame:
     """
     Filter Pandas DataFrame by date or date interval.
 
@@ -98,14 +93,10 @@ def filter_by_date_and_resolution(
             Resolution.MONTHLY,
         ):
             date_from, date_to = mktimerange(resolution, date_from, date_to)
-            expression = (date_from <= df[Columns.FROM_DATE.value]) & (
-                df[Columns.TO_DATE.value] <= date_to
-            )
+            expression = (date_from <= df[Columns.FROM_DATE.value]) & (df[Columns.TO_DATE.value] <= date_to)
         else:
-            expression = (date_from <= df[Columns.DATE.value]) & (
-                df[Columns.DATE.value] <= date_to
-            )
-        df = df[expression]
+            expression = (date_from <= df[Columns.DATE.value]) & (df[Columns.DATE.value] <= date_to)
+        return df[expression]
 
     # Filter by specific date.
     else:
@@ -118,11 +109,7 @@ def filter_by_date_and_resolution(
             Resolution.MONTHLY,
         ):
             date_from, date_to = mktimerange(resolution, date)
-            expression = (date_from <= df[Columns.FROM_DATE.value]) & (
-                df[Columns.TO_DATE.value] <= date_to
-            )
+            expression = (date_from <= df[Columns.FROM_DATE.value]) & (df[Columns.TO_DATE.value] <= date_to)
         else:
             expression = date == df[Columns.DATE.value]
-        df = df[expression]
-
-    return df
+        return df[expression]

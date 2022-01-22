@@ -23,12 +23,13 @@ Setup
     brew install gdal
     pip install wradlib
 
-"""
+"""  # Noqa:D205,D400
 import logging
 import os
 from itertools import chain
 
 import matplotlib.pyplot as plt
+import pytest
 import wradlib as wrl
 
 from wetterdienst.provider.dwd.radar import (
@@ -45,10 +46,7 @@ log = logging.getLogger()
 
 
 def plot(data: wrl.io.XRadVolume):
-    """
-    Convenience function for plotting radar data.
-    """
-
+    """Plot radar data with prefixed settings."""
     # Get first sweep in volume.
     swp0 = data[0].data
 
@@ -64,9 +62,7 @@ def plot(data: wrl.io.XRadVolume):
 
 
 def radar_info(data: dict):
-    """
-    Display data from radar request.
-    """
+    """Display data from radar request."""
     print(data)
 
     return
@@ -77,8 +73,9 @@ def radar_info(data: dict):
         print(f"- {key}: {value}")
 
 
+@pytest.mark.remote
 def radar_scan_precip():
-
+    """Retrieve radar sweep scan of precipitation provided by DWD."""
     request_velocity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         start_date=DwdRadarDate.MOST_RECENT,
@@ -94,10 +91,7 @@ def radar_scan_precip():
         subset=DwdRadarDataSubset.POLARIMETRIC,
     )
 
-    log.info(
-        f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at "
-        f"{request_velocity.start_date}"
-    )
+    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at " f"{request_velocity.start_date}")
 
     # Submit requests.
     results = chain(request_velocity.query(), request_reflectivity.query())
@@ -118,6 +112,7 @@ def radar_scan_precip():
 
 
 def main():
+    """Run example."""
     radar_scan_precip()
 
 

@@ -53,9 +53,7 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
     try:
         zip_file = download_file(remote_file, ttl=CacheExpiry.FIVE_MINUTES)
     except InvalidURL as e:
-        raise InvalidURL(
-            f"Error: the station data {remote_file} could not be reached."
-        ) from e
+        raise InvalidURL(f"Error: the station data {remote_file} could not be reached.") from e
     except Exception:
         raise FailedDownload(f"Download failed for {remote_file}")
 
@@ -75,9 +73,7 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
                 return file_in_bytes
 
         # If whatsoever no file was found and returned already throw exception
-        raise ProductFileNotFound(
-            f"The archive of {remote_file} does not hold a 'produkt' file."
-        )
+        raise ProductFileNotFound(f"The archive of {remote_file} does not hold a 'produkt' file.")
 
     except BadZipFile as e:
         raise BadZipFile(f"The archive of {remote_file} seems to be corrupted.") from e

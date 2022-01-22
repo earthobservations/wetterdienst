@@ -15,7 +15,7 @@ Setup
 
     pip install wetterdienst[sql]
 
-"""
+"""  # Noqa:D205,D400
 import logging
 
 from wetterdienst.provider.dwd.observation import (
@@ -28,7 +28,7 @@ log = logging.getLogger()
 
 
 def sql_example():
-
+    """Retrieve temperature data by DWD and filter by sql statement."""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
@@ -41,10 +41,7 @@ def sql_example():
 
     stations = request.filter_by_station_id(station_id=(1048,))
 
-    sql = (
-        "SELECT * FROM data WHERE "
-        "parameter='temperature_air_mean_200' AND value < -7.0;"
-    )
+    sql = "SELECT * FROM data WHERE " "parameter='temperature_air_mean_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
 
     # Acquire observation values and filter with SQL.
@@ -55,6 +52,7 @@ def sql_example():
 
 
 def main():
+    """Run example."""
     logging.basicConfig(level=logging.INFO)
     sql_example()
 

@@ -7,7 +7,7 @@ About
 =====
 Acquire station information from DWD.
 
-"""
+"""  # Noqa:D205,D400
 import logging
 from datetime import datetime
 
@@ -22,6 +22,7 @@ log = logging.getLogger()
 
 
 def station_example():
+    """Retrieve stations of DWD that measure temperature."""
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
@@ -38,6 +39,7 @@ def station_example():
 
 
 def main():
+    """Run example."""
     logging.basicConfig(level=logging.INFO)
     station_example()
 

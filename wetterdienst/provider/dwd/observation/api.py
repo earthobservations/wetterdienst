@@ -88,9 +88,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return:
         """
-        return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(
-            self.stations.stations.resolution
-        )
+        return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.stations.stations.resolution)
 
     def __eq__(self, other):
         """
@@ -99,8 +97,7 @@ class DwdObservationValues(ScalarValuesCore):
         :return:
         """
         return super(DwdObservationValues, self).__eq__(other) and (
-            self.stations.resolution == other.stations.resolution
-            and self.stations.period == other.stations.period
+            self.stations.resolution == other.stations.resolution and self.stations.period == other.stations.period
         )
 
     def __str__(self):
@@ -108,9 +105,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return:
         """
-        periods_joined = "& ".join(
-            [period_type.value for period_type in self.stations.period]
-        )
+        periods_joined = "& ".join([period_type.value for period_type in self.stations.period])
 
         return ", ".join(
             [
@@ -139,10 +134,7 @@ class DwdObservationValues(ScalarValuesCore):
         periods_and_date_ranges = []
 
         for period in self.stations.period:
-            if (
-                self.stations.resolution in HIGH_RESOLUTIONS
-                and period == Period.HISTORICAL
-            ):
+            if self.stations.resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(station_id, dataset)
                 for date_range in date_ranges:
                     periods_and_date_ranges.append((period, date_range))
@@ -158,12 +150,9 @@ class DwdObservationValues(ScalarValuesCore):
 
             log.info(f"Acquiring observations data for {parameter_identifier}.")
 
-            if not check_dwd_observations_dataset(
-                dataset, self.stations.resolution, period
-            ):
+            if not check_dwd_observations_dataset(dataset, self.stations.resolution, period):
                 log.info(
-                    f"Invalid combination {dataset.value}/"
-                    f"{self.stations.resolution.value}/{period} is skipped."
+                    f"Invalid combination {dataset.value}/" f"{self.stations.resolution.value}/{period} is skipped."
                 )
 
                 continue
@@ -180,26 +169,16 @@ class DwdObservationValues(ScalarValuesCore):
                     station_id,
                     date_range,
                 )
-                log.info(
-                    f"No files found for {parameter_identifier}. Station will be skipped."
-                )
+                log.info(f"No files found for {parameter_identifier}. Station will be skipped.")
                 continue
 
-            filenames_and_files = download_climate_observations_data_parallel(
-                remote_files
-            )
+            filenames_and_files = download_climate_observations_data_parallel(remote_files)
 
-            period_df = parse_climate_observations_data(
-                filenames_and_files, dataset, self.stations.resolution, period
-            )
+            period_df = parse_climate_observations_data(filenames_and_files, dataset, self.stations.resolution, period)
 
             # Filter out values which already are in the DataFrame
             try:
-                period_df = period_df[
-                    ~period_df[DwdColumns.DATE.value].isin(
-                        parameter_df[DwdColumns.DATE.value]
-                    )
-                ]
+                period_df = period_df[~period_df[DwdColumns.DATE.value].isin(parameter_df[DwdColumns.DATE.value])]
             except KeyError:
                 pass
 
@@ -214,7 +193,7 @@ class DwdObservationValues(ScalarValuesCore):
                 parameter_df[Columns.DATE.value] = pd.to_datetime(
                     parameter_df[Columns.DATE.value], format=self._datetime_format
                 )
-                parameter_df = self._fix_timestamps(parameter_df)
+                return self._fix_timestamps(parameter_df)
 
         return parameter_df
 
@@ -238,20 +217,20 @@ class DwdObservationValues(ScalarValuesCore):
         """
         Implementation of _tidy_up_df for DWD Observations
 
-        :param df:
-        :param dataset:
-        :return:
+        :param df: untidy DataFrame
+        :param dataset: dataset enumeration
+        :return: tidied DataFrame
         """
 
         droppable_columns = [
             # Hourly
             # Cloud type
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,  # noqa:E501
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,  # noqa:E501
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,  # noqa:E501
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,  # noqa:E501
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
+            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
             # Cloudiness
-            DwdObservationDatasetTree.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,  # noqa:E501
+            DwdObservationDatasetTree.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,
             # Solar
             DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value,
             DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
@@ -267,41 +246,29 @@ class DwdObservationValues(ScalarValuesCore):
 
         resolution = self.stations.stations.resolution
 
-        if (
-            resolution == Resolution.DAILY
-            and dataset == DwdObservationDataset.CLIMATE_SUMMARY
-        ):
-            quality_wind = df.pop(
-                DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value
-            )
-            quality_general = df.pop(
-                DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value
-            )
+        if dataset == DwdObservationDataset.CLIMATE_SUMMARY:
+            if resolution == Resolution.DAILY:
+                quality_wind = df.pop(DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value)
+                quality_general = df.pop(DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
 
-            quality = pd.concat(
-                [
-                    pd.Series(repeat(quality_wind.tolist(), 2)).explode(),
-                    pd.Series(repeat(quality_general.tolist(), 12)).explode(),
-                ]
-            )
+                quality = pd.concat(
+                    [
+                        pd.Series(repeat(quality_wind.tolist(), 2)).explode(),
+                        pd.Series(repeat(quality_general.tolist(), 12)).explode(),
+                    ]
+                )
 
-        elif (
-            resolution in (Resolution.MONTHLY, Resolution.ANNUAL)
-            and dataset == DwdObservationDataset.CLIMATE_SUMMARY
-        ):
-            quality_general = df.pop(
-                DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value
-            )
-            quality_precipitation = df.pop(
-                DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value  # noqa: E501
-            )
-            quality = pd.concat(
-                [
-                    pd.Series(repeat(quality_general, 9)).explode(),
-                    pd.Series(repeat(quality_precipitation, 2)).explode(),
-                ]
-            )
-
+            elif resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
+                quality_general = df.pop(DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
+                quality_precipitation = df.pop(
+                    DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value
+                )
+                quality = pd.concat(
+                    [
+                        pd.Series(repeat(quality_general, 9)).explode(),
+                        pd.Series(repeat(quality_precipitation, 2)).explode(),
+                    ]
+                )
         else:
             quality = df.pop(df.columns[2])
             quality = pd.Series(repeat(quality, df.shape[1])).explode()
@@ -333,9 +300,7 @@ class DwdObservationValues(ScalarValuesCore):
         :param series:
         :return:
         """
-        return pd.to_datetime(series, format=self._datetime_format).dt.tz_localize(
-            self.data_tz
-        )
+        return pd.to_datetime(series, format=self._datetime_format).dt.tz_localize(self.data_tz)
 
     def _coerce_irregular_parameter(self, series: pd.Series) -> pd.Series:
         """
@@ -354,16 +319,12 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return:
         """
-        hcnm = {
+        return {
             parameter.value: parameter.name.lower()
             for parameter in DwdObservationParameter[self.stations.resolution.name]
         }
 
-        return hcnm
-
-    def _get_historical_date_ranges(
-        self, station_id: str, dataset: DwdObservationDataset
-    ) -> List[str]:
+    def _get_historical_date_ranges(self, station_id: str, dataset: DwdObservationDataset) -> List[str]:
         """
         Get particular files for historical data which for high resolution is
         released in data chunks e.g. decades or monthly chunks
@@ -372,9 +333,7 @@ class DwdObservationValues(ScalarValuesCore):
         :param dataset:
         :return:
         """
-        file_index = create_file_index_for_climate_observations(
-            dataset, self.stations.resolution, Period.HISTORICAL
-        )
+        file_index = create_file_index_for_climate_observations(dataset, self.stations.resolution, Period.HISTORICAL)
 
         file_index = file_index[(file_index[Columns.STATION_ID.value] == station_id)]
 
@@ -450,22 +409,10 @@ class DwdObservationRequest(ScalarRequestCore):
         """
         historical_end = self._now_local.replace(month=1, day=1)
 
-        # if self.start_date < historical_end:
-        #     historical_begin = self.start_date.tz_convert(historical_end.tz)
-        # else:
-        #     historical_begin = historical_end + pd.tseries.offsets.DateOffset(years=-1)
-
         # a year that is way before any data is collected
-        historical_begin = pd.Timestamp(
-            datetime(year=1678, month=1, day=1)
-        ).tz_localize(historical_end.tz)
+        historical_begin = pd.Timestamp(datetime(year=1678, month=1, day=1)).tz_localize(historical_end.tz)
 
-        # TODO: Use date
-        historical_interval = pd.Interval(
-            left=historical_begin, right=historical_end, closed="both"
-        )
-
-        return historical_interval
+        return pd.Interval(left=historical_begin, right=historical_end, closed="both")
 
     @property
     def _recent_interval(self) -> pd.Interval:
@@ -478,12 +425,7 @@ class DwdObservationRequest(ScalarRequestCore):
         recent_end = self._now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - pd.Timedelta(days=500)
 
-        # TODO: use date
-        recent_interval = pd.Interval(
-            left=recent_begin, right=recent_end, closed="both"
-        )
-
-        return recent_interval
+        return pd.Interval(left=recent_begin, right=recent_end, closed="both")
 
     @property
     def _now_interval(self) -> pd.Interval:
@@ -496,9 +438,7 @@ class DwdObservationRequest(ScalarRequestCore):
         now_end = self._now_local
         now_begin = now_end.replace(hour=0, minute=0, second=0) - pd.Timedelta(days=1)
 
-        now_interval = pd.Interval(left=now_begin, right=now_end, closed="both")
-
-        return now_interval
+        return pd.Interval(left=now_begin, right=now_end, closed="both")
 
     def _get_periods(self) -> List[Period]:
         """
@@ -532,9 +472,7 @@ class DwdObservationRequest(ScalarRequestCore):
         """
         series = super(DwdObservationRequest, self)._parse_station_id(series)
 
-        series = series.str.pad(5, "left", "0")
-
-        return series
+        return series.str.pad(5, "left", "0")
 
     def __init__(
         self,
@@ -567,10 +505,7 @@ class DwdObservationRequest(ScalarRequestCore):
         )
 
         if self.start_date and self.period:
-            log.warning(
-                f"start_date and end_date filtering limited to defined "
-                f"periods {self.period}"
-            )
+            log.warning(f"start_date and end_date filtering limited to defined " f"periods {self.period}")
 
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
@@ -590,10 +525,10 @@ class DwdObservationRequest(ScalarRequestCore):
         :param language:
         :return:
         """
+        from wetterdienst.provider.dwd.observation.fields import read_description
+
         dataset = parse_enumeration_from_template(dataset, DwdObservationDataset)
-        resolution = parse_enumeration_from_template(
-            resolution, cls._resolution_base, Resolution
-        )
+        resolution = parse_enumeration_from_template(resolution, cls._resolution_base, Resolution)
         period = parse_enumeration_from_template(period, cls._period_base, Period)
 
         file_index = _create_file_index_for_dwd_server(
@@ -610,18 +545,12 @@ class DwdObservationRequest(ScalarRequestCore):
         else:
             raise ValueError("Only language 'en' or 'de' supported")
 
-        file_index = file_index[
-            file_index[DwdColumns.FILENAME.value].str.contains(file_prefix)
-        ]
+        file_index = file_index[file_index[DwdColumns.FILENAME.value].str.contains(file_prefix)]
 
         description_file_url = str(file_index[DwdColumns.FILENAME.value].tolist()[0])
         log.info(f"Acquiring field information from {description_file_url}")
 
-        from wetterdienst.provider.dwd.observation.fields import read_description
-
-        document = read_description(description_file_url, language=language)
-
-        return document
+        return read_description(description_file_url, language=language)
 
     def _all(self) -> pd.DataFrame:
         """
@@ -638,38 +567,23 @@ class DwdObservationRequest(ScalarRequestCore):
             for period in reversed(self.period):
                 if not check_dwd_observations_dataset(dataset, self.resolution, period):
                     log.warning(
-                        f"The combination of {dataset.value}, "
-                        f"{self.resolution.value}, {period.value} is invalid."
+                        f"The combination of {dataset.value}, " f"{self.resolution.value}, {period.value} is invalid."
                     )
 
                     continue
 
-                df = create_meta_index_for_climate_observations(
-                    dataset, self.resolution, period
-                )
+                df = create_meta_index_for_climate_observations(dataset, self.resolution, period)
 
-                file_index = create_file_index_for_climate_observations(
-                    dataset, self.resolution, period
-                )
+                file_index = create_file_index_for_climate_observations(dataset, self.resolution, period)
 
-                df = df[
-                    df.loc[:, Columns.STATION_ID.value].isin(
-                        file_index[Columns.STATION_ID.value]
-                    )
-                ]
+                df = df[df.loc[:, Columns.STATION_ID.value].isin(file_index[Columns.STATION_ID.value])]
 
                 if not stations_df.empty:
-                    df = df[
-                        ~df[Columns.STATION_ID.value].isin(
-                            stations_df[Columns.STATION_ID.value]
-                        )
-                    ]
+                    df = df[~df[Columns.STATION_ID.value].isin(stations_df[Columns.STATION_ID.value])]
 
                 stations_df = stations_df.append(df)
 
         if not stations_df.empty:
-            stations_df = stations_df.sort_values(
-                [Columns.STATION_ID.value], key=lambda x: x.astype(int)
-            )
+            return stations_df.sort_values([Columns.STATION_ID.value], key=lambda x: x.astype(int))
 
         return stations_df

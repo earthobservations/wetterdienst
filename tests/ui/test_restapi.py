@@ -65,10 +65,7 @@ def test_data_range(capsys):
         },
     )
 
-    assert (
-        "Combination of provider ECCC and kind OBSERVATION requires start and end date"
-        in response.text
-    )
+    assert "Combination of provider ECCC and kind OBSERVATION requires start and end date" in response.text
 
 
 def test_dwd_stations_basic():
@@ -194,9 +191,7 @@ def test_dwd_values_no_parameter():
     )
 
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
-    }
+    assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
 
 def test_dwd_values_no_resolution():
@@ -213,9 +208,7 @@ def test_dwd_values_no_resolution():
     )
 
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "Query arguments 'parameter', 'resolution' and 'date' are required"
-    }
+    assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
 
 @pytest.mark.sql
@@ -280,8 +273,7 @@ def test_dwd_values_sql_tidy(dicts_are_same):
             "parameter": "kl",
             "resolution": "daily",
             "date": "2019-12-01/2019-12-31",
-            "sql-values": "SELECT * FROM data "
-            "WHERE parameter='temperature_air_max_200' AND value < 1.5",
+            "sql-values": "SELECT * FROM data " "WHERE parameter='temperature_air_max_200' AND value < 1.5",
             "si-units": False,
         },
     )

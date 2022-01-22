@@ -38,9 +38,7 @@ class Coordinates:
         return np.radians(self.get_coordinates())
 
     def __eq__(self, other):
-        return np.array_equal(self.latitudes, other.latitudes) and np.array_equal(
-            self.longitudes, other.longitudes
-        )
+        return np.array_equal(self.latitudes, other.latitudes) and np.array_equal(self.longitudes, other.longitudes)
 
 
 def derive_nearest_neighbours(
@@ -67,13 +65,11 @@ def derive_nearest_neighbours(
     """
     points = np.c_[np.radians(latitudes), np.radians(longitudes)]
     distance_tree = cKDTree(points)
-    return distance_tree.query(
-        coordinates.get_coordinates_in_radians(), k=number_nearby
-    )
+    return distance_tree.query(coordinates.get_coordinates_in_radians(), k=number_nearby)
 
 
 def convert_dm_to_dd(dms: float) -> float:
-    """ Convert degree minutes to decimal degree """
+    """Convert degree minutes to decimal degree"""
     degrees, minutes = divmod(dms, 1)
 
     decimals = round(minutes / 60 * 100, 2)

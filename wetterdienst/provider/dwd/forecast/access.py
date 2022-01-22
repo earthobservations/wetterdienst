@@ -38,12 +38,18 @@ class KMLReader:
 
         self.dwdfs = NetworkFilesystemManager.get(ttl=CacheExpiry.FIVE_MINUTES)
 
-    def download(self, url: str):
-        # https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests  # noqa:E501,B950
+    def download(self, url: str) -> BytesIO:
+        """Download kml file as bytes.
+        https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
 
-        # block_size: int or None
-        #             Bytes to download in one request; use instance value if None. If
-        #             zero, will return a streaming Requests file-like instance.
+        block_size: int or None
+                    Bytes to download in one request; use instance value if None. If
+                    zero, will return a streaming Requests file-like instance.
+
+        :param url: url string to kml file
+        :return: kml file as bytes
+        """
+
         response = self.dwdfs.open(url, block_size=0)
         total = self.dwdfs.size(url)
 
@@ -71,8 +77,7 @@ class KMLReader:
         """
         buffer = self.download(url)
         kmz = ZipFile(buffer, "r")
-        kml = kmz.open(kmz.namelist()[0], "r").read()
-        return kml
+        return kmz.open(kmz.namelist()[0], "r").read()
 
     def read(self, url: str):
         """
@@ -95,14 +100,9 @@ class KMLReader:
         }
 
         # Get Basic Metadata
-        prod_definition = root.findall(
-            "kml:Document/kml:ExtendedData/dwd:ProductDefinition", root.nsmap
-        )[0]
+        prod_definition = root.findall("kml:Document/kml:ExtendedData/dwd:ProductDefinition", root.nsmap)[0]
 
-        self.metadata = {
-            k: prod_definition.find(f"{{{root.nsmap['dwd']}}}{v}").text
-            for k, v in prod_items.items()
-        }
+        self.metadata = {k: prod_definition.find(f"{{{root.nsmap['dwd']}}}{v}").text for k, v in prod_items.items()}
         self.metadata["issue_time"] = pd.Timestamp(self.metadata["issue_time"])
 
         # Get time steps.
@@ -110,9 +110,7 @@ class KMLReader:
             "kml:Document/kml:ExtendedData/dwd:ProductDefinition/dwd:ForecastTimeSteps",
             root.nsmap,
         )[0]
-        self.timesteps = DatetimeIndex(
-            [pd.Timestamp(i.text) for i in timesteps.getchildren()]
-        )
+        self.timesteps = DatetimeIndex([pd.Timestamp(i.text) for i in timesteps.getchildren()])
 
         # Find all kml:Placemark items.
         self.items = root.findall("kml:Document/kml:Placemark", root.nsmap)
@@ -131,25 +129,19 @@ class KMLReader:
         for station_forecast in self.iter_items():
             station_ids = station_forecast.find("kml:name", self.root.nsmap).text
 
-            measurement_list = station_forecast.findall(
-                "kml:ExtendedData/dwd:Forecast", self.root.nsmap
-            )
+            measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", self.root.nsmap)
 
             data_dict = {"station_id": station_ids, "datetime": self.timesteps}
 
             for measurement_item in measurement_list:
 
-                measurement_parameter = measurement_item.get(
-                    f"{{{self.root.nsmap['dwd']}}}elementName"
-                )
+                measurement_parameter = measurement_item.get(f"{{{self.root.nsmap['dwd']}}}elementName")
 
                 if measurement_parameter.lower() in self.parameters:
                     measurement_string = measurement_item.getchildren()[0].text
 
                     measurement_values = " ".join(measurement_string.split()).split(" ")
-                    measurement_values = [
-                        np.nan if i == "-" else float(i) for i in measurement_values
-                    ]
+                    measurement_values = [np.nan if i == "-" else float(i) for i in measurement_values]
 
                     assert len(measurement_values) == len(  # noqa:S101
                         self.timesteps

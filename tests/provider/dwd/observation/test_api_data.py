@@ -42,7 +42,7 @@ def test_dwd_observation_data_api():
 
     assert request.parameter == [
         (
-            DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,  # Noqa: E501, B950
+            DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
             DwdObservationDataset.CLIMATE_SUMMARY,
         )
     ]
@@ -50,7 +50,7 @@ def test_dwd_observation_data_api():
 
 @pytest.mark.remote
 def test_dwd_observation_data_dataset():
-    """ Request a parameter set"""
+    """Request a parameter set"""
     expected = DwdObservationRequest(
         parameter=["kl"],
         resolution="daily",
@@ -98,7 +98,7 @@ def test_dwd_observation_data_dataset():
 
 
 def test_dwd_observation_data_parameter():
-    """ Test parameter given as single value without dataset """
+    """Test parameter given as single value without dataset"""
     request = DwdObservationRequest(
         parameter=["precipitation_height"],
         resolution="daily",
@@ -118,22 +118,18 @@ def test_dwd_observation_data_parameter():
         period=["recent", "historical"],
     )
 
-    assert request.parameter == [
-        (DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)
-    ]
+    assert request.parameter == [(DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)]
 
 
 def test_dwd_observation_data_parameter_dataset_pairs():
-    """ Test parameters given as parameter - dataset pair """
+    """Test parameters given as parameter - dataset pair"""
     request = DwdObservationRequest(
         parameter=[("climate_summary", "climate_summary")],
         resolution="daily",
         period=["recent", "historical"],
     )
 
-    assert request.parameter == [
-        (DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)
-    ]
+    assert request.parameter == [(DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)]
 
     request = DwdObservationRequest(
         parameter=[("precipitation_height", "precipitation_more")],
@@ -171,15 +167,6 @@ def test_dwd_observation_data_fails():
             start_date="1971-01-01",
             end_date="1951-01-01",
         )
-
-    # TODO: check first if parameters are found
-    # with pytest.raises(NoParametersFound):
-    #     DWDObservationStations(
-    #         parameter=["abc"],
-    #         resolution=DWDObservationResolution.DAILY,
-    #         start_date="1951-01-01",
-    #         end_date="1961-01-01",
-    #     )
 
 
 def test_dwd_observation_data_dates():
@@ -363,7 +350,7 @@ def test_dwd_observation_data_result_missing_data():
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tabular():
-    """ Test for actual values (tabular) """
+    """Test for actual values (tabular)"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -433,7 +420,7 @@ def test_dwd_observation_data_result_tabular():
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tabular_metric():
-    """ Test for actual values (tabular) in metric units """
+    """Test for actual values (tabular) in metric units"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -503,7 +490,7 @@ def test_dwd_observation_data_result_tabular_metric():
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tidy_metric():
-    """ Test for actual values (tidy) in metric units """
+    """Test for actual values (tidy) in metric units"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -698,11 +685,9 @@ def test_dwd_observation_data_result_tidy_metric():
 
 @pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy():
-    """ Test for actual values (tidy) in metric units """
+    """Test for actual values (tidy) in metric units"""
     request = DwdObservationRequest(
-        parameter=[
-            DwdObservationDatasetTree.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_SITE
-        ],
+        parameter=[DwdObservationDatasetTree.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_SITE],
         resolution=DwdObservationResolution.MINUTE_10,
         start_date="1999-12-31 22:00",
         end_date="1999-12-31 23:00",
@@ -743,9 +728,7 @@ def test_dwd_observation_data_10_minutes_result_tidy():
                     ],
                     errors="coerce",
                 ).astype(float),
-                "quality": pd.to_numeric(
-                    [1, 1, 1, 1, 1, 1, pd.NA], errors="coerce"
-                ).astype(float),
+                "quality": pd.to_numeric([1, 1, 1, 1, 1, 1, pd.NA], errors="coerce").astype(float),
             },
         ),
         # Needed since pandas 1.2?
@@ -754,12 +737,10 @@ def test_dwd_observation_data_10_minutes_result_tidy():
 
 
 def test_create_humanized_column_names_mapping():
-    """ Test for function to create a mapping to humanized column names """
+    """Test for function to create a mapping to humanized column names"""
     kl_daily_hcnm = {
-        # "qn_3": "quality_wind",
         "fx": "wind_gust_max",
         "fm": "wind_speed",
-        # "qn_4": "quality_general",
         "rsk": "precipitation_height",
         "rskf": "precipitation_form",
         "sdk": "sunshine_duration",
@@ -789,7 +770,7 @@ def test_create_humanized_column_names_mapping():
 
 
 def test_tidy_up_data():
-    """ Test for function to tidy data"""
+    """Test for function to tidy data"""
     request = DwdObservationRequest(
         "kl",
         "daily",
@@ -862,9 +843,7 @@ def test_tidy_up_data():
                 -7.9,
                 -11.4,
             ],
-            "quality": pd.Series(
-                [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=float
-            ),
+            "quality": pd.Series([10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=float),
         }
     )
 

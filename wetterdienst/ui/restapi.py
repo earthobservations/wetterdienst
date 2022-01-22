@@ -36,9 +36,7 @@ def index():
     for provider in Provider:
         shortname = provider.name
         _, name, country, copyright_, url = provider.value
-        sources += (
-            f"<li><a href={url}>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
-        )
+        sources += f"<li><a href={url}>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
 
     return f"""
     <html>
@@ -67,7 +65,7 @@ def index():
             </ul>
         </body>
     </html>
-    """  # noqa:E501,B950
+    """  # noqa:B950
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -90,19 +88,12 @@ def coverage(
     if not provider or not kind:
         cov = Wetterdienst.discover()
 
-        return Response(
-            content=json.dumps(cov, indent=4), media_type="application/json"
-        )
+        return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
     api = get_api(provider=provider, kind=kind)
 
-    # dataset = kwargs.get("dataset")
-    # if dataset:
-    #     dataset = read_list(dataset)
-
     cov = api.discover(
         filter_=filter_,
-        # dataset=dataset,
         flatten=False,
     )
 
@@ -137,8 +128,7 @@ def stations(
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' "
-            "and 'period' are required",
+            detail="Query arguments 'parameter', 'resolution' " "and 'period' are required",
         )
 
     if fmt not in ("json", "geojson"):
@@ -193,10 +183,6 @@ def stations(
             f"parameter(s) {parameter} and resolution {resolution}.",
         )
 
-    # Postprocessing.
-    # if sql is not None:
-    #     results.filter_by_sql(sql)
-
     stations_.fill_gaps()
 
     indent = None
@@ -233,7 +219,6 @@ def values(
     bbox: str = Query(default=None),
     sql: str = Query(default=None),
     sql_values: str = Query(alias="sql-values", default=None),
-    # fmt: str = Query(alias="format", default="json"),  missing geojson support
     humanize: bool = Query(default=True),
     tidy: bool = Query(default=True),
     si_units: bool = Query(alias="si-units", default=True),
@@ -279,8 +264,7 @@ def values(
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' "
-            "and 'date' are required",
+            detail="Query arguments 'parameter', 'resolution' " "and 'date' are required",
         )
 
     if fmt not in ("json", "geojson"):
@@ -356,7 +340,7 @@ def make_json_response(data, provider):
     """
     name_local, name_english, country, copyright_, url = provider.value
 
-    response = {
+    return {
         "meta": {
             "provider": {
                 "name_local": name_local,
@@ -373,12 +357,10 @@ def make_json_response(data, provider):
         },
         "data": data,
     }
-    return response
 
 
-def start_service(
-    listen_address: Optional[str] = None, reload: Optional[bool] = False
-):  # pragma: no cover
+def start_service(listen_address: Optional[str] = None, reload: Optional[bool] = False):  # pragma: no cover
+    from uvicorn.main import run
 
     setup_logging()
 
@@ -387,6 +369,5 @@ def start_service(
 
     host, port = listen_address.split(":")
     port = int(port)
-    from uvicorn.main import run
 
     run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload)

@@ -7,39 +7,34 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 
 class NoaaGhcnUnit(DatasetTreeCore):
-    """ NOAA Global Historical Climatology Network Parameters"""
+    """NOAA Global Historical Climatology Network Parameters"""
 
     class DAILY(UnitEnum):
         # The five core values are:
 
-        # PRCP = Precipitation (mm or inches as per user preference,
-        #     inches to hundredths on Daily Form pdf file)
+        # Precipitation (mm or inches as per user preference, inches to hundredths on Daily Form pdf file)
         PRECIPITATION_HEIGHT = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # SNOW = Snowfall (mm or inches as per user preference,
-        #     inches to tenths on Daily Form pdf file)
+        # Snowfall (mm or inches as per user preference, inches to tenths on Daily Form pdf file)
         SNOW_DEPTH_NEW = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # SNWD = Snow depth (mm or inches as per user preference,
-        #     inches on Daily Form pdf file)
+        # Snow depth (mm or inches as per user preference, inches on Daily Form pdf file)
         SNOW_DEPTH = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # TMAX  = Maximum  temperature  (Fahrenheit or  Celsius  as
-        # per  user  preference,
-        #     Fahrenheit  to  tenths on Daily Form pdf file
+        # Maximum  temperature  (Fahrenheit or  Celsius  as per  user  preference,
+        # Fahrenheit  to  tenths on Daily Form pdf file
         TEMPERATURE_AIR_MAX_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        # TMIN = Minimum  temperature  (Fahrenheit  or  Celsius as
-        # per  user  preference,
-        #     Fahrenheit  to  tenths  on Daily Form pdf file
+        # Minimum  temperature  (Fahrenheit  or  Celsius as per  user  preference,
+        # Fahrenheit  to  tenths  on Daily Form pdf file
         TEMPERATURE_AIR_MIN_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
@@ -51,154 +46,127 @@ class NoaaGhcnUnit(DatasetTreeCore):
 
         # Additional parameters:
 
-        # ACMC = Average cloudiness midnight to midnight from 30-second
-        #     ceilometer data (percent)
+        # Average cloudiness midnight to midnight from 30-second ceilometer data (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT = (
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
         )
-        # ACMH = Average cloudiness midnight to midnight from manual
-        #     observations (percent)
+        # Average cloudiness midnight to midnight from manual observations (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT_MANUAL = (
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
         )
-        # ACSC = Average cloudiness sunrise to sunset from 30-second
-        #     ceilometer data (percent)
+        # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET = (
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
         )
-        # ACSH = Average cloudiness sunrise to sunset from manual
-        #     observations (percent)
+        # Average cloudiness sunrise to sunset from manual observations (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET_MANUAL = (
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
         )
         # TODO: use one CLOUD_COVER_TOTAL parameter that builds one time series
         #  from the multiple existing parameters
-        # cloud cover total is usually measured on a daily basis ending at midnight
-        # so this is a synonym for midnight-to-midnight
-        # CLOUD_COVER_TOTAL = CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT_MANUAL
+        #  cloud cover total is usually measured on a daily basis ending at midnight
+        #  so this is a synonym for midnight-to-midnight
 
-        # AWND = Average daily wind speed (meters per second or miles
-        #     per hour as per user preference)
+        # Average daily wind speed (meters per second or miles per hour as per user preference)
         WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-        # DAEV = Number of days included in the multiday evaporation
-        #     total (MDEV)
+        # Number of days included in the multiday evaporation total (MDEV)
         COUNT_DAYS_MULTIDAY_EVAPORATION = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # DAPR = Number of days included in the multiday precipitation
-        #     total (MDPR)
+        # Number of days included in the multiday precipitation total (MDPR)
         COUNT_DAYS_MULTIDAY_PRECIPITATION = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # DASF = Number of days included in the multiday snowfall
-        #     total (MDSF)
+        # Number of days included in the multiday snowfall total (MDSF)
         COUNT_DAYS_MULTIDAY_SNOW_DEPTH_NEW = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # DATN = Number of days included in the multiday minimum
-        #     temperature (MDTN)
+        # Number of days included in the multiday minimum temperature (MDTN)
         COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MIN_200 = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # DATX = Number of days included in the multiday maximum
-        #     temperature (MDTX)
+        # Number of days included in the multiday maximum temperature (MDTX)
         COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MAX_200 = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # DAWM = Number of days included in the multiday wind
-        #     movement (MDWM)
+        # Number of days included in the multiday wind movement (MDWM)
         COUNT_DAYS_MULTIDAY_WIND_MOVEMENT = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # DWPR = Number of days with non-zero precipitation included
-        #     in multiday precipitation total (MDPR)
+        # Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
         COUNT_DAYS_MULTIDAY_PRECIPITATION_HEIGHT_GT_0 = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # EVAP = Evaporation of water from evaporation pan (mm or
-        #     inches as per user preference, or hundredths of inches
-        #     on Daily Form pdf file)
+        # Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths of inches
+        # on Daily Form pdf file)
         EVAPORATION_HEIGHT = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # FMTM = Time of fastest mile or fastest 1-minute wind
-        #     (hours and minutes, i.e., HHMM)
+        # Time of fastest mile or fastest 1-minute wind (hours and minutes, i.e., HHMM)
         TIME_WIND_GUST_MAX_1MILE_OR_1MIN = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        # FRGB = Base of frozen ground layer (cm or inches as per
-        #     user preference)
+        # Base of frozen ground layer (cm or inches as per user preference)
         FROZEN_GROUND_LAYER_BASE = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        # FRGT = Top of frozen ground layer (cm or inches as per
-        #     user preference)
+        # Top of frozen ground layer (cm or inches as per user preference)
         FROZEN_GROUND_LAYER_TOP = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        # FRTH = Thickness of frozen ground layer (cm or inches as
-        #     per user preference)
+        # Thickness of frozen ground layer (cm or inches as per user preference)
         FROZEN_GROUND_LAYER_THICKNESS = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        # GAHT = Difference between river and gauge height (cm or
-        #     inches as per user preference)
+        # Difference between river and gauge height (cm or inches as per user preference)
         DISTANCE_RIVER_GAUGE_HEIGHT = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        # MDEV = Multiday evaporation total (mm or inches as per
-        #     user preference; use with DAEV)
+        # Multiday evaporation total (mm or inches as per user preference; use with DAEV)
         EVAPORATION_HEIGHT_MULTIDAY = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # MDPR = Multiday precipitation total (mm or inches as per
-        #     user preference; use with DAPR and DWPR, if available)
+        # Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR, if available)
         PRECIPITATION_HEIGHT_MULTIDAY = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # MDSF = Multiday snowfall total (mm or inches as per user
-        #     preference)
+        # Multiday snowfall total (mm or inches as per user preference)
         SNOW_DEPTH_NEW_MULTIDAY = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # MDTN = Multiday minimum temperature (Fahrenheit or Celsius
-        #     as per user preference ; use with DATN)
+        # Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)
         TEMPERATURE_AIR_MIN_200_MULTIDAY = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        # MDTX = Multiday maximum temperature (Fahrenheit or Celsius
-        #     as per user preference ; use with DATX)
+        # Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)
         TEMPERATURE_AIR_MAX_200_MULTIDAY = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        # MDWM = Multiday wind movement (miles or km as per user
-        #     preference)
+        # Multiday wind movement (miles or km as per user preference)
         WIND_MOVEMENT_MULTIDAY = OriginUnit.KILOMETER.value, SIUnit.METER.value
-        # MNPN = Daily minimum temperature of water in an evaporation
-        #     pan (Fahrenheit or Celsius as per user preference)
+        # Daily minimum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference)
         TEMPERATURE_WATER_EVAPORATION_PAN_MIN = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        # MXPN = Daily maximum temperature of water in an evaporation
-        #     pan  (Fahrenheit or Celsius as per user preference)
+        # Daily maximum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference)
         TEMPERATURE_WATER_EVAPORATION_PAN_MAX = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        # PGTM = Peak gust time (hours and minutes, i.e., HHMM)
+        # Peak gust time (hours and minutes, i.e., HHMM)
         TIME_WIND_GUST_MAX = OriginUnit.SECOND.value, SIUnit.SECOND.value
-        # PSUN = Daily percent of possible sunshine (percent)
+        # Daily percent of possible sunshine (percent)
         SUNSHINE_DURATION_RELATIVE = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
 
         """
@@ -764,91 +732,80 @@ class NoaaGhcnUnit(DatasetTreeCore):
             SIUnit.DEGREE_KELVIN.value,
         )
 
-        # THIC = Thickness of ice on water (inches or mm as per user preference)
+        # Thickness of ice on water (inches or mm as per user preference)
         ICE_ON_WATER_THICKNESS = OriginUnit.MILLIMETER.value, SIUnit.METER.value
-        # TOBS = Temperature at the time of observation  (Fahrenheit or Celsius
-        #     as per user preference)
+        # Temperature at the time of observation  (Fahrenheit or Celsius as per user preference)
         TEMPERATURE_AIR_200 = (
             OriginUnit.DEGREE_CELSIUS.value,
             SIUnit.DEGREE_KELVIN.value,
         )
-        # TSUN = Daily total sunshine (minutes)
+        # Daily total sunshine (minutes)
         SUNSHINE_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
-        # WDF5 = Direction
-        #     of fastest 5-second wind (degrees)
+        # Direction of fastest 5-second wind (degrees)
         WIND_DIRECTION_GUST_MAX_5SEC = (
             OriginUnit.DEGREE.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        # WDF1 = Direction of fastest
-        #     1-minute wind (degrees)
+        # Direction of fastest 1-minute wind (degrees)
         WIND_DIRECTION_GUST_MAX_1MIN = (
             OriginUnit.DEGREE.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        # WDF2 = Direction of fastest 2-minute wind (degrees)
+        # Direction of fastest 2-minute wind (degrees)
         WIND_DIRECTION_GUST_MAX_2MIN = (
             OriginUnit.DEGREE.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        # WDFG = Direction of peak wind gust (degrees)
+        # Direction of peak wind gust (degrees)
         WIND_DIRECTION_GUST_MAX = (
             OriginUnit.DEGREE.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        # WDFI = Direction of highest instantaneous wind (degrees)
+        # Direction of highest instantaneous wind (degrees)
         WIND_DIRECTION_GUST_MAX_INSTANT = (
             OriginUnit.DEGREE.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        # WDFM = Fastest mile wind direction (degrees)
+        # Fastest mile wind direction (degrees)
         WIND_DIRECTION_GUST_MAX_1MILE = (
             OriginUnit.DEGREE.value,
             SIUnit.WIND_DIRECTION.value,
         )
-        # WDMV = 24-hour wind movement (km or miles as per user preference,
-        #     miles on Daily Form pdf file)
+        # 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)
         WIND_MOVEMENT_24HOUR = OriginUnit.KILOMETER.value, SIUnit.METER.value
-        # WESD = Water equivalent of snow on the ground (inches or mm as per
-        #     user preference)
+        # Water equivalent of snow on the ground (inches or mm as per user preference)
         WATER_EQUIVALENT_SNOW_DEPTH = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # WESF = Water equivalent of snowfall (inches or mm as per user preference)
+        # Water equivalent of snowfall (inches or mm as per user preference)
         WATER_EQUIVALENT_SNOW_DEPTH_NEW = (
             OriginUnit.MILLIMETER.value,
             SIUnit.KILOGRAM_PER_SQUARE_METER.value,
         )
-        # WSF1 = Fastest 1-minute wind speed (miles per hour or  meters per second
-        #     as per user preference)
+        # Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_5SEC = (
             OriginUnit.METER_PER_SECOND.value,
             SIUnit.METER_PER_SECOND.value,
         )
-        # WSF2 = Fastest 2-minute wind speed (miles per hour or  meters per second
-        #     as per user preference)
+        # Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_1MIN = (
             OriginUnit.METER_PER_SECOND.value,
             SIUnit.METER_PER_SECOND.value,
         )
-        # WSF5 = Fastest 5-second wind speed (miles per hour or  meters per second
-        #     as per user preference)
+        # Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_2MIN = (
             OriginUnit.METER_PER_SECOND.value,
             SIUnit.METER_PER_SECOND.value,
         )
-        # WSFG = Peak guest wind speed (miles per hour or  meters per second as
-        #     per user preference)
+        # Peak guest wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-        # WSFI = Highest instantaneous wind speed (miles per hour or  meters per
-        #     second as per user preference)
+        # Highest instantaneous wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_INSTANT = (
             OriginUnit.METER_PER_SECOND.value,
             SIUnit.METER_PER_SECOND.value,
         )
-        # WSFM = Fastest mile wind speed (miles per hour or  meters per second as
-        #     per user preference)
+        # Fastest mile wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_1MILE = (
             OriginUnit.METER_PER_SECOND.value,
             SIUnit.METER_PER_SECOND.value,

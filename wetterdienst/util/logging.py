@@ -10,7 +10,7 @@ class TqdmToLogger(io.StringIO):
     Output stream for TQDM which will output to logger module instead of
     the StdOut.
 
-    Source: https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module # noqa: E501
+    Source: https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module
     """
 
     logger = None

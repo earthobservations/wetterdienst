@@ -12,17 +12,10 @@ def test_dwd_mosmix_l():
     Test some details of a typical MOSMIX-L response.
     """
 
-    request = DwdMosmixRequest(
-        parameter="large", mosmix_type=DwdMosmixType.LARGE, humanize=False
-    ).filter_by_station_id(
+    request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE, humanize=False).filter_by_station_id(
         station_id=["01001"],
     )
     response = next(request.values.query())
-
-    # Verify metadata.
-    # TODO: add to metadata
-    # assert response.stations.df.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
-    # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
     station_names = response.stations.df["name"].unique().tolist()
@@ -179,11 +172,6 @@ def test_dwd_mosmix_s():
         station_id=["01028"],
     )
     response = next(request.values.query())
-
-    # Verify metadata.
-    # TODO: add to metadata
-    # assert response.stations.df.loc[0, "ISSUER"] == "Deutscher Wetterdienst"
-    # assert response.stations.df.loc[0, "PRODUCT_ID"] == "MOSMIX"
 
     # Verify list of stations.
     station_names = list(response.stations.df["name"].unique())

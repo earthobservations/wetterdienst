@@ -90,7 +90,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
         raise pytest.skip("Data currently not available")
 
     # Verify number of results.
-    # assert 8 <= len(results) <= 10
+    assert 4 <= len(results) <= 10
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -99,7 +99,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     assert payload.startswith(b"\x89HDF\r\n")
 
     # Verify more details.
-    # wddump ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092917055800-boo-10132-hd5  # noqa:E501,B950
+    # wddump ras07-stqual-vol5minng01_sweeph5onem_vradh_00-2020092917055800-boo-10132-hd5
 
     hdf = h5py.File(buffer, "r")
 
@@ -175,10 +175,7 @@ def test_radar_request_radolan_cdc_most_recent():
     # radar locations can change over time -> check if at least 10 radar locations
     # were found and at least 5 of them match with the provided one
     assert len(requested_attrs["radarlocations"]) >= 10
-    assert (
-        len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"])))
-        >= 5
-    )
+    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
     skip_attrs = [
         "radolanversion",

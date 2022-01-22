@@ -46,9 +46,7 @@ def test_meta_index_1mph_creation():
         Period.HISTORICAL,
     )
 
-    assert meta_index_1mph.loc[
-        meta_index_1mph[Columns.STATION_ID.value] == "00003", :
-    ].values.tolist() == [
+    assert meta_index_1mph.loc[meta_index_1mph[Columns.STATION_ID.value] == "00003", :].values.tolist() == [
         [
             "00003",
             "18910101",

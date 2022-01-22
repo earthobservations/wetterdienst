@@ -4,7 +4,7 @@
 """ A set of utility functions """
 import logging
 import sys
-from typing import List
+from typing import List, Optional
 
 
 def setup_logging(level=logging.INFO) -> None:
@@ -16,13 +16,13 @@ def setup_logging(level=logging.INFO) -> None:
     numexpr_logger.setLevel(logging.WARN)
 
 
-def read_list(data: str, separator: str = u",") -> List[str]:
+def read_list(data: Optional[str], separator: str = u",") -> List[str]:
     if data is None:
         return []
 
     result = [x.strip() for x in data.split(separator)]
 
     if len(result) == 1 and not result[0]:
-        result = []
+        return []
 
     return result

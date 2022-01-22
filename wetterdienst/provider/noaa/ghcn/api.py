@@ -46,9 +46,7 @@ class NoaaGhcnValues(ScalarValuesCore):
 
     _data_tz = Timezone.DYNAMIC
 
-    _base_url = (
-        "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/by_station/{station_id}.csv.gz"
-    )
+    _base_url = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/by_station/{station_id}.csv.gz"
 
     # use to get timezones from stations
     _tf = TimezoneFinder()
@@ -56,9 +54,7 @@ class NoaaGhcnValues(ScalarValuesCore):
     # multiplication factors
     _mp_factors = PARAMETER_MULTIPLICATION_FACTORS
 
-    def _collect_station_parameter(
-        self, station_id: str, parameter, dataset
-    ) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter, dataset) -> pd.DataFrame:
         """
         Collection method for NOAA GHCN data. Parameter and dataset can be ignored as data
         is provided as a whole.
@@ -88,9 +84,7 @@ class NoaaGhcnValues(ScalarValuesCore):
             Columns.QUALITY.value,
         )
 
-        df.loc[:, Columns.PARAMETER.value] = df.loc[
-            :, Columns.PARAMETER.value
-        ].str.lower()
+        df.loc[:, Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
 
         # get timezone from station
         timezone_ = self._get_timezone_from_station(station_id)
@@ -132,9 +126,7 @@ class NoaaGhcnValues(ScalarValuesCore):
 
         return df_factors
 
-    def _add_derived_parameters(
-        self, df: pd.DataFrame, station_id: str
-    ) -> pd.DataFrame:
+    def _add_derived_parameters(self, df: pd.DataFrame, station_id: str) -> pd.DataFrame:
         """
         Method to add derived parameters to DataFrame, specifically
         temperature_air_mean_200 from maximum and minimum daily temperature
@@ -167,9 +159,7 @@ class NoaaGhcnValues(ScalarValuesCore):
             .reset_index()
         )
 
-        df_temperatures = df_temperatures.reindex(
-            columns=(Columns.DATE.value, tmax_key, tmin_key)
-        )
+        df_temperatures = df_temperatures.reindex(columns=(Columns.DATE.value, tmax_key, tmin_key))
 
         start_date = self.stations.start_date
         end_date = self.stations.end_date
@@ -202,8 +192,7 @@ class NoaaGhcnValues(ScalarValuesCore):
         df_tmean = df_tmean.merge(df_temperatures, how="left", on=Columns.DATE.value)
 
         df_tmean[Columns.VALUE.value] = (
-            df_tmean[tmax_key].astype(float, errors="ignore")
-            + df_tmean[tmin_key].astype(float, errors="ignore")
+            df_tmean[tmax_key].astype(float, errors="ignore") + df_tmean[tmin_key].astype(float, errors="ignore")
         ) / 2
 
         df_tmean = df_tmean.drop(columns=[tmax_key, tmin_key])
@@ -212,9 +201,7 @@ class NoaaGhcnValues(ScalarValuesCore):
         df_tmean[Columns.PARAMETER.value] = tmean_key
         df_tmean[Columns.QUALITY.value] = pd.NA
 
-        df = df.append(df_tmean)
-
-        return df
+        return df.append(df_tmean)
 
 
 class NoaaGhcnRequest(ScalarRequestCore):

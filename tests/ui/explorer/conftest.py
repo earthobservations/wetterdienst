@@ -38,9 +38,7 @@ class DashCompositePlus(DashComposite):
             EC.element_to_be_clickable,
             ((By.ID, element_id),),
             timeout,
-            "timeout {}s => waiting for element id {}".format(
-                timeout if timeout else self._wait_timeout, element_id
-            ),
+            "timeout {}s => waiting for element id {}".format(timeout if timeout else self._wait_timeout, element_id),
         )
 
 

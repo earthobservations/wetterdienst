@@ -40,17 +40,13 @@ class OriginUnit(Enum):
     KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter ** 2)
 
     # Temperature
-    DEGREE_CELSIUS = (
-        1 * REGISTRY.degree_Celsius
-    )  # without the "1 *" we get an offset error
+    DEGREE_CELSIUS = 1 * REGISTRY.degree_Celsius  # without the "1 *" we get an offset error
     DEGREE_KELVIN = 1 * REGISTRY.degree_Kelvin
 
     # Speed
     METER_PER_SECOND = REGISTRY.meter / REGISTRY.second
     KILOMETER_PER_HOUR = REGISTRY.kilometer / REGISTRY.hour
-    BEAUFORT = (
-        REGISTRY.beaufort
-    )  # beaufort should always stay beaufort! Calculations to m/s are empirical
+    BEAUFORT = REGISTRY.beaufort  # beaufort should always stay beaufort! Calculations to m/s are empirical
 
     # Pressure
     PASCAL = REGISTRY.pascal

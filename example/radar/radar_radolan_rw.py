@@ -43,9 +43,10 @@ real-time for Germany.
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite # noqa
 - Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product # noqa
 - Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product # noqa
-"""
+"""  # Noqa:D205,D400
 import logging
 import os
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,10 +63,7 @@ log = logging.getLogger()
 
 
 def plot(data: np.ndarray, attributes: dict, label: str):
-    """
-    Convenience function for plotting RADOLAN data.
-    """
-
+    """Plot RADOLAN data with prefixed settings."""
     # Get coordinates.
     radolan_grid_xy = wrl.georef.get_radolan_grid(900, 900)
 
@@ -77,8 +75,7 @@ def plot(data: np.ndarray, attributes: dict, label: str):
 
 
 def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = None):
-    """
-    Plotting function for RADOLAN data.
+    """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
     https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html
@@ -94,42 +91,36 @@ def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = N
     cb.set_label(clabel)
     plt.xlabel("x [km]")
     plt.ylabel("y [km]")
-    plt.title(
-        "{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat())
-    )
+    plt.title("{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat()))
     plt.xlim((x[0, 0], x[-1, -1]))
     plt.ylim((y[0, 0], y[-1, -1]))
     plt.grid(color="r")
 
 
 def radolan_info(data: np.ndarray, attributes: dict):
-    """
-    Display metadata from RADOLAN request.
-    """
+    """Display metadata from RADOLAN request."""
     log.info("Data shape: %s", data.shape)
     log.info("Attributes:")
     for key, value in attributes.items():
         print(f"- {key}: {value}")
 
 
-def label_by_producttype(producttype: str) -> str:
-    """
-    Compute label for RW/SF product.
+def label_by_producttype(producttype: str) -> Optional[str]:
+    """Compute label for RW/SF product.
 
     :param producttype: Either RW or SF.
     :return: Label for plot.
     """
     if producttype == "RW":
-        label = "mm * h-1"
+        return "mm * h-1"
     elif producttype == "SF":
-        label = "mm * 24h-1"
+        return "mm * 24h-1"
     else:
-        label = None
-    return label
+        return None
 
 
 def radolan_rw_example():
-
+    """Retrieve RADOLAN rw reflectivity data by DWD."""
     log.info("Acquiring RADOLAN RW composite data")
     radolan = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
@@ -152,6 +143,7 @@ def radolan_rw_example():
 
 
 def main():
+    """Run example."""
     radolan_rw_example()
 
 

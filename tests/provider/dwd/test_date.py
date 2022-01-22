@@ -10,9 +10,7 @@ from wetterdienst.util.datetime import mktimerange
 
 
 def test_mktimerange_annual():
-    assert mktimerange(
-        Resolution.ANNUAL, dateutil.parser.isoparse("2019").replace(tzinfo=pytz.UTC)
-    ) == (
+    assert mktimerange(Resolution.ANNUAL, dateutil.parser.isoparse("2019").replace(tzinfo=pytz.UTC)) == (
         dateutil.parser.isoparse("2019-01-01 00:00:00Z"),
         dateutil.parser.isoparse("2019-12-31 00:00:00Z"),
     )
@@ -27,9 +25,7 @@ def test_mktimerange_annual():
 
 
 def test_mktimerange_monthly():
-    assert mktimerange(
-        Resolution.MONTHLY, dateutil.parser.isoparse("2020-05").replace(tzinfo=pytz.UTC)
-    ) == (
+    assert mktimerange(Resolution.MONTHLY, dateutil.parser.isoparse("2020-05").replace(tzinfo=pytz.UTC)) == (
         dateutil.parser.isoparse("2020-05-01 00:00:00Z"),
         dateutil.parser.isoparse("2020-05-31 00:00:00Z"),
     )

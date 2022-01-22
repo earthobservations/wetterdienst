@@ -109,6 +109,12 @@ ECCC (Environnement et Changement Climatique Canada / Environment and Climate Ch
         - Hourly, daily, monthly, (annual) resolution
         - Time series of stations in Canada
 
+NOAA (National Oceanic And Atmospheric Administration / National Oceanic And Atmospheric Administration / United States Of America)
+    - Global Historical Climatology Network
+        - Historical, daily weather observations from around the globe
+        - more then 100k stations
+        - data for weather services which don't publish data themselves
+
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.
 

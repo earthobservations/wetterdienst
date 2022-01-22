@@ -41,9 +41,7 @@ def raster_minutes(timestamp: datetime, value: int):
     if timestamp.minute < value:
         timestamp = timestamp - timedelta(hours=1)
 
-    timestamp = timestamp.replace(minute=value)
-
-    return timestamp
+    return timestamp.replace(minute=value)
 
 
 def mktimerange(
@@ -77,8 +75,6 @@ def mktimerange(
         date_to = date_to + relativedelta(day=31)
 
     else:
-        raise NotImplementedError(
-            "mktimerange only implemented for annual and monthly time ranges"
-        )
+        raise NotImplementedError("mktimerange only implemented for annual and monthly time ranges")
 
     return date_from, date_to

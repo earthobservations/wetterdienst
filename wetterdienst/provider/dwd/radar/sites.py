@@ -8,8 +8,8 @@ List of DWD radar sites
 
 Sources
 =======
-- April, 2018: https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile  # noqa:E501,B950
-- October, 2020: https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile  # noqa:E501,B950
+- April, 2018: https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile  # noqa:B950
+- October, 2020: https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile  # noqa:B950
 
 References
 ==========
@@ -51,14 +51,14 @@ class DwdRadarSitesGenerator:  # pragma: no cover
     """
     Parse list of sites from PDF documents [1,2] and output as Python dictionary.
 
-    [1] https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile  # noqa:E501,B950
-    [2] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile  # noqa:E501,B950
+    [1] https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile  # noqa:B950
+    [2] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile  # noqa:B950
     """
 
     url = (
         "https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions"
         "/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile"
-    )  # noqa:E501,B950
+    )
 
     def all(self) -> Dict:  # pragma: no cover
         """
@@ -111,19 +111,13 @@ class DwdRadarSitesGenerator:  # pragma: no cover
 
         # Mungle into one coherent data frame.
         data = firsts
-        data = data.drop(
-            labels=["coordinates_wgs84_text", "coordinates_gauss"], axis="columns"
-        )
+        data = data.drop(labels=["coordinates_wgs84_text", "coordinates_gauss"], axis="columns")
         data = data.rename(columns={"coordinates_wgs84": "latitude"})
         data.insert(4, "longitude", seconds["coordinates_wgs84"].values)
         data = data.reset_index(drop=True)
 
         for column in ["latitude", "longitude"]:
-            data[column] = (
-                data[column]
-                .apply(lambda x: x.strip("NE").replace(",", "."))
-                .apply(float)  # noqa: E501
-            )
+            data[column] = data[column].apply(lambda x: x.strip("NE").replace(",", ".")).apply(float)
 
         for column in ["wmo_id", "altitude"]:
             data[column] = data[column].apply(int)
@@ -146,10 +140,6 @@ if __name__ == "__main__":  # pragma: no cover
 
         python wetterdienst/provider/dwd/radar/sites.py
     """
-
-    # import pout
-    # sites = DwdRadarSitesGenerator().all()
-    # print(black.format_str(pout.ss(sites), mode=black.Mode()))
 
     import pprint
 

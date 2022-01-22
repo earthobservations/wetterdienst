@@ -27,7 +27,7 @@ from wetterdienst import Wetterdienst
 )
 @pytest.mark.parametrize("si_units", (False, True))
 def test_api(provider, kind, kwargs, si_units):
-    """ Test main wetterdienst API """
+    """Test main wetterdienst API"""
     # Build API
     api = Wetterdienst(provider, kind)
 
@@ -60,8 +60,6 @@ def test_api(provider, kind, kwargs, si_units):
     values = next(request.values.query()).df
 
     # TODO: DWD Forecast has no quality
-    assert set(values.columns).issuperset(
-        {"station_id", "parameter", "date", "value", "quality"}
-    )
+    assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
 
     assert not values.empty

@@ -75,12 +75,8 @@ class DwdRadarValues:
         self.format = parse_enumeration_from_template(fmt, DwdRadarDataFormat)
         self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
-        self.resolution: Resolution = parse_enumeration_from_template(
-            resolution, DwdRadarResolution, Resolution
-        )
-        self.period: Period = parse_enumeration_from_template(
-            period, DwdRadarPeriod, Period
-        )
+        self.resolution: Resolution = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)
+        self.period: Period = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
 
         # Sanity checks.
         if self.parameter == DwdRadarParameter.RADOLAN_CDC:
@@ -89,18 +85,14 @@ class DwdRadarValues:
                 Resolution.HOURLY,
                 Resolution.DAILY,
             ):
-                raise ValueError(
-                    "RADOLAN_CDC only supports daily and hourly resolutions"
-                )
+                raise ValueError("RADOLAN_CDC only supports daily and hourly resolutions")
 
         elevation_parameters = [
             DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
             DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
         ]
         if self.elevation is not None and self.parameter not in elevation_parameters:
-            raise ValueError(
-                f"Argument 'elevation' only valid for parameter={elevation_parameters}"
-            )
+            raise ValueError(f"Argument 'elevation' only valid for parameter={elevation_parameters}")
 
         if start_date == DwdRadarDate.LATEST:
 
@@ -134,10 +126,7 @@ class DwdRadarValues:
             start_date = datetime.utcnow() - timedelta(minutes=5)
             end_date = None
 
-        if (
-            start_date == DwdRadarDate.MOST_RECENT
-            and parameter == DwdRadarParameter.RADOLAN_CDC
-        ):
+        if start_date == DwdRadarDate.MOST_RECENT and parameter == DwdRadarParameter.RADOLAN_CDC:
             start_date = datetime.utcnow() - timedelta(minutes=50)
             end_date = None
 
@@ -169,7 +158,7 @@ class DwdRadarValues:
         minute marks for respective RadarParameter.
 
         - RADOLAN_CDC is always published at HH:50.
-          https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/recent/bin/  # noqa:E501,B950
+          https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/recent/bin/
 
         - RQ_REFLECTIVITY is published each 15 minutes.
           https://opendata.dwd.de/weather/radar/radvor/rq/
@@ -180,10 +169,7 @@ class DwdRadarValues:
 
         """
 
-        if (
-            self.parameter == DwdRadarParameter.RADOLAN_CDC
-            or self.parameter in RADAR_PARAMETERS_RADOLAN
-        ):
+        if self.parameter == DwdRadarParameter.RADOLAN_CDC or self.parameter in RADAR_PARAMETERS_RADOLAN:
 
             # Align "start_date" to the most recent 50 minute mark available.
             self.start_date = raster_minutes(self.start_date, 50)

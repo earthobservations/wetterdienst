@@ -46,7 +46,6 @@ def get_app_layout():
             html.Div(
                 [
                     html.H1("Wetterdienst Explorer"),
-                    # html.P("Hello world"),
                     dbc.Navbar(
                         [dbc.NavLink("About", id="open-about")],
                         id="navbar",

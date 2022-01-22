@@ -26,7 +26,7 @@ Setup
     brew install gdal
     pip install wradlib
 
-"""
+"""  # Noqa:D205,D400
 import logging
 import os
 
@@ -46,20 +46,14 @@ log = logging.getLogger()
 
 
 def plot(data: np.ndarray):
-    """
-    Convenience function for plotting radar data.
-    """
-
+    """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
     wrl.vis.plot_ppi(data, fig=fig, proj="cg")
 
 
 def radar_info(data: np.ndarray, metadata: dict):
-    """
-    Display metadata from radara request.
-    """
+    """Display metadata from radar request."""
     log.info("Data shape: %s", data.shape)
-    # log.info("Metadata: %s", metadata)
 
     log.info("Metadata")
     for key, value in metadata.items():
@@ -67,7 +61,7 @@ def radar_info(data: np.ndarray, metadata: dict):
 
 
 def radar_dx_example():
-
+    """Retrieve radar dx reflectivity data by DWD."""
     log.info("Acquiring radar DX data")
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
@@ -91,6 +85,7 @@ def radar_dx_example():
 
 
 def main():
+    """Run example."""
     radar_dx_example()
 
 

@@ -112,6 +112,4 @@ def test_eccc_api_values():
         }
     )
 
-    assert_frame_equal(
-        values.reset_index(drop=True), expected_df, check_categorical=False
-    )
+    assert_frame_equal(values.reset_index(drop=True), expected_df, check_categorical=False)

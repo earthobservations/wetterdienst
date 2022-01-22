@@ -39,13 +39,7 @@ def default_figure(climate_data: pd.DataFrame, column: str) -> go.Figure:
         add_annotation_no_data(fig)
         return fig
 
-    fig = go.Figure(
-        data=[
-            go.Scatter(
-                x=climate_data.date, y=climate_data.loc[:, column], hoverinfo="x+y"
-            )
-        ]
-    )
+    fig = go.Figure(data=[go.Scatter(x=climate_data.date, y=climate_data.loc[:, column], hoverinfo="x+y")])
     fig.update_layout(yaxis={"title": f"{column}"}, showlegend=False)
     return fig
 
