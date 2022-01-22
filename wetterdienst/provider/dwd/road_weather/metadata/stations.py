@@ -2,7 +2,6 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
-from typing import Dict, List
 
 
 class DwdObservationRoadWeatherStationGroups(Enum):
@@ -10,6 +9,7 @@ class DwdObservationRoadWeatherStationGroups(Enum):
 
     enumeration for road weather subset groups
     """
+
     DD = "DD"
     DF = "DF"
     ER = "ER"
@@ -33,3 +33,4 @@ class DwdObservationRoadWeatherStationGroups(Enum):
     SF = "SF"
     SP = "SP"
     WW = "WW"
+    XX = "XX"

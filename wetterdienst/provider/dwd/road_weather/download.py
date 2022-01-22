@@ -2,12 +2,8 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from concurrent.futures.thread import ThreadPoolExecutor
-from requests.exceptions import InvalidURL
 from typing import List, Tuple
-from zipfile import BadZipFile, ZipFile
 import requests
-
-from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
 
 
 def download_road_weather_observations_parallel(
@@ -19,9 +15,11 @@ def download_road_weather_observations_parallel(
     :param remote_files:    List of requested files
     :return:                List of downloaded files
     """
-
     # with ThreadPoolExecutor() as executor: # this is not a real parallel download
-    #     files_in_bytes = executor.map(_download_road_weather_observations_data, remote_files)
+    #     files_in_bytes = executor.map(
+    #         _download_road_weather_observations_data,
+    #         remote_files
+    #     )
     files_in_bytes = []
     for file in remote_files:
         files_in_bytes.append(_download_road_weather_observations_data(file))
@@ -32,8 +30,8 @@ def download_road_weather_observations_parallel(
 def _download_road_weather_observations_data(remote_file: str) -> bytes:
     """
     This function downloads the road weather station data for which the link is
-    provided. It checks the shortened filepath for its parameters, creates the full filepath and downloads the
-    file(s) according to the set up folder.
+    provided. It checks the shortened filepath for its parameters, creates the
+    full filepath and downloads then file(s) according to the set up folder.
 
     Args:
         remote_file: contains path to file that should be downloaded

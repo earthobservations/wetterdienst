@@ -6,5 +6,6 @@ from enum import Enum
 
 class DwdRoadWeatherObservationPeriod(Enum):
     """ RoadWeather Observation period types """
+
     LATEST = "latest"
     ALL = "all"
