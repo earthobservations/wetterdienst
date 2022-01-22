@@ -177,7 +177,9 @@ class DwdRoadWeatherObservationValues:
         return data.loc[:, [param.value for param in parameters]]
 
 
-# data = DwdRoadWeatherObservationValues()._collect_data_by_station_name("Keltensiedlung")
-# obs_values = DwdRoadWeatherObservationValues()
-# data = obs_values._collect_data_by_rank(49.60, 9.35, 5)
-# obs_values.metaindex
+data = DwdRoadWeatherObservationValues()._collect_data_by_station_name("Keltensiedlung")
+obs_values = DwdRoadWeatherObservationValues()
+data = obs_values._collect_data_by_rank(49.60, 9.35, 5)
+obs_values.metaindex
+from IPython import embed
+embed()
