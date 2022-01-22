@@ -2,9 +2,10 @@
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
+from typing import Dict, List
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List
 
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.timezone import Timezone
@@ -27,7 +28,7 @@ from wetterdienst.provider.dwd.road_weather.metaindex import (
     create_meta_index_for_road_weather,
 )
 from wetterdienst.provider.dwd.road_weather.parser import parse_dwd_road_weather_data
-from wetterdienst.util.geo import derive_nearest_neighbours, Coordinates
+from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
 log = logging.getLogger(__name__)
 

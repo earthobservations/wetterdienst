@@ -15,9 +15,7 @@ from wetterdienst.provider.dwd.metadata.constants import (
     DWDCDCBase,
 )
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
-from wetterdienst.util.cache import (
-    fileindex_cache_five_minutes,
-)
+from wetterdienst.util.cache import fileindex_cache_five_minutes
 from wetterdienst.util.network import list_remote_files_fsspec
 
 

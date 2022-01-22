@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import List, Tuple
+
 import requests
 
 

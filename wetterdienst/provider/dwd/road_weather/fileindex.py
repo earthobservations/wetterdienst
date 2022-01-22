@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import pandas as pd
 from functools import reduce
 from urllib.parse import urljoin
 
-from wetterdienst.provider.dwd.index import (
-    _list_remote_files_as_dataframe,
-)
+import pandas as pd
+
+from wetterdienst.provider.dwd.index import _list_remote_files_as_dataframe
 from wetterdienst.provider.dwd.metadata.constants import (
-    DWD_SERVER,
     DWD_ROAD_WEATHER_REPORTS,
+    DWD_SERVER,
 )
 from wetterdienst.provider.dwd.road_weather.metadata.stations import (
     DwdObservationRoadWeatherStationGroups,
