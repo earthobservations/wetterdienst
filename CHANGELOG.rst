@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.24.0 (24.01.2022)
+*******************
+
 - Add NOAA GHCN API
 - Fix radar index by filtering out bz2 files
 

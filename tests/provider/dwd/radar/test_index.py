@@ -64,7 +64,11 @@ def test_radar_fileindex_radolan_reflectivity_bin(parameter):
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
-    assert all(PurePath(url).match(f"*/weather/radar/radolan/{parameter.value}/*---bin") for url in urls)
+    assert all(
+        PurePath(url).match(f"*/weather/radar/radolan/{parameter.value}/*---bin")
+        for url in urls
+        if not url.endswith(".bz2")
+    )
 
 
 def test_radar_fileindex_sites_px_reflectivity_bin():
