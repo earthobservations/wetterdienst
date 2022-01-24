@@ -1,9 +1,9 @@
 name: Linter
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_run:
+    workflows: [ "Tests" ]
+    types:
+      - completed
 jobs:
   run:
     runs-on: ubuntu-latest

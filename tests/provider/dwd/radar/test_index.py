@@ -49,6 +49,7 @@ def test_radar_fileindex_composite_rx_reflectivity_bin():
     assert all(PurePath(url).match("*/weather/radar/composit/rx/*---bin") for url in urls)
 
 
+@pytest.mark.xfail(reason="currently contains some .bz2 files besides the ---bin files")
 @pytest.mark.parametrize(
     "parameter",
     [
