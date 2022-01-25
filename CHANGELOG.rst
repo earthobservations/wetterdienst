@@ -5,6 +5,7 @@ Development
 ***********
 
 - Add NOAA GHCN API
+- Fix radar index by filtering out bz2 files
 
 0.23.0 (21.11.2021)
 *******************

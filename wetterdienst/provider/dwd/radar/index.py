@@ -102,6 +102,9 @@ def create_fileindex_radar(
         elif fmt == DwdRadarDataFormat.BUFR:
             files_server = files_server[files_server[DwdColumns.FILENAME.value].str.contains("--buf")]
 
+    # Drop duplicates of files packed as .bz2
+    files_server = files_server[~files_server[DwdColumns.FILENAME.value].str.endswith(".bz2")]
+
     # Decode datetime of file for filtering.
     if parse_datetime:
         files_server[DwdColumns.DATETIME.value] = files_server[DwdColumns.FILENAME.value].apply(get_date_from_filename)
