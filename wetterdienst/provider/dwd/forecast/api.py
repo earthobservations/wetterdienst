@@ -9,7 +9,8 @@ from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import pandas as pd
-import requests
+from fsspec.implementations.cached import WholeFileCacheFileSystem
+from fsspec.implementations.http import HTTPFileSystem
 from requests import HTTPError
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -38,7 +39,7 @@ from wetterdienst.provider.dwd.metadata.constants import (
     DWD_SERVER,
 )
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.util.cache import metaindex_cache
+from wetterdienst.util.cache import CacheExpiry, cache_dir
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import list_remote_files_fsspec
@@ -273,7 +274,7 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date: date used for filtering of the available files
         :return: file url based on the filtering
         """
-        urls = list_remote_files_fsspec(url, recursive=False)
+        urls = list_remote_files_fsspec(url, CacheExpiry.NO_CACHE)
 
         if date == DwdForecastDate.LATEST:
             try:
@@ -325,7 +326,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _dataset_base = DwdMosmixDataset
     _unit_tree = DwdMosmixUnit
 
-    _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/" "mosmix_stationskatalog.cfg?view=nasPublication"
+    _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
     _colspecs = [
         (0, 5),
@@ -477,18 +478,23 @@ class DwdMosmixRequest(ScalarRequestCore):
         """Required for typing"""
         return self.issue_end
 
-    @metaindex_cache.cache_on_arguments()
     def _all(self) -> pd.DataFrame:
         """
         Create meta data DataFrame from available station list
 
         :return:
         """
-        # TODO: Cache payload with FSSPEC
-        payload = requests.get(self._url, headers={"User-Agent": ""})
+
+        fs = WholeFileCacheFileSystem(
+            fs=HTTPFileSystem(client_kwargs={"headers": {"User-Agent": ""}}),
+            cache_storage=cache_dir,
+            expiry_time=CacheExpiry.METAINDEX.value,
+        )
+
+        payload = fs.cat(self._url)
 
         df = pd.read_fwf(
-            StringIO(payload.text),
+            StringIO(payload.decode(encoding="latin-1")),
             skiprows=4,
             skip_blank_lines=True,
             colspecs=self._colspecs,

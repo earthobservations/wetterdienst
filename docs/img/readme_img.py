@@ -10,7 +10,14 @@ from matplotlib.collections import PatchCollection
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Rectangle
 
-from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationValues, DwdObservationParameter, DwdObservationDataset, DwdObservationResolution, DwdObservationPeriod
+from wetterdienst.provider.dwd.observation import (
+    DwdObservationDataset,
+    DwdObservationParameter,
+    DwdObservationPeriod,
+    DwdObservationRequest,
+    DwdObservationResolution,
+    DwdObservationValues,
+)
 
 plt.style.use('ggplot')
 

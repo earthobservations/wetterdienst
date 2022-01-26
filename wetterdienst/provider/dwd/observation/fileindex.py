@@ -18,7 +18,6 @@ from wetterdienst.provider.dwd.metadata.constants import (
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
-from wetterdienst.util.cache import fileindex_cache_twelve_hours
 
 
 def create_file_list_for_climate_observations(
@@ -52,7 +51,6 @@ def create_file_list_for_climate_observations(
     return file_index[DwdColumns.FILENAME.value].values.tolist()
 
 
-@fileindex_cache_twelve_hours.cache_on_arguments()
 def create_file_index_for_climate_observations(
     parameter_set: DwdObservationDataset,
     resolution: Resolution,

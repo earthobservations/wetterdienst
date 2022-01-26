@@ -4,6 +4,15 @@
 # Distributed under the MIT License. See LICENSE for more info.
 __appname__ = "wetterdienst"
 
+
+# TODO: MONKEY PATCH FSSPEC
+def monkey_patch():
+    import wetterdienst.util.fsspec_monkeypatch
+
+
+monkey_patch()
+
+
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter

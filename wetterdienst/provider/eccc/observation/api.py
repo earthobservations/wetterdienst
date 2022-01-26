@@ -360,17 +360,14 @@ class EcccObservationRequest(ScalarRequestCore):
         )
 
         try:
-            response = fs.cat(gdrive_url)
-
-            payload = response
+            payload = fs.cat(gdrive_url)
         except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
             try:
                 response = fs.cat(http_url)
-                response.raise_for_status()
-                with gzip.open(BytesIO(response.content), mode="rb") as f:
+                with gzip.open(BytesIO(response), mode="rb") as f:
                     payload = f.read()
             except Exception:
                 log.exception(f"Unable to access HTTP server at {http_url}")

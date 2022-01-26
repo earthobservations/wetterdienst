@@ -22,6 +22,8 @@ import time
 import pytest
 from bs4 import BeautifulSoup
 
+from tests import mac_py39
+
 
 @pytest.mark.slow
 @pytest.mark.cflake
@@ -46,7 +48,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
 
     # Wait for data element.
-    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=5)
+    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=30)
     time.sleep(1)
 
     # Read payload from data element.

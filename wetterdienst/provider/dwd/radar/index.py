@@ -29,7 +29,7 @@ from wetterdienst.provider.dwd.radar.util import (
     RADOLAN_DT_PATTERN,
     get_date_from_filename,
 )
-from wetterdienst.util.cache import fileindex_cache_five_minutes
+from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 
@@ -50,7 +50,6 @@ def use_cache() -> int:  # pragma: no cover
         return 0
 
 
-@fileindex_cache_five_minutes.cache_on_arguments(expiration_time=use_cache)
 def create_fileindex_radar(
     parameter: DwdRadarParameter,
     site: Optional[DwdRadarSite] = None,
@@ -89,7 +88,7 @@ def create_fileindex_radar(
 
     url = urljoin(DWD_SERVER, parameter_path)
 
-    files_server = list_remote_files_fsspec(url, recursive=True)
+    files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.NO_CACHE)
 
     files_server = pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype="str")
 
@@ -114,7 +113,6 @@ def create_fileindex_radar(
     return files_server
 
 
-@fileindex_cache_five_minutes.cache_on_arguments()
 def create_fileindex_radolan_cdc(resolution: Resolution, period: Period) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
