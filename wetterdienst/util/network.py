@@ -4,10 +4,7 @@
 import os
 from io import BytesIO
 from typing import List, Optional, Union
-from urllib.parse import urljoin
 
-import requests
-from bs4 import BeautifulSoup
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 
@@ -18,11 +15,7 @@ from wetterdienst.util.cache import (
     cache_dir,
 )
 
-# v1: Global HTTP session object for custom implementation based on "requests".
-session = requests.Session()
 
-
-# v2: Remote filesystem access through FSSPEC.
 class NetworkFilesystemManager:
     """
     Manage multiple FSSPEC instances keyed by cache expiration time.
@@ -52,9 +45,7 @@ class NetworkFilesystemManager:
             filesystem_effective = filesystem_real
         else:
             filesystem_effective = WholeFileCacheFileSystem(
-                fs=filesystem_real,
-                cache_storage=real_cache_dir,
-                expiry_time=ttl_value,
+                fs=filesystem_real, cache_storage=real_cache_dir, expiry_time=ttl_value
             )
         cls.filesystems[key] = filesystem_effective
 
@@ -67,50 +58,7 @@ class NetworkFilesystemManager:
         return cls.filesystems[key]
 
 
-# v1: Custom "remote directory index" implementation.
-def list_remote_files_legacy(url: str, recursive: bool) -> List[str]:
-    """
-    A function used to create a listing of all files of a given path on the server
-
-    Args:
-        url: the url which should be searched for files
-        recursive: definition if the function should iteratively list files
-        from sub folders
-
-    Returns:
-        a list of strings representing the files from the path
-    """
-
-    if not url.endswith("/"):
-        url += "/"
-
-    r = session.get(url)
-    r.raise_for_status()
-
-    soup = BeautifulSoup(r.text, "lxml")
-
-    files_and_folders = [link.get("href") for link in soup.find_all("a") if link.get("href") != "../"]
-
-    files = []
-    folders = []
-
-    for f in files_and_folders:
-        if not f.endswith("/"):
-            files.append(urljoin(url, f))
-        else:
-            folders.append(urljoin(url, f))
-
-    if recursive:
-        files_in_folders = [list_remote_files_legacy(folder, recursive) for folder in folders]
-
-        for files_in_folder in files_in_folders:
-            files.extend(files_in_folder)
-
-    return files
-
-
-# v2: "Remote directory index" implementation based on FSSPEC.
-def list_remote_files_fsspec(url: str, recursive: bool = False, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
+def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server.
 
@@ -125,22 +73,14 @@ def list_remote_files_fsspec(url: str, recursive: bool = False, ttl: CacheExpiry
     Returns:
         A list of strings representing the files from the path.
     """
+    fs = HTTPFileSystem(
+        use_listings_cache=True,
+        listings_expiry_time=not WD_CACHE_DISABLE and ttl.value,
+        listings_cache_type="filedircache",
+        listings_cache_location=cache_dir,
+    )
 
-    # Acquire filesystem instance.
-    filesystem = NetworkFilesystemManager.get(ttl=ttl)
-
-    # Recursively list remote directory.
-    if not recursive:
-        remote_urls = filesystem.find(url)
-    else:
-        remote_urls = filesystem.expand_path(url, recursive=recursive)
-
-    # Only list files, so remove all directories.
-    try:
-        remote_urls.remove(url)
-    except ValueError:
-        pass
-    return [i for i in remote_urls if not i.endswith("/")]
+    return fs.find(url)
 
 
 def download_file(url: str, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesIO:

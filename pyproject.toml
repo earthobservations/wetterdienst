@@ -93,7 +93,6 @@ beautifulsoup4 = "^4.9"
 requests = "^2.20"
 requests-ftp = "^0.3"
 python-dateutil = "^2.8"
-"dogpile.cache" = "^1.0"
 appdirs = "^1.4"
 lxml = "^4.5"
 tqdm = "^4.47"
@@ -145,6 +144,7 @@ ipython-genutils = { version = "^0.2", optional = true }
 zarr = { version = "^2.7", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }  # not supported through numcodecs
 xarray = { version = "^0.17", optional = true }
 timezonefinder = "^5.2"
+diskcache = "^5.4.0"
 
 
 [tool.poetry.dev-dependencies]
@@ -258,8 +258,12 @@ flake8-print = ["+*"]
 flake8-return = ["+*"]
 flake8-2020 = ["+*"]
 
+[tool.flakeheaven.exceptions."wetterdienst/__init__.py"]
+pycodestyle = ["-E402"]
 [tool.flakeheaven.exceptions."**/__init__.py"]
 pyflakes = ["-F401"]
+[tool.flakeheaven.exceptions."wetterdienst/util/fsspec_monkeypatch.py"]
+flake8-bugbear = ["-B301"]
 [tool.flakeheaven.exceptions."example/"]
 flake8-print = ["-*"]
 [tool.flakeheaven.exceptions."tests/"]

@@ -15,8 +15,9 @@
 # for how to get the version from the pyproject.toml
 import os
 import sys
-import tomlkit
+
 import sphinx_material
+import tomlkit
 
 sys.path.insert(0, os.path.abspath(".."))
 
