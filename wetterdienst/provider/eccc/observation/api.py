@@ -10,8 +10,9 @@ from typing import Generator, Optional, Tuple, Union
 
 import pandas as pd
 import requests
+from fsspec.implementations.cached import WholeFileCacheFileSystem
+from fsspec.implementations.http import HTTPFileSystem
 from requests.adapters import HTTPAdapter
-from requests_ftp.ftp import FTPSession
 from urllib3 import Retry
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -32,7 +33,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EccObservationResolution,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
-from wetterdienst.util.cache import payload_cache_twelve_hours
+from wetterdienst.util.cache import CacheExpiry, cache_dir
 
 log = logging.getLogger(__name__)
 
@@ -336,37 +337,38 @@ class EcccObservationRequest(ScalarRequestCore):
         return df.rename(columns=self._columns_mapping)
 
     @staticmethod
-    @payload_cache_twelve_hours.cache_on_arguments()
-    def _download_stations() -> bytes:
+    def _download_stations() -> BytesIO:
         """
         Download station list from ECCC FTP server.
 
         :return: CSV payload
         """
 
-        ftp_url = (
-            "ftp://client_climate:foobar@ftp.tor.ec.gc.ca" "/Pub/Get_More_Data_Plus_de_donnees/Station Inventory EN.csv"
-        )
+        gdrive_url = "https://drive.google.com/uc?id=1HDRnj41YBWpMioLPwAFiLlK4SK8NV72C"
 
         http_url = (
-            "https://raw.githubusercontent.com/earthobservations/testdata"
-            "/main/ftp.tor.ec.gc.ca/Pub/Get_More_Data_Plus_de_donnees"
-            "/Station%20Inventory%20EN.csv.gz"
+            "https://github.com/earthobservations/testdata/raw/main/ftp.tor.ec.gc.ca/Pub/"
+            "Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv.gz"
         )
 
         payload = None
 
-        # Try original source.
-        session = FTPSession()
+        fs = WholeFileCacheFileSystem(
+            fs=HTTPFileSystem(),
+            cache_storage=cache_dir,
+            expiry_time=CacheExpiry.METAINDEX.value,
+        )
+
         try:
-            response = session.retr(ftp_url)
-            payload = response.content
+            response = fs.cat(gdrive_url)
+
+            payload = response
         except Exception:
-            log.exception(f"Unable to access FTP server at {ftp_url}")
+            log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
             try:
-                response = requests.get(http_url)
+                response = fs.cat(http_url)
                 response.raise_for_status()
                 with gzip.open(BytesIO(response.content), mode="rb") as f:
                     payload = f.read()
