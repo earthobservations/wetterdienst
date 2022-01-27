@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix access to ECCC stations listing using Google Drive storage
+
 0.24.0 (24.01.2022)
 *******************
 
