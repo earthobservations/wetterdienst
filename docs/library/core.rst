@@ -28,7 +28,7 @@ Data models
 Download
 ========
 
-.. automodule:: wetterdienst.provider.dwd.network
+.. automodule:: wetterdienst.util.network
     :members:
 
 Enumerations

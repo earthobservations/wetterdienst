@@ -409,8 +409,7 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         :param parameter: parameter(s) to be collected
         :param mosmix_type: mosmix type, either small or large
-        :param start_issue: start of issue of mosmix which should be caught
-        (Mosmix run at time XX:YY)
+        :param start_issue: start of issue of mosmix which should be caught (Mosmix run at time XX:YY)
         :param end_issue: end of issue
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date

@@ -141,7 +141,7 @@ class DwdObservationValues(ScalarValuesCore):
             else:
                 periods_and_date_ranges.append((period, None))
 
-        parameter_df = pd.DataFrame()
+        parameter_data = []
 
         for period, date_range in periods_and_date_ranges:
             parameter_identifier = build_parameter_set_identifier(
@@ -176,13 +176,15 @@ class DwdObservationValues(ScalarValuesCore):
 
             period_df = parse_climate_observations_data(filenames_and_files, dataset, self.stations.resolution, period)
 
-            # Filter out values which already are in the DataFrame
-            try:
-                period_df = period_df[~period_df[DwdColumns.DATE.value].isin(parameter_df[DwdColumns.DATE.value])]
-            except KeyError:
-                pass
+            parameter_data.append(period_df)
 
-            parameter_df = parameter_df.append(period_df)
+        try:
+            parameter_df = pd.concat(parameter_data)
+        except ValueError:
+            return pd.DataFrame()
+
+        # Filter out values which already are in the DataFrame
+        parameter_df = parameter_df.drop_duplicates(subset=Columns.DATE.value)
 
         # TODO: temporary fix -> reduce time steps before 2000 by 1 hour
         #  for 1minute and 10minutes resolution data
@@ -559,7 +561,7 @@ class DwdObservationRequest(ScalarRequestCore):
         """
         datasets = pd.Series(self.parameter).map(lambda x: x[1]).unique()
 
-        stations_df = pd.DataFrame()
+        stations = []
 
         for dataset in datasets:
             # First "now" period as it has more updated end date up to the last "now"
@@ -578,10 +580,14 @@ class DwdObservationRequest(ScalarRequestCore):
 
                 df = df[df.loc[:, Columns.STATION_ID.value].isin(file_index[Columns.STATION_ID.value])]
 
-                if not stations_df.empty:
-                    df = df[~df[Columns.STATION_ID.value].isin(stations_df[Columns.STATION_ID.value])]
+                stations.append(df)
 
-                stations_df = stations_df.append(df)
+        try:
+            stations_df = pd.concat(stations)
+        except ValueError:
+            return pd.DataFrame()
+
+        stations_df = stations_df.drop_duplicates(subset=Columns.STATION_ID.value, keep="first")
 
         if not stations_df.empty:
             return stations_df.sort_values([Columns.STATION_ID.value], key=lambda x: x.astype(int))

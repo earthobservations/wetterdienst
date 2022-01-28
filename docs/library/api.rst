@@ -36,3 +36,12 @@ Observation
 
 .. autoclass:: wetterdienst.provider.eccc.observation.api.EcccObservationRequest
     :members:
+
+NOAA (National Oceanic and Atmospheric Administration)
+======================================================
+
+Global Historical Climatology Network
+-------------------------------------
+
+.. autoclass:: wetterdienst.provider.noaa.ghcn.api.NoaaGhcnRequest
+    :members:
