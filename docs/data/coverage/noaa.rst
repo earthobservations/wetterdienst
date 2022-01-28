@@ -13,12 +13,13 @@ because this is the most common and maintainable resolution with most observatio
 
 .. ipython:: python
 
+    import json
     from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
     meta = NoaaGhcnRequest.discover(flatten=False)
 
     # Selection of daily historical data
-    print(meta)
+    print(json.dumps(meta, indent=4, ensure_ascii=False))
 
 Special Parameters
 __________________

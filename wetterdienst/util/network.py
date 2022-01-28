@@ -64,14 +64,9 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
 
     The default ttl with ``CacheExpiry.FILEINDEX`` is "5 minutes".
 
-    Args:
-        :param url:         The URL which should be searched for files.
-        :param recursive:   Definition if the function should iteratively list files
-                            from sub folders.
-        :param ttl:         The cache expiration time.
-
-    Returns:
-        A list of strings representing the files from the path.
+    :param url:         The URL which should be searched for files.
+    :param ttl:         The cache expiration time.
+    :returns:  A list of strings representing the files from the path.
     """
     fs = HTTPFileSystem(
         use_listings_cache=True,
@@ -90,7 +85,7 @@ def download_file(url: str, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesI
     :param url:     The url to the file on the dwd server
     :param ttl:     How long the resource should be cached.
 
-    :return:        Bytes of the file.
+    :returns:        Bytes of the file.
     """
     filesystem = NetworkFilesystemManager.get(ttl=ttl)
     payload = filesystem.cat(url)

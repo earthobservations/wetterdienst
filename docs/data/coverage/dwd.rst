@@ -117,12 +117,13 @@ parameters can be queried. Take a look at the massive amount of data:
 
 .. ipython:: python
 
+    import json
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     meta = DwdObservationRequest.discover(flatten=False)
 
     # Selection of daily historical data
-    print(meta)
+    print(json.dumps(meta, indent=4, ensure_ascii=False))
 
 .. _file_server: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/
 

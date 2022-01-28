@@ -8,9 +8,10 @@ ECCC (Environment and Climate Change Canada)
 
 .. ipython:: python
 
+    import json
     from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
-    observations_meta = EcccObservationRequest.discover()
+    meta = EcccObservationRequest.discover()
 
     # Selection of daily historical data
-    print(observations_meta)
+    print(json.dumps(meta, indent=4, ensure_ascii=False))
