@@ -115,7 +115,7 @@ aiohttp = "^3.7"
 matplotlib =  { version = "^3.3", optional = true }
 
 openpyxl                        = { version = "^3.0", optional = true }
-pyarrow                         = { version = "^3.0", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }
+pyarrow                         = { version = "^3.0", optional = true }
 duckdb                          = { version = "^0.2", optional = true }
 influxdb                        = { version = "^5.3", optional = true }
 influxdb-client                 = { version = "^1.18", optional = true }
@@ -127,7 +127,7 @@ psycopg2-binary                 = { version = "^2.8", optional = true }
 # HTTP REST API service
 fastapi                         = { version = "^0.61", optional = true }
 uvicorn                         = { version = "^0.13", optional = true }
-wradlib                         = { version = "^1.9", optional = true }
+wradlib                         = { version = "^1.13", optional = true }
 
 # Explorer UI service
 plotly                          = { version = "^4.14", optional = true }
@@ -141,7 +141,7 @@ sphinxcontrib-svg2pdfconverter = { version = "^1.1", optional = true }
 tomlkit = { version = "^0.7", optional = true }
 ipython = { version = "^7.10", optional = true }
 ipython-genutils = { version = "^0.2", optional = true }
-zarr = { version = "^2.7", optional = true, markers = "sys_platform != 'darwin' or (sys_platform == 'darwin' and platform_machine != 'arm64')" }  # not supported through numcodecs
+zarr = { version = "^2.7", optional = true }
 xarray = { version = "^0.17", optional = true }
 timezonefinder = "^5.2"
 diskcache = "^5.4.0"
@@ -187,7 +187,6 @@ pybufrkit = "^0.2"
 selenium = "^3.141"
 percy = "^2.0"
 h5py = "^3.1"
-h5netcdf = "^0.11"
 
 # Coverage
 coverage = { version = "^5.3", extras = ["toml"] }
@@ -278,13 +277,13 @@ isort = "isort wetterdienst example tests"
 format = ["black", "isort"]
 lint = "flakeheaven lint wetterdienst example tests"
 docs = { shell = "cd docs && poetry run make html" }
-test = "pytest -vvv tests"
-# TODO: When parallel testing works on CI, use this:
-# test = ["test-parallel", "test-cflakes"]
 test-cflakes = "pytest -vvv -m cflake tests"
-test-parallel = "pytest -vvv --numprocesses=4 -m 'not (explorer or cflake)' tests"
+test-parallel = "pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)' tests"
+test = ["test-parallel", "test-cflakes"]
+# For Windows CI
+test-slow = "pytest -vvv tests"
 coverage = "pytest --cov=wetterdienst tests"
-coverage-parallel = "pytest --cov=wetterdienst --numprocesses=4 -m 'not (explorer or cflake)' tests"
+coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)' tests"
 export_requirements = "poetry export --without-hashes --dev --output requirements.txt"
 export_licenses = "pip-licenses --from=mixed --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 export = ["export_requirements", "export_licenses"]

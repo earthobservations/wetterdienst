@@ -37,6 +37,7 @@ def test_app_layout(wetterdienst_ui, dash_tre):
     assert dash_tre.find_element("#graph")
 
 
+@pytest.mark.xfail
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
@@ -46,7 +47,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
 
     # Wait for data element.
-    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=30)
+    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=10)
     time.sleep(1)
 
     # Read payload from data element.
