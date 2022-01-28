@@ -22,8 +22,6 @@ import time
 import pytest
 from bs4 import BeautifulSoup
 
-from tests import mac_py39
-
 
 @pytest.mark.slow
 @pytest.mark.cflake

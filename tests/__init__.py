@@ -15,5 +15,3 @@ windows = platform.system() == "Windows"
 windows_unsupported = pytest.mark.skipif(
     windows, reason="can't be tested under windows due to unsupported wradlib library"
 )
-
-mac_py39 = sys.platform == "darwin" and sys.version_info.major == 3 and sys.version_info.minor == 9
