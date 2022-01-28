@@ -5,11 +5,7 @@ import re
 from datetime import datetime
 
 import pytest
-
-from tests import windows, windows_unsupported
-
-if not windows:
-    import wradlib as wrl
+import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -42,7 +38,6 @@ def test_radar_request_composite_latest_rx_reflectivity():
     assert re.match(bytes(header, encoding="ascii"), payload[:160])
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity():
     """
@@ -114,7 +109,6 @@ def test_radar_request_composite_latest_rw_reflectivity():
     assert requested_attrs == attrs
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_latest_dx_reflectivity():
     """

@@ -48,42 +48,21 @@ jobs:
       uses: actions/cache@v2
       env:
         # Increase this value to reset cache if `poetry.lock` has not changed.
-        CACHE_NUMBER: 2
+        CACHE_NUMBER: 4
       with:
         path: ${{ steps.poetry-cache-dir.outputs.dir }}
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
     - name: Install dependencies
-      #run: poetry install --no-interaction --no-root --extras=sql --extras=export --extras=restapi --extras=explorer
       run: .github/workflows/install.sh testing
-      #if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
 
-    #- name: Install library
-    #  run: poetry install --no-interaction
-    #  #if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
-
-    - name: Install wradlib (Mac only)
+    - name: Test (Windows) - single core
       run: |
-        if [ "$RUNNER_OS" == "macOS" ]; then
-          brew install gdal
-          pip install setuptools==57.5.0
-          poetry run pip install gdal==$(gdal-config --version)
-          poetry run pip install wradlib
+        if [ "$RUNNER_OS" == "Windows" ]; then 
+          poetry run poe test-slow
         fi
-      shell: bash
-
-    - name: Install wradlib (Linux only)
+    - name: Test (Linux/Mac) - multi core
       run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          sudo apt-get update
-          sudo apt-get install python3-dev
-          pip install setuptools==57.5.0
-          sudo apt-get install libgdal-dev
-          sudo apt-get install gdal-bin
-          poetry run pip install --global-option=build_ext --global-option="-I/usr/include/gdal" GDAL==$(gdal-config --version)
-          poetry run pip install wradlib
+        if [ "$RUNNER_OS" != "Windows" ]; then
+          poetry run poe test
         fi
-      shell: bash
-
-    - name: Test
-      run: poetry run poe test

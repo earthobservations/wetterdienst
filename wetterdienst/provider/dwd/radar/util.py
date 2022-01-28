@@ -50,11 +50,11 @@ def get_date_from_filename(filename):
 
 
 def verify_hdf5(buffer: BytesIO):
-    import h5netcdf
+    import h5py
 
     buffer.seek(0)
     try:
-        nc = h5netcdf.File(buffer, mode="r")
+        nc = h5py.File(buffer, mode="r")
         nc.close()
         buffer.seek(0)
     except Exception:

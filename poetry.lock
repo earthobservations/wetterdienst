@@ -1039,14 +1039,15 @@ typing-extensions = {version = "*", markers = "python_version < \"3.8\""}
 
 [[package]]
 name = "h5netcdf"
-version = "0.11.0"
+version = "0.13.1"
 description = "netCDF4 via h5py"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6"
 
 [package.dependencies]
 h5py = "*"
+packaging = "*"
 
 [[package]]
 name = "h5py"
@@ -1838,7 +1839,7 @@ tomlkit = ">=0.6.0,<1.0.0"
 
 [[package]]
 name = "prometheus-client"
-version = "0.13.0"
+version = "0.13.1"
 description = "Python client for the Prometheus monitoring system."
 category = "dev"
 optional = false
@@ -2964,7 +2965,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.1"
-content-hash = "95dbb05eba4867ab17a7470df74239a0b46ec19e7e853d7897890af358aea873"
+content-hash = "4a59e238684ce363e689d312bbaec18532ea169aaebfd0f8118f711bcaac30f0"
 
 [metadata.files]
 aenum = [
@@ -3665,8 +3666,8 @@ h11 = [
     {file = "h11-0.13.0.tar.gz", hash = "sha256:70813c1135087a248a4d38cc0e1a0181ffab2188141a93eaf567940c3957ff06"},
 ]
 h5netcdf = [
-    {file = "h5netcdf-0.11.0-py2.py3-none-any.whl", hash = "sha256:6411733d85f84d420ea0a0b482dd88a343787bcfba4e8867644e1f6d817cd6b0"},
-    {file = "h5netcdf-0.11.0.tar.gz", hash = "sha256:a3175a02d9cea4a66f22e94a30d1d4eea9a915d8a3a9024d5f968ec42b6ebc2f"},
+    {file = "h5netcdf-0.13.1-py2.py3-none-any.whl", hash = "sha256:b7efb5debae8054e303fc4f8f56bba47377bbe06c581584741e6b69fcfb50989"},
+    {file = "h5netcdf-0.13.1.tar.gz", hash = "sha256:c90c1eb39798af5ac7c573bdcde60d984e3bf97bb2b588f1222528d0cdffcb62"},
 ]
 h5py = [
     {file = "h5py-3.6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:a5320837c60870911645e9a935099bdb2be6a786fcf0dac5c860f3b679e2de55"},
@@ -4323,8 +4324,8 @@ poethepoet = [
     {file = "poethepoet-0.9.0.tar.gz", hash = "sha256:ab2263fd7be81d16d38a4b4fe42a055d992d04421e61cad36498b1e4bd8ee2a6"},
 ]
 prometheus-client = [
-    {file = "prometheus_client-0.13.0-py3-none-any.whl", hash = "sha256:70782d19ea1a3aeb8523aa07780dbee6a595e566198ab4ed7fdc32b53b5fa1d1"},
-    {file = "prometheus_client-0.13.0.tar.gz", hash = "sha256:3fdc6fc5b03a9eaee44d015e2913b496864b9ad6557013f23e28f926d7b62913"},
+    {file = "prometheus_client-0.13.1-py3-none-any.whl", hash = "sha256:357a447fd2359b0a1d2e9b311a0c5778c330cfbe186d880ad5a6b39884652316"},
+    {file = "prometheus_client-0.13.1.tar.gz", hash = "sha256:ada41b891b79fca5638bd5cfe149efa86512eaa55987893becd2c6d8d0a5dfc5"},
 ]
 prompt-toolkit = [
     {file = "prompt_toolkit-3.0.26-py3-none-any.whl", hash = "sha256:4bcf119be2200c17ed0d518872ef922f1de336eb6d1ddbd1e089ceb6447d97c6"},

@@ -10,11 +10,7 @@ import h5py
 import pybufrkit
 import pytest
 import requests
-
-from tests import windows, windows_unsupported
-
-if not windows:
-    import wradlib as wrl
+import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import (
@@ -205,7 +201,6 @@ def test_radar_request_composite_historic_fx_timerange():
     )
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday():
     """
@@ -273,7 +268,6 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
     assert requested_attrs == attrs
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_timerange():
     """
@@ -350,7 +344,6 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     assert requested_attrs == attrs
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_yesterday():
     """
@@ -398,7 +391,6 @@ def test_radar_request_site_historic_dx_yesterday():
     assert requested_attrs == attrs
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_dx_timerange():
     """
@@ -449,7 +441,6 @@ def test_radar_request_site_historic_dx_timerange():
     assert requested_attrs == attrs
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_site_historic_pe_binary_yesterday():
     """
@@ -941,7 +932,6 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     # TODO: Verify data.
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_radvor_re_yesterday():
     """
@@ -1052,7 +1042,6 @@ def test_radar_request_radvor_re_timerange():
     # TODO: Verify data.
 
 
-@windows_unsupported
 @pytest.mark.remote
 def test_radar_request_radvor_rq_yesterday():
     """
