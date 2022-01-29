@@ -4,6 +4,7 @@
 from typing import List, Optional
 
 import pandas as pd
+from pytz import timezone
 
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -66,6 +67,8 @@ def create_file_index_for_climate_observations(
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
+    timezone_germany = timezone("Europe/Berlin")
+
     file_index = _create_file_index_for_dwd_server(parameter_set, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS)
 
     file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
@@ -91,13 +94,20 @@ def create_file_index_for_climate_observations(
         file_index.loc[:, DwdColumns.FROM_DATE.value] = pd.to_datetime(
             file_index[DwdColumns.FROM_DATE.value],
             format=DatetimeFormat.YMD.value,
-            utc=True,
+        )
+        file_index.loc[:, DwdColumns.FROM_DATE.value] = file_index.loc[:, DwdColumns.FROM_DATE.value].dt.tz_localize(
+            timezone_germany
         )
 
-        file_index.loc[:, DwdColumns.TO_DATE.value] = pd.to_datetime(
-            file_index[DwdColumns.TO_DATE.value],
-            format=DatetimeFormat.YMD.value,
-            utc=True,
+        file_index.loc[:, DwdColumns.TO_DATE.value] = (
+            pd.to_datetime(
+                file_index[DwdColumns.TO_DATE.value],
+                format=DatetimeFormat.YMD.value,
+            )
+            + pd.Timedelta(days=1)
+        )
+        file_index.loc[:, DwdColumns.TO_DATE.value] = file_index.loc[:, DwdColumns.TO_DATE.value].dt.tz_localize(
+            timezone_germany
         )
 
         # Temporary fix for filenames with wrong ordered/faulty dates

@@ -136,6 +136,7 @@ class DwdObservationValues(ScalarValuesCore):
         for period in self.stations.period:
             if self.stations.resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(station_id, dataset)
+
                 for date_range in date_ranges:
                     periods_and_date_ranges.append((period, date_range))
             else:
@@ -395,8 +396,8 @@ class DwdObservationRequest(ScalarRequestCore):
         """
         if self.start_date:
             # cut of hours, seconds,...
-            start_date = Timestamp(self.start_date.date()).tz_localize(self.tz)
-            end_date = Timestamp(self.end_date.date()).tz_localize(self.tz)
+            start_date = Timestamp(self.start_date).tz_convert(self.tz)
+            end_date = Timestamp(self.end_date).tz_convert(self.tz)
             return pd.Interval(start_date, end_date, closed="both")
 
         return None

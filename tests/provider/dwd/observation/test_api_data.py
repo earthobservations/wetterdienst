@@ -13,6 +13,7 @@ from pandas._testing import assert_frame_equal
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -265,15 +266,25 @@ def test_request_period_historical_recent_now():
     ]
 
 
-def test_request_period_now():
+@freeze_time(datetime(2022, 1, 29, 1, 30, tzinfo=pytz.timezone(Timezone.GERMANY.value)))
+def test_request_period_recent_now():
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
+        resolution=DwdObservationResolution.DAILY,
+        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
+    )
+    assert request.period == [Period.RECENT, Period.NOW]
 
+
+@freeze_time(datetime(2022, 1, 29, 2, 30, tzinfo=pytz.timezone(Timezone.GERMANY.value)))
+def test_request_period_now():
     # Now period
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
     )
-    assert Period.NOW in request.period
+    assert request.period == [Period.NOW]
 
 
 @freeze_time("2021-03-28T18:38:00+02:00")
