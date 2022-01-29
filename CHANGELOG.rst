@@ -6,6 +6,7 @@ Development
 
 - Fix access to ECCC stations listing using Google Drive storage
 - Remove/replace caching entirely by fsspec (+monkeypatch)
+- Fix bug with DWD intervals
 
 0.24.0 (24.01.2022)
 *******************
