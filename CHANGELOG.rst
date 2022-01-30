@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.25.0 (30.01.2022)
+*******************
+
 - Fix access to ECCC stations listing using Google Drive storage
 - Remove/replace caching entirely by fsspec (+monkeypatch)
 

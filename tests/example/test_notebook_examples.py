@@ -19,6 +19,7 @@ def test_jupyter_example():
             "/cells/*/outputs/",
         ),
         force_regen=True,
+        exec_timeout=50,
     )
 
     fixture.check(EXAMPLE_DIR / "climate_observations.ipynb")
