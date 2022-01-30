@@ -494,7 +494,7 @@ python-versions = "*"
 
 [[package]]
 name = "dask"
-version = "2022.1.0"
+version = "2022.1.1"
 description = "Parallel PyData with Task Scheduling"
 category = "main"
 optional = true
@@ -510,10 +510,10 @@ toolz = ">=0.8.2"
 
 [package.extras]
 array = ["numpy (>=1.18)"]
-complete = ["bokeh (>=2.1.1)", "distributed (==2022.01.0)", "jinja2", "numpy (>=1.18)", "pandas (>=1.0)"]
+complete = ["bokeh (>=2.1.1)", "distributed (==2022.01.1)", "jinja2", "numpy (>=1.18)", "pandas (>=1.0)"]
 dataframe = ["numpy (>=1.18)", "pandas (>=1.0)"]
 diagnostics = ["bokeh (>=2.1.1)", "jinja2"]
-distributed = ["distributed (==2022.01.0)"]
+distributed = ["distributed (==2022.01.1)"]
 test = ["pytest", "pytest-rerunfailures", "pytest-xdist", "pre-commit"]
 
 [[package]]
@@ -3414,8 +3414,8 @@ dash-table = [
     {file = "dash_table-4.12.0.tar.gz", hash = "sha256:4c99689a887bfd035278b14ecd5db70706023389e53735d5e3cccc416facdbe4"},
 ]
 dask = [
-    {file = "dask-2022.1.0-py3-none-any.whl", hash = "sha256:36e3765ef7800451deff87b3fe90cbc8a4963e65b3fd4e2a73c112c243f88608"},
-    {file = "dask-2022.1.0.tar.gz", hash = "sha256:aee6eb6517f13dc00a3cc7ed9e13c728baa5850b8a35a2b93793d593a23ecbb8"},
+    {file = "dask-2022.1.1-py3-none-any.whl", hash = "sha256:6caaf633c85ecd1197025de0b8bd244ef88b4b1810f315b09005b3fe5c21ee8e"},
+    {file = "dask-2022.1.1.tar.gz", hash = "sha256:3d5e935792d8a5a61d19cb7e63771ee02cdfd6122e36beb15c2dad6257320c58"},
 ]
 dateparser = [
     {file = "dateparser-1.1.0-py2.py3-none-any.whl", hash = "sha256:fec344db1f73d005182e214c0ff27313c748bbe0c1638ce9d48a809ddfdab2a0"},
