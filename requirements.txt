@@ -21,7 +21,7 @@ cached-property==1.5.2; python_version < "3.8" and python_version >= "3.7"
 cachetools==4.2.4; python_version >= "3.5" and python_version < "4.0"
 certifi==2021.10.8; python_version >= "3.5" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.5"
 cffi==1.15.0; python_full_version >= "3.6.1" and python_version >= "3.7" and implementation_name == "pypy"
-charset-normalizer==2.0.10; python_full_version >= "3.6.0" and python_version >= "3.6"
+charset-normalizer==2.0.11; python_full_version >= "3.6.0" and python_version >= "3.6"
 click-params==0.1.2; python_version >= "3.6" and python_version < "4.0"
 click==8.0.3; python_version >= "3.6"
 cloup==0.8.2; python_version >= "3.6"
@@ -36,6 +36,7 @@ diskcache==5.4.0; python_version >= "3"
 docformatter==1.4
 docutils==0.16; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
 entrypoints==0.3; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
+environs==9.5.0; python_version >= "3.6"
 eradicate==2.0.0; python_version >= "3.6" and python_version < "4.0"
 execnet==1.9.0; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
 flake8-2020==1.6.1; python_full_version >= "3.6.1"
@@ -76,6 +77,7 @@ jupyter-server==1.13.4; python_version >= "3.7"
 livereload==2.6.3; python_version >= "3.6"
 lxml==4.7.1; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
 markupsafe==2.0.1; python_version >= "3.6"
+marshmallow==3.14.1; python_version >= "3.6"
 mccabe==0.6.1; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.7" and python_version < "4.0"
 measurement==3.2.0
 mistune==0.8.4; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
@@ -120,6 +122,7 @@ pytest-notebook==0.6.1; python_version >= "3.6"
 pytest-xdist==2.5.0; python_version >= "3.6"
 pytest==6.2.5; python_version >= "3.6"
 python-dateutil==2.8.2; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.3.0")
+python-dotenv==0.19.2; python_version >= "3.6"
 pytz-deprecation-shim==0.1.0.post0; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6"
 pytz==2021.3; python_full_version >= "3.7.1" and python_version >= "3.5" and (python_version >= "3.5" and python_full_version < "3.0.0" or python_full_version >= "3.4.0" and python_version >= "3.5")
 pywin32==303; sys_platform == "win32" and platform_python_implementation != "PyPy" and python_full_version >= "3.6.1" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")

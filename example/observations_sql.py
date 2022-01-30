@@ -18,6 +18,7 @@ Setup
 """  # Noqa:D205,D400
 import logging
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationRequest,
@@ -29,14 +30,15 @@ log = logging.getLogger()
 
 def sql_example():
     """Retrieve temperature data by DWD and filter by sql statement."""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
-        tidy=True,
-        humanize=True,
-        si_units=False,
     )
 
     stations = request.filter_by_station_id(station_id=(1048,))

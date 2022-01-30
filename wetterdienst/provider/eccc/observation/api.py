@@ -308,19 +308,20 @@ class EcccObservationRequest(ScalarRequestCore):
         resolution: Union[EccObservationResolution, Resolution],
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        humanize: bool = True,
-        tidy: bool = True,
-        si_units: bool = True,
     ):
+        """
+
+        :param parameter: parameter or list of parameters that are being queried
+        :param resolution: resolution of data
+        :param start_date: start date for values filtering
+        :param end_date: end date for values filtering
+        """
         super(EcccObservationRequest, self).__init__(
             parameter=parameter,
             resolution=resolution,
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
-            humanize=humanize,
-            tidy=tidy,
-            si_units=si_units,
         )
 
     def _all(self) -> pd.DataFrame:

@@ -39,7 +39,7 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "forecast",
-        f"--parameter=DD --resolution=large "
+        f"--parameter=small --resolution=large "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
@@ -299,6 +299,7 @@ def test_cli_values_json(setting, expected_columns, capsys, caplog):
     expected_columns = {"station_id", "date"}.union(expected_columns)
 
     first = response[0]
+
     assert set(first.keys()).issuperset(expected_columns)
 
 

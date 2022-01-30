@@ -5,11 +5,17 @@ import datetime
 import json
 import os
 import shutil
+import sqlite3
 
 import dateutil.parser
 import mock
+import numpy as np
+import openpyxl
 import pandas as pd
+import pyarrow.feather as feather
+import pyarrow.parquet as pq
 import pytest
+import zarr
 from surrogate import surrogate
 
 from wetterdienst.core.process import filter_by_date_and_resolution
@@ -22,6 +28,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
+from wetterdienst.settings import Settings
 
 df_station = pd.DataFrame.from_dict(
     {
@@ -177,6 +184,10 @@ def test_format_csv():
 @pytest.mark.remote
 def test_request():
     """Test general data request"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -190,6 +201,10 @@ def test_request():
 
 def test_export_unknown():
     """Test export of DataFrame to unknown format"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
@@ -208,7 +223,9 @@ def test_export_unknown():
 
 def test_export_spreadsheet(tmpdir_factory):
     """Test export of DataFrame to spreadsheet"""
-    import openpyxl
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = False
 
     # 1. Request data and save to .xlsx file.
     request = DwdObservationRequest(
@@ -216,8 +233,6 @@ def test_export_spreadsheet(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -311,7 +326,9 @@ def test_export_spreadsheet(tmpdir_factory):
 @pytest.mark.remote
 def test_export_parquet(tmpdir_factory):
     """Test export of DataFrame to parquet"""
-    import pyarrow.parquet as pq
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = False
 
     # Request data.
     request = DwdObservationRequest(
@@ -319,8 +336,6 @@ def test_export_parquet(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -375,8 +390,9 @@ def test_export_parquet(tmpdir_factory):
 @pytest.mark.remote
 def test_export_zarr(tmpdir_factory):
     """Test export of DataFrame to zarr"""
-    import numpy as np
-    import zarr
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = False
 
     # Request data.
     request = DwdObservationRequest(
@@ -384,8 +400,6 @@ def test_export_zarr(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -441,7 +455,9 @@ def test_export_zarr(tmpdir_factory):
 @pytest.mark.remote
 def test_export_feather(tmpdir_factory):
     """Test export of DataFrame to feather"""
-    import pyarrow.feather as feather
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = False
 
     # Request data
     request = DwdObservationRequest(
@@ -449,8 +465,6 @@ def test_export_feather(tmpdir_factory):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -505,15 +519,15 @@ def test_export_feather(tmpdir_factory):
 @pytest.mark.remote
 def test_export_sqlite(tmpdir_factory):
     """Test export of DataFrame to sqlite db"""
-    import sqlite3
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = False
 
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -578,11 +592,14 @@ def test_export_sqlite(tmpdir_factory):
 @pytest.mark.remote
 def test_export_cratedb():
     """Test export of DataFrame to cratedb"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -608,11 +625,14 @@ def test_export_cratedb():
 @pytest.mark.remote
 def test_export_duckdb():
     """Test export of DataFrame to duckdb"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_connection = mock.MagicMock()
@@ -632,12 +652,14 @@ def test_export_duckdb():
 @pytest.mark.remote
 def test_export_influxdb1_tabular():
     """Test export of DataFrame to influxdb v1"""
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
@@ -696,12 +718,14 @@ def test_export_influxdb1_tabular():
 @pytest.mark.remote
 def test_export_influxdb1_tidy():
     """Test export of DataFrame to influxdb v1"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        tidy=True,
-        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
@@ -749,12 +773,14 @@ def test_export_influxdb1_tidy():
 @pytest.mark.remote
 def test_export_influxdb2_tabular():
     """Test export of DataFrame to influxdb v2"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        tidy=False,
-        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()
@@ -781,12 +807,14 @@ def test_export_influxdb2_tabular():
 @pytest.mark.remote
 def test_export_influxdb2_tidy():
     """Test export of DataFrame to influxdb v2"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        tidy=True,
-        si_units=False,
     ).filter_by_station_id(station_id=[1048])
 
     mock_client = mock.MagicMock()

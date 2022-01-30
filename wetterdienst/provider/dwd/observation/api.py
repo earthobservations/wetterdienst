@@ -484,9 +484,6 @@ class DwdObservationRequest(ScalarRequestCore):
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        humanize: bool = True,
-        tidy: bool = True,
-        si_units: bool = True,
     ):
         """
 
@@ -502,9 +499,6 @@ class DwdObservationRequest(ScalarRequestCore):
             period=period,
             start_date=start_date,
             end_date=end_date,
-            humanize=humanize,
-            tidy=tidy,
-            si_units=si_units,
         )
 
         if self.start_date and self.period:

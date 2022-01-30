@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from abc import abstractmethod
+from copy import copy
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Tuple, Union
@@ -24,6 +25,7 @@ from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
+from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
@@ -305,9 +307,6 @@ class ScalarRequestCore(Core):
         period: Period,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        humanize: bool = True,
-        tidy: bool = True,
-        si_units: bool = True,
     ) -> None:
         """
 
@@ -328,14 +327,15 @@ class ScalarRequestCore(Core):
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
         self.parameter = self._parse_parameter(parameter)
-        self.humanize = humanize
 
-        tidy = tidy
+        self.humanize = copy(Settings.humanize)
+
+        tidy = copy(Settings.tidy)
         if self._has_datasets:
             tidy = tidy or any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
-
         self.tidy = tidy
-        self.si_units = si_units
+
+        self.si_units = copy(Settings.si_units)
 
         log.info(
             f"Processing request for "

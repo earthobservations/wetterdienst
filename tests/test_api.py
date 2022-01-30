@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
-from wetterdienst import Wetterdienst
+from wetterdienst import Settings, Wetterdienst
 
 
 @pytest.mark.remote
@@ -34,8 +34,10 @@ def test_api(provider, kind, kwargs, si_units):
     # Discover parameters
     assert api.discover()
 
+    Settings.si_units = si_units
+
     # All stations
-    request = api(**kwargs, si_units=si_units).all()
+    request = api(**kwargs).all()
 
     stations = request.df
 

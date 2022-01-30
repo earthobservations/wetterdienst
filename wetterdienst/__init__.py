@@ -19,6 +19,7 @@ from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import cache_dir
 
 # Single-sourcing the package version

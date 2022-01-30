@@ -13,6 +13,7 @@ from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.provider.dwd.forecast import DwdMosmixType
+from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 log = logging.getLogger(__name__)
@@ -120,11 +121,7 @@ def get_stations(
         "parameter": unpack_parameters(parameter),
         "start_date": start_date,
         "end_date": end_date,
-        "si_units": si_units,
-        "tidy": tidy,
-        "humanize": humanize,
     }
-
     if api.provider == Provider.DWD and api.kind == Kind.FORECAST:
         kwargs["mosmix_type"] = resolution
         kwargs["start_issue"] = issue
@@ -134,7 +131,12 @@ def get_stations(
     if api._period_type == PeriodType.MULTI:
         kwargs["period"] = period
 
-    r = api(**kwargs)
+    with Settings:
+        Settings.tidy = tidy
+        Settings.humanize = humanize
+        Settings.si_units = si_units
+
+        r = api(**kwargs)
 
     if all_:
         return r.all()

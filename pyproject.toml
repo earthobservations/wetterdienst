@@ -145,6 +145,7 @@ zarr = { version = "^2.7", optional = true }
 xarray = { version = "^0.17", optional = true }
 timezonefinder = "^5.2"
 diskcache = "^5.4.0"
+environs = "^9.4.0"
 
 
 [tool.poetry.dev-dependencies]

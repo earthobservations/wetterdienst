@@ -7,17 +7,19 @@ import pytz
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
+from wetterdienst.settings import Settings
 
 
 def test_eccc_api_stations():
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = EcccObservationRequest(
         parameter="DAILY",
         resolution="DAILY",
         start_date="1990-01-01",
         end_date="1990-01-02",
-        humanize=True,
-        tidy=True,
-        si_units=False,
     ).filter_by_station_id(station_id=(14,))
 
     expected = pd.DataFrame(
@@ -37,14 +39,15 @@ def test_eccc_api_stations():
 
 
 def test_eccc_api_values():
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = False
+
     request = EcccObservationRequest(
         parameter="DAILY",
         resolution="DAILY",
         start_date="1980-01-01",
         end_date="1980-01-02",
-        humanize=True,
-        tidy=True,
-        si_units=False,
     ).filter_by_station_id(station_id=(1652,))
 
     values = request.values.all().df

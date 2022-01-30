@@ -24,6 +24,7 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationDatasetTree,
     DwdObservationParameter,
 )
+from wetterdienst.settings import Settings
 
 
 def test_dwd_observation_data_api():
@@ -314,12 +315,15 @@ def test_request_period_empty():
 def test_dwd_observation_data_result_missing_data():
     """Test for DataFrame having empty values for dates where the station should not
     have values"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-27",  # few days before official start
         end_date="1934-01-04",  # few days after official start,
-        tidy=True,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -362,14 +366,15 @@ def test_dwd_observation_data_result_missing_data():
 @pytest.mark.remote
 def test_dwd_observation_data_result_tabular():
     """Test for actual values (tabular)"""
+    Settings.tidy = False
+    Settings.humanize = False
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        tidy=False,
-        humanize=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -432,14 +437,15 @@ def test_dwd_observation_data_result_tabular():
 @pytest.mark.remote
 def test_dwd_observation_data_result_tabular_metric():
     """Test for actual values (tabular) in metric units"""
+    Settings.tidy = False
+    Settings.humanize = False
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        tidy=False,
-        humanize=False,
-        si_units=True,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -502,14 +508,15 @@ def test_dwd_observation_data_result_tabular_metric():
 @pytest.mark.remote
 def test_dwd_observation_data_result_tidy_metric():
     """Test for actual values (tidy) in metric units"""
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        tidy=True,
-        humanize=False,
-        si_units=True,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -697,14 +704,15 @@ def test_dwd_observation_data_result_tidy_metric():
 @pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy():
     """Test for actual values (tidy) in metric units"""
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = False
+
     request = DwdObservationRequest(
         parameter=[DwdObservationDatasetTree.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_SITE],
         resolution=DwdObservationResolution.MINUTE_10,
         start_date="1999-12-31 22:00",
         end_date="1999-12-31 23:00",
-        tidy=True,
-        humanize=False,
-        si_units=False,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -782,13 +790,15 @@ def test_create_humanized_column_names_mapping():
 
 def test_tidy_up_data():
     """Test for function to tidy data"""
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         "kl",
         "daily",
         "historical",
         start_date="2019-01-23 00:00:00",
-        tidy=True,
-        humanize=False,
     ).filter_by_station_id((1048,))
 
     df = pd.DataFrame(
