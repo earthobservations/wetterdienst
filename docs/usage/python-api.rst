@@ -66,17 +66,22 @@ different ways:
 This leaves a lot of flexibility to the user defining the arguments either by what they
 know from the weather service or what they know from `wetterdienst` itself.
 
-Typical requests are defined by three arguments:
+Typical requests are defined by five arguments:
 
 - ``parameter``
 - ``resolution``
 - ``period``
+- ``start_date``
+- ``end_date``
 
-Only the parameter argument may be needed for a request, as the resolution and period of
-the data may be fixed (per station or for all data) within individual services.
-However for the case of the DWD a request requires all of them to be fined. However if
+Only the parameter, start_date and end_date argument may be needed for a request, as the resolution and period of
+the data may be fixed (per station or for all data) within individual services. However if
 the period is not defined, it is assumed that the user wants data for all available
 periods and the request then is handled that way.
+
+Arguments start_date and end_date are possible replacements for the period argument if
+the period of a weather service is fixed. In case both arguments are given they are
+combined thus data is only taken from the given period and between the given time span.
 
 Enumerations for resolution and period arguments are given at the main level e.g.
 
@@ -95,23 +100,63 @@ is limited to what resolutions and periods are actually available while the main
 enumeration is a summation of all kinds of resolutions and periods found at the
 different weather services.
 
-When it comes to values ``station_id`` also has to be defined to refer to an actual
-existing station from which values are queried.
+When it comes to values one can either query all data by ``request.all()`` or typically
+query by ``station_id`` via ``request.filter_by_station_id()``. Alternatively the API offers
+various possibilities to query stations by geographic context. Further details can be found below.
 
-Other arguments for the request are
+Core settings
+=============
 
-- ``start_date``
-- ``end_date``
-- ``tidy``
-- ``humanize``
-- ``si_units``
+Wetterdienst holds core settings in its Settings class. You can import and show the Settings like
 
-Arguments start_date and end_date are possible replacements for the period argument if
-the period of a weather service is fixed. In case both arguments are given they are
-combined thus data is only taken from the given period and between the given time span.
-The argument `tidy` can be used to reshape the returned data to a `tidy format`_.
-The argument `humanize` can be used to rename parameters to more meaningful
-names. The argument `si_units` can be used to convert values to SI units.
+.. ipython:: python
+
+    from wetterdienst import Settings
+
+    print(Settings)
+
+or modify them for your very own request like
+
+.. ipython:: python
+
+    from wetterdienst import Settings
+
+    Settings.tidy = False
+
+Settings has three layers of which those arguments are sourced:
+- environmental variables
+(- a local .env file in the same folder, mainly for testing purposes)
+- Python code, which reevaluates those arguments like seen above
+
+To make sure that non of your environmental variables are used, call to set our default values
+
+.. ipython:: python
+
+    from wetterdienst import Settings
+    Settings.default()
+
+and to set it back to standard
+
+.. ipython:: python
+
+    from wetterdienst import Settings
+    Settings.reset()
+
+Also if for whatever reason you have concurrent code running and want it all to have thread-safe settings use it like
+
+.. ipython:: python
+
+    from wetterdienst import Settings
+    with Settings:
+        Settings.tidy = False
+        # request = DwdObservationRequest() <- with tidy = False
+
+Scalar arguments are:
+- `tidy` can be used to reshape the returned data to a `tidy format`_.
+- `humanize` can be used to rename parameters to more meaningful
+names.
+- `si_units` can be used to convert values to SI units.
+
 All of `tidy`, `humanize` and `si_units` are defaulted to True.
 
 .. _tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
@@ -185,14 +230,17 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
 .. ipython:: python
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst import Settings
+
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
 
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
         resolution=DwdObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
-        tidy=True,
-        humanize=True,
     ).filter_by_station_id(station_id=[3, 1048])
 
 From here you can query data by station:
@@ -360,14 +408,17 @@ The result data is provided through a virtual table called ``data``.
 .. code-block:: python
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst import Settings
+
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
-        tidy=True,
-        humanize=True,
     ).filter_by_station_id(station_id=[1048])
 
     results = stations.values.all()
@@ -391,14 +442,17 @@ Examples:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset,
         DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst import Settings
+
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
-        tidy=True,
-        humanize=True,
     ).filter_by_station_id(station_id=[1048])
 
     results = stations.values.all()

@@ -401,9 +401,6 @@ class DwdMosmixRequest(ScalarRequestCore):
         end_issue: Optional[Union[str, datetime]] = None,
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
-        humanize: bool = True,
-        tidy: bool = True,
-        si_units: bool = True,
     ) -> None:
         """
 
@@ -413,9 +410,6 @@ class DwdMosmixRequest(ScalarRequestCore):
         :param end_issue: end of issue
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
-        :param humanize: humanize parameter names
-        :param tidy: tidy data to be row-wise
-        :param si_units: convert to si units
         """
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
@@ -425,7 +419,6 @@ class DwdMosmixRequest(ScalarRequestCore):
             end_date=end_date,
             resolution=Resolution.HOURLY,
             period=Period.FUTURE,
-            si_units=si_units,
         )
 
         if not start_issue:
@@ -464,8 +457,6 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         self.start_issue = start_issue
         self.end_issue = end_issue
-        self.humanize = humanize
-        self.tidy = tidy
 
     @property
     def issue_start(self):

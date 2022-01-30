@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas._testing import assert_frame_equal
 
+from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumeration
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
@@ -38,12 +39,14 @@ def test_coerce_field_types():
     # We require a stations object with hourly resolution in order to accurately parse
     # the hourly timestamp (pandas would fail parsing it because it has a strange
     # format)
+    Settings.tidy = False
+    Settings.humanize = False
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
-        humanize=False,
-        tidy=False,
     ).all()
 
     # Here we don't query the actual data because it takes too long
@@ -81,12 +84,14 @@ def test_coerce_field_types():
 
 def test_coerce_field_types_with_nans():
     """Test field coercion with NaNs"""
+    Settings.tidy = False
+    Settings.humanize = False
+    Settings.si_units = True
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
-        humanize=False,
-        tidy=False,
     ).all()
 
     df = pd.DataFrame(

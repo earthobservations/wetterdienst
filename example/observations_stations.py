@@ -29,8 +29,6 @@ def station_example():
         period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20),
-        tidy=True,
-        humanize=True,
     )
 
     result = stations.filter_by_distance(latitude=50.0, longitude=8.9, distance=30)

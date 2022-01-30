@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import requests
 from dash.dependencies import Input, Output, State
 
+from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.observation import (
@@ -120,12 +121,14 @@ def fetch_values(parameter: str, resolution: str, period: str, station_id: int):
         f"resolution={resolution}, "
         f"period={period}"
     )
+
+    Settings.tidy = False
+    Settings.humanize = True
+
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset(parameter),
         resolution=DwdObservationResolution(resolution),
         period=DwdObservationPeriod(period),
-        tidy=False,
-        humanize=True,
     ).filter_by_station_id(station_id=(str(station_id),))
 
     try:

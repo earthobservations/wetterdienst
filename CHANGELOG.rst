@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add Wetterdienst.Settings to manage general settings like tidy, humanize,...
+
 0.25.1 (30.01.2022)
 *******************
 

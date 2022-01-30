@@ -4,6 +4,7 @@
 import pytest
 
 from wetterdienst.provider.dwd.forecast import DwdMosmixRequest, DwdMosmixType
+from wetterdienst.settings import Settings
 
 
 @pytest.mark.remote
@@ -11,8 +12,11 @@ def test_dwd_mosmix_l():
     """
     Test some details of a typical MOSMIX-L response.
     """
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = True
 
-    request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE, humanize=False).filter_by_station_id(
+    request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
         station_id=["01001"],
     )
     response = next(request.values.query())
@@ -159,16 +163,12 @@ def test_dwd_mosmix_l():
 @pytest.mark.remote
 @pytest.mark.slow
 def test_dwd_mosmix_s():
-    """
-    Test some details of a typical MOSMIX-S response.
-    """
+    """Test some details of a typical MOSMIX-S response."""
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = True
 
-    request = DwdMosmixRequest(
-        parameter="small",
-        mosmix_type=DwdMosmixType.SMALL,
-        humanize=False,
-        tidy=True,
-    ).filter_by_station_id(
+    request = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.SMALL,).filter_by_station_id(
         station_id=["01028"],
     )
     response = next(request.values.query())
@@ -243,12 +243,11 @@ def test_mosmix_l_parameters():
     """
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = True
 
-    request = DwdMosmixRequest(
-        mosmix_type=DwdMosmixType.LARGE,
-        parameter=["DD", "ww"],
-        humanize=False,
-    ).filter_by_station_id(
+    request = DwdMosmixRequest(mosmix_type=DwdMosmixType.LARGE, parameter=["DD", "ww"],).filter_by_station_id(
         station_id=("01001", "123"),
     )
     response = next(request.values.query())

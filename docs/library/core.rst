@@ -18,6 +18,12 @@ Core
 .. automodule:: wetterdienst.core.scalar
     :members:
 
+Settings
+========
+
+.. automodule:: wetterdienst.settings
+    :members:
+
 Data models
 ===========
 

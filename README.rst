@@ -236,6 +236,7 @@ Load required request class:
     >>> import pandas as pd
     >>> pd.set_option('max_columns', 8)
     >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    >>> from wetterdienst import Settings
 
 Alternatively, though without argument/type hinting:
 
@@ -247,15 +248,14 @@ Alternatively, though without argument/type hinting:
 Get data:
 
 .. code-block:: python
-
+    >>> Settings.tidy = True  # default, tidy data
+    >>> Settings.humanize = True  # default, humanized parameters
+    >>> Settings.si_units = True  # default, convert values to SI units
     >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
     ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
     ...    end_date="2020-01-01",  # if not given timezone defaulted to UTC
-    ...    tidy=True,  # default, tidy data
-    ...    humanize=True,  # default, humanized parameters
-    ...    si_units=True  # default, convert values to SI units
     ... ).filter_by_station_id(station_id=(1048, 4411))
     >>> request.df.head()  # station list
          station_id                 from_date                   to_date  height  \

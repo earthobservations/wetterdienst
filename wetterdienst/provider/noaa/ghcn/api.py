@@ -238,18 +238,12 @@ class NoaaGhcnRequest(ScalarRequestCore):
         parameter: List[str],
         start_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
-        humanize: bool = True,
-        tidy: bool = True,
-        si_units: bool = True,
     ) -> None:
         """
 
         :param parameter: list of parameter strings or parameter enums being queried
         :param start_date: start date for request or None if all data is requested
         :param end_date: end date for request or None if all data is requested
-        :param humanize: humanize parameters
-        :param tidy: return data in tidy format
-        :param si_units: convert values to SI units
         """
         super().__init__(
             parameter=parameter,
@@ -257,9 +251,6 @@ class NoaaGhcnRequest(ScalarRequestCore):
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
-            humanize=humanize,
-            tidy=tidy,
-            si_units=si_units,
         )
 
     def _all(self) -> pd.DataFrame:
