@@ -7,10 +7,10 @@ import logging
 from io import BytesIO
 from os.path import basename
 from typing import List
-from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
+from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import XMLParser, parse  # noqa: S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
@@ -76,8 +76,8 @@ class KMLReader:
         Fetch weather mosmix file (zipped xml).
         """
         buffer = self.download(url)
-        kmz = ZipFile(buffer, "r")
-        return kmz.open(kmz.namelist()[0], "r").read()
+        zfs = ZipFileSystem(buffer, "r")
+        return zfs.open(zfs.glob("*")[0]).read()
 
     def read(self, url: str):
         """

@@ -11,6 +11,7 @@ from io import BytesIO
 from typing import Generator, Optional
 
 import pandas as pd
+from fsspec.implementations.tar import TarFileSystem
 
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.extension import Extension
@@ -241,18 +242,15 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
 
     data = download_file(url, ttl=ttl)
 
-    data.seek(0)
-
     # RadarParameter.FX_REFLECTIVITY
     if url.endswith(Extension.TAR_BZ2.value):
-        with bz2.BZ2File(data, mode="rb") as archive:
-            with tarfile.open(fileobj=archive) as tar_file:
-                for file in tar_file.getmembers():
-                    yield RadarResult(
-                        data=BytesIO(tar_file.extractfile(file).read()),
-                        timestamp=get_date_from_filename(file.name),
-                        filename=file.name,
-                    )
+        tfs = TarFileSystem(data, compression="bz2")
+        for file in tfs.glob("*"):
+            yield RadarResult(
+                data=tfs.open(file).read(),
+                timestamp=get_date_from_filename(file.name),
+                filename=file.name,
+            )
 
     # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: E800
     elif url.endswith(Extension.BZ2.value):
@@ -333,19 +331,17 @@ def _extract_radolan_data(date_time: datetime, archive_in_bytes: BytesIO) -> Rad
         # Have to seek(0) as the archive might be reused
         archive_in_bytes.seek(0)
 
-        with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
-            file_in_archive = BytesIO(gz_file.read())
+        tfs = TarFileSystem(archive_in_bytes, compression="gzip")
+        file = tfs.glob(f"*{date_time_string}*")
 
-            with tarfile.open(fileobj=file_in_archive) as tar_file:
-                for file in tar_file.getmembers():
-                    if date_time_string in file.name:
-                        return RadarResult(
-                            data=BytesIO(tar_file.extractfile(file).read()),
-                            timestamp=date_time,
-                            filename=file.name,
-                        )
+        if len(file) != 1:
+            raise FileNotFoundError(f"RADOLAN file for {date_time_string} not found.")  # pragma: no cover
 
-                raise FileNotFoundError(f"RADOLAN file for {date_time_string} not found.")  # pragma: no cover
+        return RadarResult(
+            data=BytesIO(tfs.open(file[0]).read()),
+            timestamp=date_time,
+            filename=file,
+        )
 
     except EOFError as ex:
         raise FailedDownload(f"RADOLAN file for {date_time_string} is invalid: {ex}")  # pragma: no cover

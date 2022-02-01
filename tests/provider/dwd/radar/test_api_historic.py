@@ -105,7 +105,6 @@ def test_radar_request_radolan_cdc_historic_daily_data():
     """
     Verify data acquisition for RADOLAN_CDC/daily/historical.
     """
-
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.DAILY,

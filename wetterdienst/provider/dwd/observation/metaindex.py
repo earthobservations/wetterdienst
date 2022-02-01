@@ -3,14 +3,14 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import re
-import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
-from io import BytesIO
+from io import BytesIO, StringIO
 from typing import List, Tuple
 from urllib.parse import urljoin
 
 import pandas as pd
+from fsspec.implementations.zip import ZipFileSystem
 from requests.exceptions import InvalidURL
 
 from wetterdienst.exceptions import MetaFileNotFound
@@ -25,8 +25,6 @@ from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
     DWD_CDC_PATH,
     DWD_SERVER,
-    NA_STRING,
-    STATION_DATA_SEP,
     STATION_ID_REGEX,
     DWDCDCBase,
 )
@@ -43,23 +41,6 @@ METADATA_COLUMNS = [
     Columns.LONGITUDE.value,
     Columns.NAME.value,
     Columns.STATE.value,
-]
-
-META_FILE_IDENTIFIERS = ["beschreibung", "txt"]
-
-METADATA_1MIN_GEO_PREFIX = "Metadaten_Geographie_"
-
-META_DATA_FOLDER = "meta_data/"
-
-METADATA_FIXED_COLUMN_WIDTH = [
-    (0, 5),
-    (5, 14),
-    (14, 23),
-    (23, 38),
-    (38, 50),
-    (50, 60),
-    (60, 102),
-    (102, 200),
 ]
 
 
@@ -152,7 +133,16 @@ def _create_meta_index_for_climate_observations(
 
     meta_index = pd.read_fwf(
         filepath_or_buffer=file,
-        colspecs=METADATA_FIXED_COLUMN_WIDTH,
+        colspecs=[
+            (0, 5),
+            (5, 14),
+            (14, 23),
+            (23, 38),
+            (38, 50),
+            (50, 60),
+            (60, 102),
+            (102, 200),
+        ],
         skiprows=[1],
         dtype=str,
         encoding="ISO-8859-1",
@@ -181,7 +171,7 @@ def _find_meta_file(files: List[str], url: str) -> str:
     """
     for file in files:
         file_strings = file.split("/")[-1].lower().replace(".", "_").split("_")
-        if set(file_strings).issuperset(META_FILE_IDENTIFIERS):
+        if set(file_strings).issuperset(["beschreibung", "txt"]):
             return file
 
     raise MetaFileNotFound(f"No meta file was found amongst the files at {url}.")
@@ -207,7 +197,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
             DWD_CDC_PATH,
             DWDCDCBase.CLIMATE_OBSERVATIONS.value,
             parameter_path,
-            META_DATA_FOLDER,
+            "meta_data/",
         ],
     )
 
@@ -255,9 +245,6 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        # Attention: Currently, a FSSPEC-based cache must not be used here as Windows
-        #            would croak when concurrently accessing those resources badly.
-        # TODO: Revisit this place after completely getting rid of dogpile.cache.
         return download_file(metadata_file, ttl=CacheExpiry.NO_CACHE)
     except InvalidURL as e:
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
@@ -279,25 +266,24 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
     """
     metadata_file, station_id = metadata_file_and_station_id
 
-    metadata_geo_filename = f"{METADATA_1MIN_GEO_PREFIX}{station_id}.txt"
+    metadata_geo_filename = f"Metadaten_Geographie_{station_id}.txt"
 
-    with zipfile.ZipFile(metadata_file, mode="r") as zip_file:
-        metadata_geo_bytes = BytesIO(zip_file.read(metadata_geo_filename))
+    zfs = ZipFileSystem(metadata_file, mode="r")
 
-    metadata_geo_df = _parse_zipped_data_into_df(metadata_geo_bytes)
+    file = zfs.open(metadata_geo_filename).read()
 
-    metadata_geo_df = metadata_geo_df.rename(columns=str.lower)
+    df = _parse_zipped_data_into_df(file)
 
-    metadata_geo_df = metadata_geo_df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    df = df.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
-    metadata_geo_df[Columns.FROM_DATE.value] = metadata_geo_df.loc[0, Columns.FROM_DATE.value]
+    df[Columns.FROM_DATE.value] = df.loc[0, Columns.FROM_DATE.value]
 
-    metadata_geo_df = metadata_geo_df.iloc[[-1], :]
+    df = df.iloc[[-1], :]
 
-    return metadata_geo_df.reindex(columns=METADATA_COLUMNS)
+    return df.reindex(columns=METADATA_COLUMNS)
 
 
-def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
+def _parse_zipped_data_into_df(file: bytes) -> pd.DataFrame:
     """A wrapper for read_csv of pandas library that has set the typically used
     parameters in the found data of the
     german weather service.
@@ -310,25 +296,14 @@ def _parse_zipped_data_into_df(file: BytesIO) -> pd.DataFrame:
 
     """
     try:
-        # First try utf-8
-        file = pd.read_csv(
-            filepath_or_buffer=file,
-            sep=STATION_DATA_SEP,
-            na_values=NA_STRING,
-            dtype=str,
-            skipinitialspace=True,
-            encoding="utf-8",
-        )
+        file_decoded = file.decode("utf-8")
     except UnicodeDecodeError:
-        file.seek(0)
+        file_decoded = file.decode("ISO-8859-1")
 
-        file = pd.read_csv(
-            filepath_or_buffer=file,
-            sep=STATION_DATA_SEP,
-            na_values=NA_STRING,
-            dtype=str,
-            skipinitialspace=True,
-            encoding="ISO-8859-1",
-        )
-
-    return file
+    return pd.read_csv(
+        filepath_or_buffer=StringIO(file_decoded),
+        sep=";",
+        na_values="-999",
+        dtype=str,
+        skipinitialspace=True,
+    )
