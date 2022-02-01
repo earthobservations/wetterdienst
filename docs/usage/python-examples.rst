@@ -40,7 +40,7 @@ Get stations for daily historical precipitation:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
 
-    API = Wetterdienst(provider="dwd", kind="observation")
+    API = Wetterdienst(provider="dwd", network="observation")
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -57,7 +57,7 @@ Get data for a dataset:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
 
-    API = Wetterdienst(provider="dwd", kind="observation")
+    API = Wetterdienst(provider="dwd", network="observation")
 
     stations = API(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -74,7 +74,7 @@ Get data for a parameter:
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationParameter
 
-    API = Wetterdienst(provider="dwd", kind="observation")
+    API = Wetterdienst(provider="dwd", network="observation")
 
     observation_data = API(
         parameter=DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT,
@@ -90,7 +90,7 @@ Get data for a parameter from another dataset:
 
     from wetterdienst import Wetterdienst, Resolution, Period
 
-    API = Wetterdienst(provider="dwd", kind="observation")
+    API = Wetterdienst(provider="dwd", network="observation")
 
     observation_data = API(
         parameter=[("precipitation_height", "precipitation_more")],
@@ -109,9 +109,9 @@ Get stations for MOSMIX-SMALL:
 .. ipython:: python
 
     from wetterdienst import Wetterdienst, Resolution, Period
-    from wetterdienst.provider.dwd.forecast import DwdMosmixType
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixType
 
-    API = Wetterdienst(provider="dwd", kind="forecast")
+    API = Wetterdienst(provider="dwd", network="mosmix")
 
     stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE)
 
@@ -122,9 +122,9 @@ Get data for MOSMIX-LARGE:
 .. ipython:: python
 
     from wetterdienst import Wetterdienst, Resolution, Period
-    from wetterdienst.provider.dwd.forecast import DwdMosmixType
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixType
 
-    API = Wetterdienst(provider="dwd", kind="forecast")
+    API = Wetterdienst(provider="dwd", network="mosmix")
 
     stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
         station_id=["01001", "01008"]

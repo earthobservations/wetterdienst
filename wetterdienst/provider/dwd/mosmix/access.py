@@ -73,7 +73,7 @@ class KMLReader:
 
     def fetch(self, url) -> bytes:
         """
-        Fetch weather forecast file (zipped xml).
+        Fetch weather mosmix file (zipped xml).
         """
         buffer = self.download(url)
         kmz = ZipFile(buffer, "r")

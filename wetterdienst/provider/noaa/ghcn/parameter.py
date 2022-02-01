@@ -60,7 +60,7 @@ class NoaaGhcnParameter(DatasetTreeCore):
         # Number of days included in the multiday maximum temperature (MDTX)
         COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MAX_200 = "datx"
         # Number of days included in the multiday wind movement (MDWM)
-        COUNT_DAYS_MULTIDAY_WIND_MOVEMENT = "dawm"  # TODO: what kind of parameter ?
+        COUNT_DAYS_MULTIDAY_WIND_MOVEMENT = "dawm"  # TODO: what network of parameter ?
         # Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
         COUNT_DAYS_MULTIDAY_PRECIPITATION_HEIGHT_GT_0 = "dwpr"
         # Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths of inches

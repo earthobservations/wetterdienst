@@ -300,7 +300,7 @@ versions have a forecast limit of 240h.
 
 .. ipython:: python
 
-    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
     meta = DwdMosmixRequest.discover(flatten=False)
 

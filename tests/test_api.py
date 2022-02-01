@@ -8,7 +8,7 @@ from wetterdienst import Settings, Wetterdienst
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,kind,kwargs",
+    "provider,network,kwargs",
     [
         # German Weather Service (DWD)
         # historical observations
@@ -18,18 +18,18 @@ from wetterdienst import Settings, Wetterdienst
             {"parameter": "kl", "resolution": "daily", "period": "recent"},
         ),
         # station forecasts
-        ("dwd", "forecast", {"parameter": "large", "mosmix_type": "large"}),
+        ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}),
         # Environment and Climate Change Canada
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}),
         # NOAA Ghcn
-        ("noaa", "observation", {"parameter": "precipitation_height"}),
+        ("noaa", "ghcn", {"parameter": "precipitation_height"}),
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))
-def test_api(provider, kind, kwargs, si_units):
+def test_api(provider, network, kwargs, si_units):
     """Test main wetterdienst API"""
     # Build API
-    api = Wetterdienst(provider, kind)
+    api = Wetterdienst(provider, network)
 
     # Discover parameters
     assert api.discover()

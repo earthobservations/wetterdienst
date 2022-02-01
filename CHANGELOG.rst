@@ -5,6 +5,8 @@ Development
 ***********
 
 - Add Wetterdienst.Settings to manage general settings like tidy, humanize,...
+- Rename DWD forecast to mosmix
+- Instead of "kind" use "network" attribute to differ between different data products of a provider
 
 0.25.1 (30.01.2022)
 *******************

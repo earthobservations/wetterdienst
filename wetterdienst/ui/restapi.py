@@ -60,8 +60,8 @@ def index():
             {PRODUCER_NAME} - <a href="{PRODUCER_LINK}">{PRODUCER_LINK}</a></li>
             <h4>Examples</h4>
             <ul>
-            <li><a href="restapi/stations?provider=dwd&kind=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations</a></li>
-            <li><a href="restapi/values?provider=dwd&kind=observation&parameter=kl&resolution=daily&period=recent&station-id=00011">DWD Observation values</a></li>
+            <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations</a></li>
+            <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station-id=00011">DWD Observation values</a></li>
             </ul>
         </body>
     </html>
@@ -79,18 +79,18 @@ Disallow: /api/
 @app.get("/restapi/coverage")
 def coverage(
     provider: str = Query(default=None),
-    kind: str = Query(default=None),
+    network: str = Query(default=None),
     debug: bool = Query(default=False),
     filter_=Query(alias="filter", default=None),
 ):
     set_logging_level(debug)
 
-    if not provider or not kind:
+    if not provider or not network:
         cov = Wetterdienst.discover()
 
         return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
-    api = get_api(provider=provider, kind=kind)
+    api = get_api(provider=provider, network=network)
 
     cov = api.discover(
         filter_=filter_,
@@ -103,7 +103,7 @@ def coverage(
 @app.get("/restapi/stations")
 def stations(
     provider: str = Query(default=None),
-    kind: str = Query(default=None),
+    network: str = Query(default=None),
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
@@ -119,10 +119,10 @@ def stations(
     debug: bool = Query(default=False),
     pretty: bool = Query(default=False),
 ):
-    if provider is None or kind is None:
+    if provider is None or network is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'provider' and 'kind' are required",
+            detail="Query arguments 'provider' and 'network' are required",
         )
 
     if parameter is None or resolution is None:
@@ -140,11 +140,11 @@ def stations(
     set_logging_level(debug)
 
     try:
-        api = Wetterdienst(provider, kind)
+        api = Wetterdienst(provider, network)
     except ProviderError:
         return HTTPException(
             status_code=404,
-            detail=f"Choose provider and kind from {app.url_path_for('coverage')}",
+            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
         )
 
     parameter = read_list(parameter)
@@ -179,7 +179,7 @@ def stations(
     if not stations_.parameter or not stations_.resolution:
         return HTTPException(
             status_code=404,
-            detail=f"No parameter found for provider {provider}, kind {kind}, "
+            detail=f"No parameter found for provider {provider}, network {network}, "
             f"parameter(s) {parameter} and resolution {resolution}.",
         )
 
@@ -204,7 +204,7 @@ def stations(
 @app.get("/restapi/values")
 def values(
     provider: str = Query(default=None),
-    kind: str = Query(default=None),
+    network: str = Query(default=None),
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
@@ -229,7 +229,7 @@ def values(
     Acquire data from DWD.
 
     :param provider:
-    :param kind:        string for product, either observation or forecast
+    :param network:        string for network of provider
     :param parameter:   Observation measure
     :param resolution:  Frequency/granularity of measurement interval
     :param period:      Recent or historical files
@@ -255,10 +255,10 @@ def values(
     # TODO: Add geojson support
     fmt = "json"
 
-    if provider is None or kind is None:
+    if provider is None or network is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'provider' and 'kind' are required",
+            detail="Query arguments 'provider' and 'network' are required",
         )
 
     if parameter is None or resolution is None:
@@ -276,12 +276,12 @@ def values(
     set_logging_level(debug)
 
     try:
-        api: ScalarRequestCore = Wetterdienst(provider, kind)
+        api: ScalarRequestCore = Wetterdienst(provider, network)
     except ProviderError:
         return HTTPException(
             status_code=404,
-            detail=f"Given combination of provider and kind not available. "
-            f"Choose provider and kind from {Wetterdienst.discover()}",
+            detail=f"Given combination of provider and network not available. "
+            f"Choose provider and network from {Wetterdienst.discover()}",
         )
 
     parameter = read_list(parameter)

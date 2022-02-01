@@ -32,14 +32,14 @@ allows the user to discover the available APIs of each service included:
 
     Wetterdienst.discover()
 
-To load any of the available APIs pass the provider and the kind of data to the
+To load any of the available APIs pass the provider and the network of data to the
 Wetterdienst API:
 
 .. ipython:: python
 
     from wetterdienst import Wetterdienst
 
-    API = Wetterdienst(provider="dwd", kind="observation")
+    API = Wetterdienst(provider="dwd", network="observation")
 
 Request arguments
 =================
@@ -465,7 +465,7 @@ Get stations for Mosmix:
 
 .. ipython:: python
 
-    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
     stations = DwdMosmixRequest(
         parameter="large",
@@ -481,7 +481,7 @@ Get Mosmix-L data:
 
 .. ipython:: python
 
-    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest, DwdMosmixType
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
     stations = DwdMosmixRequest(
         parameter="large",

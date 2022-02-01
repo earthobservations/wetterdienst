@@ -16,7 +16,7 @@ from wetterdienst.metadata.resolution import Frequency, Resolution
 if TYPE_CHECKING:
     from wetterdienst.core.scalar.request import ScalarRequestCore
     from wetterdienst.core.scalar.values import ScalarValuesCore
-    from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 class StationsResult(ExportMixin):

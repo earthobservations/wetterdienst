@@ -19,7 +19,7 @@ Observation
 Forecast (Mosmix)
 -----------------
 
-.. autoclass:: wetterdienst.provider.dwd.forecast.api.DwdMosmixRequest
+.. autoclass:: wetterdienst.provider.dwd.mosmix.api.DwdMosmixRequest
     :members:
 
 Radar

@@ -6,5 +6,5 @@ from enum import Enum
 
 class Kind(Enum):
     OBSERVATION = "observation"
-    FORECAST = "forecast"
+    FORECAST = "mosmix"
     RADAR = "radar"

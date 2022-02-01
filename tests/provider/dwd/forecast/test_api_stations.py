@@ -6,7 +6,7 @@ import pytest
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.provider.dwd.forecast import DwdMosmixRequest, DwdMosmixType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
 
 @pytest.mark.remote

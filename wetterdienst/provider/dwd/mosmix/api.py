@@ -24,14 +24,6 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.dwd.forecast.access import KMLReader
-from wetterdienst.provider.dwd.forecast.metadata import (
-    DwdForecastDate,
-    DwdMosmixParameter,
-    DwdMosmixType,
-)
-from wetterdienst.provider.dwd.forecast.metadata.field_types import INTEGER_PARAMETERS
-from wetterdienst.provider.dwd.forecast.metadata.unit import DwdMosmixUnit
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
     DWD_MOSMIX_L_SINGLE_PATH,
@@ -39,6 +31,14 @@ from wetterdienst.provider.dwd.metadata.constants import (
     DWD_SERVER,
 )
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.mosmix.access import KMLReader
+from wetterdienst.provider.dwd.mosmix.metadata import (
+    DwdForecastDate,
+    DwdMosmixParameter,
+    DwdMosmixType,
+)
+from wetterdienst.provider.dwd.mosmix.metadata.field_types import INTEGER_PARAMETERS
+from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
 from wetterdienst.util.cache import CacheExpiry, cache_dir
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
@@ -54,7 +54,7 @@ class DwdMosmixDataset(Enum):
 
 class DwdMosmixValues(ScalarValuesCore):
     """
-    Fetch weather forecast data (KML/MOSMIX_S dataset).
+    Fetch weather mosmix data (KML/MOSMIX_S dataset).
 
     Parameters
     ----------
@@ -117,7 +117,7 @@ class DwdMosmixValues(ScalarValuesCore):
     @property
     def metadata(self) -> pd.DataFrame:
         """
-        Wrapper for forecast metadata
+        Wrapper for mosmix metadata
 
         :return:
         """
@@ -150,7 +150,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
         """
-        Wrapper of read_mosmix to collect forecast data (either latest or for
+        Wrapper of read_mosmix to collect mosmix data (either latest or for
         defined dates)
 
         :return: pandas DataFrame with data corresponding to station id and parameter
@@ -196,7 +196,7 @@ class DwdMosmixValues(ScalarValuesCore):
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
 
-        :param date: datetime or enumeration for latest MOSMIX forecast
+        :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame with gathered information
         """
         for df_forecast in self._read_mosmix(date):
@@ -214,7 +214,7 @@ class DwdMosmixValues(ScalarValuesCore):
         Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type
 
-        :param date: datetime or enumeration for latest MOSMIX forecast
+        :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame
         """
         if self.stations.stations.mosmix_type == DwdMosmixType.SMALL:
@@ -224,10 +224,10 @@ class DwdMosmixValues(ScalarValuesCore):
 
     def read_mosmix_small(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
         """
-        Reads single MOSMIX-S file with all stations and returns every forecast that
+        Reads single MOSMIX-S file with all stations and returns every mosmix that
         matches with one of the defined station ids.
 
-        :param date: datetime or enumeration for latest MOSMIX forecast
+        :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame with data
         """
         url = urljoin(DWD_SERVER, DWD_MOSMIX_S_PATH)
@@ -244,7 +244,7 @@ class DwdMosmixValues(ScalarValuesCore):
     ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """
         Reads multiple MOSMIX-L files with one per each station and returns a
-        forecast per file.
+        mosmix per file.
 
         :param date:
         :return:
@@ -304,7 +304,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
 
 class DwdMosmixRequest(ScalarRequestCore):
-    """Implementation of sites for MOSMIX forecast sites"""
+    """Implementation of sites for MOSMIX mosmix sites"""
 
     provider = Provider.DWD
     kind = Kind.FORECAST
