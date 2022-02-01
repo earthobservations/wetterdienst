@@ -1,54 +1,54 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from typing import Union
+from enum import Enum
 
 from wetterdienst.exceptions import InvalidEnumeration, ProviderError
-from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.provider.dwd.forecast import DwdMosmixRequest
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.parameter import DatasetTreeCore
 
-API_ENDPOINTS = {
-    Provider.DWD: {
-        Kind.OBSERVATION: DwdObservationRequest,
-        Kind.FORECAST: DwdMosmixRequest,
-        Kind.RADAR: DwdRadarValues,
-    },
-    Provider.ECCC: {Kind.OBSERVATION: EcccObservationRequest},
-    # TODO: this has to be rethought because of things like "NOAA Tides and Currents"
-    #  which are also observations
-    Provider.NOAA: {Kind.OBSERVATION: NoaaGhcnRequest},
-}
+
+class ApiEndpoints(DatasetTreeCore):
+    class DWD(Enum):
+        OBSERVATION = DwdObservationRequest  # generic name
+        MOSMIX = DwdMosmixRequest
+        RADAR = DwdRadarValues
+
+    class ECCC(Enum):
+        OBSERVATION = EcccObservationRequest  # generic name
+
+    class NOAA(Enum):
+        GHCN = NoaaGhcnRequest
 
 
 class Wetterdienst:
     """Wetterdienst top-level API with links to the different available APIs"""
 
-    endpoints = API_ENDPOINTS
+    endpoints = ApiEndpoints
 
-    def __new__(cls, provider: Union[Provider, str], kind: Union[Kind, str]):
+    def __new__(cls, provider: str, network: str):
         """
 
         :param provider: provider of data e.g. DWD
-        :param kind: kind of the data e.g. observation
+        :param network: data network e.g. NOAAs ghcn
         """
-        # Both provider and kind should be fine (if not an exception is raised)
+        # Both provider and network should be fine (if not an exception is raised)
         try:
             provider_ = parse_enumeration_from_template(provider, Provider)
-            kind_ = parse_enumeration_from_template(kind, Kind)
 
-            api = cls.endpoints.get(provider_, {}).get(kind_)
+            api = cls.endpoints[provider_.name][network.upper()].value
 
             if not api:
                 raise KeyError
 
         except (InvalidEnumeration, KeyError):
-            raise ProviderError(f"No API available for provider {provider} and kind {kind}")
+            raise ProviderError(f"No API available for provider {provider} and network {network}")
 
         return api
 
@@ -56,7 +56,7 @@ class Wetterdienst:
     def discover(cls) -> dict:
         """Display available API endpoints"""
         api_endpoints = {}
-        for provider, kinds in cls.endpoints.items():
-            api_endpoints[provider.name.lower()] = [kind.name.lower() for kind in kinds]
+        for provider in cls.endpoints:
+            api_endpoints[provider] = [network.name for network in cls.endpoints[provider]]
 
-        return api_endpoints  # json.dumps(api_endpoints)
+        return api_endpoints

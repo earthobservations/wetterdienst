@@ -14,7 +14,7 @@ Other MOSMIX variants are also listed and can be
 enabled on demand.
 """  # Noqa:D205,D400
 from wetterdienst import Settings
-from wetterdienst.provider.dwd.forecast import (
+from wetterdienst.provider.dwd.mosmix import (
     DwdForecastDate,
     DwdMosmixRequest,
     DwdMosmixType,
@@ -23,7 +23,7 @@ from wetterdienst.util.cli import setup_logging
 
 
 def mosmix_example():
-    """Retrieve Mosmix forecast data by DWD."""
+    """Retrieve Mosmix mosmix data by DWD."""
     # A. MOSMIX-L -- Specific stations - each station with own file
     Settings.tidy = True
     Settings.humanize = True

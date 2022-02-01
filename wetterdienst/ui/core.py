@@ -12,7 +12,7 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.provider.dwd.forecast import DwdMosmixType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -94,6 +94,7 @@ def get_stations(
     # TODO: move this into Request core
     start_date, end_date = None, None
     if date:
+        # TODO: use rather network here
         if api.provider == Provider.DWD and api.kind == Kind.FORECAST:
             mosmix_type = DwdMosmixType[resolution.upper()]
 
@@ -108,8 +109,9 @@ def get_stations(
         start_date, end_date = create_date_range(date=date, resolution=res)
 
     if api._data_range == DataRange.LOOSELY and not start_date and not end_date:
+        # TODO: use another property "network" on each class
         raise TypeError(
-            f"Combination of provider {api.provider.name} and kind {api.kind.name} " f"requires start and end date"
+            f"Combination of provider {api.provider.name} and network {api.kind.name} requires start and end date"
         )
 
     # Todo: We may have to apply other measures to allow for

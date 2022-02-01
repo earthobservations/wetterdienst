@@ -25,7 +25,7 @@ def test_no_provider():
         "/restapi/stations",
         params={
             "provider": "abc",
-            "kind": "abc",
+            "network": "abc",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -33,15 +33,15 @@ def test_no_provider():
         },
     )
 
-    assert "Choose provider and kind from /restapi/coverage" in response.text
+    assert "Choose provider and network from /restapi/coverage" in response.text
 
 
-def test_no_kind():
+def test_no_network():
     response = client.get(
         "/restapi/stations",
         params={
             "provider": "dwd",
-            "kind": "abc",
+            "network": "abc",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -49,7 +49,7 @@ def test_no_kind():
         },
     )
 
-    assert "Choose provider and kind from /restapi/coverage" in response.text
+    assert "Choose provider and network from /restapi/coverage" in response.text
 
 
 def test_data_range(capsys):
@@ -57,7 +57,7 @@ def test_data_range(capsys):
         "/restapi/values",
         params={
             "provider": "eccc",
-            "kind": "observation",
+            "network": "observation",
             "parameter": "precipitation_height",
             "resolution": "daily",
             "period": "historical",
@@ -65,7 +65,7 @@ def test_data_range(capsys):
         },
     )
 
-    assert "Combination of provider ECCC and kind OBSERVATION requires start and end date" in response.text
+    assert "Combination of provider ECCC and network OBSERVATION requires start and end date" in response.text
 
 
 def test_dwd_stations_basic():
@@ -74,7 +74,7 @@ def test_dwd_stations_basic():
         "/restapi/stations",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -94,7 +94,7 @@ def test_dwd_stations_geo():
         "/restapi/stations",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -115,7 +115,7 @@ def test_dwd_stations_sql():
         "/restapi/stations",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -133,7 +133,7 @@ def test_dwd_values_success(dicts_are_same):
         "/restapi/values",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "station": "01359",
             "parameter": "kl",
             "resolution": "daily",
@@ -161,7 +161,7 @@ def test_dwd_values_no_station():
         "/restapi/values",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "parameter": "kl",
             "resolution": "daily",
             "period": "recent",
@@ -183,7 +183,7 @@ def test_dwd_values_no_parameter():
         "/restapi/values",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "station": "01048,4411",
             "resolution": "daily",
             "period": "recent",
@@ -200,7 +200,7 @@ def test_dwd_values_no_resolution():
         "/restapi/values",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "stations": "01048,4411",
             "parameter": "kl",
             "period": "recent",
@@ -218,7 +218,7 @@ def test_dwd_values_sql_tabular(dicts_are_same):
         "/restapi/values",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",
@@ -268,7 +268,7 @@ def test_dwd_values_sql_tidy(dicts_are_same):
         "/restapi/values",
         params={
             "provider": "dwd",
-            "kind": "observation",
+            "network": "observation",
             "station": "01048,4411",
             "parameter": "kl",
             "resolution": "daily",

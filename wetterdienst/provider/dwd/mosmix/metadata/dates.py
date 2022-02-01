@@ -6,7 +6,7 @@ from enum import Enum
 
 class DwdForecastDate(Enum):
     """
-    Enumeration for pointing to different forecast dates.
+    Enumeration for pointing to different mosmix dates.
     """
 
     LATEST = "latest"

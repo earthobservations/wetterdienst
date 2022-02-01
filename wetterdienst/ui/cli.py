@@ -13,7 +13,7 @@ import cloup
 from click_params import StringListParamType
 from cloup.constraints import If, RequireExactly, accept_none
 
-from wetterdienst import Kind, Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderError
 from wetterdienst.provider.dwd.radar.api import DwdRadarSites
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
@@ -32,14 +32,11 @@ provider_opt = cloup.option_group(
     ),
 )
 
-kind_opt = cloup.option_group(
-    "Kind",
+network_opt = cloup.option_group(
+    "Network",
     click.option(
-        "--kind",
-        type=click.Choice(
-            [Kind.OBSERVATION.name, Kind.FORECAST.name],
-            case_sensitive=False,
-        ),
+        "--network",
+        type=click.STRING,
         required=True,
     ),
 )
@@ -47,19 +44,20 @@ kind_opt = cloup.option_group(
 debug_opt = click.option("--debug", is_flag=True)
 
 
-def get_api(provider: str, kind: str):
+def get_api(provider: str, network: str):
     """
-    Function to get API for provider and kind, if non found click.Abort()
+    Function to get API for provider and network, if non found click.Abort()
     is casted with the error message
 
     :param provider:
-    :param kind:
+    :param network:
     :return:
     """
     try:
-        return Wetterdienst(provider, kind)
+        return Wetterdienst(provider, network)
     except ProviderError as e:
-        click.Abort(e.str)
+        log.error(str(e))
+        sys.exit(1)
 
 
 def station_options(command):
@@ -120,24 +118,24 @@ def cli():
 
         wetterdienst radar [--dwd=<dwd>] [--all=<all>] [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
 
-        wetterdienst about coverage --provider=<provider> --kind=<kind> [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
-        wetterdienst about fields --provider=dwd --kind=observation --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
+        wetterdienst about coverage --provider=<provider> --network=<network> [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
+        wetterdienst about fields --provider=dwd --network=observation --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
 
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank> [--sql=<sql>] [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank> [--sql=<sql>] [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
 
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --kind=<kind> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
 
     Options:
         --parameter=<parameter>               Parameter Set/Parameter, e.g. "kl" or "precipitation_height", etc.
@@ -169,119 +167,109 @@ def cli():
     Examples requesting observation stations:
 
         # Get list of all stations for daily climate summary data in JSON format
-        wetterdienst stations --provider=dwd --kind=observation --parameter=kl --resolution=daily
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily
 
         # Get list of all stations in CSV format
-        wetterdienst stations --provider=dwd --kind=observation --parameter=kl --resolution=daily --format=csv
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --format=csv
 
         # Get list of specific stations
-        wetterdienst stations --provider=dwd --kind=observation --resolution=daily --parameter=kl --station=1,1048,4411
+        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411
 
         # Get list of specific stations in GeoJSON format
-        wetterdienst stations --provider=dwd --kind=observation --resolution=daily --parameter=kl --station=1,1048,4411 --format=geojson
+        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411 --format=geojson
 
-    Examples requesting forecast stations:
+    Examples requesting mosmix stations:
 
-        wetterdienst stations --provider=dwd --kind=forecast --parameter=large --resolution=large
+        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large
 
     Examples requesting observation values:
 
         # Get daily climate summary data for specific stations
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
 
         # Get daily climate summary data for specific stations in CSV format
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
 
         # Get daily climate summary data for specific stations in tidy format
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --tidy
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --tidy
 
         # Limit output to specific date
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01 --station=1048,4411
 
         # Limit output to specified date range in ISO-8601 time interval format
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01/2020-05-05
 
         # The real power horse: Acquire data across historical+recent data sets
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --date=1969-01-01/2020-06-11
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=1969-01-01/2020-06-11
 
         # Acquire monthly data for 2020-05
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=monthly --date=2020-05
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --date=2020-05
 
         # Acquire monthly data from 2017-01 to 2019-12
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=monthly --date=2017-01/2019-12 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --date=2017-01/2019-12 --station=1048,4411
 
         # Acquire annual data for 2019
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=annual --date=2019 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --date=2019 --station=1048,4411
 
         # Acquire annual data from 2010 to 2020
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=annual --date=2010/2020
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --date=2010/2020
 
         # Acquire hourly data
-        wetterdienst values --provider=dwd --kind=observation --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=air_temperature --resolution=hourly --period=recent --date=2020-06-15T12 --station=1048,4411
 
         # Acquire data for specific parameter and dataset
-        wetterdienst values --provider=dwd --kind=observation --parameter=precipitation_height/precipitation_more,temperature_air_200/kl --resolution=hourly --period=recent --date=2020-06-15T12 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=precipitation_height/precipitation_more,temperature_air_200/kl --resolution=hourly --period=recent --date=2020-06-15T12 --station=1048,4411
 
-    Examples requesting forecast values:
+    Examples requesting mosmix values:
 
-        wetterdienst values --provider=dwd --kind=forecast --parameter=ttt,ff --resolution=large --station=65510
+        wetterdienst values --provider=dwd --network=mosmix --parameter=ttt,ff --resolution=large --station=65510
 
     Examples using geospatial features:
 
         # Acquire stations and readings by geoposition, request specific number of nearby stations.
-        wetterdienst stations --provider=dwd --kind=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --rank=5
-        wetterdienst values --provider=dwd --kind=observation --resolution=daily --parameter=kl --period=recent --date=2020-06-30 --coordinates=49.9195,8.9671 --rank=5
+        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --rank=5
+        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --date=2020-06-30 --coordinates=49.9195,8.9671 --rank=5
 
         # Acquire stations and readings by geoposition, request stations within specific distance.
-        wetterdienst stations --provider=dwd --kind=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --distance=25
-        wetterdienst values --provider=dwd --kind=observation --resolution=daily --parameter=kl --period=recent --date=2020-06-30 --coordinates=49.9195,8.9671 --distance=25
+        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --distance=25
+        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --date=2020-06-30 --coordinates=49.9195,8.9671 --distance=25
 
     Examples using SQL filtering:
 
         # Find stations by state.
-        wetterdienst stations --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
 
         # Find stations by name (LIKE query).
-        wetterdienst stations --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
 
         # Find stations by name (regexp query).
-        wetterdienst stations --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
 
         # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --sql-values="SELECT * FROM data WHERE temperature_air_max_200 < 2.0;"
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --sql-values="SELECT * FROM data WHERE temperature_air_max_200 < 2.0;"
 
         # Filter measurements: Same as above, but use tidy format.
         # FIXME: Currently, this does not work, see https://github.com/earthobservations/wetterdienst/issues/377.
-        wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --sql-values="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 2.0;" --tidy
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --sql-values="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 2.0;" --tidy
 
     Examples for inquiring metadata:
-        # FIXME: those currently don't work
-        # Display list of available parameters (air_temperature, precipitation, pressure, ...)
-        wetterdienst dwd about parameters
-
-        # Display list of available resolutions (10_minutes, hourly, daily, ...)
-        wetterdienst dwd about resolutions
-
-        # Display list of available periods (historical, recent, now)
-        wetterdienst dwd about periods
-
         # Display coverage/correlation between parameters, resolutions and periods.
         # This can answer questions like ...
-        wetterdienst about coverage --provider=dwd --kind=observation
+        wetterdienst about coverage --provider=dwd --network=observation
 
         # Tell me all periods and resolutions available for 'air_temperature'.
-        wetterdienst about coverage --provider=dwd --kind=observation --parameter=air_temperature
+        wetterdienst about coverage --provider=dwd --network=observation --parameter=air_temperature
 
         # Tell me all parameters available for 'daily' resolution.
-        wetterdienst about coverage --provider=dwd --kind=observation --resolution=daily
+        wetterdienst about coverage --provider=dwd --network=observation --filter=daily
 
     Examples for exporting data to files:
 
         # Export list of stations into spreadsheet
-        wetterdienst stations --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --target=file://stations.xlsx
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --target=file://stations.xlsx
 
         # Shortcut command for fetching readings
-        alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+        alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
 
         # Export readings into spreadsheet (Excel-compatible)
         fetch --target="file://observations.xlsx"
@@ -299,7 +287,7 @@ def cli():
     Examples for exporting data to databases:
 
         # Shortcut command for fetching readings
-        alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+        alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
 
         # Store readings to DuckDB
         fetch --target="duckdb:///dwd.duckdb?table=weather"
@@ -399,24 +387,21 @@ def about():
     ),
 )
 @cloup.option_group(
-    "Kind",
+    "network",
     click.option(
-        "--kind",
-        type=click.Choice(
-            [Kind.OBSERVATION.name, Kind.FORECAST.name],
-            case_sensitive=False,
-        ),
+        "--network",
+        type=click.STRING,
     ),
 )
 @cloup.option("--filter", "filter_", type=click.STRING, default=None)
 @debug_opt
-def coverage(provider, kind, filter_, debug):
+def coverage(provider, network, filter_, debug):
     set_logging_level(debug)
 
-    if not provider or not kind:
+    if not provider or not network:
         return json.dumps(Wetterdienst.discover(), indent=4)
 
-    api = get_api(provider=provider, kind=kind)
+    api = get_api(provider=provider, network=network)
 
     cov = api.discover(
         filter_=filter_,
@@ -430,7 +415,7 @@ def coverage(provider, kind, filter_, debug):
 
 @about.command("fields")
 @provider_opt
-@kind_opt
+@network_opt
 @cloup.option_group(
     "(DWD only) information from PDF documents",
     click.option("--dataset", type=StringListParamType(",")),
@@ -440,10 +425,10 @@ def coverage(provider, kind, filter_, debug):
     constraint=cloup.constraints.require_all,
 )
 @debug_opt
-def fields(provider, kind, dataset, resolution, period, language, **kwargs):
-    api = get_api(provider, kind)
+def fields(provider, network, dataset, resolution, period, language, **kwargs):
+    api = get_api(provider, network)
 
-    if not (api.provider == Provider.DWD and api.kind == Kind.OBSERVATION) and kwargs.get("fields"):
+    if not (api.provider == Provider.DWD and network.lower() == "observation") and kwargs.get("fields"):
         raise click.BadParameter("'fields' command only available for provider 'DWD'")
 
     metadata = api.describe_fields(
@@ -462,7 +447,7 @@ def fields(provider, kind, dataset, resolution, period, language, **kwargs):
 
 @cli.command("stations")
 @provider_opt
-@kind_opt
+@network_opt
 @station_options
 @cloup.option_group(
     "Format/Target",
@@ -482,7 +467,7 @@ def fields(provider, kind, dataset, resolution, period, language, **kwargs):
 @debug_opt
 def stations(
     provider: str,
-    kind: str,
+    network: str,
     parameter: List[str],
     resolution: str,
     period: List[str],
@@ -501,7 +486,7 @@ def stations(
 ):
     set_logging_level(debug)
 
-    api = get_api(provider=provider, kind=kind)
+    api = get_api(provider=provider, network=network)
 
     stations_ = get_stations(
         api=api,
@@ -544,7 +529,7 @@ def stations(
 
 @cli.command("values")
 @provider_opt
-@kind_opt
+@network_opt
 @station_options
 @cloup.option("--date", type=click.STRING)
 @cloup.option("--tidy", is_flag=True)
@@ -567,7 +552,7 @@ def stations(
 @debug_opt
 def values(
     provider: str,
-    kind: str,
+    network: str,
     parameter: List[str],
     resolution: str,
     period: List[str],
@@ -592,7 +577,7 @@ def values(
 ):
     set_logging_level(debug)
 
-    api = get_api(provider, kind)
+    api = get_api(provider, network)
 
     try:
         values_ = get_values(

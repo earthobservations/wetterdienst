@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from wetterdienst.provider.dwd.forecast.metadata.parameter import DwdMosmixParameter
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
+from wetterdienst.provider.dwd.mosmix.metadata.parameter import DwdMosmixParameter
 
 DATE_FIELDS_REGULAR = DwdColumns.DATETIME.value
 

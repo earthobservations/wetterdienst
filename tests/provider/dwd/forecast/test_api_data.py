@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
-from wetterdienst.provider.dwd.forecast import DwdMosmixRequest, DwdMosmixType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.settings import Settings
 
 
@@ -25,7 +25,7 @@ def test_dwd_mosmix_l():
     station_names = response.stations.df["name"].unique().tolist()
     assert station_names == ["JAN MAYEN"]
 
-    # Verify forecast data.
+    # Verify mosmix data.
     station_ids = response.df["station_id"].unique().tolist()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
@@ -177,7 +177,7 @@ def test_dwd_mosmix_s():
     station_names = list(response.stations.df["name"].unique())
     assert station_names == ["BJORNOYA"]
 
-    # Verify forecast data.
+    # Verify mosmix data.
     station_ids = response.df["station_id"].unique().tolist()
     assert station_ids == ["01028"]
     assert len(response.df) > 200
@@ -252,7 +252,7 @@ def test_mosmix_l_parameters():
     )
     response = next(request.values.query())
 
-    # Verify forecast data.
+    # Verify mosmix data.
     station_ids = response.stations.df["station_id"].unique().tolist()
     assert station_ids == ["01001"]
     assert len(response.df) > 200

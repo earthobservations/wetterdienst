@@ -284,7 +284,7 @@ class ExportMixin:
 
             Acquire data::
 
-                alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
                 fetch --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
@@ -311,7 +311,7 @@ class ExportMixin:
                 INFLUXDB_ORGANIZATION=acme
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
 
-                alias fetch="wetterdienst values --provider=dwd --kind=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
                 fetch --target="influxdb2://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@localhost/?database=dwd&table=weather"
 
             Example queries::

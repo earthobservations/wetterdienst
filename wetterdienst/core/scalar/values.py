@@ -59,7 +59,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
     # Fields for date coercion
     _date_fields = [Columns.DATE.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
 
-    # TODO: add data type (forecast, observation, ...)
+    # TODO: add data type (mosmix, observation, ...)
 
     @property
     def data_tz(self) -> timezone:
