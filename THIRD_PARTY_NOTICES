@@ -7968,7 +7968,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 lxml
-4.7.1
+4.8.0
 BSD License
 lxml dev team
 https://lxml.de/
@@ -17814,7 +17814,7 @@ disclaims all warranties with regard to this software.
 
 
 webdriver-manager
-3.5.2
+3.5.3
 Apache Software License
 Sergey Pirogov
 https://github.com/SergeyPirogov/webdriver_manager
