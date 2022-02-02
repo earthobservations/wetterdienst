@@ -76,10 +76,29 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     """
     Verify if data for "stations" has been correctly propagated.
     """
+    # Select provider.
+    dash_tre.wait_for_element_by_id("select-provider")
+    dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+
+    # Select network.
+    dash_tre.wait_for_element_by_id("select-network")
+    dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+
+    # Select resolution.
+    dash_tre.wait_for_element_by_id("select-resolution")
+    dash_tre.select_dcc_dropdown("#select-resolution", value="DAILY")
+
+    # Select dataset.
+    dash_tre.wait_for_element_by_id("select-dataset")
+    dash_tre.select_dcc_dropdown("#select-dataset", value="CLIMATE_SUMMARY")
 
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
-    dash_tre.select_dcc_dropdown("#select-parameter", value="extreme_wind")
+    dash_tre.select_dcc_dropdown("#select-parameter", value="PRECIPITATION_HEIGHT")
+
+    # Select period.
+    dash_tre.wait_for_element_by_id("select-period")
+    dash_tre.select_dcc_dropdown("#select-period", value="NOW")
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-stations", timeout=5)
@@ -89,7 +108,49 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=2)
     dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=2)
     dash_tre.wait_for_contains_text("#map", "No data to display", timeout=2)
-    dash_tre.wait_for_contains_text("#graph", "No variable selected", timeout=2)
+
+
+@pytest.mark.slow
+@pytest.mark.cflake
+@pytest.mark.explorer
+def test_options_reset(wetterdienst_ui, dash_tre):
+    """
+    Verify if data for "stations" has been correctly propagated.
+    """
+    # Select provider.
+    dash_tre.wait_for_element_by_id("select-provider")
+    dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+
+    # Select network.
+    dash_tre.wait_for_element_by_id("select-network")
+    dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+
+    # Select resolution.
+    dash_tre.wait_for_element_by_id("select-resolution")
+    dash_tre.select_dcc_dropdown("#select-resolution", value="DAILY")
+
+    # Select dataset.
+    dash_tre.wait_for_element_by_id("select-dataset")
+    dash_tre.select_dcc_dropdown("#select-dataset", value="CLIMATE_SUMMARY")
+
+    # Select parameter.
+    dash_tre.wait_for_element_by_id("select-parameter")
+    dash_tre.select_dcc_dropdown("#select-parameter", value="PRECIPITATION_HEIGHT")
+
+    # Select period.
+    dash_tre.wait_for_element_by_id("select-period")
+    dash_tre.select_dcc_dropdown("#select-period", value="HISTORICAL")
+
+    # Set another provider
+    dash_tre.wait_for_element_by_id("select-provider")
+    dash_tre.select_dcc_dropdown("#select-provider", value="ECCC")
+
+    # Check other options for reset
+    dash_tre.wait_for_contains_text("#select-network", "")
+    dash_tre.wait_for_contains_text("#select-resolution", "")
+    dash_tre.wait_for_contains_text("#select-dataset", "")
+    dash_tre.wait_for_contains_text("#select-parameter", "")
+    dash_tre.wait_for_contains_text("#select-period", "")
 
 
 @pytest.mark.slow
@@ -99,36 +160,43 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     """
     Verify if data for "values" has been correctly propagated.
     """
+    # Select provider.
+    dash_tre.wait_for_element_by_id("select-provider")
+    dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+
+    # Select network.
+    dash_tre.wait_for_element_by_id("select-network")
+    dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+
+    # Select resolution.
+    dash_tre.wait_for_element_by_id("select-resolution")
+    dash_tre.select_dcc_dropdown("#select-resolution", value="HOURLY")
+
+    # Select dataset.
+    dash_tre.wait_for_element_by_id("select-dataset")
+    dash_tre.select_dcc_dropdown("#select-dataset", value="TEMPERATURE_AIR")
+    time.sleep(0.5)
 
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
-    dash_tre.select_dcc_dropdown("#select-parameter", value="air_temperature")
-
-    # Select time resolution.
-    dash_tre.wait_for_element_by_id("select-resolution")
-    dash_tre.select_dcc_dropdown("#select-resolution", value="hourly")
+    dash_tre.select_dcc_dropdown("#select-parameter", value="TEMPERATURE_AIR_MEAN_200")
 
     # Select period.
     dash_tre.wait_for_element_by_id("select-period")
-    dash_tre.select_dcc_dropdown("#select-period", value="recent")
+    dash_tre.select_dcc_dropdown("#select-period", value="RECENT")
 
     # Select weather station.
     dash_tre.wait_for_element_by_id("select-station")
     dash_tre.select_dcc_dropdown("#select-station", value="Anklam")
     time.sleep(0.5)
 
-    # Select variable.
-    dash_tre.wait_for_element_by_id("select-variable")
-    dash_tre.wait_for_element_by_id_clickable("select-variable")
-    dash_tre.select_dcc_dropdown("#select-variable", value="temperature_air_200")
-    time.sleep(0.25)
-
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-values")
+    time.sleep(0.5)
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=2)
-    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=2)
+    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=20)
+    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=20)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
@@ -136,12 +204,5 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     data = json.loads(data_element.text)
 
     # Verify data.
-    assert data["columns"] == [
-        "station_id",
-        "dataset",
-        "date",
-        "qn_9",
-        "temperature_air_mean_200",
-        "humidity",
-    ]
+    assert data["columns"] == ["station_id", "dataset", "parameter", "date", "value"]
     assert len(data["data"]) == 13200

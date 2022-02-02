@@ -4,6 +4,7 @@ Changelog
 Development
 ***********
 
+- Extend explorer to use all implemented APIs
 
 0.27.0 (16.02.2022)
 *******************

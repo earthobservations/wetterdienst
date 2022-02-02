@@ -1,31 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import operator
+from dash import dcc, html
 
-import dash_core_components as dcc
-import dash_html_components as html
-
-from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationPeriod,
-    DwdObservationResolution,
-)
+from wetterdienst.api import ApiEndpoints
 
 
-def get_parameters():
-    return sorted(
-        [{"label": param.value, "value": param.value} for param in DwdObservationDataset],
-        key=operator.itemgetter("label"),
-    )
-
-
-def get_resolutions():
-    return [{"label": param.value, "value": param.value} for param in DwdObservationResolution]
-
-
-def get_periods():
-    return [{"label": param.value, "value": param.value} for param in DwdObservationPeriod]
+def get_providers():
+    return [{"label": provider, "value": provider} for provider in ApiEndpoints]
 
 
 def dashboard_layout() -> html:
@@ -38,42 +20,55 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            html.Div("Parameter:"),
+                            html.Div("Provider:"),
                             dcc.Dropdown(
-                                id="select-parameter",
-                                options=get_parameters(),
-                                value=DwdObservationDataset.TEMPERATURE_AIR.value,
+                                id="select-provider",
+                                options=get_providers(),
+                                value=None,
+                                multi=False,
+                                className="dcc_control",
+                            ),
+                            html.Div("Network:"),
+                            dcc.Dropdown(
+                                id="select-network",
+                                value=None,
                                 multi=False,
                                 className="dcc_control",
                             ),
                             html.Div("Resolution:"),
                             dcc.Dropdown(
                                 id="select-resolution",
-                                options=get_resolutions(),
-                                value=DwdObservationResolution.HOURLY.value,
+                                value=None,
+                                multi=False,
+                                className="dcc_control",
+                            ),
+                            html.Div("Dataset:"),
+                            dcc.Dropdown(
+                                id="select-dataset",
+                                value=None,
+                                multi=False,
+                                className="dcc_control",
+                            ),
+                            html.Div("Parameter:"),
+                            dcc.Dropdown(
+                                id="select-parameter",
+                                value=None,
                                 multi=False,
                                 className="dcc_control",
                             ),
                             html.Div("Period:"),
                             dcc.Dropdown(
                                 id="select-period",
-                                options=get_periods(),
-                                value=DwdObservationPeriod.RECENT.value,
+                                value=None,
                                 multi=False,
                                 className="dcc_control",
                             ),
                             html.Div("Station:"),
-                            dcc.Dropdown(
-                                id="select-station",
-                                multi=False,
-                                className="dcc_control",
-                            ),
-                            html.Div("Variable:"),
                             dcc.Loading(
                                 id="loading-1",
                                 children=[
                                     dcc.Dropdown(
-                                        id="select-variable",
+                                        id="select-station",
                                         multi=False,
                                         className="dcc_control",
                                     ),
