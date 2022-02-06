@@ -30,7 +30,7 @@ class NoaaGhcnParameter(DatasetTreeCore):
         #     Fahrenheit  to  tenths  on Daily Form pdf file
         TEMPERATURE_AIR_MIN_200 = "tmin"
         # DERIVED PARAMETER
-        TEMPERATURE_AIR_MEAN_200 = "tmean"  # tmean = (tmax + tmin) / 2
+        TEMPERATURE_AIR_MEAN_200 = "tavg"  # tmean = (tmax + tmin) / 2
 
         # Additional parameters:
 
@@ -397,6 +397,7 @@ PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MAX_200_MULTIDAY.value: 1 / 10,
     NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MIN_200.value: 1 / 10,
     NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MIN_200_MULTIDAY.value: 1 / 10,
+    NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_200.value: 1 / 10,
     NoaaGhcnParameter.DAILY.WIND_SPEED.value: 1 / 10,
     NoaaGhcnParameter.DAILY.EVAPORATION_HEIGHT.value: 1 / 10,
     NoaaGhcnParameter.DAILY.EVAPORATION_HEIGHT_MULTIDAY.value: 1 / 10,

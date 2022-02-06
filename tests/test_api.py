@@ -64,4 +64,6 @@ def test_api(provider, network, kwargs, si_units):
     # TODO: DWD Forecast has no quality
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
 
+    values = values.drop(columns="quality").dropna(axis=0)
+
     assert not values.empty
