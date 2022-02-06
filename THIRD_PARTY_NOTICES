@@ -3428,7 +3428,7 @@ http://github.com/matplotlib/cycler
 UNKNOWN
 
 dash
-2.1.0
+1.21.0
 MIT License
 Chris Parmer
 https://plotly.com/dash
@@ -3664,7 +3664,7 @@ limitations under the License.
 
 
 dash-core-components
-2.0.0
+1.17.1
 MIT
 Chris Parmer <chris@plotly.com>
 UNKNOWN
@@ -3692,7 +3692,7 @@ SOFTWARE.
 
 
 dash-html-components
-2.0.0
+1.1.4
 MIT
 Chris Parmer <chris@plotly.com>
 https://github.com/plotly/dash-html-components
@@ -3701,7 +3701,7 @@ COPYRIGHT HOLDER: Plotly, Inc.
 
 
 dash-table
-5.0.0
+4.12.0
 MIT
 Chris Parmer <chris@plotly.com>
 UNKNOWN
@@ -11142,7 +11142,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 plotly
-5.5.0
+4.14.3
 MIT
 Chris P
 https://plotly.com/python/
