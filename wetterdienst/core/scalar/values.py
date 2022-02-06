@@ -12,6 +12,7 @@ from typing import Dict, Generator, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import pytz
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
 from pint import Quantity
 from pytz import timezone
 from tqdm import tqdm
@@ -695,12 +696,14 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :param series:
         :return:
         """
-        series = pd.to_datetime(series, infer_datetime_format=True)
+        if not is_datetime(series):
+            series = pd.to_datetime(series, infer_datetime_format=True)
 
         try:
             return series.dt.tz_localize(timezone_)
         except TypeError:
-            pass
+            # Assuming the dates already have a timezone we will convert dates to our required timezone
+            return series.dt.tz_convert(timezone_)
 
     @staticmethod
     def _coerce_integers(series: pd.Series) -> pd.Series:

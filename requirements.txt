@@ -35,7 +35,7 @@ dictdiffer==0.9.0
 diskcache==5.4.0; python_version >= "3"
 docformatter==1.4
 docutils==0.16; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
-entrypoints==0.3; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
+entrypoints==0.4; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
 environs==9.5.0; python_version >= "3.6"
 eradicate==2.0.0; python_version >= "3.6" and python_version < "4.0"
 execnet==1.9.0; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
@@ -73,7 +73,7 @@ jsonschema==4.4.0; python_version >= "3.7" and python_full_version < "3.0.0" or 
 jupyter-client==7.1.2; python_full_version >= "3.6.1" and python_version >= "3.7"
 jupyter-core==4.9.1; python_full_version >= "3.6.1" and python_version >= "3.7" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
 jupyter-server-mathjax==0.2.3; python_version >= "3.6"
-jupyter-server==1.13.4; python_version >= "3.7"
+jupyter-server==1.13.5; python_version >= "3.7"
 livereload==2.6.3; python_version >= "3.6"
 lxml==4.7.1; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
 markupsafe==2.0.1; python_version >= "3.6"
@@ -126,7 +126,7 @@ python-dotenv==0.19.2; python_version >= "3.6"
 pytz-deprecation-shim==0.1.0.post0; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6"
 pytz==2021.3; python_full_version >= "3.7.1" and python_version >= "3.5" and (python_version >= "3.5" and python_full_version < "3.0.0" or python_full_version >= "3.4.0" and python_version >= "3.5")
 pywin32==303; sys_platform == "win32" and platform_python_implementation != "PyPy" and python_full_version >= "3.6.1" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6")
-pywinpty==2.0.1; os_name == "nt" and python_version >= "3.7"
+pywinpty==1.1.6; os_name == "nt" and python_version >= "3.7"
 pyyaml==6.0; python_version >= "3.7"
 pyzmq==22.3.0; python_full_version >= "3.6.1" and python_version >= "3.7"
 rapidfuzz==1.9.1; python_version >= "2.7"

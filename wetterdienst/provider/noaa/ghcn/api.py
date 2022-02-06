@@ -46,7 +46,7 @@ class NoaaGhcnValues(ScalarValuesCore):
 
     _data_tz = Timezone.DYNAMIC
 
-    _base_url = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/by_station/{station_id}.csv.gz"
+    _base_url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
 
     # use to get timezones from stations
     _tf = TimezoneFinder()
@@ -64,29 +64,27 @@ class NoaaGhcnValues(ScalarValuesCore):
         :param dataset: dataset being queried
         :return: dataframe with read data
         """
-
-        # parameter and dataset can be ignored as data is provided as a whole
-
         url = self._base_url.format(station_id=station_id)
 
         file = download_file(url, CacheExpiry.FIVE_MINUTES)
 
-        df = pd.read_csv(file, sep=",", compression="gzip", header=None, dtype=str)
+        df = pd.read_csv(file, sep=",", dtype=str)
 
-        df = df.iloc[:, :-3]
+        meta_columns = [
+            "LATITUDE",
+            "LONGITUDE",
+            "ELEVATION",
+            "NAME",
+        ]
 
-        # Set column names
-        df.columns = (
-            Columns.STATION_ID.value,
-            Columns.DATE.value,
-            Columns.PARAMETER.value,
-            Columns.VALUE.value,
-            Columns.QUALITY.value,
+        meta_columns.extend(filter(lambda col: col.endswith("_ATTRIBUTES"), df.columns))
+
+        df = df.drop(columns=meta_columns)
+
+        df = df.rename(columns=str.lower).rename(
+            columns={"station": Columns.STATION_ID.value, "date": Columns.DATE.value}
         )
 
-        df.loc[:, Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
-
-        # get timezone from station
         timezone_ = self._get_timezone_from_station(station_id)
 
         df[Columns.DATE.value] = df[Columns.DATE.value].astype("datetime64")
@@ -98,8 +96,6 @@ class NoaaGhcnValues(ScalarValuesCore):
         )
 
         df = self._apply_factors(df)
-
-        df = self._add_derived_parameters(df, station_id)
 
         # TODO: Eventually we will have to convert dates back to strings
         #  to follow the main logic...
@@ -115,93 +111,21 @@ class NoaaGhcnValues(ScalarValuesCore):
         :param df: DataFrame with given values
         :return: DataFrame with applied factors
         """
-        df_factors = pd.DataFrame()
-        for parameter, group in df.groupby(Columns.PARAMETER.value):
-            factor = self._mp_factors.get(parameter)
+
+        def _apply_factor(series: pd.Series) -> pd.Series:
+            factor = self._mp_factors.get(series.name)
             if factor:
-                group[Columns.VALUE.value] = group[Columns.VALUE.value].astype(float)
-                group[Columns.VALUE.value] *= factor
+                return series.astype(float) * factor
+            return series
 
-            df_factors = df_factors.append(group)
+        return df.apply(_apply_factor, axis=0)
 
-        return df_factors
-
-    def _add_derived_parameters(self, df: pd.DataFrame, station_id: str) -> pd.DataFrame:
-        """
-        Method to add derived parameters to DataFrame, specifically
-        temperature_air_mean_200 from maximum and minimum daily temperature
-        :param df: pandas DataFrame with predefined parameters
-        :param station_id: station id used for getting timezone
-        :return: pandas DataFrame with appended data
-        """
-        # store parameter names (long accessors)
-        tmax_key = NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MAX_200.value
-        tmin_key = NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MIN_200.value
-        tmean_key = NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_200.value
-
-        drop_columns = [
-            Columns.STATION_ID.value,
-            Columns.QUALITY.value,
-        ]
-
-        # TODO: better manage start and end date and its timezone
-        # code taken from ValuesCore._complete_dates
-
-        # draw tmax and tmin data from DataFrame
-        df_temperatures = (
-            df[df[Columns.PARAMETER.value].isin((tmax_key, tmin_key))]
-            .drop(columns=drop_columns)
-            .pivot(
-                index=[Columns.DATE.value],
-                columns=Columns.PARAMETER.value,
-                values=Columns.VALUE.value,
-            )
-            .reset_index()
+    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+        return df.melt(
+            id_vars=[Columns.STATION_ID.value, Columns.DATE.value],
+            var_name=Columns.PARAMETER.value,
+            value_name=Columns.VALUE.value,
         )
-
-        df_temperatures = df_temperatures.reindex(columns=(Columns.DATE.value, tmax_key, tmin_key))
-
-        start_date = self.stations.start_date
-        end_date = self.stations.end_date
-
-        if not start_date:
-            # either take start and end date from temperature dfs
-            if not df_temperatures.empty:
-                start_date = df_temperatures[Columns.DATE.value].min()
-                end_date = df_temperatures[Columns.DATE.value].max()
-            else:
-                start_date = df[Columns.DATE.value].min()
-                end_date = df[Columns.DATE.value].max()
-
-        timezone_ = self._get_timezone_from_station(station_id)
-
-        tz_delta = self._get_timedelta_from_timezones(timezone_, pytz.UTC)
-
-        df_tmean = pd.DataFrame(
-            {
-                Columns.DATE.value: pd.date_range(
-                    start_date + dt.timedelta(hours=tz_delta),
-                    end_date + dt.timedelta(hours=tz_delta),
-                    freq=self.stations.frequency.value,
-                    tz=pytz.UTC,
-                )
-            }
-        )
-
-        # merge both temperature dfs on dates
-        df_tmean = df_tmean.merge(df_temperatures, how="left", on=Columns.DATE.value)
-
-        df_tmean[Columns.VALUE.value] = (
-            df_tmean[tmax_key].astype(float, errors="ignore") + df_tmean[tmin_key].astype(float, errors="ignore")
-        ) / 2
-
-        df_tmean = df_tmean.drop(columns=[tmax_key, tmin_key])
-
-        df_tmean[Columns.STATION_ID.value] = station_id
-        df_tmean[Columns.PARAMETER.value] = tmean_key
-        df_tmean[Columns.QUALITY.value] = pd.NA
-
-        return df.append(df_tmean)
 
 
 class NoaaGhcnRequest(ScalarRequestCore):
@@ -212,7 +136,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
     _parameter_base = NoaaGhcnParameter
     _dataset_tree = NoaaGhcnParameter
 
-    _base_url = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+    _base_url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/ghcnd-stations.txt"
 
     # Listing colspecs derived from stations file provided by GHCN
     _listing_colspecs = [(0, 11), (12, 20), (21, 30), (31, 37), (41, 71)]
@@ -225,7 +149,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
 
     _has_datasets = True
     _unique_dataset = True
-    _has_tidy_data = True
+    _has_tidy_data = False
 
     _unit_tree = NoaaGhcnUnit
 

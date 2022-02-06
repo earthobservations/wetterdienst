@@ -559,6 +559,7 @@ def test_radar_request_site_historic_pe_timerange(fmt):
     # TODO: Verify data.
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_radar_request_site_historic_px250_bufr_yesterday():
     """
