@@ -248,6 +248,7 @@ Alternatively, though without argument/type hinting:
 Get data:
 
 .. code-block:: python
+
     >>> Settings.tidy = True  # default, tidy data
     >>> Settings.humanize = True  # default, humanized parameters
     >>> Settings.si_units = True  # default, convert values to SI units
@@ -280,7 +281,6 @@ Get data:
     2     10.0
     3     10.0
     4     10.0
-
 
 Receiving of stations for defined parameters using the ``wetterdienst`` client:
 
@@ -451,9 +451,6 @@ Further additional libraries are affected and have to be installed in a similar 
     brew install postgresql
     brew link openssl (and export ENVS as given)
     pip install psycopg2-binary --no-use-pep517
-
-Furthermore as h5py is currently bound to versions of numpy that conflict with the ARM64 ready libraries, h5py itself as
-well as wradlib are not available for users with that architecture!
 
 LINUX ARM (Raspberry Pi)
 ========================
