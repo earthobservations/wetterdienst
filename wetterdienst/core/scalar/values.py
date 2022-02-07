@@ -384,8 +384,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 how="left",
             )
 
-            df[Columns.STATION_ID.value] = station_id
-
             if self.stations.tidy:
                 df[Columns.PARAMETER.value] = parameter.value
                 df[Columns.PARAMETER.value] = pd.Categorical(df[Columns.PARAMETER.value])
@@ -416,8 +414,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
                     right_on=Columns.DATE.value,
                     how="left",
                 )
-
-                df[Columns.STATION_ID.value] = station_id
 
                 df[Columns.PARAMETER.value] = parameter_.value
 
@@ -509,16 +505,17 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 if self.stations.stations.start_date:
                     parameter_df = self._build_complete_df(parameter_df, station_id, parameter, dataset)
 
-                parameter_df[Columns.DATASET.value] = dataset.name.lower()
-
-                parameter_df = self._organize_df_columns(parameter_df)
-
                 station_data.append(parameter_df)
 
             try:
                 station_df = pd.concat(station_data, ignore_index=True)
             except ValueError:
                 station_df = self._create_empty_station_parameter_df(station_id, parameter, dataset)
+
+            station_df = self._organize_df_columns(station_df)
+
+            station_df[Columns.STATION_ID.value] = station_id
+            station_df[Columns.DATASET.value] = dataset.name.lower()
 
             station_df = self._coerce_meta_fields(station_df)
 
