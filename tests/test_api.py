@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import numpy
 import pytest
 
 from wetterdienst import Settings, Wetterdienst
@@ -64,6 +65,6 @@ def test_api(provider, network, kwargs, si_units):
     # TODO: DWD Forecast has no quality
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
 
-    values = values.drop(columns="quality").dropna(axis=0)
+    values = values.drop(columns="quality").replace(to_replace="nan", value=numpy.nan).dropna(axis=0)
 
     assert not values.empty
