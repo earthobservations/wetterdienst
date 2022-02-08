@@ -328,19 +328,6 @@ class DwdMosmixRequest(ScalarRequestCore):
 
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
-    _colspecs = [
-        (0, 5),
-        (6, 11),
-        (12, 17),
-        (18, 22),
-        (23, 44),
-        (45, 51),
-        (52, 58),
-        (59, 64),
-        (65, 71),
-        (72, 76),
-    ]
-
     @property
     def _dataset_accessor(self) -> str:
         """
@@ -487,7 +474,18 @@ class DwdMosmixRequest(ScalarRequestCore):
             StringIO(payload.decode(encoding="latin-1")),
             skiprows=4,
             skip_blank_lines=True,
-            colspecs=self._colspecs,
+            colspecs=[
+                (0, 5),
+                (6, 11),
+                (12, 17),
+                (18, 22),
+                (23, 44),
+                (45, 51),
+                (52, 58),
+                (59, 64),
+                (65, 71),
+                (72, 76),
+            ],
             na_values=["----"],
             header=None,
             dtype="str",
@@ -508,7 +506,6 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         # Convert coordinates from degree minutes to decimal degrees
         df[Columns.LATITUDE.value] = df[Columns.LATITUDE.value].astype(float).apply(convert_dm_to_dd)
-
         df[Columns.LONGITUDE.value] = df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
 
         return df.reindex(columns=self._base_columns)

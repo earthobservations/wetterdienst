@@ -26,7 +26,7 @@ def test_eccc_api_stations():
         {
             "station_id": ["14"],
             "from_date": [pd.Timestamp("1984-01-01", tz=pytz.UTC)],
-            "to_date": [pd.Timestamp("1996-01-01", tz=pytz.UTC)],
+            "to_date": [pd.Timestamp("1996-12-31", tz=pytz.UTC)],
             "height": [4.0],
             "latitude": [48.87],
             "longitude": [-123.28],

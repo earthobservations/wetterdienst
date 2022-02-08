@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
+from pandas._libs.tslibs.offsets import YearEnd
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -335,7 +336,11 @@ class EcccObservationRequest(ScalarRequestCore):
 
         df = df.drop(columns=["latitude", "longitude"])
 
-        return df.rename(columns=self._columns_mapping)
+        df = df.rename(columns=self._columns_mapping)
+
+        df[Columns.TO_DATE.value] = pd.to_datetime(df[Columns.TO_DATE.value]) + YearEnd()
+
+        return df
 
     @staticmethod
     def _download_stations() -> BytesIO:
