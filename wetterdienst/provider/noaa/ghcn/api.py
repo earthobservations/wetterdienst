@@ -7,6 +7,7 @@ from typing import List, Optional, Union
 
 import pandas as pd
 import pytz
+from pandas.tseries.offsets import YearEnd
 from timezonefinder import TimezoneFinder
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -136,11 +137,6 @@ class NoaaGhcnRequest(ScalarRequestCore):
     _parameter_base = NoaaGhcnParameter
     _dataset_tree = NoaaGhcnParameter
 
-    _base_url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/ghcnd-stations.txt"
-
-    # Listing colspecs derived from stations file provided by GHCN
-    _listing_colspecs = [(0, 11), (12, 20), (21, 30), (31, 37), (41, 71)]
-
     _resolution_type = ResolutionType.FIXED
     _resolution_base = NoaaGhcnResolution
     _period_type = PeriodType.FIXED
@@ -182,14 +178,18 @@ class NoaaGhcnRequest(ScalarRequestCore):
         Method to acquire station listing,
         :return: DataFrame with all stations
         """
+        listings_url = (
+            "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/ghcnd-stations.txt"
+        )
 
-        file = download_file(self._base_url, CacheExpiry.TWELVE_HOURS)
+        listings_file = download_file(listings_url, CacheExpiry.TWELVE_HOURS)
 
+        # https://github.com/awslabs/open-data-docs/tree/main/docs/noaa/noaa-ghcn
         df = pd.read_fwf(
-            file,
+            listings_file,
             dtype=str,
             header=None,
-            colspecs=self._listing_colspecs,
+            colspecs=[(0, 11), (12, 20), (21, 30), (31, 37), (38, 40), (41, 71), (80, 85)],
         )
 
         df.columns = [
@@ -197,7 +197,36 @@ class NoaaGhcnRequest(ScalarRequestCore):
             Columns.LATITUDE.value,
             Columns.LONGITUDE.value,
             Columns.HEIGHT.value,
+            Columns.STATE.value,
             Columns.NAME.value,
+            Columns.WMO_ID.value,
         ]
 
-        return df
+        inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
+
+        inventory_file = download_file(inventory_url, CacheExpiry.TWELVE_HOURS)
+
+        inventory_df = pd.read_fwf(
+            inventory_file,
+            header=None,
+            colspecs=[(0, 11), (36, 40), (41, 45)],
+        )
+
+        inventory_df.columns = [Columns.STATION_ID.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
+
+        inventory_df = (
+            inventory_df.groupby(Columns.STATION_ID.value)
+            .agg({Columns.FROM_DATE.value: min, Columns.TO_DATE.value: max})
+            .reset_index()
+        )
+
+        inventory_df[Columns.FROM_DATE.value] = pd.to_datetime(
+            inventory_df[Columns.FROM_DATE.value], format="%Y", errors="coerce"
+        )
+        inventory_df[Columns.TO_DATE.value] = pd.to_datetime(
+            inventory_df[Columns.TO_DATE.value], format="%Y", errors="coerce"
+        )
+
+        inventory_df[Columns.TO_DATE.value] += YearEnd()
+
+        return df.merge(inventory_df, how="left", left_on=Columns.STATION_ID.value, right_on=Columns.STATION_ID.value)
