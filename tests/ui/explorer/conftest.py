@@ -18,7 +18,7 @@ def dash_tre(request, dash_thread_server, tmpdir):
         percy_assets_root=request.config.getoption("percy_assets"),
         percy_finalize=request.config.getoption("nopercyfinalize"),
         pause=request.config.getoption("pause"),
-        wait_timeout=20,
+        wait_timeout=30,
     ) as dc:
         yield dc
 
