@@ -629,22 +629,12 @@ class ScalarRequestCore(Core):
             df[Columns.LATITUDE.value].values,
             df[Columns.LONGITUDE.value].values,
             coords,
-            rank,
+            min(rank, df.shape[0]),
         )
 
-        distances = pd.Series(distances)
-        indices_nearest_neighbours = pd.Series(indices_nearest_neighbours)
+        df = df.iloc[indices_nearest_neighbours.flatten(), :].reset_index(drop=True)
 
-        # If num_stations_nearby is higher then the actual amount of stations
-        # further indices and distances are added which have to be filtered out
-        distances = distances[: min(df.shape[0], rank)]
-        indices_nearest_neighbours = indices_nearest_neighbours[: min(df.shape[0], rank)]
-
-        distances_km = np.array(distances * EARTH_RADIUS_KM)
-
-        df = df.iloc[indices_nearest_neighbours, :].reset_index(drop=True)
-
-        df[Columns.DISTANCE.value] = distances_km
+        df[Columns.DISTANCE.value] = distances.flatten() * EARTH_RADIUS_KM
 
         if df.empty:
             log.warning(
