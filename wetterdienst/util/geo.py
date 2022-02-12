@@ -4,7 +4,7 @@
 from typing import Tuple, Union
 
 import numpy as np
-from scipy.spatial.ckdtree import cKDTree
+from sklearn.neighbors import BallTree
 
 
 class Coordinates:
@@ -64,8 +64,10 @@ def derive_nearest_neighbours(
         Tuple of distances and ranks of nearest to most distant stations
     """
     points = np.c_[np.radians(latitudes), np.radians(longitudes)]
-    distance_tree = cKDTree(points)
-    return distance_tree.query(coordinates.get_coordinates_in_radians(), k=number_nearby)
+
+    distance_tree = BallTree(points, metric="haversine")
+
+    return distance_tree.query(coordinates.get_coordinates_in_radians().reshape(-1, 2), k=number_nearby)
 
 
 def convert_dm_to_dd(dms: float) -> float:

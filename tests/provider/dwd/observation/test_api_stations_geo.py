@@ -21,15 +21,15 @@ from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 EXPECTED_DF_SINGLE = pd.DataFrame(
     [
         [
-            "04411",
-            Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
-            155.0,
-            49.9195,
-            8.9671,
-            "Schaafheim-Schlierbach",
-            "Hessen",
-            11.653026716750542,
-        ],
+            "02480",
+            Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
+            108.0,
+            50.0643,
+            8.993,
+            "Kahl/Main",
+            "Bayern",
+            9.759384982994229,
+        ]
     ],
     columns=[
         "station_id",
@@ -47,16 +47,6 @@ EXPECTED_DF_SINGLE = pd.DataFrame(
 EXPECTED_DF_MULTIPLE = pd.DataFrame(
     [
         [
-            "04411",
-            Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
-            155.0,
-            49.9195,
-            8.9671,
-            "Schaafheim-Schlierbach",
-            "Hessen",
-            11.653026716750542,
-        ],
-        [
             "02480",
             Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
             108.0,
@@ -64,7 +54,17 @@ EXPECTED_DF_MULTIPLE = pd.DataFrame(
             8.993,
             "Kahl/Main",
             "Bayern",
-            12.572153957087247,
+            9.759384982994229,
+        ],
+        [
+            "04411",
+            Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
+            155.0,
+            49.9195,
+            8.9671,
+            "Schaafheim-Schlierbach",
+            "Hessen",
+            10.156943448624304,
         ],
         [
             "07341",
@@ -74,7 +74,7 @@ EXPECTED_DF_MULTIPLE = pd.DataFrame(
             8.7862,
             "Offenbach-Wetterpark",
             "Hessen",
-            16.12612066977987,
+            12.882693521631097,
         ],
     ],
     columns=[
@@ -182,12 +182,6 @@ def test_dwd_observation_stations_empty():
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
-    # Distance
-    assert request.filter_by_distance(
-        50.0,
-        8.9,
-        10,
-    ).df.empty
 
     # Bbox
     assert request.filter_by_bbox(
@@ -255,6 +249,6 @@ def test_derive_nearest_neighbours():
         number_nearby=1,
     )
 
-    np.testing.assert_array_almost_equal(distances, np.array([0.00182907, 0.00227919]))
+    np.testing.assert_array_almost_equal(distances, np.array([[0.001594], [0.002133]]))
 
-    np.testing.assert_array_almost_equal(indices_nearest_neighbours, np.array([2, 5]))
+    np.testing.assert_array_almost_equal(indices_nearest_neighbours, np.array([[2], [5]]))
