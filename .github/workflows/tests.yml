@@ -32,16 +32,11 @@ jobs:
         architecture: x64
 
     - name: Setup Poetry
-      uses: snok/install-poetry@v1.1.2
+      uses: snok/install-poetry@v1.3.0
       with:
-        version: 1.1.5
+        version: 1.1.13
         virtualenvs-create: true
         virtualenvs-in-project: true
-
-    - name: Get Poetry cache directory
-      id: poetry-cache-dir
-      run: |
-        echo "::set-output name=dir::$(poetry config cache-dir)"
 
     - name: Apply cache
       id: poetry-cache-flag
@@ -50,11 +45,12 @@ jobs:
         # Increase this value to reset cache if `poetry.lock` has not changed.
         CACHE_NUMBER: 1
       with:
-        path: ${{ steps.poetry-cache-dir.outputs.dir }}
+        path: .venv
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
 
     - name: Install dependencies
       run: .github/workflows/install.sh testing
+      if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
 
     - name: Test (Windows) - single core
       run: |
