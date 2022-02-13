@@ -48,9 +48,9 @@ keywords = [
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -83,9 +83,9 @@ classifiers = [
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
 
 [tool.poetry.dependencies]
-python = "^3.7.1"
+python = "^3.8,<3.11"
 pandas = "^1.3"
-numpy = "^1.19"
+numpy = "^1.22"
 cachetools = "^4.1"
 dateparser = "^1.0"
 beautifulsoup4 = "^4.9"
@@ -97,8 +97,6 @@ tqdm = "^4.47"
 PyPDF2 = "^1.26"
 tabulate = "^0.8"
 deprecation = "^2.1"
-# Conditionally installed for backward compatibility with older Python versions
-importlib_metadata              = { version = "^1.7", python = "<3.8" }
 measurement = "^3.2"
 rapidfuzz = "^1.4"
 Pint = "^0.17"
@@ -113,12 +111,11 @@ aiohttp = "^3.7"
 matplotlib =  { version = "^3.3", optional = true }
 
 openpyxl                        = { version = "^3.0", optional = true }
-pyarrow                         = { version = "^3.0", optional = true }
-duckdb                          = { version = "^0.2", optional = true }
+pyarrow                         = { version = ">6.0", optional = true }
+duckdb                          = { version = "^0.3.2", optional = true }
 influxdb                        = { version = "^5.3", optional = true }
 influxdb-client                 = { version = "^1.18", optional = true }
-sqlalchemy                      = { version = "^1.3", optional = true }
-crate                           = { version = "^0.25", optional = true, extras = ["sqlalchemy"] }
+sqlalchemy                      = { version = "^1.4", optional = true }
 mysqlclient                     = { version = "^2.0", optional = true }
 psycopg2-binary                 = { version = "^2.8", optional = true }
 

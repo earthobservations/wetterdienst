@@ -79,7 +79,7 @@ def test_coerce_field_types():
         }
     )
 
-    assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df, check_categorical=False)
 
 
 def test_coerce_field_types_with_nans():
@@ -112,7 +112,7 @@ def test_coerce_field_types_with_nans():
 
     df = request.values._coerce_parameter_types(df)
 
-    assert_frame_equal(df, expected_df)
+    assert_frame_equal(df, expected_df, check_categorical=False)
 
 
 def test_build_parameter_identifier():

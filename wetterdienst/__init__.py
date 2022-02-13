@@ -13,6 +13,8 @@ def monkey_patch():
 monkey_patch()
 
 
+from importlib.metadata import PackageNotFoundError, version  # noqa
+
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter
@@ -21,13 +23,6 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import cache_dir
-
-# Single-sourcing the package version
-# https://cjolowicz.github.io/posts/hypermodern-python-06-ci-cd/
-try:
-    from importlib.metadata import PackageNotFoundError, version  # noqa
-except ImportError:  # pragma: no cover
-    from importlib_metadata import PackageNotFoundError, version  # noqa
 
 try:
     __version__ = version(__appname__)

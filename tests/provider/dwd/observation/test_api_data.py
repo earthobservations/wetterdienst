@@ -431,6 +431,7 @@ def test_dwd_observation_data_result_tabular():
                 "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             }
         ),
+        check_categorical=False,
     )
 
 
@@ -502,6 +503,7 @@ def test_dwd_observation_data_result_tabular_metric():
                 "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             }
         ),
+        check_categorical=False,
     )
 
 

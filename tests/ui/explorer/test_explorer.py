@@ -21,6 +21,7 @@ import time
 
 import pytest
 from bs4 import BeautifulSoup
+from selenium.common.exceptions import ElementNotInteractableException
 
 
 @pytest.mark.slow
@@ -153,6 +154,7 @@ def test_options_reset(wetterdienst_ui, dash_tre):
     dash_tre.wait_for_contains_text("#select-period", "")
 
 
+@pytest.mark.xfail(raises=ElementNotInteractableException)
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
