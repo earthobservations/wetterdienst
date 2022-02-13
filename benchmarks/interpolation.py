@@ -82,7 +82,7 @@ def interpolate_data(latitude: float, longitude: float, data: Data):
     data.latitudes.append(latitude)
     data.longitudes.append(longitude)
     data.values.append(interpolated[0])
-    data.station_ids.append("None")
+    data.station_ids.append("interpolated")
     data.colors.append("red")
 
 
