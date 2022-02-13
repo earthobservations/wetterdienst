@@ -875,7 +875,7 @@ class ScalarRequestCore(Core):
         stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
         stations_ranked.df = stations_ranked.df.dropna()
 
-        critical_threshold = 0.05
+        # TODO: use critical_threshold = 0.05
         # TODO: rank should be stepwise increased until we have enough stations for interpolation
         # TODO: we will first have to find our first k stations that are minimum requirement for
         #  interpolation
@@ -934,7 +934,7 @@ class ScalarRequestCore(Core):
         return pd.concat(result_list, ignore_index=True)
 
     @staticmethod
-    def _increase_of_value_sets(values: pd.DataFrame, _store: dict = {}) -> float:
+    def _increase_of_value_sets(values: pd.DataFrame, _store: dict = {}) -> float:  # noqa: B006
         """
         Method to calculate the increase of value sets within the last added station
         e.g. dates where a minimum of three values are available for interpolation
