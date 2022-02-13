@@ -8,6 +8,7 @@ Development
 - Rename dataset SUNSHINE_DURATION to SUN to avoid complications with similar named parameter and dataset
 - Rename parameter VISIBILITY to VISIBILITY_RANGE
 - Add datasets EXTREME_WIND (subdaily) and MORE_WEATHER_PHENOMENA (daily)
+- Add support for Python 3.10 and drop Python 3.7
 
 0.28.0 (19.02.2022)
 *******************
@@ -21,6 +22,7 @@ Development
 - Fix missing station ids within values result
 - Add details about time interval for NOAA GHCN stations
 - Fix falsely calculated station distances
+- Add support for Python 3.10, drop support for Python 3.7
 
 0.26.0 (06.02.2022)
 *******************
