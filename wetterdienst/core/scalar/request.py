@@ -836,7 +836,9 @@ class ScalarRequestCore(Core):
                 continue
 
             # TODO (NN): should this really be done per parameter or better once for all together?
-            interpolated_df = self._get_interpolated_df(latitude=latitude, longitude=longitude, parameter=parameter)
+            interpolated_df = self._get_interpolated_df(
+                latitude=latitude, longitude=longitude, parameter=parameter, dataset=dataset
+            )
             interpolated_df_per_parameter.append(interpolated_df)
 
         if interpolated_df_per_parameter:
@@ -849,31 +851,31 @@ class ScalarRequestCore(Core):
         # TODO (NN): Should we only return interpolated values or all?
         return InterpolatedValuesResult(df=interpolated_values)
 
-    def _calculate_interpolation(self, latitude, longitude, stations_df, station_ids, values):
-        utm_x = []
-        utm_y = []
-        for station_id in station_ids:
-            # get lat/lon values of given station
-            filtered_station_df = stations_df.loc[stations_df["station_id"] == station_id]
-            lat = filtered_station_df["latitude"].values[0]
-            lon = filtered_station_df["longitude"].values[0]
-
-            # convert to utm as lat/lon is inaccurate for interpolation
-            y, x, _, _ = utm.from_latlon(lat, lon)
-            utm_x.append(x)
-            utm_y.append(y)
-
+    def _calculate_interpolation(self, requested_x, requested_y, xs, ys, values):
         # TODO (NN): needs to be converted to float instead of np.float64
-        values = [float(value) for value in values.to_list()]
-        f = interpolate.interp2d(utm_y, utm_x, values, kind="linear")
-        requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
+        values = values.astype(float).tolist()
+
+        f = interpolate.interp2d(ys, xs, values, kind="linear")
+
         # there is only one interpolated value
         return f(requested_y, requested_x)[0]
 
-    def _get_interpolated_df(self, latitude: float, longitude: float, parameter: Parameter) -> pd.DataFrame:
+    def _get_interpolated_df(self, latitude: float, longitude: float, parameter: Parameter, dataset) -> pd.DataFrame:
         # get the nearest stations
+        def gain_of_value_pairs(old_values: pd.DataFrame, new_values: pd.Series) -> float:
+            old_score = old_values.apply(lambda row: row.dropna().size >= 4).sum()  # 5: dates plus 4 values
+
+            # Add new column
+            old_values[new_values.name] = new_values.values
+
+            new_score = old_values.apply(lambda row: row.dropna().size >= 4).sum()  # 5: dates plus 4 values
+
+            return new_score / old_score - 1
+
+        # TODO: construct new request only for one parameter
+        #  otherwise we would always load everything twice for all parameters
         stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
-        stations_ranked.df = stations_ranked.df.dropna()
+        stations_ranked_df = stations_ranked.df.dropna()
 
         # TODO: use critical_threshold = 0.05
         # TODO: rank should be stepwise increased until we have enough stations for interpolation
@@ -888,73 +890,135 @@ class ScalarRequestCore(Core):
         #   stations by calculating the correlation and aborting when getting below 0.8 .
 
         # query values of the nearest stations
-        values = []
-        for result in stations_ranked.values.query():
+        # reference station for calculation of correlation
+        stations = []
+        # Empty DataFrame with only values
+        # values = pd.DataFrame({Columns.DATE.value: pd.date_range(self.start_date, self.end_date)})
+        # TODO: this currently only works for a fixed timezone
+        values = stations_ranked.values._get_base_df("").set_index("date")
+
+        # counter used for extra stations if some station has really no additional value
+        extra_station_counter = 0
+
+        for (_, station), result in zip(stations_ranked_df.iterrows(), stations_ranked.values.query()):
             # check values, any not NaN?, any common values with other stations?
-            result.df = result.df.dropna()
+            # quality may be empty, drop it, or apply filter for quality
+            result_df = result.df
+
+            # Filter only for exact parameter
+            # Don't drop Nan here because we have an exact match of values for our date range
+            result_df = result_df.loc[result_df[Columns.PARAMETER.value] == parameter.name.lower()]
+
+            result_df = result_df.loc[:, Columns.VALUE.value]
+            result_df.name = station["station_id"]
+
             # check if station has values for the given parameter
-            if result.df.empty or parameter.name.lower() not in result.df["parameter"].values:
+            if result_df.dropna().empty:
                 continue
 
-            values.append(result.df)
-            # what if one station only has few values?
-            # TODO (NN): how to check if enough and good stations are found?
-            # if self._increase_of_value_sets(result.df) < critical_threshold or len(values) >= 4:
-            if len(values) >= 4:
+            # if distance bigger 40, stop adding more stations
+            if station["distance"] > 40:
                 break
 
-        # combine values of multiple stations into one big df
-        df = pd.concat(values, ignore_index=True)
+            # Three rules:
+            # 1. only add further stations if not a minimum of 4 stations is reached OR
+            # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
+            # 3. an additional counter is below 3 (used if a station has really no or few values)
+            cond1 = values.shape[1] < 4
+            cond2 = not cond1 and gain_of_value_pairs(values, result_df) > 0.10
+
+            if cond1 or cond2 or extra_station_counter < 3:  # timestamps + 4 stations
+                if not (cond1 or cond2):
+                    extra_station_counter += 1
+
+                values[result_df.name] = result_df.values
+                stations.append(station)
+            else:
+                break
+
+            # values.append(result.df)
+            # # what if one station only has few values?
+            # # TODO (NN): how to check if enough and good stations are found?
+            # # if self._increase_of_value_sets(result.df) < critical_threshold or len(values) >= 4:
+            # if len(values) >= 4:
+            #     break
+
+        stations = pd.DataFrame.from_records(stations).set_index(Columns.STATION_ID.value)
+
+        stations[["utm_x", "utm_y"]] = stations.apply(
+            lambda x: utm.from_latlon(x.latitude, x.longitude)[:2], axis=1
+        ).tolist()
+
+        requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
 
         result_list = []
-        date_times = sorted(set(df["date"].to_list()))
+        # date_times = sorted(set(df["date"].to_list()))
         # iterate over all dates
-        for date_time in date_times:
+        for date, vals in values.iterrows():
             # get values for one exact time of all stations
-            filtered_df = df.loc[df["date"] == date_time]
-            # filter for given parameter
-            filtered_df = filtered_df.loc[filtered_df["parameter"] == parameter.name.lower()]
-            station_ids = filtered_df["station_id"]
-            values = filtered_df["value"]
+            # filtered_df = df.loc[df["date"] == date_time]
+            # # filter for given parameter
+            # filtered_df = filtered_df.loc[filtered_df["parameter"] == parameter.name.lower()]
+            # station_ids = filtered_df["station_id"]
+            # values = filtered_df["value"]
+            #
+            # # TODO (NN): okay to use first?
+            # # group rows of stations to one row together and then simply replace the value later on
+            # filtered_df = filtered_df.groupby("date", as_index=False).first().reset_index(drop=False)
+            vals = vals.dropna().iloc[:4]
 
-            # TODO (NN): okay to use first?
-            # group rows of stations to one row together and then simply replace the value later on
-            filtered_df = filtered_df.groupby("date", as_index=False).first().reset_index(drop=False)
+            if vals.size < 4:
+                # return empty result, not enough values
+                result_list.append(
+                    {
+                        "station_id": "???interpolated???",
+                        "date": date,
+                        "value": pd.NA,
+                        "distance_mean": pd.NA,
+                        "interp_stations": pd.NA,
+                    }
+                )
+                continue
 
-            # interpolate the given values, using the lat/lon coordinates from stations_ranked
-            filtered_df["value"] = self._calculate_interpolation(
-                latitude, longitude, stations_ranked.df, station_ids, values
+            interpolated_value = self._calculate_interpolation(
+                requested_x=requested_x,
+                requested_y=requested_y,
+                xs=stations.loc[vals.index, "utm_x"],
+                ys=stations.loc[vals.index, "utm_y"],
+                values=vals,
             )
 
-            filtered_df["station_id"] = "???interpolated???"  # TODO (NN): should we set a station id?
-            del filtered_df["index"]  # TODO(NN): not quite sure why this is necessary
-            result_list.append(filtered_df)
+            result_list.append(
+                {
+                    "station_id": "???interpolated???",
+                    "date": date,
+                    "value": interpolated_value,
+                    "distance_mean": stations.loc[vals.index, "distance"].mean(),
+                    "interp_stations": vals.index.to_list(),
+                }
+            )
 
         # combine df of all date/time together
-        return pd.concat(result_list, ignore_index=True)
+        return pd.DataFrame.from_records(result_list)
 
-    @staticmethod
-    def _increase_of_value_sets(values: pd.DataFrame, _store: dict = {}) -> float:  # noqa: B006
-        """
-        Method to calculate the increase of value sets within the last added station
-        e.g. dates where a minimum of three values are available for interpolation
-        :param values:
-        :param _store: value store
-        :return:
-        """
 
-        def _get_number_of_sets(df: pd.DataFrame) -> float:
-            """Get number of value sets with at least 3 values"""
-            return df.isna().apply(lambda x: np.nansum(x) > 2).sum()
+if __name__ == "__main__":
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-        n = values.shape[1]  # use number of cols to store previous values result
+    latitude = 50.0
+    longitude = 8.9
+    distance = 21.0
+    start_date = datetime(2003, 1, 1)
+    end_date = datetime(2004, 12, 31)
 
-        previous = _store.get(n)
-        if not previous:
-            previous = _get_number_of_sets(values.iloc[:, 1:-1])
+    stations = DwdObservationRequest(
+        parameter="temperature_air_mean_200",
+        resolution="hourly",
+        period="historical",
+        start_date=start_date,
+        end_date=end_date,
+    )
 
-        current = _get_number_of_sets(values.iloc[:, 1:])
+    df = stations.interpolate(latitude, longitude)
 
-        _store[n + 1] = current
-
-        return (current / previous) - 1
+    print(df.df.dropna())
