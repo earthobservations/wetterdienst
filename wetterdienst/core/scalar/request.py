@@ -814,7 +814,6 @@ class ScalarRequestCore(Core):
         if self.resolution in (
             Resolution.MINUTE_1,
             Resolution.MINUTE_5,
-            Resolution.MINUTE_5,
             Resolution.MINUTE_10,
         ):
             raise NotImplementedError("interpolation is not currently allowed for high resolutions due to mass of data")
@@ -848,20 +847,16 @@ class ScalarRequestCore(Core):
                 columns=["station_id", "dataset", "parameter", "date", "value", "quality"]
             )
 
-        # TODO (NN): Should we only return interpolated values or all?
         return InterpolatedValuesResult(df=interpolated_values)
 
     def _calculate_interpolation(self, requested_x, requested_y, xs, ys, values):
-        # TODO (NN): needs to be converted to float instead of np.float64
         values = values.astype(float).tolist()
-
         f = interpolate.interp2d(ys, xs, values, kind="linear")
-
         # there is only one interpolated value
         return f(requested_y, requested_x)[0]
 
     def _get_interpolated_df(self, latitude: float, longitude: float, parameter: Parameter, dataset) -> pd.DataFrame:
-        # get the nearest stations
+
         def gain_of_value_pairs(old_values: pd.DataFrame, new_values: pd.Series) -> float:
             old_score = old_values.apply(lambda row: row.dropna().size >= 4).sum()  # 5: dates plus 4 values
 
@@ -870,24 +865,13 @@ class ScalarRequestCore(Core):
 
             new_score = old_values.apply(lambda row: row.dropna().size >= 4).sum()  # 5: dates plus 4 values
 
+            # TODO (NN): RuntimeWarning: divide by zero encountered in true_divide
             return new_score / old_score - 1
 
         # TODO: construct new request only for one parameter
         #  otherwise we would always load everything twice for all parameters
         stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
         stations_ranked_df = stations_ranked.df.dropna()
-
-        # TODO: use critical_threshold = 0.05
-        # TODO: rank should be stepwise increased until we have enough stations for interpolation
-        # TODO: we will first have to find our first k stations that are minimum requirement for
-        #  interpolation
-        # TODO: we will have to make sure that the set of those k stations has at least one day
-        #   of data in common, obviously this is only our minimum requirement
-        # TODO: we will have to select a representative station that should be used to calculate
-        #  correlations with other stations. This will help us define a stoppage criteria so that
-        #   no further stations are being included. Say we have set a minimum correlation of 0.8 .
-        #   then with the help of the representative station we can stop including more and more
-        #   stations by calculating the correlation and aborting when getting below 0.8 .
 
         # query values of the nearest stations
         # reference station for calculation of correlation
@@ -906,7 +890,6 @@ class ScalarRequestCore(Core):
             result_df = result.df
 
             # Filter only for exact parameter
-            # Don't drop Nan here because we have an exact match of values for our date range
             result_df = result_df.loc[result_df[Columns.PARAMETER.value] == parameter.name.lower()]
 
             result_df = result_df.loc[:, Columns.VALUE.value]
@@ -936,15 +919,7 @@ class ScalarRequestCore(Core):
             else:
                 break
 
-            # values.append(result.df)
-            # # what if one station only has few values?
-            # # TODO (NN): how to check if enough and good stations are found?
-            # # if self._increase_of_value_sets(result.df) < critical_threshold or len(values) >= 4:
-            # if len(values) >= 4:
-            #     break
-
         stations = pd.DataFrame.from_records(stations).set_index(Columns.STATION_ID.value)
-
         stations[["utm_x", "utm_y"]] = stations.apply(
             lambda x: utm.from_latlon(x.latitude, x.longitude)[:2], axis=1
         ).tolist()
@@ -952,30 +927,17 @@ class ScalarRequestCore(Core):
         requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
 
         result_list = []
-        # date_times = sorted(set(df["date"].to_list()))
-        # iterate over all dates
         for date, vals in values.iterrows():
-            # get values for one exact time of all stations
-            # filtered_df = df.loc[df["date"] == date_time]
-            # # filter for given parameter
-            # filtered_df = filtered_df.loc[filtered_df["parameter"] == parameter.name.lower()]
-            # station_ids = filtered_df["station_id"]
-            # values = filtered_df["value"]
-            #
-            # # TODO (NN): okay to use first?
-            # # group rows of stations to one row together and then simply replace the value later on
-            # filtered_df = filtered_df.groupby("date", as_index=False).first().reset_index(drop=False)
             vals = vals.dropna().iloc[:4]
 
             if vals.size < 4:
                 # return empty result, not enough values
                 result_list.append(
                     {
-                        "station_id": "???interpolated???",
                         "date": date,
                         "value": pd.NA,
                         "distance_mean": pd.NA,
-                        "interp_stations": pd.NA,
+                        "station_ids": pd.NA,
                     }
                 )
                 continue
@@ -990,11 +952,10 @@ class ScalarRequestCore(Core):
 
             result_list.append(
                 {
-                    "station_id": "???interpolated???",
                     "date": date,
                     "value": interpolated_value,
                     "distance_mean": stations.loc[vals.index, "distance"].mean(),
-                    "interp_stations": vals.index.to_list(),
+                    "station_ids": vals.index.to_list(),
                 }
             )
 
@@ -1007,7 +968,7 @@ if __name__ == "__main__":
 
     latitude = 50.0
     longitude = 8.9
-    distance = 21.0
+    distance = 30.0
     start_date = datetime(2003, 1, 1)
     end_date = datetime(2004, 12, 31)
 
