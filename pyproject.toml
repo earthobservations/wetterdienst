@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.26.0"
+version = "0.27.0"
 description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
@@ -90,7 +90,6 @@ cachetools = "^4.1"
 dateparser = "^1.0"
 beautifulsoup4 = "^4.9"
 requests = "^2.20"
-requests-ftp = "^0.3"
 python-dateutil = "^2.8"
 appdirs = "^1.4"
 lxml = "^4.5"
@@ -145,8 +144,6 @@ xarray = { version = "^0.17", optional = true }
 timezonefinder = "^5.2"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
-haversine = "^2.5.1"
-geopy = "^2.2.0"
 scikit-learn = "^1.0.2"
 
 

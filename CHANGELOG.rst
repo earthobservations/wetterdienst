@@ -4,6 +4,10 @@ Changelog
 Development
 ***********
 
+
+0.27.0 (16.02.2022)
+*******************
+
 - Fix missing station ids within values result
 - Add details about time interval for NOAA GHCN stations
 - Fix falsely calculated station distances
