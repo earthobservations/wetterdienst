@@ -202,7 +202,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 MarkupSafe
-2.0.1
+2.1.0
 BSD License
 Armin Ronacher
 https://palletsprojects.com/p/markupsafe/
@@ -2568,7 +2568,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 click
-8.0.3
+8.0.4
 BSD License
 Armin Ronacher
 https://palletsprojects.com/p/click/
