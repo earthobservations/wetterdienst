@@ -148,7 +148,7 @@ def test_dwd_values_success(dicts_are_same):
             "station_id": "01359",
             "dataset": "climate_summary",
             "parameter": "wind_gust_max",
-            "date": "1982-01-01T00:00:00+00:00",  # "1982-01-01T00:00:00.000Z",
+            "date": "1982-01-01T00:00:00+00:00",
             "value": 4.2,
             "quality": 10.0,
         },
@@ -211,6 +211,7 @@ def test_dwd_values_no_resolution():
     assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
 
+@pytest.mark.remote
 @pytest.mark.sql
 def test_dwd_values_sql_tabular(dicts_are_same):
 
@@ -261,6 +262,7 @@ def test_dwd_values_sql_tabular(dicts_are_same):
     )
 
 
+@pytest.mark.remote
 @pytest.mark.sql
 def test_dwd_values_sql_tidy(dicts_are_same):
 
@@ -284,8 +286,46 @@ def test_dwd_values_sql_tidy(dicts_are_same):
             "station_id": "01048",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_200",
-            "date": "2019-12-28T00:00:00+00:00",  # "2019-12-28T00:00:00.000Z",
+            "date": "2019-12-28T00:00:00+00:00",
             "value": 1.3,
             "quality": 3.0,
         },
     )
+
+
+@pytest.mark.remote
+def test_api_values_missing_null():
+    response = client.get(
+        "/restapi/values",
+        params={
+            "provider": "dwd",
+            "network": "mosmix",
+            "station": "F660",
+            "parameter": "ttt",
+            "resolution": "small",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["data"][0]["quality"] is None
+
+
+@pytest.mark.remote
+def test_api_stations_missing_null():
+    response = client.get(
+        "/restapi/stations",
+        params={
+            "provider": "dwd",
+            "network": "mosmix",
+            "parameter": "ttt",
+            "resolution": "small",
+            "all": True,
+        },
+    )
+    assert response.status_code == 200
+
+    first = response.json()["data"][0]
+
+    assert first["icao_id"] is None
+    assert first["from_date"] is None
+    assert first["to_date"] is None
+    assert first["state"] is None
