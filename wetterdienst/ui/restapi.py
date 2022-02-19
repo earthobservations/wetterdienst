@@ -5,6 +5,8 @@ import json
 import logging
 from typing import Optional
 
+import numpy as np
+import pandas as pd
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
@@ -12,6 +14,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.exceptions import ProviderError
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import get_stations, get_values, set_logging_level
 from wetterdienst.util.cli import read_list, setup_logging
@@ -183,7 +186,7 @@ def stations(
             f"parameter(s) {parameter} and resolution {resolution}.",
         )
 
-    stations_.fill_gaps()
+    stations_.df = stations_.df.replace([pd.NA, np.nan, "nan"], [None, None, None])
 
     indent = None
     if pretty:
@@ -320,7 +323,13 @@ def values(
     if pretty:
         indent = 4
 
-    output = values_.to_dict()
+    output = values_.df
+
+    output[Columns.DATE.value] = output[Columns.DATE.value].apply(lambda ts: ts.isoformat())
+
+    output = output.replace([pd.NA, np.nan], [None, None])
+
+    output = output.to_dict(orient="records")
 
     output = make_json_response(output, api.provider)
 

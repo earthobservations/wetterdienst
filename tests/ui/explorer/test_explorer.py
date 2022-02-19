@@ -180,10 +180,12 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="TEMPERATURE_AIR_MEAN_200")
+    time.sleep(0.5)
 
     # Select period.
     dash_tre.wait_for_element_by_id("select-period")
     dash_tre.select_dcc_dropdown("#select-period", value="RECENT")
+    time.sleep(0.5)
 
     # Select weather station.
     dash_tre.wait_for_element_by_id("select-station")

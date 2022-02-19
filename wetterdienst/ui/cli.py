@@ -399,7 +399,8 @@ def coverage(provider, network, filter_, debug):
     set_logging_level(debug)
 
     if not provider or not network:
-        return json.dumps(Wetterdienst.discover(), indent=4)
+        print(json.dumps(Wetterdienst.discover(), indent=4))  # noqa: T001
+        return
 
     api = get_api(provider=provider, network=network)
 
@@ -408,9 +409,9 @@ def coverage(provider, network, filter_, debug):
         flatten=False,
     )
 
-    print(cov)  # noqa: T001
+    print(json.dumps(cov, indent=4))  # noqa: T001
 
-    return None
+    return
 
 
 @about.command("fields")
