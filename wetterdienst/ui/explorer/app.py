@@ -17,6 +17,8 @@ from dash import Input, Output, State, dcc, html
 from wetterdienst.api import ApiEndpoints
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.period import PeriodType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.ui.core import get_stations, get_values
 from wetterdienst.ui.explorer.layout.main import get_app_layout
 from wetterdienst.ui.explorer.library import add_annotation_no_data, default_figure
@@ -431,7 +433,10 @@ def set_resolution_options(provider, network):
 
     api = ApiEndpoints[provider][network].value
 
-    return [{"label": resolution.name, "value": resolution.name} for resolution in api._resolution_base]
+    if api == DwdMosmixRequest:
+        return [{"label": resolution.name, "value": resolution.name} for resolution in DwdMosmixType]
+    else:
+        return [{"label": resolution.name, "value": resolution.name} for resolution in api._resolution_base]
 
 
 @app.callback(
@@ -494,10 +499,13 @@ def set_parameter_options(provider, network, resolution, dataset):
         # If network only provides parameters but not datasets, just return them all as option
         parameters = [{"label": parameter.name, "value": parameter.name} for parameter in api._dataset_tree[resolution]]
 
-    # Periods ALL placeholder, may use click options for multiple periods
-    periods = [{"label": "ALL", "value": "ALL"}]
-    for period in api._period_base:
-        periods.append({"label": period.name, "value": period.name})
+    if api._period_type == PeriodType.FIXED:
+        periods = [{"label": api._period_base.name, "value": api._period_base.name}]
+    else:
+        # Periods ALL placeholder, may use click options for multiple periods
+        periods = [{"label": "ALL", "value": "ALL"}]
+        for period in api._period_base:
+            periods.append({"label": period.name, "value": period.name})
 
     return parameters, periods
 
