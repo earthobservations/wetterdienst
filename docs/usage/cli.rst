@@ -77,7 +77,7 @@ Command Line Interface
 
     Examples requesting forecast stations:
 
-        wetterdienst stations --provider=dwd --network=forecast --parameter=large --resolution=large
+        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large
 
     Examples requesting observation values:
 
@@ -116,7 +116,7 @@ Command Line Interface
 
     Examples requesting forecast values:
 
-        wetterdienst values --provider=dwd --network=forecast --parameter=ttt,ff --resolution=large --station=65510
+        wetterdienst values --provider=dwd --network=mosmix --parameter=ttt,ff --resolution=large --station=65510
 
     Examples using geospatial features:
 
