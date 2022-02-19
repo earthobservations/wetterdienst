@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.28.0 (19.02.2022)
+*******************
+
 - Extend explorer to use all implemented APIs
 - Fix cli/restapi: return json and use NULL instead of NaN
 
