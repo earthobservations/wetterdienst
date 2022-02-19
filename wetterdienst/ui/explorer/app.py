@@ -457,8 +457,11 @@ def set_dataset_options(provider, network, resolution):
     if api._has_datasets and not api._unique_dataset:
         # first dataset is placeholder for unique dataset with parameters combined from all datasets
         datasets = [{"label": resolution, "value": resolution}]
-        for dataset in api._dataset_tree[resolution]:
-            datasets.append({"label": dataset, "value": dataset})
+        for dataset in api._parameter_base[resolution]:
+            if not hasattr(dataset, "name"):
+                ds_dict = {"label": dataset.__name__, "value": dataset.__name__}
+                if ds_dict not in datasets:
+                    datasets.append(ds_dict)
         return datasets
     else:
         return [{"label": resolution, "value": resolution}]
@@ -487,17 +490,21 @@ def set_parameter_options(provider, network, resolution, dataset):
         if dataset == resolution:
             # Return tidy parameters e.g. parameters grouped under one resolution
             parameters = [
-                {"label": parameter.name, "value": parameter.name} for parameter in api._parameter_base[resolution]
+                {"label": parameter.name, "value": parameter.name}
+                for parameter in api._parameter_base[resolution]
+                if hasattr(parameter, "name")
             ]
         else:
             # return individual parameters of one dataset e.g. climate_summary
             parameters = [
                 {"label": parameter.name, "value": parameter.name}
-                for parameter in api._dataset_tree[resolution][dataset]
+                for parameter in api._parameter_base[resolution][dataset]
             ]
     else:
         # If network only provides parameters but not datasets, just return them all as option
-        parameters = [{"label": parameter.name, "value": parameter.name} for parameter in api._dataset_tree[resolution]]
+        parameters = [
+            {"label": parameter.name, "value": parameter.name} for parameter in api._parameter_base[resolution]
+        ]
 
     if api._period_type == PeriodType.FIXED:
         periods = [{"label": api._period_base.name, "value": api._period_base.name}]

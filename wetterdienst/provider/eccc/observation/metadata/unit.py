@@ -44,8 +44,8 @@ class EcccObservationUnit(DatasetTreeCore):
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )
-        VISIBILITY = OriginUnit.KILOMETER.value, SIUnit.METER.value
-        QUALITY_VISIBILITY = (
+        VISIBILITY_RANGE = OriginUnit.KILOMETER.value, SIUnit.METER.value
+        QUALITY_VISIBILITY_RANGE = (
             OriginUnit.DIMENSIONLESS.value,
             SIUnit.DIMENSIONLESS.value,
         )

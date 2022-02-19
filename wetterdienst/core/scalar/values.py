@@ -240,9 +240,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
             parameter = parameter.name
 
             if self.stations.stations._unique_dataset:
-                parameter_value = self.stations.stations._dataset_tree[dataset_accessor][parameter].value
+                parameter_value = self.stations.stations._parameter_base[dataset_accessor][parameter].value
             else:
-                parameter_value = self.stations.stations._dataset_tree[dataset_accessor][dataset][parameter].value
+                parameter_value = self.stations.stations._parameter_base[dataset_accessor][dataset][parameter].value
 
             if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
                 # Fixed conversion factors to kg / m², as it only applies
@@ -314,15 +314,15 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :param parameter:
         :return:
         """
-        dataset_tree = self.stations.stations._dataset_tree
+        parameter_base = self.stations.stations._parameter_base
         resolution = self.stations.stations.resolution
 
         # if parameter is a whole dataset, take every parameter from the dataset instead
         if parameter == dataset:
             if self.stations.stations._unique_dataset:
-                parameter = [*dataset_tree[resolution.name]]
+                parameter = [*parameter_base[resolution.name]]
             else:
-                parameter = [*dataset_tree[resolution.name][dataset.name]]
+                parameter = [*parameter_base[resolution.name][dataset.name]]
 
         if self.stations.stations.tidy:
             if not self.stations.stations.start_date:
@@ -404,7 +404,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 else:
                     parameter_ = parse_enumeration_from_template(
                         parameter,
-                        self.stations.stations._dataset_tree[self.stations.resolution.name][dataset.name],
+                        self.stations.stations._parameter_base[self.stations.resolution.name][dataset.name],
                     )
 
                 df = pd.merge(
@@ -466,6 +466,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 parameter_df = self._collect_station_parameter(station_id, parameter, dataset)
 
                 if parameter_df.empty:
+                    station_data.append(self._create_empty_station_parameter_df(station_id, parameter, dataset))
                     continue
 
                 self._coerce_date_fields(parameter_df, station_id)
@@ -505,17 +506,18 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 if self.stations.stations.start_date:
                     parameter_df = self._build_complete_df(parameter_df, station_id, parameter, dataset)
 
+                parameter_df[Columns.DATASET.value] = dataset.name.lower()
+
                 station_data.append(parameter_df)
 
             try:
                 station_df = pd.concat(station_data, ignore_index=True)
             except ValueError:
-                station_df = self._create_empty_station_parameter_df(station_id, parameter, dataset)
+                station_df = pd.DataFrame()
 
             station_df = self._organize_df_columns(station_df)
 
             station_df[Columns.STATION_ID.value] = station_id
-            station_df[Columns.DATASET.value] = dataset.name.lower()
 
             station_df = self._coerce_meta_fields(station_df)
 

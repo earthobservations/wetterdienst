@@ -45,7 +45,7 @@ METADATA_COLUMNS = [
 
 
 def create_meta_index_for_climate_observations(
-    parameter_set: DwdObservationDataset,
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -55,23 +55,27 @@ def create_meta_index_for_climate_observations(
     index is created in a more complex way.
 
     Args:
-        parameter_set: observation measure
+        dataset: observation measure
         resolution: frequency/granularity of measurement interval
         period: current, recent or historical files
 
     Returns:
         pandas.DataFrame with meta index for the selected set of arguments
     """
-    cond = (
+    cond1 = (
         resolution == Resolution.MINUTE_1
         and period == Period.HISTORICAL
-        and parameter_set == DwdObservationDataset.PRECIPITATION
+        and dataset == DwdObservationDataset.PRECIPITATION
     )
 
-    if cond:
+    cond2 = resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME
+
+    if cond1:
         meta_index = _create_meta_index_for_1minute_historical_precipitation()
+    elif cond2:
+        meta_index = _create_meta_index_for_subdaily_extreme_wind(period)
     else:
-        meta_index = _create_meta_index_for_climate_observations(parameter_set, resolution, period)
+        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, period)
 
     # If no state column available, take state information from daily historical
     # precipitation
@@ -92,7 +96,7 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    parameter_set: DwdObservationDataset,
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -100,7 +104,7 @@ def _create_meta_index_for_climate_observations(
     located in each data section of the station data directory of the weather service.
 
     Args:
-        parameter_set: observation measure
+        dataset: observation measure
         resolution: frequency/granularity of measurement interval
         period: current, recent or historical files
     Return:
@@ -109,7 +113,7 @@ def _create_meta_index_for_climate_observations(
         not checked.
 
     """
-    parameter_path = build_path_to_parameter(parameter_set, resolution, period)
+    parameter_path = build_path_to_parameter(dataset, resolution, period)
 
     url = reduce(
         urljoin,
@@ -124,14 +128,43 @@ def _create_meta_index_for_climate_observations(
     files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
 
     # Find the one meta file from the files listed on the server
-    meta_file = _find_meta_file(files_server, url)
+    meta_file = _find_meta_file(files_server, url, ["beschreibung", "txt"])
 
     try:
         file = download_file(meta_file, ttl=CacheExpiry.METAINDEX)
     except InvalidURL as e:
         raise InvalidURL(f"Error: reading metadata {meta_file} file failed.") from e
 
-    meta_index = pd.read_fwf(
+    return _read_meta_df(file)
+
+
+def _find_meta_file(files: List[str], url: str, strings: List[str]) -> str:
+    """
+    Function used to find meta file based on predefined strings that are usually found
+    in those files
+    Args:
+        files: list of files found on server path
+        url: the path that was searched for a meta file
+
+    Returns:
+        the matching file
+    Raises:
+        MetaFileNotFound - for the case no file was found
+    """
+    for file in files:
+        file_strings = file.split("/")[-1].lower().replace(".", "_").split("_")
+        if set(file_strings).issuperset(strings):
+            return file
+
+    raise MetaFileNotFound(f"No meta file was found amongst the files at {url}.")
+
+
+def _read_meta_df(file: BytesIO) -> pd.DataFrame:
+    """Read metadata into pandas.DataFrame
+    :param file: metadata file loaded in bytes
+    :return: pandas.DataFrame with Stations
+    """
+    df = pd.read_fwf(
         filepath_or_buffer=file,
         colspecs=[
             (0, 5),
@@ -149,32 +182,51 @@ def _create_meta_index_for_climate_observations(
     )
 
     # Fix column names, as header is not aligned to fixed column widths
-    meta_index.columns = "".join([column for column in meta_index.columns if "unnamed" not in column.lower()]).split(
-        " "
+    df.columns = "".join([column for column in df.columns if "unnamed" not in column.lower()]).split(" ")
+
+    return df.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+
+
+def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame:
+    """Create metadata DataFrame for subdaily wind extreme
+
+    :param period: period for which metadata is acquired
+    :return: pandas.DataFrame with combined information for both 3hourly (fx3) and 6hourly (fx6) wind extremes
+    """
+    parameter_path = build_path_to_parameter(DwdObservationDataset.WIND_EXTREME, Resolution.SUBDAILY, period)
+
+    url = reduce(
+        urljoin,
+        [
+            DWD_SERVER,
+            DWD_CDC_PATH,
+            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
+            parameter_path,
+        ],
     )
 
-    return meta_index.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
 
+    # Find the one meta file from the files listed on the server
+    meta_file_fx3 = _find_meta_file(files_server, url, ["fx3", "beschreibung", "txt"])
+    meta_file_fx6 = _find_meta_file(files_server, url, ["fx6", "beschreibung", "txt"])
 
-def _find_meta_file(files: List[str], url: str) -> str:
-    """
-    Function used to find meta file based on predefined strings that are usually found
-    in those files
-    Args:
-        files: list of files found on server path
-        url: the path that was searched for a meta file
+    try:
+        meta_file_fx3 = download_file(meta_file_fx3, ttl=CacheExpiry.METAINDEX)
+    except InvalidURL as e:
+        raise InvalidURL(f"Error: reading metadata {meta_file_fx3} file failed.") from e
 
-    Returns:
-        the matching file
-    Raises:
-        MetaFileNotFound - for the case no file was found
-    """
-    for file in files:
-        file_strings = file.split("/")[-1].lower().replace(".", "_").split("_")
-        if set(file_strings).issuperset(["beschreibung", "txt"]):
-            return file
+    try:
+        meta_file_fx6 = download_file(meta_file_fx6, ttl=CacheExpiry.METAINDEX)
+    except InvalidURL as e:
+        raise InvalidURL(f"Error: reading metadata {meta_file_fx6} file failed.") from e
 
-    raise MetaFileNotFound(f"No meta file was found amongst the files at {url}.")
+    df_fx3 = _read_meta_df(meta_file_fx3)
+    df_fx6 = _read_meta_df(meta_file_fx6)
+
+    df_fx6 = df_fx6.loc[df_fx6[Columns.STATION_ID.value].isin(df_fx3[Columns.STATION_ID.value].tolist()), :]
+
+    return pd.concat([df_fx3, df_fx6])
 
 
 def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:

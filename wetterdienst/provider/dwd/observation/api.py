@@ -39,10 +39,6 @@ from wetterdienst.provider.dwd.observation.metadata.field_types import (
     INTEGER_PARAMETERS,
     STRING_PARAMETERS,
 )
-from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    PARAMETER_TO_DATASET_MAPPING,
-    DwdObservationDatasetTree,
-)
 from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
 from wetterdienst.provider.dwd.observation.metadata.resolution import (
     HIGH_RESOLUTIONS,
@@ -228,17 +224,19 @@ class DwdObservationValues(ScalarValuesCore):
         droppable_columns = [
             # Hourly
             # Cloud type
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
-            DwdObservationDatasetTree.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
+            DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,
+            DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,
+            DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
+            DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
             # Cloudiness
-            DwdObservationDatasetTree.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,
+            DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,
             # Solar
-            DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value,
-            DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+            DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value,
+            DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             # Visibility
-            DwdObservationDatasetTree.HOURLY.VISIBILITY.VISIBILITY_INDICATOR.value,
+            DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDICATOR.value,
+            # Weather
+            DwdObservationParameter.HOURLY.WEATHER_PHENOMENA.WEATHER_TEXT.value,
         ]
 
         # Drop string columns, can't be coerced to float
@@ -251,8 +249,8 @@ class DwdObservationValues(ScalarValuesCore):
 
         if dataset == DwdObservationDataset.CLIMATE_SUMMARY:
             if resolution == Resolution.DAILY:
-                quality_wind = df.pop(DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value)
-                quality_general = df.pop(DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
+                quality_wind = df.pop(DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value)
+                quality_general = df.pop(DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
 
                 quality = pd.concat(
                     [
@@ -262,9 +260,9 @@ class DwdObservationValues(ScalarValuesCore):
                 )
 
             elif resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
-                quality_general = df.pop(DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
+                quality_general = df.pop(DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
                 quality_precipitation = df.pop(
-                    DwdObservationDatasetTree.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value
+                    DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value
                 )
                 quality = pd.concat(
                     [
@@ -272,6 +270,10 @@ class DwdObservationValues(ScalarValuesCore):
                         pd.Series(repeat(quality_precipitation, 2)).explode(),
                     ]
                 )
+        elif resolution == Resolution.SUBDAILY and DwdObservationDataset.WIND_EXTREME:
+            quality_fx_3 = df.pop("qn_8_3")
+            quality_fx_6 = df.pop("qn_8_6")
+            quality = pd.concat([quality_fx_3, quality_fx_6])
         else:
             quality = df.pop(df.columns[2])
             quality = pd.Series(repeat(quality, df.shape[1])).explode()
@@ -322,10 +324,15 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return:
         """
-        return {
-            parameter.value: parameter.name.lower()
-            for parameter in DwdObservationParameter[self.stations.resolution.name]
-        }
+        hpm = {}
+
+        for parameter in DwdObservationParameter[self.stations.resolution.name]:
+            try:
+                hpm[parameter.value] = parameter.name.lower()
+            except AttributeError:
+                pass
+
+        return hpm
 
     def _get_historical_date_ranges(self, station_id: str, dataset: DwdObservationDataset) -> List[str]:
         """
@@ -382,8 +389,6 @@ class DwdObservationRequest(ScalarRequestCore):
     _has_tidy_data = False
     _unique_dataset = False
     _dataset_base = DwdObservationDataset
-    _dataset_tree = DwdObservationDatasetTree
-    _parameter_to_dataset_mapping = PARAMETER_TO_DATASET_MAPPING
 
     _unit_tree = DwdObservationUnit
 

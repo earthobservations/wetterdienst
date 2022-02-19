@@ -10,7 +10,7 @@ class _GetAttrMeta(type):
         """Getting subclasses which usually represent resolutions"""
         for attr in vars(cls):
             if not attr.startswith("_"):
-                yield attr
+                yield cls[attr]
 
 
 class DatasetTreeCore(metaclass=_GetAttrMeta):

@@ -80,16 +80,11 @@ class ScalarRequestCore(Core):
         pass
 
     @property
+    @abstractmethod
     def _parameter_base(self) -> Enum:
         """parameter base enumeration from which parameters can be parsed e.g.
         DWDObservationParameter"""
-        if self._has_datasets:
-            if not self._unique_dataset:
-                raise NotImplementedError(
-                    "implement _parameter_base enumeration that has "
-                    "all parameters of one resolution stored in one place"
-                )
-        return
+        pass
 
     @property
     @abstractmethod
@@ -110,14 +105,6 @@ class ScalarRequestCore(Core):
         """Dataset base that is used to differ between different datasets"""
         if self._has_datasets:
             raise NotImplementedError("implement _dataset_base enumeration that contains available datasets")
-
-    @property
-    def _dataset_tree(self) -> Optional[object]:
-        """Detailed dataset tree with all parameters per dataset"""
-        if self._has_datasets:
-            raise NotImplementedError(
-                "implement _dataset_tree class that contains available datasets " "and their parameters"
-            )
 
     @property
     def _unique_dataset(self) -> bool:
@@ -238,44 +225,84 @@ class ScalarRequestCore(Core):
             except (ValueError, TypeError):
                 parameter, dataset = parameter, parameter
 
+            try:
+                parameter = parameter.name
+            except AttributeError:
+                pass
+
+            try:
+                dataset = dataset.name
+            except AttributeError:
+                pass
+
             # Prefix return values
-            parameter_, dataset_ = None, None
+            parameter_, dataset_ = self._parse_dataset_and_parameter(parameter, dataset)
 
-            # Try to parse dataset
-            try:
-                dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
-            except InvalidEnumeration:
-                pass
+            if not (parameter_ and dataset_):
+                parameter_, dataset_ = self._parse_parameter_and_dataset(parameter)
 
-            if parameter == dataset and dataset_:
-                parameters.append((dataset_, dataset_))
-                continue
-
-            try:
-                # First parse parameter
-                parameter_ = parse_enumeration_from_template(parameter, self._parameter_base[self._dataset_accessor])
-            except (InvalidEnumeration, TypeError):
-                pass
-            else:
-                if self._unique_dataset:
-                    # If unique dataset the dataset is given by the accessor
-                    # and the parameter is not a subset of a dataset
-                    dataset_ = self._dataset_base[self._dataset_accessor]
-                elif not dataset_:
-                    # If there's multiple datasets the mapping defines which one
-                    # is taken for the given parameter
-                    dataset_ = self._parameter_to_dataset_mapping[self.resolution][parameter_]
-
-                if not self._unique_dataset:
-                    # Parameter then has to be taken from the datasets definition
-                    parameter_ = self._dataset_tree[self._dataset_accessor][dataset_.name][parameter_.name]
-
+            if parameter_ and dataset_:
                 parameters.append((parameter_, dataset_))
-
-            if not parameter_:
+            else:
                 log.info(f"parameter {parameter} could not be parsed from ({enums})")
 
         return parameters
+
+    def _parse_dataset_and_parameter(self, parameter, dataset) -> Tuple[Enum, Enum]:
+        """
+        Parse parameters for cases like
+            - parameter=("climate_summary", ) or
+            - parameter=(("precipitation_height", "climate_summary"))
+        :param self:
+        :param parameter:
+        :param dataset:
+        :return:
+        """
+        parameter_, dataset_ = None, None
+
+        try:
+            dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
+        except InvalidEnumeration:
+            pass
+
+        if dataset_:
+            if parameter == dataset:
+                # Case 1: entire dataset e.g. parameter="climate_summary"
+                parameter_, dataset_ = dataset_, dataset_
+            else:
+                # Case 2: dataset and parameter e.g. (precipitation_height, climate_summary)
+                try:
+                    parameter_ = parse_enumeration_from_template(
+                        parameter, self._parameter_base[self._dataset_accessor][dataset_.name]
+                    )
+                except (InvalidEnumeration, TypeError):
+                    pass
+
+        return parameter_, dataset_
+
+    def _parse_parameter_and_dataset(self, parameter) -> Tuple[Enum, Enum]:
+        """Try to parse dataset first e.g. when "climate_summary" or
+        "precipitation_height", "climate_summary" is requested
+
+        :param parameter:
+        :return:
+        """
+
+        parameter_, dataset_ = None, None
+
+        flat_parameters = {par for par in self._parameter_base[self._dataset_accessor] if hasattr(par, "name")}
+
+        for par in flat_parameters:
+            if par.name.lower() == parameter.lower() or par.value.lower() == parameter.lower():
+                parameter_ = par
+                break
+
+        if parameter_:
+            dataset_name = parameter_.__class__.__name__
+
+            dataset_ = parse_enumeration_from_template(dataset_name, self._dataset_base)
+
+        return parameter_, dataset_
 
     @staticmethod
     def _parse_station_id(series: pd.Series) -> pd.Series:
@@ -434,15 +461,19 @@ class ScalarRequestCore(Core):
 
             for f in filter_:
                 parameters[f.name.lower()] = {}
+
                 for parameter in cls._parameter_base[f.name]:
+                    if not hasattr(parameter, "name"):
+                        continue
+
                     parameters[f.name.lower()][parameter.name.lower()] = {}
 
                     if cls._unique_dataset:
                         origin_unit, si_unit = cls._unit_tree[f.name][parameter.name].value
                     else:
-                        dataset = cls._parameter_to_dataset_mapping[f][parameter]
-
-                        origin_unit, si_unit = cls._unit_tree[f.name][dataset.name][parameter.name].value
+                        origin_unit, si_unit = cls._unit_tree[f.name][parameter.__class__.__name__][
+                            parameter.name
+                        ].value
 
                     parameters[f.name.lower()][parameter.name.lower()]["origin"] = cls._format_unit(origin_unit)
 
@@ -462,25 +493,26 @@ class ScalarRequestCore(Core):
         for f in filter_:
             parameters[f.name.lower()] = {}
 
-            for dataset in cls._dataset_tree[f.name].__dict__:
-                if dataset.startswith("_") or dataset not in datasets_filter:
+            for dataset in cls._parameter_base[f.name]:
+                if hasattr(dataset, "name"):
                     continue
 
-                parameters[f.name.lower()][dataset.lower()] = {}
+                dataset_name = dataset.__name__.lower()
+                if dataset_name.startswith("_") or dataset_name.upper() not in datasets_filter:
+                    continue
 
-                for parameter in cls._dataset_tree[f.name][dataset]:
+                parameters[f.name.lower()][dataset_name] = {}
 
-                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()] = {}
+                for parameter in dataset:
+                    parameters[f.name.lower()][dataset_name][parameter.name.lower()] = {}
 
-                    origin_unit, si_unit = cls._unit_tree[f.name][dataset][parameter.name].value
+                    origin_unit, si_unit = cls._unit_tree[f.name][dataset_name.upper()][parameter.name].value
 
-                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()]["origin"] = cls._format_unit(
+                    parameters[f.name.lower()][dataset_name][parameter.name.lower()]["origin"] = cls._format_unit(
                         origin_unit
                     )
 
-                    parameters[f.name.lower()][dataset.lower()][parameter.name.lower()]["si"] = cls._format_unit(
-                        si_unit
-                    )
+                    parameters[f.name.lower()][dataset_name][parameter.name.lower()]["si"] = cls._format_unit(si_unit)
 
         return parameters
 

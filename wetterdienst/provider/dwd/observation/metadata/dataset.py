@@ -40,6 +40,7 @@ class DwdObservationDataset(Enum):
     PRECIPITATION_MORE = "more_precip"
     WATER_EQUIVALENT = "water_equiv"
     WEATHER_PHENOMENA = "weather_phenomena"
+    WEATHER_PHENOMENA_MORE = "more_weather_phenomena"
 
 
 RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Period]]] = {
@@ -142,6 +143,10 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.RECENT,
         ],
         DwdObservationDataset.CLOUDINESS: [
+            Period.HISTORICAL,
+            Period.RECENT,
+        ],
+        DwdObservationDataset.WIND_EXTREME: [
             Period.HISTORICAL,
             Period.RECENT,
         ],

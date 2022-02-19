@@ -17,7 +17,7 @@ from wetterdienst.provider.dwd.metadata.constants import NA_STRING, STATION_DATA
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationDatasetTree,
+    DwdObservationParameter,
 )
 
 log = logging.getLogger(__name__)
@@ -25,11 +25,11 @@ log = logging.getLogger(__name__)
 # Parameter names used to create full 1 minute precipitation dataset wherever those
 # columns are missing (which is the case for non historical data)
 PRECIPITATION_PARAMETERS = (
-    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,
-    DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,
+    DwdObservationParameter.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,
+    DwdObservationParameter.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,
 )
 
-PRECIPITATION_MINUTE_1_QUALITY = DwdObservationDatasetTree.MINUTE_1.PRECIPITATION.QUALITY
+PRECIPITATION_MINUTE_1_QUALITY = DwdObservationParameter.MINUTE_1.PRECIPITATION.QUALITY
 
 
 def parse_climate_observations_data(
@@ -52,11 +52,23 @@ def parse_climate_observations_data(
         pandas.DataFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
-
     data = [
         _parse_climate_observations_data(filename_and_file, dataset, resolution, period)
         for filename_and_file in filenames_and_files
     ]
+
+    if resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME:
+        for i, df in enumerate(data):
+            if set(df.columns).issuperset(["qn_8", "fx_911_3"]):
+                data[i] = df.rename(columns={"qn_8": "qn_8_3"})
+            elif set(df.columns).issuperset(["qn_8", "fx_911_6"]):
+                data[i] = df.rename(columns={"qn_8": "qn_8_6"})
+
+        return (
+            pd.concat(data)
+            .reset_index(drop=True)
+            .reindex(columns=["station_id", "date", "qn_8_3", "fx_911_3", "qn_8_6", "fx_911_6"])
+        )
 
     return pd.concat(data).reset_index(drop=True)
 
@@ -110,12 +122,12 @@ def _parse_climate_observations_data(
         # information. Also rename column with true local time to english one
         df = df.rename(
             columns={
-                "mess_datum_woz": DwdObservationDatasetTree.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+                "mess_datum_woz": DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             }
         )
 
         # Duplicate the date column to end of interval column
-        df[DwdObservationDatasetTree.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
+        df[DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
 
         # Fix real date column by cutting of minutes
         df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]

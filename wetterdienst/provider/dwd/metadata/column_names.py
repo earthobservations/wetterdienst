@@ -43,7 +43,7 @@ class DwdColumns(Enum):
     INTERVAL = "interval"
     # Columns used for tidy data
     # Column for quality
-    PARAMETER_SET = "parameter_set"
+    DATASET = "dataset"
     PARAMETER = "parameter"
     VALUE = "value"
     QUALITY = "quality"

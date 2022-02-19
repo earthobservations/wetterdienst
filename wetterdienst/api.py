@@ -57,6 +57,6 @@ class Wetterdienst:
         """Display available API endpoints"""
         api_endpoints = {}
         for provider in cls.endpoints:
-            api_endpoints[provider] = [network.name for network in cls.endpoints[provider]]
+            api_endpoints[provider.__name__] = [network.name for network in cls.endpoints[provider.__name__]]
 
         return api_endpoints

@@ -211,6 +211,37 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DEGREE_KELVIN.value,
             )
 
+        # extreme_wind
+        class WIND_EXTREME(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WIND_GUST_MAX = (
+                OriginUnit.METER_PER_SECOND.value,
+                SIUnit.METER_PER_SECOND.value,
+            )
+
+        # moisture
+        class MOISTURE(UnitEnum):
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            HUMIDITY_ABSOLUTE = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            TEMPERATURE_WET_MEAN_200 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            TEMPERATURE_AIR_MEAN_200 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+            TEMPERATURE_DEW_POINT_MEAN_200 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+
         # precipitation
         class PRECIPITATION(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
@@ -294,18 +325,24 @@ class DwdObservationUnit(DatasetTreeCore):
             )
 
         # sun
-        class SUNSHINE_DURATION(UnitEnum):
+        class SUN(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             SUNSHINE_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
 
         # visibility
         class VISIBILITY(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            VISIBILITY_INDICATOR = (
+            VISIBILITY_RANGE_INDICATOR = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            VISIBILITY = OriginUnit.METER.value, SIUnit.METER.value
+            VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
+
+        # weather_phenomena
+        class WEATHER_PHENOMENA(UnitEnum):
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WEATHER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WEATHER_TEXT = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
 
         # wind
         class WIND(UnitEnum):
@@ -331,28 +368,6 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.WIND_DIRECTION.value,
             )
 
-        class MOISTURE(UnitEnum):
-            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            HUMIDITY_ABSOLUTE = (
-                OriginUnit.DIMENSIONLESS.value,
-                SIUnit.DIMENSIONLESS.value,
-            )
-            PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_WET_MEAN_200 = (
-                OriginUnit.DEGREE_CELSIUS.value,
-                SIUnit.DEGREE_KELVIN.value,
-            )
-            PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_MEAN_200 = (
-                OriginUnit.DEGREE_CELSIUS.value,
-                SIUnit.DEGREE_KELVIN.value,
-            )
-            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_DEW_POINT_MEAN_200 = (
-                OriginUnit.DEGREE_CELSIUS.value,
-                SIUnit.DEGREE_KELVIN.value,
-            )
-
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa
         # air_temperature
@@ -371,6 +386,19 @@ class DwdObservationUnit(DatasetTreeCore):
             CLOUD_DENSITY = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
+            )
+
+        # extreme_wind
+        class WIND_EXTREME(UnitEnum):
+            QUALITY_3 = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WIND_GUST_MAX_LAST_3H = (
+                OriginUnit.METER_PER_SECOND.value,
+                SIUnit.METER_PER_SECOND.value,
+            )
+            QUALITY_6 = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WIND_GUST_MAX_LAST_6H = (
+                OriginUnit.METER_PER_SECOND.value,
+                SIUnit.METER_PER_SECOND.value,
             )
 
         # moisture
@@ -403,7 +431,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # visibility
         class VISIBILITY(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            VISIBILITY = OriginUnit.METER.value, SIUnit.METER.value
+            VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
 
         # wind
         class WIND(UnitEnum):
@@ -475,6 +503,14 @@ class DwdObservationUnit(DatasetTreeCore):
             )
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             SNOW_DEPTH_NEW = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+
+        # more_weather_phenomena
+        class WEATHER_PHENOMENA_MORE(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_SLEET = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_HAIL = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_FOG = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            COUNT_WEATHER_TYPE_THUNDER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
 
         # soil_temperature
         class TEMPERATURE_SOIL(UnitEnum):  # noqa

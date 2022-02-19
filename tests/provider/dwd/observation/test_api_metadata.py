@@ -28,7 +28,6 @@ def test_dwd_observation_metadata_discover_parameters():
             "precipitation_form": {"origin": "-", "si": "-"},
         }
     }
-
     assert json.dumps(expected) in json.dumps(parameters)
 
 

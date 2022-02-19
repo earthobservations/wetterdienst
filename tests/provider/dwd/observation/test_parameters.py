@@ -5,29 +5,26 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationDatasetTree,
-)
 
 parameters_reference = [
     (
-        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MEAN_200,
+        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MEAN_200,
         DwdObservationDataset.CLIMATE_SUMMARY,
     ),
     (
-        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
+        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
         DwdObservationDataset.CLIMATE_SUMMARY,
     ),
     (
-        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
+        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
         DwdObservationDataset.CLIMATE_SUMMARY,
     ),
     (
-        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
         DwdObservationDataset.CLIMATE_SUMMARY,
     ),
     (
-        DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_FORM,
+        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_FORM,
         DwdObservationDataset.CLIMATE_SUMMARY,
     ),
 ]
