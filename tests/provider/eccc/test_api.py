@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import numpy as np
 import pandas as pd
+import pytest
 import pytz
 from pandas._testing import assert_frame_equal
 
@@ -38,6 +39,7 @@ def test_eccc_api_stations():
     assert_frame_equal(request.df, expected)
 
 
+@pytest.mark.xfail
 def test_eccc_api_values():
     Settings.tidy = True
     Settings.humanize = True

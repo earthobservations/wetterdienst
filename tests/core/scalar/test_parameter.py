@@ -8,11 +8,10 @@ from wetterdienst.metadata.unit import OriginUnit, SIUnit
 from wetterdienst.provider.dwd.mosmix.metadata.parameter import DwdMosmixParameter
 from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationDatasetTree,
     DwdObservationParameter,
 )
 from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
-from wetterdienst.provider.eccc.observation.metadata.dataset import (
+from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
@@ -27,7 +26,6 @@ SI_UNITS = [unit.value for unit in SIUnit]
     "parameter_enum,is_ds_tree",
     (
         (DwdObservationParameter, False),
-        (DwdObservationDatasetTree, True),
         (DwdObservationUnit, True),
         (DwdMosmixParameter, False),
         (DwdMosmixUnit, False),
@@ -48,15 +46,18 @@ def test_parameter_names(parameter_enum, is_ds_tree):
 
     for res in parameter_enum:
         if is_ds_tree:
-            for dataset in parameter_enum[res]:
-                for parameter in parameter_enum[res][dataset]:
+            for dataset in res:
+                for parameter in dataset:
                     parameter_name = parameter.name
                     if not _check_quality_flags(parameter_name):
                         if parameter_name not in Parameter._member_names_:
                             parameters.append(parameter_name)
         else:
-            for parameter in parameter_enum[res]:
-                parameter_name = parameter.name
+            for parameter in res:
+                try:
+                    parameter_name = parameter.name
+                except AttributeError:
+                    continue
                 if not _check_quality_flags(parameter_name):
                     if parameter_name not in Parameter._member_names_:
                         parameters.append(parameter_name)

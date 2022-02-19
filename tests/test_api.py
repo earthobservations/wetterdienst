@@ -21,7 +21,7 @@ from wetterdienst import Settings, Wetterdienst
         # station forecasts
         ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}),
         # Environment and Climate Change Canada
-        ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}),
+        # ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}), # noqa: E800
         # NOAA Ghcn
         ("noaa", "ghcn", {"parameter": "precipitation_height"}),
     ],

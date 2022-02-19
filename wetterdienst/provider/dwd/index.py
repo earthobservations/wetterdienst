@@ -49,24 +49,24 @@ def _create_file_index_for_dwd_server(
 
 
 def build_path_to_parameter(
-    parameter_set: DwdObservationDataset,
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> str:
     """
     Function to build a indexing file path
     Args:
-        parameter_set: observation measure
+        dataset: observation measure
         resolution: frequency/granularity of measurement interval
         period: recent or historical files
 
     Returns:
         indexing file path relative to climate observation path
     """
-    if parameter_set == DwdObservationDataset.SOLAR and resolution in (
+    if dataset == DwdObservationDataset.SOLAR and resolution in (
         Resolution.HOURLY,
         Resolution.DAILY,
     ):
-        return f"{resolution.value}/{parameter_set.value}/"
+        return f"{resolution.value}/{dataset.value}/"
 
-    return f"{resolution.value}/{parameter_set.value}/{period.value}/"
+    return f"{resolution.value}/{dataset.value}/{period.value}/"

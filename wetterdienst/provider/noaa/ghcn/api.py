@@ -135,7 +135,6 @@ class NoaaGhcnRequest(ScalarRequestCore):
 
     _dataset_base = NoaaGhcnDatasetBase
     _parameter_base = NoaaGhcnParameter
-    _dataset_tree = NoaaGhcnParameter
 
     _resolution_type = ResolutionType.FIXED
     _resolution_base = NoaaGhcnResolution

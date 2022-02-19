@@ -7,7 +7,7 @@ from wetterdienst.api import ApiEndpoints
 
 
 def get_providers():
-    return [{"label": provider, "value": provider} for provider in ApiEndpoints]
+    return [{"label": provider.__name__, "value": provider.__name__} for provider in ApiEndpoints]
 
 
 def dashboard_layout() -> html:

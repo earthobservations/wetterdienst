@@ -21,7 +21,6 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationDatasetTree,
     DwdObservationParameter,
 )
 from wetterdienst.settings import Settings
@@ -44,7 +43,7 @@ def test_dwd_observation_data_api():
 
     assert request.parameter == [
         (
-            DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
             DwdObservationDataset.CLIMATE_SUMMARY,
         )
     ]
@@ -109,7 +108,7 @@ def test_dwd_observation_data_parameter():
 
     assert request.parameter == [
         (
-            DwdObservationDatasetTree.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
             DwdObservationDataset.CLIMATE_SUMMARY,
         )
     ]
@@ -141,7 +140,7 @@ def test_dwd_observation_data_parameter_dataset_pairs():
 
     assert request.parameter == [
         (
-            DwdObservationDatasetTree.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
+            DwdObservationParameter.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
             DwdObservationDataset.PRECIPITATION_MORE,
         )
     ]
@@ -346,7 +345,7 @@ def test_dwd_observation_data_result_missing_data():
         station_id=["03348"],
     )
 
-    df = request.values.all().df  # .drop("quality", axis=1)
+    df = request.values.all().df
 
     assert_frame_equal(
         df,
@@ -709,7 +708,7 @@ def test_dwd_observation_data_10_minutes_result_tidy():
     Settings.si_units = False
 
     request = DwdObservationRequest(
-        parameter=[DwdObservationDatasetTree.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_SITE],
+        parameter=[DwdObservationParameter.MINUTE_10.TEMPERATURE_AIR.PRESSURE_AIR_SITE],
         resolution=DwdObservationResolution.MINUTE_10,
         start_date="1999-12-31 22:00",
         end_date="1999-12-31 23:00",

@@ -82,7 +82,7 @@ class DwdMosmixUnit(DatasetTreeCore):
             OriginUnit.GLOBAL_IRRADIANCE.value,
             SIUnit.GLOBAL_IRRADIANCE.value,
         )
-        VISIBILITY = OriginUnit.METER.value, SIUnit.METER.value
+        VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
         SUNSHINE_DURATION = OriginUnit.SECOND.value, SIUnit.SECOND.value
         PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = (
             OriginUnit.PERCENT.value,
@@ -225,7 +225,7 @@ class DwdMosmixUnit(DatasetTreeCore):
             OriginUnit.KILOJOULE_PER_SQUARE_METER.value,
             SIUnit.JOULE_PER_SQUARE_METER.value,
         )
-        VISIBILITY = OriginUnit.METER.value, SIUnit.METER.value
+        VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
         SUNSHINE_DURATION = OriginUnit.SECOND.value, SIUnit.SECOND.value
         PROBABILITY_WIND_GUST_GE_25_KN_LAST_12H = (
             OriginUnit.PERCENT.value,

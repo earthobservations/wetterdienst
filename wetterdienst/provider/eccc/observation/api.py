@@ -26,7 +26,7 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.eccc.observation.metadata.dataset import (
+from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationDataset,
     EcccObservationParameter,
 )
@@ -156,15 +156,14 @@ class EcccObservationValues(ScalarValuesCore):
         # Following lines may partially be based on @Zeitsperre's canada-climate-python
         # code at https://github.com/Zeitsperre/canada-climate-python/blob/
         # master/ECCC_stations_fulldownload.py
-        df = pd.DataFrame()
+        data = []
 
         # check that station has a first and last year value
         if start_year and end_year:
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
-
-                # TODO change this back to verify=True
-                payload = self._session.get(url, timeout=60)
+                # TODO: replace this by fsspec
+                payload = self._session.get(url, timeout=60, verify=False)
 
                 df_temp = pd.read_csv(BytesIO(payload.content))
 
@@ -184,16 +183,21 @@ class EcccObservationValues(ScalarValuesCore):
                     errors="ignore",
                 )
 
-                df = df.append(df_temp)
+                data.append(df_temp)
 
-            df = df.rename(
-                columns={
-                    "date/time (lst)": Columns.DATE.value,
-                    "date/time": Columns.DATE.value,
-                }
-            )
+        try:
+            df = pd.concat(data)
+        except ValueError:
+            df = pd.DataFrame()
 
-            df = df.reset_index(drop=True)
+        df = df.rename(
+            columns={
+                "date/time (lst)": Columns.DATE.value,
+                "date/time": Columns.DATE.value,
+            }
+        )
+
+        df = df.reset_index(drop=True)
 
         df = df.drop(columns=["data quality"], errors="ignore")
 
@@ -252,7 +256,6 @@ class EcccObservationRequest(ScalarRequestCore):
     _data_range = DataRange.LOOSELY
     _has_datasets = True
     _dataset_base = EcccObservationDataset
-    _dataset_tree = EcccObservationParameter
     _unique_dataset = True
     _has_tidy_data = False
 
