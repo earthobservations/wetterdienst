@@ -12,7 +12,7 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.provider.dwd.mosmix import DwdMosmixType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -95,7 +95,7 @@ def get_stations(
     start_date, end_date = None, None
     if date:
         # TODO: use rather network here
-        if api.provider == Provider.DWD and api.kind == Kind.FORECAST:
+        if api == DwdMosmixRequest:
             mosmix_type = DwdMosmixType[resolution.upper()]
 
             if mosmix_type == DwdMosmixType.SMALL:
