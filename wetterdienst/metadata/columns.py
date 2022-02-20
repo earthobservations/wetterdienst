@@ -41,3 +41,6 @@ class Columns(Enum):
     ICAO_ID = "icao_id"
     # Special columns
     QUALITY_PREFIX = "qn"
+    # Columns used for interpolation
+    DISTANCE_MEAN = "distance_mean"
+    STATION_IDS = "station_ids"

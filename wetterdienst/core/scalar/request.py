@@ -16,9 +16,9 @@ import utm
 from measurement.measures import Distance
 from measurement.utils import guess
 from rapidfuzz import fuzz, process
-from scipy import interpolate
 
 from wetterdienst.core.core import Core
+from wetterdienst.core.scalar.interpolate import get_interpolated_df
 from wetterdienst.core.scalar.result import InterpolatedValuesResult, StationsResult
 from wetterdienst.exceptions import (
     InvalidEnumeration,
@@ -810,7 +810,6 @@ class ScalarRequestCore(Core):
         :return:
         """
 
-        # TODO: should we disallow interpolation for data "intense" resolutions?
         if self.resolution in (
             Resolution.MINUTE_1,
             Resolution.MINUTE_5,
@@ -821,146 +820,15 @@ class ScalarRequestCore(Core):
         # This should be defined somewhere else and we may differ between
         #   - heterogeneous parameters such as precipitation_height
         #   - homogeneous parameters such as temperature_air_200
-
-        interpolatable_parameters = [Parameter.TEMPERATURE_AIR_MEAN_200.name]
-
-        interpolated_df_per_parameter = []
-        for parameter, dataset in self.parameter:
-            if parameter == dataset:
-                log.info("only individual parameters can be interpolated")
-                continue
-
-            if parameter.name not in interpolatable_parameters:
-                log.info(f"parameter {parameter.name} can not be interpolated")
-                continue
-
-            # TODO (NN): should this really be done per parameter or better once for all together?
-            interpolated_df = self._get_interpolated_df(
-                latitude=latitude, longitude=longitude, parameter=parameter, dataset=dataset
-            )
-            interpolated_df_per_parameter.append(interpolated_df)
-
-        if interpolated_df_per_parameter:
-            interpolated_values = pd.concat(interpolated_df_per_parameter, ignore_index=True)
-        else:
-            interpolated_values = pd.DataFrame(
-                columns=["station_id", "dataset", "parameter", "date", "value", "quality"]
-            )
-
-        return InterpolatedValuesResult(df=interpolated_values)
-
-    def _calculate_interpolation(self, requested_x, requested_y, xs, ys, values):
-        values = values.astype(float).tolist()
-        f = interpolate.interp2d(ys, xs, values, kind="linear")
-        # there is only one interpolated value
-        return f(requested_y, requested_x)[0]
-
-    def _get_interpolated_df(self, latitude: float, longitude: float, parameter: Parameter, dataset) -> pd.DataFrame:
-
-        def gain_of_value_pairs(old_values: pd.DataFrame, new_values: pd.Series) -> float:
-            old_score = old_values.apply(lambda row: row.dropna().size >= 4).sum()  # 5: dates plus 4 values
-
-            # Add new column
-            old_values[new_values.name] = new_values.values
-
-            new_score = old_values.apply(lambda row: row.dropna().size >= 4).sum()  # 5: dates plus 4 values
-
-            # TODO (NN): RuntimeWarning: divide by zero encountered in true_divide
-            return new_score / old_score - 1
-
-        # TODO: construct new request only for one parameter
-        #  otherwise we would always load everything twice for all parameters
-        stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
-        stations_ranked_df = stations_ranked.df.dropna()
-
-        # query values of the nearest stations
-        # reference station for calculation of correlation
-        stations = []
-        # Empty DataFrame with only values
-        # values = pd.DataFrame({Columns.DATE.value: pd.date_range(self.start_date, self.end_date)})
-        # TODO: this currently only works for a fixed timezone
-        values = stations_ranked.values._get_base_df("").set_index("date")
-
-        # counter used for extra stations if some station has really no additional value
-        extra_station_counter = 0
-
-        for (_, station), result in zip(stations_ranked_df.iterrows(), stations_ranked.values.query()):
-            # check values, any not NaN?, any common values with other stations?
-            # quality may be empty, drop it, or apply filter for quality
-            result_df = result.df
-
-            # Filter only for exact parameter
-            result_df = result_df.loc[result_df[Columns.PARAMETER.value] == parameter.name.lower()]
-
-            result_df = result_df.loc[:, Columns.VALUE.value]
-            result_df.name = station["station_id"]
-
-            # check if station has values for the given parameter
-            if result_df.dropna().empty:
-                continue
-
-            # if distance bigger 40, stop adding more stations
-            if station["distance"] > 40:
-                break
-
-            # Three rules:
-            # 1. only add further stations if not a minimum of 4 stations is reached OR
-            # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
-            # 3. an additional counter is below 3 (used if a station has really no or few values)
-            cond1 = values.shape[1] < 4
-            cond2 = not cond1 and gain_of_value_pairs(values, result_df) > 0.10
-
-            if cond1 or cond2 or extra_station_counter < 3:  # timestamps + 4 stations
-                if not (cond1 or cond2):
-                    extra_station_counter += 1
-
-                values[result_df.name] = result_df.values
-                stations.append(station)
-            else:
-                break
-
-        stations = pd.DataFrame.from_records(stations).set_index(Columns.STATION_ID.value)
-        stations[["utm_x", "utm_y"]] = stations.apply(
-            lambda x: utm.from_latlon(x.latitude, x.longitude)[:2], axis=1
-        ).tolist()
+        interpolatable_parameters = [Parameter.TEMPERATURE_AIR_MEAN_200.name, Parameter.WIND_SPEED.name]
 
         requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
+        stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
+        interpolated_values = get_interpolated_df(
+            stations_ranked, requested_x, requested_y, self.parameter, interpolatable_parameters
+        )
 
-        result_list = []
-        for date, vals in values.iterrows():
-            vals = vals.dropna().iloc[:4]
-
-            if vals.size < 4:
-                # return empty result, not enough values
-                result_list.append(
-                    {
-                        "date": date,
-                        "value": pd.NA,
-                        "distance_mean": pd.NA,
-                        "station_ids": pd.NA,
-                    }
-                )
-                continue
-
-            interpolated_value = self._calculate_interpolation(
-                requested_x=requested_x,
-                requested_y=requested_y,
-                xs=stations.loc[vals.index, "utm_x"],
-                ys=stations.loc[vals.index, "utm_y"],
-                values=vals,
-            )
-
-            result_list.append(
-                {
-                    "date": date,
-                    "value": interpolated_value,
-                    "distance_mean": stations.loc[vals.index, "distance"].mean(),
-                    "station_ids": vals.index.to_list(),
-                }
-            )
-
-        # combine df of all date/time together
-        return pd.DataFrame.from_records(result_list)
+        return InterpolatedValuesResult(df=interpolated_values)
 
 
 if __name__ == "__main__":
@@ -982,4 +850,4 @@ if __name__ == "__main__":
 
     df = stations.interpolate(latitude, longitude)
 
-    print(df.df.dropna())
+    log.info(df.df.dropna())
