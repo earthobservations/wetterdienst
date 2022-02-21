@@ -150,10 +150,10 @@ def apply_interpolation(row, all_station_ids, stations_dict, parameter, requeste
     station_idx = np.arange(row.values.size)[~np.isnan(row.values)][:4]
     station_ids = np.array(all_station_ids)[station_idx]
 
-    xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_ids]))
-    distance_mean = sum(distances) / len(distances)
+    xs, ys, distances = map(np.float64, zip(*[stations_dict[station_id] for station_id in station_ids]))
+    distance_mean = distances.mean()
 
     f = interpolate.interp2d(ys, xs, vals, kind="linear")
-    value = f(requested_y, requested_x)[0]  # there is only one interpolation result
+    value = np.float64(f(requested_y, requested_x)[0])  # there is only one interpolation result
 
     return parameter, value, distance_mean, station_ids
