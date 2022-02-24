@@ -21,13 +21,12 @@ def test_interpolation():
         end_date=datetime(2022, 1, 20),
     )
 
-    interpolated_df = stations.interpolate(latitude=50.0, longitude=8.9).df
+    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    interpolated_df = result.df
     assert interpolated_df.shape[0] == 18001
     assert interpolated_df.dropna().shape[0] == 12385
 
-    test_df = interpolated_df[interpolated_df["date"] == Timestamp("2022-01-02 00:00:00+0000", tz="UTC")].reset_index(
-        drop=True
-    )
+    test_df = result.filter_by_date("2022-01-02 00:00:00+0000").reset_index(drop=True)
 
     assert_frame_equal(
         test_df,

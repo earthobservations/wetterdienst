@@ -192,7 +192,6 @@ class ValuesResult(ExportMixin):
         return self.df
 
 
-# TODO (NN): How should the class look like?
 @dataclass
 class InterpolatedValuesResult(ExportMixin):
     stations: StationsResult

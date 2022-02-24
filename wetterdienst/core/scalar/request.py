@@ -832,7 +832,7 @@ class ScalarRequestCore(Core):
             stations_ranked, requested_x, requested_y, self.parameter, interpolatable_parameters
         )
 
-        return InterpolatedValuesResult(df=interpolated_values)
+        return InterpolatedValuesResult(df=interpolated_values, stations=self)
 
 
 if __name__ == "__main__":
