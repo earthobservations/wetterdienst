@@ -815,12 +815,16 @@ class ScalarRequestCore(Core):
             Resolution.MINUTE_5,
             Resolution.MINUTE_10,
         ):
-            raise NotImplementedError("interpolation is not currently allowed for high resolutions due to mass of data")
+            log.warning("interpolation might be slow for high resolutions due to mass of data")
 
         # This should be defined somewhere else and we may differ between
         #   - heterogeneous parameters such as precipitation_height
         #   - homogeneous parameters such as temperature_air_200
-        interpolatable_parameters = [Parameter.TEMPERATURE_AIR_MEAN_200.name, Parameter.WIND_SPEED.name]
+        interpolatable_parameters = [
+            Parameter.TEMPERATURE_AIR_MEAN_200.name,
+            Parameter.WIND_SPEED.name,
+            Parameter.PRECIPITATION_HEIGHT.name,
+        ]
 
         requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
         stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)

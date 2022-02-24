@@ -80,8 +80,8 @@ def apply_station_values_per_parameter(
         result_df_param.name = station_id
 
         if parameter_name not in param_dict:
-            # TODO: this currently only works for a fixed timezone
             param_dict[parameter_name] = _ParameterData(
+                # TODO: this currently only works for a fixed timezone
                 stations_ranked.values._get_base_df("").set_index(Columns.DATE.value)
             )
 
@@ -139,21 +139,22 @@ def calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
 
 
 def apply_interpolation(row, all_station_ids, stations_dict, parameter, requested_x, requested_y):
-    vals = row.values[~np.isnan(row.values)][:4]
-    value = pd.NA
-    distance_mean = pd.NA
-    station_ids = pd.NA
+    vals_state = ~np.isnan(row.values)
+    vals = row.values[vals_state][:4]
+    value = np.nan
+    distance_mean = np.nan
+    station_ids = np.nan
 
     if vals.size < 4:
         return parameter, value, distance_mean, station_ids
 
-    station_idx = np.arange(row.values.size)[~np.isnan(row.values)][:4]
+    station_idx = np.arange(row.values.size)[vals_state][:4]
     station_ids = np.array(all_station_ids)[station_idx]
 
     xs, ys, distances = map(np.float64, zip(*[stations_dict[station_id] for station_id in station_ids]))
     distance_mean = distances.mean()
 
     f = interpolate.interp2d(ys, xs, vals, kind="linear")
-    value = np.float64(f(requested_y, requested_x)[0])  # there is only one interpolation result
+    value = f(requested_y, requested_x)[0]  # there is only one interpolation result
 
     return parameter, value, distance_mean, station_ids
