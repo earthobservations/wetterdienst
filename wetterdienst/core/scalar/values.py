@@ -670,10 +670,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         if self.stations.stations.tidy:
             df[Columns.PARAMETER.value] = self._coerce_strings(df[Columns.PARAMETER.value]).astype("category")
-            df[Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(float)
-
-            # TODO: may coerce more carefully quality codes or replace them by numbers
-            df[Columns.QUALITY.value] = pd.to_numeric(df[Columns.QUALITY.value], errors="coerce").astype(float)
+            df[Columns.VALUE.value] = df[Columns.VALUE.value].astype(pd.Float64Dtype()).astype(float)
+            df[Columns.QUALITY.value] = df[Columns.QUALITY.value].astype(pd.Float64Dtype()).astype(float)
 
         return df
 

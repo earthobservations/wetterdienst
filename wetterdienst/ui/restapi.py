@@ -64,7 +64,7 @@ def index():
             <h4>Examples</h4>
             <ul>
             <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations</a></li>
-            <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station-id=00011">DWD Observation values</a></li>
+            <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011">DWD Observation values</a></li>
             </ul>
         </body>
     </html>
@@ -186,7 +186,7 @@ def stations(
             f"parameter(s) {parameter} and resolution {resolution}.",
         )
 
-    stations_.df = stations_.df.replace([pd.NA, np.nan, "nan"], [None, None, None])
+    stations_.df = stations_.df.replace({np.nan: None, pd.NA: None})
 
     indent = None
     if pretty:
@@ -195,7 +195,7 @@ def stations(
     if fmt == "json":
         output = stations_.to_dict()
     elif fmt == "geojson":
-        output = stations_._to_ogc_feature_collection()
+        output = stations_.to_ogc_feature_collection()
 
     output = make_json_response(output, api.provider)
 
@@ -327,7 +327,7 @@ def values(
 
     output[Columns.DATE.value] = output[Columns.DATE.value].apply(lambda ts: ts.isoformat())
 
-    output = output.replace([pd.NA, np.nan], [None, None])
+    output = output.replace({np.NaN: None, pd.NA: None})
 
     output = output.to_dict(orient="records")
 

@@ -18,10 +18,10 @@ def test_dwd_mosmix_stations_success():
 
     assert not df.empty
 
-    # TODO: fix empty state value to be pd.NA
+    df_given = df.loc[df[Columns.STATION_ID.value] == "01001", :].reset_index(drop=True)
 
     assert_frame_equal(
-        df.loc[df[Columns.STATION_ID.value] == "01001", :].reset_index(drop=True),
+        df_given,
         pd.DataFrame(
             {
                 "station_id": ["01001"],
@@ -32,7 +32,7 @@ def test_dwd_mosmix_stations_success():
                 "latitude": [70.93],
                 "longitude": [-8.0],
                 "name": ["JAN MAYEN"],
-                "state": ["nan"],
+                "state": pd.Series([pd.NA], dtype=str),
             }
         ),
     )

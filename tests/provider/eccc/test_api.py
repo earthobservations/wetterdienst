@@ -25,14 +25,14 @@ def test_eccc_api_stations():
 
     expected = pd.DataFrame(
         {
-            "station_id": ["14"],
+            "station_id": pd.Series(["14"], dtype=str),
             "from_date": [pd.Timestamp("1984-01-01", tz=pytz.UTC)],
             "to_date": [pd.Timestamp("1996-12-31", tz=pytz.UTC)],
-            "height": [4.0],
-            "latitude": [48.87],
-            "longitude": [-123.28],
-            "name": ["ACTIVE PASS"],
-            "state": ["BRITISH COLUMBIA"],
+            "height": pd.Series([4.0], dtype=float),
+            "latitude": pd.Series([48.87], dtype=float),
+            "longitude": pd.Series([-123.28], dtype=float),
+            "name": pd.Series(["ACTIVE PASS"], dtype=str),
+            "state": pd.Series(["BRITISH COLUMBIA"], dtype=str),
         }
     )
 

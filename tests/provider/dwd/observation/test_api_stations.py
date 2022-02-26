@@ -17,14 +17,14 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 EXPECTED_DF = pd.DataFrame(
     {
-        "station_id": ["00001"],
+        "station_id": pd.Series(["00001"], dtype=str),
         "from_date": [datetime(1937, 1, 1, tzinfo=pytz.UTC)],
         "to_date": [datetime(1986, 6, 30, tzinfo=pytz.UTC)],
-        "height": [478.0],
-        "latitude": [47.8413],
-        "longitude": [8.8493],
-        "name": ["Aach"],
-        "state": ["Baden-Württemberg"],
+        "height": pd.Series([478.0], dtype=float),
+        "latitude": pd.Series([47.8413], dtype=float),
+        "longitude": pd.Series([8.8493], dtype=float),
+        "name": pd.Series(["Aach"], dtype=str),
+        "state": pd.Series(["Baden-Württemberg"], dtype=str),
     }
 )
 

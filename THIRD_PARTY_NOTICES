@@ -16626,7 +16626,7 @@ https://github.com/jupyter/terminado
 
 
 testfixtures
-6.18.3
+6.18.4
 MIT License
 Chris Withers
 https://github.com/Simplistix/testfixtures
@@ -18029,7 +18029,7 @@ https://github.com/SimonSapin/python-webencodings
 UNKNOWN
 
 websocket-client
-1.2.3
+1.3.1
 Apache Software License
 liris
 https://github.com/websocket-client/websocket-client.git
@@ -18222,7 +18222,7 @@ https://github.com/websocket-client/websocket-client.git
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright 2021 engn33r
+   Copyright 2022 engn33r
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
