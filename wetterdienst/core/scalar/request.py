@@ -163,17 +163,6 @@ class ScalarRequestCore(Core):
         Columns.NAME.value,
         Columns.STATE.value,
     )
-    # TODO: eventually this can be matched with the type coercion of station data to get
-    #  similar types of floats and strings
-    # Dtype mapping for stations
-    _dtype_mapping = {
-        Columns.STATION_ID.value: str,
-        Columns.HEIGHT.value: float,
-        Columns.LATITUDE.value: float,
-        Columns.LONGITUDE.value: float,
-        Columns.NAME.value: str,
-        Columns.STATE.value: str,
-    }
 
     def _parse_period(self, period: Period) -> Optional[List[Period]]:
         """
@@ -533,14 +522,20 @@ class ScalarRequestCore(Core):
             pd.Series(filter_).apply(parse_enumeration_from_template, args=(cls._resolution_base, Resolution)).tolist()
         )
 
-    def _coerce_meta_fields(self, df) -> pd.DataFrame:
+    @staticmethod
+    def _coerce_meta_fields(df) -> pd.DataFrame:
         """
         Method for metadata column coercion.
 
         :param df: DataFrame with columns as strings
         :return: DataFrame with columns coerced to date etc.
         """
-        df = df.astype(self._dtype_mapping)
+        df[Columns.STATION_ID.value] = pd.Series(df[Columns.STATION_ID.value].values, dtype=str)
+        df[Columns.HEIGHT.value] = pd.Series(df[Columns.HEIGHT.value], dtype=float)
+        df[Columns.LATITUDE.value] = df[Columns.LATITUDE.value].astype(float)
+        df[Columns.LONGITUDE.value] = df[Columns.LONGITUDE.value].astype(float)
+        df[Columns.NAME.value] = pd.Series(df[Columns.NAME.value].values, dtype=str)
+        df[Columns.STATE.value] = pd.Series(df[Columns.STATE.value].values, dtype=str)
 
         df[Columns.FROM_DATE.value] = pd.to_datetime(
             df[Columns.FROM_DATE.value], infer_datetime_format=True
@@ -567,7 +562,7 @@ class ScalarRequestCore(Core):
 
         :return: pandas.DataFrame with the information of different available stations
         """
-        df = self._all()
+        df = self._all().reset_index(drop=True)
 
         df = df.reindex(columns=self._base_columns)
 
@@ -666,7 +661,7 @@ class ScalarRequestCore(Core):
 
         df = df.iloc[indices_nearest_neighbours.flatten(), :].reset_index(drop=True)
 
-        df[Columns.DISTANCE.value] = distances.flatten() * EARTH_RADIUS_KM
+        df[Columns.DISTANCE.value] = pd.Series(distances.flatten() * EARTH_RADIUS_KM, dtype=float)
 
         if df.empty:
             log.warning(

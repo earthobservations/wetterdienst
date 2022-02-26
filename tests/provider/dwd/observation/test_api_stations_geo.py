@@ -18,75 +18,63 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
-EXPECTED_DF_SINGLE = pd.DataFrame(
-    [
-        [
-            "02480",
+EXPECTED_STATIONS_DF = pd.DataFrame(
+    {
+        "station_id": pd.Series(["02480", "04411", "07341"], dtype=str),
+        "from_date": [
             Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
-            108.0,
-            50.0643,
-            8.993,
-            "Kahl/Main",
-            "Bayern",
-            9.759384982994229,
-        ]
-    ],
-    columns=[
-        "station_id",
-        "from_date",
-        "height",
-        "latitude",
-        "longitude",
-        "name",
-        "state",
-        "distance",
-    ],
-)
-
-
-EXPECTED_DF_MULTIPLE = pd.DataFrame(
-    [
-        [
-            "02480",
-            Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
-            108.0,
-            50.0643,
-            8.993,
-            "Kahl/Main",
-            "Bayern",
-            9.759384982994229,
-        ],
-        [
-            "04411",
             Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
-            155.0,
-            49.9195,
-            8.9671,
-            "Schaafheim-Schlierbach",
-            "Hessen",
-            10.156943448624304,
-        ],
-        [
-            "07341",
             Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
-            119.0,
-            50.0899,
-            8.7862,
-            "Offenbach-Wetterpark",
-            "Hessen",
-            12.882693521631097,
         ],
-    ],
-    columns=[
-        "station_id",
-        "from_date",
-        "height",
-        "latitude",
-        "longitude",
-        "name",
-        "state",
-        "distance",
-    ],
+        "height": pd.Series(
+            [
+                108.0,
+                155.0,
+                119.0,
+            ],
+            dtype=float,
+        ),
+        "latitude": pd.Series(
+            [
+                50.0643,
+                49.9195,
+                50.0899,
+            ],
+            dtype=float,
+        ),
+        "longitude": pd.Series(
+            [
+                8.993,
+                8.9671,
+                8.7862,
+            ],
+            dtype=float,
+        ),
+        "name": pd.Series(
+            [
+                "Kahl/Main",
+                "Schaafheim-Schlierbach",
+                "Offenbach-Wetterpark",
+            ],
+            dtype=str,
+        ),
+        "state": pd.Series(
+            [
+                "Bayern",
+                "Hessen",
+                "Hessen",
+            ],
+            dtype=str,
+        ),
+        "distance": pd.Series(
+            [
+                9.759384982994229,
+                10.156943448624304,
+                12.882693521631097,
+            ],
+            dtype=float,
+        ),
+    }
 )
 
 
@@ -109,7 +97,7 @@ def test_dwd_observation_stations_nearby_number_single():
     )
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
-    assert_frame_equal(nearby_station, EXPECTED_DF_SINGLE)
+    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF.iloc[[0], :])
 
 
 @pytest.mark.remote
@@ -128,7 +116,7 @@ def test_dwd_observation_stations_nearby_number_multiple():
     )
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
-    pd.testing.assert_frame_equal(nearby_station, EXPECTED_DF_MULTIPLE)
+    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF)
 
 
 @pytest.mark.remote
@@ -144,13 +132,13 @@ def test_dwd_observation_stations_nearby_distance():
     nearby_station = request.filter_by_distance(50.0, 8.9, 16.13, "km")
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
-    pd.testing.assert_frame_equal(nearby_station, EXPECTED_DF_MULTIPLE)
+    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF)
 
     # Miles
     nearby_station = request.filter_by_distance(50.0, 8.9, 10.03, "mi")
     nearby_station = nearby_station.df.drop(columns="to_date")
 
-    pd.testing.assert_frame_equal(nearby_station, EXPECTED_DF_MULTIPLE)
+    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF)
 
 
 @pytest.mark.remote
@@ -165,12 +153,7 @@ def test_dwd_observation_stations_bbox():
     nearby_station = request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0899)
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
-    pd.testing.assert_frame_equal(
-        nearby_station,
-        EXPECTED_DF_MULTIPLE.drop(columns=["distance"])
-        .sort_values(["station_id"], key=lambda x: x.astype(int))
-        .reset_index(drop=True),
-    )
+    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF.drop(columns=["distance"]))
 
 
 @pytest.mark.remote

@@ -355,10 +355,11 @@ def test_dwd_observation_data_result_missing_data():
                 "dataset": pd.Categorical(["temperature_air"]),
                 "parameter": pd.Categorical(["temperature_air_mean_200"]),
                 "date": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
-                "value": [np.nan],
-                "quality": [np.nan],
+                "value": pd.Series([pd.NA], dtype=pd.Float64Dtype()).astype(float),
+                "quality": pd.Series([pd.NA], dtype=pd.Float64Dtype()).astype(float),
             }
         ),
+        check_categorical=False,
     )
 
 

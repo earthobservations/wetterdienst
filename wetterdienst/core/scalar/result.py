@@ -106,9 +106,15 @@ class StationsResult(ExportMixin):
                     "properties": {
                         "id": station["station_id"],
                         "name": station["name"],
-                        "state": station["state"],
-                        "from_date": station["from_date"].isoformat(),
-                        "to_date": station["to_date"].isoformat(),
+                        "state": station["state"]
+                        if pd.notna(station["state"]) and station["state"] is not None
+                        else None,
+                        "from_date": station["from_date"].isoformat()
+                        if pd.notna(station["from_date"]) and station["from_date"] is not None
+                        else None,
+                        "to_date": station["to_date"].isoformat()
+                        if pd.notna(station["to_date"]) and station["to_date"] is not None
+                        else None,
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees
