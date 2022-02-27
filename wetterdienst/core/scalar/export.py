@@ -45,7 +45,13 @@ class ExportMixin:
         return df.to_dict(orient="records")
 
     def to_json(self, indent: int = 4):
-        return self.df.to_json(orient="records", date_format="iso", indent=indent, force_ascii=False)
+        df = self.df.copy()
+
+        for column in ("from_date", "to_date", "date"):
+            if column in df:
+                df[column] = df[column].map(lambda x: x.isoformat() if pd.notna(x) and x is not None else None)
+
+        return df.to_json(orient="records", date_format="iso", indent=indent, force_ascii=False)
 
     def to_csv(self):
         return self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")

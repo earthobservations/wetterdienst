@@ -17,14 +17,35 @@ SETTINGS_STATIONS = (
         "observation",
         "--resolution=daily --parameter=kl --period=recent",
         "01048",
-        "Dresden-Klotzsche",
+        # expected dict
+        {
+            "station_id": "01048",
+            "height": 228.0,
+            "latitude": 51.1278,
+            "longitude": 13.7543,
+            "from_date": "1934-01-01T00:00:00+00:00",
+            "name": "Dresden-Klotzsche",
+            "state": "Sachsen",
+        },
+        # coordinates
+        [13.7543, 51.1278, 228.0],
     ),
     (
         "dwd",
         "mosmix",
         "--resolution=large --parameter=large",
         "10488",
-        "DRESDEN",
+        {
+            "station_id": "10488",
+            "height": 230.0,
+            "icao_id": "EDDC",
+            "latitude": 51.13,
+            "longitude": 13.75,
+            "from_date": None,
+            "name": "DRESDEN",
+            "state": None,
+        },
+        [13.75, 51.13, 230.0],
     ),
 )
 
@@ -198,23 +219,24 @@ def test_data_range():
 
 
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_json(provider, network, setting, station_id, station_name):
+def test_cli_stations_json(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="json"
     )
 
     response = json.loads(result.output)
 
-    station_names = [station["name"] for station in response]
+    first = response[0]
+    first.pop("to_date")
 
-    assert station_name in station_names
+    assert first == expected_dict
 
 
-@pytest.mark.parametrize("provider,network,setting,station_id,station_name", SETTINGS_STATIONS)
-def test_cli_stations_empty(provider, network, setting, station_id, station_name, caplog):
+@pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
+def test_cli_stations_empty(provider, network, setting, station_id, expected_dict, coordinates, caplog):
 
     result = invoke_wetterdienst_stations_empty(provider=provider, network=network, setting=setting, fmt="json")
 
@@ -223,43 +245,44 @@ def test_cli_stations_empty(provider, network, setting, station_id, station_name
     assert "No stations available for given constraints" in caplog.text
 
 
-@pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
-    SETTINGS_STATIONS,
-)
-def test_cli_stations_geojson(provider, network, setting, station_id, station_name):
-
+@pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
+def test_cli_stations_geojson(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="geojson"
     )
 
     response = json.loads(result.output)
 
-    assert len(response["features"]) == 1
+    first = response["features"][0]
 
-    station_names = [station["properties"]["name"] for station in response["features"]]
+    first_prop = first["properties"]
+    first_prop.pop("to_date")
 
-    assert station_name in station_names
+    expected_dict_geo = expected_dict.copy()
+    expected_dict_geo["id"] = expected_dict_geo.pop("station_id")
+
+    assert first_prop.items() <= expected_dict_geo.items()
+    assert first["geometry"]["coordinates"] == coordinates
 
 
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_csv(provider, network, setting, station_id, station_name):
+def test_cli_stations_csv(provider, network, setting, station_id, expected_dict, coordinates):
 
     result = invoke_wetterdienst_stations_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="csv"
     )
 
-    assert station_name in result.output
+    assert expected_dict["name"] in result.output
 
 
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_excel(provider, network, setting, station_id, station_name, tmpdir_factory):
+def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmpdir_factory):
 
     # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")  # Noqa:E800
     filename = "stations.xlsx"
@@ -275,7 +298,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, station_name
     df = pd.read_excel("stations.xlsx", sheet_name="Sheet1", dtype=str)
 
     assert "name" in df
-    assert station_name in df["name"].values
+    assert expected_dict["name"] in df["name"].values
 
 
 @pytest.mark.parametrize(
@@ -332,10 +355,10 @@ def test_cli_values_json_tidy(provider, network, setting, station_id, station_na
 
 
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_values_geojson(provider, network, setting, station_id, station_name, capsys):
+def test_cli_values_geojson_failure(provider, network, setting, station_id, expected_dict, coordinates, capsys):
     result = invoke_wetterdienst_values_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="geojson"
     )
@@ -391,18 +414,20 @@ def test_cli_values_format_unknown(provider, network, setting, station_id, stati
 
 
 @pytest.mark.parametrize(
-    "provider,network,setting,station_id,station_name",
+    "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_geospatial(provider, network, setting, station_id, station_name):
+def test_cli_stations_geospatial(provider, network, setting, station_id, expected_dict, coordinates):
 
     result = invoke_wetterdienst_stations_geo(provider=provider, network=network, setting=setting, fmt="json")
 
     response = json.loads(result.output)
 
-    station_names = {station["name"] for station in response}
+    first = response[0]
 
-    assert station_name in station_names
+    first_filtered = {k: first[k] for k in expected_dict.keys()}
+
+    assert first_filtered == expected_dict
 
 
 @pytest.mark.parametrize(
