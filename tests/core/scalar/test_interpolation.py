@@ -2,7 +2,6 @@ from datetime import datetime
 
 import pandas as pd
 import pytest
-from pandas import Timestamp
 from pandas._testing import assert_frame_equal
 
 from wetterdienst import Parameter
@@ -27,22 +26,21 @@ def test_interpolation_temperature_air_mean_200_hourly():
     result = stations.interpolate(latitude=50.0, longitude=8.9)
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 18001
-    assert interpolated_df.dropna().shape[0] == 12385
+    assert interpolated_df.dropna().shape[0] == 12289
 
-    test_df = result.filter_by_date("2022-01-02 00:00:00+0000").reset_index(drop=True)
+    test_df = result.filter_by_date("2022-01-02 00:00:00+00:00").reset_index(drop=True)
 
-    assert_frame_equal(
-        test_df,
-        pd.DataFrame(
-            {
-                "date": {0: Timestamp("2022-01-02 00:00:00+0000", tz="UTC")},
-                "parameter": {0: Parameter.TEMPERATURE_AIR_MEAN_200.name.lower()},
-                "value": {0: 276.94455095211555},
-                "distance_mean": {0: 13.37185625092419},
-                "station_ids": {0: ["02480", "04411", "07341", "00917"]},
-            }
-        ),
+    expected_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2022-01-02 00:00:00+00:00"], utc=True),
+            "parameter": [Parameter.TEMPERATURE_AIR_MEAN_200.name.lower()],
+            "value": [277.64609],
+            "distance_mean": [13.37185625092419],
+            "station_ids": [["02480", "04411", "07341", "00917"]],
+        }
     )
+
+    assert_frame_equal(test_df, expected_df)
 
 
 @pytest.mark.slow
@@ -56,23 +54,23 @@ def test_interpolation_precipitation_height_minute_10():
 
     result = stations.interpolate(latitude=50.0, longitude=8.9)
     interpolated_df = result.df
+
     assert interpolated_df.shape[0] == 577
     assert interpolated_df.dropna().shape[0] == 577
 
-    test_df = result.filter_by_date("2021-10-05 00:00:00+0000").reset_index(drop=True)
+    test_df = result.filter_by_date("2021-10-05 00:00:00+00:00").reset_index(drop=True)
 
-    assert_frame_equal(
-        test_df,
-        pd.DataFrame(
-            {
-                "date": {0: Timestamp("2021-10-05 00:00:00+0000", tz="UTC")},
-                "parameter": {0: Parameter.PRECIPITATION_HEIGHT.name.lower()},
-                "value": {0: 0.0},  # TODO (NN): got -0.0014067201111032121
-                "distance_mean": {0: 9.377547913740226},
-                "station_ids": {0: ["04230", "02480", "04411", "07341"]},
-            }
-        ),
+    expected_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2021-10-05 00:00:00+00:00"], utc=True),
+            "parameter": [Parameter.PRECIPITATION_HEIGHT.name.lower()],
+            "value": [0.03362224236086883],
+            "distance_mean": [9.377547913740226],
+            "station_ids": [["04230", "02480", "04411", "07341"]],
+        }
     )
+
+    assert_frame_equal(test_df, expected_df)
 
 
 def test_not_interpolatable_parameter():
@@ -88,17 +86,22 @@ def test_not_interpolatable_parameter():
     assert interpolated_df.shape[0] == 0
     assert interpolated_df.dropna().shape[0] == 0
 
+    expected_df = pd.DataFrame(
+        columns=[
+            Columns.DATE.value,
+            Columns.PARAMETER.value,
+            Columns.VALUE.value,
+            Columns.DISTANCE_MEAN.value,
+            Columns.STATION_IDS.value,
+        ]
+    ).reset_index(drop=True)
+    expected_df[Columns.VALUE.value] = pd.Series(expected_df[Columns.VALUE.value].values, dtype=float)
+    expected_df[Columns.DISTANCE_MEAN.value] = pd.Series(expected_df[Columns.DISTANCE_MEAN.value].values, dtype=float)
+    expected_df[Columns.DATE.value] = pd.to_datetime([], utc=True)
+
     assert_frame_equal(
         interpolated_df,
-        pd.DataFrame(
-            columns=[
-                Columns.DATE.value,
-                Columns.PARAMETER.value,
-                Columns.VALUE.value,
-                Columns.DISTANCE_MEAN.value,
-                Columns.STATION_IDS.value,
-            ]
-        ).reset_index(drop=True),
+        expected_df,
     )
 
 
@@ -115,15 +118,21 @@ def test_not_interpolatable_dataset():
     assert interpolated_df.shape[0] == 0
     assert interpolated_df.dropna().shape[0] == 0
 
+    expected_df = pd.DataFrame(
+        columns=[
+            Columns.DATE.value,
+            Columns.PARAMETER.value,
+            Columns.VALUE.value,
+            Columns.DISTANCE_MEAN.value,
+            Columns.STATION_IDS.value,
+        ]
+    ).reset_index(drop=True)
+    expected_df[Columns.VALUE.value] = pd.Series(expected_df[Columns.VALUE.value].values, dtype=float)
+    expected_df[Columns.DISTANCE_MEAN.value] = pd.Series(expected_df[Columns.DISTANCE_MEAN.value].values, dtype=float)
+    expected_df[Columns.DATE.value] = pd.to_datetime([], utc=True)
+
     assert_frame_equal(
         interpolated_df,
-        pd.DataFrame(
-            columns=[
-                Columns.DATE.value,
-                Columns.PARAMETER.value,
-                Columns.VALUE.value,
-                Columns.DISTANCE_MEAN.value,
-                Columns.STATION_IDS.value,
-            ]
-        ).reset_index(drop=True),
+        expected_df,
+        check_categorical=False,
     )

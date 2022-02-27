@@ -25,7 +25,11 @@ def get_interpolated_df(
     stations_ranked, requested_x, requested_y, parameters, interpolatable_parameters
 ) -> pd.DataFrame:
     stations_dict, param_dict = request_stations(stations_ranked, interpolatable_parameters, parameters)
-    return calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
+    df = calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
+    df[Columns.DISTANCE_MEAN.value] = pd.Series(df[Columns.DISTANCE_MEAN.value].values, dtype=float)
+    df[Columns.VALUE.value] = pd.Series(df[Columns.VALUE.value].values, dtype=float)
+    df[Columns.DATE.value] = pd.to_datetime(df[Columns.DATE.value], utc=True)
+    return df
 
 
 def request_stations(stations_ranked, interpolatable_parameters, parameters) -> (dict, dict):
@@ -155,6 +159,6 @@ def apply_interpolation(row, all_station_ids, stations_dict, parameter, requeste
     distance_mean = distances.mean()
 
     f = interpolate.interp2d(ys, xs, vals, kind="linear")
-    value = f(requested_y, requested_x)[0]  # there is only one interpolation result
+    value = f(requested_x, requested_y)[0]  # there is only one interpolation result
 
     return parameter, value, distance_mean, station_ids
