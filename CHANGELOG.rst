@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.29.0 (27.02.2022)
+*******************
+
 - Simplify parameters using only one enumeration for flattened and detailed parameters
 - Rename dataset SUNSHINE_DURATION to SUN to avoid complications with similar named parameter and dataset
 - Rename parameter VISIBILITY to VISIBILITY_RANGE
