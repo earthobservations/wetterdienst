@@ -2,11 +2,15 @@
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
+from functools import lru_cache
+from itertools import combinations
+from queue import Queue
 
 import numpy as np
 import pandas as pd
 import utm
 from scipy import interpolate
+from shapely.geometry import Point, Polygon
 
 from wetterdienst.metadata.columns import Columns
 
@@ -105,7 +109,6 @@ def extract_station_values(param_data, result_df_param, station_id):
             param_data.extra_station_counter += 1
 
         param_data.values[result_df_param.name] = result_df_param.values
-        param_data.station_ids.append(station_id)
     else:
         param_data.finished = True
 
@@ -126,12 +129,13 @@ def calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
         Columns.STATION_IDS.value,
     ]
     param_df_list = [pd.DataFrame(columns=columns)]
+    valid_station_groups = get_valid_station_groups(stations_dict, requested_x, requested_y)
 
     for parameter, param_data in param_dict.items():
         param_df = pd.DataFrame(columns=columns)
         param_df[columns[1:]] = param_data.values.apply(
             lambda row: apply_interpolation(
-                row, param_data.station_ids, stations_dict, parameter, requested_x, requested_y
+                row, stations_dict, valid_station_groups, parameter, requested_x, requested_y
             ),
             axis=1,
             result_type="expand",
@@ -142,23 +146,49 @@ def calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
     return pd.concat(param_df_list).sort_values(by=[Columns.DATE.value, Columns.PARAMETER.value]).reset_index(drop=True)
 
 
-def apply_interpolation(row, all_station_ids, stations_dict, parameter, requested_x, requested_y):
+def get_valid_station_groups(stations_dict, requested_x, requested_y):
+    point = Point(requested_x, requested_y)
+
+    valid_groups = Queue()
+    # get all combinations of 4 stations
+    for station_group in combinations(stations_dict.keys(), 4):
+        coords = [(stations_dict[s][1], stations_dict[s][0]) for s in station_group]
+        pol = Polygon(coords)
+        if pol.contains(point):
+            valid_groups.put(station_group)
+
+    return valid_groups
+
+
+@lru_cache
+def get_station_group_ids(valid_station_groups: Queue, vals_index: frozenset) -> list:
+    for item in valid_station_groups.queue:
+        if set(item).issubset(vals_index):
+            return list(item)
+    return []
+
+
+def apply_interpolation(row, stations_dict, valid_station_groups, parameter, requested_x, requested_y):
     vals_state = ~np.isnan(row.values)
-    vals = row.values[vals_state][:4]
+    vals = row[vals_state]
+
+    station_group_ids = get_station_group_ids(valid_station_groups, frozenset(vals.index))
+
+    if station_group_ids:
+        vals = vals[station_group_ids]
+    else:
+        vals = None
+
     value = np.nan
     distance_mean = np.nan
-    station_ids = np.nan
 
-    if vals.size < 4:
-        return parameter, value, distance_mean, station_ids
+    if vals is None or vals.size < 4:
+        return parameter, value, distance_mean, station_group_ids
 
-    station_idx = np.arange(row.values.size)[vals_state][:4]
-    station_ids = np.array(all_station_ids)[station_idx]
-
-    xs, ys, distances = map(np.float64, zip(*[stations_dict[station_id] for station_id in station_ids]))
-    distance_mean = distances.mean()
+    xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
+    distance_mean = sum(distances) / len(distances)
 
     f = interpolate.interp2d(ys, xs, vals, kind="linear")
     value = f(requested_x, requested_y)[0]  # there is only one interpolation result
 
-    return parameter, value, distance_mean, station_ids
+    return parameter, value, distance_mean, station_group_ids
