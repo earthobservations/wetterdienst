@@ -116,22 +116,6 @@ def _parse_climate_observations_data(
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(columns=DwdColumns.EOR.value, errors="ignore")
 
-    # Special handling for hourly solar data, as it has more date columns
-    if resolution == Resolution.HOURLY and dataset == DwdObservationDataset.SOLAR:
-        # Rename date column correctly to end of interval, as it has additional minute
-        # information. Also rename column with true local time to english one
-        df = df.rename(
-            columns={
-                "mess_datum_woz": DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
-            }
-        )
-
-        # Duplicate the date column to end of interval column
-        df[DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
-
-        # Fix real date column by cutting of minutes
-        df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
-
     if resolution == Resolution.MINUTE_1 and dataset == DwdObservationDataset.PRECIPITATION:
         # Need to unfold historical data, as it is encoded in its run length e.g.
         # from time X to time Y precipitation is 0
@@ -172,6 +156,31 @@ def _parse_climate_observations_data(
             for parameter in PRECIPITATION_PARAMETERS:
                 if parameter not in df:
                     df[parameter] = pd.NA
+
+    # Special handling for hourly solar data, as it has more date columns
+    if resolution == Resolution.HOURLY and dataset == DwdObservationDataset.SOLAR:
+        # Rename date column correctly to end of interval, as it has additional minute
+        # information. Also rename column with true local time to english one
+        df = df.rename(
+            columns={
+                "mess_datum_woz": DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+            }
+        )
+
+        # Duplicate the date column to end of interval column
+        df[DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
+
+        # Fix real date column by cutting of minutes
+        df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
+
+    if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
+        df = df.rename(
+            columns={
+                DwdOrigColumns.FROM_DATE.value: DwdColumns.DATE.value,
+                DwdOrigColumns.FROM_DATE_ALTERNATIVE.value: DwdColumns.DATE.value,
+            }
+        )
+        df = df.drop(columns=[DwdOrigColumns.TO_DATE.value, DwdOrigColumns.TO_DATE_ALTERNATIVE.value], errors="ignore")
 
     # Assign meaningful column names (baseline).
     return df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)

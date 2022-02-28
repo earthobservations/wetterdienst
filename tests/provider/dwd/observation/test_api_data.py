@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 import pytz
 from freezegun import freeze_time
+from pandas import Timestamp
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.exceptions import StartDateEndDateError
@@ -755,6 +756,54 @@ def test_dwd_observation_data_10_minutes_result_tidy():
         # Needed since pandas 1.2?
         check_categorical=False,
     )
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_monthly_tidy():
+    """Test for actual values (tidy) in metric units"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    request = DwdObservationRequest(
+        parameter=[DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT],
+        resolution=DwdObservationResolution.MONTHLY,
+        period=DwdObservationPeriod.RECENT,
+        start_date="2020-01-01",
+        end_date="2020-12-31",
+    ).filter_by_rank(52.462301, 13.455006, 1)
+
+    values = request.values.all().df
+
+    expected_df = pd.DataFrame(
+        {
+            "station_id": pd.Categorical(["00433"] * 12),
+            "dataset": pd.Categorical(["climate_summary"] * 12),
+            "parameter": pd.Categorical(["precipitation_height"] * 12),
+            "date": [
+                Timestamp("2020-01-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-02-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-03-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-04-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-05-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-06-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-07-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-08-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-09-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-10-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-11-01 00:00:00+0000", tz="UTC"),
+                Timestamp("2020-12-01 00:00:00+0000", tz="UTC"),
+            ],
+            "value": pd.to_numeric(
+                [pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 46.8, 43.2, 52.8, 58.2, 16.4, 22.1], errors="coerce"
+            ),
+            "quality": pd.to_numeric(
+                [pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0], errors="coerce"
+            ),
+        },
+    )
+
+    assert_frame_equal(values, expected_df, check_categorical=False)
 
 
 def test_create_humanized_column_names_mapping():
