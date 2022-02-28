@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.30.0 (27.02.2022)
+*******************
+
 - Fix monthly/annual data of DWD observations
 
 0.29.0 (27.02.2022)
