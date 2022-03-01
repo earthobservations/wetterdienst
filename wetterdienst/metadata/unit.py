@@ -63,6 +63,9 @@ class OriginUnit(Enum):
     JOULE_PER_SQUARE_CENTIMETER = REGISTRY.joule / (REGISTRY.centimeter ** 2)
     KILOJOULE_PER_SQUARE_METER = REGISTRY.kilojoule / (REGISTRY.meter ** 2)
 
+    # Volume
+    CUBIC_METERS_PER_SECOND = (REGISTRY.meter ** 3) / REGISTRY.second
+
 
 class SIUnit(Enum):
     DIMENSIONLESS = REGISTRY.dimensionless
@@ -92,8 +95,10 @@ class SIUnit(Enum):
 
     # Energy
     GLOBAL_IRRADIANCE = REGISTRY.global_irradiance  # should stay the same in SI
-
     JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter ** 2)
 
     # Precipitation
     KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter ** 2)
+
+    # Volume
+    CUBIC_METERS_PER_SECOND = (REGISTRY.meter ** 3) / REGISTRY.second

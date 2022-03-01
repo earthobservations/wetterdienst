@@ -219,7 +219,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         dataset_accessor = self.stations.stations._dataset_accessor
 
-        if self.stations.stations._unique_dataset:
+        if self.stations.stations._unique_dataset or not self.stations.stations._has_datasets:
             units = self.stations.stations._unit_tree[dataset_accessor]
         else:
             units = self.stations.stations._unit_tree[dataset_accessor][dataset]
@@ -233,10 +233,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
             # Get parameter name
             parameter = parameter.name
 
-            if self.stations.stations._unique_dataset:
-                parameter_value = self.stations.stations._parameter_base[dataset_accessor][parameter].value
+            if self.stations.stations._unique_dataset or not self.stations.stations._has_datasets:
+                parameter_value = self.stations.stations._parameter_base[dataset_accessor][parameter].value.lower()
             else:
-                parameter_value = self.stations.stations._parameter_base[dataset_accessor][dataset][parameter].value
+                parameter_value = self.stations.stations._parameter_base[dataset_accessor][dataset][
+                    parameter
+                ].value.lower()
 
             if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
                 # Fixed conversion factors to kg / m², as it only applies
@@ -313,7 +315,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         # if parameter is a whole dataset, take every parameter from the dataset instead
         if parameter == dataset:
-            if self.stations.stations._unique_dataset:
+            if self.stations.stations._unique_dataset or not self.stations.stations._has_datasets:
                 parameter = [*parameter_base[resolution.name]]
             else:
                 parameter = [*parameter_base[resolution.name][dataset.name]]
@@ -529,8 +531,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 station_df = self._humanize(station_df)
 
             # Empty dataframe should be skipped
-            if station_df.empty:
-                continue
+            # if station_df.empty:
+            #     continue
 
             # TODO: add more meaningful metadata here
             yield ValuesResult(stations=self.stations, df=station_df)
@@ -799,5 +801,5 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         return {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[self.stations.stations.resolution.name]
+            for parameter in self.stations.stations._parameter_base[self.stations.stations._dataset_accessor]
         }
