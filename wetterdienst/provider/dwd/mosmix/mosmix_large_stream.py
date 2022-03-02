@@ -32,16 +32,20 @@ class KMLStreamReader:
 
     def read(self):
         print(f"Parsing KML")
+        count = 0
         for event, elem in ET.iterparse(self.uri, events=("end",)):
             if event == "end":
                 # if elem.tag == 'location' and elem.text and 'Africa' in elem.text:
                 #    count += 1
                 #
-                print(f"Element: {elem}")
+                #print(f"Element: {elem}")
                 elem.clear()
+                count += 1
+        return count
 
 
 if __name__ == "__main__":
     path = sys.argv[1]
     ksr = KMLStreamReader(uri=path)
-    ksr.read()
+    count = ksr.read()
+    print(f"Elements seen: {count}")
