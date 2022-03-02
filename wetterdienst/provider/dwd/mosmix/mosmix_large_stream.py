@@ -44,8 +44,16 @@ class KMLStreamReader:
         return count
 
 
+def memory_used():
+    # pip intall psutil
+    import os, psutil
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss
+
+
 if __name__ == "__main__":
     path = sys.argv[1]
     ksr = KMLStreamReader(uri=path)
     count = ksr.read()
     print(f"Elements seen: {count}")
+    print(f"Memory used:   {memory_used()}")
