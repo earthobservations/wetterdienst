@@ -19,7 +19,7 @@ Synopsis
 
 """
 import sys
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 from pathlib import Path
 from typing import Union
 
