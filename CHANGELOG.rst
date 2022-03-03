@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+- Fix naming of sun dataset
+- Fix DWD Observation monthly test
+
 0.30.0 (27.02.2022)
 *******************
 
