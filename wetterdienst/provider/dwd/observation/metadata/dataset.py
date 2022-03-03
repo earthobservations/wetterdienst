@@ -29,7 +29,7 @@ class DwdObservationDataset(Enum):
     DEW_POINT = "dew_point"
     PRESSURE = "pressure"
     TEMPERATURE_SOIL = "soil_temperature"
-    SUNSHINE_DURATION = "sun"
+    SUN = "sun"
     VISIBILITY = "visibility"
     WIND_SYNOPTIC = "wind_synop"
     MOISTURE = "moisture"
@@ -116,7 +116,7 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationDataset.SUNSHINE_DURATION: [
+        DwdObservationDataset.SUN: [
             Period.HISTORICAL,
             Period.RECENT,
         ],

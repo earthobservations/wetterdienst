@@ -768,10 +768,9 @@ def test_dwd_observation_data_monthly_tidy():
     request = DwdObservationRequest(
         parameter=[DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT],
         resolution=DwdObservationResolution.MONTHLY,
-        period=DwdObservationPeriod.RECENT,
         start_date="2020-01-01",
         end_date="2020-12-31",
-    ).filter_by_rank(52.462301, 13.455006, 1)
+    ).filter_by_station_id("00433")
 
     values = request.values.all().df
 
@@ -795,11 +794,9 @@ def test_dwd_observation_data_monthly_tidy():
                 Timestamp("2020-12-01 00:00:00+0000", tz="UTC"),
             ],
             "value": pd.to_numeric(
-                [pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 46.8, 43.2, 52.8, 58.2, 16.4, 22.1], errors="coerce"
+                [34.0, 83.2, 30.3, 22.7, 33.3, 35.8, 46.8, 43.2, 52.8, 58.2, 16.4, 22.1], errors="coerce"
             ),
-            "quality": pd.to_numeric(
-                [pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0], errors="coerce"
-            ),
+            "quality": pd.to_numeric([9.0, 9.0, 9.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0], errors="coerce"),
         },
     )
 
