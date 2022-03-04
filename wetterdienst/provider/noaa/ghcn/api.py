@@ -28,7 +28,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 
-class NoaaGhcnDatasetBase(Enum):
+class NoaaGhcnDataset(Enum):
     DAILY = "daily"
 
 
@@ -133,7 +133,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
     provider = Provider.NOAA
     kind = Kind.OBSERVATION
 
-    _dataset_base = NoaaGhcnDatasetBase
+    _dataset_base = NoaaGhcnDataset
     _parameter_base = NoaaGhcnParameter
 
     _resolution_type = ResolutionType.FIXED
