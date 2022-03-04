@@ -34,7 +34,7 @@ Setup
 =====
 ::
 
-    pip install lxml pykml psutil
+    pip install lxml pykml fiona geopandas psutil
 
 
 Synopsis
@@ -108,6 +108,20 @@ def parse_pykml(path: str):
         print(f"Memory used:   {memory_used()}")
 
 
+def parse_fiona(path: str):
+    # https://gist.github.com/mazzma12/0a32ce693bb42b742252caabb98519db
+    import fiona
+    import geopandas as gpd
+
+    # Enable fiona driver
+    gpd.io.file.fiona.drvsupport.supported_drivers["KML"] = "rw"
+
+    # Read file
+    df = gpd.read_file(path, driver="KML")
+    print(f"Stations parsed: {len(df)}")
+    print(f"Memory used:     {memory_used()}")
+
+
 if __name__ == "__main__":
     parser = sys.argv[1]
     path = sys.argv[2]
@@ -115,5 +129,7 @@ if __name__ == "__main__":
         parse_lxml_stream(path)
     elif parser == "pykml":
         parse_pykml(path)
+    elif parser == "fiona":
+        parse_fiona(path)
     else:
         raise KeyError(f"Unknown parser")
