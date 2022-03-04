@@ -2,7 +2,27 @@
 About
 =====
 
-Read DWD MOSMIX LARGE XML/KML files efficiently.
+Read XML/KML files efficiently, in terms of CPU and RAM usage.
+Here, we are looking at the DWD ``MOSMIX_L/all_stations`` (large) dataset,
+which is essentially a single XML file with 1.8 GB file size.
+
+-- https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/all_stations/kml/
+
+
+Why?
+====
+
+- `Acquire data from MOSMIX_L/all_stations dataset <https://github.com/earthobservations/wetterdienst/issues/586>`_
+- `Improve efficiency when reading large XML/KML files <https://github.com/earthobservations/wetterdienst/pull/607>`_
+
+All other implementations are not efficient enough, as they load the whole file
+content into memory. This is not feasible in resource-constrained environments.
+
+- https://github.com/FL550/simple_dwd_weatherforecast
+- https://github.com/jeremiahpslewis/dwdbulk
+- https://pypi.org/project/pykml/
+- https://pypi.org/project/fastkml/
+
 
 Reference
 =========
