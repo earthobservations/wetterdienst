@@ -10,6 +10,7 @@ class EcccObservationDataset(Enum):
     HOURLY = "hourly"
     DAILY = "daily"
     MONTHLY = "monthly"
+    ANNUAL = "annual"
 
 
 class EcccObservationParameter(DatasetTreeCore):

@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Improve integrity of dataset, parameter and unit enumerations with further tests
+
 0.30.1 (03.03.2022)
 *******************
 
