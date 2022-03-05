@@ -8,6 +8,7 @@ This is a list of the people who directly contributed to wetterdienst in one way
 
 * `Daniel Lassahn <https://github.com/meteoDaniel>`_
     - UI/Browser interface
+    - Road Weather API
 
 * `Trevor James Smith <https://github.com/Zeitsperre>`_
     - Contribution of Environment and Climate Change Canada adapter - Thanks!

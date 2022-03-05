@@ -41,3 +41,10 @@ class Columns(Enum):
     ICAO_ID = "icao_id"
     # Special columns
     QUALITY_PREFIX = "qn"
+    # for road weather
+    ROAD_NAME = "road_name"
+    ROAD_TYPE = "road_type"
+    ROAD_SURFACE_TYPE = "road_type"
+    STATION_GROUP = "station_group"
+    ROAD_SECTOR = "road_Sector"
+    ROAD_SURROUNDINGS_TYPE = "road_surroundings_type"

@@ -38,14 +38,22 @@ def _create_file_index_for_dwd_server(
     """
     parameter_path = build_path_to_parameter(dataset, resolution, period)
 
-    url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
+    return _list_remote_files_as_dataframe(reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path]))
 
+
+def _list_remote_files_as_dataframe(url: str) -> pd.DataFrame:
+    """
+    Takes a remote URL path to list all files within this html directory
+    and return them as a pd.DataFrame
+    @todo write test
+    Args:
+        url: remote url to a html directory
+    Returns:
+        pd.DataFrame with listed files
+    """
     files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.TWELVE_HOURS)
 
-    if not files_server:
-        raise FileNotFoundError(f"url {url} does not have a list of files")
-
-    return pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype=str)
+    return pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype="str")
 
 
 def build_path_to_parameter(
