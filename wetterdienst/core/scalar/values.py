@@ -99,7 +99,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """String parameters that will be parsed to integers."""
         pass
 
-    def _get_complete_dates(self, station_id) -> pd.DatetimeIndex:
+    def _get_complete_dates(self, station_id: str) -> pd.DatetimeIndex:
         """
         Complete datetime index for the requested start and end date, used for
         building a complementary pandas DataFrame with the date column on which
