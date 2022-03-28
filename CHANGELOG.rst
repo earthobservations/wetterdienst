@@ -5,6 +5,8 @@ Development
 ***********
 
 - Improve integrity of dataset, parameter and unit enumerations with further tests
+- Change source of hourly sunshine duration to dataset sun
+- Change source of hourly total cloud cover (+indicator) to dataset cloudiness
 
 0.30.1 (03.03.2022)
 *******************
