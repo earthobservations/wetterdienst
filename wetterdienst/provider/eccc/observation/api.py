@@ -333,7 +333,7 @@ class EcccObservationRequest(ScalarRequestCore):
         csv_payload = self._download_stations()
 
         # Read into Pandas data frame.
-        df = pd.read_csv(BytesIO(csv_payload), header=2, dtype=str)
+        df = pd.read_csv(BytesIO(csv_payload), header=3, dtype=str)
 
         df = df.rename(columns=str.lower)
 
