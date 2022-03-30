@@ -93,6 +93,20 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """String parameters that will be parsed to integers."""
         pass
 
+    def fetch_dynamic_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+        """
+        Method used to fetch the dynamic frequency string from somewhere and then set it after download the
+        corresponding dataset. The fetch may either be an arbitrary algorithm that parses the frequency from the
+        downloaded data or simply get the frequency from elsewhere. This method has to be implemented only for
+        services that have dynamic resolutions.
+        :param station_id:
+        :param parameter:
+        :param dataset:
+        :return:
+        """
+        if self.stations.stations.resolution == Resolution.DYNAMIC:
+            raise NotImplementedError("implement this method if the service has a dynamic resolution")
+
     def _get_complete_dates(self, station_id) -> pd.DatetimeIndex:
         """
         Complete datetime index for the requested start and end date, used for
@@ -465,6 +479,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
                     station_data.append(self._create_empty_station_parameter_df(station_id, parameter, dataset))
                     continue
 
+                # set dynamic resolution for services that have no fixed resolutions
+                if self.stations.stations.resolution == Resolution.DYNAMIC:
+                    self.stations.stations.dynamic_frequency = self.fetch_dynamic_frequency(
+                        station_id, parameter, dataset
+                    )
+
                 self._coerce_date_fields(parameter_df, station_id)
 
                 # TODO: we are coercing values here for conversion of units
@@ -690,7 +710,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :return:
         """
         if not is_datetime(series):
-            series = pd.to_datetime(series, infer_datetime_format=True)
+            series = pd.Series(series.map(lambda x: pd.Timestamp(x).tz_convert(pytz.UTC)))
 
         try:
             return series.dt.tz_localize(timezone_)

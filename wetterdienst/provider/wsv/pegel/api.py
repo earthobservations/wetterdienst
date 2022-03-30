@@ -1,23 +1,39 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
+from datetime import datetime
 from enum import Enum
 from io import BytesIO
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 
-from wetterdienst import Kind, Period, Provider, Resolution
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType
+from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.provider import Provider
+from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import NetworkFilesystemManager
 from wetterdienst.util.parameter import DatasetTreeCore
+
+FLOAT_9_TIMES = Tuple[
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+]
 
 
 class WsvPegelParameter(DatasetTreeCore):
@@ -25,12 +41,50 @@ class WsvPegelParameter(DatasetTreeCore):
         WATER_LEVEL = "W"
         DISCHARGE = "Q"
         RUNOFF = DISCHARGE
+        TEMPERATURE_WATER = "WT"
+        ELECTRIC_CONDUCTIVITY = "LF"
+        CLEARANCE_HEIGHT = "DFH"
+        TEMPERATURE_AIR_MEAN_200 = "LT"
+        FLOW_SPEED = "VA"
+        GROUNDWATER_LEVEL = "GRU"
+        WIND_SPEED = "WG"
+        HUMIDITY = "HL"
+        OXYGEN_LEVEL = "O2"
+        TURBIDITY = "TR"
+        CURRENT = "R"
+        WIND_DIRECTION = "WR"
+        PRECIPITATION_HEIGHT = "NIEDERSCHLAG"
+        PRECIPITATION_INTENSITY = "NIEDERSCHLAGSINTENSITÄT"
+        WAVE_PERIOD = "TP"
+        WAVE_HEIGHT_SIGN = "SIGH"
+        WAVE_HEIGHT_MAX = "MAXH"
+        PH_VALUE = "PH"
+        CHLORID_CONCENTRATION = "CL"
 
 
 class WsvPegelUnit(DatasetTreeCore):
     class DYNAMIC(Enum):
         WATER_LEVEL = OriginUnit.CENTIMETER.value, SIUnit.METER.value
         DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+        TEMPERATURE_WATER = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+        ELECTRIC_CONDUCTIVITY = OriginUnit.MICROSIEMENS_PER_CENTIMETER.value, SIUnit.SIEMENS_PER_METER.value
+        CLEARANCE_HEIGHT = OriginUnit.METER.value, SIUnit.METER.value
+        TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+        FLOW_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+        GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
+        WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+        HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+        OXYGEN_LEVEL = OriginUnit.MILLIGRAM_PER_LITER.value, SIUnit.MILLIGRAM_PER_LITER.value
+        TURBIDITY = OriginUnit.TURBIDITY.value, SIUnit.TURBIDITY.value
+        CURRENT = OriginUnit.MAGNETIC_FIELD_STRENGTH.value, SIUnit.MAGNETIC_FIELD_STRENGTH.value
+        WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value, SIUnit.WIND_DIRECTION.value
+        PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+        PRECIPITATION_INTENSITY = OriginUnit.MILLIMETER_PER_HOUR.value, SIUnit.MILLIMETER_PER_HOUR.value
+        WAVE_PERIOD = OriginUnit.WAVE_PERIOD.value, SIUnit.WAVE_PERIOD.value
+        WAVE_HEIGHT_SIGN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+        WAVE_HEIGHT_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+        PH_VALUE = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
+        CHLORID_CONCENTRATION = OriginUnit.MILLIGRAM_PER_LITER.value, OriginUnit.MILLIGRAM_PER_LITER.value
 
 
 class WsvPegelResolution(Enum):
@@ -42,12 +96,15 @@ class WsvPegelDataset(Enum):
 
 
 class WsvPegelValues(ScalarValuesCore):
+    """Values class for WSV Pegelonline data"""
+
     _string_parameters = ()
-    _integer_parameters = ()
     _irregular_parameters = ()
     _date_parameters = ()
 
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
+    # Used for getting frequency of timeseries
+    _station_endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/"
     _fs = NetworkFilesystemManager.get(CacheExpiry.NO_CACHE)
 
     @property
@@ -55,6 +112,14 @@ class WsvPegelValues(ScalarValuesCore):
         return Timezone.GERMANY
 
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
+        """
+        Method to collect data for station parameter from WSV Pegelonline following its open REST-API at
+        https://pegelonline.wsv.de/webservices/rest-api/v2/stations/
+        :param station_id: station_id string
+        :param parameter: parameter enumeration
+        :param dataset: dataset enumeration
+        :return: pandas DataFrame with data
+        """
         url = self._endpoint.format(station_id=station_id, parameter=parameter.value)
 
         try:
@@ -70,11 +135,30 @@ class WsvPegelValues(ScalarValuesCore):
 
         return df
 
+    def fetch_dynamic_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+        """
+        Method to get the frequency string for a station and parameter from WSV Pegelonline. The frequency is given at
+        each station dict queried from the REST-API under "equidistance"
+        :param station_id: station_id string
+        :param parameter: parameter enumeration
+        :param dataset: dataset enumeration
+        :return: frequency as string e.g. "15min" -> Literal["1min", "5min", "15min", "60min"]
+        """
+        url = self._station_endpoint.format(station_id=station_id, parameter=parameter.value)
+
+        response = self._fs.cat(url)
+
+        station_dict = json.load(BytesIO(response))
+
+        return f"{station_dict['equidistance']}min"
+
 
 class WsvPegelRequest(ScalarRequestCore):
+    """Request class for WSV Pegelonline, a German river management facility and
+    provider of river-based measurements for last 30 days"""
+
     _tz = Timezone.GERMANY
 
-    # _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json"
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true&includeCharacteristicValues=true"
     _fs = NetworkFilesystemManager.get(CacheExpiry.ONE_HOUR)
 
@@ -100,6 +184,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
     _values = WsvPegelValues
 
+    # Characteristic/statistical values may be provided for stations
     characteristic_values = {
         "m_i": "first flood marking",
         "m_ii": "second flood marking",
@@ -111,14 +196,41 @@ class WsvPegelRequest(ScalarRequestCore):
         "hsw": "highest of shipping water level",
     }
 
+    # extend base columns of core class with those of characteristic values plus gauge zero
     _base_columns = list(ScalarRequestCore._base_columns)
-    _base_columns.extend(["gauge_zero", "m_i", "m_ii", "m_iii", "mnw", "mw", "mhw", "hhw", "hsw"])
+    _base_columns.extend(["gauge_zero", *characteristic_values.keys()])
 
-    def __init__(self, parameter):
-        super(WsvPegelRequest, self).__init__(parameter=parameter, resolution=Resolution.DYNAMIC, period=Period.RECENT)
+    def __init__(
+        self,
+        parameter,
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+    ):
+        super(WsvPegelRequest, self).__init__(
+            parameter=parameter,
+            resolution=Resolution.DYNAMIC,
+            period=Period.RECENT,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
     def _all(self):
-        def _extract_ts(ts_list: list[dict]) -> pd.DataFrame:
+        """
+        Method to get stations for WSV Pegelonline. It involves reading the REST API, doing some transformations and
+        adding characteristic values in extra columns if given for each station.
+        :return:
+        """
+
+        def _extract_ts(
+            ts_list: List[dict],
+        ) -> FLOAT_9_TIMES:
+            """
+            Function to extract water level related information namely gauge zero and characteristic values
+            from timeseries dict given for each station.
+            :param ts_list: list of dictionaries with each dictionary holding information for one
+                characteristic value / gauge zero
+            :return: tuple with values given in exact order
+            """
             ts_water = None
             for ts in ts_list:
                 if ts["shortname"] == "W":
@@ -158,10 +270,12 @@ class WsvPegelRequest(ScalarRequestCore):
 
         timeseries = df.pop("timeseries")
 
+        # Get available parameters per station
         df["ts"] = timeseries.apply(lambda ts_list: {t["shortname"].lower() for t in ts_list})
 
         parameters = {par.value.lower() for par, ds in self.parameter}
 
+        # Filter out stations that do not have any of the parameters requested
         df = df.loc[df["ts"].map(lambda par: not not par.intersection(parameters)), :]
 
         df[["gauge_datum", "m_i", "m_ii", "m_iii", "mnw", "mw", "mhw", "hhw", "hsw"]] = timeseries.apply(
@@ -169,11 +283,3 @@ class WsvPegelRequest(ScalarRequestCore):
         ).apply(pd.Series)
 
         return df
-
-
-if __name__ == "__main__":
-    stations = WsvPegelRequest(WsvPegelParameter.DYNAMIC.WATER_LEVEL).filter_by_station_id("48900237")
-    print(stations.df)
-
-    values = next(stations.values.query())
-    print(values.df)

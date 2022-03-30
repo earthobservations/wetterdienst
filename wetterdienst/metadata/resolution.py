@@ -36,6 +36,8 @@ class Frequency(Enum):
     MINUTE_1 = "1min"
     MINUTE_5 = "5min"
     MINUTE_10 = "10min"
+    MINUTE_15 = "15min"
+    MINUTE_60 = "60min"  # similar to hourly, needed for WSV frequency detection
     HOURLY = "1H"
     HOUR_6 = "6H"
     SUBDAILY = "1H"

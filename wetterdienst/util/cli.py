@@ -16,7 +16,7 @@ def setup_logging(level=logging.INFO) -> None:
     numexpr_logger.setLevel(logging.WARN)
 
 
-def read_list(data: Optional[str], separator: str = u",") -> List[str]:
+def read_list(data: Optional[str], separator: str = ",") -> List[str]:
     if data is None:
         return []
 
