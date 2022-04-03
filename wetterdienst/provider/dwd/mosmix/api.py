@@ -37,7 +37,6 @@ from wetterdienst.provider.dwd.mosmix.metadata import (
     DwdMosmixParameter,
     DwdMosmixType,
 )
-from wetterdienst.provider.dwd.mosmix.metadata.field_types import INTEGER_PARAMETERS
 from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
 from wetterdienst.util.cache import CacheExpiry, cache_dir
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -73,7 +72,6 @@ class DwdMosmixValues(ScalarValuesCore):
     _has_quality = False
 
     _irregular_parameters = ()
-    _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = ()
     _date_parameters = ()
 

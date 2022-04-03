@@ -89,12 +89,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def _integer_parameters(self) -> Tuple[str]:
-        """Integer parameters that will be parsed to integers."""
-        pass
-
-    @property
-    @abstractmethod
     def _string_parameters(self) -> Tuple[str]:
         """String parameters that will be parsed to integers."""
         pass
@@ -703,17 +697,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
             return series.dt.tz_convert(timezone_)
 
     @staticmethod
-    def _coerce_integers(series: pd.Series) -> pd.Series:
-        """
-        Method to parse integers for type coercion. Uses pandas.Int64Dtype() to
-        allow missing values.
-
-        :param series:
-        :return:
-        """
-        return pd.to_numeric(series, errors="coerce").astype(pd.Float64Dtype()).astype(pd.Int64Dtype())
-
-    @staticmethod
     def _coerce_strings(series: pd.Series) -> pd.Series:
         """
         Method to parse strings for type coercion.
@@ -731,7 +714,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :param series:
         :return:
         """
-        return pd.to_numeric(series, errors="coerce")
+        return pd.to_numeric(series, errors="coerce").astype(float)
 
     def _coerce_irregular_parameter(self, series: pd.Series) -> pd.Series:
         """
@@ -759,8 +742,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 continue
             if column in self._irregular_parameters:
                 df[column] = self._coerce_irregular_parameter(df[column])
-            elif column in self._integer_parameters or column.startswith(Columns.QUALITY_PREFIX.value):
-                df[column] = self._coerce_integers(df[column])
             elif column in self._string_parameters:
                 df[column] = self._coerce_strings(df[column])
             else:

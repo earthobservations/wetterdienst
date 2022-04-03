@@ -42,7 +42,6 @@ log = logging.getLogger(__name__)
 class EcccObservationValues(ScalarValuesCore):
 
     _string_parameters = ()
-    _integer_parameters = ()
     _irregular_parameters = ()
     _date_parameters = ()
 

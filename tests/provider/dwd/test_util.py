@@ -72,8 +72,8 @@ def test_coerce_field_types():
             "station_id": pd.Categorical(["00001"]),
             "dataset": pd.Categorical(["climate_summary"]),
             "date": [pd.Timestamp("1970-01-01").tz_localize("utc")],
-            "qn": pd.Series([1], dtype=pd.Int64Dtype()),
-            "rs_ind_01": pd.Series([1], dtype=pd.Int64Dtype()),
+            "qn": pd.Series([1], dtype=float),
+            "rs_ind_01": pd.Series([1], dtype=float),
             "end_of_interval": [np.NaN],
             "v_vv_i": pd.Series(["p"], dtype=pd.StringDtype()),
         }
@@ -104,8 +104,8 @@ def test_coerce_field_types_with_nans():
 
     expected_df = pd.DataFrame(
         {
-            "qn": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
-            "rs_ind_01": pd.Series([pd.NA, np.nan, 1], dtype=pd.Int64Dtype()),
+            "qn": pd.to_numeric([pd.NA, np.nan, 1], errors="coerce"),
+            "rs_ind_01": pd.to_numeric([pd.NA, np.nan, 1], errors="coerce"),
             "v_vv_i": pd.Series([pd.NA, np.nan, "p"], dtype=pd.StringDtype()),
         }
     )

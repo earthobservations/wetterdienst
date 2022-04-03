@@ -36,7 +36,6 @@ from wetterdienst.provider.dwd.observation.metadata import (
 )
 from wetterdienst.provider.dwd.observation.metadata.field_types import (
     DATE_PARAMETERS_IRREGULAR,
-    INTEGER_PARAMETERS,
     STRING_PARAMETERS,
 )
 from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
@@ -68,7 +67,6 @@ class DwdObservationValues(ScalarValuesCore):
     _data_tz = Timezone.UTC
     _has_quality = True
 
-    _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = STRING_PARAMETERS
     _irregular_parameters = ()
     _date_parameters = DATE_PARAMETERS_IRREGULAR
