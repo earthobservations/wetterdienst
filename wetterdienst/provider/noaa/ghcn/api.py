@@ -38,7 +38,6 @@ class NoaaGhcnResolution(Enum):
 
 class NoaaGhcnValues(ScalarValuesCore):
     _string_parameters = ()
-    _integer_parameters = ()
     _irregular_parameters = ()
     _date_parameters = (
         NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,

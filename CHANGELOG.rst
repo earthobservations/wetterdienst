@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Change integer dtypes in untidy format to float to prevent loosing information when converting units
+
 0.31.0 (29.03.2022)
 *******************
 

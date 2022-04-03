@@ -517,7 +517,10 @@ def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
     df: pd.DataFrame = df.copy(deep=True)
 
     date_columns = list(df.select_dtypes(include=[pd.DatetimeTZDtype]).columns)
+    date_columns.extend([Columns.FROM_DATE.value, Columns.TO_DATE.value, Columns.DATE.value])
+    date_columns = set(date_columns)
     for date_column in date_columns:
-        df[date_column] = df[date_column].apply(lambda d: d.isoformat() if pd.notna(d) else None)
+        if date_column in df:
+            df[date_column] = df[date_column].apply(lambda d: d.isoformat() if pd.notna(d) else None)
 
     return df

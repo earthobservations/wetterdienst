@@ -260,12 +260,12 @@ Get data:
     ... ).filter_by_station_id(station_id=(1048, 4411))
     >>> request.df.head()  # station list
         station_id                 from_date                   to_date  height  \
-    209      01048 1934-01-01 00:00:00+00:00 ... 00:00:00+00:00   228.0
-    818      04411 1979-12-01 00:00:00+00:00 ... 00:00:00+00:00   155.0
+    ...      01048 1934-01-01 00:00:00+00:00 ... 00:00:00+00:00   228.0
+    ...      04411 1979-12-01 00:00:00+00:00 ... 00:00:00+00:00   155.0
     <BLANKLINE>
          latitude  longitude                    name    state
-    209   51.1278    13.7543       Dresden-Klotzsche  Sachsen
-    818   49.9195     8.9671  Schaafheim-Schlierbach   Hessen
+    ...   51.1278    13.7543       Dresden-Klotzsche  Sachsen
+    ...   49.9195     8.9671  Schaafheim-Schlierbach   Hessen
 
     >>> request.values.all().df.head()  # values
       station_id          dataset      parameter                      date  value  \
