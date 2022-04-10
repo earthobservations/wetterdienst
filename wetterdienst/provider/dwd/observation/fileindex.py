@@ -99,13 +99,10 @@ def create_file_index_for_climate_observations(
             timezone_germany
         )
 
-        file_index.loc[:, DwdColumns.TO_DATE.value] = (
-            pd.to_datetime(
-                file_index[DwdColumns.TO_DATE.value],
-                format=DatetimeFormat.YMD.value,
-            )
-            + pd.Timedelta(days=1)
-        )
+        file_index.loc[:, DwdColumns.TO_DATE.value] = pd.to_datetime(
+            file_index[DwdColumns.TO_DATE.value],
+            format=DatetimeFormat.YMD.value,
+        ) + pd.Timedelta(days=1)
         file_index.loc[:, DwdColumns.TO_DATE.value] = file_index.loc[:, DwdColumns.TO_DATE.value].dt.tz_localize(
             timezone_germany
         )

@@ -93,6 +93,20 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """String parameters that will be parsed to integers."""
         pass
 
+    def fetch_dynamic_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+        """
+        Method used to fetch the dynamic frequency string from somewhere and then set it after download the
+        corresponding dataset. The fetch may either be an arbitrary algorithm that parses the frequency from the
+        downloaded data or simply get the frequency from elsewhere. This method has to be implemented only for
+        services that have dynamic resolutions.
+        :param station_id:
+        :param parameter:
+        :param dataset:
+        :return:
+        """
+        if self.stations.stations.resolution == Resolution.DYNAMIC:
+            raise NotImplementedError("implement this method if the service has a dynamic resolution")
+
     def _get_complete_dates(self, station_id) -> pd.DatetimeIndex:
         """
         Complete datetime index for the requested start and end date, used for
@@ -219,7 +233,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         dataset_accessor = self.stations.stations._dataset_accessor
 
-        if self.stations.stations._unique_dataset:
+        if self.stations.stations._unique_dataset or not self.stations.stations._has_datasets:
             units = self.stations.stations._unit_tree[dataset_accessor]
         else:
             units = self.stations.stations._unit_tree[dataset_accessor][dataset]
@@ -233,10 +247,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
             # Get parameter name
             parameter = parameter.name
 
-            if self.stations.stations._unique_dataset:
-                parameter_value = self.stations.stations._parameter_base[dataset_accessor][parameter].value
+            if self.stations.stations._unique_dataset or not self.stations.stations._has_datasets:
+                parameter_value = self.stations.stations._parameter_base[dataset_accessor][parameter].value.lower()
             else:
-                parameter_value = self.stations.stations._parameter_base[dataset_accessor][dataset][parameter].value
+                parameter_value = self.stations.stations._parameter_base[dataset_accessor][dataset][
+                    parameter
+                ].value.lower()
 
             if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
                 # Fixed conversion factors to kg / m², as it only applies
@@ -313,7 +329,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         # if parameter is a whole dataset, take every parameter from the dataset instead
         if parameter == dataset:
-            if self.stations.stations._unique_dataset:
+            if self.stations.stations._unique_dataset or not self.stations.stations._has_datasets:
                 parameter = [*parameter_base[resolution.name]]
             else:
                 parameter = [*parameter_base[resolution.name][dataset.name]]
@@ -463,6 +479,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
                     station_data.append(self._create_empty_station_parameter_df(station_id, parameter, dataset))
                     continue
 
+                # set dynamic resolution for services that have no fixed resolutions
+                if self.stations.stations.resolution == Resolution.DYNAMIC:
+                    self.stations.stations.dynamic_frequency = self.fetch_dynamic_frequency(
+                        station_id, parameter, dataset
+                    )
+
                 self._coerce_date_fields(parameter_df, station_id)
 
                 # TODO: we are coercing values here for conversion of units
@@ -529,8 +551,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 station_df = self._humanize(station_df)
 
             # Empty dataframe should be skipped
-            if station_df.empty:
-                continue
+            # if station_df.empty:
+            #     continue
 
             # TODO: add more meaningful metadata here
             yield ValuesResult(stations=self.stations, df=station_df)
@@ -688,7 +710,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :return:
         """
         if not is_datetime(series):
-            series = pd.to_datetime(series, infer_datetime_format=True)
+            series = pd.Series(series.map(lambda x: pd.Timestamp(x).tz_convert(pytz.UTC)))
 
         try:
             return series.dt.tz_localize(timezone_)
@@ -799,5 +821,5 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         return {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[self.stations.stations.resolution.name]
+            for parameter in self.stations.stations._parameter_base[self.stations.stations._dataset_accessor]
         }

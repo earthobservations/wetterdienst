@@ -24,6 +24,8 @@ from wetterdienst import Settings, Wetterdienst
         # ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}), # noqa: E800
         # NOAA Ghcn
         ("noaa", "ghcn", {"parameter": "precipitation_height"}),
+        # WSV Pegelonline
+        ("wsv", "pegel", {"parameter": "water_level"}),
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))

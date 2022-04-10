@@ -18,6 +18,9 @@ REGISTRY.define("beaufort = 1 frac = bft")
 REGISTRY.define("significant_weather = 1frac = sign [0..95]")
 REGISTRY.define("global_irradiance = 1/80 frac = % [0..80]")
 REGISTRY.define("@alias degree = wind_direction = []")
+REGISTRY.define("siemens = 1 kg**-1 * m**−2 s**3 A**2 = S")
+REGISTRY.define("nephelometric_turbidity = 1 = NTU")  # turbidity unit, not actually convertable to any SI unit
+REGISTRY.define("magnetic_field_strength = 1 A / m = MGN")
 
 
 class OriginUnit(Enum):
@@ -37,7 +40,9 @@ class OriginUnit(Enum):
 
     SIGNIFICANT_WEATHER = REGISTRY.significant_weather  # should stay the same in SI
 
-    KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter ** 2)
+    # precipitation
+    KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter**2)
+    MILLIMETER_PER_HOUR = REGISTRY.millimeter / REGISTRY.hour
 
     # Temperature
     DEGREE_CELSIUS = 1 * REGISTRY.degree_Celsius  # without the "1 *" we get an offset error
@@ -58,10 +63,28 @@ class OriginUnit(Enum):
     MINUTE = REGISTRY.minute
     HOUR = REGISTRY.hour
 
+    # Frequency
+    WAVE_PERIOD = 1 / (100 * REGISTRY.second)
+
     # Energy
     GLOBAL_IRRADIANCE = REGISTRY.global_irradiance  # should stay the same in SI
-    JOULE_PER_SQUARE_CENTIMETER = REGISTRY.joule / (REGISTRY.centimeter ** 2)
-    KILOJOULE_PER_SQUARE_METER = REGISTRY.kilojoule / (REGISTRY.meter ** 2)
+    JOULE_PER_SQUARE_CENTIMETER = REGISTRY.joule / (REGISTRY.centimeter**2)
+    KILOJOULE_PER_SQUARE_METER = REGISTRY.kilojoule / (REGISTRY.meter**2)
+
+    # Volume
+    CUBIC_METERS_PER_SECOND = (REGISTRY.meter**3) / REGISTRY.second
+
+    # Conductivity
+    MICROSIEMENS_PER_CENTIMETER = 10**-6 * REGISTRY.siemens / REGISTRY.centimeter
+
+    # content
+    MILLIGRAM_PER_LITER = REGISTRY.milligram / REGISTRY.liter
+
+    # special
+    TURBIDITY = REGISTRY.nephelometric_turbidity
+
+    # electric force
+    MAGNETIC_FIELD_STRENGTH = REGISTRY.magnetic_field_strength
 
 
 class SIUnit(Enum):
@@ -90,10 +113,28 @@ class SIUnit(Enum):
     # Time
     SECOND = REGISTRY.second
 
+    # Frequency
+    WAVE_PERIOD = 1 / (100 * REGISTRY.second)
+
     # Energy
     GLOBAL_IRRADIANCE = REGISTRY.global_irradiance  # should stay the same in SI
-
-    JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter ** 2)
+    JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter**2)
 
     # Precipitation
-    KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter ** 2)
+    KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter**2)
+    MILLIMETER_PER_HOUR = REGISTRY.millimeter / REGISTRY.hour
+
+    # Volume
+    CUBIC_METERS_PER_SECOND = (REGISTRY.meter**3) / REGISTRY.second
+
+    # content
+    MILLIGRAM_PER_LITER = REGISTRY.milligram / REGISTRY.liter
+
+    # Conductivity
+    SIEMENS_PER_METER = REGISTRY.siemens / REGISTRY.meter
+
+    # special
+    TURBIDITY = REGISTRY.nephelometric_turbidity
+
+    # electric force
+    MAGNETIC_FIELD_STRENGTH = REGISTRY.magnetic_field_strength

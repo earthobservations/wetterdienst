@@ -777,7 +777,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 Flask
-2.1.0
+2.1.1
 BSD License
 Armin Ronacher
 https://palletsprojects.com/p/flask
@@ -953,7 +953,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 Pillow
-9.0.1
+9.1.0
 Historical Permission Notice and Disclaimer (HPND)
 Alex Clark (PIL Fork Author)
 https://python-pillow.org
@@ -1635,10 +1635,10 @@ DAMAGE.
 
 
 PyPDF2
-1.26.0
+1.27.2
 BSD License
 Mathieu Fenniak
-http://mstamy2.github.com/PyPDF2
+https://pypdf2.readthedocs.io/en/latest/
 Copyright (c) 2006-2008, Mathieu Fenniak
 Some contributions copyright (c) 2007, Ashish Kulkarni <kulkarni.ashish@gmail.com>
 Some contributions copyright (c) 2014, Steve Witham <switham_github@mac-guyver.com>
@@ -1758,7 +1758,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 SQLAlchemy
-1.4.32
+1.4.35
 MIT License
 Mike Bayer
 https://www.sqlalchemy.org
@@ -2752,7 +2752,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 appnope
-0.1.2
+0.1.3
 BSD License
 Min Ragan-Kelley
 http://github.com/minrk/appnope
@@ -2986,41 +2986,11 @@ https://bandit.readthedocs.io/en/latest/
 UNKNOWN
 
 beautifulsoup4
-4.10.0
+4.11.1
 MIT License
 Leonard Richardson
-http://www.crummy.com/software/BeautifulSoup/bs4/
-Beautiful Soup is made available under the MIT license:
-
- Copyright (c) 2004-2019 Leonard Richardson
-
- Permission is hereby granted, free of charge, to any person obtaining
- a copy of this software and associated documentation files (the
- "Software"), to deal in the Software without restriction, including
- without limitation the rights to use, copy, modify, merge, publish,
- distribute, sublicense, and/or sell copies of the Software, and to
- permit persons to whom the Software is furnished to do so, subject to
- the following conditions:
-
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
-
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE.
-
-Beautiful Soup incorporates code from the html5lib library, which is
-also made available under the MIT license. Copyright (c) 2006-2013
-James Graham and other contributors
-
-Beautiful Soup depends on the soupsieve library, which is also made
-available under the MIT license. Copyright (c) 2018 Isaac Muse
-
+https://www.crummy.com/software/BeautifulSoup/bs4/
+UNKNOWN
 
 bitstring
 3.1.9
@@ -3051,7 +3021,7 @@ THE SOFTWARE.
 
 
 black
-21.12b0
+22.3.0
 MIT License
 Łukasz Langa
 https://github.com/psf/black
@@ -3079,7 +3049,7 @@ SOFTWARE.
 
 
 bleach
-4.1.0
+5.0.0
 Apache Software License
 UNKNOWN
 https://github.com/mozilla/bleach
@@ -3873,7 +3843,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 dash
-2.3.0
+2.3.1
 MIT License
 Chris Parmer
 https://plotly.com/dash
@@ -3901,7 +3871,7 @@ THE SOFTWARE.
 
 
 dash-bootstrap-components
-1.0.3
+1.1.0
 Apache Software License
 Faculty
 https://dash-bootstrap-components.opensource.faculty.ai/
@@ -4174,7 +4144,7 @@ THE SOFTWARE.
 
 
 dask
-2022.3.0
+2022.4.0
 BSD License
 UNKNOWN
 https://github.com/dask/dask/
@@ -4808,7 +4778,7 @@ THE SOFTWARE.
 
 
 eradicate
-2.0.0
+2.1.0
 MIT License
 Steven Myint
 https://github.com/myint/eradicate
@@ -5089,6 +5059,40 @@ https://github.com/harlowja/fasteners
       of your accepting any such warranty or additional liability.
 
 
+
+
+fastjsonschema
+2.15.3
+BSD License
+Michal Horejsek
+https://github.com/seznam/python-fastjsonschema
+Copyright (c) 2018, Michal Horejsek
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+  Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  Redistributions in binary form must reproduce the above copyright notice, this
+  list of conditions and the following disclaimer in the documentation and/or
+  other materials provided with the distribution.
+
+  Neither the name of the {organization} nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 flake8
@@ -6694,11 +6698,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 h5netcdf
-0.15.0
+1.0.0
 BSD License
-Stephan Hoyer
-https://github.com/h5netcdf/h5netcdf
-Copyright (c) 2015, Stephan Hoyer
+h5netcdf developers
+https://h5netcdf.org
+Copyright (c) 2015, h5netcdf developers
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -7111,7 +7115,7 @@ THE SOFTWARE.
 
 
 jupyter-client
-7.2.1
+7.2.2
 BSD License
 Jupyter Development Team
 https://jupyter.org
@@ -7349,10 +7353,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 jupyterlab-pygments
-0.1.2
+0.2.0
 BSD
 Jupyter Development Team
-http://jupyter.org
+https://github.com/jupyterlab/jupyterlab_pygments
 Copyright (c) 2015 Project Jupyter Contributors
 All rights reserved.
 
@@ -7380,13 +7384,6 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-Semver File License
-===================
-
-The semver.py file is from https://github.com/podhmo/python-semver
-which is licensed under the "MIT" license.  See the semver.py file for details.
-
 
 
 kiwisolver
@@ -8490,7 +8487,7 @@ to indicate the copyright and license terms:
 
 
 nbformat
-5.2.0
+5.3.0
 BSD License
 Jupyter Development Team
 http://jupyter.org
@@ -8521,7 +8518,7 @@ software without specific prior written permission.
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
 FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -8543,8 +8540,8 @@ Jupyter uses a shared copyright model. Each contributor maintains copyright
 over their contributions to Jupyter. But, it is important to note that these
 contributions are typically only changes to the repositories. Thus, the Jupyter
 source code, in its entirety is not the copyright of any single person or
-institution.  Instead, it is the collective copyright of the entire Jupyter
-Development Team.  If individual contributors want to maintain a record of what
+institution. Instead, it is the collective copyright of the entire Jupyter
+Development Team. If individual contributors want to maintain a record of what
 changes/contributions they have specific copyright on, they should indicate
 their copyright in the commit message of the change, when they commit the
 change to one of the Jupyter repositories.
@@ -10358,7 +10355,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 plotly
-5.6.0
+5.7.0
 MIT
 Chris P
 https://plotly.com/python/
@@ -10442,7 +10439,7 @@ SOFTWARE.
 
 
 prometheus-client
-0.13.1
+0.14.1
 Apache Software License
 Brian Brazil
 https://github.com/prometheus/client_python
@@ -10650,7 +10647,7 @@ https://github.com/prometheus/client_python
 
 
 prompt-toolkit
-3.0.28
+3.0.29
 BSD License
 Jonathan Slenders
 https://github.com/prompt-toolkit/python-prompt-toolkit
@@ -15361,32 +15358,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 soupsieve
-2.3.1
+2.3.2
 MIT License
-Isaac Muse
-https://github.com/facelessuser/soupsieve
-MIT License
-
-Copyright (c) 2018 - 2021 Isaac Muse <isaacmuse@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
+UNKNOWN
+UNKNOWN
+UNKNOWN
 
 sphinx-autobuild
 2020.9.1
@@ -15416,10 +15392,10 @@ THE SOFTWARE.
 
 
 sphinx-autodoc-typehints
-1.12.0
+1.17.0
 MIT License
 Alex Grönholm
-UNKNOWN
+https://github.com/tox-dev/sphinx-autodoc-typehints
 This is the MIT license: http://www.opensource.org/licenses/mit-license.php
 
 Copyright (c) Alex Grönholm
@@ -16699,7 +16675,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 tomli
-1.2.3
+2.0.1
 MIT License
 UNKNOWN
 UNKNOWN
@@ -16998,7 +16974,7 @@ http://www.tornadoweb.org/
 
 
 tqdm
-4.63.1
+4.64.0
 MIT License; Mozilla Public License 2.0 (MPL 2.0)
 UNKNOWN
 https://tqdm.github.io
@@ -18234,7 +18210,7 @@ https://github.com/aio-libs/yarl/
 
 
 zarr
-2.11.1
+2.11.2
 MIT License
 UNKNOWN
 https://github.com/zarr-developers/zarr-python

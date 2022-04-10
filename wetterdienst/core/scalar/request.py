@@ -65,7 +65,17 @@ class ScalarRequestCore(Core):
     def frequency(self) -> Frequency:
         """Frequency for the given resolution, used to create a full date range for
         mering"""
+        if self.resolution == Resolution.DYNAMIC:
+            return self._dynamic_frequency
         return Frequency[self.resolution.name]
+
+    @property
+    def dynamic_frequency(self) -> Optional[Frequency]:
+        return self._dynamic_frequency
+
+    @dynamic_frequency.setter
+    def dynamic_frequency(self, df) -> None:
+        self._dynamic_frequency = parse_enumeration_from_template(df, Frequency)
 
     @property
     @abstractmethod
@@ -352,6 +362,10 @@ class ScalarRequestCore(Core):
         self.tidy = tidy
 
         self.si_units = copy(Settings.si_units)
+
+        # optional attribute for dynamic resolutions
+        if self.resolution == Resolution.DYNAMIC:
+            self._dynamic_frequency = None
 
         log.info(
             f"Processing request for "

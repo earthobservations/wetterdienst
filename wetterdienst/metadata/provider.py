@@ -34,3 +34,10 @@ class Provider(Enum):
         "© National Oceanic And Atmospheric Administration (NOAA), " "Global Historical Climatology Network",
         "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/",
     )
+    WSV = (
+        "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
+        "Federal Waterways and Shipping Administration",
+        "Germany",
+        "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
+        "https://pegelonline.wsv.de/webservice/ueberblick",
+    )

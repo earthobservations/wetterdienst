@@ -31,8 +31,8 @@ keywords = [
     "radar",
     # DWD
     "dwd",
-    "deutscher wetterdienst",
-    "german weather service",
+    "deutscher-wetterdienst",
+    "german-weather-service",
     "mosmix",
     "radolan",
     # ECCC
@@ -41,9 +41,13 @@ keywords = [
     "environnement-et-changement-climatique-canada",
     # NOAA
     "noaa",
-    "national oceanic and atmospheric administration",
+    "national-oceanic-and-atmospheric-administration",
     "ghcn",
-    "global historical climatology network",
+    "global-historical-climatology-network",
+    # WSV
+    "wsv",
+    "Wasserstraßen-und-Schifffahrtsverwaltung-des-Bundes",
+    "Federal-Waterways-and-Shipping-Administration",
 ]
 classifiers = [
     "Programming Language :: Python",
@@ -151,7 +155,7 @@ poethepoet = "^0.9"
 pip-licenses = "^3.3"
 
 # Formatting/Linting
-black = "^21.12b0"
+black = "^22.3.0"
 
 isort = "^5.7"
 

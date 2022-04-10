@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add implementation of WSV Pegelonline service
+
 0.31.1 (03.04.2022)
 *******************
 
