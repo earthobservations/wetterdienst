@@ -201,7 +201,7 @@ def test_dwd_values_no_resolution():
         params={
             "provider": "dwd",
             "network": "observation",
-            "stations": "01048,4411",
+            "stations_result": "01048,4411",
             "parameter": "kl",
             "period": "recent",
         },

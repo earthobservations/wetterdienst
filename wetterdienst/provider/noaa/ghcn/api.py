@@ -48,7 +48,7 @@ class NoaaGhcnValues(ScalarValuesCore):
 
     _base_url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
 
-    # use to get timezones from stations
+    # use to get timezones from stations_result
     _tf = TimezoneFinder()
 
     # multiplication factors
@@ -95,13 +95,7 @@ class NoaaGhcnValues(ScalarValuesCore):
             .dt.tz_convert(pytz.UTC)
         )
 
-        df = self._apply_factors(df)
-
-        # TODO: Eventually we will have to convert dates back to strings
-        #  to follow the main logic...
-        df[Columns.DATE.value] = df[Columns.DATE.value].astype(str)
-
-        return df
+        return self._apply_factors(df)
 
     def _apply_factors(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -174,7 +168,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
     def _all(self) -> pd.DataFrame:
         """
         Method to acquire station listing,
-        :return: DataFrame with all stations
+        :return: DataFrame with all stations_result
         """
         listings_url = (
             "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/ghcnd-stations.txt"

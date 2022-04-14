@@ -36,7 +36,7 @@ def test_parse_enumeration_from_template():
 def test_coerce_field_types():
     """Test coercion of fields"""
     # Special cases
-    # We require a stations object with hourly resolution in order to accurately parse
+    # We require a stations_result object with hourly resolution in order to accurately parse
     # the hourly timestamp (pandas would fail parsing it because it has a strange
     # format)
     Settings.tidy = False

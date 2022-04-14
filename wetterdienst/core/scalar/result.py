@@ -89,6 +89,34 @@ class StationsResult(ExportMixin):
     def humanize(self) -> bool:
         return self.stations.humanize
 
+    @property
+    def si_units(self) -> bool:
+        return self.stations.si_units
+
+    @property
+    def _has_tidy_data(self) -> bool:
+        return self.stations._has_tidy_data
+
+    @property
+    def _dataset_accessor(self) -> bool:
+        return self.stations._dataset_accessor
+
+    @property
+    def _unique_dataset(self) -> bool:
+        return self.stations._unique_dataset
+
+    @property
+    def _has_datasets(self) -> bool:
+        return self.stations._has_datasets
+
+    @property
+    def _unit_tree(self) -> bool:
+        return self.stations._unit_tree
+
+    @property
+    def _parameter_base(self) -> bool:
+        return self.stations._parameter_base
+
     def to_ogc_feature_collection(self) -> dict:
         """
         Format station information as OGC feature collection.
@@ -139,6 +167,7 @@ class StationsResult(ExportMixin):
 
 @dataclass
 class ValuesResult(ExportMixin):
+    # TODO: add more meaningful metadata e.g. describe()
 
     stations: StationsResult
     df: pd.DataFrame

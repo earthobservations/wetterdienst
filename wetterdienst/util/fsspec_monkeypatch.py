@@ -102,7 +102,7 @@ class HTTPFileSystem(http.HTTPFileSystem):
 
         if self.use_listings_cache:
             if listings_cache_type == "filedircache":
-                logger.warning(f"Dircache located at {listings_cache_location}")
+                logger.info(f"Dircache located at {listings_cache_location}")
 
         self.kwargs = request_options
 

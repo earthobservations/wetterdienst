@@ -18,63 +18,40 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
-EXPECTED_STATIONS_DF = pd.DataFrame(
-    {
-        "station_id": pd.Series(["02480", "04411", "07341"], dtype=str),
-        "from_date": [
+EXPECTED_STATIONS_DF = pd.DataFrame.from_records(
+    [
+        (
+            "02480",
             Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
+            108.0,
+            50.0643,
+            8.993,
+            "Kahl/Main",
+            "Bayern",
+            9.759384982994229,
+        ),
+        (
+            "04411",
             Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
+            155.0,
+            49.9195,
+            8.9671,
+            "Schaafheim-Schlierbach",
+            "Hessen",
+            10.156943448624304,
+        ),
+        (
+            "07341",
             Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
-        ],
-        "height": pd.Series(
-            [
-                108.0,
-                155.0,
-                119.0,
-            ],
-            dtype=float,
+            119.0,
+            50.0900,
+            8.7862,
+            "Offenbach-Wetterpark",
+            "Hessen",
+            12.891318342515483,
         ),
-        "latitude": pd.Series(
-            [
-                50.0643,
-                49.9195,
-                50.0899,
-            ],
-            dtype=float,
-        ),
-        "longitude": pd.Series(
-            [
-                8.993,
-                8.9671,
-                8.7862,
-            ],
-            dtype=float,
-        ),
-        "name": pd.Series(
-            [
-                "Kahl/Main",
-                "Schaafheim-Schlierbach",
-                "Offenbach-Wetterpark",
-            ],
-            dtype=str,
-        ),
-        "state": pd.Series(
-            [
-                "Bayern",
-                "Hessen",
-                "Hessen",
-            ],
-            dtype=str,
-        ),
-        "distance": pd.Series(
-            [
-                9.759384982994229,
-                10.156943448624304,
-                12.882693521631097,
-            ],
-            dtype=float,
-        ),
-    }
+    ],
+    columns=["station_id", "from_date", "height", "latitude", "longitude", "name", "state", "distance"],
 )
 
 
@@ -85,7 +62,7 @@ def test_dwd_observation_stations_nearby_number_single():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
-        DwdObservationPeriod.RECENT,
+        DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -105,7 +82,7 @@ def test_dwd_observation_stations_nearby_number_multiple():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
-        DwdObservationPeriod.RECENT,
+        DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -124,7 +101,7 @@ def test_dwd_observation_stations_nearby_distance():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
-        DwdObservationPeriod.RECENT,
+        DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -146,11 +123,11 @@ def test_dwd_observation_stations_bbox():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
-        DwdObservationPeriod.RECENT,
+        DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
-    nearby_station = request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0899)
+    nearby_station = request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0900)
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
     assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF.drop(columns=["distance"]))
@@ -161,7 +138,7 @@ def test_dwd_observation_stations_empty():
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
-        DwdObservationPeriod.RECENT,
+        DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
     )
@@ -182,7 +159,7 @@ def test_dwd_observation_stations_fail():
         DwdObservationRequest(
             DwdObservationDataset.TEMPERATURE_AIR,
             DwdObservationResolution.HOURLY,
-            DwdObservationPeriod.RECENT,
+            DwdObservationPeriod.HISTORICAL,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).filter_by_rank(
@@ -195,7 +172,7 @@ def test_dwd_observation_stations_fail():
         DwdObservationRequest(
             DwdObservationDataset.TEMPERATURE_AIR,
             DwdObservationResolution.HOURLY,
-            DwdObservationPeriod.RECENT,
+            DwdObservationPeriod.HISTORICAL,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).filter_by_distance(
@@ -208,7 +185,7 @@ def test_dwd_observation_stations_fail():
         DwdObservationRequest(
             DwdObservationDataset.TEMPERATURE_AIR,
             DwdObservationResolution.HOURLY,
-            DwdObservationPeriod.RECENT,
+            DwdObservationPeriod.HISTORICAL,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).filter_by_bbox(left=10, bottom=10, right=5, top=5)

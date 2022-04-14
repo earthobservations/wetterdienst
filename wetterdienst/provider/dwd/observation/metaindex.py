@@ -231,7 +231,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame
 
 def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     """
-    A helping function to create a raw index of metadata for stations of the set of
+    A helping function to create a raw index of metadata for stations_result of the set of
     parameters as given. This raw metadata is then used by other functions. This
     second/alternative function must be used for high resolution data, where the
     metadata is not available as file but instead saved in external files per each
@@ -265,7 +265,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     with ThreadPoolExecutor() as executor:
         metadata_dfs = executor.map(_parse_geo_metadata, zip(metadata_files, station_ids))
 
-    meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
+    meta_index_df = pd.concat([meta_index_df] + list(metadata_dfs), ignore_index=True)
 
     missing_to_date_index = pd.isnull(meta_index_df[Columns.TO_DATE.value])
 

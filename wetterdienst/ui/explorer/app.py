@@ -51,7 +51,7 @@ def toggle_about(n1, n2, is_open):
 
 
 @app.callback(
-    Output("dataframe-stations", "children"),
+    Output("dataframe-stations_result", "children"),
     [
         Input("select-provider", "value"),
         Input("select-network", "value"),
@@ -63,7 +63,7 @@ def toggle_about(n1, n2, is_open):
 )
 def fetch_stations(provider: str, network: str, resolution: str, dataset: str, parameter: str, period: str):
     """
-    Fetch "stations" data.
+    Fetch "stations_result" data.
 
     This will be used to populate the navigation chooser and to render the map.
 
@@ -77,7 +77,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
     if period == "ALL":
         period = [*api._period_base]
 
-    log.info(f"Requesting stations for parameter={parameter}, resolution={resolution}, period={period}")
+    log.info(f"Requesting stations_result for parameter={parameter}, resolution={resolution}, period={period}")
 
     try:
         stations = get_stations(
@@ -106,7 +106,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
 
     df = stations.df
 
-    log.info(f"Propagating stations data frame with {frame_summary(df)}")
+    log.info(f"Propagating stations_result data frame with {frame_summary(df)}")
 
     return df.to_json(date_format="iso", orient="split")
 
@@ -186,17 +186,17 @@ def fetch_values(
 
 @app.callback(
     Output("select-station", "options"),
-    [Input("dataframe-stations", "children")],
+    [Input("dataframe-stations_result", "children")],
 )
 def render_navigation_stations(payload):
     """
-    Compute list of items from "stations" data for populating the "stations"
+    Compute list of items from "stations_result" data for populating the "stations_result"
     chooser element.
     """
     stations_data = pd.read_json(payload, orient="split")
     if stations_data.empty:
         return []
-    log.info(f"Rendering stations dropdown from {frame_summary(stations_data)}")
+    log.info(f"Rendering stations_result dropdown from {frame_summary(stations_data)}")
     return [
         {"label": name, "value": station_id}
         for name, station_id in sorted(
@@ -209,7 +209,7 @@ def render_navigation_stations(payload):
 
 
 @app.callback(
-    Output("status-response-stations", "children"),
+    Output("status-response-stations_result", "children"),
     [
         Input("select-provider", "value"),
         Input("select-network", "value"),
@@ -217,7 +217,7 @@ def render_navigation_stations(payload):
         Input("select-dataset", "value"),
         Input("select-parameter", "value"),
         Input("select-period", "value"),
-        Input("dataframe-stations", "children"),
+        Input("dataframe-stations_result", "children"),
     ],
 )
 def render_status_response_stations(
@@ -324,12 +324,12 @@ def render_status_response_values(
 
 
 @app.callback(
-    Output("map-stations", "figure"),
-    [Input("dataframe-stations", "children")],
+    Output("map-stations_result", "figure"),
+    [Input("dataframe-stations_result", "children")],
 )
 def render_map(payload):
     """
-    Create a "map" Figure element from "stations" data.
+    Create a "map" Figure element from "stations_result" data.
     """
     stations_data = pd.read_json(payload, orient="split")
 
@@ -360,7 +360,7 @@ def render_map(payload):
         add_annotation_no_data(fig)
         return fig
 
-    log.info(f"Rendering stations map from {frame_summary(stations_data)}")
+    log.info(f"Rendering stations_result map from {frame_summary(stations_data)}")
     return go.Figure(
         data=go.Scattermapbox(
             lat=stations_data[Columns.LATITUDE.value],

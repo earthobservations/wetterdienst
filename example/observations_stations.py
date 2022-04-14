@@ -22,7 +22,7 @@ log = logging.getLogger()
 
 
 def station_example():
-    """Retrieve stations of DWD that measure temperature."""
+    """Retrieve stations_result of DWD that measure temperature."""
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,

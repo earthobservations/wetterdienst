@@ -58,7 +58,7 @@ class DwdMosmixValues(ScalarValuesCore):
     Parameters
     ----------
     station_id : List
-        - If None, data for all stations is returned.
+        - If None, data for all stations_result is returned.
         - If not None, station_ids are a list of station ids for which data is desired.
 
     parameter: List
@@ -84,21 +84,21 @@ class DwdMosmixValues(ScalarValuesCore):
         """
         return {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[self.stations.stations.mosmix_type.name]
+            for parameter in self.sr.stations._parameter_base[self.sr.stations.mosmix_type.name]
         }
 
-    def __init__(self, stations: StationsResult) -> None:
+    def __init__(self, stations_result: StationsResult) -> None:
         """
 
-        :param stations:
+        :param stations_result:
         """
-        super(DwdMosmixValues, self).__init__(stations=stations)
+        super(DwdMosmixValues, self).__init__(stations_result=stations_result)
 
-        parameter_base = self.stations.stations._parameter_base
-        dataset_accessor = self.stations.stations._dataset_accessor
+        parameter_base = self.sr.stations._parameter_base
+        dataset_accessor = self.sr.stations._dataset_accessor
 
         parameter_ = []
-        for parameter, dataset in self.stations.parameter:
+        for parameter, dataset in self.sr.parameter:
             if parameter == dataset:
                 parameter = [par.value for par in parameter_base[dataset_accessor]]
                 parameter_.extend(parameter)
@@ -106,7 +106,7 @@ class DwdMosmixValues(ScalarValuesCore):
                 parameter_.append(parameter.value)
 
         self.kml = KMLReader(
-            station_ids=self.stations.station_id.tolist(),
+            station_ids=self.sr.station_id.tolist(),
             parameters=parameter_,
         )
 
@@ -119,7 +119,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return:
         """
-        return self.stations.df
+        return self.sr.df
 
     def query(self) -> Generator[ValuesResult, None, None]:
         """
@@ -130,21 +130,18 @@ class DwdMosmixValues(ScalarValuesCore):
         for df in self._collect_station_parameter():
             df = self._coerce_parameter_types(df)
 
-            if self.stations.stations.tidy:
-                df = self.tidy_up_df(df, self.stations.stations.mosmix_type)
+            if self.sr.stations.tidy:
+                df = self.tidy_up_df(df, self.sr.stations.mosmix_type)
 
-            df[Columns.DATASET.value] = self.stations.stations.mosmix_type.value.lower()
+            station_id = df[Columns.STATION_ID.value][0]
+            df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
 
             df = self._coerce_meta_fields(df)
 
-            if self.stations.humanize:
+            if self.sr.humanize:
                 df = self._humanize(df)
 
-            df = self._organize_df_columns(df)
-
-            result = ValuesResult(stations=self.stations, df=df)
-
-            yield result
+            yield ValuesResult(stations=self.sr, df=df)
 
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
         """
@@ -153,14 +150,14 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return: pandas DataFrame with data corresponding to station id and parameter
         """
-        if self.stations.start_issue == DwdForecastDate.LATEST:
-            for df in self.read_mosmix(self.stations.stations.start_issue):
+        if self.sr.start_issue == DwdForecastDate.LATEST:
+            for df in self.read_mosmix(self.sr.stations.start_issue):
                 yield df
         else:
             for date in pd.date_range(
-                self.stations.stations.start_issue,
-                self.stations.stations.end_issue,
-                freq=self.stations.frequency.value,
+                self.sr.stations.start_issue,
+                self.sr.stations.end_issue,
+                freq=self.sr.frequency.value,
             ):
                 try:
                     for df in self.read_mosmix(date):
@@ -215,14 +212,14 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame
         """
-        if self.stations.stations.mosmix_type == DwdMosmixType.SMALL:
+        if self.sr.stations.mosmix_type == DwdMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
         else:
             yield from self.read_mosmix_large(date)
 
     def read_mosmix_small(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
         """
-        Reads single MOSMIX-S file with all stations and returns every mosmix that
+        Reads single MOSMIX-S file with all stations_result and returns every mosmix that
         matches with one of the defined station ids.
 
         :param date: datetime or enumeration for latest MOSMIX mosmix
@@ -249,7 +246,7 @@ class DwdMosmixValues(ScalarValuesCore):
         """
         url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH)
 
-        for station_id in self.stations.station_id:
+        for station_id in self.sr.station_id:
             station_url = f"{url}{station_id}/kml"
 
             try:

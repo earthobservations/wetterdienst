@@ -35,6 +35,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
 from wetterdienst.util.cache import CacheExpiry, cache_dir
+from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class EcccObservationValues(ScalarValuesCore):
     @property
     def _timeframe(self) -> str:
         """internal timeframe string for resolution"""
-        return self._timeframe_mapping.get(self.stations.stations.resolution)
+        return self._timeframe_mapping.get(self.sr.stations.resolution)
 
     _time_step_mapping = {
         Resolution.HOURLY: "HLY",
@@ -80,14 +81,7 @@ class EcccObservationValues(ScalarValuesCore):
     @property
     def _time_step(self):
         """internal time step string for resolution"""
-        return self._time_step_mapping.get(self.stations.stations.resolution)
-
-    def _create_humanized_parameters_mapping(self):
-        # TODO: change to something general, depending on ._has_datasets
-        return {
-            parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[self.stations.stations.resolution.name]
-        }
+        return self._time_step_mapping.get(self.sr.stations.resolution)
 
     def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
@@ -127,7 +121,7 @@ class EcccObservationValues(ScalarValuesCore):
         :param dataset: dataset of query, can be skipped as ECCC has unique dataset
         :return: pandas.DataFrame with data
         """
-        meta = self.stations.df[self.stations.df[Columns.STATION_ID.value] == station_id]
+        meta = self.sr.df[self.sr.df[Columns.STATION_ID.value] == station_id]
 
         name, from_date, to_date = (
             meta[
@@ -146,8 +140,8 @@ class EcccObservationValues(ScalarValuesCore):
         end_year = None if pd.isna(to_date) else to_date.year
 
         # start_date and end_date from request
-        start_date = self.stations.stations.start_date
-        end_date = self.stations.stations.end_date
+        start_date = self.sr.stations.start_date
+        end_date = self.sr.stations.end_date
 
         start_year = start_year and max(start_year, start_date and start_date.year or start_year)
         end_year = end_year and min(end_year, end_date and end_date.year or end_year)
@@ -161,10 +155,10 @@ class EcccObservationValues(ScalarValuesCore):
         if start_year and end_year:
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
-                # TODO: replace this by fsspec
-                payload = self._session.get(url, timeout=60, verify=False)
 
-                df_temp = pd.read_csv(BytesIO(payload.content))
+                payload = download_file(url, CacheExpiry.NO_CACHE)
+
+                df_temp = pd.read_csv(payload)
 
                 df_temp = df_temp.rename(columns=str.lower)
 
@@ -212,7 +206,7 @@ class EcccObservationValues(ScalarValuesCore):
         :param end_year:
         :return:
         """
-        resolution = self.stations.stations.resolution
+        resolution = self.sr.stations.resolution
 
         freq = "Y"
         if resolution == Resolution.HOURLY:
@@ -220,7 +214,7 @@ class EcccObservationValues(ScalarValuesCore):
 
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
-        for date in pd.date_range(f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, closed=None):
+        for date in pd.date_range(f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, inclusive=None):
             url = self._base_url.format(int(station_id), self._timeframe)
 
             url += f"&Year={date.year}"
@@ -381,6 +375,6 @@ class EcccObservationRequest(ScalarRequestCore):
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
         if payload is None:
-            raise FailedDownload("Unable to acquire ECCC stations list")
+            raise FailedDownload("Unable to acquire ECCC stations_result list")
 
         return payload

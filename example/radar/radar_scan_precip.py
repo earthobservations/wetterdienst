@@ -61,16 +61,11 @@ def plot(data: wrl.io.XRadVolume):
     swp0.VRADH[0].plot(x="x", y="y", ax=ax2)
 
 
-def radar_info(data: dict):
+def radar_info(data: wrl.io.XRadVolume):
     """Display data from radar request."""
     print(data)
 
-    return
-    print("Keys:", data.keys())
-
-    log.info("Data")
-    for key, value in data.items():
-        print(f"- {key}: {value}")
+    print("Keys:", data.root)
 
 
 @pytest.mark.remote

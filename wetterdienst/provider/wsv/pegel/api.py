@@ -184,7 +184,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
     _values = WsvPegelValues
 
-    # Characteristic/statistical values may be provided for stations
+    # Characteristic/statistical values may be provided for stations_result
     characteristic_values = {
         "m_i": "first flood marking",
         "m_ii": "second flood marking",
@@ -216,7 +216,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
     def _all(self):
         """
-        Method to get stations for WSV Pegelonline. It involves reading the REST API, doing some transformations and
+        Method to get stations_result for WSV Pegelonline. It involves reading the REST API, doing some transformations and
         adding characteristic values in extra columns if given for each station.
         :return:
         """
@@ -275,7 +275,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
         parameters = {par.value.lower() for par, ds in self.parameter}
 
-        # Filter out stations that do not have any of the parameters requested
+        # Filter out stations_result that do not have any of the parameters requested
         df = df.loc[df["ts"].map(lambda par: not not par.intersection(parameters)), :]
 
         df[["gauge_datum", "m_i", "m_ii", "m_iii", "mnw", "mw", "mhw", "hhw", "hsw"]] = timeseries.apply(

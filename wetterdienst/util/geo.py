@@ -52,16 +52,16 @@ def derive_nearest_neighbours(
     neighbours to coordinate pairs
 
     Args:
-        latitudes (np.array): latitude values of stations being compared to
+        latitudes (np.array): latitude values of stations_result being compared to
         the coordinates
-        longitudes (np.array): longitude values of stations being compared to
+        longitudes (np.array): longitude values of stations_result being compared to
         the coordinates
         coordinates (Coordinates): the coordinates for which the nearest neighbour
         is searched
-        number_nearby: Number of stations that should be nearby
+        number_nearby: Number of stations_result that should be nearby
 
     Returns:
-        Tuple of distances and ranks of nearest to most distant stations
+        Tuple of distances and ranks of nearest to most distant stations_result
     """
     points = np.c_[np.radians(latitudes), np.radians(longitudes)]
 

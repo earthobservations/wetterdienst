@@ -44,16 +44,16 @@ def test_app_layout(wetterdienst_ui, dash_tre):
 @pytest.mark.explorer
 def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
-    Verify if data for "stations" has been correctly propagated.
+    Verify if data for "stations_result" has been correctly propagated.
     """
 
     # Wait for data element.
-    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=10)
+    dash_tre.wait_for_element_by_id("dataframe-stations_result", timeout=10)
     time.sleep(1)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
-    data_element = dom.find(attrs={"id": "dataframe-stations"})
+    data_element = dom.find(attrs={"id": "dataframe-stations_result"})
     data = json.loads(data_element.text)
 
     # Verify data.
@@ -75,7 +75,7 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
 @pytest.mark.explorer
 def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     """
-    Verify if data for "stations" has been correctly propagated.
+    Verify if data for "stations_result" has been correctly propagated.
     """
     # Select provider.
     dash_tre.wait_for_element_by_id("select-provider")
@@ -102,11 +102,11 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     dash_tre.select_dcc_dropdown("#select-period", value="NOW")
 
     # Wait for data element.
-    dash_tre.wait_for_element_by_id("dataframe-stations", timeout=5)
+    dash_tre.wait_for_element_by_id("dataframe-stations_result", timeout=5)
     time.sleep(0.5)
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response-stations", "No data", timeout=2)
+    dash_tre.wait_for_contains_text("#status-response-stations_result", "No data", timeout=2)
     dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=2)
     dash_tre.wait_for_contains_text("#map", "No data to display", timeout=2)
 
@@ -116,7 +116,7 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
 @pytest.mark.explorer
 def test_options_reset(wetterdienst_ui, dash_tre):
     """
-    Verify if data for "stations" has been correctly propagated.
+    Verify if data for "stations_result" has been correctly propagated.
     """
     # Select provider.
     dash_tre.wait_for_element_by_id("select-provider")

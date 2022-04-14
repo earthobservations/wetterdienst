@@ -142,7 +142,7 @@ tomlkit = { version = "^0.7", optional = true }
 ipython = { version = "^7.10", optional = true }
 ipython-genutils = { version = "^0.2", optional = true }
 zarr = { version = "^2.7", optional = true }
-xarray = { version = "^0.17", optional = true }
+xarray = { version = "^2022.3", optional = true }
 timezonefinder = "^5.2"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
