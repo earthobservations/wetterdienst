@@ -56,14 +56,14 @@ def index():
             <h4>Providers</h4>
             <ul>
                 <li><a href=restapi/coverage>coverage</a></li>
-                <li><a href=restapi/stations>stations</a></li>
+                <li><a href=restapi/stations_result>stations_result</a></li>
                 <li><a href=restapi/values>values</a></li>
             </ul>
             <h4>Producer</h4>
             {PRODUCER_NAME} - <a href="{PRODUCER_LINK}">{PRODUCER_LINK}</a></li>
             <h4>Examples</h4>
             <ul>
-            <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations</a></li>
+            <li><a href="restapi/stations_result?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations_result</a></li>
             <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011">DWD Observation values</a></li>
             </ul>
         </body>

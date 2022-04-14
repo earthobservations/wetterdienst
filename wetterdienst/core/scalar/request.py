@@ -35,7 +35,7 @@ EARTH_RADIUS_KM = 6371
 
 
 class ScalarRequestCore(Core):
-    """Core for stations information of a source"""
+    """Core for stations_result information of a source"""
 
     @property
     @abstractmethod
@@ -162,7 +162,7 @@ class ScalarRequestCore(Core):
         """Class to get the values for a request"""
         pass
 
-    # Columns that should be contained within any stations information
+    # Columns that should be contained within any stations_result information
     _base_columns = (
         Columns.STATION_ID.value,
         Columns.FROM_DATE.value,
@@ -314,18 +314,6 @@ class ScalarRequestCore(Core):
         """
         return series.astype(str)
 
-    def __eq__(self, other) -> bool:
-        """Equal method of request object"""
-        return (
-            self.parameter == other.parameter
-            and self.resolution == other.resolution
-            and self.period == other.period
-            and self.start_date == other.start_date
-            and self.end_date == other.end_date
-            and self.humanize == other.humanize
-            and self.tidy == other.tidy
-        )
-
     def __init__(
         self,
         parameter: Tuple[Union[str, Enum]],
@@ -339,13 +327,9 @@ class ScalarRequestCore(Core):
         :param parameter: requested parameter(s)
         :param resolution: requested resolution
         :param period: requested period(s)
-        :param start_date: Start date for filtering stations for their available data
-        :param end_date:   End date for filtering stations for their available data
-        :param humanize: boolean if parameters should be humanized
-        :param tidy: boolean if data should be tidied
-        :param si_units: boolean if values should be converted to si units
+        :param start_date: Start date for filtering stations_result for their available data
+        :param end_date:   End date for filtering stations_result for their available data
         """
-
         super().__init__()
 
         self.resolution = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
@@ -380,6 +364,29 @@ class ScalarRequestCore(Core):
             f"si_units={self.si_units}"
         )
 
+    def __repr__(self):
+        """Representation of request object"""
+        parameters_joined = ", ".join([f"({parameter.value}/{dataset.value})" for parameter, dataset in self.parameter])
+        periods_joined = self.period and ", ".join([period.value for period in self.period])
+
+        return (
+            f"{self.__class__.__name__}("
+            f"[{parameters_joined}], "
+            f"[{periods_joined}], "
+            f"{str(self.start_date)},"
+            f"{str(self.end_date)})"
+        )
+
+    def __eq__(self, other) -> bool:
+        """Equal method of request object"""
+        return (
+            self.parameter == other.parameter
+            and self.resolution == other.resolution
+            and self.period == other.period
+            and self.start_date == other.start_date
+            and self.end_date == other.end_date
+        )
+
     @staticmethod
     def convert_timestamps(
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
@@ -389,8 +396,8 @@ class ScalarRequestCore(Core):
         Sort out start_date vs. end_date, parse strings to datetime
         objects and finally convert both to pd.Timestamp types.
 
-        :param start_date: Start date for filtering stations for their available data
-        :param end_date:   End date for filtering stations for their available data
+        :param start_date: Start date for filtering stations_result for their available data
+        :param end_date:   End date for filtering stations_result for their available data
         :return:           pd.Timestamp objects tuple of (start_date, end_date)
         """
 
@@ -574,22 +581,22 @@ class ScalarRequestCore(Core):
         """
         Wraps the _all method and applies date filters.
 
-        :return: pandas.DataFrame with the information of different available stations
+        :return: pandas.DataFrame with the information of different available stations_result
         """
-        df = self._all().reset_index(drop=True)
+        df = self._all().copy().reset_index(drop=True)
 
         df = df.reindex(columns=self._base_columns)
 
         df = self._coerce_meta_fields(df)
 
-        return StationsResult(self, df.copy().reset_index(drop=True))
+        return StationsResult(self, df.reset_index(drop=True))
 
     def filter_by_station_id(self, station_id: Tuple[str, ...]) -> StationsResult:
         """
-        Method to filter stations by station ids
+        Method to filter stations_result by station ids
 
-        :param station_id: list of stations that are requested
-        :return: df with filtered stations
+        :param station_id: list of stations_result that are requested
+        :return: df with filtered stations_result
         """
         df = self.all().df
 
@@ -603,7 +610,7 @@ class ScalarRequestCore(Core):
 
     def filter_by_name(self, name: str, first: bool = True, threshold: int = 90) -> StationsResult:
         """
-        Method to filter stations for station name using string comparison.
+        Method to filter stations_result for station name using string comparison.
 
         :param name: name of looked up station
         :param first: boolean if only first station is returned
@@ -650,12 +657,12 @@ class ScalarRequestCore(Core):
     ) -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
-        nearest stations defined by number.
+        nearest stations_result defined by number.
 
         :param latitude: latitude in degrees
         :param longitude: longitude in degrees
-        :param rank: number of stations to be returned, greater 0
-        :return: pandas.DataFrame with station information for the selected stations
+        :param rank: number of stations_result to be returned, greater 0
+        :return: pandas.DataFrame with station information for the selected stations_result
         """
         rank = int(rank)
 
@@ -679,7 +686,8 @@ class ScalarRequestCore(Core):
 
         if df.empty:
             log.warning(
-                f"No weather stations were found for coordinate " f"{latitude}°N and {longitude}°E and number {rank}"
+                f"No weather stations_result were found for coordinate "
+                f"{latitude}°N and {longitude}°E and number {rank}"
             )
 
         return StationsResult(self, df.reset_index(drop=True))
@@ -689,13 +697,13 @@ class ScalarRequestCore(Core):
     ) -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_distance using the given parameter set.
-        Returns nearest stations defined by distance (km).
+        Returns nearest stations_result defined by distance (km).
 
         :param latitude: latitude in degrees
         :param longitude: longitude in degrees
-        :param distance: distance (km) for which stations will be selected
+        :param distance: distance (km) for which stations_result will be selected
         :param unit: unit string for conversion
-        :return: pandas.DataFrame with station information for the selected stations
+        :return: pandas.DataFrame with station information for the selected stations_result
         """
         distance = float(distance)
 
@@ -714,7 +722,7 @@ class ScalarRequestCore(Core):
 
         if df.empty:
             log.warning(
-                f"No weather stations were found for coordinate "
+                f"No weather stations_result were found for coordinate "
                 f"{latitude}°N and {longitude}°E and distance {distance_in_km}km"
             )
 
@@ -722,13 +730,13 @@ class ScalarRequestCore(Core):
 
     def filter_by_bbox(self, left: float, bottom: float, right: float, top: float) -> StationsResult:
         """
-        Method to filter stations by bounding box.
+        Method to filter stations_result by bounding box.
 
         :param bottom: bottom latitude as float
         :param left: left longitude as float
         :param top: top latitude as float
         :param right: right longitude as float
-        :return: df with stations in bounding box
+        :return: df with stations_result in bounding box
         """
         left, bottom, right, top = float(left), float(bottom), float(right), float(top)
 
@@ -743,14 +751,15 @@ class ScalarRequestCore(Core):
 
         df = self.all().df
 
-        df = df[
+        df = df.loc[
             df[Columns.LATITUDE.value].apply(lambda x: x in lat_interval)
-            & df[Columns.LONGITUDE.value].apply(lambda x: x in lon_interval)
+            & df[Columns.LONGITUDE.value].apply(lambda x: x in lon_interval),
+            :,
         ]
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))
 
-    def filter_by_sql(self, sql: str) -> pd.DataFrame:
+    def filter_by_sql(self, sql: str) -> StationsResult:
         """
 
         :param sql:
@@ -760,9 +769,9 @@ class ScalarRequestCore(Core):
 
         df = self.all().df
 
-        df = duckdb.query_df(df, "data", sql).df()
+        df: pd.DataFrame = duckdb.query_df(df, "data", sql).df()
 
-        df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(self.tz)
-        df[Columns.TO_DATE.value] = df[Columns.TO_DATE.value].dt.tz_localize(self.tz)
+        df.loc[:, Columns.FROM_DATE.value] = df.loc[:, Columns.FROM_DATE.value].dt.tz_localize(self.tz)
+        df.loc[:, Columns.TO_DATE.value] = df.loc[:, Columns.TO_DATE.value].dt.tz_localize(self.tz)
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))

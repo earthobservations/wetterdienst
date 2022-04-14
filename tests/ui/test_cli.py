@@ -77,7 +77,7 @@ def test_cli_help():
     assert "Options:\n --help  Show this message and exit."
     assert (
         "Commands:\n  about\n  explorer\n  info\n  radar\n  "
-        "restapi\n  stations\n  values\n  version\n" in result.output
+        "restapi\n  stations_result\n  values\n  version\n" in result.output
     )
 
 
@@ -117,7 +117,7 @@ def invoke_wetterdienst_stations_empty(provider, network, setting, fmt="json"):
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} " f"{setting} --station=123456 --format={fmt}",
+        f"stations_result --provider={provider} --network={network} " f"{setting} --station=123456 --format={fmt}",
     )
 
 
@@ -126,7 +126,7 @@ def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} " f"{setting} --station={station} --format={fmt}",
+        f"stations_result --provider={provider} --network={network} " f"{setting} --station={station} --format={fmt}",
     )
 
 
@@ -135,7 +135,8 @@ def invoke_wetterdienst_stations_export(provider, network, setting, station, tar
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} " f"{setting} --station={station} --target={target}",
+        f"stations_result --provider={provider} --network={network} "
+        f"{setting} --station={station} --target={target}",
     )
 
 
@@ -144,7 +145,7 @@ def invoke_wetterdienst_stations_geo(provider, network, setting, fmt="json"):
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} "
+        f"stations_result --provider={provider} --network={network} "
         f"{setting} --coordinates=51.1280,13.7543 --rank=5 "
         f"--format={fmt}",
     )
@@ -190,7 +191,7 @@ def invoke_wetterdienst_values_geo(provider, network, setting, fmt="json"):
 def test_no_provider():
     runner = CliRunner()
 
-    result = runner.invoke(cli, "stations --provider=abc --network=abc")
+    result = runner.invoke(cli, "stations_result --provider=abc --network=abc")
 
     assert "Error: Invalid value for '--provider': 'abc' is not one of 'DWD', 'ECCC', 'NOAA'" in result.output
 
@@ -199,7 +200,7 @@ def test_no_network(caplog):
     runner = CliRunner()
 
     runner.invoke(
-        cli, "stations --provider=dwd --network=abc --parameter=precipitation_height --resolution=daily --all"
+        cli, "stations_result --provider=dwd --network=abc --parameter=precipitation_height --resolution=daily --all"
     )
 
     assert "No API available for provider DWD and network abc" in caplog.text
@@ -242,7 +243,7 @@ def test_cli_stations_empty(provider, network, setting, station_id, expected_dic
 
     assert isinstance(result.exception, SystemExit)
     assert "ERROR" in caplog.text
-    assert "No stations available for given constraints" in caplog.text
+    assert "No stations_result available for given constraints" in caplog.text
 
 
 @pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
@@ -284,8 +285,8 @@ def test_cli_stations_csv(provider, network, setting, station_id, expected_dict,
 )
 def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmpdir_factory):
 
-    # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")  # Noqa:E800
-    filename = "stations.xlsx"
+    # filename = tmpdir_factory.mktemp("data").join("stations_result.xlsx")  # Noqa:E800
+    filename = "stations_result.xlsx"
 
     _ = invoke_wetterdienst_stations_export(
         provider=provider,
@@ -295,7 +296,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel("stations.xlsx", sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel("stations_result.xlsx", sheet_name="Sheet1", dtype=str)
 
     assert "name" in df
     assert expected_dict["name"] in df["name"].values

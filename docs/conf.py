@@ -36,12 +36,7 @@ pkg_meta = _get_project_meta()
 project = str(pkg_meta["name"])
 copyright = "Copyright (c) 2018-2020 earthobservations"
 author = str(pkg_meta["authors"])
-
-# The full version, including alpha/beta/rc tags
 version = str(pkg_meta["version"])
-
-release = version
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -89,7 +84,6 @@ html_static_path = ["_static"]
 
 # -- Custom options -------------------------------------------------
 
-# If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
 

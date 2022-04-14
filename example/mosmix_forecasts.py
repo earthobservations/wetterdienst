@@ -8,7 +8,7 @@ About
 Example for DWD MOSMIX acquisition.
 
 This program will request latest MOSMIX-L data for
-stations 01001 and 01008 and parameters DD and ww.
+stations_result 01001 and 01008 and parameters DD and ww.
 
 Other MOSMIX variants are also listed and can be
 enabled on demand.
@@ -24,7 +24,7 @@ from wetterdienst.util.cli import setup_logging
 
 def mosmix_example():
     """Retrieve Mosmix mosmix data by DWD."""
-    # A. MOSMIX-L -- Specific stations - each station with own file
+    # A. MOSMIX-L -- Specific stations_result - each station with own file
     Settings.tidy = True
     Settings.humanize = True
 
@@ -44,7 +44,7 @@ def mosmix_example():
     output_section("Metadata", response.stations.df)
     output_section("Forecasts", response.df)
 
-    # B. MOSMIX-S -- All stations - specified stations are extracted.
+    # B. MOSMIX-S -- All stations_result - specified stations_result are extracted.
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],

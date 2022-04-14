@@ -82,7 +82,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return:
         """
-        return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.stations.stations.resolution)
+        return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.sr.stations.resolution)
 
     def __eq__(self, other):
         """
@@ -91,7 +91,7 @@ class DwdObservationValues(ScalarValuesCore):
         :return:
         """
         return super(DwdObservationValues, self).__eq__(other) and (
-            self.stations.resolution == other.stations.resolution and self.stations.period == other.stations.period
+            self.sr.resolution == other.sr.resolution and self.sr.period == other.sr.period
         )
 
     def __str__(self):
@@ -99,12 +99,12 @@ class DwdObservationValues(ScalarValuesCore):
 
         :return:
         """
-        periods_joined = "& ".join([period_type.value for period_type in self.stations.period])
+        periods_joined = "& ".join([period_type.value for period_type in self.sr.period])
 
         return ", ".join(
             [
                 super(DwdObservationValues, self).__str__(),
-                f"resolution {self.stations.resolution.value}",
+                f"resolution {self.sr.resolution.value}",
                 f"periods {periods_joined}",
             ]
         )
@@ -127,8 +127,8 @@ class DwdObservationValues(ScalarValuesCore):
         """
         periods_and_date_ranges = []
 
-        for period in self.stations.period:
-            if self.stations.resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
+        for period in self.sr.period:
+            if self.sr.resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(station_id, dataset)
 
                 for date_range in date_ranges:
@@ -140,26 +140,24 @@ class DwdObservationValues(ScalarValuesCore):
 
         for period, date_range in periods_and_date_ranges:
             parameter_identifier = build_parameter_set_identifier(
-                dataset, self.stations.resolution, period, station_id, date_range
+                dataset, self.sr.resolution, period, station_id, date_range
             )
 
             log.info(f"Acquiring observations data for {parameter_identifier}.")
 
-            if not check_dwd_observations_dataset(dataset, self.stations.resolution, period):
-                log.info(
-                    f"Invalid combination {dataset.value}/" f"{self.stations.resolution.value}/{period} is skipped."
-                )
+            if not check_dwd_observations_dataset(dataset, self.sr.resolution, period):
+                log.info(f"Invalid combination {dataset.value}/" f"{self.sr.resolution.value}/{period} is skipped.")
 
                 continue
 
             remote_files = create_file_list_for_climate_observations(
-                station_id, dataset, self.stations.resolution, period, date_range
+                station_id, dataset, self.sr.resolution, period, date_range
             )
 
             if len(remote_files) == 0:
                 parameter_identifier = build_parameter_set_identifier(
                     dataset,
-                    self.stations.resolution,
+                    self.sr.resolution,
                     period,
                     station_id,
                     date_range,
@@ -169,7 +167,7 @@ class DwdObservationValues(ScalarValuesCore):
 
             filenames_and_files = download_climate_observations_data_parallel(remote_files)
 
-            period_df = parse_climate_observations_data(filenames_and_files, dataset, self.stations.resolution, period)
+            period_df = parse_climate_observations_data(filenames_and_files, dataset, self.sr.resolution, period)
 
             parameter_data.append(period_df)
 
@@ -184,7 +182,7 @@ class DwdObservationValues(ScalarValuesCore):
         # TODO: temporary fix -> reduce time steps before 2000 by 1 hour
         #  for 1minute and 10minutes resolution data
         if not parameter_df.empty:
-            if self.stations.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_10):
+            if self.sr.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_10):
                 # Have to parse dates here although they should actually be parsed
                 # later on in the core API
                 parameter_df[Columns.DATE.value] = pd.to_datetime(
@@ -243,7 +241,7 @@ class DwdObservationValues(ScalarValuesCore):
             errors="ignore",
         )
 
-        resolution = self.stations.stations.resolution
+        resolution = self.sr.stations.resolution
 
         if dataset == DwdObservationDataset.CLIMATE_SUMMARY:
             if resolution == Resolution.DAILY:
@@ -303,7 +301,10 @@ class DwdObservationValues(ScalarValuesCore):
         :param series:
         :return:
         """
-        return pd.to_datetime(series, format=self._datetime_format).dt.tz_localize(self.data_tz)
+        series = pd.to_datetime(series, format=self._datetime_format)
+        if not series.dt.tz:
+            return series.dt.tz_localize(self.data_tz)
+        return series
 
     def _coerce_irregular_parameter(self, series: pd.Series) -> pd.Series:
         """
@@ -324,7 +325,7 @@ class DwdObservationValues(ScalarValuesCore):
         """
         hpm = {}
 
-        for parameter in DwdObservationParameter[self.stations.resolution.name]:
+        for parameter in DwdObservationParameter[self.sr.resolution.name]:
             try:
                 hpm[parameter.value] = parameter.name.lower()
             except AttributeError:
@@ -341,14 +342,14 @@ class DwdObservationValues(ScalarValuesCore):
         :param dataset:
         :return:
         """
-        file_index = create_file_index_for_climate_observations(dataset, self.stations.resolution, Period.HISTORICAL)
+        file_index = create_file_index_for_climate_observations(dataset, self.sr.resolution, Period.HISTORICAL)
 
         file_index = file_index[(file_index[Columns.STATION_ID.value] == station_id)]
 
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
-        interval = self.stations.stations._interval
+        interval = self.sr.stations._interval
 
         if not interval:
             from_date_min = file_index[Columns.FROM_DATE.value].min()
@@ -493,8 +494,8 @@ class DwdObservationRequest(ScalarRequestCore):
         :param parameter: parameter set str/enumeration
         :param resolution: resolution str/enumeration
         :param period: period str/enumeration
-        :param start_date: start date to limit the stations
-        :param end_date: end date to limit the stations
+        :param start_date: start date to limit the stations_result
+        :param end_date: end date to limit the stations_result
         """
         super().__init__(
             parameter=parameter,

@@ -62,7 +62,7 @@ def get_api(provider: str, network: str):
 
 def station_options(command):
     """
-    Station options for cli, which can be used for stations and values endpoint
+    Station options for cli, which can be used for stations_result and values endpoint
 
     :param command:
     :return:
@@ -71,7 +71,7 @@ def station_options(command):
         cloup.option("--parameter", type=StringListParamType(","), required=True),
         cloup.option("--resolution", type=click.STRING, required=True),
         cloup.option("--period", type=StringListParamType(",")),
-        cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
+        cloup.option_group("All stations_result", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
             "Station id filtering",
             cloup.option("--station", type=StringListParamType(",")),
@@ -121,13 +121,13 @@ def cli():
         wetterdienst about coverage --provider=<provider> --network=<network> [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
         wetterdienst about fields --provider=dwd --network=observation --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
 
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank> [--sql=<sql>] [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank> [--sql=<sql>] [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
 
         wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
         wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
@@ -141,14 +141,14 @@ def cli():
         --parameter=<parameter>               Parameter Set/Parameter, e.g. "kl" or "precipitation_height", etc.
         --resolution=<resolution>             Dataset resolution: "annual", "monthly", "daily", "hourly", "minute_10", "minute_1", for DWD Mosmix: type of mosmix, either 'small' or 'large'
         --period=<period>                     Dataset period: "historical", "recent", "now"
-        --all=<all>                           Bool for all stations
+        --all=<all>                           Bool for all stations_result
         --station=<station>                   Comma-separated list of station identifiers
         --name=<name>                         Name of queried station
         --coordinates=<latitude,longitude>    Latitude-longitude pair for filtering by geoposition.
-        --rank=<rank>                         Rank of nearby stations when filtering by geoposition.
+        --rank=<rank>                         Rank of nearby stations_result when filtering by geoposition.
         --distance=<distance>                 Maximum distance in km when filtering by geoposition.
         --bbox=<left,bottom,right,top>        Quadruple of left, bottom, right and top corners of bbox
-        --sql=<sql>                           SQL filter to apply for stations
+        --sql=<sql>                           SQL filter to apply for stations_result
         --date=<date>                         Date for filtering data. Can be either a single date(time) or
                                               an ISO-8601 time interval, see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals.
         --sql-values=<sql-values>             SQL query to apply to values
@@ -164,33 +164,33 @@ def cli():
         --reload                              Run service and dynamically reload changed files
         -h --help                             Show this screen
 
-    Examples requesting observation stations:
+    Examples requesting observation stations_result:
 
-        # Get list of all stations for daily climate summary data in JSON format
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily
+        # Get list of all stations_result for daily climate summary data in JSON format
+        wetterdienst stations_result --provider=dwd --network=observation --parameter=kl --resolution=daily
 
-        # Get list of all stations in CSV format
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --format=csv
+        # Get list of all stations_result in CSV format
+        wetterdienst stations_result --provider=dwd --network=observation --parameter=kl --resolution=daily --format=csv
 
-        # Get list of specific stations
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411
+        # Get list of specific stations_result
+        wetterdienst stations_result --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411
 
-        # Get list of specific stations in GeoJSON format
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411 --format=geojson
+        # Get list of specific stations_result in GeoJSON format
+        wetterdienst stations_result --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411 --format=geojson
 
-    Examples requesting mosmix stations:
+    Examples requesting mosmix stations_result:
 
-        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large
+        wetterdienst stations_result --provider=dwd --network=mosmix --parameter=large --resolution=large
 
     Examples requesting observation values:
 
-        # Get daily climate summary data for specific stations
+        # Get daily climate summary data for specific stations_result
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
 
-        # Get daily climate summary data for specific stations in CSV format
+        # Get daily climate summary data for specific stations_result in CSV format
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
 
-        # Get daily climate summary data for specific stations in tidy format
+        # Get daily climate summary data for specific stations_result in tidy format
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --tidy
 
         # Limit output to specific date
@@ -226,24 +226,24 @@ def cli():
 
     Examples using geospatial features:
 
-        # Acquire stations and readings by geoposition, request specific number of nearby stations.
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --rank=5
+        # Acquire stations_result and readings by geoposition, request specific number of nearby stations_result.
+        wetterdienst stations_result --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --rank=5
         wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --date=2020-06-30 --coordinates=49.9195,8.9671 --rank=5
 
-        # Acquire stations and readings by geoposition, request stations within specific distance.
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --distance=25
+        # Acquire stations_result and readings by geoposition, request stations_result within specific distance.
+        wetterdienst stations_result --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --coordinates=49.9195,8.9671 --distance=25
         wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent --date=2020-06-30 --coordinates=49.9195,8.9671 --distance=25
 
     Examples using SQL filtering:
 
-        # Find stations by state.
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
+        # Find stations_result by state.
+        wetterdienst stations_result --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE state='Sachsen'"
 
-        # Find stations by name (LIKE query).
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
+        # Find stations_result by name (LIKE query).
+        wetterdienst stations_result --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE lower(station_name) LIKE lower('%dresden%')"
 
-        # Find stations by name (regexp query).
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
+        # Find stations_result by name (regexp query).
+        wetterdienst stations_result --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --sql="SELECT * FROM data WHERE regexp_matches(lower(station_name), lower('.*dresden.*'))"
 
         # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --sql-values="SELECT * FROM data WHERE temperature_air_max_200 < 2.0;"
@@ -265,8 +265,8 @@ def cli():
 
     Examples for exporting data to files:
 
-        # Export list of stations into spreadsheet
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --target=file://stations.xlsx
+        # Export list of stations_result into spreadsheet
+        wetterdienst stations_result --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --target=file://stations_result.xlsx
 
         # Shortcut command for fetching readings
         alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
@@ -446,7 +446,7 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     return
 
 
-@cli.command("stations")
+@cli.command("stations_result")
 @provider_opt
 @network_opt
 @station_options
@@ -510,7 +510,7 @@ def stations(
     )
 
     if stations_.df.empty:
-        log.error("No stations available for given constraints")
+        log.error("No stations_result available for given constraints")
         sys.exit(1)
 
     if target:

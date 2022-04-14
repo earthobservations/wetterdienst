@@ -69,7 +69,7 @@ def get_stations(
     humanize: bool,
 ) -> StationsResult:
     """
-    Core function for querying stations via cli and restapi
+    Core function for querying stations_result via cli and restapi
 
     :param api:
     :param parameter:

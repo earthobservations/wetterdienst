@@ -39,12 +39,12 @@ def test_api(provider, network, kwargs, si_units):
 
     Settings.si_units = si_units
 
-    # All stations
+    # All stations_result
     request = api(**kwargs).all()
 
     stations = request.df
 
-    # Check stations DataFrame columns
+    # Check stations_result DataFrame columns
     assert set(stations.columns).issuperset(
         {
             "station_id",
@@ -58,13 +58,12 @@ def test_api(provider, network, kwargs, si_units):
         }
     )
 
-    # Check that there are actually stations
+    # Check that there are actually stations_result
     assert not stations.empty
 
     # Query first DataFrame from values
     values = next(request.values.query()).df
 
-    # TODO: DWD Forecast has no quality
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
 
     values = values.drop(columns="quality").replace(to_replace="nan", value=numpy.nan).dropna(axis=0)

@@ -21,7 +21,7 @@ def test_dwd_mosmix_l():
     )
     response = next(request.values.query())
 
-    # Verify list of stations.
+    # Verify list of stations_result.
     station_names = response.stations.df["name"].unique().tolist()
     assert station_names == ["JAN MAYEN"]
 
@@ -173,7 +173,7 @@ def test_dwd_mosmix_s():
     )
     response = next(request.values.query())
 
-    # Verify list of stations.
+    # Verify list of stations_result.
     station_names = list(response.stations.df["name"].unique())
     assert station_names == ["BJORNOYA"]
 

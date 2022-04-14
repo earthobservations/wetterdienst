@@ -12,7 +12,7 @@ class DwdObservationDataset(Enum):
     """
 
     enumeration for different parameter/variables
-    measured by dwd weather stations, listed from 1_minute to yearly resolution
+    measured by dwd weather stations_result, listed from 1_minute to yearly resolution
     """
 
     # 1_minute

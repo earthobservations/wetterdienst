@@ -796,7 +796,7 @@ def test_dwd_observation_data_monthly_tidy():
             "value": pd.to_numeric(
                 [34.0, 83.2, 30.3, 22.7, 33.3, 35.8, 46.8, 43.2, 52.8, 58.2, 16.4, 22.1], errors="coerce"
             ),
-            "quality": pd.to_numeric([9.0, 9.0, 9.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0], errors="coerce"),
+            "quality": pd.to_numeric([9.0] * 12, errors="coerce"),
         },
     )
 
@@ -842,12 +842,13 @@ def test_tidy_up_data():
     Settings.humanize = False
     Settings.si_units = True
 
+    station_id = "01048"
     request = DwdObservationRequest(
         "kl",
         "daily",
         "historical",
         start_date="2019-01-23 00:00:00",
-    ).filter_by_station_id((1048,))
+    ).filter_by_station_id((station_id,))
 
     df = pd.DataFrame(
         {
@@ -873,11 +874,14 @@ def test_tidy_up_data():
     )
 
     df_tidied = request.values.tidy_up_df(df, request.parameter[0][1])
-    df_tidied_organized = request.values._organize_df_columns(df_tidied)
+
+    df_tidied_organized = request.values._organize_df_columns(
+        df_tidied, station_id, DwdObservationDataset.CLIMATE_SUMMARY
+    )
 
     df_tidy = pd.DataFrame(
         {
-            "station_id": [1048] * 14,
+            "station_id": ["01048"] * 14,
             "dataset": ["climate_summary"] * 14,
             "parameter": [
                 "fx",
