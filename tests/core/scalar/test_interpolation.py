@@ -26,7 +26,7 @@ def test_interpolation_temperature_air_mean_200_hourly():
     result = stations.interpolate(latitude=50.0, longitude=8.9)
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 18001
-    assert interpolated_df.dropna().shape[0] == 12265
+    assert interpolated_df.dropna().shape[0] == 11137
 
     test_df = result.filter_by_date("2022-01-02 00:00:00+00:00").reset_index(drop=True)
 
