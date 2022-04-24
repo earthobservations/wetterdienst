@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.32.0 (24.04.2022)
+*******************
+
 - Add implementation of WSV Pegelonline service
 - Clean up code at several places
 - Fix ECCC observations access
