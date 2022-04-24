@@ -115,6 +115,12 @@ NOAA (National Oceanic And Atmospheric Administration / National Oceanic And Atm
         - more then 100k stations
         - data for weather services which don't publish data themselves
 
+WSV (Wasserstraßen- und Schifffahrtsverwaltung des Bundes / Federal Waterways and Shipping Administration)
+    - Pegelonline
+        - data of river network of Germany
+        - coverage of last 30 days
+        - parameters like stage, runoff and more related to rivers
+
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.
 

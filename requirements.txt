@@ -112,9 +112,9 @@ pycodestyle==2.8.0; python_full_version >= "3.6.2" and python_version >= "3.7" a
 pycparser==2.21; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0" and implementation_name == "pypy"
 pydocstyle==6.1.1; python_version >= "3.6"
 pyflakes==2.4.0; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.7" and python_version < "4.0"
-pygments==2.11.2; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.7" and python_version < "4.0"
+pygments==2.12.0; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.7" and python_version < "4.0"
 pyparsing==3.0.8; python_full_version >= "3.6.8" and python_version >= "3.6"
-pypdf2==1.27.8; python_version >= "2.7"
+pypdf2==1.27.9; python_version >= "2.7"
 pyrsistent==0.18.1; python_version >= "3.7" and python_version < "4.0"
 pytest-cov==2.12.1; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
 pytest-dictsdiff==0.5.8
