@@ -26,7 +26,7 @@ def test_interpolation_temperature_air_mean_200_hourly():
     result = stations.interpolate(latitude=50.0, longitude=8.9)
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 18001
-    assert interpolated_df.dropna().shape[0] == 11137
+    assert interpolated_df.dropna().shape[0] == 10609
 
     test_df = result.filter_by_date("2022-01-02 00:00:00+00:00").reset_index(drop=True)
 
@@ -35,7 +35,7 @@ def test_interpolation_temperature_air_mean_200_hourly():
             "date": pd.to_datetime(["2022-01-02 00:00:00+00:00"], utc=True),
             "parameter": [Parameter.TEMPERATURE_AIR_MEAN_200.name.lower()],
             "value": [277.64609040058747],
-            "distance_mean": [13.37185625092419],
+            "distance_mean": [13.374012456145287],
             "station_ids": [["02480", "04411", "07341", "00917"]],
         }
     )
