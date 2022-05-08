@@ -42,7 +42,7 @@ SETTINGS_STATIONS = (
             "latitude": 51.13,
             "longitude": 13.75,
             "from_date": None,
-            "name": "DRESDEN",
+            "name": "DRESDEN/FLUGHAFEN",
             "state": None,
         },
         [13.75, 51.13, 230.0],

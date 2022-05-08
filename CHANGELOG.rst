@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+0.32.1 (09.05.2022)
+*******************
+
+- Circumvent DWD server ssl certificate problem by temporary removing ssl verification
+
 0.32.0 (24.04.2022)
 *******************
 
