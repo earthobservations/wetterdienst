@@ -21,7 +21,7 @@ def test_parse_dwd_data():
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/historical/tageswerte_KL_00001_19370101_19860630_hist.zip"
     )
-    r = requests.get(url, verify=False)
+    r = requests.get(url, verify=False)  # noqa: S501
     r.raise_for_status()
 
     payload = BytesIO(r.content)

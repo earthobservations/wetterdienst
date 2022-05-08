@@ -5,7 +5,6 @@ import os
 from io import BytesIO
 from typing import List, Optional, Union
 
-import aiohttp
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 
@@ -76,7 +75,7 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
         listings_expiry_time=not WD_CACHE_DISABLE and ttl.value,
         listings_cache_type="filedircache",
         listings_cache_location=cache_dir,
-        ssl=False
+        ssl=False,
     )
 
     return fs.find(url)

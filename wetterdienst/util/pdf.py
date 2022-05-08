@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from io import BytesIO, StringIO
+from io import StringIO
 
 import PyPDF2
-import requests
+
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.network import download_file
 
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
