@@ -6,11 +6,14 @@ from io import BytesIO, StringIO
 import PyPDF2
 import requests
 
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.network import download_file
+
 
 def read_pdf(url):
     text = StringIO()
-    response = requests.get(url)
-    pdf = PyPDF2.PdfFileReader(BytesIO(response.content))
+    response = download_file(url, CacheExpiry.NO_CACHE)
+    pdf = PyPDF2.PdfFileReader(response)
     for page_number in range(pdf.numPages):
         page = pdf.getPage(page_number)
         result = page.extractText()
