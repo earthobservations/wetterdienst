@@ -8,9 +8,6 @@ import PyPDF2
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
-from wetterdienst.util.cache import CacheExpiry
-from wetterdienst.util.network import download_file
-
 
 def read_pdf(url):
     text = StringIO()
