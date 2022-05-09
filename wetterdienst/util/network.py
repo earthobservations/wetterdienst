@@ -40,8 +40,7 @@ class NetworkFilesystemManager:
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(cache_dir, "fsspec", key)
-        # TODO: remove ssl argument once server problems are solved
-        filesystem_real = HTTPFileSystem(use_listings_cache=True, client_kwargs=FSSPEC_CLIENT_KWARGS, ssl=False)
+        filesystem_real = HTTPFileSystem(use_listings_cache=True, client_kwargs=FSSPEC_CLIENT_KWARGS)
         if WD_CACHE_DISABLE or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = filesystem_real
         else:
@@ -69,13 +68,11 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
     :param ttl:         The cache expiration time.
     :returns:  A list of strings representing the files from the path.
     """
-    # TODO: remove ssl argument once server problems are solved
     fs = HTTPFileSystem(
         use_listings_cache=True,
         listings_expiry_time=not WD_CACHE_DISABLE and ttl.value,
         listings_cache_type="filedircache",
         listings_cache_location=cache_dir,
-        ssl=False,
     )
 
     return fs.find(url)
