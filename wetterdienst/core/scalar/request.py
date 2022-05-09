@@ -801,7 +801,7 @@ class ScalarRequestCore(Core):
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))
 
-    def interpolate(self, latitude, longitude) -> InterpolatedValuesResult:
+    def interpolate(self, latitude: float, longitude: float) -> InterpolatedValuesResult:
         """
         Method to interpolate values
 
@@ -833,25 +833,3 @@ class ScalarRequestCore(Core):
         )
 
         return InterpolatedValuesResult(df=interpolated_values, stations=self)
-
-
-if __name__ == "__main__":
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    latitude = 50.0
-    longitude = 8.9
-    distance = 30.0
-    start_date = datetime(2003, 1, 1)
-    end_date = datetime(2004, 12, 31)
-
-    stations = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
-        resolution="hourly",
-        period="historical",
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-    df = stations.interpolate(latitude, longitude)
-
-    log.info(df.df.dropna())

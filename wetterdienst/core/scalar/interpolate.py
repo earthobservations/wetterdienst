@@ -2,6 +2,7 @@
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
+from datetime import datetime
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
@@ -192,3 +193,25 @@ def apply_interpolation(row, stations_dict, valid_station_groups, parameter, req
     value = f(requested_x, requested_y)[0]  # there is only one interpolation result
 
     return parameter, value, distance_mean, station_group_ids
+
+
+if __name__ == "__main__":
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+    latitude = 50.0
+    longitude = 8.9
+    distance = 30.0
+    start_date = datetime(2003, 1, 1)
+    end_date = datetime(2004, 12, 31)
+
+    stations = DwdObservationRequest(
+        parameter="temperature_air_mean_200",
+        resolution="hourly",
+        period="historical",
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    df = stations.interpolate(latitude, longitude)
+
+    log.info(df.df.dropna())
