@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix creation of empty DataFrame for missing station ids
+
 0.32.2 (10.05.2022)
 *******************
 

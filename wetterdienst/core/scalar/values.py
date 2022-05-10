@@ -321,11 +321,10 @@ class ScalarValuesCore(metaclass=ABCMeta):
         resolution = self.sr.resolution
 
         # if parameter is a whole dataset, take every parameter from the dataset instead
-        if parameter == dataset:
-            if self.sr._unique_dataset or not self.sr._has_datasets:
-                parameter = [*parameter_base[resolution.name]]
-            else:
-                parameter = [*parameter_base[resolution.name][dataset.name]]
+        if self.sr._unique_dataset or not self.sr._has_datasets:
+            parameter = [*parameter_base[resolution.name]]
+        else:
+            parameter = [*parameter_base[resolution.name][dataset.name]]
 
         if self.sr._has_tidy_data:
             if not self.sr.start_date:
