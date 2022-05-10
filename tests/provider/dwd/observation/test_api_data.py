@@ -11,6 +11,7 @@ from freezegun import freeze_time
 from pandas import Timestamp
 from pandas._testing import assert_frame_equal
 
+from wetterdienst import Parameter
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -362,6 +363,24 @@ def test_dwd_observation_data_result_missing_data():
         ),
         check_categorical=False,
     )
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_result_all_missing_data():
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    stations = DwdObservationRequest(
+        parameter=Parameter.PRECIPITATION_HEIGHT.name,
+        resolution=DwdObservationResolution.MINUTE_10,
+        start_date=datetime(2021, 10, 1),
+        end_date=datetime(2021, 10, 5),
+    ).filter_by_station_id(["01851"])
+
+    values = stations.values.all().df
+
+    assert all(values.value.isna())
 
 
 @pytest.mark.remote
