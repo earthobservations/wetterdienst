@@ -8,7 +8,6 @@ from wetterdienst import Parameter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
-    DwdObservationPeriod,
     DwdObservationRequest,
     DwdObservationResolution,
 )
@@ -18,7 +17,6 @@ def test_interpolation_temperature_air_mean_200_hourly():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
         resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
     )
@@ -26,7 +24,7 @@ def test_interpolation_temperature_air_mean_200_hourly():
     result = stations.interpolate(latitude=50.0, longitude=8.9)
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 18001
-    assert interpolated_df.dropna().shape[0] == 10609
+    assert interpolated_df.dropna().shape[0] == 18001
 
     test_df = result.filter_by_date("2022-01-02 00:00:00+00:00").reset_index(drop=True)
 
