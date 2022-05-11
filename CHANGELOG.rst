@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.32.3 (12.05.2022)
+*******************
+
 - Fix creation of empty DataFrame for missing station ids
 - Fix creation of empty DataFrame for annual data
 
