@@ -150,7 +150,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         if self.sr.resolution == Resolution.MONTHLY:
             end_date += pd.Timedelta(days=31)
         elif self.sr.resolution == Resolution.ANNUAL:
-            end_date += pd.Timedelta(year=366)
+            end_date += pd.Timedelta(days=366)
 
         if self._data_tz == Timezone.DYNAMIC:
             timezone_ = self._get_timezone_from_station(station_id)
