@@ -62,8 +62,8 @@ def test_interpolation_precipitation_height_minute_10():
         {
             "date": pd.to_datetime(["2021-10-05 00:00:00+00:00"], utc=True),
             "parameter": [Parameter.PRECIPITATION_HEIGHT.name.lower()],
-            "value": [0.03362224236086883],
-            "distance_mean": [9.377547913740226],
+            "value": [0.03361671150111234],
+            "distance_mean": [9.379704118961323],
             "station_ids": [["04230", "02480", "04411", "07341"]],
         }
     )
