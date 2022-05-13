@@ -4,6 +4,7 @@
 import bz2
 import gzip
 import logging
+import re
 import tarfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,7 +19,6 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,
@@ -159,7 +159,7 @@ def collect_radar_data(
             for _, row in file_index.iterrows():
                 url = row[DwdColumns.FILENAME.value]
                 try:
-                    yield download_radolan_data(start_date, url)
+                    yield from download_radolan_data(url, start_date, end_date)
                 except FailedDownload as e:
                     log.exception(e)
 
@@ -268,32 +268,32 @@ def _download_generic_data(url: str) -> Generator[RadarResult, None, None]:
         yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
 
 
-def download_radolan_data(
-    date_time: datetime,
-    url: str,
-) -> RadarResult:
+def download_radolan_data(url: str, start_date, end_date) -> RadarResult:
     """
     Function used to download RADOLAN_CDC data for a given datetime. The function calls
     a separate download function that is cached for reuse which is especially used for
     historical data that comes packaged for multiple time steps within a single archive.
-
-    :param date_time:   The datetime for the requested RADOLAN file.
-                        This is required for the recognition of the returned binary,
-                        which has no obvious name tag.
-
     :param url:         The URL to the file that has the data
                         for the requested datetime, either an archive of multiple files
                         for a datetime in historical time or an archive with one file
                         for the recent RADOLAN file
-
+    :param start_date:
+    :param end_date:
     :return:            ``RadarResult`` item
     """
     archive_in_bytes = _download_radolan_data(url)
 
-    result = _extract_radolan_data(date_time, archive_in_bytes)
-    result.url = url
+    for result in _extract_radolan_data(archive_in_bytes):
+        if not result.timestamp:
+            # if result has no timestamp, take it from main url instead of files in archive
+            datetime_string = re.findall(r"\d{10}", url)[0]
+            date_time = datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
+            result.timestamp = date_time
+        if result.timestamp < start_date or result.timestamp > end_date:
+            continue
+        result.url = url
 
-    return result
+        yield result
 
 
 def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
@@ -310,47 +310,35 @@ def _download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
     return download_file(remote_radolan_filepath, ttl=CacheExpiry.TWELVE_HOURS)
 
 
-def _extract_radolan_data(date_time: datetime, archive_in_bytes: BytesIO) -> RadarResult:
+def _extract_radolan_data(archive_in_bytes: BytesIO) -> Generator[RadarResult, None, None]:
     """
     Function used to extract RADOLAN_CDC file for the requested datetime
     from the downloaded archive.
 
     Args:
-        date_time: requested datetime of RADOLAN
         archive_in_bytes: downloaded archive of RADOLAN file
-
     Returns:
         the datetime formatted as string and the RADOLAN file for the datetime
     """
-    # Need string of datetime to check if one of the files in the archive contains
-    # the requested datetime
-    date_time_string = date_time.strftime(DatetimeFormat.ymdhm.value)
-
     # First try to unpack archive from archive (case for historical data)
     try:
-        # Have to seek(0) as the archive might be reused
-        archive_in_bytes.seek(0)
-
         tfs = TarFileSystem(archive_in_bytes, compression="gzip")
-        file = tfs.glob(f"*{date_time_string}*")
 
-        if len(file) != 1:
-            raise FileNotFoundError(f"RADOLAN file for {date_time_string} not found.")  # pragma: no cover
+        for file in tfs.glob("*"):
+            datetime_string = re.findall(r"\d{10}", file)[0]
+            date_time = datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
+            file_in_bytes = tfs.tar.extractfile(file).read()
 
-        return RadarResult(
-            data=BytesIO(tfs.open(file[0]).read()),
-            timestamp=date_time,
-            filename=file,
-        )
+            yield RadarResult(
+                data=BytesIO(file_in_bytes),
+                timestamp=date_time,
+                filename=file,
+            )
 
-    except EOFError as ex:
-        raise FailedDownload(f"RADOLAN file for {date_time_string} is invalid: {ex}")  # pragma: no cover
-
-    # Otherwise if there's an error the data is from recent time period and only has to
+    # Otherwise, if there's an error the data is from recent time period and only has to
     # be unpacked once
     except tarfile.ReadError:
         # Seek again for reused purpose
         archive_in_bytes.seek(0)
-
         with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
-            return RadarResult(data=BytesIO(gz_file.read()), timestamp=date_time, filename=gz_file.name)
+            yield RadarResult(data=BytesIO(gz_file.read()), timestamp=None, filename=gz_file.name)
