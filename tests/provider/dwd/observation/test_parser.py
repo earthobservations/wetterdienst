@@ -5,6 +5,7 @@
 from io import BytesIO
 from zipfile import ZipFile
 
+import numpy as np
 import pandas as pd
 import pytest
 import requests
@@ -21,7 +22,7 @@ def test_parse_dwd_data():
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/historical/tageswerte_KL_00001_19370101_19860630_hist.zip"
     )
-    r = requests.get(url, verify=False)  # noqa: S501
+    r = requests.get(url)
     r.raise_for_status()
 
     payload = BytesIO(r.content)
@@ -43,22 +44,22 @@ def test_parse_dwd_data():
             {
                 "station_id": ["1", "1"],
                 "date": ["19370101", "19860630"],
-                "qn_3": [pd.NA, pd.NA],
-                "fx": [pd.NA, pd.NA],
-                "fm": [pd.NA, pd.NA],
+                "qn_3": pd.Series([np.NaN, np.NaN], dtype=object),
+                "fx": pd.Series([np.NaN, np.NaN], dtype=object),
+                "fm": pd.Series([np.NaN, np.NaN], dtype=object),
                 "qn_4": ["5", "10"],
                 "rsk": ["0.0", "0.0"],
                 "rskf": ["0", "0"],
-                "sdk": [pd.NA, pd.NA],
+                "sdk": pd.Series([np.NaN, np.NaN], dtype=object),
                 "shk_tag": ["0", "0"],
                 "nm": ["6.3", "0.3"],
-                "vpm": [pd.NA, "13.9"],
-                "pm": [pd.NA, pd.NA],
+                "vpm": [np.NaN, "13.9"],
+                "pm": pd.Series([np.NaN, np.NaN], dtype=object),
                 "tmk": ["-0.5", "19.8"],
-                "upm": [pd.NA, "60.00"],
+                "upm": [np.NaN, "60.00"],
                 "txk": ["2.5", "24.8"],
                 "tnk": ["-1.6", "14.4"],
-                "tgk": [pd.NA, pd.NA],
+                "tgk": pd.Series([np.NaN, np.NaN], dtype=object),
             }
         ),
     )
