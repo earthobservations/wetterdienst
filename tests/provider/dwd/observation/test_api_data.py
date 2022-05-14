@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -940,3 +940,22 @@ def test_tidy_up_data():
     )
 
     assert_frame_equal(df_tidied_organized, df_tidy)
+
+
+@pytest.mark.remote
+def test_dwd_observation_weather_phenomena():
+    """Test for DWD weather phenomena data, thanks saschnet (https://github.com/saschnet) for providing the sample,
+    see also https://github.com/earthobservations/wetterdienst/issues/647
+    """
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = False
+
+    request = DwdObservationRequest(
+        resolution=DwdObservationResolution.HOURLY,
+        parameter=[DwdObservationParameter.HOURLY.WEATHER_PHENOMENA.WEATHER],
+        start_date=datetime(year=2022, month=3, day=1, tzinfo=timezone.utc),
+        end_date=datetime(year=2022, month=3, day=31, tzinfo=timezone.utc),
+    )
+    res = request.all().df.dropna()
+    assert len(res) > 0

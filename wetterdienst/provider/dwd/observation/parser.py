@@ -99,6 +99,7 @@ def _parse_climate_observations_data(
             sep=STATION_DATA_SEP,
             dtype="str",
             na_values=NA_STRING,
+            encoding="latin1",
         )
     except pd.errors.ParserError:
         log.warning(f"The file representing {filename} could not be parsed and is skipped.")

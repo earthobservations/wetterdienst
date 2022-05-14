@@ -1199,7 +1199,9 @@ def test_radar_request_radvor_rq_timerange():
         "ncol": 900,
         "predictiontime": 0,
         "moduleflag": 8,
-        "quantification": 0,
+        "quantification": 1,
+        "radarid": "10000",
+        "radolanversion": "2.29.1",
     }
 
     assert requested_attrs == attrs

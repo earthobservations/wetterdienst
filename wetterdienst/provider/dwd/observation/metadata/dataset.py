@@ -124,6 +124,7 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.HISTORICAL,
             Period.RECENT,
         ],
+        DwdObservationDataset.WEATHER_PHENOMENA: [Period.HISTORICAL, Period.RECENT],
         DwdObservationDataset.WIND: [
             Period.HISTORICAL,
             Period.RECENT,
