@@ -1801,7 +1801,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 Shapely
-1.8.1.post1
+1.8.2
 BSD License
 Sean Gillies
 https://github.com/shapely/shapely
@@ -2695,7 +2695,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 anyio
-3.5.0
+3.6.1
 MIT License
 Alex Grönholm
 UNKNOWN
@@ -5785,13 +5785,13 @@ Public License instead of this License.
 
 
 flake8-comprehensions
-3.8.0
+3.9.0
 MIT License
 Adam Johnson
 https://github.com/adamchainz/flake8-comprehensions
 MIT License
 
-Copyright (c) 2017-2021 Adam Johnson
+Copyright (c) 2017 Adam Johnson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -8806,6 +8806,13 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
+nose
+1.3.7
+GNU Library or Lesser General Public License (LGPL)
+Jason Pellerin
+http://readthedocs.org/docs/nose/
+UNKNOWN
 
 numcodecs
 0.9.1
@@ -13613,7 +13620,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 pyparsing
-3.0.8
+3.0.9
 MIT License
 UNKNOWN
 UNKNOWN
@@ -14549,7 +14556,7 @@ https://requests.readthedocs.io
 
 
 scikit-learn
-1.0.2
+1.1.0
 new BSD
 UNKNOWN
 http://scikit-learn.org
@@ -17424,10 +17431,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 traitlets
-5.1.1
+5.2.0
 BSD License
-IPython Development Team
-https://github.com/ipython/traitlets
+UNKNOWN
+UNKNOWN
 # Licensing terms
 
 Traitlets is adapted from enthought.traits, Copyright (c) Enthought, Inc.,
@@ -17457,7 +17464,7 @@ software without specific prior written permission.
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
 FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -17479,8 +17486,8 @@ IPython uses a shared copyright model. Each contributor maintains copyright
 over their contributions to IPython. But, it is important to note that these
 contributions are typically only changes to the repositories. Thus, the IPython
 source code, in its entirety is not the copyright of any single person or
-institution.  Instead, it is the collective copyright of the entire IPython
-Development Team.  If individual contributors want to maintain a record of what
+institution. Instead, it is the collective copyright of the entire IPython
+Development Team. If individual contributors want to maintain a record of what
 changes/contributions they have specific copyright on, they should indicate
 their copyright in the commit message of the change, when they commit the
 change to one of the IPython repositories.
@@ -17816,6 +17823,34 @@ https://urllib3.readthedocs.io/
 MIT License
 
 Copyright (c) 2008-2020 Andrey Petrov and contributors (see CONTRIBUTORS.txt)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+utm
+0.7.0
+MIT License
+Tobias Bieniek
+https://github.com/Turbo87/utm
+MIT License
+
+Copyright (c) 2012-2017 Tobias Bieniek <Tobias.Bieniek@gmx.de>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

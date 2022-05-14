@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.32.4 (14.05.2022)
+*******************
+
 - Fix acquisition of historical DWD radolan data that comes in archives
 
 0.32.3 (12.05.2022)
