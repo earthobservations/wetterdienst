@@ -95,11 +95,12 @@ def _parse_climate_observations_data(
 
     try:
         df = pd.read_csv(
-            filepath_or_buffer=BytesIO(file.read().replace(b" ", b"")),  # prevent leading/trailing whitespace
+            filepath_or_buffer=file,  # prevent leading/trailing whitespace
             sep=STATION_DATA_SEP,
             dtype="str",
             na_values=NA_STRING,
             encoding="latin1",
+            skipinitialspace=True,
         )
     except pd.errors.ParserError:
         log.warning(f"The file representing {filename} could not be parsed and is skipped.")

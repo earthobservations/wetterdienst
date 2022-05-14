@@ -39,7 +39,8 @@ class Settings:
 
     # Context manager for managing settings in concurrent situations
     def __enter__(self):
-        self._local_settings_token = self._local_settings.set(self)
+        settings_token = self._local_settings.set(self)
+        self._local_settings.get()._local_settings_token = settings_token
         return self._local_settings.get()
 
     def __exit__(self, type_, value, traceback):

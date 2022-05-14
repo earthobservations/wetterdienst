@@ -1185,21 +1185,20 @@ def test_radar_request_radvor_rq_timerange():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     del requested_attrs["radarlocations"]
+    quant = requested_attrs.pop("quantification")
+    assert quant in (0, 1)
 
     attrs = {
         "producttype": "RQ",
         "datetime": request.start_date.to_pydatetime(),
-        "radarid": "10000",
         "datasize": 1620000,
         "maxrange": "150 km",
-        "radolanversion": "2.29.1",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
         "predictiontime": 0,
         "moduleflag": 8,
-        "quantification": 1,
         "radarid": "10000",
         "radolanversion": "2.29.1",
     }

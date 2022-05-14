@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.33.0 (14.05.2022)
+*******************
+
 - Fix acquisition of DWD weather phenomena data
 - Set default encoding when reading data from DWD with pandas to 'latin1'
 
