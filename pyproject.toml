@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.32.3"
+version = "0.32.4"
 description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
@@ -289,7 +289,7 @@ test-slow = "pytest -vvv tests"
 coverage = "pytest --cov=wetterdienst tests"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)' tests"
 export_requirements = "poetry export --without-hashes --dev --output requirements.txt"
-export_licenses = "pip-licenses --from=mixed --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
+export_licenses = "pip-licenses --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 export = ["export_requirements", "export_licenses"]
 update = "poetry update"
 
