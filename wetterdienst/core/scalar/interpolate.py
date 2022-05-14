@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 class _ParameterData:
     def __init__(self, values: pd.DataFrame, station_ids: list = None, extra_station_counter=0):
-        self.station_ids = station_ids if station_ids else []
+        self.station_ids = station_ids or []
         self.extra_station_counter = extra_station_counter
         self.values = values
         self.finished = False
@@ -207,7 +207,6 @@ if __name__ == "__main__":
     stations = DwdObservationRequest(
         parameter="temperature_air_mean_200",
         resolution="hourly",
-        period="historical",
         start_date=start_date,
         end_date=end_date,
     )

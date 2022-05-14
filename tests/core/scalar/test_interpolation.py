@@ -31,7 +31,7 @@ def test_interpolation_temperature_air_mean_200_hourly():
     expected_df = pd.DataFrame(
         {
             "date": pd.to_datetime(["2022-01-02 00:00:00+00:00"], utc=True),
-            "parameter": [Parameter.TEMPERATURE_AIR_MEAN_200.name.lower()],
+            "parameter": ["temperature_air_mean_200"],
             "value": [277.64609040058747],
             "distance_mean": [13.374012456145287],
             "station_ids": [["02480", "04411", "07341", "00917"]],
@@ -61,7 +61,7 @@ def test_interpolation_precipitation_height_minute_10():
     expected_df = pd.DataFrame(
         {
             "date": pd.to_datetime(["2021-10-05 00:00:00+00:00"], utc=True),
-            "parameter": [Parameter.PRECIPITATION_HEIGHT.name.lower()],
+            "parameter": ["precipitation_height"],
             "value": [0.03361671150111234],
             "distance_mean": [9.379704118961323],
             "station_ids": [["04230", "02480", "04411", "07341"]],
