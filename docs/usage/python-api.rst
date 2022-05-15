@@ -411,6 +411,78 @@ Again from here we can jump to the corresponding data:
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
 
+Interpolation
+-----------
+
+Sometimes you might need data for your exact position instead of values measured at the location of a station.
+Therefore, we added the interpolation feature which allows you to interpolate weather data of stations around you to your exact location.
+The function uses the four nearest stations to your given lat/lon point and interpolates the given parameter values.
+It uses the bilinear interpolation method from the scipy package (interp2d).
+The interpolation currently only works for DWDObservationRequest and individual parameters.
+It is still in an early phase and will be improved based on feedback.
+
+
+The graphic below shows values of the parameter ``temperature_air_mean_200`` from multiple stations measured at the same time.
+The blue points represent the position of a station and includes the measured value.
+The red point represents the position of the interpolation and includes the interpolated value.
+
+.. image:: docs/img/interpolation.png
+   :width: 600
+
+
+Values represented as a table:
+
+.. list-table:: Individual station values
+   :header-rows: 1
+
+   * - station_id
+     - parameter
+     - date
+     - value
+   * - 02480
+     - temperature_air_mean_200
+     - 2022-01-02 00:00:00+00:00
+     - 278.15
+   * - 04411
+     - temperature_air_mean_200
+     - 2022-01-02 00:00:00+00:00
+     - 277.15
+   * - 07341
+     - temperature_air_mean_200
+     - 2022-01-02 00:00:00+00:00
+     - 278.35
+   * - 00917
+     - temperature_air_mean_200
+     - 2022-01-02 00:00:00+00:00
+     - 276.25
+
+The interpolated value looks like this:
+
+.. list-table:: Interpolated value
+   :header-rows: 1
+
+   * - parameter
+     - date
+     - value
+   * - temperature_air_mean_200
+     - 2022-01-02 00:00:00+00:00
+     - 277.65
+
+The code to execute the interpolation is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
+Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
+
+.. code-block:: python
+
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        resolution=DwdObservationResolution.HOURLY,
+        start_date=datetime(2022, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+
+    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    df = result.df
+    print(df.head())
 
 SQL support
 -----------
