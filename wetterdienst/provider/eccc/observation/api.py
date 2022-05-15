@@ -31,7 +31,7 @@ from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.resolution import (
-    EccObservationResolution,
+    EcccObservationResolution,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
 from wetterdienst.util.cache import CacheExpiry, cache_dir
@@ -241,7 +241,7 @@ class EcccObservationRequest(ScalarRequestCore):
 
     _tz = Timezone.UTC
 
-    _resolution_base = EccObservationResolution
+    _resolution_base = EcccObservationResolution
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
     _period_base = Period.HISTORICAL
@@ -302,7 +302,7 @@ class EcccObservationRequest(ScalarRequestCore):
     def __init__(
         self,
         parameter: Tuple[Union[str, EcccObservationParameter]],
-        resolution: Union[EccObservationResolution, Resolution],
+        resolution: Union[EcccObservationResolution, Resolution],
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ):
