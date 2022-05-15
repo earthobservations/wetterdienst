@@ -6,6 +6,7 @@ from datetime import datetime
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,11 @@ from scipy import interpolate
 from shapely.geometry import Point, Polygon
 
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.parameter import Parameter
+
+if TYPE_CHECKING:
+    from wetterdienst.core.scalar.request import ScalarRequestCore
+    from wetterdienst.core.scalar.result import StationsResult
 
 log = logging.getLogger(__name__)
 
@@ -26,22 +32,22 @@ class _ParameterData:
         self.finished = False
 
 
-def get_interpolated_df(
-    stations_ranked, requested_x, requested_y, parameters, interpolatable_parameters
-) -> pd.DataFrame:
-    stations_dict, param_dict = request_stations(stations_ranked, interpolatable_parameters, parameters)
+def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude: float) -> pd.DataFrame:
+    requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
+    stations_dict, param_dict = request_stations(request, latitude, longitude)
     df = calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
     df[Columns.DISTANCE_MEAN.value] = pd.Series(df[Columns.DISTANCE_MEAN.value].values, dtype=float)
     df[Columns.VALUE.value] = pd.Series(df[Columns.VALUE.value].values, dtype=float)
-    df[Columns.DATE.value] = pd.to_datetime(df[Columns.DATE.value], utc=True)
+    df[Columns.DATE.value] = pd.to_datetime(df[Columns.DATE.value], infer_datetime_format=True)
     return df
 
 
-def request_stations(stations_ranked, interpolatable_parameters, parameters) -> (dict, dict):
+def request_stations(request: "ScalarRequestCore", latitude: float, longitude: float) -> (dict, dict):
     param_dict = {}
     stations_dict = {}
-    # TODO: add soft limit (soft_distance_km_limit = 20)
     hard_distance_km_limit = 40
+
+    stations_ranked = request.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
     stations_ranked_df = stations_ranked.df.dropna()
 
     for (_, station), result in zip(stations_ranked_df.iterrows(), stations_ranked.values.query()):
@@ -55,25 +61,36 @@ def request_stations(stations_ranked, interpolatable_parameters, parameters) -> 
         if result.df.dropna().empty:
             continue
 
+        # convert to utc
+        result.df.date = result.df.date.dt.tz_convert("UTC")
+
         utm_x, utm_y = utm.from_latlon(station.latitude, station.longitude)[:2]
         stations_dict[station.station_id] = (utm_x, utm_y, station.distance)
-        apply_station_values_per_parameter(
-            result, stations_ranked, parameters, interpolatable_parameters, param_dict, station.station_id
-        )
+        apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station)
 
     return stations_dict, param_dict
 
 
 def apply_station_values_per_parameter(
-    result, stations_ranked, parameters, interpolatable_parameters, param_dict, station_id
+    result_df: pd.DataFrame, stations_ranked: "StationsResult", param_dict: dict, station: pd.Series
 ):
-    for parameter, dataset in parameters:
+    km_limit = {
+        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
+        Parameter.WIND_SPEED.name: 40,
+        Parameter.PRECIPITATION_HEIGHT.name: 20,
+    }
+
+    for parameter, dataset in stations_ranked.stations.parameter:
         if parameter == dataset:
             log.info("only individual parameters can be interpolated")
             continue
 
-        if parameter.name not in interpolatable_parameters:
+        if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
+            continue
+
+        if station.distance > km_limit[parameter.name]:
+            log.info(f"Station for parameter {parameter.name} is too far away")
             continue
 
         parameter_name = parameter.name.lower()
@@ -81,35 +98,45 @@ def apply_station_values_per_parameter(
             continue
 
         # Filter only for exact parameter
-        result_df_param = result.df.loc[result.df[Columns.PARAMETER.value] == parameter_name]
-        if result_df_param.dropna().empty:
+        result_series_param = result_df.loc[result_df[Columns.PARAMETER.value] == parameter_name]
+        if result_series_param.dropna().empty:
             continue
 
-        result_df_param = result_df_param.loc[:, Columns.VALUE.value]
-        result_df_param.name = station_id
+        result_series_param = result_series_param.loc[:, Columns.VALUE.value]
+        result_series_param.name = station.station_id
 
         if parameter_name not in param_dict:
             param_dict[parameter_name] = _ParameterData(
-                # TODO: this currently only works for a fixed timezone
-                stations_ranked.values._get_base_df("").set_index(Columns.DATE.value)
+                pd.DataFrame(
+                    {
+                        Columns.DATE.value: pd.date_range(
+                            start=stations_ranked.stations.start_date,
+                            end=stations_ranked.stations.end_date,
+                            freq=stations_ranked.frequency.value,
+                            tz="UTC",
+                        )
+                    }
+                )
+                .set_index(Columns.DATE.value)
+                .astype("datetime64")
             )
 
-        extract_station_values(param_dict[parameter_name], result_df_param, station_id)
+        extract_station_values(param_dict[parameter_name], result_series_param)
 
 
-def extract_station_values(param_data, result_df_param, station_id):
+def extract_station_values(param_data: _ParameterData, result_series_param: pd.Series):
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
     # 3. an additional counter is below 3 (used if a station has really no or few values)
 
     cond1 = param_data.values.shape[1] < 4
-    cond2 = not cond1 and gain_of_value_pairs(param_data.values, result_df_param) > 0.10
+    cond2 = not cond1 and gain_of_value_pairs(param_data.values, result_series_param) > 0.10
     if cond1 or cond2 or param_data.extra_station_counter < 3:  # timestamps + 4 stations
         if not (cond1 or cond2):
             param_data.extra_station_counter += 1
 
-        param_data.values[result_df_param.name] = result_df_param.values
+        param_data.values[result_series_param.name] = result_series_param.values
     else:
         param_data.finished = True
 
@@ -121,7 +148,9 @@ def gain_of_value_pairs(old_values: pd.DataFrame, new_values: pd.Series) -> floa
     return new_score / old_score - 1
 
 
-def calculate_interpolation(requested_x, requested_y, stations_dict, param_dict) -> pd.DataFrame:
+def calculate_interpolation(
+    requested_x: float, requested_y: float, stations_dict: dict, param_dict: dict
+) -> pd.DataFrame:
     columns = [
         Columns.DATE.value,
         Columns.PARAMETER.value,
@@ -147,7 +176,7 @@ def calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
     return pd.concat(param_df_list).sort_values(by=[Columns.DATE.value, Columns.PARAMETER.value]).reset_index(drop=True)
 
 
-def get_valid_station_groups(stations_dict, requested_x, requested_y):
+def get_valid_station_groups(stations_dict: dict, requested_x: float, requested_y: float):
     point = Point(requested_x, requested_y)
 
     valid_groups = Queue()
@@ -169,9 +198,11 @@ def get_station_group_ids(valid_station_groups: Queue, vals_index: frozenset) ->
     return []
 
 
-def apply_interpolation(row, stations_dict, valid_station_groups, parameter, requested_x, requested_y):
-    vals_state = ~np.isnan(row.values)
-    vals = row[vals_state]
+def apply_interpolation(
+    row, stations_dict: dict, valid_station_groups, parameter, requested_x: float, requested_y: float
+):
+    vals_state = ~pd.isna(row.values)
+    vals = row[vals_state].astype(float)
 
     station_group_ids = get_station_group_ids(valid_station_groups, frozenset(vals.index))
 

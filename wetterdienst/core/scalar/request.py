@@ -12,7 +12,6 @@ import dateutil.parser
 import numpy as np
 import pandas as pd
 import pytz
-import utm
 from measurement.measures import Distance
 from measurement.utils import guess
 from rapidfuzz import fuzz, process
@@ -183,6 +182,14 @@ class ScalarRequestCore(Core):
         Columns.NAME.value,
         Columns.STATE.value,
     )
+
+    #   - heterogeneous parameters such as precipitation_height
+    #   - homogeneous parameters such as temperature_air_200
+    interpolatable_parameters = [
+        Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        Parameter.WIND_SPEED.name,
+        Parameter.PRECIPITATION_HEIGHT.name,
+    ]
 
     def _parse_period(self, period: Period) -> Optional[List[Period]]:
         """
@@ -810,26 +817,18 @@ class ScalarRequestCore(Core):
         :return:
         """
 
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
         if self.resolution in (
             Resolution.MINUTE_1,
             Resolution.MINUTE_5,
             Resolution.MINUTE_10,
         ):
-            log.warning("interpolation might be slow for high resolutions due to mass of data")
+            log.warning("Interpolation might be slow for high resolutions due to mass of data")
 
-        # This should be defined somewhere else and we may differ between
-        #   - heterogeneous parameters such as precipitation_height
-        #   - homogeneous parameters such as temperature_air_200
-        interpolatable_parameters = [
-            Parameter.TEMPERATURE_AIR_MEAN_200.name,
-            Parameter.WIND_SPEED.name,
-            Parameter.PRECIPITATION_HEIGHT.name,
-        ]
+        if not isinstance(self, DwdObservationRequest):
+            log.error("Interpolation currently only works for DwdObservationRequest")
+            return InterpolatedValuesResult(df=pd.DataFrame(), stations=self)
 
-        requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
-        stations_ranked = self.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
-        interpolated_values = get_interpolated_df(
-            stations_ranked, requested_x, requested_y, self.parameter, interpolatable_parameters
-        )
-
+        interpolated_values = get_interpolated_df(self, latitude, longitude)
         return InterpolatedValuesResult(df=interpolated_values, stations=self)
