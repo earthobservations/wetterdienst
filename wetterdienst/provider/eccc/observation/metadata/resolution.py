@@ -6,7 +6,7 @@ from enum import Enum
 from wetterdienst.metadata.resolution import Resolution
 
 
-class EccObservationResolution(Enum):
+class EcccObservationResolution(Enum):
     DAILY = Resolution.DAILY.value
     HOURLY = Resolution.HOURLY.value
     MONTHLY = Resolution.MONTHLY.value

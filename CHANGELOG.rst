@@ -9,6 +9,7 @@ Development
 
 - Fix acquisition of DWD weather phenomena data
 - Set default encoding when reading data from DWD with pandas to 'latin1'
+- Fix typo in `EcccObservationResolution`
 
 0.32.4 (14.05.2022)
 *******************
@@ -399,7 +400,7 @@ Bugfixes
 - establish code style black
 - setup nox session that can be used to run black via nox -s black for one of the supported
   Python versions
-- add option for data collection to tidy the DataFrame (properly reshape) with the 
+- add option for data collection to tidy the DataFrame (properly reshape) with the
   "tidy_data" keyword and set it to be used as default
 - fix integer type casting for cases with nans in the column/series
 - fix humanizing of column names for tidy data
@@ -422,7 +423,7 @@ Bugfixes
 - [cli] Add geospatial filtering by number of nearby stations.
 - Simplify release pipeline
 - small updates to readme
-- change updating "parallel" argument to be done after parameter parsing to prevent mistakenly not found 
+- change updating "parallel" argument to be done after parameter parsing to prevent mistakenly not found
   parameter
 - remove find_all_match_strings function and extract functionality to individual operations
 - parameter, time resolution and period type can now also be passed as strings of the enumerations e.g.
