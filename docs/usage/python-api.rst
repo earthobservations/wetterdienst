@@ -471,7 +471,7 @@ The interpolated value looks like this:
 The code to execute the interpolation is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
 Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
 
-.. code-block:: python
+.. ipython:: python
 
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,

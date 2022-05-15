@@ -6,10 +6,15 @@ from pandas._testing import assert_frame_equal
 
 from wetterdienst import Parameter
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationRequest,
     DwdObservationResolution,
+)
+from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
+from wetterdienst.provider.eccc.observation.metadata.resolution import (
+    EcccObservationResolution,
 )
 
 
@@ -60,7 +65,7 @@ def test_interpolation_precipitation_height_minute_10():
 
     expected_df = pd.DataFrame(
         {
-            "date": pd.to_datetime(["2021-10-05 00:00:00+00:00"], utc=True),
+            "date": pd.to_datetime(["2021-10-05 00:00:00+00:00"]),
             "parameter": ["precipitation_height"],
             "value": [0.03361671150111234],
             "distance_mean": [9.379704118961323],
@@ -95,7 +100,7 @@ def test_not_interpolatable_parameter():
     ).reset_index(drop=True)
     expected_df[Columns.VALUE.value] = pd.Series(expected_df[Columns.VALUE.value].values, dtype=float)
     expected_df[Columns.DISTANCE_MEAN.value] = pd.Series(expected_df[Columns.DISTANCE_MEAN.value].values, dtype=float)
-    expected_df[Columns.DATE.value] = pd.to_datetime([], utc=True)
+    expected_df[Columns.DATE.value] = pd.to_datetime([])
 
     assert_frame_equal(
         interpolated_df,
@@ -127,10 +132,34 @@ def test_not_interpolatable_dataset():
     ).reset_index(drop=True)
     expected_df[Columns.VALUE.value] = pd.Series(expected_df[Columns.VALUE.value].values, dtype=float)
     expected_df[Columns.DISTANCE_MEAN.value] = pd.Series(expected_df[Columns.DISTANCE_MEAN.value].values, dtype=float)
-    expected_df[Columns.DATE.value] = pd.to_datetime([], utc=True)
+    expected_df[Columns.DATE.value] = pd.to_datetime([])
 
     assert_frame_equal(
         interpolated_df,
         expected_df,
         check_categorical=False,
     )
+
+
+def not_supported_provider_dwd_mosmix(caplog):
+    request = DwdMosmixRequest(
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2022, 1, 20),
+        parameter=["DD", "ww"],
+        mosmix_type=DwdMosmixType.SMALL,
+    )
+    result = request.interpolate(latitude=50.0, longitude=8.9)
+    assert result.df.empty
+    assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
+
+
+def test_not_supported_provider_ecc(caplog):
+    station = EcccObservationRequest(
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2022, 1, 20),
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        resolution=EcccObservationResolution.DAILY,
+    )
+    result = station.interpolate(latitude=50.0, longitude=8.9)
+    assert result.df.empty
+    assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
