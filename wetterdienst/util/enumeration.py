@@ -71,9 +71,4 @@ def parse_enumeration_from_template(
 
 
 def parse_enumeration(values, intermediate, base=None):
-    return list(
-        map(
-            lambda x: parse_enumeration_from_template(x, intermediate, base),
-            as_list(values),
-        )
-    )
+    return [parse_enumeration_from_template(x, intermediate, base) for x in as_list(values)]

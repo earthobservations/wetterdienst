@@ -27,7 +27,7 @@ provider_opt = cloup.option_group(
     "Provider",
     click.option(
         "--provider",
-        type=click.Choice(list(map(lambda p: p.name, Provider)), case_sensitive=False),
+        type=click.Choice([provider.name for provider in Provider], case_sensitive=False),
         required=True,
     ),
 )
@@ -383,7 +383,7 @@ def about():
     "Provider",
     click.option(
         "--provider",
-        type=click.Choice(list(map(lambda p: p.name, Provider)), case_sensitive=False),
+        type=click.Choice([provider.name for provider in Provider], case_sensitive=False),
     ),
 )
 @cloup.option_group(

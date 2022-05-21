@@ -41,3 +41,10 @@ class Provider(Enum):
         "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
         "https://pegelonline.wsv.de/webservice/ueberblick",
     )
+    EA = (
+        "Environment Agency",
+        "Environment Agency",
+        "United Kingdom",
+        "© Environment Agency of UK",
+        "https://environment.data.gov.uk/hydrology/",
+    )

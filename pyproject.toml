@@ -128,6 +128,10 @@ fastapi                         = { version = "^0.65", optional = true }
 uvicorn                         = { version = "^0.14", optional = true }
 wradlib                         = { version = "^1.13", optional = true }
 
+# Radar
+eccodes                         = { version = "1.2.0", optional = true }
+pdbufr                          = { version = "^0.9.0", optional = true, extras = ["eccodes"] }
+
 # Explorer UI service
 plotly                          = { version = "^5.0", optional = true }
 dash                            = { version = "^2.0", optional = true }
@@ -147,7 +151,6 @@ timezonefinder = "^5.2"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
 scikit-learn = "^1.0.2"
-
 
 [tool.poetry.dev-dependencies]
 poethepoet = "^0.9"
@@ -220,8 +223,8 @@ influxdb = ["influxdb", "influxdb-client"]
 cratedb = ["crate"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
-radar = ["wradlib", "pybufrkit", "h5py"]
-bufr = ["pybufrkit"]
+radar = ["wradlib", "pybufrkit", "h5py", "pdbufr"]
+bufr = ["pybufrkit", "pdbufr"]
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.ui.cli:cli'
@@ -275,7 +278,7 @@ flake8-bandit = ["-S101", "-S106"]
 flake8-bugbear = ["-B008"]
 
 [tool.poe.tasks]
-install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer"
+install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
 format = ["black", "isort"]

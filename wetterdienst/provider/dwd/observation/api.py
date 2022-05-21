@@ -288,7 +288,6 @@ class DwdObservationValues(ScalarValuesCore):
             var_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
-
         df_tidy[Columns.QUALITY.value] = quality.reset_index(drop=True)
 
         return df_tidy

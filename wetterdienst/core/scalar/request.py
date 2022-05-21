@@ -75,7 +75,8 @@ class ScalarRequestCore(Core):
 
     @dynamic_frequency.setter
     def dynamic_frequency(self, df) -> None:
-        self._dynamic_frequency = parse_enumeration_from_template(df, Frequency)
+        if df:
+            self._dynamic_frequency = parse_enumeration_from_template(df, Frequency)
 
     @property
     @abstractmethod
@@ -115,6 +116,8 @@ class ScalarRequestCore(Core):
         """Dataset base that is used to differ between different datasets"""
         if self._has_datasets:
             raise NotImplementedError("implement _dataset_base enumeration that contains available datasets")
+
+        return self._resolution_base
 
     @property
     def _unique_dataset(self) -> bool:

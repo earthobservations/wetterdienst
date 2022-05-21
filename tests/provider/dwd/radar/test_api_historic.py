@@ -233,6 +233,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         "producttype": "RW",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -302,6 +303,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     attrs = {
         "producttype": "RW",
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -531,11 +533,9 @@ def test_radar_request_site_historic_pe_timerange(fmt):
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using date ranges.
-
     The proof will use these parameters to acquire data:
     - start_date: Yesterday at this time
     - end_date:   start_date + 1 hour
-
     This time, we will test both the BINARY and BUFR data format.
     """
 
@@ -628,8 +628,6 @@ def test_radar_request_site_historic_px250_bufr_timerange():
         raise pytest.skip("Data currently not available")
 
     assert len(results) == 12
-
-    # TODO: Verify data.
 
 
 @pytest.mark.remote
@@ -999,6 +997,7 @@ def test_radar_request_radvor_re_yesterday():
         "producttype": "RE",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.001,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -1109,6 +1108,7 @@ def test_radar_request_radvor_rq_yesterday():
         "producttype": "RQ",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -1191,6 +1191,7 @@ def test_radar_request_radvor_rq_timerange():
     attrs = {
         "producttype": "RQ",
         "datetime": request.start_date.to_pydatetime(),
+        "formatversion": 3,
         "datasize": 1620000,
         "maxrange": "150 km",
         "precision": 0.1,

@@ -95,7 +95,7 @@ def radar_scan_volume():
     results = chain(request_velocity.query(), request_reflectivity.query())
 
     # Collect list of buffers.
-    files = list(map(lambda item: item.data, results))
+    files = [item.data for item in results]
 
     # Sanity checks.
     if not files:

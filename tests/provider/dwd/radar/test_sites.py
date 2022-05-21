@@ -7,9 +7,8 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 def test_radar_sites_enum():
 
-    assert len(DwdRadarSite) == 18
+    assert len(DwdRadarSite) == 17
     assert DwdRadarSite.ASB.value == "asb"
-    assert DwdRadarSite.EMD.value == "emd"
     assert DwdRadarSite.UMD.value == "umd"
 
 

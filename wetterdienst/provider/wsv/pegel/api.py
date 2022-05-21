@@ -4,7 +4,6 @@
 import json
 from datetime import datetime
 from enum import Enum
-from io import BytesIO
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -20,7 +19,7 @@ from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit
 from wetterdienst.util.cache import CacheExpiry
-from wetterdienst.util.network import NetworkFilesystemManager
+from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
 FLOAT_9_TIMES = Tuple[
@@ -105,7 +104,6 @@ class WsvPegelValues(ScalarValuesCore):
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
     # Used for getting frequency of timeseries
     _station_endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/"
-    _fs = NetworkFilesystemManager.get(CacheExpiry.NO_CACHE)
 
     @property
     def _data_tz(self) -> Timezone:
@@ -123,11 +121,11 @@ class WsvPegelValues(ScalarValuesCore):
         url = self._endpoint.format(station_id=station_id, parameter=parameter.value)
 
         try:
-            response = self._fs.cat(url)
+            response = download_file(url, CacheExpiry.NO_CACHE)
         except FileNotFoundError:
             return pd.DataFrame()
 
-        df = pd.read_json(BytesIO(response))
+        df = pd.read_json(response)
 
         df = df.rename(columns={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
 
@@ -146,9 +144,9 @@ class WsvPegelValues(ScalarValuesCore):
         """
         url = self._station_endpoint.format(station_id=station_id, parameter=parameter.value)
 
-        response = self._fs.cat(url)
+        response = download_file(url)
 
-        station_dict = json.load(BytesIO(response))
+        station_dict = json.load(response)
 
         return f"{station_dict['equidistance']}min"
 
@@ -160,7 +158,6 @@ class WsvPegelRequest(ScalarRequestCore):
     _tz = Timezone.GERMANY
 
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true&includeCharacteristicValues=true"
-    _fs = NetworkFilesystemManager.get(CacheExpiry.ONE_HOUR)
 
     provider = Provider.WSV
     kind = Kind.OBSERVATION
@@ -260,9 +257,9 @@ class WsvPegelRequest(ScalarRequestCore):
 
             return gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw
 
-        response = self._fs.cat(self._endpoint)
+        response = download_file(self._endpoint, CacheExpiry.ONE_HOUR)
 
-        df = pd.read_json(BytesIO(response))
+        df = pd.read_json(response)
 
         df = df.rename(columns={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
 

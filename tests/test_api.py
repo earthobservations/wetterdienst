@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import numpy
 import pytest
 
 from wetterdienst import Settings, Wetterdienst
@@ -26,6 +25,8 @@ from wetterdienst import Settings, Wetterdienst
         ("noaa", "ghcn", {"parameter": "precipitation_height"}),
         # WSV Pegelonline
         ("wsv", "pegel", {"parameter": "water_level"}),
+        # EA Hydrology
+        ("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}),
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))
@@ -66,6 +67,6 @@ def test_api(provider, network, kwargs, si_units):
 
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
 
-    values = values.drop(columns="quality").replace(to_replace="nan", value=numpy.nan).dropna(axis=0)
+    values = values.drop(columns="quality").dropna(axis=0)
 
     assert not values.empty

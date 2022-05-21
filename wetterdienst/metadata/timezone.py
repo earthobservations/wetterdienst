@@ -8,4 +8,5 @@ class Timezone(Enum):
     GERMANY = "Europe/Berlin"
     UTC = "UTC"
     USA = "US/Washington"
+    UK = "Europe/London"
     DYNAMIC = "dynamic"  # station based timezone (get tz from lon/lat)
