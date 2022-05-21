@@ -528,7 +528,7 @@ def test_dwd_observation_data_result_tabular_metric():
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tidy_metric():
+def test_dwd_observation_data_result_tidy_si():
     """Test for actual values (tidy) in metric units"""
     Settings.tidy = True
     Settings.humanize = False
@@ -871,7 +871,7 @@ def test_tidy_up_data():
 
     df = pd.DataFrame(
         {
-            "station_id": [1048],
+            "station_id": ["01048"],
             "date": [pd.Timestamp("2019-01-23 00:00:00")],
             "qn_3": [10],
             "fx": [11.8],

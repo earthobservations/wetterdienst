@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add UKs Environment Agency hydrology API
+
 0.33.0 (14.05.2022)
 *******************
 
@@ -139,7 +141,6 @@ Features
 
 - Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
   [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
-
 - Rename wetterdienst show to wetterdienst info, make version accessible via cli with
   wetterdienst version
 

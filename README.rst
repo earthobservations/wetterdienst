@@ -1,23 +1,24 @@
 Wetterdienst - Open weather data for humans
 ###########################################
 
-.. container:: align-center
+.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
+    :alt: German weather stations managed by Deutscher Wetterdienst
+    :width: 32 %
 
-    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
-        :alt: German weather stations managed by Deutscher Wetterdienst
+.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
+    :alt: temperature timeseries of Hohenpeissenberg/Germany
+    :width: 32 %
 
-    *“You must be the change you wish to see in the world.” — Gandhi*
+.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
+    :alt: warming stripes of Hohenpeissenberg/Germany
+    :width: 32 %
 
-    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
-        :alt: temperature timeseries of Hohenpeissenberg/Germany
+*“You must be the change you wish to see in the world.” — Gandhi*
 
-    *"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
-    Hohenpeissenberg I got with the help of wetterdienst; and I'm not sure about the universe." - Albert Einstein*
+*"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
+Hohenpeissenberg I got with the help of wetterdienst; and I'm not sure about the universe." - Albert Einstein*
 
-    .. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
-        :alt: warming stripes of Hohenpeissenberg/Germany
-
-    *"We are the first generation to feel the effect of climate change and the last generation who can do something about it." - Barack Obama*
+*"We are the first generation to feel the effect of climate change and the last generation who can do something about it." - Barack Obama*
 
 .. overview_start_marker
 
@@ -120,6 +121,11 @@ WSV (Wasserstraßen- und Schifffahrtsverwaltung des Bundes / Federal Waterways a
         - data of river network of Germany
         - coverage of last 30 days
         - parameters like stage, runoff and more related to rivers
+
+EA (Environment Agency)
+    - Hydrology
+        - data of river network of UK
+        - parameters flow and ground water stage
 
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.

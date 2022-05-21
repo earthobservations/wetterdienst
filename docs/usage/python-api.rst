@@ -142,6 +142,14 @@ and to set it back to standard
     from wetterdienst import Settings
     Settings.reset()
 
+The environmental settings recognized by our settings are
+
+.. ipython:: python
+
+    import json
+    from wetterdienst import Settings
+    print(json.dumps(Settings.env.dump(), indent=4))
+
 Also if for whatever reason you have concurrent code running and want it all to have thread-safe settings use it like
 
 .. ipython:: python

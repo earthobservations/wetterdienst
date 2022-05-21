@@ -20,11 +20,12 @@ RUN apt-get update && \
 
 # Make sure you have numpy installed before you attempt to install the GDAL Python bindings.
 # https://gis.stackexchange.com/a/274328
+RUN pip install --no-cache-dir setuptools==57.0.0
 RUN pip install --no-cache-dir numpy
 RUN pip install --no-cache-dir GDAL==$(gdal-config --version)
 
 # Install wradlib.
-RUN pip --no-cache-dir install wradlib
+RUN pip install --no-cache-dir wradlib --no-deps
 
 # Install database adapters
 RUN pip install --no-cache-dir mysqlclient

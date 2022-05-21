@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-
 import pytest
 import wradlib as wrl
 
@@ -143,6 +142,7 @@ def test_radar_request_radolan_cdc_most_recent():
         "producttype": "SF",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 86400,
         "nrow": 900,
         "ncol": 900,

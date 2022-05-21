@@ -92,7 +92,7 @@ def radar_scan_precip():
     results = chain(request_velocity.query(), request_reflectivity.query())
 
     # Collect list of buffers.
-    files = list(map(lambda item: item.data, results))
+    files = [item.data for item in results]
 
     # Decode data using wradlib.
     data = wrl.io.open_odim(files)

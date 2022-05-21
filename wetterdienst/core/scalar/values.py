@@ -240,9 +240,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         conversion_factors = self._create_conversion_factors(dataset)
 
-        if self.sr._has_tidy_data:
+        if self.sr.tidy:
             data = []
-            for par, group in df.groupby(Columns.PARAMETER.value):
+            for par, group in df.groupby(Columns.PARAMETER.value, sort=False):
                 group[Columns.VALUE.value] = _convert_values_to_si(group[Columns.VALUE.value], par)
                 data.append(group)
             try:
@@ -420,14 +420,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """
         columns = self._meta_fields.copy()
         columns.extend(df.columns.difference(columns, sort=False))
-
-        df = df.reindex(columns=columns)
-
-        # ensure meta columns content
-        df.loc[:, Columns.STATION_ID.value] = station_id
-        df.loc[:, Columns.DATASET.value] = dataset.name.lower()
-
-        return df
+        df[Columns.STATION_ID.value] = station_id
+        df[Columns.DATASET.value] = dataset.name.lower()
+        return df.reindex(columns=columns)
 
     def query(self) -> Generator[ValuesResult, None, None]:
         """
@@ -465,12 +460,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 #  however we later again coerce when concatenating DataFrames
                 parameter_df = self._coerce_parameter_types(parameter_df)
 
-                if self.sr.si_units:
-                    parameter_df = self.convert_values_to_si(parameter_df, dataset)
-
                 if self.sr.tidy:
                     if not self.sr._has_tidy_data:
                         parameter_df = self.tidy_up_df(parameter_df, dataset)
+
+                    if Columns.PARAMETER.value not in parameter_df:
+                        parameter_df[Columns.PARAMETER.value] = parameter.value.lower()
 
                     if parameter != dataset:
                         parameter_df = parameter_df.loc[
@@ -478,6 +473,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
                         ]
                 elif self.sr._has_tidy_data:
                     parameter_df = self.tabulate_df(parameter_df)
+
+                if self.sr.si_units:
+                    parameter_df = self.convert_values_to_si(parameter_df, dataset)
 
                 # Skip date fields in tidy format, no further check required as still
                 # "normal" parameters should be available
@@ -487,6 +485,10 @@ class ScalarValuesCore(metaclass=ABCMeta):
                     ]
                     if parameter_df.empty:
                         continue
+
+                # ensure meta columns content
+                parameter_df[Columns.STATION_ID.value] = station_id
+                parameter_df[Columns.DATASET.value] = dataset.name.lower()
 
                 parameter_df = self._coerce_date_fields(parameter_df, station_id)
 

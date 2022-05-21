@@ -64,6 +64,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     attrs = {
         "producttype": "RW",
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -94,14 +95,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     assert len(requested_attrs["radarlocations"]) >= 10
     assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
-    skip_attrs = [
-        "radarid",
-        "maxrange",
-        "datasize",
-        "datetime",
-        "radarlocations",
-        "radolanversion",
-    ]
+    skip_attrs = ["radarid", "maxrange", "datasize", "datetime", "radarlocations", "radolanversion"]
     for attr in skip_attrs:
         requested_attrs.pop(attr, None)
     del attrs["radarlocations"]
