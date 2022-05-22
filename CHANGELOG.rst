@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.34.0 (22.05.2022)
+*******************
+
 - Add UKs Environment Agency hydrology API
 
 0.33.0 (14.05.2022)

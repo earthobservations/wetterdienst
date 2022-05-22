@@ -330,7 +330,7 @@ class EcccObservationRequest(ScalarRequestCore):
 
         df = df.rename(columns=str.lower)
 
-        df = df.drop(columns=["latitude", "longitude"])
+        df = df.drop(columns=["latitude", "longitude"], errors="ignore")
 
         df = df.rename(columns=self._columns_mapping)
 
