@@ -1,17 +1,19 @@
 Wetterdienst - Open weather data for humans
 ###########################################
 
-.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
+.. |pic1| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
     :alt: German weather stations managed by Deutscher Wetterdienst
     :width: 32 %
 
-.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
+.. |pic2| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
     :alt: temperature timeseries of Hohenpeissenberg/Germany
     :width: 32 %
 
-.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
+.. |pic3| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
     :alt: warming stripes of Hohenpeissenberg/Germany
     :width: 32 %
+
+|pic1| |pic2| |pic3|
 
 *“You must be the change you wish to see in the world.” — Gandhi*
 
