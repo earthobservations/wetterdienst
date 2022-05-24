@@ -18,7 +18,11 @@ from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import StationsResult
-from wetterdienst.exceptions import InvalidEnumeration, StartDateEndDateError
+from wetterdienst.exceptions import (
+    InvalidEnumeration,
+    NoParametersFound,
+    StartDateEndDateError,
+)
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -250,7 +254,7 @@ class ScalarRequestCore(Core):
 
         return parameters
 
-    def _parse_dataset_and_parameter(self, parameter, dataset) -> Tuple[Enum, Enum]:
+    def _parse_dataset_and_parameter(self, parameter, dataset) -> Tuple[Optional[Enum], Optional[Enum]]:
         """
         Parse parameters for cases like
             - parameter=("climate_summary", ) or
@@ -266,6 +270,13 @@ class ScalarRequestCore(Core):
             dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
         except InvalidEnumeration:
             pass
+
+        if dataset_ and self._has_datasets and not self._unique_dataset:
+            try:
+                self._parameter_base[self._dataset_accessor][dataset_.name]
+            except (KeyError, AttributeError):
+                log.warning(f"dataset {dataset_.name} is not a valid dataset for resolution {self._dataset_accessor}")
+                return None, None
 
         if dataset_:
             if parameter == dataset:
@@ -333,6 +344,7 @@ class ScalarRequestCore(Core):
         :param start_date: Start date for filtering stations_result for their available data
         :param end_date:   End date for filtering stations_result for their available data
         """
+        settings = copy(Settings)
         super().__init__()
 
         self.resolution = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
@@ -341,31 +353,34 @@ class ScalarRequestCore(Core):
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
         self.parameter = self._parse_parameter(parameter)
 
-        self.humanize = copy(Settings.humanize)
+        if not self.parameter:
+            raise NoParametersFound("no valid parameters could be parsed from given argument")
 
-        tidy = copy(Settings.tidy)
+        self.humanize = settings.humanize
+
+        tidy = settings.tidy
         if self._has_datasets:
             tidy = tidy or any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
         self.tidy = tidy
 
-        self.si_units = copy(Settings.si_units)
+        self.si_units = settings.si_units
+
+        # skip empty stations
+        self.skip_empty = self.tidy and settings.skip_empty
+        self.skip_threshold = settings.skip_threshold
+        self.dropna = self.tidy and settings.dropna
+
+        if not tidy and settings.skip_empty:
+            log.warning("option 'skip_empty' is only available with option 'tidy' and is thus ignored in this request.")
+
+        if not tidy and settings.dropna:
+            log.warning("option 'dropna' is only available with option 'tidy' and is thus ignored in this request.")
 
         # optional attribute for dynamic resolutions
         if self.resolution == Resolution.DYNAMIC:
             self._dynamic_frequency = None
 
-        log.info(
-            f"Processing request for "
-            f"provider={self.provider}, "
-            f"parameter={self.parameter}, "
-            f"resolution={self.resolution}, "
-            f"period={self.period}, "
-            f"start_date={self.start_date}, "
-            f"end_date={self.end_date}, "
-            f"humanize={self.humanize}, "
-            f"tidy={self.tidy}, "
-            f"si_units={self.si_units}"
-        )
+        log.info(f"Processing request {self.__repr__()}")
 
     def __repr__(self):
         """Representation of request object"""
@@ -374,10 +389,14 @@ class ScalarRequestCore(Core):
 
         return (
             f"{self.__class__.__name__}("
-            f"[{parameters_joined}], "
-            f"[{periods_joined}], "
-            f"{str(self.start_date)},"
-            f"{str(self.end_date)})"
+            f"parameter=[{parameters_joined}], "
+            f"resolution={self.resolution.value}, "
+            f"period=[{periods_joined}], "
+            f"start_date={str(self.start_date)}, "
+            f"end_date={str(self.end_date)}, "
+            f"humanize={self.humanize}, "
+            f"tidy={self.tidy}, "
+            f"si_units={self.si_units})"
         )
 
     def __eq__(self, other) -> bool:

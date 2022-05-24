@@ -94,6 +94,18 @@ class StationsResult(ExportMixin):
         return self.stations.si_units
 
     @property
+    def skip_empty(self) -> bool:
+        return self.stations.skip_empty
+
+    @property
+    def skip_threshold(self) -> float:
+        return self.stations.skip_threshold
+
+    @property
+    def dropna(self) -> float:
+        return self.stations.dropna
+
+    @property
     def _has_tidy_data(self) -> bool:
         return self.stations._has_tidy_data
 
