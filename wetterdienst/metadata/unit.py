@@ -73,6 +73,7 @@ class OriginUnit(Enum):
 
     # Volume
     CUBIC_METERS_PER_SECOND = (REGISTRY.meter**3) / REGISTRY.second
+    LITERS_PER_SECOND = REGISTRY.liter / REGISTRY.second
 
     # Conductivity
     MICROSIEMENS_PER_CENTIMETER = 10**-6 * REGISTRY.siemens / REGISTRY.centimeter
