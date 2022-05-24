@@ -30,6 +30,8 @@ from wetterdienst import Settings, Wetterdienst
         ("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}, None),
         # NWS Observation
         ("nws", "observation", {"parameter": "precipitation_height"}, "KBHM"),
+        # Eaufrance Hubeau
+        ("eaufrance", "hubeau", {"parameter": "flow"}),
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))

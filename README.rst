@@ -155,6 +155,13 @@ NWS (NOAA National Weather Service)
     - Observation
         - recent observations (last week) of US weather stations
         - currently the list of stations is not completely right as we use a diverging source!
+Eaufrance
+    - Hubeau
+        - data of river network of France (continental)
+        - parameters flow and stage of rivers of last 30 days
+
+To get better insight on which data we have currently made available and under which
+license those are published take a look at the data_ section.
 
 .. coverage_end_marker
 

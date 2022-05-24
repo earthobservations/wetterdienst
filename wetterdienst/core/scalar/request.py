@@ -593,12 +593,13 @@ class ScalarRequestCore(Core):
         df[Columns.NAME.value] = pd.Series(df[Columns.NAME.value].values, dtype=str)
         df[Columns.STATE.value] = pd.Series(df[Columns.STATE.value].values, dtype=str)
 
-        df[Columns.FROM_DATE.value] = pd.to_datetime(
-            df[Columns.FROM_DATE.value], infer_datetime_format=True
-        ).dt.tz_localize(pytz.UTC)
-        df[Columns.TO_DATE.value] = pd.to_datetime(
-            df[Columns.TO_DATE.value], infer_datetime_format=True
-        ).dt.tz_localize(pytz.UTC)
+        df[Columns.FROM_DATE.value] = pd.to_datetime(df[Columns.FROM_DATE.value], infer_datetime_format=True)
+
+        if not df[Columns.FROM_DATE.value].dt.tz:
+            df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(pytz.UTC)
+        df[Columns.TO_DATE.value] = pd.to_datetime(df[Columns.TO_DATE.value], infer_datetime_format=True)
+        if not df[Columns.TO_DATE.value].dt.tz:
+            df[Columns.TO_DATE.value] = df[Columns.TO_DATE.value].dt.tz_localize(pytz.UTC)
 
         return df
 

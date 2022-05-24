@@ -8,6 +8,7 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
+from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.environment_agency.hydrology.api import EaHydrologyRequest
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
@@ -37,6 +38,9 @@ class ApiEndpoints(DatasetTreeCore):
 
     class NWS(Enum):
         OBSERVATION = NwsObservationRequest
+
+    class EAUFRANCE(Enum):
+        HUBEAU = HubeauRequest
 
 
 class Wetterdienst:
