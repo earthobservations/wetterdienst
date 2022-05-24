@@ -175,6 +175,9 @@ def stations(
             tidy=False,
             si_units=False,
             humanize=False,
+            skip_empty=False,
+            skip_threshold=0.95,
+            dropna=False,
         )
     except (KeyError, ValueError) as e:
         return HTTPException(status_code=404, detail=str(e))
@@ -225,6 +228,9 @@ def values(
     humanize: bool = Query(default=True),
     tidy: bool = Query(default=True),
     si_units: bool = Query(alias="si-units", default=True),
+    skip_empty: bool = Query(alias="skip-empty", default=False),
+    skip_threshold: float = Query(alias="skip-threshold", default=0.95, gt=0, le=1),
+    dropna: bool = Query(alias="dropna", default=False),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
 ):
@@ -311,6 +317,9 @@ def values(
             sql=sql,
             sql_values=sql_values,
             si_units=si_units,
+            skip_empty=skip_empty,
+            skip_threshold=skip_threshold,
+            dropna=dropna,
             tidy=tidy,
             humanize=humanize,
         )

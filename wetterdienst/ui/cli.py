@@ -129,13 +129,13 @@ def cli():
         wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
         wetterdienst stations_result --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
 
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
 
     Options:
         --parameter=<parameter>               Parameter Set/Parameter, e.g. "kl" or "precipitation_height", etc.
@@ -158,6 +158,9 @@ def cli():
         --tidy                                Tidy DataFrame
         --humanize                            Humanize parameters
         --si-units                            Convert to SI units
+        --skip_empty                          Skip empty stations according to skip_threshold
+        --skip_threshold                      Skip threshold for a station to be empty (0 < skip_threshold <= 1)
+        --dropna                              Whether to drop nan values from the result
         --pretty                              Pretty json with indent 4
         --debug                               Enable debug messages
         --listen=<listen>                     HTTP server listen address.
@@ -507,6 +510,9 @@ def stations(
         tidy=False,
         si_units=False,
         humanize=False,
+        skip_empty=False,
+        skip_threshold=0.95,
+        dropna=False,
     )
 
     if stations_.df.empty:
@@ -550,6 +556,9 @@ def stations(
 @cloup.option("--si-units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
+@cloup.option("--skip_empty", type=click.BOOL, default=False)
+@cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
+@cloup.option("--dropna", type=click.BOOL, default=False)
 @debug_opt
 def values(
     provider: str,
@@ -573,6 +582,9 @@ def values(
     tidy: bool,
     si_units: bool,
     humanize: bool,
+    skip_empty: bool,
+    skip_threshold: float,
+    dropna: bool,
     pretty: bool,
     debug: bool,
 ):
@@ -600,6 +612,9 @@ def values(
             si_units=si_units,
             tidy=tidy,
             humanize=humanize,
+            skip_empty=skip_empty,
+            skip_threshold=skip_threshold,
+            dropna=dropna,
         )
     except ValueError as ex:
         log.exception(ex)

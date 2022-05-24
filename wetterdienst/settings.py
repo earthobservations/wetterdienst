@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2022, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
 from contextvars import ContextVar
 from dataclasses import dataclass
 
@@ -20,6 +23,9 @@ class Settings:
             humanize: bool = env.bool("HUMANIZE", True)
             tidy: bool = env.bool("TIDY", True)
             si_units: bool = env.bool("SI_UNITS", True)
+            skip_empty: bool = env.bool("SKIP_EMPTY", False)
+            skip_threshold: bool = env.float("SKIP_THRESHOLD", 0.95)
+            dropna: bool = env.bool("DROPNA", False)
 
     @classmethod
     def reset(cls):

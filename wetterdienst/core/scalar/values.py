@@ -509,6 +509,18 @@ class ScalarValuesCore(metaclass=ABCMeta):
             except ValueError:
                 station_df = pd.DataFrame()
 
+            if self.sr.skip_empty:
+                ap = self._get_actual_percentage(station_df)
+
+                if ap < self.sr.skip_threshold:
+                    log.info(
+                        f"station {station_id} is skipped as percentage of actual values ({ap}) is below threshold ({self.sr.skip_threshold})."
+                    )
+                    continue
+
+            if self.sr.dropna:
+                station_df = station_df.loc[station_df.value.notna(), :].reset_index(drop=True)
+
             station_df = self._coerce_meta_fields(station_df)
 
             # Filter for dates range if start_date and end_date are defined
@@ -782,3 +794,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
             parameter.value: parameter.name.lower()
             for parameter in self.sr.stations._parameter_base[self.sr.stations._dataset_accessor]
         }
+
+    @staticmethod
+    def _get_actual_percentage(df: pd.DataFrame) -> float:
+        """Calculate percentage of actual values"""
+        return df.groupby("parameter").apply(lambda x: x.value.dropna().size / x.value.size).min()

@@ -67,6 +67,9 @@ def get_stations(
     si_units: bool,
     tidy: bool,
     humanize: bool,
+    skip_empty: bool,
+    skip_threshold: float,
+    dropna: bool,
 ) -> StationsResult:
     """
     Core function for querying stations_result via cli and restapi
@@ -89,6 +92,9 @@ def get_stations(
     :param si_units:
     :param tidy:
     :param humanize:
+    :param skip_empty:
+    :param skip_threshold:
+    :param dropna:
     :return:
     """
     # TODO: move this into Request core
@@ -137,6 +143,9 @@ def get_stations(
         Settings.tidy = tidy
         Settings.humanize = humanize
         Settings.si_units = si_units
+        Settings.skip_empty = skip_empty
+        Settings.skip_threshold = skip_threshold
+        Settings.dropna = dropna
 
         r = api(**kwargs)
 
@@ -215,6 +224,9 @@ def get_values(
     si_units: bool,
     tidy: bool,
     humanize: bool,
+    skip_empty: bool,
+    skip_threshold: float,
+    dropna: bool,
 ) -> ValuesResult:
     """
     Core function for querying values via cli and restapi
@@ -237,6 +249,9 @@ def get_values(
     :param si_units:
     :param tidy:
     :param humanize:
+    :param skip_empty:
+    :param skip_threshold:
+    :param dropna:
     :return:
     """
     stations_ = get_stations(
@@ -257,6 +272,9 @@ def get_values(
         si_units=si_units,
         tidy=tidy,
         humanize=humanize,
+        skip_empty=skip_empty,
+        skip_threshold=skip_threshold,
+        dropna=dropna,
     )
 
     try:

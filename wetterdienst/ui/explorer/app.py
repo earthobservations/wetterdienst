@@ -98,6 +98,9 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
             si_units=True,
             tidy=True,
             humanize=True,
+            skip_empty=False,
+            skip_threshold=0.95,
+            dropna=False,
         )
     except (requests.exceptions.ConnectionError, InvalidParameterCombination) as ex:
         log.warning(ex)
@@ -169,6 +172,9 @@ def fetch_values(
             sql=None,
             sql_values=None,
             si_units=True,
+            skip_empty=False,
+            skip_threshold=0.95,
+            dropna=False,
             tidy=True,
             humanize=True,
         )

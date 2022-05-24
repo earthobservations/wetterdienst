@@ -1,8 +1,14 @@
 Changelog
 #########
 
+.. toctree::
+   :maxdepth: 0
+
 Development
 ***********
+
+- Add option to skip empty stations (option tidy must be set)
+- Add option to drop empty rows (value is NaN) (option tidy must be set)
 
 0.34.0 (22.05.2022)
 *******************

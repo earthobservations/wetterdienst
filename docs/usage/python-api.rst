@@ -164,6 +164,13 @@ Scalar arguments are:
 - `humanize` can be used to rename parameters to more meaningful
 names.
 - `si_units` can be used to convert values to SI units.
+- `skip_empty` (requires option `tidy`) can be used to skip empty stations
+    - empty stations are defined via `skip_threshold` which defaults to 0.95
+     and requires all parameters that are requested (for an entire dataset all of the dataset parameters)
+     to have at least 95 per cent of actual values (relative to start and end date if provided)
+- `skip_threshold` is used in combination with `skip_empty` to define when a station is empty, with 1.0 meaning no
+ values per parameter should be missing and e.g. 0.9 meaning 10 per cent of values can be missing
+- `dropna` (requires option `tidy`) is used to drop all empty entries thus reducing the workload
 
 All of `tidy`, `humanize` and `si_units` are defaulted to True.
 
