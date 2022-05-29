@@ -1,9 +1,6 @@
 Changelog
 #########
 
-.. toctree::
-   :maxdepth: 0
-
 Development
 ***********
 
