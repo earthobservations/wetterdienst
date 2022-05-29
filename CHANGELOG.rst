@@ -7,6 +7,9 @@ Changelog
 Development
 ***********
 
+0.35.0 (29.05.2022)
+*******************
+
 - Add option to skip empty stations (option tidy must be set)
 - Add option to drop empty rows (value is NaN) (option tidy must be set)
 

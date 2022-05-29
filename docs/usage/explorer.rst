@@ -4,7 +4,7 @@
 Wetterdienst Explorer
 #####################
 
-Navigator for DWD open weather data.
+Navigator for wetterdienst provided open data.
 
 
 ************
@@ -34,9 +34,10 @@ Features
 
 Coverage
 ========
+
 Wetterdienst Explorer currently covers access to:
 
-- Weather observation data from DWD. Historical, recent and near real time.
+- Weather observation data from all providers that are implemented. Historical, recent and near real time.
 
 
 *****

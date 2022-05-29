@@ -37,9 +37,8 @@ jobs:
     - name: Install library
       run: .github/workflows/install.sh testing
 
-    - name: Test
-      run: poetry run poe test
     - name: Build
       run: poetry build
+
     - name: Publish
       run: poetry publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
