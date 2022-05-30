@@ -88,7 +88,7 @@ precipitation_height
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`kg/m^(2)`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -108,7 +108,7 @@ precipitation_height_last_3h
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`kg/m^(2)`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -128,7 +128,7 @@ precipitation_height_last_6h
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`kg/m^(2)`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -326,9 +326,9 @@ wind_gust_max
    * - description
      - maximum wind gust
    * - origin unit
-     - :math:`km/h`
+     - :math:`km / h`
    * - SI unit
-     - :math:`m/s`
+     - :math:`m / s`
    * - constraints
      - :math:`\geq{0}`
 
@@ -346,8 +346,8 @@ wind_speed
    * - description
      - wind speed
    * - origin unit
-     - :math:`km/h`
+     - :math:`km / h`
    * - SI unit
-     - :math:`m/s`
+     - :math:`m / s`
    * - constraints
      - :math:`\geq{0}`

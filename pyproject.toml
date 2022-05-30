@@ -53,7 +53,9 @@ keywords = [
     "environmental-agency-uk",
     # NWS
     "noaa-nws",
-    "national-weather-service"
+    "national-weather-service",
+    # Eaufrance Hubeau
+    "eaufrance-hubeau"
 ]
 classifiers = [
     "Programming Language :: Python",
@@ -221,8 +223,8 @@ optional = true
 docformatter = "^1.4"
 ipython = "^8.5"
 furo = "^2022.9.15"
-sphinx = "^5.2"
-sphinx-autodoc-typehints = "^1.11"
+sphinx = "^5.3"
+sphinx-autodoc-typehints = "^1.19"
 sphinx-autobuild = "^2021.3"
 sphinx_design = "^0.3.0"
 sphinxcontrib-svg2pdfconverter = "^1.1"
