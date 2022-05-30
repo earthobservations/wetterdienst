@@ -35,6 +35,7 @@ class Resolution(Enum):
 
 class Frequency(Enum):
     MINUTE_1 = "1min"
+    MINUTE_2 = "2min"
     MINUTE_5 = "5min"
     MINUTE_10 = "10min"
     MINUTE_15 = "15min"

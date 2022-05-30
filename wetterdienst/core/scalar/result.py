@@ -66,11 +66,11 @@ class StationsResult(ExportMixin):
         return self.stations.period
 
     @property
-    def start_date(self) -> datetime:
+    def start_date(self) -> pd.Timestamp:
         return self.stations.start_date
 
     @property
-    def end_date(self) -> datetime:
+    def end_date(self) -> pd.Timestamp:
         return self.stations.end_date
 
     @property
