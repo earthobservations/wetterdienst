@@ -183,6 +183,14 @@ Geosphere (Geosphere Austria, formerly Central Institution for Meteorology and G
     - Observation
         - historical meteorological data of Austrian stations
 
+IMGW (Institute of Meteorology and Water Management)
+    - Meteorology
+        - meteorological data of polish weather stations
+        - daily and monthly summaries
+    - Hydrology
+        - hydrological data of polish river stations
+        - daily and monthly summaries
+
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.
 

@@ -31,7 +31,7 @@ FLOAT_9_TIMES = List[Optional[float]]
 class WsvPegelParameter(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
         class DYNAMIC(Enum):
-            WATER_LEVEL = "W"
+            STAGE = "W"
             DISCHARGE = "Q"
             RUNOFF = DISCHARGE
             TEMPERATURE_WATER = "WT"
@@ -54,7 +54,7 @@ class WsvPegelParameter(DatasetTreeCore):
             PH_VALUE = "PH"
             CHLORID_CONCENTRATION = "CL"
 
-        WATER_LEVEL = DYNAMIC.WATER_LEVEL
+        STAGE = DYNAMIC.STAGE
         DISCHARGE = DYNAMIC.DISCHARGE
         RUNOFF = DYNAMIC.RUNOFF
         TEMPERATURE_WATER = DYNAMIC.TEMPERATURE_WATER
@@ -81,7 +81,7 @@ class WsvPegelParameter(DatasetTreeCore):
 class WsvPegelUnit(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
         class DYNAMIC(UnitEnum):
-            WATER_LEVEL = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+            STAGE = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             TEMPERATURE_WATER = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             ELECTRIC_CONDUCTIVITY = OriginUnit.MICROSIEMENS_PER_CENTIMETER.value, SIUnit.SIEMENS_PER_METER.value

@@ -5,7 +5,7 @@ import numpy as np
 import polars as pl
 from polars.testing import assert_series_equal
 
-from wetterdienst.util.geo import Coordinates, convert_dm_to_dd, derive_nearest_neighbours
+from wetterdienst.util.geo import Coordinates, convert_dm_to_dd, convert_dms_string_to_dd, derive_nearest_neighbours
 
 
 def test_get_coordinates():
@@ -28,11 +28,19 @@ def test_get_coordinates_in_radians():
     )
 
 
-def test_dms_to_dd():
+def test_convert_dm_to_dd():
     """Test conversion from degree minute second to decimal degree"""
     data = pl.Series(values=[7.42, 52.08, -7.42, -52.08, 0])
     given = convert_dm_to_dd(data)
     expected = pl.Series(values=[7.7, 52.13, -7.7, -52.13, 0])
+    assert_series_equal(given, expected)
+
+
+def test_convert_dms_string_to_dd():
+    """Test conversion from degree minute second to decimal degree"""
+    data = pl.Series(values=["49 18 21"])
+    given = convert_dms_string_to_dd(data)
+    expected = pl.Series(values=[49.305833])
     assert_series_equal(given, expected)
 
 

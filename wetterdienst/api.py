@@ -53,6 +53,25 @@ class RequestRegistry(DatasetTreeCore):
 
                 return EcccObservationRequest
 
+    class IMGW(DatasetTreeCore):
+        class HYDROLOGY(DatasetTreeCore):
+            @staticmethod
+            def load() -> "ImgwHydrologyRequest":  # noqa: F821
+                from wetterdienst.provider.imgw.hydrology import (
+                    ImgwHydrologyRequest,
+                )
+
+                return ImgwHydrologyRequest
+
+        class METEOROLOGY(DatasetTreeCore):
+            @staticmethod
+            def load() -> "ImgwMeteorologyRequest":  # noqa: F821
+                from wetterdienst.provider.imgw.meteorology import (
+                    ImgwMeteorologyRequest,
+                )
+
+                return ImgwMeteorologyRequest
+
     class NOAA(DatasetTreeCore):
         class GHCN(DatasetTreeCore):
             @staticmethod

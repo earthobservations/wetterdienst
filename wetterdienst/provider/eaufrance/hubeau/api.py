@@ -49,17 +49,17 @@ class HubeauPeriod(Enum):
 class HubeauParameter(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
         class DYNAMIC(Enum):
-            FLOW = "Q"
+            DISCHARGE = "Q"
             STAGE = "H"
 
-        FLOW = DYNAMIC.FLOW
+        DISCHARGE = DYNAMIC.DISCHARGE
         STAGE = DYNAMIC.STAGE
 
 
 class HubeauUnit(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
         class DYNAMIC(UnitEnum):
-            FLOW = OriginUnit.LITERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+            DISCHARGE = OriginUnit.LITERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
 
 

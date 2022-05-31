@@ -180,7 +180,10 @@ def invoke_wetterdienst_values_geo(provider, network, setting, fmt="json"):
 def test_no_provider():
     runner = CliRunner()
     result = runner.invoke(cli, "stations --provider=abc --network=abc")
-    assert "Error: Invalid value for '--provider': 'abc' is not one of 'DWD', 'ECCC', 'NOAA'" in result.output
+    assert (
+        "Error: Invalid value for '--provider': 'abc' is not one of 'DWD', 'EA', 'EAUFRANCE', 'ECCC', 'GEOSPHERE', "
+        "'IMGW', 'NOAA', 'NWS', 'WSV'" in result.output
+    )
 
 
 def test_no_network(caplog):
