@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.36.0 (31.05.2022)
+*******************
+
 - Fix using shared FSSPEC_CLIENT_KWARGS everywhere
 
 0.35.0 (29.05.2022)
