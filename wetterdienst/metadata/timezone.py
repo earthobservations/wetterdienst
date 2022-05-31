@@ -11,4 +11,5 @@ class Timezone(Enum):
     UTC = "UTC"
     USA = "US/Washington"
     UK = "Europe/London"
+    POLAND = "Europe/Warsaw"
     DYNAMIC = "dynamic"  # station based timezone (get tz from lon/lat)

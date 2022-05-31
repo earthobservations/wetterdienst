@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
+from dateutil.relativedelta import relativedelta
 from pint import Quantity
 from timezonefinder import timezonefinder
 from tqdm import tqdm
@@ -157,13 +158,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 second=0,
                 microsecond=0,
             )
-            end_date = end_date.replace(
-                day=31,
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
+            end_date = end_date + relativedelta(months=1) - relativedelta(days=1)
         elif self.sr.resolution == Resolution.ANNUAL:
             start_date = start_date.replace(
                 month=1,

@@ -352,8 +352,8 @@ turbidity
    * - constraints
      - none
 
-water_level
-^^^^^^^^^^^
+stage
+^^^^^
 
 .. list-table::
    :widths: 20 80

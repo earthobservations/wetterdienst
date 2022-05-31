@@ -18,6 +18,8 @@ from wetterdienst.provider.ea.hydrology.api import (
     EaHydrologyParameter,
     EaHydrologyUnit,
 )
+from wetterdienst.provider.eaufrance.hubeau import HubeauParameter
+from wetterdienst.provider.eaufrance.hubeau.api import HubeauUnit
 from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationDataset,
     EcccObservationParameter,
@@ -25,6 +27,8 @@ from wetterdienst.provider.eccc.observation.metadata.parameter import (
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
 from wetterdienst.provider.geosphere.observation import GeosphereObservationParameter
 from wetterdienst.provider.geosphere.observation.api import GeosphereObservationUnit
+from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyParameter, ImgwHydrologyUnit
+from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyParameter, ImgwMeteorologyUnit
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnDataset
 from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
@@ -45,18 +49,24 @@ SI_UNITS = [unit.value for unit in SIUnit]
         DwdMosmixUnit,
         DwdRoadParameter,
         DwdRoadUnit,
-        EcccObservationParameter,
-        EcccObservationUnit,
-        NoaaGhcnParameter,
-        NoaaGhcnUnit,
-        WsvPegelParameter,
-        WsvPegelUnit,
         EaHydrologyParameter,
         EaHydrologyUnit,
-        NwsObservationParameter,
-        NwsObservationUnit,
+        EcccObservationParameter,
+        EcccObservationUnit,
         GeosphereObservationParameter,
         GeosphereObservationUnit,
+        HubeauParameter,
+        HubeauUnit,
+        ImgwHydrologyParameter,
+        ImgwHydrologyUnit,
+        ImgwMeteorologyParameter,
+        ImgwMeteorologyUnit,
+        NoaaGhcnParameter,
+        NoaaGhcnUnit,
+        NwsObservationParameter,
+        NwsObservationUnit,
+        WsvPegelParameter,
+        WsvPegelUnit,
     ),
 )
 def test_parameter_names(parameter_enum):
@@ -98,12 +108,15 @@ def test_parameter_names(parameter_enum):
         (DwdObservationParameter, DwdObservationUnit),
         (DwdMosmixParameter, DwdMosmixUnit),
         (DwdRoadParameter, DwdRoadUnit),
-        (EcccObservationParameter, EcccObservationUnit),
-        (NoaaGhcnParameter, NoaaGhcnUnit),
-        (WsvPegelParameter, WsvPegelUnit),
         (EaHydrologyParameter, EaHydrologyUnit),
-        (NwsObservationParameter, NwsObservationUnit),
+        (EcccObservationParameter, EcccObservationUnit),
         (GeosphereObservationParameter, GeosphereObservationUnit),
+        (HubeauParameter, HubeauUnit),
+        (ImgwHydrologyParameter, ImgwHydrologyUnit),
+        (ImgwMeteorologyParameter, ImgwMeteorologyUnit),
+        (NoaaGhcnParameter, NoaaGhcnUnit),
+        (NwsObservationParameter, NwsObservationUnit),
+        (WsvPegelParameter, WsvPegelUnit),
     ),
 )
 def test_parameter_unit_alignment(parameter_enum, unit_enum):

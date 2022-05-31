@@ -5,6 +5,9 @@ Development
 ***********
 
 - Add retry to functions
+- Add IMGW Hydrology API
+- Add IMGW Meteorology API
+- Rename FLOW to DISCHARGE and WATER_LEVEL to STAGE everywhere
 
 0.57.1 (28.06.2023)
 *******************

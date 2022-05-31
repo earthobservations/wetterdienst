@@ -69,9 +69,29 @@ def derive_nearest_neighbours(
     return distance_tree.query(coordinates.get_coordinates_in_radians().reshape(-1, 2), k=number_nearby)
 
 
-def convert_dm_to_dd(dms: pl.Series) -> pl.Series:
-    """Convert degree minutes to decimal degree"""
-    degrees = dms.cast(int)
-    minutes = dms - degrees
+def convert_dm_to_dd(dm: pl.Series) -> pl.Series:
+    """
+    Convert degree minutes (floats) to decimal degree
+    :param dm:
+    :return:
+    """
+    degrees = dm.cast(int)
+    minutes = dm - degrees
     decimals = (minutes / 60 * 100).round(2)
     return degrees + decimals
+
+
+def convert_dms_string_to_dd(dms: pl.Series) -> pl.Series:
+    """
+    Convert degree minutes seconds (string) to decimal degree
+    e.g. 49 18 21
+    :param dms:
+    :return:
+    """
+    dms = dms.str.split(" ").to_frame("dms")
+    dms = dms.select(
+        pl.col("dms").arr.get(0).cast(pl.Float64).alias("degrees"),
+        pl.col("dms").arr.get(1).cast(pl.Float64).alias("minutes"),
+        pl.col("dms").arr.get(2).cast(pl.Float64).alias("seconds"),
+    )
+    return dms.get_column("degrees").rename("") + dms.get_column("minutes") / 60 + dms.get_column("seconds") / 3600

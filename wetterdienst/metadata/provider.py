@@ -20,27 +20,6 @@ class Provider(Enum):
         "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)",
         "https://opendata.dwd.de/climate_environment/CDC/",
     )
-    ECCC = (
-        "Environnement Et Changement Climatique Canada",
-        "Environment And Climate Change Canada",
-        "Canada",
-        "© Environment And Climate Change Canada (ECCC)",
-        "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
-    )
-    NOAA = (
-        "National Oceanic And Atmospheric Administration",
-        "National Oceanic And Atmospheric Administration",
-        "United States Of America",
-        "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
-        "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
-    )
-    WSV = (
-        "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
-        "Federal Waterways and Shipping Administration",
-        "Germany",
-        "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
-        "https://pegelonline.wsv.de/webservice/ueberblick",
-    )
     EA = (
         "Environment Agency",
         "Environment Agency",
@@ -55,12 +34,12 @@ class Provider(Enum):
         "© Eaufrance",
         "https://www.eaufrance.fr/",
     )
-    NWS = (
-        "NOAA National Weather Service",
-        "NOAA National Weather Service",
-        "United States Of America",
-        "© NOAA NWS (National Weather Service), Observations",
-        "https://api.weather.gov/",
+    ECCC = (
+        "Environnement Et Changement Climatique Canada",
+        "Environment And Climate Change Canada",
+        "Canada",
+        "© Environment And Climate Change Canada (ECCC)",
+        "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
     )
     GEOSPHERE = (
         "Geosphere Österreich",
@@ -68,4 +47,32 @@ class Provider(Enum):
         "Austria",
         "© ZAMG, Observations",
         "https://www.zamg.ac.at/",
+    )
+    IMGW = (
+        "Instytut Meteorologii i Gospodarki Wodnej",
+        "Institute of Meteorology and Water Management",
+        "Poland",
+        "© IMGW, Observations",
+        "https://imgw.pl/",
+    )
+    NOAA = (
+        "National Oceanic And Atmospheric Administration",
+        "National Oceanic And Atmospheric Administration",
+        "United States Of America",
+        "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
+        "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
+    )
+    NWS = (
+        "NOAA National Weather Service",
+        "NOAA National Weather Service",
+        "United States Of America",
+        "© NOAA NWS (National Weather Service), Observations",
+        "https://api.weather.gov/",
+    )
+    WSV = (
+        "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
+        "Federal Waterways and Shipping Administration",
+        "Germany",
+        "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
+        "https://pegelonline.wsv.de/webservice/ueberblick",
     )

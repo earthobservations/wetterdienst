@@ -11,7 +11,7 @@ from urllib.parse import urlunparse
 import polars as pl
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.util.polars import chunker
+from wetterdienst.util.polars_util import chunker
 from wetterdienst.util.url import ConnectionString
 
 log = logging.getLogger(__name__)

@@ -37,46 +37,46 @@ class EaHydrologyResolution(Enum):
 class EaHydrologyParameter(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
         class MINUTE_15(Enum):
-            FLOW = "flow"
+            DISCHARGE = "flow"
             GROUNDWATER_LEVEL = "groundwater_level"
 
-        FLOW = MINUTE_15.FLOW
+        DISCHARGE = MINUTE_15.DISCHARGE
         GROUNDWATER_LEVEL = MINUTE_15.GROUNDWATER_LEVEL
 
     class HOUR_6(DatasetTreeCore):
         class HOUR_6(Enum):
-            FLOW = "flow"
+            DISCHARGE = "flow"
             GROUNDWATER_LEVEL = "groundwater_level"
 
-        FLOW = HOUR_6.FLOW
+        DISCHARGE = HOUR_6.DISCHARGE
         GROUNDWATER_LEVEL = HOUR_6.GROUNDWATER_LEVEL
 
     class DAILY(DatasetTreeCore):
         class DAILY(Enum):
-            FLOW = "flow"
+            DISCHARGE = "flow"
             GROUNDWATER_LEVEL = "groundwater_level"
 
-        FLOW = DAILY.FLOW
+        DISCHARGE = DAILY.DISCHARGE
         GROUNDWATER_LEVEL = DAILY.GROUNDWATER_LEVEL
 
 
-PARAMETER_MAPPING = {"flow": "Water Flow", "groundwater_level": "Groundwater level"}
+PARAMETER_MAPPING = {"discharge": "Water Flow", "groundwater_level": "Groundwater level"}
 
 
 class EaHydrologyUnit(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
         class MINUTE_15(UnitEnum):
-            FLOW = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
     class HOUR_6(DatasetTreeCore):
         class HOUR_6(UnitEnum):
-            FLOW = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
     class DAILY(DatasetTreeCore):
         class DAILY(UnitEnum):
-            FLOW = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
 

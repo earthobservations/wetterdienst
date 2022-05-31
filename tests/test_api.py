@@ -33,16 +33,22 @@ from wetterdienst.util.eccodes import ensure_eccodes
         ),
         # Environment and Climate Change Canada
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None),  # noqa: E800, ERA001
+        # IMGW Hydrology
+        ("imgw", "hydrology", {"parameter": "hydrology", "resolution": "daily"}, None),
+        # IMGW Meteorology
+        ("imgw", "meteorology", {"parameter": "climate", "resolution": "daily"}, "249200180"),
         # NOAA Ghcn
         ("noaa", "ghcn", {"parameter": "precipitation_height"}, None),
         # WSV Pegelonline
-        ("wsv", "pegel", {"parameter": "water_level"}, None),
+        ("wsv", "pegel", {"parameter": "stage"}, None),
         # EA Hydrology
-        pytest.param("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}, None, marks=pytest.mark.xfail),
+        pytest.param(
+            "ea", "hydrology", {"parameter": "discharge", "resolution": "daily"}, None, marks=pytest.mark.xfail
+        ),
         # NWS Observation
         ("nws", "observation", {"parameter": "temperature_air_mean_200"}, "KBHM"),
         # Eaufrance Hubeau
-        pytest.param("eaufrance", "hubeau", {"parameter": "flow"}, None, marks=pytest.mark.xfail),  # noqa: E800
+        pytest.param("eaufrance", "hubeau", {"parameter": "discharge"}, None, marks=pytest.mark.xfail),  # noqa: E800
         # ZAMG Observation
         ("geosphere", "observation", {"parameter": "precipitation_height", "resolution": "daily"}, "5882"),
     ],
