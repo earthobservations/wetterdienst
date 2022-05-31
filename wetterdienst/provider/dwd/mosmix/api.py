@@ -9,8 +9,6 @@ from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import pandas as pd
-from fsspec.implementations.cached import WholeFileCacheFileSystem
-from fsspec.implementations.http import HTTPFileSystem
 from requests import HTTPError
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -38,10 +36,10 @@ from wetterdienst.provider.dwd.mosmix.metadata import (
     DwdMosmixType,
 )
 from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
-from wetterdienst.util.cache import CacheExpiry, cache_dir
+from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
-from wetterdienst.util.network import list_remote_files_fsspec
+from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
 
@@ -455,17 +453,10 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         :return:
         """
-
-        fs = WholeFileCacheFileSystem(
-            fs=HTTPFileSystem(client_kwargs={"headers": {"User-Agent": ""}}),
-            cache_storage=cache_dir,
-            expiry_time=CacheExpiry.METAINDEX.value,
-        )
-
-        payload = fs.cat(self._url)
+        payload = download_file(self._url, CacheExpiry.METAINDEX)
 
         df = pd.read_fwf(
-            StringIO(payload.decode(encoding="latin-1")),
+            StringIO(payload.read().decode(encoding="latin-1")),
             skiprows=4,
             skip_blank_lines=True,
             colspecs=[

@@ -1635,7 +1635,7 @@ DAMAGE.
 
 
 PyPDF2
-1.27.12
+1.28.4
 BSD License
 Mathieu Fenniak
 https://pypdf2.readthedocs.io/en/latest/
@@ -6940,7 +6940,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 h5py
-3.6.0
+3.7.0
 BSD License
 Andrew Collette
 http://www.h5py.org
@@ -7772,7 +7772,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 marshmallow
-3.15.0
+3.16.0
 MIT License
 Steven Loria
 https://github.com/marshmallow-code/marshmallow
@@ -8844,7 +8844,7 @@ SOFTWARE.
 
 
 numpy
-1.22.3
+1.22.4
 BSD License
 Travis E. Oliphant et al.
 https://www.numpy.org
@@ -17877,7 +17877,7 @@ disclaims all warranties with regard to this software.
 
 
 webdriver-manager
-3.5.4
+3.7.0
 Apache Software License
 Sergey Pirogov
 https://github.com/SergeyPirogov/webdriver_manager

@@ -73,6 +73,7 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
         listings_expiry_time=not WD_CACHE_DISABLE and ttl.value,
         listings_cache_type="filedircache",
         listings_cache_location=cache_dir,
+        client_kwargs=FSSPEC_CLIENT_KWARGS,
     )
 
     return fs.find(url)

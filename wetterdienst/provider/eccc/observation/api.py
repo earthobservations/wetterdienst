@@ -9,12 +9,7 @@ from io import BytesIO
 from typing import Generator, Optional, Tuple, Union
 
 import pandas as pd
-import requests
-from fsspec.implementations.cached import WholeFileCacheFileSystem
-from fsspec.implementations.http import HTTPFileSystem
 from pandas._libs.tslibs.offsets import YearEnd
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
@@ -34,7 +29,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EcccObservationResolution,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
-from wetterdienst.util.cache import CacheExpiry, cache_dir
+from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
@@ -49,9 +44,6 @@ class EcccObservationValues(ScalarValuesCore):
     _data_tz = Timezone.UTC
 
     _has_quality = True
-
-    _session = requests.Session()
-    _session.mount("https://", HTTPAdapter(max_retries=Retry(total=10, connect=5, read=5)))
 
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
@@ -326,7 +318,7 @@ class EcccObservationRequest(ScalarRequestCore):
         csv_payload = self._download_stations()
 
         # Read into Pandas data frame.
-        df = pd.read_csv(BytesIO(csv_payload), header=3, dtype=str)
+        df = pd.read_csv(csv_payload, header=3, dtype=str)
 
         df = df.rename(columns=str.lower)
 
@@ -355,21 +347,15 @@ class EcccObservationRequest(ScalarRequestCore):
 
         payload = None
 
-        fs = WholeFileCacheFileSystem(
-            fs=HTTPFileSystem(),
-            cache_storage=cache_dir,
-            expiry_time=CacheExpiry.METAINDEX.value,
-        )
-
         try:
-            payload = fs.cat(gdrive_url)
+            payload = download_file(gdrive_url, CacheExpiry.METAINDEX)
         except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
             try:
-                response = fs.cat(http_url)
-                with gzip.open(BytesIO(response), mode="rb") as f:
+                response = download_file(http_url, CacheExpiry.METAINDEX)
+                with gzip.open(response, mode="rb") as f:
                     payload = f.read()
             except Exception:
                 log.exception(f"Unable to access HTTP server at {http_url}")
