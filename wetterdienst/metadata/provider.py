@@ -31,8 +31,8 @@ class Provider(Enum):
         "National Oceanic And Atmospheric Administration",
         "National Oceanic And Atmospheric Administration",
         "United States Of America",
-        "© National Oceanic And Atmospheric Administration (NOAA), " "Global Historical Climatology Network",
-        "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/",
+        "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
+        "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
     )
     WSV = (
         "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
@@ -47,4 +47,11 @@ class Provider(Enum):
         "United Kingdom",
         "© Environment Agency of UK",
         "https://environment.data.gov.uk/hydrology/",
+    )
+    NWS = (
+        "NOAA National Weather Service",
+        "NOAA National Weather Service",
+        "United States Of America",
+        "NOAA NWS (National Weather Service), Observations",
+        "https://api.weather.gov/",
     )

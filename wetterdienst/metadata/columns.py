@@ -17,6 +17,7 @@ class Columns(Enum):
     LATITUDE = "latitude"
     LONGITUDE = "longitude"
     NAME = "name"
+    COUNTY = "county"
     STATE = "state"
     EOR = "eor"
     # Extra column names

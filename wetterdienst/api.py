@@ -11,6 +11,7 @@ from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.environment_agency.hydrology.api import EaHydrologyRequest
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
+from wetterdienst.provider.nws.observation.api import NwsObservationRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -34,6 +35,9 @@ class ApiEndpoints(DatasetTreeCore):
     class EA(Enum):
         HYDROLOGY = EaHydrologyRequest
 
+    class NWS(Enum):
+        OBSERVATION = NwsObservationRequest
+
 
 class Wetterdienst:
     """Wetterdienst top-level API with links to the different available APIs"""
@@ -44,7 +48,7 @@ class Wetterdienst:
         """
 
         :param provider: provider of data e.g. DWD
-        :param network: data network e.g. NOAAs ghcn
+        :param network: data network e.g. NOAAs observation
         """
         # Both provider and network should be fine (if not an exception is raised)
         try:
