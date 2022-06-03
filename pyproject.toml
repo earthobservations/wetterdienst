@@ -48,6 +48,12 @@ keywords = [
     "wsv",
     "Wasserstraßen-und-Schifffahrtsverwaltung-des-Bundes",
     "Federal-Waterways-and-Shipping-Administration",
+    # EA
+    "ea",
+    "environmental-agency-uk",
+    # NWS
+    "noaa-nws",
+    "national-weather-service"
 ]
 classifiers = [
     "Programming Language :: Python",

@@ -7,7 +7,7 @@ Overview
 ********
 
 NOAA Global Historical Climatology Network is a collection of **hourly** weather data put together from multiple weather
-services around the world, even those where at this moment no data is publicly offered. Resolution is fixed on hourly,
+services around the world, even those where at this moment no data is publicly offered. Resolution is fixed on daily,
 because this is the most common and maintainable resolution with most observations practiced all over the world.
 
 Special Parameters

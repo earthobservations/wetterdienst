@@ -151,6 +151,11 @@ EA (Environment Agency)
         - data of river network of UK
         - parameters flow and ground water stage
 
+NWS (NOAA National Weather Service)
+    - Observation
+        - recent observations (last week) of US weather stations
+        - currently the list of stations is not completely right as we use a diverging source!
+
 .. coverage_end_marker
 
 Features

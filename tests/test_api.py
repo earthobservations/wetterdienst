@@ -8,7 +8,7 @@ from wetterdienst import Settings, Wetterdienst
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,kwargs",
+    "provider,network,kwargs,station_id",
     [
         # German Weather Service (DWD)
         # historical observation
@@ -16,21 +16,24 @@ from wetterdienst import Settings, Wetterdienst
             "dwd",
             "observation",
             {"parameter": "kl", "resolution": "daily", "period": "recent"},
+            None,
         ),
         # station forecasts
-        ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}),
+        ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}, None),
         # Environment and Climate Change Canada
         # ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}), # noqa: E800
         # NOAA Ghcn
-        ("noaa", "ghcn", {"parameter": "precipitation_height"}),
+        ("noaa", "ghcn", {"parameter": "precipitation_height"}, None),
         # WSV Pegelonline
-        ("wsv", "pegel", {"parameter": "water_level"}),
+        ("wsv", "pegel", {"parameter": "water_level"}, None),
         # EA Hydrology
-        ("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}),
+        ("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}, None),
+        # NWS Observation
+        ("nws", "observation", {"parameter": "precipitation_height"}, "KBHM"),
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))
-def test_api(provider, network, kwargs, si_units):
+def test_api(provider, network, kwargs, si_units, station_id):
     """Test main wetterdienst API"""
     # Build API
     api = Wetterdienst(provider, network)
@@ -41,7 +44,10 @@ def test_api(provider, network, kwargs, si_units):
     Settings.si_units = si_units
 
     # All stations_result
-    request = api(**kwargs).all()
+    if station_id:
+        request = api(**kwargs).filter_by_station_id(station_id=station_id)
+    else:
+        request = api(**kwargs).all()
 
     stations = request.df
 
