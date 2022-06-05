@@ -4,7 +4,11 @@ Changelog
 Development
 ***********
 
+0.37.0 (06.06.2022)
+*******************
+
 - Fix EA hydrology access
+- Update ECCC observation methods to acquire station listing
 
 0.36.0 (31.05.2022)
 *******************
