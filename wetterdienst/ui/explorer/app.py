@@ -513,7 +513,8 @@ def set_parameter_options(provider, network, resolution, dataset):
         ]
 
     if api._period_type == PeriodType.FIXED:
-        periods = [{"label": api._period_base.name, "value": api._period_base.name}]
+        period = list(api._period_base)[0]
+        periods = [{"label": period.name, "value": period.name}]
     else:
         # Periods ALL placeholder, may use click options for multiple periods
         periods = [{"label": "ALL", "value": "ALL"}]

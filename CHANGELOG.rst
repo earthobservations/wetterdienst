@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix EA hydrology access
+
 0.36.0 (31.05.2022)
 *******************
 

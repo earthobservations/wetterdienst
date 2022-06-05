@@ -5,10 +5,9 @@ import json
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import pandas as pd
-from numpy.distutils.misc_util import as_list
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
@@ -70,31 +69,21 @@ class EaHydrologyPeriod(Enum):
 
 class EaHydrologyValues(ScalarValuesCore):
     _base_url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
-
-    @property
-    def _irregular_parameters(self) -> Tuple[str]:
-        return ()
-
-    @property
-    def _string_parameters(self) -> Tuple[str]:
-        return ()
-
-    @property
-    def _date_parameters(self) -> Tuple[str]:
-        return ()
-
-    @property
-    def _data_tz(self) -> Timezone:
-        return Timezone.UK
+    _irregular_parameters = ()
+    _string_parameters = ()
+    _date_parameters = ()
+    _data_tz = Timezone.UK
 
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
         endpoint = self._base_url.format(station_id=station_id)
         payload = download_file(endpoint, CacheExpiry.NO_CACHE)
 
-        measures_list = json.loads(payload.read())["items"]
-        measures_list = (
-            pd.Series(measures_list).map(lambda measure: measure["measures"]).map(lambda measure: as_list(measure)[0])
-        )
+        measures_list = json.loads(payload.read())["items"][0]["measures"]
+
+        if type(measures_list) == dict:
+            measures_list = [measures_list]
+
+        measures_list = pd.Series(measures_list)
 
         measures_list = measures_list[
             measures_list.map(
@@ -128,43 +117,17 @@ class EaHydrologyRequest(ScalarRequestCore):
     endpoint = "https://environment.data.gov.uk/hydrology/id/stations.json"
     _values = EaHydrologyValues
     _unit_tree = EaHydrologyUnit
-
-    @property
-    def _tz(self) -> Timezone:
-        return Timezone.UK
-
-    @property
-    def provider(self) -> Provider:
-        return Provider.EA
-
-    @property
-    def kind(self) -> Kind:
-        return Kind.OBSERVATION
-
+    _tz = Timezone.UK
+    provider = Provider.EA
+    kind = Kind.OBSERVATION
     _resolution_base = EaHydrologyResolution
-
-    @property
-    def _resolution_type(self) -> ResolutionType:
-        return ResolutionType.FIXED
-
-    @property
-    def _period_type(self) -> PeriodType:
-        return PeriodType.FIXED
-
+    _resolution_type = ResolutionType.MULTI
+    _period_type = PeriodType.FIXED
     _period_base = EaHydrologyPeriod
     _parameter_base = EaHydrologyParameter
-
-    @property
-    def _data_range(self) -> DataRange:
-        return DataRange.FIXED
-
-    @property
-    def _has_datasets(self) -> bool:
-        return False
-
-    @property
-    def _has_tidy_data(self) -> bool:
-        return True
+    _data_range = DataRange.FIXED
+    _has_datasets = False
+    _has_tidy_data = True
 
     def __init__(
         self,

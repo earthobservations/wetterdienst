@@ -68,14 +68,14 @@ iniconfig==1.1.1; python_version >= "3.7" and python_full_version < "3.0.0" and 
 isort==5.10.1; python_full_version >= "3.6.1" and python_version < "4.0"
 jinja2==3.1.2; python_version >= "3.7" and python_version < "4.0"
 joblib==1.1.0; python_version >= "3.8"
-jsonschema==4.5.1; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
+jsonschema==4.6.0; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 jupyter-client==7.3.1; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 jupyter-core==4.10.0; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 jupyter-server-mathjax==0.2.5; python_version >= "3.7" and python_version < "4.0"
 jupyter-server==1.17.0; python_version >= "3.7" and python_version < "4.0"
 jupyterlab-pygments==0.2.2; python_version >= "3.7" and python_version < "4.0"
 livereload==2.6.3; python_version >= "3.6"
-lxml==4.8.0; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
+lxml==4.9.0; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
 markupsafe==2.1.1; python_version >= "3.7" and python_version < "4.0"
 marshmallow==3.16.0; python_version >= "3.7"
 mccabe==0.6.1; python_full_version >= "3.6.2" and python_full_version < "4.0.0" and python_version >= "3.7" and python_version < "4.0"
@@ -129,7 +129,7 @@ pytz==2022.1; python_version >= "3.8"
 pywin32==304; sys_platform == "win32" and platform_python_implementation != "PyPy" and python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 pywinpty==2.0.5; python_version >= "3.7" and python_version < "4.0" and os_name == "nt"
 pyyaml==6.0; python_version >= "3.7"
-pyzmq==23.0.0; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
+pyzmq==23.1.0; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 rapidfuzz==1.9.1; python_version >= "2.7"
 regex==2022.3.2; python_version >= "3.6"
 requests==2.27.1; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.6.0")
@@ -164,7 +164,7 @@ tomli==2.0.1; python_version < "3.11" and python_full_version >= "3.6.2" and pyt
 tomlkit==0.7.2; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.5.0")
 tornado==6.1; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 tqdm==4.64.0; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.4.0")
-traitlets==5.2.1.post0; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
+traitlets==5.2.2.post1; python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.7.0"
 typing-extensions==4.2.0; python_version < "3.10" and python_full_version >= "3.6.2" and python_version >= "3.7"
 tzdata==2022.1; platform_system == "Windows" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6")
 tzlocal==4.2; python_version >= "3.6"
