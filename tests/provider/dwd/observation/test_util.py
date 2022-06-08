@@ -7,8 +7,10 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationPeriod,
     DwdObservationResolution,
 )
-from wetterdienst.provider.dwd.observation.util.parameter import check_dwd_observations_dataset
-from wetterdienst.provider.dwd.util import build_parameter_set_identifier
+from wetterdienst.provider.dwd.observation.util.parameter import (
+    build_parameter_set_identifier,
+    check_dwd_observations_dataset,
+)
 
 
 def test_build_parameter_identifier():

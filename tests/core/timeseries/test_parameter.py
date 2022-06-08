@@ -13,6 +13,7 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationParameter,
 )
 from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
+from wetterdienst.provider.dwd.road.api import DwdRoadParameter, DwdRoadUnit
 from wetterdienst.provider.ea.hydrology.api import (
     EaHydrologyParameter,
     EaHydrologyUnit,
@@ -42,6 +43,8 @@ SI_UNITS = [unit.value for unit in SIUnit]
         DwdObservationUnit,
         DwdMosmixParameter,
         DwdMosmixUnit,
+        DwdRoadParameter,
+        DwdRoadUnit,
         EcccObservationParameter,
         EcccObservationUnit,
         NoaaGhcnParameter,
@@ -94,6 +97,7 @@ def test_parameter_names(parameter_enum):
     (
         (DwdObservationParameter, DwdObservationUnit),
         (DwdMosmixParameter, DwdMosmixUnit),
+        (DwdRoadParameter, DwdRoadUnit),
         (EcccObservationParameter, EcccObservationUnit),
         (NoaaGhcnParameter, NoaaGhcnUnit),
         (WsvPegelParameter, WsvPegelUnit),

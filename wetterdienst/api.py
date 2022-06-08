@@ -29,6 +29,13 @@ class RequestRegistry(DatasetTreeCore):
 
                 return DwdMosmixRequest
 
+        class ROAD(DatasetTreeCore):
+            @staticmethod
+            def load() -> "DwdRoadRequest":  # noqa: F821
+                from wetterdienst.provider.dwd.road import DwdRoadRequest
+
+                return DwdRoadRequest
+
         class RADAR(DatasetTreeCore):
             @staticmethod
             def load() -> "DwdRadarValues":  # noqa: F821

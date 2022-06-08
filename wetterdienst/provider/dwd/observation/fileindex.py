@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import polars as pl
 
@@ -9,17 +9,15 @@ from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
+    DwdObservationDataset,
 )
 from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
 from wetterdienst.settings import Settings
-
-if TYPE_CHECKING:
-    from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
-
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.network import list_remote_files_fsspec
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
@@ -123,3 +121,55 @@ def create_file_index_for_climate_observations(
         )
 
     return file_index.sort(by=[pl.col("station_id"), pl.col("filename")])
+
+
+def _create_file_index_for_dwd_server(
+    dataset: DwdObservationDataset, resolution: Resolution, period: Period, cdc_base: str, settings: Settings
+) -> pl.LazyFrame:
+    """
+    Function to create a file index of the DWD station data, which usually is shipped as
+    zipped/archived data. The file index is created for an individual set of parameters.
+    Args:
+        dataset: dwd dataset enumeration
+        resolution: time resolution of TimeResolution enumeration
+        period: period type of PeriodType enumeration
+        cdc_base: base path e.g. climate_observations/germany
+    Returns:
+        file index in a pandas.DataFrame with sets of parameters and station id
+    """
+    parameter_path = build_path_to_parameter(dataset, resolution, period)
+
+    url = f"https://opendata.dwd.de/climate_environment/CDC/{cdc_base}/{parameter_path}"
+
+    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.TWELVE_HOURS)
+
+    if not files_server:
+        raise FileNotFoundError(f"url {url} does not have a list of files")
+
+    return pl.DataFrame(files_server, schema={"filename": pl.Utf8}).lazy()
+
+
+def build_path_to_parameter(
+    dataset: DwdObservationDataset,
+    resolution: Resolution,
+    period: Period,
+) -> str:
+    """
+    Function to build a indexing file path
+    Args:
+        dataset: observation measure
+        resolution: frequency/granularity of measurement interval
+        period: recent or historical files
+
+    Returns:
+        indexing file path relative to climate observation path
+    """
+    if dataset == DwdObservationDataset.SOLAR and resolution in (
+        Resolution.HOURLY,
+        Resolution.DAILY,
+    ):
+        return f"{resolution.value}/{dataset.value}/"
+    elif dataset in DWD_URBAN_DATASETS:
+        return f"{resolution.value}/{dataset.value[6:]}/{period.value}/"
+    else:
+        return f"{resolution.value}/{dataset.value}/{period.value}/"
