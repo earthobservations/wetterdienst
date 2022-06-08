@@ -88,4 +88,4 @@ stage
    * - SI unit
      - :math:`m`
    * - constraints
-     - :math:`none`
+     - :math:`None`

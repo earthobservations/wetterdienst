@@ -131,7 +131,7 @@ temperature_air_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 temperature_dew_point_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,7 +151,7 @@ temperature_dew_point_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 visibility_range
 ^^^^^^^^^^^^^^^^

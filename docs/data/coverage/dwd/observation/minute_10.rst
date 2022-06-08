@@ -90,7 +90,7 @@ temperature_air_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 temperature_air_mean_005
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -110,7 +110,7 @@ temperature_air_mean_005
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 humidity
 ^^^^^^^^
@@ -150,7 +150,7 @@ temperature_dew_point_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 ----
 
@@ -202,7 +202,7 @@ temperature_air_max_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 temperature_air_max_005
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -222,7 +222,7 @@ temperature_air_max_005
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 temperature_air_min_200
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -242,7 +242,7 @@ temperature_air_min_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 temperature_air_min_005
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -262,7 +262,7 @@ temperature_air_min_005
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`none`
+     - :math:`None`
 
 ----
 
