@@ -266,6 +266,8 @@ flake8-2020 = ["+*"]
 
 [tool.flakeheaven.exceptions."wetterdienst/__init__.py"]
 pycodestyle = ["-E402"]
+[tool.flakeheaven.exceptions."tests/provider/dwd/observation/test_available_datasets.py"]
+pycodestyle = ["-E402"]
 [tool.flakeheaven.exceptions."**/__init__.py"]
 pyflakes = ["-F401"]
 [tool.flakeheaven.exceptions."wetterdienst/util/fsspec_monkeypatch.py"]

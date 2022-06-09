@@ -140,6 +140,10 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.HISTORICAL,
             Period.RECENT,
         ],
+        DwdObservationDataset.WIND_EXTREME: [
+            Period.HISTORICAL,
+            Period.RECENT,
+        ],
         DwdObservationDataset.MOISTURE: [
             Period.HISTORICAL,
             Period.RECENT,
