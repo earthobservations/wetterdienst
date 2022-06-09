@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from datetime import datetime, timezone
@@ -182,11 +182,11 @@ class DwdObservationValues(ScalarValuesCore):
         # TODO: temporary fix -> reduce time steps before 2000 by 1 hour
         #  for 1minute and 10minutes resolution data
         if not parameter_df.empty:
-            if self.sr.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_10):
-                # Have to parse dates here although they should actually be parsed
+            if self.sr.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
+                # Have to parse dates here, although they should actually be parsed
                 # later on in the core API
                 parameter_df[Columns.DATE.value] = pd.to_datetime(
-                    parameter_df[Columns.DATE.value], format=self._datetime_format
+                    parameter_df[Columns.DATE.value], infer_datetime_format=True
                 )
                 return self._fix_timestamps(parameter_df)
 
