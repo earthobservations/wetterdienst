@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -26,6 +26,28 @@ class DwdObservationUnit(DatasetTreeCore):
             PRECIPITATION_FORM = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
+            )
+
+    # 5_minutes
+    class MINUTE_5(DatasetTreeCore):  # noqa
+        # precipitation
+        class PRECIPITATION(UnitEnum):
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRECIPITATION_FORM = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            PRECIPITATION_HEIGHT = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+            )
+            PRECIPITATION_HEIGHT_DROPLET = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+            )
+            PRECIPITATION_HEIGHT_ROCKER = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
 
     # 10_minutes

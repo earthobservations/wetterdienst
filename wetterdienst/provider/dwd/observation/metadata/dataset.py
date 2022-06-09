@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 from typing import Dict, List
@@ -45,6 +45,13 @@ class DwdObservationDataset(Enum):
 
 RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Period]]] = {
     Resolution.MINUTE_1: {
+        DwdObservationDataset.PRECIPITATION: [
+            Period.HISTORICAL,
+            Period.RECENT,
+            Period.NOW,
+        ],
+    },
+    Resolution.MINUTE_5: {
         DwdObservationDataset.PRECIPITATION: [
             Period.HISTORICAL,
             Period.RECENT,

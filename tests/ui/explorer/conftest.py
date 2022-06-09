@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018-2022, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
 import pytest
 from dash.testing.application_runners import import_app
 from dash.testing.composite import DashComposite

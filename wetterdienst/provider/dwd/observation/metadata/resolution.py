@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 from typing import Dict
@@ -9,6 +9,7 @@ from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 
 HIGH_RESOLUTIONS = (
     Resolution.MINUTE_1,
+    Resolution.MINUTE_5,
     Resolution.MINUTE_10,
 )
 
@@ -26,6 +27,7 @@ RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[Resolution, str] = {
 
 class DwdObservationResolution(Enum):
     MINUTE_1 = Resolution.MINUTE_1.value
+    MINUTE_5 = Resolution.MINUTE_5.value
     MINUTE_10 = Resolution.MINUTE_10.value
     HOURLY = Resolution.HOURLY.value
     SUBDAILY = Resolution.SUBDAILY.value

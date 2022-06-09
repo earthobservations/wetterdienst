@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -21,6 +21,21 @@ class DwdObservationParameter(DatasetTreeCore):
         PRECIPITATION_HEIGHT_DROPLET = PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET
         PRECIPITATION_HEIGHT_ROCKER = PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER
         PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
+
+    # 5_minutes
+    class MINUTE_5(DatasetTreeCore):  # noqa
+        # precipitation
+        class PRECIPITATION(Enum):
+            QUALITY = "qn_5min"
+            PRECIPITATION_FORM = "rs_ind_05"  # int
+            PRECIPITATION_HEIGHT = "rs_05"
+            PRECIPITATION_HEIGHT_DROPLET = "rth_05"
+            PRECIPITATION_HEIGHT_ROCKER = "rwh_05"
+
+        PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
+        PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
+        PRECIPITATION_HEIGHT_DROPLET = PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET
+        PRECIPITATION_HEIGHT_ROCKER = PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER
 
     # 10_minutes
     class MINUTE_10(DatasetTreeCore):  # noqa

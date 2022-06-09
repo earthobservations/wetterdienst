@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from io import BytesIO
@@ -158,6 +158,16 @@ def _parse_climate_observations_data(
             for parameter in PRECIPITATION_PARAMETERS:
                 if parameter not in df:
                     df[parameter] = pd.NA
+
+    if resolution == Resolution.MINUTE_5 and dataset == DwdObservationDataset.PRECIPITATION:
+        # apparently historical datasets differ from recent and now having all columns as described in the
+        # parameter enumeration when recent and now datasets only have precipitation form and
+        # precipitation height but not rocker and droplet information
+        columns = [DwdOrigColumns.STATION_ID.value, DwdOrigColumns.DATE.value]
+        for parameter in DwdObservationParameter[resolution.name][dataset.name]:
+            columns.append(parameter.value)
+
+        df = df.reindex(columns=columns)
 
     # Special handling for hourly solar data, as it has more date columns
     if resolution == Resolution.HOURLY and dataset == DwdObservationDataset.SOLAR:

@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add DWD Observation 5 minute precipitation dataset
+
 0.37.0 (06.06.2022)
 *******************
 

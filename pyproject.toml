@@ -178,8 +178,8 @@ flake8-return = "^1.1"
 flake8-2020 = "^1.6"
 
 # Testing
-pytest = "^6.0"
-pytest-cov = "^2.10"
+pytest = "^7.0"
+pytest-cov = "^3.0"
 pytest-dictsdiff = "^0.5"
 pytest-notebook = "^0.7"
 pytest-xdist = "^2.2"
@@ -190,13 +190,13 @@ freezegun = "^1.1"
 # Test required libraries
 surrogate = "^0.1"
 pybufrkit = "^0.2"
-selenium = "^3.141"
+selenium = "^4.0"
 percy = "^2.0"
 h5py = "^3.1"
 webdriver-manager = "^3.5.3"
 
 # Coverage
-coverage = { version = "^5.3", extras = ["toml"] }
+coverage = { version = "^6.0", extras = ["toml"] }
 
 # Docs
 sphinx-autobuild = "^2020.9"
