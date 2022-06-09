@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.38.0 (09.06.2022)
+*******************
+
 - Add DWD Observation 5 minute precipitation dataset
 - Add test to compare actually provided DWD observation datasets with the ones we made available with wetterdienst
 - Fix one particular dataset which was not correctly included in our DWD observations resolution-dataset-mapping
