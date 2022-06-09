@@ -5,6 +5,8 @@ Development
 ***********
 
 - Add DWD Observation 5 minute precipitation dataset
+- Add test to compare actually provided DWD observation datasets with the ones we made available with wetterdienst
+- Fix one particular dataset which was not correctly included in our DWD observations resolution-dataset-mapping
 
 0.37.0 (06.06.2022)
 *******************
