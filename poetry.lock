@@ -2471,7 +2471,7 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "requests"
-version = "2.28.0"
+version = "2.28.1"
 description = "Python HTTP for Humans."
 category = "main"
 optional = false
@@ -2479,13 +2479,13 @@ python-versions = ">=3.7, <4"
 
 [package.dependencies]
 certifi = ">=2017.4.17"
-charset-normalizer = ">=2.0.0,<2.1.0"
+charset-normalizer = ">=2,<3"
 idna = ">=2.5,<4"
 urllib3 = ">=1.21.1,<1.27"
 
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
-use_chardet_on_py3 = ["chardet (>=3.0.2,<5)"]
+use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "rx"
@@ -4684,9 +4684,11 @@ netcdf4 = [
     {file = "netCDF4-1.6.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7aea5661b2288d3ff13796ad94e35de9282004b38b79b4ea145210d0f0fb694f"},
     {file = "netCDF4-1.6.0-cp310-cp310-win32.whl", hash = "sha256:b4b8cfa01b77feab961109edeb4474c9b65f88d5f375cac293b6ebaa2d5e8b7f"},
     {file = "netCDF4-1.6.0-cp310-cp310-win_amd64.whl", hash = "sha256:c36f744d68c985ca1613d1e55d56fc8bd24df4e1d3cfb3e9f7ee3c3263ea60a2"},
+    {file = "netCDF4-1.6.0-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:46ea2de93f66cdb06989dba9c2d4bfb66890d1095497bcd33b496f4f15d3dcfe"},
     {file = "netCDF4-1.6.0-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c30715f5a41ac974ff848b282f9d55a7c5127cfeade00019b099312236bec529"},
     {file = "netCDF4-1.6.0-cp36-cp36m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f6ccd91a523d923a7d76f137db9cf86b1d180ef8ff948b468768671941063ca0"},
     {file = "netCDF4-1.6.0-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8cb157bf7a0ffaab2ad2a7f7ccb824d91c30ded5196eae39fba90e806d9800e3"},
+    {file = "netCDF4-1.6.0-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:d4428c9e02a1f3d53fb9acc81e38117d9d7626ecb79fae7060095497ce7b11fe"},
     {file = "netCDF4-1.6.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8d4dbfe759c27a1186bd21537e57761959995c783b5140944b20ebad259ac62f"},
     {file = "netCDF4-1.6.0-cp37-cp37m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:47ec9525a5f2b9e8c89994363c52d66feb70dda0ba470a1d89d56c553361d1b4"},
     {file = "netCDF4-1.6.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:821c2962d9861236a88f150a1d1532a4a368ac4def302f6f8f4af89f818fe410"},
@@ -5087,6 +5089,7 @@ pyproj = [
     {file = "pyproj-3.3.1-pp38-pypy38_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:5ab0d6e38fda7c13726afacaf62e9f9dd858089d67910471758afd9cb24e0ecd"},
     {file = "pyproj-3.3.1-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:45487942c19c5a8b09c91964ea3201f4e094518e34743cae373889a36e3d9260"},
     {file = "pyproj-3.3.1-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:797ad5655d484feac14b0fbb4a4efeaac0cf780a223046e2465494c767fd1c3b"},
+    {file = "pyproj-3.3.1.tar.gz", hash = "sha256:b3d8e14d91cc95fb3dbc03a9d0588ac58326803eefa5bbb0978d109de3304fbe"},
 ]
 pyrsistent = [
     {file = "pyrsistent-0.18.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:df46c854f490f81210870e509818b729db4488e1f30f2a1ce1698b2295a878d1"},
@@ -5412,8 +5415,8 @@ regex = [
     {file = "regex-2022.3.2.tar.gz", hash = "sha256:79e5af1ff258bc0fe0bdd6f69bc4ae33935a898e3cbefbbccf22e88a27fa053b"},
 ]
 requests = [
-    {file = "requests-2.28.0-py3-none-any.whl", hash = "sha256:bc7861137fbce630f17b03d3ad02ad0bf978c844f3536d0edda6499dafce2b6f"},
-    {file = "requests-2.28.0.tar.gz", hash = "sha256:d568723a7ebd25875d8d1eaf5dfa068cd2fc8194b2e483d7b1f7c81918dbec6b"},
+    {file = "requests-2.28.1-py3-none-any.whl", hash = "sha256:8fefa2a1a1365bf5520aac41836fbee479da67864514bdb821f31ce07ce65349"},
+    {file = "requests-2.28.1.tar.gz", hash = "sha256:7c5599b102feddaa661c826c56ab4fee28bfd17f5abca1ebbe3e7f19d7c97983"},
 ]
 rx = [
     {file = "Rx-3.2.0-py3-none-any.whl", hash = "sha256:922c5f4edb3aa1beaa47bf61d65d5380011ff6adcd527f26377d05cb73ed8ec8"},
