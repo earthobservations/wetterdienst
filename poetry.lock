@@ -505,7 +505,7 @@ testing = ["beautifulsoup4 (>=4.8.2)", "lxml (>=4.6.2)", "percy (>=2.0.2)", "pyt
 
 [[package]]
 name = "dash-bootstrap-components"
-version = "1.1.0"
+version = "1.2.0"
 description = "Bootstrap themed components for use in Plotly Dash"
 category = "main"
 optional = true
@@ -3835,8 +3835,8 @@ dash = [
     {file = "dash-2.5.1.tar.gz", hash = "sha256:343c802006abcaf71aadd8c3f55737ea7c72116e62fff465e980f9f1f304f1ee"},
 ]
 dash-bootstrap-components = [
-    {file = "dash-bootstrap-components-1.1.0.tar.gz", hash = "sha256:340755d3ca4d2e5b2745fc67398785e673092faef2097e2895f8580b1ad1816e"},
-    {file = "dash_bootstrap_components-1.1.0-py3-none-any.whl", hash = "sha256:e0490bf865c61f14371e537bdab4be08db693cec01884eb5a9c55489ebd13d47"},
+    {file = "dash-bootstrap-components-1.2.0.tar.gz", hash = "sha256:4f95470952ecb9a0f2dbef34be2969353c5c16925817d48da50db51ade80f50f"},
+    {file = "dash_bootstrap_components-1.2.0-py3-none-any.whl", hash = "sha256:d7fd69cb2b1e86f9cc4bcee4036302e5d534d0bf102d331b29392a3c355d776a"},
 ]
 dash-core-components = [
     {file = "dash_core_components-2.0.0-py3-none-any.whl", hash = "sha256:52b8e8cce13b18d0802ee3acbc5e888cb1248a04968f962d63d070400af2e346"},
@@ -4684,9 +4684,11 @@ netcdf4 = [
     {file = "netCDF4-1.6.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7aea5661b2288d3ff13796ad94e35de9282004b38b79b4ea145210d0f0fb694f"},
     {file = "netCDF4-1.6.0-cp310-cp310-win32.whl", hash = "sha256:b4b8cfa01b77feab961109edeb4474c9b65f88d5f375cac293b6ebaa2d5e8b7f"},
     {file = "netCDF4-1.6.0-cp310-cp310-win_amd64.whl", hash = "sha256:c36f744d68c985ca1613d1e55d56fc8bd24df4e1d3cfb3e9f7ee3c3263ea60a2"},
+    {file = "netCDF4-1.6.0-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:46ea2de93f66cdb06989dba9c2d4bfb66890d1095497bcd33b496f4f15d3dcfe"},
     {file = "netCDF4-1.6.0-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c30715f5a41ac974ff848b282f9d55a7c5127cfeade00019b099312236bec529"},
     {file = "netCDF4-1.6.0-cp36-cp36m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f6ccd91a523d923a7d76f137db9cf86b1d180ef8ff948b468768671941063ca0"},
     {file = "netCDF4-1.6.0-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8cb157bf7a0ffaab2ad2a7f7ccb824d91c30ded5196eae39fba90e806d9800e3"},
+    {file = "netCDF4-1.6.0-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:d4428c9e02a1f3d53fb9acc81e38117d9d7626ecb79fae7060095497ce7b11fe"},
     {file = "netCDF4-1.6.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8d4dbfe759c27a1186bd21537e57761959995c783b5140944b20ebad259ac62f"},
     {file = "netCDF4-1.6.0-cp37-cp37m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:47ec9525a5f2b9e8c89994363c52d66feb70dda0ba470a1d89d56c553361d1b4"},
     {file = "netCDF4-1.6.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:821c2962d9861236a88f150a1d1532a4a368ac4def302f6f8f4af89f818fe410"},
@@ -5087,6 +5089,7 @@ pyproj = [
     {file = "pyproj-3.3.1-pp38-pypy38_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:5ab0d6e38fda7c13726afacaf62e9f9dd858089d67910471758afd9cb24e0ecd"},
     {file = "pyproj-3.3.1-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:45487942c19c5a8b09c91964ea3201f4e094518e34743cae373889a36e3d9260"},
     {file = "pyproj-3.3.1-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:797ad5655d484feac14b0fbb4a4efeaac0cf780a223046e2465494c767fd1c3b"},
+    {file = "pyproj-3.3.1.tar.gz", hash = "sha256:b3d8e14d91cc95fb3dbc03a9d0588ac58326803eefa5bbb0978d109de3304fbe"},
 ]
 pyrsistent = [
     {file = "pyrsistent-0.18.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:df46c854f490f81210870e509818b729db4488e1f30f2a1ce1698b2295a878d1"},
