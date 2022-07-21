@@ -959,3 +959,33 @@ def test_dwd_observation_weather_phenomena():
     )
     res = request.all().df.dropna()
     assert len(res) > 0
+
+
+@pytest.mark.remote
+def test_dwd_observation_tidy_empty_df_no_start_end_date():
+    """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.WIND],
+        resolution=DwdObservationResolution.MINUTE_10,
+        period=DwdObservationPeriod.NOW,
+    ).filter_by_station_id("01736")
+    assert request.values.all().df.empty
+
+
+@pytest.mark.remote
+def test_dwd_observation_not_tidy_empty_df_no_start_end_date():
+    """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = True
+
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.WIND],
+        resolution=DwdObservationResolution.MINUTE_10,
+        period=DwdObservationPeriod.NOW,
+    ).filter_by_station_id("01736")
+    assert request.values.all().df.empty

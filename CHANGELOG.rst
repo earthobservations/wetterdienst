@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix passing through of empty dataframe when trying to convert units
+
 0.40.0 (10.07.2022)
 *******************
 

@@ -1635,7 +1635,7 @@ DAMAGE.
 
 
 PyPDF2
-1.28.4
+1.28.5
 BSD License
 Mathieu Fenniak
 https://pypdf2.readthedocs.io/en/latest/
@@ -3655,9 +3655,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 coverage
-6.4.1
+6.4.2
 Apache Software License
-Ned Batchelder and 153 others
+Ned Batchelder and 154 others
 https://github.com/nedbat/coveragepy
 
                                  Apache License
@@ -5528,10 +5528,10 @@ https://github.com/harlowja/fasteners
 
 
 fastjsonschema
-2.15.3
+2.16.1
 BSD License
 Michal Horejsek
-https://github.com/seznam/python-fastjsonschema
+https://github.com/horejsek/python-fastjsonschema
 Copyright (c) 2018, Michal Horejsek
 All rights reserved.
 
@@ -7555,7 +7555,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 jsonschema
-4.6.2
+4.7.2
 MIT License
 Julian Berman
 UNKNOWN
@@ -7643,7 +7643,7 @@ to indicate the copyright and license terms:
 
 
 jupyter-server-mathjax
-0.2.5
+0.2.6
 BSD License
 Jupyter Development Team
 http://jupyter.org
@@ -14564,34 +14564,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-pybrowsers
-0.5.0
-MIT License
-Ronie Martinez
-https://github.com/roniemartinez/browsers
-MIT License
-
-Copyright (c) 2022 Ronie Martinez
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
 pybufrkit
 0.2.19
 MIT License
@@ -17133,7 +17105,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 stevedore
-3.5.0
+4.0.0
 Apache Software License
 OpenStack
 https://docs.openstack.org/stevedore/latest/
@@ -18930,7 +18902,7 @@ disclaims all warranties with regard to this software.
 
 
 webdriver-manager
-3.8.0
+3.8.2
 Apache Software License
 Sergey Pirogov
 https://github.com/SergeyPirogov/webdriver_manager
