@@ -248,7 +248,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
             try:
                 return pd.concat(data)
             except ValueError:
-                return pd.DataFrame()
+                return pd.DataFrame()  # columns=self._meta_fields
 
         return df.apply(_convert_values_to_si, axis=0)
 
@@ -474,14 +474,14 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 elif self.sr._has_tidy_data:
                     parameter_df = self.tabulate_df(parameter_df)
 
-                if self.sr.si_units:
+                if not parameter_df.empty and self.sr.si_units:
                     parameter_df = self.convert_values_to_si(parameter_df, dataset)
 
                 # Skip date fields in tidy format, no further check required as still
                 # "normal" parameters should be available
                 if self.sr.tidy and self._date_parameters:
                     parameter_df = parameter_df.loc[
-                        ~parameter_df[Columns.PARAMETER.value].isin(self._date_parameters), :
+                        ~parameter_df.loc[:, Columns.PARAMETER.value].isin(self._date_parameters), :
                     ]
                     if parameter_df.empty:
                         continue
