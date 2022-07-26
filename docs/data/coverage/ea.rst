@@ -1,25 +1,22 @@
-EA (Environment Agency)
-***********************
+EA
+####
 
-Hydrology
-=========
+Environment Agency
 
 Overview
-________
+********
 
-The data as offered by EA Hydrology through ``wetterdienst`` includes:
+License
+*******
 
-- flow
-- groundwater stage
+Check out the `Terms and Conditions`_ of the Environment Agency UK for usage conditions.
 
-in resolutions 15 minutes, 6 hours and daily.
+.. _`Terms and Conditions`: https://support.environment.data.gov.uk/hc/en-gb/articles/360015443132-Terms-and-Conditions
 
-.. ipython:: python
+Products
+********
 
-    import json
-    from wetterdienst.provider.environment_agency.hydrology import EaHydrologyRequest
+.. toctree::
+   :maxdepth: 1
 
-    meta = EaHydrologyRequest.discover(flatten=False)
-
-    # Selection of daily historical data
-    print(json.dumps(meta, indent=4, ensure_ascii=False))
+   ea/hydrology

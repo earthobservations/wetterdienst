@@ -1,34 +1,26 @@
-NOAA (National Oceanic and Atmospheric Administration)
-******************************************************
+NOAA
+####
+
+National Oceanic and Atmospheric Administration
+
+Overview
+********
+
+License
+*******
 
 Global Historical Climatology Network
 =====================================
 
-Overview
-________
+The NOAA GHCN incorporates data of multiple weather services across the globe. The `NOAA GHCN description`_ page
+includes more information on the usage, references, qualities etc.
 
-NOAA Global Historical Climatology Network is a collection of **hourly** weather data put together from multiple weather
-services around the world, even those where at this moment no data is publicly offered. Resolution is fixed on hourly,
-because this is the most common and maintainable resolution with most observations practiced all over the world.
+.. _NOAA GHCN description: https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00861
 
-.. ipython:: python
+Products
+********
 
-    import json
-    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
+.. toctree::
+   :maxdepth: 1
 
-    meta = NoaaGhcnRequest.discover(flatten=False)
-
-    # Selection of daily historical data
-    print(json.dumps(meta, indent=4, ensure_ascii=False))
-
-Special Parameters
-__________________
-
-The dataset originally doesn't contain **average daily temperature**, which is why this data is calculated by
-wetterdienst with
-
-.. math::
-
-    tmean = (tmax + tmin) / 2
-
-so those values are not actually averages but means.
+   noaa/ghcn

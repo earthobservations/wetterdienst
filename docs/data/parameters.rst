@@ -1,8 +1,25 @@
 Parameters
-**********
+##########
 
-Across the multiple agencies of which data is provided through `wetterdienst` there is a multitude of parameters that
-can be accessed.
+The data that is provided via `wetterdienst` and its implemented services comes in all kinds of different shapes. All
+parameters are summarized in a core `Parameter` enumeration and parameter enumerations of all weather services are
+tested against it so that newly added parameters will be sorted and carefully added to the existing collection. The core
+`Parameter` enumeration can be used for requests as well, as internally the requested parameter is always translated
+to the provider specific parameter enumeration.
+
+Import the provider specific parameter enumeration like:
+
+.. code-block:: python
+
+    from wetterdienst.provider.dwd.observation import DwdObservationParameter
+
+Import the core parameter enumeration like:
+
+.. code-block:: python
+
+    from wetterdienst import Parameter
+
+The amount of distinct parameters and a list of the parameter names:
 
 .. ipython:: python
 
@@ -10,6 +27,6 @@ can be accessed.
 
     parameters = [parameter.name for parameter in Parameter]
 
-    print(f"There are currently approximately {len(parameters)} parameters made available.")
+    print(f"Number of parameters: {len(parameters)}")
 
     print("\n".join(parameters))

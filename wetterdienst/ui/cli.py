@@ -275,17 +275,17 @@ def cli():
         alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
 
         # Export readings into spreadsheet (Excel-compatible)
-        fetch --target="file://observations.xlsx"
+        fetch --target="file://observation.xlsx"
 
         # Export readings into Parquet format and display head of Parquet file
-        fetch --target="file://observations.parquet"
+        fetch --target="file://observation.parquet"
 
         # Check Parquet file
-        parquet-tools schema observations.parquet
-        parquet-tools head observations.parquet
+        parquet-tools schema observation.parquet
+        parquet-tools head observation.parquet
 
         # Export readings into Zarr format
-        fetch --target="file://observations.zarr"
+        fetch --target="file://observation.zarr"
 
     Examples for exporting data to databases:
 

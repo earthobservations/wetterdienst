@@ -143,7 +143,7 @@ class DwdObservationValues(ScalarValuesCore):
                 dataset, self.sr.resolution, period, station_id, date_range
             )
 
-            log.info(f"Acquiring observations data for {parameter_identifier}.")
+            log.info(f"Acquiring observation data for {parameter_identifier}.")
 
             if not check_dwd_observations_dataset(dataset, self.sr.resolution, period):
                 log.info(f"Invalid combination {dataset.value}/" f"{self.sr.resolution.value}/{period} is skipped.")

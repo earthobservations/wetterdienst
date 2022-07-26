@@ -51,7 +51,7 @@ class NoaaGhcnUnit(DatasetTreeCore):
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
         )
-        # Average cloudiness midnight to midnight from manual observations (percent)
+        # Average cloudiness midnight to midnight from manual observation (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT_MANUAL = (
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
@@ -61,7 +61,7 @@ class NoaaGhcnUnit(DatasetTreeCore):
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,
         )
-        # Average cloudiness sunrise to sunset from manual observations (percent)
+        # Average cloudiness sunrise to sunset from manual observation (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET_MANUAL = (
             OriginUnit.PERCENT.value,
             SIUnit.PERCENT.value,

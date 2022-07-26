@@ -7,4 +7,3 @@ Data
    introduction
    parameters
    coverage
-   license
