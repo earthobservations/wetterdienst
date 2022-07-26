@@ -28,11 +28,6 @@ Hohenpeissenberg, Germany I got with the help of **wetterdienst**; and I'm not s
 "We are the first generation to feel the effect of climate change and the last generation who can do something about
 it. I used **wetterdienst** to analyze the climate in my area and I can tell it's getting hot in here." - Barack Obama
 
-.. overview_start_marker
-
-Overview
-########
-
 .. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
    :alt: CI: Overall outcome
@@ -74,6 +69,11 @@ Overview
    :alt: Citation reference
 
 
+.. overview_start_marker
+
+Overview
+########
+
 Introduction
 ************
 
@@ -96,23 +96,21 @@ source.
 .. _pandas: https://pandas.pydata.org/
 .. _Poetry: https://python-poetry.org/
 
-Acknowledgements
-****************
+Data
+****
 
-We want to acknowledge all environmental agencies which provide their data open and free
-of charge first and foremost for the sake of endless research possibilities.
+For an overview of the data we have currently made available and under which
+license it is published take a look at the data_ section. Detailed information
+on datasets and parameters is given at the coverage_ subsection. Licenses and
+usage requirements may differ for each provider so check this out before including
+the data in your project to be sure that you fulfill copyright requirements!
 
-We want to acknowledge Jetbrains_ and their `open source team`_ for providing us with
-licenses for Pycharm Pro, which we are using for the development.
+.. _data: https://wetterdienst.readthedocs.io/en/latest/data/index.html
+.. _coverage: https://wetterdienst.readthedocs.io/en/improve-documentation/data/coverage.html
 
-We want to acknowledge all contributors for being part of the improvements to this
-library that make it better and better every day.
+Here is a short glimpse on the data that is included:
 
-.. _Jetbrains: https://www.jetbrains.com/
-.. _open source team: https://github.com/JetBrains
-
-Coverage
-********
+.. coverage_start_marker
 
 DWD (Deutscher Wetterdienst / German Weather Service / Germany)
     - Historical Weather Observations
@@ -153,10 +151,7 @@ EA (Environment Agency)
         - data of river network of UK
         - parameters flow and ground water stage
 
-To get better insight on which data we have currently made available and under which
-license those are published take a look at the data_ section.
-
-.. _data: https://wetterdienst.readthedocs.io/en/latest/data/index.html
+.. coverage_end_marker
 
 Features
 ********
@@ -170,12 +165,10 @@ Features
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
+- Interpolation of station values
 
 Setup
 *****
-
-``wetterdienst`` can be used by either installing it on your workstation or within a Docker
-container.
 
 Native
 ======
@@ -192,7 +185,7 @@ Via Github (most recent):
 
     pip install git+https://github.com/earthobservations/wetterdienst
 
-There are some extras available for ``wetterdienst``. Use them like:
+There are some extras available for `wetterdienst`. Use them like:
 
 .. code-block:: bash
 
@@ -208,6 +201,7 @@ There are some extras available for ``wetterdienst``. Use them like:
 - cratedb: Install support for CrateDB.
 - mysql: Install support for MySQL.
 - postgresql: Install support for PostgreSQL.
+- interpolation: Install support for station interpolation.
 
 In order to check the installation, invoke:
 
@@ -236,6 +230,7 @@ Pull the Docker image:
 
 Library
 -------
+
 Use the latest stable version of ``wetterdienst``:
 
 .. code-block:: bash
@@ -251,6 +246,7 @@ Use the latest stable version of ``wetterdienst``:
 
 Command line script
 -------------------
+
 The ``wetterdienst`` command is also available:
 
 .. code-block:: bash
@@ -265,28 +261,17 @@ The ``wetterdienst`` command is also available:
 Example
 *******
 
-Acquisition of historical data for specific stations using ``wetterdienst`` as library:
+**Task: Get historical climate summary for two German stations between 1990 and 2020**
 
-Load required request class:
+Library
+-------
 
 .. code-block:: python
 
     >>> import pandas as pd
     >>> pd.options.display.max_columns = 8
-    >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
     >>> from wetterdienst import Settings
-
-Alternatively, though without argument/type hinting:
-
-.. code-block:: python
-
-    >>> from wetterdienst import Wetterdienst
-    >>> API = Wetterdienst("dwd", "observation")
-
-Get data:
-
-.. code-block:: python
-
+    >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
     >>> Settings.tidy = True  # default, tidy data
     >>> Settings.humanize = True  # default, humanized parameters
     >>> Settings.si_units = True  # default, convert values to SI units
@@ -320,15 +305,16 @@ Get data:
     3     10.0
     4     10.0
 
-Receiving of stations for defined parameters using the ``wetterdienst`` client:
+Client
+------
 
 .. code-block:: bash
 
     # Get list of all stations for daily climate summary data in JSON format
-    wetterdienst dwd observations stations --parameter=kl --resolution=daily --period=recent
+    wetterdienst dwd observations stations --parameter=kl --resolution=daily
 
     # Get daily climate summary data for specific stations
-    wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent
+    wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily
 
 Further examples (code samples) can be found in the `examples`_ folder.
 
@@ -336,177 +322,28 @@ Further examples (code samples) can be found in the `examples`_ folder.
 
 .. overview_end_marker
 
-Documentation
-*************
+Acknowledgements
+****************
 
-We strongly recommend reading the full documentation, which will be updated continuously
-as we make progress with this library:
+We want to acknowledge all environmental agencies which provide their data open and free
+of charge first and foremost for the sake of endless research possibilities.
 
-https://wetterdienst.readthedocs.io/
+We want to acknowledge Jetbrains_ and the `Jetbrains OSS Team`_ for providing us with
+licenses for Pycharm Pro, which we are using for the development.
 
-For the whole functionality, check out the `Usage documentation and examples`_ section of our
-documentation, which will be constantly updated. To stay up to date with the
-development, take a look at the changelog_. Also, don't miss out our examples_.
+We want to acknowledge all contributors for being part of the improvements to this
+library that make it better and better every day.
 
-Data license
-************
-
-Licenses of the available data can be found in our documentation at the `data license`_
-section. Licenses and usage requirements may differ so check this out before including
-the data in your project to be sure to fulfill copyright issues beforehand.
-
-.. _data license: https://wetterdienst.readthedocs.io/en/latest/data/license.html
-
-.. contribution_development_marker
-
-Contribution
-************
-
-There are different ways in which you can contribute to this library:
-
-- by handing in a PR which describes the feature/issue that was solved including tests
-  for newly added features
-- by using our library and reporting bugs to us either by mail or by creating a new
-  Issue
-- by letting us know either via issue or discussion what function or data source we may
-  include into this library describing possible solutions or acquisition
-  methods/endpoints/APIs
-
-Development
-***********
-
-1. Clone the library and install the environment.
-
-   This setup procedure will outline how to install the library and the minimum
-   dependencies required to run the whole test suite. If, for some reason, you
-   are not available to install all the packages, just leave out some of the
-   "extras" dependency tags.
-
-.. code-block:: bash
-
-    git clone https://github.com/earthobservations/wetterdienst
-    cd wetterdienst
-
-    # Prerequisites
-    brew install --cask firefox
-    brew install git python geckodriver
-
-    # Option 1: Basic
-    git clone https://github.com/earthobservations/wetterdienst
-    cd wetterdienst
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install --requirement=requirements.txt
-    python setup.py develop
-
-    # (Option 2: Install package with extras)
-    pip install ".[sql,export,restapi,explorer,interpolation]"
-
-    # Option 3: Install package with extras using poetry.
-    poetry install --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
-    poetry shell
-
-2. For running the whole test suite, you will need to have Firefox and
-   geckodriver installed on your machine. Install them like::
-
-       # macOS
-       brew install --cask firefox
-       brew install geckodriver
-
-       # Other OS
-       # You can also get installers and/or release archives for Linux, macOS
-       # and Windows at
-       #
-       # - https://www.mozilla.org/en-US/firefox/new/
-       # - https://github.com/mozilla/geckodriver/releases
-
-   If this does not work for some reason and you would like to skip ui-related
-   tests on your machine, please invoke the test suite with::
-
-       poe test -m "not ui"
-
-3. Edit the source code, add corresponding tests and documentation for your
-   changes. While editing, you might want to continuously run the test suite
-   by invoking::
-
-       poe test
-
-   In order to run only specific tests, invoke::
-
-       # Run tests by module name or function name.
-       poe test -k test_cli
-
-       # Run tests by tags.
-       poe test -m "not (remote or slow)"
-
-4. Before committing your changes, please als run those steps in order to make
-   the patch adhere to the coding standards used here.
-
-.. code-block:: bash
-
-    poe format  # black code formatting
-    poe lint    # lint checking
-    poe export  # export of requirements (for Github Dependency Graph)
-
-5. Push your changes and submit them as pull request
-
-   Thank you in advance!
-
-
-.. note::
-
-    If you need to extend the list of package dependencies, invoke:
-
-    .. code-block:: bash
-
-        # Add package to runtime dependencies.
-        poetry add new-package
-
-        # Add package to development dependencies.
-        poetry add --dev new-package
-
-
-
-Known Issues
-************
-
-MAC ARM64 (M1)
-==============
-
-You need to install **pandas, numpy and scipy** as follows before continuing with the regular setup:
-
-.. code-block:: bash
-
-    pip install pandas --no-use-pep517
-    pip install numpy --no-use-pep517
-    pip install --no-binary :all: --no-use-pep517 scipy
-
-Further additional libraries are affected and have to be installed in a similar manner:
-
-.. code-block:: bash
-
-    # SQL related
-    brew install postgresql
-    brew link openssl (and export ENVS as given)
-    pip install psycopg2-binary --no-use-pep517
-
-LINUX ARM (Raspberry Pi)
-========================
-
-Running wetterdienst on Raspberry Pi, you need to install **numpy**
-and **lxml** prior to installing wetterdienst running the following
-lines:
-
-.. code-block:: bash
-
-    sudo apt-get install libatlas-base-dev
-    sudo apt-get install python3-lxml
+.. _Jetbrains: https://www.jetbrains.com/
+.. _Jetbrains OSS Team: https://github.com/JetBrains
 
 Important Links
 ***************
 
-- `Usage documentation and examples`_
-- `Changelog`_
-
-.. _Usage documentation and examples: https://wetterdienst.readthedocs.io/en/latest/usage/
-.. _Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
+- Full documentation: https://wetterdienst.readthedocs.io/
+- Usage: https://wetterdienst.readthedocs.io/en/latest/usage/
+- Contribution: https://wetterdienst.readthedocs.io/en/latest/contribution/
+- Known Issues: https://wetterdienst.readthedocs.io/en/latest/known_issues/
+- Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
+- Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/example
+- Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks

@@ -1,7 +1,7 @@
 .. _coverage:
 
 Coverage
-********
+########
 
 .. toctree::
    :maxdepth: 1

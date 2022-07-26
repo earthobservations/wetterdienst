@@ -166,12 +166,12 @@ class ExportMixin:
             elif target.endswith(".parquet"):
                 """
                 # Acquire data and store to Parquet file.
-                alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
-                fetch --target="file://observations.parquet"
+                alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                fetch --target="file://observation.parquet"
 
                 # Check Parquet file.
-                parquet-tools schema observations.parquet
-                parquet-tools head observations.parquet
+                parquet-tools schema observation.parquet
+                parquet-tools head observation.parquet
 
                 # References
                 - https://arrow.apache.org/docs/python/parquet.html
@@ -187,8 +187,8 @@ class ExportMixin:
             elif target.endswith(".zarr"):
                 """
                 # Acquire data and store to Zarr group.
-                alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
-                fetch --target="file://observations.zarr"
+                alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                fetch --target="file://observation.zarr"
 
                 # References
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.from_dataframe.html
@@ -251,7 +251,7 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
+                wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
 
             Example queries::
 
@@ -431,7 +431,7 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://crate@localhost/dwd?table=weather"
+                wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://crate@localhost/dwd?table=weather"
 
             Example queries::
 
@@ -475,7 +475,7 @@ class ExportMixin:
             Examples::
 
                 # Prepare
-                alias fetch='wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
+                alias fetch='wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
 
                 # Acquire data.
                 fetch --target="sqlite:///dwd.sqlite?table=weather"

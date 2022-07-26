@@ -12,7 +12,7 @@ def get_providers():
 
 def dashboard_layout() -> html:
     """
-    Dashboard layout for observations in Germany.
+    Dashboard layout for observation in Germany.
     """
     return html.Div(
         [

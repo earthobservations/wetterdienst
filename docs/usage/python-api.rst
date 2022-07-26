@@ -1,16 +1,10 @@
 .. wetterdienst-api:
 
-##########
 Python API
 ##########
 
-.. contents::
-    :local:
-    :depth: 1
-
-
 Introduction
-============
+************
 
 The API offers access to different data products. They are
 outlined in more detail within the :ref:`coverage` chapter.
@@ -21,7 +15,7 @@ you might want to try the :ref:`cli`.
 .. _example: https://github.com/earthobservations/wetterdienst/tree/main/example
 
 Available APIs
-==============
+**************
 
 The available APIs can be accessed by the top-level API Wetterdienst. This API also
 allows the user to discover the available APIs of each service included:
@@ -43,8 +37,10 @@ Wetterdienst API:
 
     API = Wetterdienst(provider="dwd", network="observation")
 
+
+
 Request arguments
-=================
+*****************
 
 Some of the `wetterdienst` request arguments e.g. ``parameter``, ``resolution``,
 ``period`` are based on enumerations. This allows the user to define them in three
@@ -495,9 +491,12 @@ Currently the following parameters are supported (more will be added if useful):
 .. ipython:: python
     :okwarning:
 
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    from wetterdienst import Parameter, Resolution
+
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
-        resolution=DwdObservationResolution.HOURLY,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        resolution=Resolution.HOURLY,
         start_date=datetime(2022, 1, 1),
         end_date=datetime(2022, 1, 20),
     )
@@ -573,6 +572,7 @@ Mosmix
 Get stations for Mosmix:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 

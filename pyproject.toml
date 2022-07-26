@@ -206,18 +206,21 @@ sphinx-autobuild = "^2021.3"
 docformatter = "^1.4"
 tomlkit = "^0.7"
 ipython = "^8.5"
+furo = "^2022.9.15"
+sphinx_design = "^0.3.0"
 
 [tool.poetry.extras]
 mpl = ["matplotlib"]
 ipython = ["ipython", "matplotlib"]
 docs = [
     "sphinx",
-    "sphinx-material",
+    "furo",
     "tomlkit",
     "sphinx-autodoc-typehints",
     "sphinxcontrib-svg2pdfconverter",
     "matplotlib",
-    "ipython"
+    "ipython",
+    "sphinx_design"
 ]
 restapi = ["fastapi", "uvicorn"]
 explorer = ["plotly", "dash", "dash-bootstrap-components"]

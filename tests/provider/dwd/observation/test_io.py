@@ -241,7 +241,7 @@ def test_export_spreadsheet(tmpdir_factory):
 
     df = request.values.all().df
 
-    filename = tmpdir_factory.mktemp("data").join("observations.xlsx")
+    filename = tmpdir_factory.mktemp("data").join("observation.xlsx")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     workbook = openpyxl.load_workbook(filename=filename)
@@ -345,7 +345,7 @@ def test_export_parquet(tmpdir_factory):
     df = request.values.all().df
 
     # Save to Parquet file.
-    filename = tmpdir_factory.mktemp("data").join("observations.parquet")
+    filename = tmpdir_factory.mktemp("data").join("observation.parquet")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Parquet file.
@@ -409,7 +409,7 @@ def test_export_zarr(tmpdir_factory):
     df = request.values.all().df
 
     # Save to Zarr group.
-    filename = tmpdir_factory.mktemp("data").join("observations.zarr")
+    filename = tmpdir_factory.mktemp("data").join("observation.zarr")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Zarr group.
@@ -474,7 +474,7 @@ def test_export_feather(tmpdir_factory):
     df = request.values.all().df
 
     # Save to Feather file.
-    filename = tmpdir_factory.mktemp("data").join("observations.feather")
+    filename = tmpdir_factory.mktemp("data").join("observation.feather")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Feather file.
@@ -534,7 +534,7 @@ def test_export_sqlite(tmpdir_factory):
         station_id=[1048],
     )
 
-    filename = tmpdir_factory.mktemp("data").join("observations.sqlite")
+    filename = tmpdir_factory.mktemp("data").join("observation.sqlite")
 
     df = request.values.all().df
     ExportMixin(df=df).to_target(f"sqlite:///{filename}?table=testdrive")

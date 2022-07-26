@@ -11,7 +11,7 @@ from wetterdienst import Settings, Wetterdienst
     "provider,network,kwargs",
     [
         # German Weather Service (DWD)
-        # historical observations
+        # historical observation
         (
             "dwd",
             "observation",
