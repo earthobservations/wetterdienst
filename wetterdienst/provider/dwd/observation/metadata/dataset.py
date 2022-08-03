@@ -196,7 +196,7 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationDataset.SOLAR: [Period.RECENT],
+        DwdObservationDataset.SOLAR: [Period.HISTORICAL, Period.RECENT],
         DwdObservationDataset.WATER_EQUIVALENT: [
             Period.HISTORICAL,
             Period.RECENT,

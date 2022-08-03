@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix correct mapping of periods for solar daily data which should also have Period.HISTORICAL besides Period.RECENT
+
 0.41.0 (24.07.2022)
 *******************
 
