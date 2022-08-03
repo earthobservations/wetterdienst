@@ -84,7 +84,7 @@ def test_dwd_stations_basic():
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "00011"
     assert response.json()["data"][0]["name"] == "Donaueschingen (Landeplatz)"
-    assert response.json()["data"][0]["latitude"] == 47.9737
+    assert response.json()["data"][0]["latitude"] == 47.9736
     assert response.json()["data"][0]["longitude"] == 8.5205
 
 
