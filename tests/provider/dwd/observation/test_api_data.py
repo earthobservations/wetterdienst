@@ -989,3 +989,20 @@ def test_dwd_observation_not_tidy_empty_df_no_start_end_date():
         period=DwdObservationPeriod.NOW,
     ).filter_by_station_id("01736")
     assert request.values.all().df.empty
+
+
+def test_dwd_observation_solar_daily():
+    """Test DWD observation solar daily data"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    # Snippet provided by https://github.com/pedroalencar1
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.SOLAR,
+        resolution=DwdObservationResolution.DAILY,
+        start_date=datetime(1950, 1, 1),
+        end_date=datetime(2021, 12, 31),
+    ).filter_by_station_id(station_id=[3987])
+
+    assert not request.values.all().df.value.dropna().empty
