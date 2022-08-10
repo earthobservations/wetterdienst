@@ -33,16 +33,18 @@ class _ParameterData:
 
 
 def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude: float) -> pd.DataFrame:
-    requested_y, requested_x, _, _ = utm.from_latlon(latitude, longitude)
-    stations_dict, param_dict = request_stations(request, latitude, longitude)
-    df = calculate_interpolation(requested_x, requested_y, stations_dict, param_dict)
+    utm_y, utm_x, _, _ = utm.from_latlon(latitude, longitude)
+    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_x)
+    df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict)
     df[Columns.DISTANCE_MEAN.value] = pd.Series(df[Columns.DISTANCE_MEAN.value].values, dtype=float)
     df[Columns.VALUE.value] = pd.Series(df[Columns.VALUE.value].values, dtype=float)
     df[Columns.DATE.value] = pd.to_datetime(df[Columns.DATE.value], infer_datetime_format=True)
     return df
 
 
-def request_stations(request: "ScalarRequestCore", latitude: float, longitude: float) -> (dict, dict):
+def request_stations(
+    request: "ScalarRequestCore", latitude: float, longitude: float, utm_x: float, utm_y: float
+) -> (dict, dict):
     param_dict = {}
     stations_dict = {}
     hard_distance_km_limit = 40
@@ -54,8 +56,9 @@ def request_stations(request: "ScalarRequestCore", latitude: float, longitude: f
         if station[Columns.DISTANCE.value] > hard_distance_km_limit:
             break
 
-        # check if all parameters found enough stations
-        if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
+        valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
+        # check if all parameters found enough stations and the stations build a valid station group
+        if len(param_dict) > 0 and all(param.finished for param in param_dict.values()) and valid_station_groups_exists:
             break
 
         if result.df.dropna().empty:
@@ -66,13 +69,17 @@ def request_stations(request: "ScalarRequestCore", latitude: float, longitude: f
 
         utm_x, utm_y = utm.from_latlon(station.latitude, station.longitude)[:2]
         stations_dict[station.station_id] = (utm_x, utm_y, station.distance)
-        apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station)
+        apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, valid_station_groups_exists)
 
     return stations_dict, param_dict
 
 
 def apply_station_values_per_parameter(
-    result_df: pd.DataFrame, stations_ranked: "StationsResult", param_dict: dict, station: pd.Series
+    result_df: pd.DataFrame,
+    stations_ranked: "StationsResult",
+    param_dict: dict,
+    station: pd.Series,
+    valid_station_groups_exists: bool,
 ):
     km_limit = {
         Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
@@ -121,10 +128,12 @@ def apply_station_values_per_parameter(
                 .astype("datetime64")
             )
 
-        extract_station_values(param_dict[parameter_name], result_series_param)
+        extract_station_values(param_dict[parameter_name], result_series_param, valid_station_groups_exists)
 
 
-def extract_station_values(param_data: _ParameterData, result_series_param: pd.Series):
+def extract_station_values(
+    param_data: _ParameterData, result_series_param: pd.Series, valid_station_groups_exists: bool
+):
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
@@ -132,7 +141,9 @@ def extract_station_values(param_data: _ParameterData, result_series_param: pd.S
 
     cond1 = param_data.values.shape[1] < 4
     cond2 = not cond1 and gain_of_value_pairs(param_data.values, result_series_param) > 0.10
-    if cond1 or cond2 or param_data.extra_station_counter < 3:  # timestamps + 4 stations
+    if (
+        not valid_station_groups_exists or cond1 or cond2 or param_data.extra_station_counter < 3
+    ):  # timestamps + 4 stations
         if not (cond1 or cond2):
             param_data.extra_station_counter += 1
 
@@ -148,9 +159,7 @@ def gain_of_value_pairs(old_values: pd.DataFrame, new_values: pd.Series) -> floa
     return new_score / old_score - 1
 
 
-def calculate_interpolation(
-    requested_x: float, requested_y: float, stations_dict: dict, param_dict: dict
-) -> pd.DataFrame:
+def calculate_interpolation(utm_x: float, utm_y: float, stations_dict: dict, param_dict: dict) -> pd.DataFrame:
     columns = [
         Columns.DATE.value,
         Columns.PARAMETER.value,
@@ -159,14 +168,12 @@ def calculate_interpolation(
         Columns.STATION_IDS.value,
     ]
     param_df_list = [pd.DataFrame(columns=columns)]
-    valid_station_groups = get_valid_station_groups(stations_dict, requested_x, requested_y)
+    valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
 
     for parameter, param_data in param_dict.items():
         param_df = pd.DataFrame(columns=columns)
         param_df[columns[1:]] = param_data.values.apply(
-            lambda row: apply_interpolation(
-                row, stations_dict, valid_station_groups, parameter, requested_x, requested_y
-            ),
+            lambda row: apply_interpolation(row, stations_dict, valid_station_groups, parameter, utm_x, utm_y),
             axis=1,
             result_type="expand",
         )
@@ -176,8 +183,8 @@ def calculate_interpolation(
     return pd.concat(param_df_list).sort_values(by=[Columns.DATE.value, Columns.PARAMETER.value]).reset_index(drop=True)
 
 
-def get_valid_station_groups(stations_dict: dict, requested_x: float, requested_y: float):
-    point = Point(requested_x, requested_y)
+def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float):
+    point = Point(utm_x, utm_y)
 
     valid_groups = Queue()
     # get all combinations of 4 stations
@@ -198,9 +205,7 @@ def get_station_group_ids(valid_station_groups: Queue, vals_index: frozenset) ->
     return []
 
 
-def apply_interpolation(
-    row, stations_dict: dict, valid_station_groups, parameter, requested_x: float, requested_y: float
-):
+def apply_interpolation(row, stations_dict: dict, valid_station_groups, parameter, utm_x: float, utm_y: float):
     vals_state = ~pd.isna(row.values)
     vals = row[vals_state].astype(float)
 
@@ -221,7 +226,7 @@ def apply_interpolation(
     distance_mean = sum(distances) / len(distances)
 
     f = interpolate.interp2d(ys, xs, vals, kind="linear")
-    value = f(requested_x, requested_y)[0]  # there is only one interpolation result
+    value = f(utm_x, utm_y)[0]  # there is only one interpolation result
 
     return parameter, value, distance_mean, station_group_ids
 
@@ -229,8 +234,8 @@ def apply_interpolation(
 if __name__ == "__main__":
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    latitude = 50.0
-    longitude = 8.9
+    lat = 50.0
+    long = 8.9
     distance = 30.0
     start_date = datetime(2003, 1, 1)
     end_date = datetime(2004, 12, 31)
@@ -242,6 +247,6 @@ if __name__ == "__main__":
         end_date=end_date,
     )
 
-    df = stations.interpolate(latitude, longitude)
+    df = stations.interpolate(lat, long)
 
     log.info(df.df.dropna())
