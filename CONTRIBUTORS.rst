@@ -15,3 +15,6 @@ This is a list of the people who directly contributed to wetterdienst in one way
 * Ilya Kamenshchikov
 
 * Michael Schrammel
+
+* `Niclas Hoyer <https://github.com/niclashoyer>`_
+    - Change mosmix parser to xml stream events
