@@ -603,9 +603,9 @@ FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
 
 .. ipython:: python
 
-    from wetterdienst.util.cache import FSSPEC_CLIENT_KWARGS
+    from wetterdienst import Settings
 
-    FSSPEC_CLIENT_KWARGS["trust_env"] = True  # use proxy from environment variables
+    Settings.fsspec_client_kwargs["trust_env"] = True  # use proxy from environment variables
 
 
 .. _wradlib: https://wradlib.org/

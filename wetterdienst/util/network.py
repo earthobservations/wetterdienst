@@ -8,12 +8,8 @@ from typing import List, Optional, Union
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 
-from wetterdienst.util.cache import (
-    FSSPEC_CLIENT_KWARGS,
-    WD_CACHE_DISABLE,
-    CacheExpiry,
-    cache_dir,
-)
+from wetterdienst.settings import Settings
+from wetterdienst.util.cache import CacheExpiry
 
 
 class NetworkFilesystemManager:
@@ -39,9 +35,9 @@ class NetworkFilesystemManager:
     def register(cls, ttl=CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
-        real_cache_dir = os.path.join(cache_dir, "fsspec", key)
-        filesystem_real = HTTPFileSystem(use_listings_cache=True, client_kwargs=FSSPEC_CLIENT_KWARGS)
-        if WD_CACHE_DISABLE or ttl is CacheExpiry.NO_CACHE:
+        real_cache_dir = os.path.join(Settings.cache_dir, "fsspec", key)
+        filesystem_real = HTTPFileSystem(use_listings_cache=True, client_kwargs=Settings.fsspec_client_kwargs)
+        if Settings.cache_disable or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = filesystem_real
         else:
             filesystem_effective = WholeFileCacheFileSystem(
@@ -70,10 +66,10 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
     """
     fs = HTTPFileSystem(
         use_listings_cache=True,
-        listings_expiry_time=not WD_CACHE_DISABLE and ttl.value,
+        listings_expiry_time=not Settings.cache_disable and ttl.value,
         listings_cache_type="filedircache",
-        listings_cache_location=cache_dir,
-        client_kwargs=FSSPEC_CLIENT_KWARGS,
+        listings_cache_location=Settings.cache_dir,
+        client_kwargs=Settings.fsspec_client_kwargs,
     )
 
     return fs.find(url)

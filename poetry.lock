@@ -547,6 +547,21 @@ distributed = ["distributed (==2022.8.0)"]
 test = ["pandas", "pytest", "pytest-rerunfailures", "pytest-xdist", "pre-commit"]
 
 [[package]]
+name = "dataclass-wizard"
+version = "0.22.1"
+description = "Marshal dataclasses to/from JSON. Use field properties with initial values. Construct a dataclass schema with JSON input."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+typing-extensions = {version = ">=3.7.4.2", markers = "python_version <= \"3.9\""}
+
+[package.extras]
+timedelta = ["pytimeparse (>=1.1.7)"]
+yaml = ["PyYAML (>=5.3)"]
+
+[[package]]
 name = "dateparser"
 version = "1.1.1"
 description = "Date parsing library designed to parse dates from HTML pages"
@@ -3304,7 +3319,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.11"
-content-hash = "3a78a527f27904231f809b5daf988489abbbc5461bca88693f2208bd56ed653f"
+content-hash = "4f8d61abd0d8fa04a325fc4486cde3154e16e3e469d47b072ce14cc48a94d180"
 
 [metadata.files]
 aenum = [
@@ -3706,6 +3721,10 @@ dash-table = [
 dask = [
     {file = "dask-2022.8.0-py3-none-any.whl", hash = "sha256:f4e4575b33179ed5c5b16992d2a786c578dd771c78acbd23d8a332b89eabac4f"},
     {file = "dask-2022.8.0.tar.gz", hash = "sha256:a14c1c5143081701d4fe62283e09cc5ad5336dff3a152de64eb77ee3180e9792"},
+]
+dataclass-wizard = [
+    {file = "dataclass-wizard-0.22.1.tar.gz", hash = "sha256:77a6584a758788ca0d32cf9d09ebbd3cb12e5eb5dcded4d846e358257f5fc3a0"},
+    {file = "dataclass_wizard-0.22.1-py2.py3-none-any.whl", hash = "sha256:e2cef176cbfac9f5adc812a8957d67aafc0c9c85b8c72ac7ca0ae0e7e692db38"},
 ]
 dateparser = [
     {file = "dateparser-1.1.1-py2.py3-none-any.whl", hash = "sha256:9600874312ff28a41f96ec7ccdc73be1d1c44435719da47fea3339d55ff5a628"},
