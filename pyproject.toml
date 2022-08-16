@@ -151,6 +151,7 @@ timezonefinder = "^5.2"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
 scikit-learn = "^1.0.2"
+dataclass-wizard = "^0.22.1"
 
 [tool.poetry.dev-dependencies]
 poethepoet = "^0.9"
