@@ -32,13 +32,13 @@ def hdf5dump(thing, compact=False):
                 if compact:
                     if name in blocklist:
                         continue
-                print(" " * indent, "-", name, value)  # noqa: T001
+                print(" " * indent, "-", name, value)  # noqa: T201
 
         for group in hdf.keys():
-            print("name:", hdf[group].name)  # noqa: T001
+            print("name:", hdf[group].name)  # noqa: T201
             dumpattrs(hdf[group])
             for subgroup in hdf[group].keys():
-                print("  name:", subgroup)  # noqa: T001
+                print("  name:", subgroup)  # noqa: T201
                 dumpattrs(hdf[group][subgroup], indent=4)
 
 
