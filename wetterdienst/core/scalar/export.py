@@ -268,9 +268,9 @@ class ExportMixin:
             connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa:S608
 
             weather_table = connection.table(tablename)
-            print(weather_table)  # noqa: T001
-            print("Cardinalities:")  # noqa: T001
-            print(weather_table.to_df().count())  # noqa: T001
+            print(weather_table)  # noqa: T201
+            print("Cardinalities:")  # noqa: T201
+            print(weather_table.to_df().count())  # noqa: T201
             connection.close()
             log.info("Writing to DuckDB finished")
 

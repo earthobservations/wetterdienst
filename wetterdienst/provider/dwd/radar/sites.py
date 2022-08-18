@@ -145,4 +145,4 @@ if __name__ == "__main__":  # pragma: no cover
     import black
 
     sites = DwdRadarSitesGenerator().all()
-    print(black.format_str(pprint.pformat(sites), mode=black.Mode()))  # noqa: T001
+    print(black.format_str(pprint.pformat(sites), mode=black.Mode()))  # noqa: T201

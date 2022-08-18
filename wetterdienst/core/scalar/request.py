@@ -218,7 +218,7 @@ class ScalarRequestCore(Core):
 
         parameters = []
 
-        for parameter in pd.Series(parameter):
+        for par in pd.Series(parameter):
 
             # Each parameter can either be
             #  - a dataset : gets all data from the dataset
@@ -227,9 +227,9 @@ class ScalarRequestCore(Core):
             #  - a tuple of parameter -> dataset : to decide from which dataset
             #    the parameter is taken
             try:
-                parameter, dataset = pd.Series(parameter)
+                parameter, dataset = pd.Series(par)
             except (ValueError, TypeError):
-                parameter, dataset = parameter, parameter
+                parameter, dataset = par, par
 
             try:
                 parameter = parameter.name
