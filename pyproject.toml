@@ -154,6 +154,7 @@ scikit-learn = "^1.0.2"
 utm = "^0.7.0"
 scipy = "^1.5"
 Shapely = "^1.8.1"
+utm = "^0.7.0"
 
 [tool.poetry.dev-dependencies]
 poethepoet = "^0.9"
