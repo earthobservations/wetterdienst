@@ -173,7 +173,9 @@ def calculate_interpolation(utm_x: float, utm_y: float, stations_dict: dict, par
     for parameter, param_data in param_dict.items():
         param_df = pd.DataFrame(columns=columns)
         param_df[columns[1:]] = param_data.values.apply(
-            lambda row: apply_interpolation(row, stations_dict, valid_station_groups, parameter, utm_x, utm_y),
+            lambda row, param=parameter: apply_interpolation(
+                row, stations_dict, valid_station_groups, param, utm_x, utm_y
+            ),
             axis=1,
             result_type="expand",
         )
