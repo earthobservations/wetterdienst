@@ -480,9 +480,9 @@ class Parameter(Enum):
     # VISIBILITY
     # ---- distance ----
     VISIBILITY_RANGE_INDICATOR = "VISIBILITY_INDICATOR"
-    VISIBILITY_RANGE = "VISIBILITY"  # through clouds, fog, etc
+    VISIBILITY_RANGE = "VISIBILITY_RANGE"  # through clouds, fog, etc
     # ---- probability ----
-    PROBABILITY_VISIBILITY_BELOW_1000_M = "vv10"
+    PROBABILITY_VISIBILITY_BELOW_1000_M = "PROBABILITY_VISIBILITY_BELOW_1000_M"
 
     # WATER EQUIVALENT
     # ---- aggregated ----

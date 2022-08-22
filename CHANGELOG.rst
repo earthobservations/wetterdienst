@@ -5,6 +5,7 @@ Development
 ***********
 
 - Move cache settings to core wetterdienst Settings object
+- Fix two parameter names
 
 0.41.1 (04.08.2022)
 *******************
