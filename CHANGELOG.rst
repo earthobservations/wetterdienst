@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.42.1 (25.08.2022)
+*******************
+
 - Fix DWD Mosmix station locations
 
 0.42.0 (22.08.2022)
