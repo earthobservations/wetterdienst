@@ -340,7 +340,7 @@ def info():
 
 @cli.command("version")
 def version():
-    print(__version__)  # noqa: T001
+    print(__version__)  # noqa: T201
 
 
 @cli.command("restapi")
@@ -402,7 +402,7 @@ def coverage(provider, network, filter_, debug):
     set_logging_level(debug)
 
     if not provider or not network:
-        print(json.dumps(Wetterdienst.discover(), indent=4))  # noqa: T001
+        print(json.dumps(Wetterdienst.discover(), indent=4))  # noqa: T201
         return
 
     api = get_api(provider=provider, network=network)
@@ -412,7 +412,7 @@ def coverage(provider, network, filter_, debug):
         flatten=False,
     )
 
-    print(json.dumps(cov, indent=4))  # noqa: T001
+    print(json.dumps(cov, indent=4))  # noqa: T201
 
     return
 
@@ -444,7 +444,7 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
 
     output = pformat(dict(metadata))
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 
@@ -529,7 +529,7 @@ def stations(
 
     output = stations_.to_format(fmt, indent=indent)
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 
@@ -634,7 +634,7 @@ def values(
 
     output = values_.to_format(fmt, indent=indent)
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 
@@ -670,7 +670,7 @@ def radar(
 
     output = json.dumps(data, indent=4)
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 

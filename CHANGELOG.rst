@@ -4,6 +4,17 @@ Changelog
 Development
 ***********
 
+0.42.1 (25.08.2022)
+*******************
+
+- Fix DWD Mosmix station locations
+
+0.42.0 (22.08.2022)
+*******************
+
+- Move cache settings to core wetterdienst Settings object
+- Fix two parameter names
+
 0.41.1 (04.08.2022)
 *******************
 

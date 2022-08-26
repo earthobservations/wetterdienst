@@ -6,15 +6,27 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pytest
 
-from wetterdienst import Settings
-
 
 @pytest.mark.cflake
-def test_settings():
+def test_settings(caplog):
     """Check Settings object"""
+    from wetterdienst import Settings
+
     Settings.default()
 
     assert not Settings.cache_disable
+    assert caplog.messages[0] == "Wetterdienst cache is enabled"
+
+    Settings.cache_disable = True
+
+    assert Settings.cache_disable
+    assert caplog.messages[-1] == "Wetterdienst cache is disabled"
+
+    Settings.cache_disable = False
+
+    assert not Settings.cache_disable
+    assert caplog.messages[-1] == "Wetterdienst cache is enabled"
+
     assert Settings.tidy
     assert Settings.humanize
     assert Settings.si_units
@@ -35,6 +47,7 @@ def test_settings():
 
 def test_settings_concurrent():
     """Check leaking of Settings through threads"""
+    from wetterdienst import Settings
 
     def settings_tidy_concurrent(tidy: bool):
         with Settings:

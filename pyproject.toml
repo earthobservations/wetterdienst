@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.41.1"
+version = "0.42.1"
 description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
@@ -151,6 +151,7 @@ timezonefinder = "^5.2"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
 scikit-learn = "^1.0.2"
+dataclass-wizard = "^0.22.1"
 
 [tool.poetry.dev-dependencies]
 poethepoet = "^0.9"
@@ -162,18 +163,18 @@ black = "^22.3.0"
 
 isort = "^5.7"
 
-flakeheaven = "^0.11"
-flake8-bandit = "^2.1"
-bandit = "^1.0,<1.7.3"
-flake8-black = "^0.2,<0.2.5"
-flake8-bugbear = "^20.1"
+flakeheaven = "^3.0"
+flake8-bandit = "^3.0"
+bandit = "^1.7.4"
+flake8-black = "^0.3"
+flake8-bugbear = "^22.1"
 flake8-builtins = "^1.5"
 flake8-comprehensions = "^3.7"
 flake8-copyright = "^0.2"
 flake8-docstrings = "^1.6"
 flake8-eradicate = "^1.2"
-flake8-isort = "^4.0"
-flake8-print = "^4.0"
+flake8-isort = "^4.1"
+flake8-print = "^5.0"
 flake8-return = "^1.1"
 flake8-2020 = "^1.6"
 

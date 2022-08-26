@@ -17,7 +17,8 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationParameter,
 )
-from wetterdienst.util.cache import FSSPEC_CLIENT_KWARGS, CacheExpiry, cache_dir
+from wetterdienst.settings import Settings
+from wetterdienst.util.cache import CacheExpiry
 
 SKIP_DATASETS = (
     ("10_minutes", "wind_test"),
@@ -42,8 +43,8 @@ def test_compare_available_dwd_datasets():
         use_listings_cache=True,
         listings_expiry_time=CacheExpiry.TWELVE_HOURS.value,
         listings_cache_type="filedircache",
-        listings_cache_location=cache_dir,
-        client_kwargs=FSSPEC_CLIENT_KWARGS,
+        listings_cache_location=Settings.cache_dir,
+        client_kwargs=Settings.fsspec_client_kwargs,
     )
 
     base_url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"

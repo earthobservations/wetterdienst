@@ -109,7 +109,7 @@ def process(url) -> None:  # pragma: no cover
     # import json; print(json.dumps(parameters, indent=4))  # noqa: E800
 
     # Output as ASCII table.
-    print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T001
+    print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T201
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -127,6 +127,6 @@ if __name__ == "__main__":  # pragma: no cover
     )
 
     for item in ten_minutes_air, hourly_solar, daily_kl:
-        print(item)  # noqa: T001
+        print(item)  # noqa: T201
         process(item)
-        print()  # noqa: T001
+        print()  # noqa: T201
