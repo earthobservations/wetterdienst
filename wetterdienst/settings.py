@@ -4,43 +4,40 @@
 import logging
 import pathlib
 from contextvars import ContextVar
-from dataclasses import dataclass, field
 
 import appdirs
-from dataclass_wizard import property_wizard
 from environs import Env
 
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class Settings(metaclass=property_wizard):
+class Settings:
     """Wetterdienst class for general settings"""
 
     env = Env()
     env.read_env()
 
-    with env.prefixed("WD_"):
-        # cache
-        # for initial printout we need to work with _cache_disable and
-        # Check out this: https://florimond.dev/en/posts/2018/10/reconciling-dataclasses-and-properties-in-python/
-        cache_disable: bool = env.bool("CACHE_DISABLE", False)
-        _cache_disable: bool = field(init=False, repr=False)
+    def __init__(self):
+        with self.env.prefixed("WD_"):
+            # cache
+            # for initial printout we need to work with _cache_disable and
+            # Check out this: https://florimond.dev/en/posts/2018/10/reconciling-dataclasses-and-properties-in-python/
+            self.cache_disable: bool = self.env.bool("CACHE_DISABLE", False)
 
-        cache_dir: pathlib.Path = env.path("CACHE_DIR", appdirs.user_cache_dir(appname="wetterdienst"))
+            self.cache_dir: pathlib.Path = self.env.path("CACHE_DIR", appdirs.user_cache_dir(appname="wetterdienst"))
 
-        # FSSPEC aiohttp client kwargs, may be used to pass extra arguments
-        # such as proxies to aiohttp
-        fsspec_client_kwargs: dict = env.dict("FSSPEC_CLIENT_KWARGS", {}) or field(default_factory=dict)
+            # FSSPEC aiohttp client kwargs, may be used to pass extra arguments
+            # such as proxies to aiohttp
+            self.fsspec_client_kwargs: dict = self.env.dict("FSSPEC_CLIENT_KWARGS", {})
 
-        with env.prefixed("SCALAR_"):
-            # scalar
-            humanize: bool = env.bool("HUMANIZE", True)
-            tidy: bool = env.bool("TIDY", True)
-            si_units: bool = env.bool("SI_UNITS", True)
-            skip_empty: bool = env.bool("SKIP_EMPTY", False)
-            skip_threshold: bool = env.float("SKIP_THRESHOLD", 0.95)
-            dropna: bool = env.bool("DROPNA", False)
+            with self.env.prefixed("SCALAR_"):
+                # scalar
+                self.humanize: bool = self.env.bool("HUMANIZE", True)
+                self.tidy: bool = self.env.bool("TIDY", True)
+                self.si_units: bool = self.env.bool("SI_UNITS", True)
+                self.skip_empty: bool = self.env.bool("SKIP_EMPTY", False)
+                self.skip_threshold: bool = self.env.float("SKIP_THRESHOLD", 0.95)
+                self.dropna: bool = self.env.bool("DROPNA", False)
 
     @property
     def cache_disable(self) -> bool:
@@ -50,7 +47,7 @@ class Settings(metaclass=property_wizard):
     def cache_disable(self, value: bool) -> None:
         self._cache_disable = value
         status = "disabled" if value else "enabled"
-        log.warning(f"Wetterdienst cache is {status}")
+        log.info(f"Wetterdienst cache is {status}")
 
     def reset(self):
         """Reset Wetterdienst Settings to start"""
