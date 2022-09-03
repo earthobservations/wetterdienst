@@ -3594,7 +3594,7 @@ THE SOFTWARE.
 
 
 black
-22.6.0
+22.8.0
 MIT License
 Łukasz Langa
 https://github.com/psf/black
@@ -5431,29 +5431,6 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-dataclass-wizard
-0.22.1
-Apache Software License
-Ritvik Nag
-https://github.com/rnag/dataclass-wizard
-Apache Software License 2.0
-
-Copyright (c) 2021, Ritvik Nag
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
 
 
 dateparser
@@ -9562,14 +9539,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 jsonschema
-4.14.0
+4.15.0
 MIT License
 Julian Berman
 UNKNOWN
 UNKNOWN
 
 jupyter-client
-7.3.4
+7.3.5
 BSD License
 UNKNOWN
 UNKNOWN
@@ -12621,7 +12598,7 @@ under the terms of *both* these licenses.
 
 
 pandas
-1.4.3
+1.4.4
 BSD License
 The Pandas Development Team
 https://pandas.pydata.org
@@ -12848,10 +12825,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 pathspec
-0.9.0
+0.10.1
 Mozilla Public License 2.0 (MPL 2.0)
 Caleb P. Burns
-https://github.com/cpburnz/python-path-specification
+https://github.com/cpburnz/python-pathspec
 Mozilla Public License Version 2.0
 ==================================
 
@@ -16654,7 +16631,7 @@ THE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED
 
 
 pytest
-7.1.2
+7.1.3
 MIT License
 Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others
 https://docs.pytest.org/en/latest/
@@ -16862,7 +16839,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 The above BSD License Applies to all code, even that also covered by Apache 2.0.
 
 python-dotenv
-0.20.0
+0.21.0
 BSD License
 Saurabh Kumar
 https://github.com/theskumar/python-dotenv
@@ -17587,7 +17564,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 scipy
-1.9.0
+1.9.1
 BSD License
 UNKNOWN
 https://www.scipy.org
@@ -18506,7 +18483,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 sniffio
-1.2.0
+1.3.0
 Apache Software License; MIT License
 Nathaniel J. Smith
 https://github.com/python-trio/sniffio
@@ -19302,7 +19279,7 @@ http://github.com/JASchilz/surrogate
 UNKNOWN
 
 sympy
-1.11
+1.11.1
 BSD License
 SymPy development team
 https://sympy.org
@@ -20286,7 +20263,7 @@ http://www.tornadoweb.org/
 
 
 tqdm
-4.64.0
+4.64.1
 MIT License; Mozilla Public License 2.0 (MPL 2.0)
 UNKNOWN
 https://tqdm.github.io
