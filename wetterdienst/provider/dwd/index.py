@@ -14,7 +14,10 @@ from wetterdienst.provider.dwd.metadata.constants import (
     DWD_SERVER,
     DWDCDCBase,
 )
-from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
+from wetterdienst.provider.dwd.observation.metadata.dataset import (
+    DWD_URBAN_DATASETS,
+    DwdObservationDataset,
+)
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
@@ -68,5 +71,7 @@ def build_path_to_parameter(
         Resolution.DAILY,
     ):
         return f"{resolution.value}/{dataset.value}/"
-
-    return f"{resolution.value}/{dataset.value}/{period.value}/"
+    elif dataset in DWD_URBAN_DATASETS:
+        return f"{resolution.value}/{dataset.value[6:]}/{period.value}/"
+    else:
+        return f"{resolution.value}/{dataset.value}/{period.value}/"

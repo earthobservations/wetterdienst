@@ -25,7 +25,6 @@ from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
     DWD_CDC_PATH,
     DWD_SERVER,
-    STATION_ID_REGEX,
     DWDCDCBase,
 )
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
@@ -42,6 +41,8 @@ METADATA_COLUMNS = [
     Columns.NAME.value,
     Columns.STATE.value,
 ]
+
+STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 
 
 def create_meta_index_for_climate_observations(

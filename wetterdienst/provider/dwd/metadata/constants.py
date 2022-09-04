@@ -13,12 +13,4 @@ DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations
 
 class DWDCDCBase(Enum):
     CLIMATE_OBSERVATIONS = "observations_germany/climate/"
-
-
-DWD_FOLDER_MAIN = "./dwd_data"
-DWD_FOLDER_STATION_DATA = "station_data"
-DWD_FILE_STATION_DATA = "dwd_station_data"
-STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
-DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
-NA_STRING = "-999"
-STATION_DATA_SEP = ";"
+    CLIMATE_URBAN_OBSERVATIONS = "observations_germany/climate_urban/"

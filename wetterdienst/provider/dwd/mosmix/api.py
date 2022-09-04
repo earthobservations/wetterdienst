@@ -125,6 +125,8 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return:
         """
+        hpm = self._create_humanized_parameters_mapping()
+
         for df in self._collect_station_parameter():
             df = self._coerce_parameter_types(df)
 
@@ -137,7 +139,7 @@ class DwdMosmixValues(ScalarValuesCore):
             df = self._coerce_meta_fields(df)
 
             if self.sr.humanize:
-                df = self._humanize(df)
+                df = self._humanize(df, hpm)
 
             yield ValuesResult(stations=self.sr, df=df)
 

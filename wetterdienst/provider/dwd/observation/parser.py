@@ -13,7 +13,6 @@ from wetterdienst.provider.dwd.metadata.column_map import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
 )
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns, DwdOrigColumns
-from wetterdienst.provider.dwd.metadata.constants import NA_STRING, STATION_DATA_SEP
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
@@ -96,9 +95,9 @@ def _parse_climate_observations_data(
     try:
         df = pd.read_csv(
             filepath_or_buffer=file,  # prevent leading/trailing whitespace
-            sep=STATION_DATA_SEP,
+            sep=";",
             dtype="str",
-            na_values=NA_STRING,
+            na_values="-999",
             encoding="latin1",
             skipinitialspace=True,
         )

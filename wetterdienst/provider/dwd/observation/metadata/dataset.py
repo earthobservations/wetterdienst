@@ -41,7 +41,23 @@ class DwdObservationDataset(Enum):
     WATER_EQUIVALENT = "water_equiv"
     WEATHER_PHENOMENA = "weather_phenomena"
     WEATHER_PHENOMENA_MORE = "more_weather_phenomena"
+    # hourly urban datasets
+    URBAN_TEMPERATURE_AIR = "urban_air_temperature"
+    URBAN_PRECIPITATION = "urban_precipitation"
+    URBAN_PRESSURE = "urban_pressure"
+    URBAN_TEMPERATURE_SOIL = "urban_soil_temperature"
+    URBAN_SUN = "urban_sun"
+    URBAN_WIND = "urban_wind"
 
+
+DWD_URBAN_DATASETS = (
+    DwdObservationDataset.URBAN_TEMPERATURE_AIR,
+    DwdObservationDataset.URBAN_PRECIPITATION,
+    DwdObservationDataset.URBAN_PRESSURE,
+    DwdObservationDataset.URBAN_TEMPERATURE_SOIL,
+    DwdObservationDataset.URBAN_SUN,
+    DwdObservationDataset.URBAN_WIND,
+)
 
 RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Period]]] = {
     Resolution.MINUTE_1: {
@@ -148,6 +164,12 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.HISTORICAL,
             Period.RECENT,
         ],
+        DwdObservationDataset.URBAN_TEMPERATURE_AIR: [Period.RECENT],
+        DwdObservationDataset.URBAN_PRECIPITATION: [Period.RECENT],
+        DwdObservationDataset.URBAN_PRESSURE: [Period.RECENT],
+        DwdObservationDataset.URBAN_TEMPERATURE_SOIL: [Period.RECENT],
+        DwdObservationDataset.URBAN_SUN: [Period.RECENT],
+        DwdObservationDataset.URBAN_WIND: [Period.RECENT],
     },
     Resolution.SUBDAILY: {
         DwdObservationDataset.TEMPERATURE_AIR: [
