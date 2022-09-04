@@ -35,28 +35,44 @@ Overview
 
 .. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
+   :alt: CI: Overall outcome
 .. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/earthobservations/wetterdienst
-.. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
-   :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-
-.. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
-   :target: https://pypi.python.org/pypi/wetterdienst/
+   :alt: CI: Code coverage
 .. image:: https://img.shields.io/pypi/v/wetterdienst.svg
    :target: https://pypi.org/project/wetterdienst/
-.. image:: https://anaconda.org/conda-forge/wetterdienst/badges/version.svg
+   :alt: PyPI version
+.. image:: https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg
    :target: https://anaconda.org/conda-forge/wetterdienst
+   :alt: Conda version
+
 .. image:: https://img.shields.io/pypi/status/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
-.. image:: https://pepy.tech/badge/wetterdienst/month
+   :alt: Project status (alpha, beta, stable)
+.. image:: https://static.pepy.tech/personalized-badge/wetterdienst?period=month&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20downloads/month
    :target: https://pepy.tech/project/wetterdienst
+   :alt: PyPI downloads
+.. image:: https://img.shields.io/conda/dn/conda-forge/wetterdienst.svg?label=Conda%20downloads
+   :target: https://anaconda.org/conda-forge/wetterdienst
+   :alt: Conda downloads
 .. image:: https://img.shields.io/github/license/earthobservations/wetterdienst
    :target: https://github.com/earthobservations/wetterdienst/blob/main/LICENSE
+   :alt: Project license
+.. image:: https://img.shields.io/pypi/pyversions/wetterdienst.svg
+   :target: https://pypi.python.org/pypi/wetterdienst/
+   :alt: Python version compatibility
+
+.. image:: https://readthedocs.org/projects/wetterdienst/badge/?version=latest
+   :target: https://wetterdienst.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation status
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/psf/black
+   :alt: Documentation: Black
+
 .. image:: https://zenodo.org/badge/160953150.svg
    :target: https://zenodo.org/badge/latestdoi/160953150
+   :alt: Citation reference
+
 
 Introduction
 ************
