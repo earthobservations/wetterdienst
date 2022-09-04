@@ -390,6 +390,66 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.WIND_DIRECTION.value,
             )
 
+        class URBAN_TEMPERATURE_AIR(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            TEMPERATURE_AIR_MEAN_200 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+
+        class URBAN_PRECIPITATION(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRECIPITATION_HEIGHT = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+            )
+
+        class URBAN_PRESSURE(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRESSURE_AIR_SITE = (
+                OriginUnit.HECTOPASCAL.value,
+                SIUnit.PASCAL.value,
+            )
+
+        class URBAN_TEMPERATURE_SOIL(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            TEMPERATURE_SOIL_MEAN_005 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_010 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_020 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_050 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_100 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+
+        class URBAN_SUN(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            SUNSHINE_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
+
+        class URBAN_WIND(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WIND_SPEED = (
+                OriginUnit.METER_PER_SECOND.value,
+                SIUnit.METER_PER_SECOND.value,
+            )
+            WIND_DIRECTION = (
+                OriginUnit.WIND_DIRECTION.value,
+                SIUnit.WIND_DIRECTION.value,
+            )
+
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa
         # air_temperature

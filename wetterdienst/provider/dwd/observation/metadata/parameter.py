@@ -254,6 +254,40 @@ class DwdObservationParameter(DatasetTreeCore):
 
         WIND_SYNOP = WIND_SYNOPTIC
 
+        class URBAN_TEMPERATURE_AIR(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            TEMPERATURE_AIR_MEAN_200 = "lufttemperatur"
+            HUMIDITY = "rel_feuchte"
+
+        URBAN_AIR_TEMPERATURE = URBAN_TEMPERATURE_AIR
+
+        class URBAN_PRECIPITATION(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            PRECIPITATION_HEIGHT = "niederschlagshoehe"
+
+        class URBAN_PRESSURE(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            PRESSURE_AIR_SITE = "luftdruck_stationshoehe"
+
+        class URBAN_TEMPERATURE_SOIL(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            TEMPERATURE_SOIL_MEAN_005 = "erdbt_005"
+            TEMPERATURE_SOIL_MEAN_010 = "erdbt_010"
+            TEMPERATURE_SOIL_MEAN_020 = "erdbt_020"
+            TEMPERATURE_SOIL_MEAN_050 = "erdbt_050"
+            TEMPERATURE_SOIL_MEAN_100 = "erdbt_100"
+
+        URBAN_SOIL_TEMPERATURE = URBAN_TEMPERATURE_SOIL
+
+        class URBAN_SUN(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            SUNSHINE_DURATION = "sonnenscheindauer"
+
+        class URBAN_WIND(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            WIND_SPEED = "windgeschwindigkeit"
+            WIND_DIRECTION = "windrichtung"  # int
+
         # air_temperature
         TEMPERATURE_AIR_MEAN_200 = TEMPERATURE_AIR.TEMPERATURE_AIR_MEAN_200
         HUMIDITY = TEMPERATURE_AIR.HUMIDITY

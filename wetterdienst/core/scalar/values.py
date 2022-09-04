@@ -432,6 +432,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         :return:
         """
+        # mapping of original to humanized parameter names is always the same
+        if self.sr.humanize:
+            hpm = self._create_humanized_parameters_mapping()
 
         for station_id in self.sr.station_id:
             # TODO: add method to return empty result with correct response string e.g.
@@ -535,7 +538,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
             # Assign meaningful parameter names (humanized).
             if self.sr.humanize:
-                station_df = self._humanize(station_df)
+                station_df = self._humanize(station_df, hpm)
 
             yield ValuesResult(stations=self.sr, df=station_df)
 
@@ -766,34 +769,50 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         return ValuesResult(stations=self.sr, df=df)
 
-    def _humanize(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _humanize(self, df: pd.DataFrame, humanized_parameters_mapping: Dict[str, str]) -> pd.DataFrame:
         """
         Method for humanizing parameters.
 
-        :param df:
-        :return:
+        :param df: pandas.DataFrame with original column names
+        :param humanized_parameters_mapping: mapping of original parameter names to humanized ones
+        :return: pandas.DataFrame with renamed columns
         """
-        hcnm = self._create_humanized_parameters_mapping()
-
         if not self.sr.tidy:
-            df = df.rename(columns=hcnm)
+            df = df.rename(columns=humanized_parameters_mapping)
         else:
-            df.loc[:, Columns.PARAMETER.value] = df[Columns.PARAMETER.value].cat.rename_categories(hcnm)
+            df.loc[:, Columns.PARAMETER.value] = (
+                df.loc[:, Columns.PARAMETER.value].map(humanized_parameters_mapping).astype("category")
+            )
 
         return df
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """
-        Method for creation of parameter name mappings based on
-        self._parameter_base
+        Reduce the creation of parameter mapping of the massive amount of parameters
+        by specifying the resolution.
 
         :return:
         """
+        hpm = {}
+        if self.sr._unique_dataset or not self.sr._has_datasets:
+            for parameter in self.sr._parameter_base[self.sr.resolution.name]:
+                try:
+                    hpm[parameter.value.lower()] = parameter.name.lower()
+                except AttributeError:
+                    pass
+        else:
+            datasets = [
+                dataset for dataset in self.sr._parameter_base[self.sr.resolution.name] if hasattr(dataset, "__name__")
+            ]
 
-        return {
-            parameter.value: parameter.name.lower()
-            for parameter in self.sr.stations._parameter_base[self.sr.stations._dataset_accessor]
-        }
+            for dataset in datasets:
+                for parameter in self.sr._parameter_base[self.sr.resolution.name][dataset.__name__]:
+                    try:
+                        hpm[parameter.value.lower()] = parameter.name.lower()
+                    except AttributeError:
+                        pass
+
+        return hpm
 
     @staticmethod
     def _get_actual_percentage(df: pd.DataFrame) -> float:

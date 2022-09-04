@@ -199,6 +199,7 @@ def test_request():
     assert not df.empty
 
 
+@pytest.mark.remote
 def test_export_unknown():
     """Test export of DataFrame to unknown format"""
     Settings.tidy = True
@@ -221,6 +222,7 @@ def test_export_unknown():
     ex.match("Unknown export file type")
 
 
+@pytest.mark.remote
 def test_export_spreadsheet(tmpdir_factory):
     """Test export of DataFrame to spreadsheet"""
     Settings.tidy = False
@@ -253,10 +255,10 @@ def test_export_spreadsheet(tmpdir_factory):
         ("station_id",),
         ("dataset",),
         ("date",),
-        ("qn_3",),
+        ("quality_wind",),
         ("wind_gust_max",),
         ("wind_speed",),
-        ("qn_4",),
+        ("quality",),
         ("precipitation_height",),
         ("precipitation_form",),
         ("sunshine_duration",),
@@ -358,10 +360,10 @@ def test_export_parquet(tmpdir_factory):
         "station_id",
         "dataset",
         "date",
-        "qn_3",
+        "quality_wind",
         "wind_gust_max",
         "wind_speed",
-        "qn_4",
+        "quality",
         "precipitation_height",
         "precipitation_form",
         "sunshine_duration",
@@ -423,10 +425,10 @@ def test_export_zarr(tmpdir_factory):
         "station_id",
         "dataset",
         "date",
-        "qn_3",
+        "quality_wind",
         "wind_gust_max",
         "wind_speed",
-        "qn_4",
+        "quality",
         "precipitation_height",
         "precipitation_form",
         "sunshine_duration",
@@ -487,10 +489,10 @@ def test_export_feather(tmpdir_factory):
         "station_id",
         "dataset",
         "date",
-        "qn_3",
+        "quality_wind",
         "wind_gust_max",
         "wind_speed",
-        "qn_4",
+        "quality",
         "precipitation_height",
         "precipitation_form",
         "sunshine_duration",
@@ -692,8 +694,8 @@ def test_export_influxdb1_tabular():
         assert points[0]["measurement"] == "weather"
         assert list(points[0]["tags"].keys()) == [
             "station_id",
-            "qn_3",
-            "qn_4",
+            "quality_wind",
+            "quality",
             "dataset",
         ]
         assert list(points[0]["fields"].keys()) == [

@@ -4,7 +4,7 @@
 import logging
 from datetime import datetime, timezone
 from itertools import repeat
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 import pandas as pd
 from pandas import Timedelta, Timestamp
@@ -314,23 +314,6 @@ class DwdObservationValues(ScalarValuesCore):
         :return:
         """
         return pd.to_datetime(series, format=DatetimeFormat.YMDH_COLUMN_M.value)
-
-    def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
-        """
-        Reduce the creation of parameter mapping of the massive amount of parameters
-        by specifying the resolution.
-
-        :return:
-        """
-        hpm = {}
-
-        for parameter in DwdObservationParameter[self.sr.resolution.name]:
-            try:
-                hpm[parameter.value] = parameter.name.lower()
-            except AttributeError:
-                pass
-
-        return hpm
 
     def _get_historical_date_ranges(self, station_id: str, dataset: DwdObservationDataset) -> List[str]:
         """

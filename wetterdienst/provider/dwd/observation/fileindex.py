@@ -11,14 +11,16 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import (
-    DATE_RANGE_REGEX,
-    STATION_ID_REGEX,
-    DWDCDCBase,
-)
+from wetterdienst.provider.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
+from wetterdienst.provider.dwd.observation.metadata.dataset import (
+    DWD_URBAN_DATASETS,
+    DwdObservationDataset,
+)
 from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
+
+STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
+DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
 
 
 def create_file_list_for_climate_observations(
@@ -53,7 +55,7 @@ def create_file_list_for_climate_observations(
 
 
 def create_file_index_for_climate_observations(
-    parameter_set: DwdObservationDataset,
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
 ) -> pd.DataFrame:
@@ -61,7 +63,7 @@ def create_file_index_for_climate_observations(
     Function (cached) to create a file index of the DWD station data. The file index
     is created for an individual set of parameters.
     Args:
-        parameter_set: parameter of Parameter enumeration
+        dataset: parameter of Parameter enumeration
         resolution: time resolution of TimeResolution enumeration
         period: period type of PeriodType enumeration
     Returns:
@@ -69,7 +71,12 @@ def create_file_index_for_climate_observations(
     """
     timezone_germany = timezone("Europe/Berlin")
 
-    file_index = _create_file_index_for_dwd_server(parameter_set, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS)
+    if dataset in DWD_URBAN_DATASETS:
+        file_index = _create_file_index_for_dwd_server(
+            dataset, resolution, period, DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS
+        )
+    else:
+        file_index = _create_file_index_for_dwd_server(dataset, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS)
 
     file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
 
