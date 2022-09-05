@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.43.0 (05.09.2022)
+*******************
+
 - Use lxml.iterparse to reduce memory consumption when parsing DWD Mosmix files
 - Fix Settings object instantiation
 - Change logging level for Settings.cache_disable to INFO
