@@ -15,12 +15,18 @@ Wetterdienst - Open weather data for humans
 
 |pic1| |pic2| |pic3|
 
-*“You must be the change you wish to see in the world.” — Gandhi*
+What our customers say:
 
-*"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
-Hohenpeissenberg I got with the help of wetterdienst; and I'm not sure about the universe." - Albert Einstein*
+"Our house is on fire. I am here to say, our house is on fire. I saw it with my own eyes using **wetterdienst**
+to get the data." - Greta Thunberg
 
-*"We are the first generation to feel the effect of climate change and the last generation who can do something about it." - Barack Obama*
+“You must be the change you wish to see in the world. And when it comes to climate I use **wetterdienst**.” - Mahatma Gandhi
+
+"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
+Hohenpeissenberg, Germany I got with the help of **wetterdienst**; and I'm not sure about the universe." - Albert Einstein
+
+"We are the first generation to feel the effect of climate change and the last generation who can do something about
+it. I used **wetterdienst** to analyze the climate in my area and I can tell it's getting hot in here." - Barack Obama
 
 .. overview_start_marker
 
