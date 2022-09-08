@@ -115,17 +115,12 @@ class EcccObservationValues(ScalarValuesCore):
         """
         meta = self.sr.df[self.sr.df[Columns.STATION_ID.value] == station_id]
 
-        name, from_date, to_date = (
-            meta[
-                [
-                    Columns.NAME.value,
-                    Columns.FROM_DATE.value,
-                    Columns.TO_DATE.value,
-                ]
+        from_date, to_date = meta[
+            [
+                Columns.FROM_DATE.value,
+                Columns.TO_DATE.value,
             ]
-            .values.flatten()
-            .tolist()
-        )
+        ].values.flatten()
 
         # start and end year from station
         start_year = None if pd.isna(from_date) else from_date.year

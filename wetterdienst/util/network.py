@@ -3,8 +3,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import os
 from io import BytesIO
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
+from fsspec import AbstractFileSystem
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 
@@ -17,10 +18,10 @@ class NetworkFilesystemManager:
     Manage multiple FSSPEC instances keyed by cache expiration time.
     """
 
-    filesystems = {}
+    filesystems: Dict[str, AbstractFileSystem] = {}
 
     @staticmethod
-    def resolve_ttl(ttl: Union[int, CacheExpiry]):
+    def resolve_ttl(ttl: Union[int, CacheExpiry]) -> Tuple[str, int]:
 
         ttl_name = ttl
         ttl_value = ttl
@@ -46,8 +47,8 @@ class NetworkFilesystemManager:
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
-    def get(cls, ttl=CacheExpiry.NO_CACHE):
-        ttl_name, ttl_value = cls.resolve_ttl(ttl)
+    def get(cls, ttl=CacheExpiry.NO_CACHE) -> AbstractFileSystem:
+        ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
             cls.register(ttl=ttl)
