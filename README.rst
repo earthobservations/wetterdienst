@@ -47,6 +47,8 @@ Overview
    :target: https://pypi.python.org/pypi/wetterdienst/
 .. image:: https://img.shields.io/pypi/v/wetterdienst.svg
    :target: https://pypi.org/project/wetterdienst/
+.. image:: https://anaconda.org/conda-forge/wetterdienst/badges/version.svg
+   :target: https://anaconda.org/conda-forge/wetterdienst
 .. image:: https://img.shields.io/pypi/status/wetterdienst.svg
    :target: https://pypi.python.org/pypi/wetterdienst/
 .. image:: https://pepy.tech/badge/wetterdienst/month
