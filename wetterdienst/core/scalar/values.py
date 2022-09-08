@@ -220,18 +220,23 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :return: pandas DataFrame with converted (SI) values
         """
         # TODO: THIS DOESNT CURRENTLY WORK WITH PREFIXED TIDY DATA
-        def _convert_values_to_si(series, parameter: Optional[str] = None) -> pd.Series:
+        def _convert_values_to_si(
+            series,
+            conv_factors: Dict[str, Tuple[Union[operator.add, operator.mul], float]],
+            parameter: Optional[str] = None,
+        ) -> pd.Series:
             """
             Helper function to apply conversion factors column wise to a pandas DataFrame
 
             :param series: pandas Series that should be converted
             :param parameter: optional parameter string used for tidy data
+            :param conv_factors: dictionary of prepared conversion factors and operators
             :return: converted pandas Series
             """
             if not parameter:
                 parameter = series.name
 
-            op, factor = conversion_factors.get(parameter, (None, None))
+            op, factor = conv_factors.get(parameter, (None, None))
 
             if not op or not factor:
                 return series
@@ -243,14 +248,16 @@ class ScalarValuesCore(metaclass=ABCMeta):
         if self.sr.tidy:
             data = []
             for par, group in df.groupby(Columns.PARAMETER.value, sort=False):
-                group[Columns.VALUE.value] = _convert_values_to_si(group[Columns.VALUE.value], par)
+                group[Columns.VALUE.value] = group[Columns.VALUE.value].apply(
+                    _convert_values_to_si, conv_factors=conversion_factors, parameter=par
+                )
                 data.append(group)
             try:
                 return pd.concat(data)
             except ValueError:
-                return pd.DataFrame()  # columns=self._meta_fields
+                return pd.DataFrame()
 
-        return df.apply(_convert_values_to_si, axis=0)
+        return df.apply(_convert_values_to_si, axis=0, conv_factors=conversion_factors)
 
     def _create_conversion_factors(self, dataset) -> Dict[str, Tuple[Union[operator.add, operator.mul], float]]:
         """
