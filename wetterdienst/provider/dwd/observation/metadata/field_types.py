@@ -50,7 +50,6 @@ QUALITY_PARAMETERS = {
     # solar
     DwdObservationParameter.HOURLY.SOLAR.QUALITY.value,
     # sun
-    # DwdObservationParameter.HOURLY.SUNSHINE_DURATION.QUALITY.value,
     # visibility
     DwdObservationParameter.HOURLY.VISIBILITY.QUALITY.value,
     # wind
@@ -106,13 +105,13 @@ QUALITY_PARAMETERS = {
 STRING_PARAMETERS = {
     # hourly
     # cloud_type
-    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_COVER_TOTAL_INDICATOR.value,
+    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_COVER_TOTAL_INDEX.value,
     DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,
     DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,
     DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
     DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
     # cloudiness
-    DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,
+    DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDEX.value,
     # visibility
-    DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDICATOR.value,
+    DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDEX.value,
 }

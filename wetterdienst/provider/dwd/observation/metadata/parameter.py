@@ -15,24 +15,24 @@ class DwdObservationParameter(DatasetTreeCore):
             PRECIPITATION_HEIGHT = "rs_01"
             PRECIPITATION_HEIGHT_DROPLET = "rth_01"
             PRECIPITATION_HEIGHT_ROCKER = "rwh_01"
-            PRECIPITATION_FORM = "rs_ind_01"  # int
+            PRECIPITATION_INDEX = "rs_ind_01"  # int
 
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
         PRECIPITATION_HEIGHT_DROPLET = PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET
         PRECIPITATION_HEIGHT_ROCKER = PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER
-        PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
 
     # 5_minutes
     class MINUTE_5(DatasetTreeCore):  # noqa
         # precipitation
         class PRECIPITATION(Enum):
             QUALITY = "qn_5min"
-            PRECIPITATION_FORM = "rs_ind_05"  # int
+            PRECIPITATION_INDEX = "rs_ind_05"  # int
             PRECIPITATION_HEIGHT = "rs_05"
             PRECIPITATION_HEIGHT_DROPLET = "rth_05"
             PRECIPITATION_HEIGHT_ROCKER = "rwh_05"
 
-        PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
         PRECIPITATION_HEIGHT_DROPLET = PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET
         PRECIPITATION_HEIGHT_ROCKER = PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER
@@ -75,7 +75,7 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn"
             PRECIPITATION_DURATION = "rws_dau_10"
             PRECIPITATION_HEIGHT = "rws_10"
-            PRECIPITATION_INDICATOR_WR = "rws_ind_10"  # int
+            PRECIPITATION_INDEX = "rws_ind_10"  # int
 
         # solar
         class SOLAR(Enum):
@@ -113,7 +113,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # precipitation
         PRECIPITATION_DURATION = PRECIPITATION.PRECIPITATION_DURATION
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
-        PRECIPITATION_INDICATOR_WR = PRECIPITATION.PRECIPITATION_INDICATOR_WR
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
 
         # solar
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE
@@ -139,7 +139,7 @@ class DwdObservationParameter(DatasetTreeCore):
         class CLOUD_TYPE(Enum):  # noqa
             QUALITY = "qn_8"
             CLOUD_COVER_TOTAL = "v_n"  # int
-            CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+            CLOUD_COVER_TOTAL_INDEX = "v_n_i"  # str
             CLOUD_TYPE_LAYER1 = "v_s1_cs"  # int
             CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
             CLOUD_HEIGHT_LAYER1 = "v_s1_hhs"
@@ -160,7 +160,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # cloudiness
         class CLOUDINESS(Enum):
             QUALITY = "qn_8"
-            CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+            CLOUD_COVER_TOTAL_INDEX = "v_n_i"  # str
             CLOUD_COVER_TOTAL = "v_n"  # int
 
         # dew_point
@@ -191,7 +191,7 @@ class DwdObservationParameter(DatasetTreeCore):
         class PRECIPITATION(Enum):
             QUALITY = "qn_8"
             PRECIPITATION_HEIGHT = "r1"
-            PRECIPITATION_INDICATOR = "rs_ind"  # int
+            PRECIPITATION_INDEX = "rs_ind"  # int
             PRECIPITATION_FORM = "wrtr"  # int
 
         # pressure
@@ -231,7 +231,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # visibility
         class VISIBILITY(Enum):
             QUALITY = "qn_8"
-            VISIBILITY_RANGE_INDICATOR = "v_vv_i"  # str
+            VISIBILITY_RANGE_INDEX = "v_vv_i"  # str
             VISIBILITY_RANGE = "v_vv"  # int
 
         # weather_phenomena
@@ -308,7 +308,7 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # cloudiness
         CLOUD_COVER_TOTAL = CLOUDINESS.CLOUD_COVER_TOTAL
-        CLOUD_COVER_TOTAL_INDICATOR = CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR
+        CLOUD_COVER_TOTAL_INDEX = CLOUDINESS.CLOUD_COVER_TOTAL_INDEX
 
         # dew_point
         TEMPERATURE_DEW_POINT_MEAN_200 = DEW_POINT.TEMPERATURE_DEW_POINT_MEAN_200
@@ -323,7 +323,7 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # precipitation
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
-        PRECIPITATION_INDICATOR = PRECIPITATION.PRECIPITATION_INDICATOR
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
         PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
 
         # pressure
@@ -348,7 +348,7 @@ class DwdObservationParameter(DatasetTreeCore):
         SUNSHINE_DURATION = SUN.SUNSHINE_DURATION
 
         # visibility
-        VISIBILITY_RANGE_INDICATOR = VISIBILITY.VISIBILITY_RANGE_INDICATOR
+        VISIBILITY_RANGE_INDEX = VISIBILITY.VISIBILITY_RANGE_INDEX
         VISIBILITY_RANGE = VISIBILITY.VISIBILITY_RANGE
 
         # weather phenomena
@@ -501,7 +501,7 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn_592"
             RADIATION_SKY_LONG_WAVE = "atmo_strahl"
             RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_strahl"
-            RADIATION_SKY_SHORT_WAVE_DIRECT = "fg_strahl"
+            RADIATION_GLOBAL = "fg_strahl"
             SUNSHINE_DURATION = "sd_strahl"
 
         # water_equiv
@@ -557,7 +557,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # solar
         RADIATION_SKY_LONG_WAVE = SOLAR.RADIATION_SKY_LONG_WAVE
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE
-        RADIATION_SKY_SHORT_WAVE_DIRECT = SOLAR.RADIATION_SKY_SHORT_WAVE_DIRECT
+        RADIATION_GLOBAL = SOLAR.RADIATION_GLOBAL
 
         # water_equiv
         SNOW_DEPTH_EXCELLED = WATER_EQUIVALENT.SNOW_DEPTH_EXCELLED
