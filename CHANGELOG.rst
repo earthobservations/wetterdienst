@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Slightly adapt the conversion function to satisfy linter
+
 0.43.0 (05.09.2022)
 *******************
 
