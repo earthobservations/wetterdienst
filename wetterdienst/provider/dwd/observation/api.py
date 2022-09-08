@@ -225,12 +225,12 @@ class DwdObservationValues(ScalarValuesCore):
             DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
             DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
             # Cloudiness
-            DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDICATOR.value,
+            DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDEX.value,
             # Solar
             DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value,
             DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
             # Visibility
-            DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDICATOR.value,
+            DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDEX.value,
             # Weather
             DwdObservationParameter.HOURLY.WEATHER_PHENOMENA.WEATHER_TEXT.value,
         ]

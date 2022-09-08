@@ -5,6 +5,10 @@ Development
 ***********
 
 - Slightly adapt the conversion function to satisfy linter
+- Fix parameter names:
+    - we now use consistently INDEX instead of INDICATOR
+    - index and form got mixed up with certain parameters, where actually index was measured/given but not the form
+    - global radiation was mistakenly named radiation_short_wave_direct at certain points, now it is named correctly
 
 0.43.0 (05.09.2022)
 *******************

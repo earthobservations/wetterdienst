@@ -23,7 +23,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            PRECIPITATION_FORM = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -33,7 +33,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # precipitation
         class PRECIPITATION(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            PRECIPITATION_FORM = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -121,7 +121,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            PRECIPITATION_INDICATOR_WR = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -167,7 +167,7 @@ class DwdObservationUnit(DatasetTreeCore):
         class CLOUD_TYPE(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
-            CLOUD_COVER_TOTAL_INDICATOR = (
+            CLOUD_COVER_TOTAL_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -215,7 +215,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # cloudiness
         class CLOUDINESS(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            CLOUD_COVER_TOTAL_INDICATOR = (
+            CLOUD_COVER_TOTAL_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -271,7 +271,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            PRECIPITATION_INDICATOR = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -354,7 +354,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # visibility
         class VISIBILITY(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            VISIBILITY_RANGE_INDICATOR = (
+            VISIBILITY_RANGE_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -633,7 +633,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value,
                 SIUnit.JOULE_PER_SQUARE_METER.value,
             )
-            RADIATION_SKY_SHORT_WAVE_DIRECT = (
+            RADIATION_GLOBAL = (
                 OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value,
                 SIUnit.JOULE_PER_SQUARE_METER.value,
             )
