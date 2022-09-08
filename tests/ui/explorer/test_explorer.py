@@ -209,7 +209,7 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
 
     # Verify data.
     assert data["columns"] == ["station_id", "dataset", "parameter", "date", "value"]
-    assert len(data["data"]) == 13200
+    assert len(data["data"]) > 13000
 
 
 @pytest.mark.slow
