@@ -206,19 +206,6 @@ def test_no_network(caplog):
     assert "No API available for provider DWD and network abc" in caplog.text
 
 
-def test_data_range():
-    runner = CliRunner()
-
-    result = runner.invoke(
-        cli,
-        "values --provider=eccc --network=observation --parameter=precipitation_height "
-        "--resolution=daily --name=toronto",
-    )
-
-    assert isinstance(result.exception, TypeError)
-    assert "Combination of provider ECCC and network OBSERVATION requires start and end date" in str(result.exception)
-
-
 @pytest.mark.parametrize(
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,

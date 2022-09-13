@@ -90,6 +90,10 @@ class WsvPegelResolution(Enum):
     DYNAMIC = Resolution.DYNAMIC.value
 
 
+class WsvPegelPeriod(Enum):
+    RECENT = Period.RECENT.value
+
+
 class WsvPegelDataset(Enum):
     DYNAMIC = "DYNAMIC"
 
@@ -166,7 +170,7 @@ class WsvPegelRequest(ScalarRequestCore):
     _resolution_base = WsvPegelResolution
 
     _period_type = PeriodType.FIXED
-    _period_base = Period.RECENT
+    _period_base = WsvPegelPeriod
 
     _data_range = DataRange.FIXED
 

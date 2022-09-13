@@ -11,6 +11,8 @@ Development
     - global radiation was mistakenly named radiation_short_wave_direct at certain points, now it is named correctly
 - Adjust Docker images to fix build problems, now use python 3.10 as base
 - Adjust NOAA sources to AWS as NCEI sources currently are not available
+- Make explorer work again for all services setting up Period enum classes instead of single instances of Period for
+  period base
 
 0.43.0 (05.09.2022)
 *******************

@@ -36,6 +36,10 @@ class NoaaGhcnResolution(Enum):
     DAILY = Resolution.DAILY.value
 
 
+class NoaaGhcnPeriod(Enum):
+    HISTORICAL = Period.HISTORICAL.value
+
+
 class NoaaGhcnValues(ScalarValuesCore):
     _string_parameters = ()
     _irregular_parameters = ()
@@ -118,7 +122,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
     _resolution_type = ResolutionType.FIXED
     _resolution_base = NoaaGhcnResolution
     _period_type = PeriodType.FIXED
-    _period_base = Period.HISTORICAL
+    _period_base = NoaaGhcnPeriod
     _data_range = DataRange.FIXED
 
     _has_datasets = True

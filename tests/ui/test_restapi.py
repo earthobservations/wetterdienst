@@ -52,22 +52,6 @@ def test_no_network():
     assert "Choose provider and network from /restapi/coverage" in response.text
 
 
-def test_data_range(capsys):
-    response = client.get(
-        "/restapi/values",
-        params={
-            "provider": "eccc",
-            "network": "observation",
-            "parameter": "precipitation_height",
-            "resolution": "daily",
-            "period": "historical",
-            "name": "toronto",
-        },
-    )
-
-    assert "Combination of provider ECCC and network OBSERVATION requires start and end date" in response.text
-
-
 def test_dwd_stations_basic():
 
     response = client.get(
