@@ -35,6 +35,10 @@ from wetterdienst.util.network import download_file
 log = logging.getLogger(__name__)
 
 
+class EcccObservationPeriod(Enum):
+    HISTORICAL = Period.HISTORICAL.value
+
+
 class EcccObservationValues(ScalarValuesCore):
 
     _string_parameters = ()
@@ -231,9 +235,9 @@ class EcccObservationRequest(ScalarRequestCore):
     _resolution_base = EcccObservationResolution
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
-    _period_base = Period.HISTORICAL
+    _period_base = EcccObservationPeriod
     _parameter_base = EcccObservationParameter  # replace with parameter enumeration
-    _data_range = DataRange.LOOSELY
+    _data_range = DataRange.FIXED
     _has_datasets = True
     _dataset_base = EcccObservationDataset
     _unique_dataset = True
