@@ -1,14 +1,5 @@
 # 1. Build GDAL-python
-FROM python:3.8.8-slim as build-step
-
-# TODO: This currently installs GDAL==2.4.0. For a more recent version, ...
-#
-# - Maybe use "ubuntu:focal" already?
-#   https://github.com/thinkWhere/GDAL-Docker/blob/develop/3.8-ubuntu/Dockerfile
-#
-# - See also:
-#   https://github.com/andrejreznik/docker-python-gdal
-#
+FROM python:3.10-slim as build-step
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
@@ -20,8 +11,9 @@ RUN apt-get update && \
 
 # Make sure you have numpy installed before you attempt to install the GDAL Python bindings.
 # https://gis.stackexchange.com/a/274328
-RUN pip install --no-cache-dir setuptools==57.0.0
+RUN pip install --no-cache-dir --upgrade setuptools==57.0.0 pip
 RUN pip install --no-cache-dir numpy
+RUN pip install --no-cache-dir cartopy==0.21.0
 RUN pip install --no-cache-dir GDAL==$(gdal-config --version)
 
 # Install wradlib.
@@ -32,15 +24,10 @@ RUN pip install --no-cache-dir mysqlclient
 
 
 # 2. Main
-FROM python:3.8.8-slim
+FROM python:3.10-slim
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
-
-# Install libgdal.
-RUN apt-get update && \
-    apt-get --yes --no-install-recommends install libgdal20 && \
-    rm -rf /var/lib/apt/lists/*
 
 # Copy build artefacts from first build step.
 COPY --from=build-step /usr/local/lib /usr/local/lib
