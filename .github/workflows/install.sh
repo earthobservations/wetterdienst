@@ -10,9 +10,8 @@ fi
 echo "Installing package and requirements for ${flavor}"
 
 if [[ "${flavor}" = "testing" ]]; then
-  poetry run pip install wradlib --no-deps
   poetry install --no-interaction --extras=sql --extras=export --extras=restapi --extras=explorer
-
+  poetry run pip install wradlib --no-deps
 elif [[ "${flavor}" = "docs" ]]; then
   poetry install --no-interaction --extras=docs
 fi
