@@ -6,7 +6,7 @@ from datetime import datetime
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 import numpy as np
 import pandas as pd
@@ -44,7 +44,7 @@ def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude
 
 def request_stations(
     request: "ScalarRequestCore", latitude: float, longitude: float, utm_x: float, utm_y: float
-) -> (dict, dict):
+) -> Tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
     hard_distance_km_limit = 40
