@@ -1,12 +1,16 @@
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from wetterdienst import Parameter
-from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationResolution
+from wetterdienst.provider.dwd.observation import (
+    DwdObservationRequest,
+    DwdObservationResolution,
+)
 
-import matplotlib.pyplot as plt
-from datetime import datetime
-
-plt.style.use('seaborn')
+plt.style.use("seaborn")
 
 
 def get_interpolated_df(start_date: datetime, end_date: datetime) -> pd.DataFrame:
@@ -33,9 +37,18 @@ def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: l
     return df[df["station_id"] == first_station_id]
 
 
+def get_rmse(regular_values, interpolated_values):
+    n = regular_values.size
+    return (((regular_values - interpolated_values).dropna() ** 2).sum() / n) ** 0.5
+
+
 def visualize(regular_df: pd.DataFrame, interpolated_df: pd.DataFrame):
-    plt.plot_date(regular_df["date"], regular_df["value"], fmt='red')
-    plt.plot_date(interpolated_df["date"], interpolated_df["value"], fmt='black')
+    rmse = get_rmse(regular_df.value.reset_index(drop=True), interpolated_df.value.reset_index(drop=True))
+    plt.plot_date(regular_df["date"], regular_df["value"], fmt="red", label="regular")
+    plt.plot_date(interpolated_df["date"], interpolated_df["value"], fmt="black", label="interpolated")
+    title = f"RMSE: {np.round(rmse, 2)}"
+    plt.title(title)
+    plt.legend()
     plt.tight_layout()
     plt.show()
 

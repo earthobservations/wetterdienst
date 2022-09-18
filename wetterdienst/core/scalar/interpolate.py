@@ -33,8 +33,8 @@ class _ParameterData:
 
 
 def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude: float) -> pd.DataFrame:
-    utm_y, utm_x, _, _ = utm.from_latlon(latitude, longitude)
-    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_x)
+    utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
+    stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict)
     df[Columns.DISTANCE_MEAN.value] = pd.Series(df[Columns.DISTANCE_MEAN.value].values, dtype=float)
     df[Columns.VALUE.value] = pd.Series(df[Columns.VALUE.value].values, dtype=float)
@@ -191,7 +191,7 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float):
     valid_groups = Queue()
     # get all combinations of 4 stations
     for station_group in combinations(stations_dict.keys(), 4):
-        coords = [(stations_dict[s][1], stations_dict[s][0]) for s in station_group]
+        coords = [(stations_dict[s][0], stations_dict[s][1]) for s in station_group]
         pol = Polygon(coords)
         if pol.contains(point):
             valid_groups.put(station_group)
@@ -227,8 +227,14 @@ def apply_interpolation(row, stations_dict: dict, valid_station_groups, paramete
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
     distance_mean = sum(distances) / len(distances)
 
-    f = interpolate.interp2d(ys, xs, vals, kind="linear")
+    f = interpolate.interp2d(xs, ys, vals, kind="linear")
     value = f(utm_x, utm_y)[0]  # there is only one interpolation result
+
+    if parameter == Parameter.PRECIPITATION_HEIGHT.name.lower():
+        f_index = interpolate.interp2d(ys, xs, vals > 0, kind="linear")
+        value_index = f_index(utm_x, utm_y)[0]  # there is only one interpolation result
+        value_index = 1 if value_index >= 0.5 else 0
+        value *= value_index
 
     return parameter, value, distance_mean, station_group_ids
 

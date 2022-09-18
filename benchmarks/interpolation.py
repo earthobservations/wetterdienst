@@ -2,9 +2,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
-from scipy import interpolate
 import pandas as pd
 import utm
+from scipy import interpolate
 
 from wetterdienst import Parameter
 from wetterdienst.provider.dwd.observation import (
@@ -67,7 +67,7 @@ def request_weather_data(
     utm_x = []
     utm_y = []
     for latitude, longitude in zip(latitudes, longitudes):
-        y, x, _, _ = utm.from_latlon(latitude, longitude)
+        x, y, _, _ = utm.from_latlon(latitude, longitude)
         utm_x.append(x)
         utm_y.append(y)
 
@@ -92,7 +92,7 @@ def request_weather_data(
 def interpolate_data(latitude: float, longitude: float, data: Data):
     # function for bilinear interpolation
     f = interpolate.interp2d(data.utm_x, data.utm_y, data.values, kind="linear")
-    y, x, _, _ = utm.from_latlon(latitude, longitude)
+    x, y, _, _ = utm.from_latlon(latitude, longitude)
     interpolated = f(x, y)
     print(f"{interpolated=}")
 
@@ -116,7 +116,7 @@ def visualize_points(data: Data):
             verticalalignment="bottom",
         )
 
-    fig.show()
+    plt.show()
 
 
 def main():
