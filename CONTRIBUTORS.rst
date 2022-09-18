@@ -18,3 +18,7 @@ This is a list of the people who directly contributed to wetterdienst in one way
 
 * `Niclas Hoyer <https://github.com/niclashoyer>`_
     - Change mosmix parser to xml stream events
+
+* `Nico Neumann <https://github.com/neumann-nico>`_
+    - Added interpolation feature
+    - Improved testing

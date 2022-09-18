@@ -17,7 +17,7 @@ from measurement.utils import guess
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
-from wetterdienst.core.scalar.result import StationsResult
+from wetterdienst.core.scalar.result import InterpolatedValuesResult, StationsResult
 from wetterdienst.exceptions import (
     InvalidEnumeration,
     NoParametersFound,
@@ -26,6 +26,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
@@ -180,6 +181,14 @@ class ScalarRequestCore(Core):
         Columns.NAME.value,
         Columns.STATE.value,
     )
+
+    #   - heterogeneous parameters such as precipitation_height
+    #   - homogeneous parameters such as temperature_air_200
+    interpolatable_parameters = [
+        Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        Parameter.WIND_SPEED.name,
+        Parameter.PRECIPITATION_HEIGHT.name,
+    ]
 
     def _parse_period(self, period: Period) -> Optional[List[Period]]:
         """
@@ -797,3 +806,29 @@ class ScalarRequestCore(Core):
         df.loc[:, Columns.TO_DATE.value] = df.loc[:, Columns.TO_DATE.value].dt.tz_localize(self.tz)
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))
+
+    def interpolate(self, latitude: float, longitude: float) -> InterpolatedValuesResult:
+        """
+        Method to interpolate values
+
+        :param latitude:
+        :param longitude:
+        :return:
+        """
+
+        from wetterdienst.core.scalar.interpolate import get_interpolated_df
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+        if self.resolution in (
+            Resolution.MINUTE_1,
+            Resolution.MINUTE_5,
+            Resolution.MINUTE_10,
+        ):
+            log.warning("Interpolation might be slow for high resolutions due to mass of data")
+
+        if not isinstance(self, DwdObservationRequest):
+            log.error("Interpolation currently only works for DwdObservationRequest")
+            return InterpolatedValuesResult(df=pd.DataFrame(), stations=self)
+
+        interpolated_values = get_interpolated_df(self, latitude, longitude)
+        return InterpolatedValuesResult(df=interpolated_values, stations=self)

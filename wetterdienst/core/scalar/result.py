@@ -190,3 +190,21 @@ class ValuesResult(ExportMixin):
     def filter_by_date(self, date: str) -> pd.DataFrame:
         self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
         return self.df
+
+
+@dataclass
+class InterpolatedValuesResult(ExportMixin):
+    stations: StationsResult
+    df: pd.DataFrame
+
+    def __init__(self, df: pd.DataFrame, stations: StationsResult = None, **kwargs) -> None:
+        self.stations = stations
+        self.df = df
+        self._kwargs = kwargs
+
+    def to_ogc_feature_collection(self):
+        raise NotImplementedError()
+
+    def filter_by_date(self, date: str) -> pd.DataFrame:
+        self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
+        return self.df

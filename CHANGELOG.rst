@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add interpolation of multiple weather stations for a given lat/lon point (currently only works for DWDObservationRequest)
+
 0.44.0 (18.09.2022)
 *******************
 

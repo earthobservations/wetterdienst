@@ -384,10 +384,10 @@ Development
     python setup.py develop
 
     # (Option 2: Install package with extras)
-    pip install ".[sql,export,restapi,explorer]"
+    pip install ".[sql,export,restapi,explorer,interpolation]"
 
     # Option 3: Install package with extras using poetry.
-    poetry install --extras=sql --extras=export --extras=restapi --extras=explorer
+    poetry install --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
     poetry shell
 
 2. For running the whole test suite, you will need to have Firefox and
