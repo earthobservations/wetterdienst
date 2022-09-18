@@ -29,12 +29,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: "3.10"
 
       - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v4
-        with:
-          poetry-version: 1.1.5
+        uses: snok/install-poetry@v1
 
       - name: Build wheel package
         run: poetry build --format=wheel
@@ -62,10 +60,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: "3.10"
 
       - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v4
+        uses: snok/install-poetry@v1
 
       - name: Build wheel package
         run: poetry build --format=wheel
