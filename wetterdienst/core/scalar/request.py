@@ -17,7 +17,6 @@ from measurement.utils import guess
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
-from wetterdienst.core.scalar.interpolate import get_interpolated_df
 from wetterdienst.core.scalar.result import InterpolatedValuesResult, StationsResult
 from wetterdienst.exceptions import (
     InvalidEnumeration,
@@ -817,6 +816,7 @@ class ScalarRequestCore(Core):
         :return:
         """
 
+        from wetterdienst.core.scalar.interpolate import get_interpolated_df
         from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
         if self.resolution in (
