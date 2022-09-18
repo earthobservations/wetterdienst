@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.44.0 (18.09.2022)
+*******************
+
 - Slightly adapt the conversion function to satisfy linter
 - Fix parameter names:
     - we now use consistently INDEX instead of INDICATOR
