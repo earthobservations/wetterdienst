@@ -14,6 +14,7 @@ DWD: Historical weather observations
 Get available parameters for daily historical data of DWD:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
 
@@ -36,6 +37,7 @@ Get available parameters for daily historical data of DWD:
 Get stations for daily historical precipitation:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
@@ -53,6 +55,7 @@ Get stations for daily historical precipitation:
 Get data for a dataset:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
@@ -70,6 +73,7 @@ Get data for a dataset:
 Get data for a parameter:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationParameter
@@ -87,6 +91,7 @@ Get data for a parameter:
 Get data for a parameter from another dataset:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
 
@@ -107,6 +112,7 @@ DWD: MOSMIX forecasts
 Get stations for MOSMIX-SMALL:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.mosmix import DwdMosmixType
@@ -120,6 +126,7 @@ Get stations for MOSMIX-SMALL:
 Get data for MOSMIX-LARGE:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst, Resolution, Period
     from wetterdienst.provider.dwd.mosmix import DwdMosmixType

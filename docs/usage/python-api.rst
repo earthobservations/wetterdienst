@@ -27,6 +27,7 @@ The available APIs can be accessed by the top-level API Wetterdienst. This API a
 allows the user to discover the available APIs of each service included:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst
 
@@ -36,6 +37,7 @@ To load any of the available APIs pass the provider and the network of data to t
 Wetterdienst API:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Wetterdienst
 
@@ -86,12 +88,14 @@ combined thus data is only taken from the given period and between the given tim
 Enumerations for resolution and period arguments are given at the main level e.g.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
 
 or at the domain specific level e.g.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationResolution, DwdObservationPeriod
 
@@ -110,6 +114,7 @@ Core settings
 Wetterdienst holds core settings in its Settings class. You can import and show the Settings like
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Settings
 
@@ -118,6 +123,7 @@ Wetterdienst holds core settings in its Settings class. You can import and show 
 or modify them for your very own request like
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Settings
 
@@ -131,6 +137,7 @@ Settings has three layers of which those arguments are sourced:
 To make sure that non of your environmental variables are used, call to set our default values
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Settings
     Settings.default()
@@ -138,6 +145,7 @@ To make sure that non of your environmental variables are used, call to set our 
 and to set it back to standard
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Settings
     Settings.reset()
@@ -145,6 +153,7 @@ and to set it back to standard
 The environmental settings recognized by our settings are
 
 .. ipython:: python
+    :okwarning:
 
     import json
     from wetterdienst import Settings
@@ -153,6 +162,7 @@ The environmental settings recognized by our settings are
 Also if for whatever reason you have concurrent code running and want it all to have thread-safe settings use it like
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Settings
     with Settings:
@@ -190,6 +200,7 @@ Get station information for a given *parameter/dataset*, *resolution* and
 *period*.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
@@ -208,6 +219,7 @@ The function returns a Pandas DataFrame with information about the available sta
 Filter for specific station ids:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
@@ -224,6 +236,7 @@ Filter for specific station ids:
 Filter for specific station name:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
@@ -243,6 +256,7 @@ Values
 Use the ``DwdObservationRequest`` class in order to get hold of stations.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
@@ -261,6 +275,7 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
 From here you can query data by station:
 
 .. ipython:: python
+    :okwarning:
 
     for result in request.values.query():
         # analyse the station here
@@ -269,6 +284,7 @@ From here you can query data by station:
 Query data all together:
 
 .. ipython:: python
+    :okwarning:
 
     df = request.values.all().df.dropna()
     print(df.head())
@@ -292,6 +308,7 @@ Inquire the list of stations by geographic coordinates.
 Distance with default (kilometers)
 
 .. ipython:: python
+    :okwarning:
 
     from datetime import datetime
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -316,6 +333,7 @@ Distance with default (kilometers)
 Distance with miles
 
 .. ipython:: python
+    :okwarning:
 
     from datetime import datetime
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -340,6 +358,7 @@ Distance with miles
 Rank selection
 
 .. ipython:: python
+    :okwarning:
 
     from datetime import datetime
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -363,6 +382,7 @@ Rank selection
 Bbox selection
 
 .. ipython:: python
+    :okwarning:
 
     from datetime import datetime
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -391,6 +411,7 @@ distances [in km] to the given coordinates.
 Again from here we can jump to the corresponding data:
 
 .. ipython:: python
+    :okwarning:
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
@@ -472,6 +493,7 @@ The code to execute the interpolation is given below. It currently only works fo
 Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
 
 .. ipython:: python
+    :okwarning:
 
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
@@ -567,6 +589,7 @@ we can also define explicitly the requested parameters.
 Get Mosmix-L data:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
@@ -588,6 +611,7 @@ Sites
 Retrieve information about all OPERA radar sites.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
@@ -602,6 +626,7 @@ Retrieve information about all OPERA radar sites.
 Retrieve information about the DWD radar sites.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
 
@@ -674,6 +699,7 @@ asynchronous requests and may swallow some errors related to proxies, ssl or sim
 FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Settings
 
