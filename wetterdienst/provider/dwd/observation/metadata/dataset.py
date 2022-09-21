@@ -164,12 +164,12 @@ RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Pe
             Period.HISTORICAL,
             Period.RECENT,
         ],
-        DwdObservationDataset.URBAN_TEMPERATURE_AIR: [Period.RECENT],
-        DwdObservationDataset.URBAN_PRECIPITATION: [Period.RECENT],
-        DwdObservationDataset.URBAN_PRESSURE: [Period.RECENT],
-        DwdObservationDataset.URBAN_TEMPERATURE_SOIL: [Period.RECENT],
-        DwdObservationDataset.URBAN_SUN: [Period.RECENT],
-        DwdObservationDataset.URBAN_WIND: [Period.RECENT],
+        DwdObservationDataset.URBAN_TEMPERATURE_AIR: [Period.HISTORICAL, Period.RECENT],
+        DwdObservationDataset.URBAN_PRECIPITATION: [Period.HISTORICAL, Period.RECENT],
+        DwdObservationDataset.URBAN_PRESSURE: [Period.HISTORICAL, Period.RECENT],
+        DwdObservationDataset.URBAN_TEMPERATURE_SOIL: [Period.HISTORICAL, Period.RECENT],
+        DwdObservationDataset.URBAN_SUN: [Period.HISTORICAL, Period.RECENT],
+        DwdObservationDataset.URBAN_WIND: [Period.HISTORICAL, Period.RECENT],
     },
     Resolution.SUBDAILY: {
         DwdObservationDataset.TEMPERATURE_AIR: [

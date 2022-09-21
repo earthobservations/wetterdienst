@@ -27,7 +27,10 @@ from wetterdienst.provider.dwd.metadata.constants import (
     DWD_SERVER,
     DWDCDCBase,
 )
-from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
+from wetterdienst.provider.dwd.observation.metadata.dataset import (
+    DWD_URBAN_DATASETS,
+    DwdObservationDataset,
+)
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
@@ -70,11 +73,13 @@ def create_meta_index_for_climate_observations(
     )
 
     cond2 = resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME
-
+    cond3 = dataset in DWD_URBAN_DATASETS
     if cond1:
         meta_index = _create_meta_index_for_1minute_historical_precipitation()
     elif cond2:
         meta_index = _create_meta_index_for_subdaily_extreme_wind(period)
+    elif cond3:
+        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, Period.RECENT)
     else:
         meta_index = _create_meta_index_for_climate_observations(dataset, resolution, period)
 
@@ -116,12 +121,17 @@ def _create_meta_index_for_climate_observations(
     """
     parameter_path = build_path_to_parameter(dataset, resolution, period)
 
+    if dataset in DWD_URBAN_DATASETS:
+        dwd_cdc_base = DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS.value
+    else:
+        dwd_cdc_base = DWDCDCBase.CLIMATE_OBSERVATIONS.value
+
     url = reduce(
         urljoin,
         [
             DWD_SERVER,
             DWD_CDC_PATH,
-            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
+            dwd_cdc_base,
             parameter_path,
         ],
     )

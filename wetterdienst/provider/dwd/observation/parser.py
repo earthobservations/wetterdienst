@@ -115,7 +115,7 @@ def _parse_climate_observations_data(
     df = df.rename(columns=str.lower)
 
     # End of record (EOR) has no value, so drop it right away.
-    df = df.drop(columns=DwdColumns.EOR.value, errors="ignore")
+    df = df.drop(columns=[DwdColumns.EOR.value, "struktur_version"], errors="ignore")
 
     if resolution == Resolution.MINUTE_1 and dataset == DwdObservationDataset.PRECIPITATION:
         # Need to unfold historical data, as it is encoded in its run length e.g.

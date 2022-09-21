@@ -19,7 +19,7 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
 )
 from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
 
-STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
+STATION_ID_REGEX = r"(?<!\d)\d{3,5}(?!\d)"
 DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
 
 
@@ -73,7 +73,7 @@ def create_file_index_for_climate_observations(
 
     if dataset in DWD_URBAN_DATASETS:
         file_index = _create_file_index_for_dwd_server(
-            dataset, resolution, period, DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS
+            dataset, resolution, Period.RECENT, DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS
         )
     else:
         file_index = _create_file_index_for_dwd_server(dataset, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS)
@@ -86,7 +86,9 @@ def create_file_index_for_climate_observations(
 
     file_index = file_index.dropna().reset_index(drop=True)
 
-    file_index.loc[:, DwdColumns.STATION_ID.value] = file_index[DwdColumns.STATION_ID.value].astype(str)
+    file_index.loc[:, DwdColumns.STATION_ID.value] = (
+        file_index[DwdColumns.STATION_ID.value].astype(str).str.pad(5, "left", "0")
+    )
 
     if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files

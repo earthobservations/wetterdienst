@@ -724,6 +724,37 @@ def test_dwd_observation_data_result_tidy_si():
 
 
 @pytest.mark.remote
+def test_dwd_observations_urban_values():
+    """Test DWD Observation urban stations"""
+    with Settings:
+        Settings.humanize = True
+        Settings.tidy = True
+        Settings.si_units = True
+
+        request = DwdObservationRequest(
+            parameter="urban_air_temperature",
+            resolution="hourly",
+            period="historical",
+            start_date="2022-06-01",
+        ).filter_by_station_id("00399")
+
+    values = request.values.all()
+
+    df_expected = pd.DataFrame(
+        {
+            "station_id": pd.Categorical(["00399"] * 2),
+            "dataset": pd.Categorical(["urban_temperature_air"] * 2),
+            "parameter": pd.Categorical(["temperature_air_mean_200", "humidity"]),
+            "date": [pd.Timestamp("2022-06-01", tz=pytz.utc)] * 2,
+            "value": [286.54999999999995, 83.0],
+            "quality": [3.0, 3.0],
+        }
+    )
+
+    assert_frame_equal(values.df, df_expected, check_categorical=False)
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy():
     """Test for actual values (tidy) in metric units"""
     Settings.tidy = True

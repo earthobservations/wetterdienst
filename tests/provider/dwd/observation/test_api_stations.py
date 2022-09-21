@@ -47,6 +47,14 @@ def test_dwd_observations_stations_filter():
 
 
 @pytest.mark.remote
+def test_dwd_observations_urban_stations():
+    """Test DWD Observation urban stations"""
+    stations = DwdObservationRequest(parameter="urban_air_temperature", resolution="hourly", period="historical").all()
+
+    assert stations.station_id.tolist() == ["00399", "13667", "15818"]
+
+
+@pytest.mark.remote
 def test_dwd_observations_stations_filter_name():
 
     # Existing combination of parameters
