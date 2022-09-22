@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.45.0 (22.09.2022)
+*******************
+
 - Add interpolation of multiple weather stations for a given lat/lon point (currently only works for DWDObservationRequest)
 - Fix access of DWD Observation climate_urban datasets
 
