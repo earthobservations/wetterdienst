@@ -175,7 +175,7 @@ class ExportMixin:
 
                 # References
                 - https://arrow.apache.org/docs/python/parquet.html
-                """
+                """  # noqa:E501
 
                 log.info(f"Writing to Parquet file '{filepath}'")
                 import pyarrow as pa
@@ -193,7 +193,7 @@ class ExportMixin:
                 # References
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.from_dataframe.html
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_zarr.html
-                """
+                """  # noqa:E501
 
                 log.info(f"Writing to Zarr group '{filepath}'")
                 import xarray
@@ -255,10 +255,10 @@ class ExportMixin:
 
             Example queries::
 
-                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.table("weather"))'  # noqa
-                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.execute("SELECT * FROM weather").df())'  # noqa
+                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.table("weather"))'
+                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.execute("SELECT * FROM weather").df())'
 
-            """
+            """  # noqa:E501
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
             import duckdb
 
@@ -323,7 +323,7 @@ class ExportMixin:
             Example queries::
 
                 influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
-            """
+            """  # noqa:E501
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
                 version = 1
@@ -439,9 +439,9 @@ class ExportMixin:
 
                 crash -c 'select * from dwd.weather;'
                 crash -c 'select count(*) from dwd.weather;'
-                crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', date) as datetime from dwd.weather order by datetime limit 10;"  # noqa
+                crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', date) as datetime from dwd.weather order by datetime limit 10;"
 
-            """
+            """  # noqa:E501
             log.info(f"Writing to CrateDB. target={target}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
@@ -483,7 +483,7 @@ class ExportMixin:
                 # Query data.
                 sqlite3 dwd.sqlite "SELECT * FROM weather;"
 
-            """
+            """  # noqa:E501
 
             # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999
             # for SQLite versions prior to 3.32.0 (2020-05-22),

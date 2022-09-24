@@ -68,7 +68,7 @@ def index():
             </ul>
         </body>
     </html>
-    """  # noqa:B950
+    """  # noqa:B950,E501
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)

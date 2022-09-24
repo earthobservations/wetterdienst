@@ -11,7 +11,7 @@ The German Weather Service uses the DX file format to encode
 local radar sweeps. DX data are in polar coordinates.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format # noqa
+- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format
 - https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_reading_dx.html
 
 This program will request the latest RADAR DX data
@@ -26,7 +26,7 @@ Setup
     brew install gdal
     pip install wradlib
 
-"""  # Noqa:D205,D400
+"""  # noqa:D205,D400,E501
 import logging
 import os
 

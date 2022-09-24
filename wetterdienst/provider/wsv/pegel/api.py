@@ -161,7 +161,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
     _tz = Timezone.GERMANY
 
-    _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true&includeCharacteristicValues=true"
+    _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true&includeCharacteristicValues=true"  # noqa:E501
 
     provider = Provider.WSV
     kind = Kind.OBSERVATION
@@ -217,8 +217,8 @@ class WsvPegelRequest(ScalarRequestCore):
 
     def _all(self):
         """
-        Method to get stations_result for WSV Pegelonline. It involves reading the REST API, doing some transformations and
-        adding characteristic values in extra columns if given for each station.
+        Method to get stations_result for WSV Pegelonline. It involves reading the REST API, doing some transformations
+        and adding characteristic values in extra columns if given for each station.
         :return:
         """
 

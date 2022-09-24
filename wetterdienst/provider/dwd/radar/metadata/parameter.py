@@ -10,7 +10,7 @@ class DwdRadarParameter(Enum):
     """
 
     # /composites
-    # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa:B950
+    # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa:B950,E501
 
     # https://opendata.dwd.de/weather/radar/composit/
     HG_REFLECTIVITY = "hg"
