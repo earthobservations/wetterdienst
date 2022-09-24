@@ -32,8 +32,9 @@ class NetworkFilesystemManager:
 
         return ttl_name, ttl_value
 
+    # TODO: Apply dependency injection for `wetterdienst_settings` here.
     @classmethod
-    def register(cls, ttl=CacheExpiry.NO_CACHE):
+    def register(cls, wetterdienst_settings, ttl=CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(Settings.cache_dir, "fsspec", key)

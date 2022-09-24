@@ -343,6 +343,7 @@ class ScalarRequestCore(Core):
 
     def __init__(
         self,
+        settings: Settings,
         parameter: Tuple[Union[str, Enum]],
         resolution: Resolution,
         period: Period,
@@ -357,7 +358,10 @@ class ScalarRequestCore(Core):
         :param start_date: Start date for filtering stations_result for their available data
         :param end_date:   End date for filtering stations_result for their available data
         """
-        settings = copy(Settings)
+
+        # settings = copy(Settings)
+        self.settings = settings
+
         super().__init__()
 
         self.resolution = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)

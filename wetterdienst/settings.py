@@ -81,4 +81,13 @@ class Settings:
         return Settings.__init__()
 
 
-Settings = Settings()
+class DefaultSettings(Settings):
+    # TODO: Implement all default loading here.
+    pass
+
+
+# FIXME: GLOBAL VARIABLE. Not thread-safe.
+# Settings = Settings()
+
+
+# TODO: Create sweet thing which is mutable and acts like a context manager.
