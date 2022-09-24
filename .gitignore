@@ -1,6 +1,7 @@
 .DS_Store
 *.code-workspace
 __pycache__/
+.ruff_cache
 dwd_data/
 .idea/
 .venv*
