@@ -163,8 +163,8 @@ pip-licenses = "^3.3"
 
 # Formatting/Linting
 black = "^22.3.0"
-
 isort = "^5.7"
+ruff = "^0.0.46"
 
 flakeheaven = "^3.0"
 flake8-bandit = "^3.0"
@@ -284,12 +284,23 @@ flake8-bandit = ["-S101", "-S106"]
 [tool.flakeheaven.exceptions."wetterdienst/ui/restapi.py"]
 flake8-bugbear = ["-B008"]
 
+[tool.ruff]
+line-length = 120
+extend-exclude = [
+  ".venv*",
+]
+per-file-ignores = [
+  "wetterdienst/__init__.py:E402",
+  "**/__init__.py:F401",
+]
+
 [tool.poe.tasks]
 install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
 format = ["black", "isort"]
 lint = "flakeheaven lint wetterdienst example tests"
+turbolint = "ruff wetterdienst example tests"
 docs = { shell = "cd docs && poetry run make html" }
 test-cflakes = "pytest -vvv -m cflake tests"
 test-parallel = "pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)' tests"
