@@ -62,8 +62,8 @@ class DwdMosmixValues(ScalarValuesCore):
     parameter: List
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per MOSMIX definition, see
-          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:B950
-    """
+          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
+    """  # noqa:B950,E501
 
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC

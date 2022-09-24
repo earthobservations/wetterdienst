@@ -325,7 +325,7 @@ def cli():
         # Start service on public interface and specific port.
         wetterdienst explorer --listen=0.0.0.0:8891
 
-    """
+    """  # noqa:E501
     pass
 
 

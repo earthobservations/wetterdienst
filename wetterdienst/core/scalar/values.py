@@ -524,7 +524,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
                 if ap < self.sr.skip_threshold:
                     log.info(
-                        f"station {station_id} is skipped as percentage of actual values ({ap}) is below threshold ({self.sr.skip_threshold})."
+                        f"station {station_id} is skipped as percentage of actual values ({ap}) "
+                        f"is below threshold ({self.sr.skip_threshold})."
                     )
                     continue
 
