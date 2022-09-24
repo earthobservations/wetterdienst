@@ -10,14 +10,15 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.settings import Settings
 
 
+# TODO: Apply dependency injection for `settings` here.
 @pytest.mark.remote
-def test_dwd_mosmix_l():
+def test_dwd_mosmix_l(settings):
     """
     Test some details of a typical MOSMIX-L response.
     """
-    Settings.tidy = True
-    Settings.humanize = False
-    Settings.si_units = True
+    settings.tidy = True
+    settings.humanize = False
+    settings.si_units = True
 
     request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
         station_id=["01001"],

@@ -12,13 +12,14 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def test_api_skip_empty_stations():
+# TODO: Apply dependency injection for `settings` here.
+def test_api_skip_empty_stations(settings):
     start_date = "2021-01-01"
     end_date = "2021-12-31"
 
-    with Settings:
-        Settings.skip_empty = True
+    settings.skip_empty = True
 
+    if True:
         stations = DwdObservationRequest(
             parameter=[
                 DwdObservationDataset.TEMPERATURE_AIR,
