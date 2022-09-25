@@ -42,7 +42,7 @@ jobs:
       uses: actions/cache@v2
       env:
         # Increase this value to reset cache if `poetry.lock` has not changed.
-        CACHE_NUMBER: 2
+        CACHE_NUMBER: 3
       with:
         path: .venv
         key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
