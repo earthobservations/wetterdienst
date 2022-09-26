@@ -951,7 +951,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    assert len(results) == 60
+    assert len(results) in (60, 59)
 
     hdf = h5py.File(results[0].data, "r")
 
