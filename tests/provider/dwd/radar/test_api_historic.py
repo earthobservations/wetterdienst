@@ -10,7 +10,6 @@ import h5py
 import pybufrkit
 import pytest
 import requests
-import wradlib as wrl
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -22,6 +21,8 @@ from wetterdienst.provider.dwd.radar import (
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
+
+wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
 HERE = Path(__file__).parent
 

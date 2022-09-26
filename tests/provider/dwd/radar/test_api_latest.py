@@ -5,7 +5,6 @@ import re
 from datetime import datetime
 
 import pytest
-import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -43,6 +42,8 @@ def test_radar_request_composite_latest_rw_reflectivity():
     """
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
+
+    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
@@ -108,6 +109,8 @@ def test_radar_request_site_latest_dx_reflectivity():
     """
     Example for testing radar SITES latest.
     """
+
+    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
