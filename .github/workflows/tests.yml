@@ -32,7 +32,6 @@ jobs:
         virtualenvs-in-project: true
 
     - name: Setup Python
-      id: python-setup
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
@@ -40,7 +39,6 @@ jobs:
         cache: poetry
 
     - name: Install project
-      if: steps.python-setup.outputs.cache-hit != 'true'
       run: .github/workflows/install.sh testing
 
     - name: Run tests (Windows, sequential)
