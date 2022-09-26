@@ -2,7 +2,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
-import wradlib as wrl
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
@@ -118,6 +117,8 @@ def test_radar_request_radolan_cdc_most_recent():
     """
     Example for testing radar sites most recent RADOLAN_CDC.
     """
+
+    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
