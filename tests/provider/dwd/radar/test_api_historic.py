@@ -824,7 +824,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (358, 600))
+    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
