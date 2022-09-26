@@ -91,7 +91,7 @@ classifiers = [
 python = "^3.8,<3.11"
 pandas = "^1.3"
 numpy = "^1.22"
-cachetools = "^4.1"
+cachetools = "^5.2"
 dateparser = "^1.0"
 beautifulsoup4 = "^4.9"
 requests = "^2.20"
@@ -103,7 +103,7 @@ PyPDF2 = "^1.26"
 tabulate = "^0.8"
 deprecation = "^2.1"
 measurement = "^3.2"
-rapidfuzz = "^1.4"
+rapidfuzz = "^2.1"
 Pint = "^0.17"
 aenum = "^3.0"
 click = "^8.0"
@@ -111,7 +111,7 @@ click-params = "^0.4"
 cloup = "^1.0"
 fsspec = "^2022.02"
 aiohttp = "^3.8.1"
-timezonefinder = "^5.2"
+timezonefinder = "^6.1"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
 scikit-learn = "^1.0.2"
@@ -151,7 +151,7 @@ zarr = { version = "^2.7", optional = true }
 xarray = { version = "^2022.3", optional = true }
 
 [tool.poetry.dev-dependencies]
-poethepoet = "^0.9"
+poethepoet = "^0.16"
 
 pip-licenses = "^3.3"
 
@@ -198,14 +198,14 @@ dash = { version = "^2.6", extras = ["testing"] }
 coverage = { version = "^6.0", extras = ["toml"] }
 
 # Docs
-sphinx = "^4.5"
+sphinx = "^5.2"
 sphinx-material = "^0.0.30"
 sphinx-autodoc-typehints = "^1.11"
 sphinxcontrib-svg2pdfconverter = "^1.1"
-sphinx-autobuild = "^2020.9"
+sphinx-autobuild = "^2021.3"
 docformatter = "^1.4"
 tomlkit = "^0.7"
-ipython = "^7.10"
+ipython = "^8.5"
 
 [tool.poetry.extras]
 mpl = ["matplotlib"]
