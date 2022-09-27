@@ -25,3 +25,11 @@ def test_connectionstring_table_from_query_param():
     cs = ConnectionString(url)
 
     assert cs.get_table() == "tablename"
+
+
+def test_connectionstring_temporary_file(tmp_path):
+    filepath = tmp_path.joinpath("foobar.txt")
+    url = f"file://{filepath}"
+    cs = ConnectionString(url)
+
+    assert cs.get_path() == str(filepath)
