@@ -282,7 +282,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel(str(filename), sheet_name="Sheet1", dtype=str)
 
     assert "name" in df
     assert expected_dict["name"] in df["name"].values
@@ -382,7 +382,7 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel(str(filename), sheet_name="Sheet1", dtype=str)
 
     assert "station_id" in df
     assert station_id in df["station_id"].values
