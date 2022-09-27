@@ -269,10 +269,10 @@ def test_cli_stations_csv(provider, network, setting, station_id, expected_dict,
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmpdir_factory):
+def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmp_path):
 
     # filename = tmpdir_factory.mktemp("data").join("stations_result.xlsx")  # Noqa:E800
-    filename = "stations.xlsx"
+    filename = tmp_path.joinpath("stations_result.xlsx")
 
     _ = invoke_wetterdienst_stations_export(
         provider=provider,
@@ -282,7 +282,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel("stations.xlsx", sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
 
     assert "name" in df
     assert expected_dict["name"] in df["name"].values
@@ -370,13 +370,9 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_excel(provider, network, setting, station_id, station_name, tmpdir_factory):
+def test_cli_values_excel(provider, network, setting, station_id, station_name, tmp_path):
 
-    # TODO: Why doesn't this work?
-    # filename = tmpdir_factory.mktemp("data").join("values.xlsx") # Noqa:E800
-
-    # FIXME: This will concurrently access the file with `pytest-xdist`, so it will croak.
-    filename = "values.xlsx"
+    filename = tmp_path.joinpath("values.xlsx")
 
     _ = invoke_wetterdienst_values_export(
         provider=provider,
@@ -386,7 +382,7 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel("values.xlsx", sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
 
     assert "station_id" in df
     assert station_id in df["station_id"].values
