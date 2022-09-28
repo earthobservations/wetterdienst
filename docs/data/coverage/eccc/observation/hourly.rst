@@ -67,9 +67,9 @@ humidex
    * - description
      - humidex
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -187,9 +187,9 @@ weather
    * - description
      - weather code
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 

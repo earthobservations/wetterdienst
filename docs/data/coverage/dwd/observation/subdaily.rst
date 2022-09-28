@@ -158,9 +158,9 @@ cloud_density
    * - description
      - cloud density
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 

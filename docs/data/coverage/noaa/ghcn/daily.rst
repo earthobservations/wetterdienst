@@ -148,9 +148,9 @@ count_days_multiday_evaporation
    * - description
      - Number of days included in the multiday evaporation total (MDEV)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -168,9 +168,9 @@ count_days_multiday_precipitation
    * - description
      - Number of days included in the multiday precipitation total (MDPR)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -188,9 +188,9 @@ count_days_multiday_precipitation_height_gt_0
    * - description
      - Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -208,9 +208,9 @@ count_days_multiday_snow_depth_new
    * - description
      - Number of days included in the multiday snowfall total (MDSF)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -228,9 +228,9 @@ count_days_multiday_temperature_air_max_200
    * - description
      - Number of days included in the multiday maximum temperature (MDTX)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -248,9 +248,9 @@ count_days_multiday_temperature_air_min_200
    * - description
      - Number of days included in the multiday minimum temperature (MDTN)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -268,9 +268,9 @@ count_days_multiday_wind_movement
    * - description
      - Number of days included in the multiday wind movement (MDWM)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -3251,9 +3251,9 @@ time_wind_gust_max
    * - description
      - Peak gust time (hours and minutes, i.e., HHMM)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3271,9 +3271,9 @@ time_wind_gust_max_1mile_or_1min
    * - description
      - Time of fastest mile or fastest 1-minute wind (hours and minutes, i.e., HHMM)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3351,9 +3351,9 @@ weather_type_blowing_drifting_snow
    * - description
      - Blowing or drifting snow
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3371,9 +3371,9 @@ weather_type_blowing_spray
    * - description
      - Blowing spray
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3391,9 +3391,9 @@ weather_type_drizzle
    * - description
      - Drizzle
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3411,9 +3411,9 @@ weather_type_dust_ash_sand
    * - description
      - Dust, volcanic ash, blowing dust, blowing sand, or blowing obstruction
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3431,9 +3431,9 @@ weather_type_fog
    * - description
      - Fog, ice fog, or freezing fog (may include heavy fog)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3451,9 +3451,9 @@ weather_type_freezing_drizzle
    * - description
      - Freezing drizzle
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3471,9 +3471,9 @@ weather_type_freezing_rain
    * - description
      - Freezing rain
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3491,9 +3491,9 @@ weather_type_glaze_rime
    * - description
      - Glaze or rime
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3511,9 +3511,9 @@ weather_type_ground_fog
    * - description
      - Ground fog
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3531,9 +3531,9 @@ weather_type_hail
    * - description
      - Hail (may include small hail)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3551,9 +3551,9 @@ weather_type_heavy_fog
    * - description
      - Heavy fog or heaving freezing fog (not always distinguished from fog)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3571,9 +3571,9 @@ weather_type_high_damaging_winds
    * - description
      - High or damaging winds
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3591,9 +3591,9 @@ weather_type_ice_fog_freezing_fog
    * - description
      - Ice fog or freezing fog
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3611,9 +3611,9 @@ weather_type_ice_sleet_snow_hail
    * - description
      - Ice pellets, sleet, snow pellets, or small hail
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3631,9 +3631,9 @@ weather_type_mist
    * - description
      - Mist
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3651,9 +3651,9 @@ weather_type_precipitation_unknown_source
    * - description
      - Unknown source of precipitation
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3671,9 +3671,9 @@ weather_type_rain
    * - description
      - Rain (may include freezing rain, drizzle, and freezing drizzle)
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3691,9 +3691,9 @@ weather_type_smoke_haze
    * - description
      - Smoke or haze
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3711,9 +3711,9 @@ weather_type_snow_pellets_snow_grains_ice_crystals
    * - description
      - Snow, snow pellets, snow grains, or ice crystals
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3731,9 +3731,9 @@ weather_type_thunder
    * - description
      - Thunder
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3751,9 +3751,9 @@ weather_type_tornado_waterspout
    * - description
      - Tornado, waterspout, or funnel cloud
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3771,9 +3771,9 @@ weather_type_vicinity_dust_ash_sand
    * - description
      - Ash, dust, sand, or other blowing obstruction in the Vicinity
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3791,9 +3791,9 @@ weather_type_vicinity_fog_any
    * - description
      - Fog, ice fog, or freezing fog (may include heavy fog) in the Vicinity
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3811,9 +3811,9 @@ weather_type_vicinity_rain_snow_shower
    * - description
      - Rain or snow shower in the Vicinity
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3831,9 +3831,9 @@ weather_type_vicinity_snow_ice_crystals
    * - description
      - Snow or ice crystals in the Vicinity
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3851,9 +3851,9 @@ weather_type_vicinity_thunder
    * - description
      - Thunder in the Vicinity
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 

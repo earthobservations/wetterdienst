@@ -432,9 +432,9 @@ count_weather_type_fog
    * - description
      - count of days with fog of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -452,9 +452,9 @@ count_weather_type_thunder
    * - description
      - count of days with thunder of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -472,9 +472,9 @@ count_weather_type_storm_strong_wind
    * - description
      - count of days with storm (strong wind) of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -492,9 +492,9 @@ count_weather_type_storm_stormier_wind
    * - description
      - count of days with storm (stormier wind) of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -512,9 +512,9 @@ count_weather_type_dew
    * - description
      - count of days with dew of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -532,9 +532,9 @@ count_weather_type_glaze
    * - description
      - count of days with glaze of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -552,9 +552,9 @@ count_weather_type_sleet
    * - description
      - count of days with sleet of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -572,9 +572,9 @@ count_weather_type_hail
    * - description
      - count of days with hail of stations in Germany
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 

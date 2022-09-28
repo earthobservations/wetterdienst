@@ -101,15 +101,7 @@ how the DWD calls the parameter e.g. "precipitation".
 
 This table and subsets of it can be printed with a function call of
 ``.discover()`` as described in the API section. Furthermore individual
-parameters can be queried. Take a look at the massive amount of data:
-
-    import json
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    meta = DwdObservationRequest.discover(flatten=False)
-
-    # Selection of daily historical data
-    print(json.dumps(meta, indent=4, ensure_ascii=False))
+parameters can be queried.
 
 .. _file_server: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/
 

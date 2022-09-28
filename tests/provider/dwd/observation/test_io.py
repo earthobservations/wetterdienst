@@ -241,7 +241,7 @@ def test_export_spreadsheet(tmpdir_factory):
 
     df = request.values.all().df
 
-    filename = tmpdir_factory.mktemp("data").join("observation.xlsx")
+    filename = tmpdir_factory.mktemp("data").join("observations.xlsx")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     workbook = openpyxl.load_workbook(filename=filename)

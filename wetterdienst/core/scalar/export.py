@@ -166,12 +166,12 @@ class ExportMixin:
             elif target.endswith(".parquet"):
                 """
                 # Acquire data and store to Parquet file.
-                alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
-                fetch --target="file://observation.parquet"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                fetch --target="file://observations.parquet"
 
                 # Check Parquet file.
-                parquet-tools schema observation.parquet
-                parquet-tools head observation.parquet
+                parquet-tools schema observations.parquet
+                parquet-tools head observations.parquet
 
                 # References
                 - https://arrow.apache.org/docs/python/parquet.html

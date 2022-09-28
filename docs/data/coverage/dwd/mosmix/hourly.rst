@@ -766,9 +766,9 @@ weather_last_6h
    * - description
      - Past weather during the last 6 hours
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -786,9 +786,9 @@ weather_significant
    * - description
      - Significant Weather
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3059,9 +3059,9 @@ weather_last_6h
    * - description
      - Past weather during the last 6 hours
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3079,9 +3079,9 @@ weather_significant
    * - description
      - Significant Weather
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3099,9 +3099,9 @@ weather_significant_last_3h
    * - description
      - Significant Weather
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -3119,9 +3119,9 @@ weather_significant_optional_last_1h
    * - description
      - Optional significant weather (highest priority) during the last hour
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\leq{0}, \geq{-95}`
 
@@ -3139,9 +3139,9 @@ weather_significant_optional_last_3h
    * - description
      - Optional significant weather (highest priority) during the last 3 hours
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\leq{0}, \geq{-95}`
 
@@ -3159,9 +3159,9 @@ weather_significant_optional_last_6h
    * - description
      - Optional significant weather (highest priority) during the last 6 hours
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\leq{0}, \geq{-95}`
 
@@ -3179,9 +3179,9 @@ weather_significant_optional_last_12h
    * - description
      - Optional significant weather (highest priority) during the last 12 hours
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\leq{0}, \geq{-95}`
 
@@ -3199,9 +3199,9 @@ weather_significant_optional_last_24h
    * - description
      - Optional significant weather (highest priority) during the last 24 hours
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\leq{0}, \geq{-95}`
 
