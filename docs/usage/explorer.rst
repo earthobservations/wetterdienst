@@ -66,22 +66,3 @@ Run the Wetterdienst user interface using Docker::
 
     docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst-full wetterdienst explorer --listen 0.0.0.0:7891
 
-
-*******
-Backlog
-*******
-
-* Fix x-axis labels in graph figure
-* Implement different figure types for different data types
-* Provide more information for weather station (location, avail.) on the front-end
-* Display extremes of actual visualisation
-* Support overlays
-* Zoom map to selected station
-* Enable select station by click on an icon on map (requires ipyleaflet)
-
-Known Bugs
-==========
-
-* `_gdbm.error: [Errno 11] Resource temporarily unavailable: '/root/.cache/wetterdienst/metaindex.dbm'`
-  Sometimes there are problems with a wetterdienst cache. You can work around
-  this bug by switching between sudo and not sudo call.

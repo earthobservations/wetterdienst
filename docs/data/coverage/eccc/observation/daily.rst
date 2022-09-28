@@ -66,9 +66,9 @@ count_days_cooling_degree
    * - description
      - count of cooling degree days
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -86,9 +86,9 @@ count_days_heating_degree
    * - description
      - count of heating degree days
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 

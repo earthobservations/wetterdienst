@@ -77,7 +77,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
     if period == "ALL":
         period = [*api._period_base]
 
-    log.info(f"Requesting stations_result for parameter={parameter}, resolution={resolution}, period={period}")
+    log.info(f"Requesting stations for parameter={parameter}, resolution={resolution}, period={period}")
 
     try:
         stations = get_stations(
@@ -109,7 +109,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
 
     df = stations.df
 
-    log.info(f"Propagating stations_result data frame with {frame_summary(df)}")
+    log.info(f"Propagating stations data frame with {frame_summary(df)}")
 
     return df.to_json(date_format="iso", orient="split")
 

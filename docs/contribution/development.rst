@@ -1,6 +1,10 @@
 Development
 ###########
 
+Whether you work on an issue, try to implement a new feature or work on adding a new weather service, you'll need a
+proper working environment. The following describes how to setup such an environment and how to enable you to
+satisfy our code quality rules which would ultimately fail on Github CI and block a PR.
+
 1. Clone the library and install the environment.
 
    This setup procedure will outline how to install the library and the minimum
@@ -76,8 +80,10 @@ Development
 
 5. Push your changes and submit them as pull request
 
-   Thank you in advance!
+   That's it, you're almost done! We'd already like to thank you for your commitment!
 
+6. Wait for our feedback. We'll probably come back to you in a few days and let you know if there's anything that may
+   need some more polishing.
 
 .. note::
 

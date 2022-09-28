@@ -188,9 +188,9 @@ cloud_type_layer1
             - automated
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
 
@@ -278,9 +278,9 @@ cloud_type_layer2
             - automated
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
 
@@ -368,9 +368,9 @@ cloud_type_layer3
             - automated
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
 
@@ -458,9 +458,9 @@ cloud_type_layer4
             - automated
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
 
@@ -562,9 +562,9 @@ cloud_cover_total_indicator
             - instrument
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [P, I]`
 
@@ -759,9 +759,9 @@ humidity_absolute
    * - description
      - absolute humidity
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
@@ -1012,9 +1012,9 @@ precipitation_form
               corresponds to WMO code 15
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [0, 1, 2, 3, 6, 7, 8, 9]`
 
@@ -1482,9 +1482,9 @@ visibility_range_indicator
             - by instrument
 
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - :math:`\in [P, I]`
 
@@ -1552,9 +1552,9 @@ weather
    * - description
      - weather code of current condition, see `weather codes and descriptions`_
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -1574,9 +1574,9 @@ weather_text
    * - description
      - weather text of current condition, see `weather codes and descriptions`_
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 

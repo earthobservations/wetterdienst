@@ -1,135 +1,149 @@
 Minute_1
 ########
 
-.. dropdown:: Metadata
+----
 
-    .. list-table::
-       :widths: 20 80
-       :stub-columns: 1
+Metadata
+********
 
-       * - original name
-         - 1_minute
-       * - url
-         - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/>`_
+.. list-table::
+   :widths: 20 80
+   :stub-columns: 1
 
-.. dropdown:: Datasets
-    :open:
+   * - original name
+     - 1_minute
+   * - url
+     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/>`_
 
-    .. dropdown:: Precipitation
+----
 
-        .. dropdown:: Metadata
+Datasets
+********
 
-            .. list-table::
-               :widths: 20 80
-               :stub-columns: 1
+----
 
-               * - original name
-                 - precipitation
-               * - url
-                 - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/>`_
-               * - description file
-                 - missing, simple descriptions within `DWD parameter listing`_
-               * - description
-                 - missing
+Precipitation
+=============
 
-            .. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
+----
 
+Metadata
+--------
 
-        .. dropdown:: Parameters
-            :open:
+.. list-table::
+   :widths: 20 80
+   :stub-columns: 1
 
-            .. dropdown:: precipitation_height
-                :open:
+   * - original name
+     - precipitation
+   * - url
+     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/>`_
+   * - description file
+     - missing, simple descriptions within `DWD parameter listing`_
+   * - description
+     - missing
 
-                .. list-table::
-                   :widths: 20 80
-                   :stub-columns: 1
+.. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
 
-                   * - original name
-                     - rs_01
-                   * - description file
-                     - missing, taken from `DWD parameter listing`_
-                   * - description
-                     - precipitation height of last 1min
-                   * - origin unit
-                     - :math:`mm`
-                   * - SI unit
-                     - :math:`m^3 / m^2`
-                   * - constraints
-                     - :math:`\geq{0}`
+----
 
-                ----
+Parameters
+----------
 
-            .. dropdown:: precipitation_height_droplet
-                :open:
+----
 
-                .. list-table::
-                   :widths: 20 80
-                   :stub-columns: 1
+precipitation_height
+^^^^^^^^^^^^^^^^^^^^
 
-                   * - original name
-                     - rth_01
-                   * - description file
-                     - missing, taken from `DWD parameter listing`_
-                   * - description
-                     - precipitation height of last 1min measured with droplet
-                   * - origin unit
-                     - :math:`mm`
-                   * - SI unit
-                     - :math:`m^3 / m^2`
-                   * - constraints
-                     - :math:`\geq{0}`
+.. list-table::
+   :widths: 20 80
+   :stub-columns: 1
 
-            .. dropdown:: precipitation_height_rocker
-                :open:
+   * - original name
+     - rs_01
+   * - description file
+     - missing, taken from `DWD parameter listing`_
+   * - description
+     - precipitation height of last 1min
+   * - origin unit
+     - :math:`mm`
+   * - SI unit
+     - :math:`m^3 / m^2`
+   * - constraints
+     - :math:`\geq{0}`
 
-                .. list-table::
-                   :widths: 20 80
-                   :stub-columns: 1
+precipitation_height_droplet
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-                   * - original name
-                     - rwh_01
-                   * - description file
-                     - missing, taken from `DWD parameter listing`_
-                   * - description
-                     - precipitation height of last 1min measured with rocker
-                   * - origin unit
-                     - :math:`mm`
-                   * - SI unit
-                     - :math:`m^3 / m^2`
-                   * - constraints
-                     - :math:`\geq{0}`
+.. list-table::
+   :widths: 20 80
+   :stub-columns: 1
 
-            .. dropdown:: precipitation_form
-                :open:
+   * - original name
+     - rth_01
+   * - description file
+     - missing, taken from `DWD parameter listing`_
+   * - description
+     - precipitation height of last 1min measured with droplet
+   * - origin unit
+     - :math:`mm`
+   * - SI unit
+     - :math:`m^3 / m^2`
+   * - constraints
+     - :math:`\geq{0}`
 
-                .. list-table::
-                   :widths: 20 80
-                   :stub-columns: 1
+precipitation_height_rocker
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-                   * - original name
-                     - rs_ind_01
-                   * - description file
-                     - missing, taken from `DWD parameter listing`_
-                   * - description
-                     - precipitation index, codes taken from 10_minutes dataset
+.. list-table::
+   :widths: 20 80
+   :stub-columns: 1
 
-                       .. list-table::
-                          :widths: 20 80
-                          :stub-columns: 1
+   * - original name
+     - rwh_01
+   * - description file
+     - missing, taken from `DWD parameter listing`_
+   * - description
+     - precipitation height of last 1min measured with rocker
+   * - origin unit
+     - :math:`mm`
+   * - SI unit
+     - :math:`m^3 / m^2`
+   * - constraints
+     - :math:`\geq{0}`
 
-                          * - code
-                            - meaning
-                          * - 0
-                            - no precipitation
-                          * - 1
-                            - precipitation has fallen
-                          * - 3
-                            - precipitation has fallen and heating of instrument was on
+precipitation_form
+^^^^^^^^^^^^^^^^^^
 
-                   * - origin unit
-                     - :math:`dimensionless`
-                   * - SI unit
-                     - :math:`dimensionless`
-                   * - constraints
-                     - :math:`\in [0, 1, 3]`
+.. list-table::
+   :widths: 20 80
+   :stub-columns: 1
+
+   * - original name
+     - rs_ind_01
+   * - description file
+     - missing, taken from `DWD parameter listing`_
+   * - description
+     - precipitation index, codes taken from 10_minutes dataset
+
+       .. list-table::
+          :widths: 20 80
+          :stub-columns: 1
+
+          * - code
+            - meaning
+          * - 0
+            - no precipitation
+          * - 1
+            - precipitation has fallen
+          * - 3
+            - precipitation has fallen and heating of instrument was on
+
+   * - origin unit
+     - :math:`-`
+   * - SI unit
+     - :math:`-`
+   * - constraints
+     - :math:`\in [0, 1, 3]`
+
+----

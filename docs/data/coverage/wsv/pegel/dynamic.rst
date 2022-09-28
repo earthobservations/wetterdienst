@@ -246,9 +246,9 @@ ph_value
    * - description
      - average pH during time scale
    * - origin unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - SI unit
-     - :math:`dimensionless`
+     - :math:`-`
    * - constraints
      - none
 
@@ -471,3 +471,5 @@ wind_speed
      - :math:`m / s`
    * - constraints
      - none
+
+----

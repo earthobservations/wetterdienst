@@ -363,6 +363,6 @@ class EcccObservationRequest(ScalarRequestCore):
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
         if payload is None:
-            raise FailedDownload("Unable to acquire ECCC stations_result list")
+            raise FailedDownload("Unable to acquire ECCC stations list")
 
         return payload, source

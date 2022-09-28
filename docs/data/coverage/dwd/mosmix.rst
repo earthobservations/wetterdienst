@@ -12,15 +12,6 @@ comes with a set of 40 parameters and is published every hour while MOSMIX-L has
 of about 115 parameters and is released every 6 hours (3am, 9am, 3pm, 9pm). Both
 versions have a forecast limit of 240h.
 
-.. ipython:: python
-
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
-
-    meta = DwdMosmixRequest.discover(flatten=False)
-
-    # Selection of daily historical data
-    print(meta)
-
 .. _Mosmix: https://www.dwd.de/EN/ourservices/met_application_mosmix/met_application_mosmix.html
 
 Structure

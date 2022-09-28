@@ -37,8 +37,6 @@ Wetterdienst API:
 
     API = Wetterdienst(provider="dwd", network="observation")
 
-
-
 Request arguments
 *****************
 
@@ -100,9 +98,43 @@ is limited to what resolutions and periods are actually available while the main
 enumeration is a summation of all kinds of resolutions and periods found at the
 different weather services.
 
-When it comes to values one can either query all data by ``request.all()`` or typically
-query by ``station_id`` via ``request.filter_by_station_id()``. Alternatively the API offers
-various possibilities to query stations by geographic context. Further details can be found below.
+Regarding the definition of requested parameters:
+
+Parameters can be requested in three different ways:
+
+1. Requesting an entire dataset e.g. climate_summary
+
+.. code-block:: python
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    request = DwdObservationRequest(
+        parameter="kl"
+    )
+
+
+2. Requesting one parameter of a specific resolution without defining the exact dataset.
+
+  For each offered resolution we have created a list of unique parameters which are drafted from the entire space of
+  all datasets e.g. when two datasets contain the somehwat similar parameter we do a pre-selection of the dataset from
+  which the parameter is taken.
+
+.. code-block:: python
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    request = DwdObservationRequest(
+        parameter="precipitation_height"
+    )
+
+3. Request a parameter-dataset tuple
+
+   This gives you entire freedom to request a unique parameter-dataset tuple just as you wish.
+
+.. code-block:: python
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    request = DwdObservationRequest(
+        parameter=[("precipitation_height", "more_precip"), ("temperature_air_mean_200", "kl")]
+    )
 
 Core settings
 =============
@@ -177,8 +209,19 @@ names.
 - `skip_threshold` is used in combination with `skip_empty` to define when a station is empty, with 1.0 meaning no
  values per parameter should be missing and e.g. 0.9 meaning 10 per cent of values can be missing
 - `dropna` (requires option `tidy`) is used to drop all empty entries thus reducing the workload
+- `fsspec_client_kwargs` can be used to pass arguments to fsspec, especially for querying data behind a proxy
 
 All of `tidy`, `humanize` and `si_units` are defaulted to True.
+
+If your system is running behind a proxy e.g. like `here <https://github.com/earthobservations/wetterdienst/issues/524>`_
+you may want to use the `trust_env` like
+
+```python
+    from wetterdienst import Settings
+    Settings.fsspec_client_kwargs["trust_env"] = True
+```
+
+to allow requesting through a proxy.
 
 .. _tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
 
@@ -690,7 +733,7 @@ For more examples, please have a look at `example/radar/`_.
 Caching
 =======
 
-The backbone of wetterdienst uses dogpile + fsspec caching. It requires to create a directory under ``/home`` for the
+The backbone of wetterdienst uses fsspec caching. It requires to create a directory under ``/home`` for the
 most cases. If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set
 an environment variable ``WD_CACHE_DIR`` to define the place where the caching directory should be created.
 
