@@ -72,10 +72,7 @@ it. I used **wetterdienst** to analyze the climate in my area and I can tell it'
 .. overview_start_marker
 
 Overview
-########
-
-Introduction
-************
+********
 
 Welcome to Wetterdienst, your friendly weather service library for Python.
 
@@ -185,7 +182,7 @@ Via Github (most recent):
 
     pip install git+https://github.com/earthobservations/wetterdienst
 
-There are some extras available for `wetterdienst`. Use them like:
+There are some extras available for ``wetterdienst``. Use them like:
 
 .. code-block:: bash
 
@@ -264,7 +261,7 @@ Example
 **Task: Get historical climate summary for two German stations between 1990 and 2020**
 
 Library
--------
+=======
 
 .. code-block:: python
 
@@ -306,17 +303,17 @@ Library
     4     10.0
 
 Client
-------
+======
 
 .. code-block:: bash
 
     # Get list of all stations for daily climate summary data in JSON format
-    wetterdienst dwd observations stations --parameter=kl --resolution=daily
+    wetterdienst stations --provider=dwd --network=observations --parameter=kl --resolution=daily
 
     # Get daily climate summary data for specific stations
-    wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily
+    wetterdienst values --provider=dwd --network=observations --station=1048,4411 --parameter=kl --resolution=daily
 
-Further examples (code samples) can be found in the `examples`_ folder.
+Further examples (code samples) can be found in the examples_ folder.
 
 .. _examples: https://github.com/earthobservations/wetterdienst/tree/main/example
 
