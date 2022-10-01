@@ -14,12 +14,12 @@ DWD: Historical weather observations
 Get available parameters for daily historical data of DWD:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
+    from wetterdienst import Resolution, Period
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    API = Wetterdienst("dwd", "observation")
-
-    observations_meta = API.discover(
+    observations_meta = DwdObservationRequest.discover(
         filter_=Resolution.DAILY,
     )
 
@@ -27,7 +27,7 @@ Get available parameters for daily historical data of DWD:
     print(observations_meta)
 
     # Available individual parameters
-    observations_meta = API.discover(
+    observations_meta = DwdObservationRequest.discover(
         filter_=Resolution.DAILY, flatten=False
     )
 
@@ -36,11 +36,10 @@ Get available parameters for daily historical data of DWD:
 Get stations for daily historical precipitation:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
+    from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
-
-    API = Wetterdienst(provider="dwd", network="observation")
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -53,13 +52,12 @@ Get stations for daily historical precipitation:
 Get data for a dataset:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
+    from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationDataset
 
-    API = Wetterdienst(provider="dwd", network="observation")
-
-    stations = API(
+    stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
         resolution=Resolution.DAILY,
         period=Period.HISTORICAL
@@ -70,13 +68,12 @@ Get data for a dataset:
 Get data for a parameter:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
+    from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationParameter
 
-    API = Wetterdienst(provider="dwd", network="observation")
-
-    observation_data = API(
+    observation_data = DwdObservationRequest(
         parameter=DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT,
         resolution=Resolution.DAILY,
         period=Period.HISTORICAL
@@ -87,12 +84,12 @@ Get data for a parameter:
 Get data for a parameter from another dataset:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
+    from wetterdienst import Resolution, Period
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    API = Wetterdienst(provider="dwd", network="observation")
-
-    observation_data = API(
+    observation_data = DwdObservationRequest(
         parameter=[("precipitation_height", "precipitation_more")],
         resolution=Resolution.DAILY,
         period=Period.HISTORICAL
@@ -107,26 +104,24 @@ DWD: MOSMIX forecasts
 Get stations for MOSMIX-SMALL:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixType
+    from wetterdienst import Resolution, Period
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
-    API = Wetterdienst(provider="dwd", network="mosmix")
-
-    stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE)
+    stations = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE)
 
     print(stations.all().df.head())
 
 Get data for MOSMIX-LARGE:
 
 .. ipython:: python
+    :okwarning:
 
-    from wetterdienst import Wetterdienst, Resolution, Period
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixType
+    from wetterdienst import Resolution, Period
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
-    API = Wetterdienst(provider="dwd", network="mosmix")
-
-    stations = API(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
+    stations = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
         station_id=["01001", "01008"]
     )
 

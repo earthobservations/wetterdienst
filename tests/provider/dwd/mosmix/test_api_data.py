@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
@@ -21,7 +21,7 @@ def test_dwd_mosmix_l():
     )
     response = next(request.values.query())
 
-    # Verify list of stations.
+    # Verify list of stations_result.
     station_names = response.stations.df["name"].unique().tolist()
     assert station_names == ["JAN MAYEN"]
 
@@ -173,7 +173,7 @@ def test_dwd_mosmix_s():
     )
     response = next(request.values.query())
 
-    # Verify list of stations.
+    # Verify list of stations_result.
     station_names = list(response.stations.df["name"].unique())
     assert station_names == ["BJORNOYA"]
 

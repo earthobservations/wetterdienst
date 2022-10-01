@@ -24,17 +24,15 @@ jobs:
 
     steps:
       - name: Acquire sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
 
       - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v4
-        with:
-          poetry-version: 1.1.5
+        uses: snok/install-poetry@v1
 
       - name: Build wheel package
         run: poetry build --format=wheel
@@ -57,15 +55,15 @@ jobs:
 
     steps:
       - name: Acquire sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
 
       - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v4
+        uses: snok/install-poetry@v1
 
       - name: Build wheel package
         run: poetry build --format=wheel
@@ -74,7 +72,6 @@ jobs:
         run: docker build . --file .github/release/full/Dockerfile --tag $IMAGE_NAME
 
       - name: Log into GitHub Container Registry
-      # TODO: Create a PAT with `read:packages` and `write:packages` scopes and save it as an Actions secret `CR_PAT`
         run: echo "${{ secrets.CR_PAT }}" | docker login https://ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Push image to GitHub Container Registry

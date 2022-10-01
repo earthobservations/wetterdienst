@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """ A set of utility functions """
 import logging
@@ -16,7 +16,7 @@ def setup_logging(level=logging.INFO) -> None:
     numexpr_logger.setLevel(logging.WARN)
 
 
-def read_list(data: Optional[str], separator: str = u",") -> List[str]:
+def read_list(data: Optional[str], separator: str = ",") -> List[str]:
     if data is None:
         return []
 

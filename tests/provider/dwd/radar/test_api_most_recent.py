@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-
 import pytest
-import wradlib as wrl
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
@@ -61,7 +59,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape == (360, 600)
+    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600))
 
 
 @pytest.mark.remote
@@ -106,7 +104,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 720), (361, 720))
+    assert hdf["/dataset1/data1/data"].shape in ((360, 720), (361, 720), (358, 720))
 
     # Verify that the second file is the second scan / elevation level.
     buffer = results[1].data
@@ -119,6 +117,8 @@ def test_radar_request_radolan_cdc_most_recent():
     """
     Example for testing radar sites most recent RADOLAN_CDC.
     """
+
+    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
@@ -143,6 +143,7 @@ def test_radar_request_radolan_cdc_most_recent():
         "producttype": "SF",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 86400,
         "nrow": 900,
         "ncol": 900,

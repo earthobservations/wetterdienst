@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from dataclasses import dataclass
 from datetime import datetime
@@ -89,6 +89,46 @@ class StationsResult(ExportMixin):
     def humanize(self) -> bool:
         return self.stations.humanize
 
+    @property
+    def si_units(self) -> bool:
+        return self.stations.si_units
+
+    @property
+    def skip_empty(self) -> bool:
+        return self.stations.skip_empty
+
+    @property
+    def skip_threshold(self) -> float:
+        return self.stations.skip_threshold
+
+    @property
+    def dropna(self) -> float:
+        return self.stations.dropna
+
+    @property
+    def _has_tidy_data(self) -> bool:
+        return self.stations._has_tidy_data
+
+    @property
+    def _dataset_accessor(self) -> bool:
+        return self.stations._dataset_accessor
+
+    @property
+    def _unique_dataset(self) -> bool:
+        return self.stations._unique_dataset
+
+    @property
+    def _has_datasets(self) -> bool:
+        return self.stations._has_datasets
+
+    @property
+    def _unit_tree(self) -> bool:
+        return self.stations._unit_tree
+
+    @property
+    def _parameter_base(self) -> bool:
+        return self.stations._parameter_base
+
     def to_ogc_feature_collection(self) -> dict:
         """
         Format station information as OGC feature collection.
@@ -139,9 +179,28 @@ class StationsResult(ExportMixin):
 
 @dataclass
 class ValuesResult(ExportMixin):
+    # TODO: add more meaningful metadata e.g. describe()
 
     stations: StationsResult
     df: pd.DataFrame
+
+    def to_ogc_feature_collection(self):
+        raise NotImplementedError()
+
+    def filter_by_date(self, date: str) -> pd.DataFrame:
+        self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
+        return self.df
+
+
+@dataclass
+class InterpolatedValuesResult(ExportMixin):
+    stations: StationsResult
+    df: pd.DataFrame
+
+    def __init__(self, df: pd.DataFrame, stations: StationsResult = None, **kwargs) -> None:
+        self.stations = stations
+        self.df = df
+        self._kwargs = kwargs
 
     def to_ogc_feature_collection(self):
         raise NotImplementedError()

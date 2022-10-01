@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -23,9 +23,31 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            PRECIPITATION_FORM = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
+            )
+
+    # 5_minutes
+    class MINUTE_5(DatasetTreeCore):  # noqa
+        # precipitation
+        class PRECIPITATION(UnitEnum):
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRECIPITATION_INDEX = (
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
+            )
+            PRECIPITATION_HEIGHT = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+            )
+            PRECIPITATION_HEIGHT_DROPLET = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+            )
+            PRECIPITATION_HEIGHT_ROCKER = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
 
     # 10_minutes
@@ -99,7 +121,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            PRECIPITATION_INDICATOR_WR = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -145,7 +167,7 @@ class DwdObservationUnit(DatasetTreeCore):
         class CLOUD_TYPE(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
-            CLOUD_COVER_TOTAL_INDICATOR = (
+            CLOUD_COVER_TOTAL_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -193,7 +215,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # cloudiness
         class CLOUDINESS(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            CLOUD_COVER_TOTAL_INDICATOR = (
+            CLOUD_COVER_TOTAL_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -249,7 +271,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.MILLIMETER.value,
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
-            PRECIPITATION_INDICATOR = (
+            PRECIPITATION_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -332,7 +354,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # visibility
         class VISIBILITY(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            VISIBILITY_RANGE_INDICATOR = (
+            VISIBILITY_RANGE_INDEX = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -358,6 +380,66 @@ class DwdObservationUnit(DatasetTreeCore):
 
         # wind_synop
         class WIND_SYNOPTIC(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            WIND_SPEED = (
+                OriginUnit.METER_PER_SECOND.value,
+                SIUnit.METER_PER_SECOND.value,
+            )
+            WIND_DIRECTION = (
+                OriginUnit.WIND_DIRECTION.value,
+                SIUnit.WIND_DIRECTION.value,
+            )
+
+        class URBAN_TEMPERATURE_AIR(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            TEMPERATURE_AIR_MEAN_200 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+
+        class URBAN_PRECIPITATION(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRECIPITATION_HEIGHT = (
+                OriginUnit.MILLIMETER.value,
+                SIUnit.KILOGRAM_PER_SQUARE_METER.value,
+            )
+
+        class URBAN_PRESSURE(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRESSURE_AIR_SITE = (
+                OriginUnit.HECTOPASCAL.value,
+                SIUnit.PASCAL.value,
+            )
+
+        class URBAN_TEMPERATURE_SOIL(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            TEMPERATURE_SOIL_MEAN_005 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_010 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_020 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_050 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+            TEMPERATURE_SOIL_MEAN_100 = (
+                OriginUnit.DEGREE_CELSIUS.value,
+                SIUnit.DEGREE_KELVIN.value,
+            )
+
+        class URBAN_SUN(UnitEnum):  # noqa
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            SUNSHINE_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
+
+        class URBAN_WIND(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             WIND_SPEED = (
                 OriginUnit.METER_PER_SECOND.value,
@@ -551,7 +633,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value,
                 SIUnit.JOULE_PER_SQUARE_METER.value,
             )
-            RADIATION_SKY_SHORT_WAVE_DIRECT = (
+            RADIATION_GLOBAL = (
                 OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value,
                 SIUnit.JOULE_PER_SQUARE_METER.value,
             )

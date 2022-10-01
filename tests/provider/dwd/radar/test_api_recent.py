@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from datetime import datetime, timedelta
 
@@ -55,7 +55,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape == (360, 600)
+    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600))
 
 
 @pytest.mark.remote
@@ -100,7 +100,7 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape == (360, 720)
+    assert hdf["/dataset1/data1/data"].shape in ((360, 720), (358, 720))
 
     # Verify that the second file is the second scan / elevation level.
     buffer = results[1].data

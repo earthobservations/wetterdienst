@@ -1,6 +1,6 @@
 # """Wetterdienst - Open weather data for humans"""
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 FSSPEC MONKEY PATCH
@@ -102,7 +102,7 @@ class HTTPFileSystem(http.HTTPFileSystem):
 
         if self.use_listings_cache:
             if listings_cache_type == "filedircache":
-                logger.warning(f"Dircache located at {listings_cache_location}")
+                logger.info(f"Dircache located at {listings_cache_location}")
 
         self.kwargs = request_options
 

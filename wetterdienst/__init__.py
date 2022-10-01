@@ -1,6 +1,6 @@
 # """Wetterdienst - Open weather data for humans"""
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 __appname__ = "wetterdienst"
 
@@ -22,7 +22,6 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
-from wetterdienst.util.cache import cache_dir
 
 try:
     __version__ = version(__appname__)
@@ -37,7 +36,7 @@ def info() -> None:
         "authors": "Benjamin Gutzmann <gutzemann@gmail.com>, " "Andreas Motl <andreas.motl@panodata.org>",
         "documentation": "https://wetterdienst.readthedocs.io/",
         "repository": "https://github.com/earthobservations/wetterdienst",
-        "cache_dir": cache_dir,
+        "cache_dir": Settings.cache_dir,
     }
 
     text = "Wetterdienst - Open weather data for humans-------------------------------------------"
@@ -45,6 +44,6 @@ def info() -> None:
     for key, value in wd_info.items():
         text += f"\n{key}:\t {value}"
 
-    print(text)  # noqa: T001
+    print(text)  # noqa: T201
 
     return

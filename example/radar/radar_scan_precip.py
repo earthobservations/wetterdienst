@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -61,16 +61,11 @@ def plot(data: wrl.io.XRadVolume):
     swp0.VRADH[0].plot(x="x", y="y", ax=ax2)
 
 
-def radar_info(data: dict):
+def radar_info(data: wrl.io.XRadVolume):
     """Display data from radar request."""
     print(data)
 
-    return
-    print("Keys:", data.keys())
-
-    log.info("Data")
-    for key, value in data.items():
-        print(f"- {key}: {value}")
+    print("Keys:", data.root)
 
 
 @pytest.mark.remote
@@ -97,7 +92,7 @@ def radar_scan_precip():
     results = chain(request_velocity.query(), request_reflectivity.query())
 
     # Collect list of buffers.
-    files = list(map(lambda item: item.data, results))
+    files = [item.data for item in results]
 
     # Decode data using wradlib.
     data = wrl.io.open_odim(files)

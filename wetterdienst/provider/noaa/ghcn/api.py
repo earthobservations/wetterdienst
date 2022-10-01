@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 from enum import Enum
@@ -36,9 +36,12 @@ class NoaaGhcnResolution(Enum):
     DAILY = Resolution.DAILY.value
 
 
+class NoaaGhcnPeriod(Enum):
+    HISTORICAL = Period.HISTORICAL.value
+
+
 class NoaaGhcnValues(ScalarValuesCore):
     _string_parameters = ()
-    _integer_parameters = ()
     _irregular_parameters = ()
     _date_parameters = (
         NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,
@@ -47,9 +50,9 @@ class NoaaGhcnValues(ScalarValuesCore):
 
     _data_tz = Timezone.DYNAMIC
 
-    _base_url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
+    _base_url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
 
-    # use to get timezones from stations
+    # use to get timezones from stations_result
     _tf = TimezoneFinder()
 
     # multiplication factors
@@ -69,22 +72,13 @@ class NoaaGhcnValues(ScalarValuesCore):
 
         file = download_file(url, CacheExpiry.FIVE_MINUTES)
 
-        df = pd.read_csv(file, sep=",", dtype=str)
+        df = pd.read_csv(file, sep=",", header=None, dtype=str, compression="gzip")
 
-        meta_columns = [
-            "LATITUDE",
-            "LONGITUDE",
-            "ELEVATION",
-            "NAME",
-        ]
+        df = df.iloc[:, :4]
 
-        meta_columns.extend(filter(lambda col: col.endswith("_ATTRIBUTES"), df.columns))
+        df.columns = [Columns.STATION_ID.value, Columns.DATE.value, Columns.PARAMETER.value, Columns.VALUE.value]
 
-        df = df.drop(columns=meta_columns)
-
-        df = df.rename(columns=str.lower).rename(
-            columns={"station": Columns.STATION_ID.value, "date": Columns.DATE.value}
-        )
+        df.loc[:, Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
 
         timezone_ = self._get_timezone_from_station(station_id)
 
@@ -96,13 +90,7 @@ class NoaaGhcnValues(ScalarValuesCore):
             .dt.tz_convert(pytz.UTC)
         )
 
-        df = self._apply_factors(df)
-
-        # TODO: Eventually we will have to convert dates back to strings
-        #  to follow the main logic...
-        df[Columns.DATE.value] = df[Columns.DATE.value].astype(str)
-
-        return df
+        return self._apply_factors(df)
 
     def _apply_factors(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -112,21 +100,16 @@ class NoaaGhcnValues(ScalarValuesCore):
         :param df: DataFrame with given values
         :return: DataFrame with applied factors
         """
+        data = []
 
-        def _apply_factor(series: pd.Series) -> pd.Series:
-            factor = self._mp_factors.get(series.name)
+        for parameter, group in df.groupby(Columns.PARAMETER.value):
+            factor = self._mp_factors.get(parameter)
             if factor:
-                return series.astype(float) * factor
-            return series
+                group[Columns.VALUE.value] = group[Columns.VALUE.value].astype(float) * factor
 
-        return df.apply(_apply_factor, axis=0)
+            data.append(group)
 
-    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
-        return df.melt(
-            id_vars=[Columns.STATION_ID.value, Columns.DATE.value],
-            var_name=Columns.PARAMETER.value,
-            value_name=Columns.VALUE.value,
-        )
+        return pd.concat(data)
 
 
 class NoaaGhcnRequest(ScalarRequestCore):
@@ -139,12 +122,12 @@ class NoaaGhcnRequest(ScalarRequestCore):
     _resolution_type = ResolutionType.FIXED
     _resolution_base = NoaaGhcnResolution
     _period_type = PeriodType.FIXED
-    _period_base = Period.HISTORICAL
+    _period_base = NoaaGhcnPeriod
     _data_range = DataRange.FIXED
 
     _has_datasets = True
     _unique_dataset = True
-    _has_tidy_data = False
+    _has_tidy_data = True
 
     _unit_tree = NoaaGhcnUnit
 
@@ -175,11 +158,9 @@ class NoaaGhcnRequest(ScalarRequestCore):
     def _all(self) -> pd.DataFrame:
         """
         Method to acquire station listing,
-        :return: DataFrame with all stations
+        :return: DataFrame with all stations_result
         """
-        listings_url = (
-            "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/ghcnd-stations.txt"
-        )
+        listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
 
         listings_file = download_file(listings_url, CacheExpiry.TWELVE_HOURS)
 

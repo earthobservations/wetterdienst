@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import gzip
 import logging
@@ -9,12 +9,7 @@ from io import BytesIO
 from typing import Generator, Optional, Tuple, Union
 
 import pandas as pd
-import requests
-from fsspec.implementations.cached import WholeFileCacheFileSystem
-from fsspec.implementations.http import HTTPFileSystem
 from pandas._libs.tslibs.offsets import YearEnd
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
@@ -31,27 +26,28 @@ from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.resolution import (
-    EccObservationResolution,
+    EcccObservationResolution,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
-from wetterdienst.util.cache import CacheExpiry, cache_dir
+from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
+
+
+class EcccObservationPeriod(Enum):
+    HISTORICAL = Period.HISTORICAL.value
 
 
 class EcccObservationValues(ScalarValuesCore):
 
     _string_parameters = ()
-    _integer_parameters = ()
     _irregular_parameters = ()
     _date_parameters = ()
 
     _data_tz = Timezone.UTC
 
     _has_quality = True
-
-    _session = requests.Session()
-    _session.mount("https://", HTTPAdapter(max_retries=Retry(total=10, connect=5, read=5)))
 
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
@@ -69,7 +65,7 @@ class EcccObservationValues(ScalarValuesCore):
     @property
     def _timeframe(self) -> str:
         """internal timeframe string for resolution"""
-        return self._timeframe_mapping.get(self.stations.stations.resolution)
+        return self._timeframe_mapping.get(self.sr.stations.resolution)
 
     _time_step_mapping = {
         Resolution.HOURLY: "HLY",
@@ -81,14 +77,7 @@ class EcccObservationValues(ScalarValuesCore):
     @property
     def _time_step(self):
         """internal time step string for resolution"""
-        return self._time_step_mapping.get(self.stations.stations.resolution)
-
-    def _create_humanized_parameters_mapping(self):
-        # TODO: change to something general, depending on ._has_datasets
-        return {
-            parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[self.stations.stations.resolution.name]
-        }
+        return self._time_step_mapping.get(self.sr.stations.resolution)
 
     def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
         """
@@ -128,27 +117,22 @@ class EcccObservationValues(ScalarValuesCore):
         :param dataset: dataset of query, can be skipped as ECCC has unique dataset
         :return: pandas.DataFrame with data
         """
-        meta = self.stations.df[self.stations.df[Columns.STATION_ID.value] == station_id]
+        meta = self.sr.df[self.sr.df[Columns.STATION_ID.value] == station_id]
 
-        name, from_date, to_date = (
-            meta[
-                [
-                    Columns.NAME.value,
-                    Columns.FROM_DATE.value,
-                    Columns.TO_DATE.value,
-                ]
+        from_date, to_date = meta[
+            [
+                Columns.FROM_DATE.value,
+                Columns.TO_DATE.value,
             ]
-            .values.flatten()
-            .tolist()
-        )
+        ].values.flatten()
 
         # start and end year from station
         start_year = None if pd.isna(from_date) else from_date.year
         end_year = None if pd.isna(to_date) else to_date.year
 
         # start_date and end_date from request
-        start_date = self.stations.stations.start_date
-        end_date = self.stations.stations.end_date
+        start_date = self.sr.stations.start_date
+        end_date = self.sr.stations.end_date
 
         start_year = start_year and max(start_year, start_date and start_date.year or start_year)
         end_year = end_year and min(end_year, end_date and end_date.year or end_year)
@@ -162,10 +146,10 @@ class EcccObservationValues(ScalarValuesCore):
         if start_year and end_year:
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
-                # TODO: replace this by fsspec
-                payload = self._session.get(url, timeout=60, verify=False)
 
-                df_temp = pd.read_csv(BytesIO(payload.content))
+                payload = download_file(url, CacheExpiry.NO_CACHE)
+
+                df_temp = pd.read_csv(payload)
 
                 df_temp = df_temp.rename(columns=str.lower)
 
@@ -213,7 +197,7 @@ class EcccObservationValues(ScalarValuesCore):
         :param end_year:
         :return:
         """
-        resolution = self.stations.stations.resolution
+        resolution = self.sr.stations.resolution
 
         freq = "Y"
         if resolution == Resolution.HOURLY:
@@ -221,7 +205,7 @@ class EcccObservationValues(ScalarValuesCore):
 
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
-        for date in pd.date_range(f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, closed=None):
+        for date in pd.date_range(f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, inclusive=None):
             url = self._base_url.format(int(station_id), self._timeframe)
 
             url += f"&Year={date.year}"
@@ -248,12 +232,12 @@ class EcccObservationRequest(ScalarRequestCore):
 
     _tz = Timezone.UTC
 
-    _resolution_base = EccObservationResolution
+    _resolution_base = EcccObservationResolution
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
-    _period_base = Period.HISTORICAL
+    _period_base = EcccObservationPeriod
     _parameter_base = EcccObservationParameter  # replace with parameter enumeration
-    _data_range = DataRange.LOOSELY
+    _data_range = DataRange.FIXED
     _has_datasets = True
     _dataset_base = EcccObservationDataset
     _unique_dataset = True
@@ -309,7 +293,7 @@ class EcccObservationRequest(ScalarRequestCore):
     def __init__(
         self,
         parameter: Tuple[Union[str, EcccObservationParameter]],
-        resolution: Union[EccObservationResolution, Resolution],
+        resolution: Union[EcccObservationResolution, Resolution],
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ):
@@ -330,14 +314,16 @@ class EcccObservationRequest(ScalarRequestCore):
 
     def _all(self) -> pd.DataFrame:
         # Acquire raw CSV payload.
-        csv_payload = self._download_stations()
+        csv_payload, source = self._download_stations()
+
+        header = source == 0 and 3 or 2
 
         # Read into Pandas data frame.
-        df = pd.read_csv(BytesIO(csv_payload), header=2, dtype=str)
+        df = pd.read_csv(csv_payload, header=header, dtype=str)
 
         df = df.rename(columns=str.lower)
 
-        df = df.drop(columns=["latitude", "longitude"])
+        df = df.drop(columns=["latitude", "longitude"], errors="ignore")
 
         df = df.rename(columns=self._columns_mapping)
 
@@ -346,42 +332,37 @@ class EcccObservationRequest(ScalarRequestCore):
         return df
 
     @staticmethod
-    def _download_stations() -> BytesIO:
+    def _download_stations() -> Tuple[BytesIO, int]:
         """
         Download station list from ECCC FTP server.
 
-        :return: CSV payload
+        :return: CSV payload, source identifier
         """
 
         gdrive_url = "https://drive.google.com/uc?id=1HDRnj41YBWpMioLPwAFiLlK4SK8NV72C"
-
         http_url = (
             "https://github.com/earthobservations/testdata/raw/main/ftp.tor.ec.gc.ca/Pub/"
             "Get_More_Data_Plus_de_donnees/Station%20Inventory%20EN.csv.gz"
         )
 
         payload = None
-
-        fs = WholeFileCacheFileSystem(
-            fs=HTTPFileSystem(),
-            cache_storage=cache_dir,
-            expiry_time=CacheExpiry.METAINDEX.value,
-        )
-
+        source = None
         try:
-            payload = fs.cat(gdrive_url)
+            payload = download_file(gdrive_url, CacheExpiry.METAINDEX)
+            source = 0
         except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
             try:
-                response = fs.cat(http_url)
-                with gzip.open(BytesIO(response), mode="rb") as f:
-                    payload = f.read()
+                response = download_file(http_url, CacheExpiry.METAINDEX)
+                with gzip.open(response, mode="rb") as f:
+                    payload = BytesIO(f.read())
+                source = 1
             except Exception:
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
         if payload is None:
             raise FailedDownload("Unable to acquire ECCC stations list")
 
-        return payload
+        return payload, source

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import re
@@ -25,10 +25,12 @@ from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
     DWD_CDC_PATH,
     DWD_SERVER,
-    STATION_ID_REGEX,
     DWDCDCBase,
 )
-from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
+from wetterdienst.provider.dwd.observation.metadata.dataset import (
+    DWD_URBAN_DATASETS,
+    DwdObservationDataset,
+)
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
@@ -42,6 +44,8 @@ METADATA_COLUMNS = [
     Columns.NAME.value,
     Columns.STATE.value,
 ]
+
+STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 
 
 def create_meta_index_for_climate_observations(
@@ -69,11 +73,13 @@ def create_meta_index_for_climate_observations(
     )
 
     cond2 = resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME
-
+    cond3 = dataset in DWD_URBAN_DATASETS
     if cond1:
         meta_index = _create_meta_index_for_1minute_historical_precipitation()
     elif cond2:
         meta_index = _create_meta_index_for_subdaily_extreme_wind(period)
+    elif cond3:
+        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, Period.RECENT)
     else:
         meta_index = _create_meta_index_for_climate_observations(dataset, resolution, period)
 
@@ -115,12 +121,17 @@ def _create_meta_index_for_climate_observations(
     """
     parameter_path = build_path_to_parameter(dataset, resolution, period)
 
+    if dataset in DWD_URBAN_DATASETS:
+        dwd_cdc_base = DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS.value
+    else:
+        dwd_cdc_base = DWDCDCBase.CLIMATE_OBSERVATIONS.value
+
     url = reduce(
         urljoin,
         [
             DWD_SERVER,
             DWD_CDC_PATH,
-            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
+            dwd_cdc_base,
             parameter_path,
         ],
     )
@@ -231,7 +242,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame
 
 def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     """
-    A helping function to create a raw index of metadata for stations of the set of
+    A helping function to create a raw index of metadata for stations_result of the set of
     parameters as given. This raw metadata is then used by other functions. This
     second/alternative function must be used for high resolution data, where the
     metadata is not available as file but instead saved in external files per each
@@ -265,7 +276,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     with ThreadPoolExecutor() as executor:
         metadata_dfs = executor.map(_parse_geo_metadata, zip(metadata_files, station_ids))
 
-    meta_index_df = meta_index_df.append(other=list(metadata_dfs), ignore_index=True)
+    meta_index_df = pd.concat([meta_index_df] + list(metadata_dfs), ignore_index=True)
 
     missing_to_date_index = pd.isnull(meta_index_df[Columns.TO_DATE.value])
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =======================
@@ -8,14 +8,14 @@ List of DWD radar sites
 
 Sources
 =======
-- April, 2018: https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile  # noqa:B950
-- October, 2020: https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile  # noqa:B950
+- April, 2018: https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile
+- October, 2020: https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile
 
 References
 ==========
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
 - https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
-"""
+"""  # noqa:B950,E501
 from enum import Enum
 from typing import Dict
 
@@ -31,12 +31,11 @@ class DwdRadarSite(Enum):
     BOO = "boo"
     DRS = "drs"
     EIS = "eis"
-    EMD = "emd"
     ESS = "ess"
     FBG = "fbg"
     FLD = "fld"
-    ISN = "isn"
     HNR = "hnr"
+    ISN = "isn"
     MEM = "mem"
     NEU = "neu"
     NHB = "nhb"
@@ -51,9 +50,9 @@ class DwdRadarSitesGenerator:  # pragma: no cover
     """
     Parse list of sites from PDF documents [1,2] and output as Python dictionary.
 
-    [1] https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile  # noqa:B950
-    [2] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile  # noqa:B950
-    """
+    [1] https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile
+    [2] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile
+    """  # noqa:B950,E501
 
     url = (
         "https://www.dwd.de/DE/derdwd/messnetz/atmosphaerenbeobachtung/_functions"
@@ -146,4 +145,4 @@ if __name__ == "__main__":  # pragma: no cover
     import black
 
     sites = DwdRadarSitesGenerator().all()
-    print(black.format_str(pprint.pformat(sites), mode=black.Mode()))  # noqa: T001
+    print(black.format_str(pprint.pformat(sites), mode=black.Mode()))  # noqa: T201

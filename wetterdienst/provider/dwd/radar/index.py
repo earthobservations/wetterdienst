@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import os
 from typing import Optional
@@ -101,8 +101,9 @@ def create_fileindex_radar(
         elif fmt == DwdRadarDataFormat.BUFR:
             files_server = files_server[files_server[DwdColumns.FILENAME.value].str.contains("--buf")]
 
-    # Drop duplicates of files packed as .bz2
-    files_server = files_server[~files_server[DwdColumns.FILENAME.value].str.endswith(".bz2")]
+    # Drop duplicates of files packed as .bz2, if not all files are .bz2
+    if not all(files_server[DwdColumns.FILENAME.value].str.endswith(".bz2")):
+        files_server = files_server[~files_server[DwdColumns.FILENAME.value].str.endswith(".bz2")]
 
     # Decode datetime of file for filtering.
     if parse_datetime:
@@ -213,7 +214,6 @@ def build_path_to_parameter(
 
             ambiguous_parameters = [
                 DwdRadarParameter.PE_ECHO_TOP,
-                DwdRadarParameter.PL_VOLUME_SCAN,
                 DwdRadarParameter.PR_VELOCITY,
                 DwdRadarParameter.PX_REFLECTIVITY,
                 DwdRadarParameter.PZ_CAPPI,

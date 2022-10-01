@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime
 import json
@@ -199,6 +199,7 @@ def test_request():
     assert not df.empty
 
 
+@pytest.mark.remote
 def test_export_unknown():
     """Test export of DataFrame to unknown format"""
     Settings.tidy = True
@@ -221,6 +222,7 @@ def test_export_unknown():
     ex.match("Unknown export file type")
 
 
+@pytest.mark.remote
 def test_export_spreadsheet(tmpdir_factory):
     """Test export of DataFrame to spreadsheet"""
     Settings.tidy = False
@@ -253,10 +255,10 @@ def test_export_spreadsheet(tmpdir_factory):
         ("station_id",),
         ("dataset",),
         ("date",),
-        ("qn_3",),
+        ("quality_wind",),
         ("wind_gust_max",),
         ("wind_speed",),
-        ("qn_4",),
+        ("quality",),
         ("precipitation_height",),
         ("precipitation_form",),
         ("sunshine_duration",),
@@ -282,16 +284,16 @@ def test_export_spreadsheet(tmpdir_factory):
         (10,),
         (19.9,),
         (8.5,),
-        (3,),
+        (10,),
         (0.9,),
         (8,),
         (0,),
         (0,),
         (7.4,),
         (7.9,),
-        (991.87,),
+        (991.9,),
         (5.9,),
-        (84.21,),
+        (84,),
         (7.5,),
         (2,),
         (1.5,),
@@ -343,7 +345,7 @@ def test_export_parquet(tmpdir_factory):
     df = request.values.all().df
 
     # Save to Parquet file.
-    filename = tmpdir_factory.mktemp("data").join("observations.parquet")
+    filename = tmpdir_factory.mktemp("data").join("observation.parquet")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Parquet file.
@@ -358,10 +360,10 @@ def test_export_parquet(tmpdir_factory):
         "station_id",
         "dataset",
         "date",
-        "qn_3",
+        "quality_wind",
         "wind_gust_max",
         "wind_speed",
-        "qn_4",
+        "quality",
         "precipitation_height",
         "precipitation_form",
         "sunshine_duration",
@@ -407,7 +409,7 @@ def test_export_zarr(tmpdir_factory):
     df = request.values.all().df
 
     # Save to Zarr group.
-    filename = tmpdir_factory.mktemp("data").join("observations.zarr")
+    filename = tmpdir_factory.mktemp("data").join("observation.zarr")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Zarr group.
@@ -423,10 +425,10 @@ def test_export_zarr(tmpdir_factory):
         "station_id",
         "dataset",
         "date",
-        "qn_3",
+        "quality_wind",
         "wind_gust_max",
         "wind_speed",
-        "qn_4",
+        "quality",
         "precipitation_height",
         "precipitation_form",
         "sunshine_duration",
@@ -472,7 +474,7 @@ def test_export_feather(tmpdir_factory):
     df = request.values.all().df
 
     # Save to Feather file.
-    filename = tmpdir_factory.mktemp("data").join("observations.feather")
+    filename = tmpdir_factory.mktemp("data").join("observation.feather")
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Feather file.
@@ -487,10 +489,10 @@ def test_export_feather(tmpdir_factory):
         "station_id",
         "dataset",
         "date",
-        "qn_3",
+        "quality_wind",
         "wind_gust_max",
         "wind_speed",
-        "qn_4",
+        "quality",
         "precipitation_height",
         "precipitation_form",
         "sunshine_duration",
@@ -532,7 +534,7 @@ def test_export_sqlite(tmpdir_factory):
         station_id=[1048],
     )
 
-    filename = tmpdir_factory.mktemp("data").join("observations.sqlite")
+    filename = tmpdir_factory.mktemp("data").join("observation.sqlite")
 
     df = request.values.all().df
     ExportMixin(df=df).to_target(f"sqlite:///{filename}?table=testdrive")
@@ -548,19 +550,19 @@ def test_export_sqlite(tmpdir_factory):
         "01048",
         "climate_summary",
         "2019-01-01 00:00:00.000000",
-        10,
+        10.0,
         19.9,
         8.5,
-        3,
+        10.0,
         0.9,
-        8,
+        8.0,
         0.0,
-        0,
+        0.0,
         7.4,
         7.9,
-        991.87,
+        991.9,
         5.9,
-        84.21,
+        84.0,
         7.5,
         2.0,
         1.5,
@@ -692,8 +694,8 @@ def test_export_influxdb1_tabular():
         assert points[0]["measurement"] == "weather"
         assert list(points[0]["tags"].keys()) == [
             "station_id",
-            "qn_3",
-            "qn_4",
+            "quality_wind",
+            "quality",
             "dataset",
         ]
         assert list(points[0]["fields"].keys()) == [

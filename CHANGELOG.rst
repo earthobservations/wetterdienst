@@ -4,7 +4,139 @@ Changelog
 Development
 ***********
 
+0.45.0 (22.09.2022)
+*******************
+
+- Add interpolation of multiple weather stations for a given lat/lon point (currently only works for DWDObservationRequest)
+- Fix access of DWD Observation climate_urban datasets
+
+0.44.0 (18.09.2022)
+*******************
+
+- Slightly adapt the conversion function to satisfy linter
+- Fix parameter names:
+    - we now use consistently INDEX instead of INDICATOR
+    - index and form got mixed up with certain parameters, where actually index was measured/given but not the form
+    - global radiation was mistakenly named radiation_short_wave_direct at certain points, now it is named correctly
+- Adjust Docker images to fix build problems, now use python 3.10 as base
+- Adjust NOAA sources to AWS as NCEI sources currently are not available
+- Make explorer work again for all services setting up Period enum classes instead of single instances of Period for
+  period base
+
+0.43.0 (05.09.2022)
+*******************
+
+- Use lxml.iterparse to reduce memory consumption when parsing DWD Mosmix files
+- Fix Settings object instantiation
+- Change logging level for Settings.cache_disable to INFO
+- Add DWD Observation climate_urban datasets
+
+0.42.1 (25.08.2022)
+*******************
+
+- Fix DWD Mosmix station locations
+
+0.42.0 (22.08.2022)
+*******************
+
+- Move cache settings to core wetterdienst Settings object
+- Fix two parameter names
+
+0.41.1 (04.08.2022)
+*******************
+
+- Fix correct mapping of periods for solar daily data which should also have Period.HISTORICAL besides Period.RECENT
+
+0.41.0 (24.07.2022)
+*******************
+
+- Fix passing through of empty dataframe when trying to convert units
+
+0.40.0 (10.07.2022)
+*******************
+
+- Update dependencies
+
+0.39.0 (27.06.2022)
+*******************
+
+- Update dependencies
+
+0.38.0 (09.06.2022)
+*******************
+
+- Add DWD Observation 5 minute precipitation dataset
+- Add test to compare actually provided DWD observation datasets with the ones we made available with wetterdienst
+- Fix one particular dataset which was not correctly included in our DWD observations resolution-dataset-mapping
+
+0.37.0 (06.06.2022)
+*******************
+
+- Fix EA hydrology access
+- Update ECCC observation methods to acquire station listing
+
+0.36.0 (31.05.2022)
+*******************
+
+- Fix using shared FSSPEC_CLIENT_KWARGS everywhere
+
+0.35.0 (29.05.2022)
+*******************
+
+- Add option to skip empty stations (option tidy must be set)
+- Add option to drop empty rows (value is NaN) (option tidy must be set)
+
+0.34.0 (22.05.2022)
+*******************
+
+- Add UKs Environment Agency hydrology API
+
+0.33.0 (14.05.2022)
+*******************
+
+- Fix acquisition of DWD weather phenomena data
+- Set default encoding when reading data from DWD with pandas to 'latin1'
+- Fix typo in `EcccObservationResolution`
+
+0.32.4 (14.05.2022)
+*******************
+
+- Fix acquisition of historical DWD radolan data that comes in archives
+
+0.32.3 (12.05.2022)
+*******************
+
+- Fix creation of empty DataFrame for missing station ids
+- Fix creation of empty DataFrame for annual data
+
+0.32.2 (10.05.2022)
+*******************
+
+- Revert ssl option
+
+0.32.1 (09.05.2022)
+*******************
+
+- Circumvent DWD server ssl certificate problem by temporary removing ssl verification
+
+0.32.0 (24.04.2022)
+*******************
+
+- Add implementation of WSV Pegelonline service
+- Clean up code at several places
+- Fix ECCC observations access
+
+0.31.1 (03.04.2022)
+*******************
+
+- Change integer dtypes in untidy format to float to prevent loosing information when converting units
+
+0.31.0 (29.03.2022)
+*******************
+
 - Improve integrity of dataset, parameter and unit enumerations with further tests
+- Change source of hourly sunshine duration to dataset sun
+- Change source of hourly total cloud cover (+indicator) to dataset cloudiness
 
 0.30.1 (03.03.2022)
 *******************
@@ -94,7 +226,6 @@ Features
 
 - Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
   [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
-
 - Rename wetterdienst show to wetterdienst info, make version accessible via cli with
   wetterdienst version
 
@@ -355,7 +486,7 @@ Bugfixes
 - establish code style black
 - setup nox session that can be used to run black via nox -s black for one of the supported
   Python versions
-- add option for data collection to tidy the DataFrame (properly reshape) with the 
+- add option for data collection to tidy the DataFrame (properly reshape) with the
   "tidy_data" keyword and set it to be used as default
 - fix integer type casting for cases with nans in the column/series
 - fix humanizing of column names for tidy data
@@ -378,7 +509,7 @@ Bugfixes
 - [cli] Add geospatial filtering by number of nearby stations.
 - Simplify release pipeline
 - small updates to readme
-- change updating "parallel" argument to be done after parameter parsing to prevent mistakenly not found 
+- change updating "parallel" argument to be done after parameter parsing to prevent mistakenly not found
   parameter
 - remove find_all_match_strings function and extract functionality to individual operations
 - parameter, time resolution and period type can now also be passed as strings of the enumerations e.g.

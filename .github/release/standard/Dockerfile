@@ -1,16 +1,13 @@
-FROM python:3.8.8-slim
+FROM python:3.10-slim
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
-
-RUN apt-get update
-RUN apt-get --yes install git
 
 # Use "poetry build --format=wheel" to build wheel packages.
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN pip install $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[sql,export,restapi]
+RUN pip install --no-cache-dir $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[export,restapi]
 
 # Purge /tmp directory
 RUN rm /tmp/*

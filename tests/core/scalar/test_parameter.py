@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
@@ -18,9 +18,14 @@ from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
+from wetterdienst.provider.environment_agency.hydrology.api import (
+    EaHydrologyParameter,
+    EaHydrologyUnit,
+)
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnDataset
 from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
+from wetterdienst.provider.wsv.pegel.api import WsvPegelParameter, WsvPegelUnit
 
 ORIGIN_UNITS = [unit.value for unit in OriginUnit]
 SI_UNITS = [unit.value for unit in SIUnit]
@@ -37,6 +42,10 @@ SI_UNITS = [unit.value for unit in SIUnit]
         (EcccObservationUnit, False),
         (NoaaGhcnParameter, False),
         (NoaaGhcnUnit, False),
+        (WsvPegelParameter, False),
+        (WsvPegelUnit, False),
+        (EaHydrologyParameter, False),
+        (EaHydrologyUnit, False),
     ),
 )
 def test_parameter_names(parameter_enum, is_ds_tree):
@@ -79,6 +88,8 @@ def test_parameter_names(parameter_enum, is_ds_tree):
         (DwdMosmixParameter, DwdMosmixUnit, False),
         (EcccObservationParameter, EcccObservationUnit, False),
         (NoaaGhcnParameter, NoaaGhcnUnit, False),
+        (WsvPegelParameter, WsvPegelUnit, False),
+        (EaHydrologyParameter, EaHydrologyUnit, False),
     ),
 )
 def test_parameter_unit_alignment(parameter_enum, unit_enum, is_ds_tree):

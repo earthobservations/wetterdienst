@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import functools
 import json
@@ -27,7 +27,7 @@ provider_opt = cloup.option_group(
     "Provider",
     click.option(
         "--provider",
-        type=click.Choice(list(map(lambda p: p.name, Provider)), case_sensitive=False),
+        type=click.Choice([provider.name for provider in Provider], case_sensitive=False),
         required=True,
     ),
 )
@@ -129,13 +129,13 @@ def cli():
         wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
         wetterdienst stations --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--pretty=<pretty>] [--debug=<debug>]
 
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
-        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --all=<all> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --station=<station> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --name=<name> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --rank=<rank>  [--sql=<sql>] [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --coordinates=<latitude,longitude> --distance=<distance> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --bbox=<left,lower,right,top> [--target=<target>] [--format=<format>] [--tidy=<tidy>] [--humanize=<humanize>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
+        wetterdienst values --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>] --sql=<sql> [--target=<target>] [--format=<format>] [--humanize=<humanize>] [--tidy=<tidy>] [--si-units=<si-units>] [--skip_empty=<skip_empty>] [--skip_threshold=<skip_threshold>] [--dropna=<dropna>] [--pretty=<pretty>] [--debug=<debug>]
 
     Options:
         --parameter=<parameter>               Parameter Set/Parameter, e.g. "kl" or "precipitation_height", etc.
@@ -158,6 +158,9 @@ def cli():
         --tidy                                Tidy DataFrame
         --humanize                            Humanize parameters
         --si-units                            Convert to SI units
+        --skip_empty                          Skip empty stations according to skip_threshold
+        --skip_threshold                      Skip threshold for a station to be empty (0 < skip_threshold <= 1)
+        --dropna                              Whether to drop nan values from the result
         --pretty                              Pretty json with indent 4
         --debug                               Enable debug messages
         --listen=<listen>                     HTTP server listen address.
@@ -167,10 +170,10 @@ def cli():
     Examples requesting observation stations:
 
         # Get list of all stations for daily climate summary data in JSON format
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all
 
         # Get list of all stations in CSV format
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --format=csv
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all --format=csv
 
         # Get list of specific stations
         wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411
@@ -180,7 +183,7 @@ def cli():
 
     Examples requesting mosmix stations:
 
-        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large
+        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large --all
 
     Examples requesting observation values:
 
@@ -266,7 +269,7 @@ def cli():
     Examples for exporting data to files:
 
         # Export list of stations into spreadsheet
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --target=file://stations.xlsx
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --target=file://stations_result.xlsx
 
         # Shortcut command for fetching readings
         alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
@@ -322,7 +325,7 @@ def cli():
         # Start service on public interface and specific port.
         wetterdienst explorer --listen=0.0.0.0:8891
 
-    """
+    """  # noqa:E501
     pass
 
 
@@ -337,7 +340,7 @@ def info():
 
 @cli.command("version")
 def version():
-    print(__version__)  # noqa: T001
+    print(__version__)  # noqa: T201
 
 
 @cli.command("restapi")
@@ -383,7 +386,7 @@ def about():
     "Provider",
     click.option(
         "--provider",
-        type=click.Choice(list(map(lambda p: p.name, Provider)), case_sensitive=False),
+        type=click.Choice([provider.name for provider in Provider], case_sensitive=False),
     ),
 )
 @cloup.option_group(
@@ -399,7 +402,7 @@ def coverage(provider, network, filter_, debug):
     set_logging_level(debug)
 
     if not provider or not network:
-        print(json.dumps(Wetterdienst.discover(), indent=4))  # noqa: T001
+        print(json.dumps(Wetterdienst.discover(), indent=4))  # noqa: T201
         return
 
     api = get_api(provider=provider, network=network)
@@ -409,7 +412,7 @@ def coverage(provider, network, filter_, debug):
         flatten=False,
     )
 
-    print(json.dumps(cov, indent=4))  # noqa: T001
+    print(json.dumps(cov, indent=4))  # noqa: T201
 
     return
 
@@ -441,7 +444,7 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
 
     output = pformat(dict(metadata))
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 
@@ -507,6 +510,9 @@ def stations(
         tidy=False,
         si_units=False,
         humanize=False,
+        skip_empty=False,
+        skip_threshold=0.95,
+        dropna=False,
     )
 
     if stations_.df.empty:
@@ -523,7 +529,7 @@ def stations(
 
     output = stations_.to_format(fmt, indent=indent)
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 
@@ -550,6 +556,9 @@ def stations(
 @cloup.option("--si-units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
+@cloup.option("--skip_empty", type=click.BOOL, default=False)
+@cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
+@cloup.option("--dropna", type=click.BOOL, default=False)
 @debug_opt
 def values(
     provider: str,
@@ -573,6 +582,9 @@ def values(
     tidy: bool,
     si_units: bool,
     humanize: bool,
+    skip_empty: bool,
+    skip_threshold: float,
+    dropna: bool,
     pretty: bool,
     debug: bool,
 ):
@@ -600,6 +612,9 @@ def values(
             si_units=si_units,
             tidy=tidy,
             humanize=humanize,
+            skip_empty=skip_empty,
+            skip_threshold=skip_threshold,
+            dropna=dropna,
         )
     except ValueError as ex:
         log.exception(ex)
@@ -619,7 +634,7 @@ def values(
 
     output = values_.to_format(fmt, indent=indent)
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 
@@ -655,7 +670,7 @@ def radar(
 
     output = json.dumps(data, indent=4)
 
-    print(output)  # noqa: T001
+    print(output)  # noqa: T201
 
     return
 

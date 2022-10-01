@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from datetime import datetime
 
@@ -44,6 +44,14 @@ def test_dwd_observations_stations_filter():
     assert not df.empty
 
     assert_frame_equal(df, EXPECTED_DF)
+
+
+@pytest.mark.remote
+def test_dwd_observations_urban_stations():
+    """Test DWD Observation urban stations"""
+    stations = DwdObservationRequest(parameter="urban_air_temperature", resolution="hourly", period="historical").all()
+
+    assert stations.station_id.tolist() == ["00399", "13667", "15818"]
 
 
 @pytest.mark.remote

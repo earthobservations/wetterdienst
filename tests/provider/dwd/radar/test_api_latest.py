@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import re
 from datetime import datetime
 
 import pytest
-import wradlib as wrl
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -44,6 +43,8 @@ def test_radar_request_composite_latest_rw_reflectivity():
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
 
+    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
+
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
         start_date=DwdRadarDate.LATEST,
@@ -64,6 +65,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     attrs = {
         "producttype": "RW",
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -94,14 +96,7 @@ def test_radar_request_composite_latest_rw_reflectivity():
     assert len(requested_attrs["radarlocations"]) >= 10
     assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
 
-    skip_attrs = [
-        "radarid",
-        "maxrange",
-        "datasize",
-        "datetime",
-        "radarlocations",
-        "radolanversion",
-    ]
+    skip_attrs = ["radarid", "maxrange", "datasize", "datetime", "radarlocations", "radolanversion"]
     for attr in skip_attrs:
         requested_attrs.pop(attr, None)
     del attrs["radarlocations"]
@@ -114,6 +109,8 @@ def test_radar_request_site_latest_dx_reflectivity():
     """
     Example for testing radar SITES latest.
     """
+
+    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,

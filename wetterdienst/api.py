@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -9,7 +9,9 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
+from wetterdienst.provider.environment_agency.hydrology.api import EaHydrologyRequest
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
+from wetterdienst.provider.wsv.pegel.api import WsvPegelRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.parameter import DatasetTreeCore
 
@@ -25,6 +27,12 @@ class ApiEndpoints(DatasetTreeCore):
 
     class NOAA(Enum):
         GHCN = NoaaGhcnRequest
+
+    class WSV(Enum):
+        PEGEL = WsvPegelRequest
+
+    class EA(Enum):
+        HYDROLOGY = EaHydrologyRequest
 
 
 class Wetterdienst:

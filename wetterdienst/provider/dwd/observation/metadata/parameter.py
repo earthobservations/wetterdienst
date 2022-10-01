@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -15,15 +15,45 @@ class DwdObservationParameter(DatasetTreeCore):
             PRECIPITATION_HEIGHT = "rs_01"
             PRECIPITATION_HEIGHT_DROPLET = "rth_01"
             PRECIPITATION_HEIGHT_ROCKER = "rwh_01"
-            PRECIPITATION_FORM = "rs_ind_01"  # int
+            PRECIPITATION_INDEX = "rs_ind_01"  # int
 
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
         PRECIPITATION_HEIGHT_DROPLET = PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET
         PRECIPITATION_HEIGHT_ROCKER = PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER
-        PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
+
+    # 5_minutes
+    class MINUTE_5(DatasetTreeCore):  # noqa
+        # precipitation
+        class PRECIPITATION(Enum):
+            QUALITY = "qn_5min"
+            PRECIPITATION_INDEX = "rs_ind_05"  # int
+            PRECIPITATION_HEIGHT = "rs_05"
+            PRECIPITATION_HEIGHT_DROPLET = "rth_05"
+            PRECIPITATION_HEIGHT_ROCKER = "rwh_05"
+
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
+        PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
+        PRECIPITATION_HEIGHT_DROPLET = PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET
+        PRECIPITATION_HEIGHT_ROCKER = PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER
 
     # 10_minutes
     class MINUTE_10(DatasetTreeCore):  # noqa
+        # precipitation
+        class PRECIPITATION(Enum):
+            QUALITY = "qn"
+            PRECIPITATION_DURATION = "rws_dau_10"
+            PRECIPITATION_HEIGHT = "rws_10"
+            PRECIPITATION_INDEX = "rws_ind_10"  # int
+
+        # solar
+        class SOLAR(Enum):
+            QUALITY = "qn"
+            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "ds_10"
+            RADIATION_GLOBAL = "gs_10"
+            SUNSHINE_DURATION = "sd_10"
+            RADIATION_SKY_LONG_WAVE = "ls_10"
+
         # air_temperature
         class TEMPERATURE_AIR(Enum):  # noqa
             QUALITY = "qn"
@@ -45,6 +75,12 @@ class DwdObservationParameter(DatasetTreeCore):
 
         EXTREME_TEMPERATURE = TEMPERATURE_EXTREME
 
+        # wind
+        class WIND(Enum):
+            QUALITY = "qn"
+            WIND_SPEED = "ff_10"
+            WIND_DIRECTION = "dd_10"
+
         # extreme_wind
         class WIND_EXTREME(Enum):  # noqa
             QUALITY = "qn"
@@ -54,27 +90,6 @@ class DwdObservationParameter(DatasetTreeCore):
             WIND_DIRECTION_GUST_MAX = "dx_10"  # int
 
         EXTREME_WIND = WIND_EXTREME
-
-        # precipitation
-        class PRECIPITATION(Enum):
-            QUALITY = "qn"
-            PRECIPITATION_DURATION = "rws_dau_10"
-            PRECIPITATION_HEIGHT = "rws_10"
-            PRECIPITATION_INDICATOR_WR = "rws_ind_10"  # int
-
-        # solar
-        class SOLAR(Enum):
-            QUALITY = "qn"
-            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "ds_10"
-            RADIATION_GLOBAL = "gs_10"
-            SUNSHINE_DURATION = "sd_10"
-            RADIATION_SKY_LONG_WAVE = "ls_10"
-
-        # wind
-        class WIND(Enum):
-            QUALITY = "qn"
-            WIND_SPEED = "ff_10"
-            WIND_DIRECTION = "dd_10"
 
         # air_temperature
         PRESSURE_AIR_SITE = TEMPERATURE_AIR.PRESSURE_AIR_SITE
@@ -98,7 +113,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # precipitation
         PRECIPITATION_DURATION = PRECIPITATION.PRECIPITATION_DURATION
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
-        PRECIPITATION_INDICATOR_WR = PRECIPITATION.PRECIPITATION_INDICATOR_WR
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
 
         # solar
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE
@@ -112,19 +127,11 @@ class DwdObservationParameter(DatasetTreeCore):
 
     # hourly
     class HOURLY(DatasetTreeCore):
-        # air_temperature
-        class TEMPERATURE_AIR(Enum):  # noqa
-            QUALITY = "qn_9"
-            TEMPERATURE_AIR_MEAN_200 = "tt_tu"
-            HUMIDITY = "rf_tu"
-
-        AIR_TEMPERATURE = TEMPERATURE_AIR
-
         # cloud_type
         class CLOUD_TYPE(Enum):  # noqa
             QUALITY = "qn_8"
             CLOUD_COVER_TOTAL = "v_n"  # int
-            CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+            CLOUD_COVER_TOTAL_INDEX = "v_n_i"  # str
             CLOUD_TYPE_LAYER1 = "v_s1_cs"  # int
             CLOUD_TYPE_LAYER1_ABBREVIATION = "v_s1_csa"  # str
             CLOUD_HEIGHT_LAYER1 = "v_s1_hhs"
@@ -145,7 +152,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # cloudiness
         class CLOUDINESS(Enum):
             QUALITY = "qn_8"
-            CLOUD_COVER_TOTAL_INDICATOR = "v_n_i"  # str
+            CLOUD_COVER_TOTAL_INDEX = "v_n_i"  # str
             CLOUD_COVER_TOTAL = "v_n"  # int
 
         # dew_point
@@ -153,13 +160,6 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn_8"
             TEMPERATURE_AIR_MEAN_200 = "tt"
             TEMPERATURE_DEW_POINT_MEAN_200 = "td"
-
-        # extreme_wind
-        class WIND_EXTREME(Enum):  # noqa
-            QUALITY = "qn_8"
-            WIND_GUST_MAX = "fx_911"
-
-        EXTREME_WIND = WIND_EXTREME
 
         # moisture
         class MOISTURE(Enum):
@@ -176,7 +176,7 @@ class DwdObservationParameter(DatasetTreeCore):
         class PRECIPITATION(Enum):
             QUALITY = "qn_8"
             PRECIPITATION_HEIGHT = "r1"
-            PRECIPITATION_INDICATOR = "rs_ind"  # int
+            PRECIPITATION_INDEX = "rs_ind"  # int
             PRECIPITATION_FORM = "wrtr"  # int
 
         # pressure
@@ -184,18 +184,6 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn_8"
             PRESSURE_AIR_SEA_LEVEL = "p"
             PRESSURE_AIR_SITE = "p0"
-
-        # soil_temperature
-        class TEMPERATURE_SOIL(Enum):  # noqa
-            QUALITY = "qn_2"
-            TEMPERATURE_SOIL_MEAN_002 = "v_te002"
-            TEMPERATURE_SOIL_MEAN_005 = "v_te005"
-            TEMPERATURE_SOIL_MEAN_010 = "v_te010"
-            TEMPERATURE_SOIL_MEAN_020 = "v_te020"
-            TEMPERATURE_SOIL_MEAN_050 = "v_te050"
-            TEMPERATURE_SOIL_MEAN_100 = "v_te100"
-
-        SOIL_TEMPERATURE = TEMPERATURE_SOIL
 
         # solar
         class SOLAR(Enum):
@@ -213,10 +201,30 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn_7"
             SUNSHINE_DURATION = "sd_so"
 
+        # air_temperature
+        class TEMPERATURE_AIR(Enum):  # noqa
+            QUALITY = "qn_9"
+            TEMPERATURE_AIR_MEAN_200 = "tt_tu"
+            HUMIDITY = "rf_tu"
+
+        AIR_TEMPERATURE = TEMPERATURE_AIR
+
+        # soil_temperature
+        class TEMPERATURE_SOIL(Enum):  # noqa
+            QUALITY = "qn_2"
+            TEMPERATURE_SOIL_MEAN_002 = "v_te002"
+            TEMPERATURE_SOIL_MEAN_005 = "v_te005"
+            TEMPERATURE_SOIL_MEAN_010 = "v_te010"
+            TEMPERATURE_SOIL_MEAN_020 = "v_te020"
+            TEMPERATURE_SOIL_MEAN_050 = "v_te050"
+            TEMPERATURE_SOIL_MEAN_100 = "v_te100"
+
+        SOIL_TEMPERATURE = TEMPERATURE_SOIL
+
         # visibility
         class VISIBILITY(Enum):
             QUALITY = "qn_8"
-            VISIBILITY_RANGE_INDICATOR = "v_vv_i"  # str
+            VISIBILITY_RANGE_INDEX = "v_vv_i"  # str
             VISIBILITY_RANGE = "v_vv"  # int
 
         # weather_phenomena
@@ -231,6 +239,13 @@ class DwdObservationParameter(DatasetTreeCore):
             WIND_SPEED = "f"
             WIND_DIRECTION = "d"  # int
 
+        # extreme_wind
+        class WIND_EXTREME(Enum):  # noqa
+            QUALITY = "qn_8"
+            WIND_GUST_MAX = "fx_911"
+
+        EXTREME_WIND = WIND_EXTREME
+
         # wind_synop
         class WIND_SYNOPTIC(Enum):  # noqa
             QUALITY = "qn_8"
@@ -239,12 +254,46 @@ class DwdObservationParameter(DatasetTreeCore):
 
         WIND_SYNOP = WIND_SYNOPTIC
 
+        # URBAN DATASETS #
+        class URBAN_PRECIPITATION(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            PRECIPITATION_HEIGHT = "niederschlagshoehe"
+
+        class URBAN_PRESSURE(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            PRESSURE_AIR_SITE = "luftdruck_stationshoehe"
+
+        class URBAN_SUN(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            SUNSHINE_DURATION = "sonnenscheindauer"
+
+        class URBAN_TEMPERATURE_AIR(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            TEMPERATURE_AIR_MEAN_200 = "lufttemperatur"
+            HUMIDITY = "rel_feuchte"
+
+        URBAN_AIR_TEMPERATURE = URBAN_TEMPERATURE_AIR
+
+        class URBAN_TEMPERATURE_SOIL(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            TEMPERATURE_SOIL_MEAN_005 = "erdbt_005"
+            TEMPERATURE_SOIL_MEAN_010 = "erdbt_010"
+            TEMPERATURE_SOIL_MEAN_020 = "erdbt_020"
+            TEMPERATURE_SOIL_MEAN_050 = "erdbt_050"
+            TEMPERATURE_SOIL_MEAN_100 = "erdbt_100"
+
+        URBAN_SOIL_TEMPERATURE = URBAN_TEMPERATURE_SOIL
+
+        class URBAN_WIND(Enum):  # noqa
+            QUALITY = "qualitaets_niveau"
+            WIND_SPEED = "windgeschwindigkeit"
+            WIND_DIRECTION = "windrichtung"  # int
+
         # air_temperature
         TEMPERATURE_AIR_MEAN_200 = TEMPERATURE_AIR.TEMPERATURE_AIR_MEAN_200
         HUMIDITY = TEMPERATURE_AIR.HUMIDITY
 
         # cloud_type
-        CLOUD_COVER_TOTAL = CLOUD_TYPE.CLOUD_COVER_TOTAL
         CLOUD_TYPE_LAYER1 = CLOUD_TYPE.CLOUD_TYPE_LAYER1
         CLOUD_HEIGHT_LAYER1 = CLOUD_TYPE.CLOUD_HEIGHT_LAYER1
         CLOUD_COVER_LAYER1 = CLOUD_TYPE.CLOUD_COVER_LAYER1
@@ -258,15 +307,24 @@ class DwdObservationParameter(DatasetTreeCore):
         CLOUD_HEIGHT_LAYER4 = CLOUD_TYPE.CLOUD_HEIGHT_LAYER4
         CLOUD_COVER_LAYER4 = CLOUD_TYPE.CLOUD_COVER_LAYER4
 
+        # cloudiness
+        CLOUD_COVER_TOTAL = CLOUDINESS.CLOUD_COVER_TOTAL
+        CLOUD_COVER_TOTAL_INDEX = CLOUDINESS.CLOUD_COVER_TOTAL_INDEX
+
         # dew_point
         TEMPERATURE_DEW_POINT_MEAN_200 = DEW_POINT.TEMPERATURE_DEW_POINT_MEAN_200
 
         # extreme_wind
         WIND_GUST_MAX = WIND_EXTREME.WIND_GUST_MAX
 
+        # moisture
+        HUMIDITY_ABSOLUTE = MOISTURE.HUMIDITY_ABSOLUTE
+        PRESSURE_VAPOR = MOISTURE.PRESSURE_VAPOR
+        TEMPERATURE_WET_MEAN_200 = MOISTURE.TEMPERATURE_WET_MEAN_200
+
         # precipitation
         PRECIPITATION_HEIGHT = PRECIPITATION.PRECIPITATION_HEIGHT
-        PRECIPITATION_INDICATOR = PRECIPITATION.PRECIPITATION_INDICATOR
+        PRECIPITATION_INDEX = PRECIPITATION.PRECIPITATION_INDEX
         PRECIPITATION_FORM = PRECIPITATION.PRECIPITATION_FORM
 
         # pressure
@@ -285,45 +343,29 @@ class DwdObservationParameter(DatasetTreeCore):
         RADIATION_SKY_LONG_WAVE = SOLAR.RADIATION_SKY_LONG_WAVE
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE
         RADIATION_GLOBAL = SOLAR.RADIATION_GLOBAL
-        SUNSHINE_DURATION = SOLAR.SUNSHINE_DURATION
         SUN_ZENITH_ANGLE = SOLAR.SUN_ZENITH_ANGLE
 
+        # sun
+        SUNSHINE_DURATION = SUN.SUNSHINE_DURATION
+
         # visibility
-        VISIBILITY_RANGE_INDICATOR = VISIBILITY.VISIBILITY_RANGE_INDICATOR
+        VISIBILITY_RANGE_INDEX = VISIBILITY.VISIBILITY_RANGE_INDEX
         VISIBILITY_RANGE = VISIBILITY.VISIBILITY_RANGE
+
+        # weather phenomena
+        WEATHER = WEATHER_PHENOMENA.WEATHER
 
         # wind
         WIND_SPEED = WIND.WIND_SPEED
         WIND_DIRECTION = WIND.WIND_DIRECTION
 
-        HUMIDITY_ABSOLUTE = MOISTURE.HUMIDITY_ABSOLUTE
-        PRESSURE_VAPOR = MOISTURE.PRESSURE_VAPOR
-        TEMPERATURE_WET_MEAN_200 = MOISTURE.TEMPERATURE_WET_MEAN_200
-
     # subdaily
     class SUBDAILY(DatasetTreeCore):  # noqa
-        # air_temperature
-        class TEMPERATURE_AIR(Enum):  # noqa
-            QUALITY = "qn_4"
-            TEMPERATURE_AIR_MEAN_200 = "tt_ter"
-            HUMIDITY = "rf_ter"
-
-        AIR_TEMPERATURE = TEMPERATURE_AIR
-
         # cloudiness
         class CLOUDINESS(Enum):
             QUALITY = "qn_4"
             CLOUD_COVER_TOTAL = "n_ter"  # int
             CLOUD_DENSITY = "cd_ter"  # int
-
-        # extreme_wind
-        class WIND_EXTREME(Enum):
-            QUALITY_3 = "qn_8_3"
-            WIND_GUST_MAX_LAST_3H = "fx_911_3"
-            QUALITY_6 = "qn_8_6"
-            WIND_GUST_MAX_LAST_6H = "fx_911_6"
-
-        EXTREME_WIND = WIND_EXTREME
 
         # moisture
         class MOISTURE(Enum):
@@ -343,6 +385,14 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn_4"
             TEMPERATURE_SOIL_MEAN_005 = "ek_ter"  # int
 
+        # air_temperature
+        class TEMPERATURE_AIR(Enum):  # noqa
+            QUALITY = "qn_4"
+            TEMPERATURE_AIR_MEAN_200 = "tt_ter"
+            HUMIDITY = "rf_ter"
+
+        AIR_TEMPERATURE = TEMPERATURE_AIR
+
         # visibility
         class VISIBILITY(Enum):
             QUALITY = "qn_4"
@@ -353,6 +403,15 @@ class DwdObservationParameter(DatasetTreeCore):
             QUALITY = "qn_4"
             WIND_DIRECTION = "dk_ter"  # int
             WIND_FORCE_BEAUFORT = "fk_ter"  # int
+
+        # extreme_wind
+        class WIND_EXTREME(Enum):
+            QUALITY_3 = "qn_8_3"
+            WIND_GUST_MAX_LAST_3H = "fx_911_3"
+            QUALITY_6 = "qn_8_6"
+            WIND_GUST_MAX_LAST_6H = "fx_911_6"
+
+        EXTREME_WIND = WIND_EXTREME
 
         # air_temperature
         TEMPERATURE_AIR_MEAN_200 = TEMPERATURE_AIR.TEMPERATURE_AIR_MEAN_200
@@ -416,15 +475,13 @@ class DwdObservationParameter(DatasetTreeCore):
 
         MORE_PRECIP = PRECIPITATION_MORE
 
-        # more_weather_phenomena
-        class WEATHER_PHENOMENA_MORE(Enum):  # noqa
-            QUALITY = "qn_6"
-            COUNT_WEATHER_TYPE_SLEET = "rr_graupel"  # int
-            COUNT_WEATHER_TYPE_HAIL = "rr_hagel"  # int
-            COUNT_WEATHER_TYPE_FOG = "rr_nebel"  # int
-            COUNT_WEATHER_TYPE_THUNDER = "rr_gewitter"  # int
-
-        MORE_WEATHER_PHENOMENA = WEATHER_PHENOMENA_MORE
+        # solar
+        class SOLAR(Enum):
+            QUALITY = "qn_592"
+            RADIATION_SKY_LONG_WAVE = "atmo_strahl"
+            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_strahl"
+            RADIATION_GLOBAL = "fg_strahl"
+            SUNSHINE_DURATION = "sd_strahl"
 
         # soil_temperature
         class TEMPERATURE_SOIL(Enum):  # noqa
@@ -437,14 +494,6 @@ class DwdObservationParameter(DatasetTreeCore):
             TEMPERATURE_SOIL_MEAN_100 = "v_te100m"
 
         SOIL_TEMPERATURE = TEMPERATURE_SOIL
-
-        # solar
-        class SOLAR(Enum):
-            QUALITY = "qn_592"
-            RADIATION_SKY_LONG_WAVE = "atmo_strahl"
-            RADIATION_SKY_SHORT_WAVE_DIFFUSE = "fd_strahl"
-            RADIATION_SKY_SHORT_WAVE_DIRECT = "fg_strahl"
-            SUNSHINE_DURATION = "sd_strahl"
 
         # water_equiv
         class WATER_EQUIVALENT(Enum):  # noqa
@@ -468,6 +517,16 @@ class DwdObservationParameter(DatasetTreeCore):
             COUNT_WEATHER_TYPE_RIPE = "reif"  # int
             COUNT_WEATHER_TYPE_SLEET = "graupel"  # int
             COUNT_WEATHER_TYPE_HAIL = "hagel"  # int
+
+        # more_weather_phenomena
+        class WEATHER_PHENOMENA_MORE(Enum):  # noqa
+            QUALITY = "qn_6"
+            COUNT_WEATHER_TYPE_SLEET = "rr_graupel"  # int
+            COUNT_WEATHER_TYPE_HAIL = "rr_hagel"  # int
+            COUNT_WEATHER_TYPE_FOG = "rr_nebel"  # int
+            COUNT_WEATHER_TYPE_THUNDER = "rr_gewitter"  # int
+
+        MORE_WEATHER_PHENOMENA = WEATHER_PHENOMENA_MORE
 
         # kl
         WIND_GUST_MAX = CLIMATE_SUMMARY.WIND_GUST_MAX
@@ -499,7 +558,7 @@ class DwdObservationParameter(DatasetTreeCore):
         # solar
         RADIATION_SKY_LONG_WAVE = SOLAR.RADIATION_SKY_LONG_WAVE
         RADIATION_SKY_SHORT_WAVE_DIFFUSE = SOLAR.RADIATION_SKY_SHORT_WAVE_DIFFUSE
-        RADIATION_SKY_SHORT_WAVE_DIRECT = SOLAR.RADIATION_SKY_SHORT_WAVE_DIRECT
+        RADIATION_GLOBAL = SOLAR.RADIATION_GLOBAL
 
         # water_equiv
         SNOW_DEPTH_EXCELLED = WATER_EQUIVALENT.SNOW_DEPTH_EXCELLED
@@ -526,11 +585,11 @@ class DwdObservationParameter(DatasetTreeCore):
             TEMPERATURE_AIR_MEAN_200 = "mo_tt"
             TEMPERATURE_AIR_MAX_200_MEAN = "mo_tx"
             TEMPERATURE_AIR_MIN_200_MEAN = "mo_tn"
+            SUNSHINE_DURATION = "mo_sd_s"
             WIND_FORCE_BEAUFORT = "mo_fk"
             TEMPERATURE_AIR_MAX_200 = "mx_tx"
             WIND_GUST_MAX = "mx_fx"
             TEMPERATURE_AIR_MIN_200 = "mx_tn"
-            SUNSHINE_DURATION = "mo_sd_s"
             QUALITY_PRECIPITATION = "qn_6"
             PRECIPITATION_HEIGHT = "mo_rr"
             PRECIPITATION_HEIGHT_MAX = "mx_rs"
@@ -595,8 +654,8 @@ class DwdObservationParameter(DatasetTreeCore):
             TEMPERATURE_AIR_MEAN_200 = "ja_tt"
             TEMPERATURE_AIR_MAX_200_MEAN = "ja_tx"
             TEMPERATURE_AIR_MIN_200_MEAN = "ja_tn"
-            WIND_FORCE_BEAUFORT = "ja_fk"
             SUNSHINE_DURATION = "ja_sd_s"
+            WIND_FORCE_BEAUFORT = "ja_fk"
             WIND_GUST_MAX = "ja_mx_fx"
             TEMPERATURE_AIR_MAX_200 = "ja_mx_tx"
             TEMPERATURE_AIR_MIN_200 = "ja_mx_tn"

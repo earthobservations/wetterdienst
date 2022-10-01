@@ -66,7 +66,7 @@ def create_temperature_ts_plot():
 
 
 def create_weather_stations_map():
-    """ Create map of DWD weather stations in Germany """
+    """ Create map of DWD weather stations_result in Germany """
     stations = DwdObservationRequest(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
@@ -109,7 +109,7 @@ def create_weather_stations_map():
 
     ax.set_xlabel("Longitude [°]")
     ax.set_ylabel("Latitude [°]")
-    ax.set_title("German weather stations")
+    ax.set_title("German weather stations_result")
 
     ax.text(
         0.3,

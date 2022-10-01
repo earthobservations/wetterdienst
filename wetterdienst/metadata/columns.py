@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -41,6 +41,9 @@ class Columns(Enum):
     ICAO_ID = "icao_id"
     # Special columns
     QUALITY_PREFIX = "qn"
+    # Columns used for interpolation
+    DISTANCE_MEAN = "distance_mean"
+    STATION_IDS = "station_ids"
     # for road weather
     ROAD_NAME = "road_name"
     ROAD_TYPE = "road_type"

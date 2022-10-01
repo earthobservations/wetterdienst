@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -95,7 +95,7 @@ def radar_scan_volume():
     results = chain(request_velocity.query(), request_reflectivity.query())
 
     # Collect list of buffers.
-    files = list(map(lambda item: item.data, results))
+    files = [item.data for item in results]
 
     # Sanity checks.
     if not files:

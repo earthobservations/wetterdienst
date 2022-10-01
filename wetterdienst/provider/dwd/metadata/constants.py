@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -15,12 +15,4 @@ DWD_ROAD_WEATHER_REPORTS = "weather/weather_reports/road_weather_stations/"
 
 class DWDCDCBase(Enum):
     CLIMATE_OBSERVATIONS = "observations_germany/climate/"
-
-
-DWD_FOLDER_MAIN = "./dwd_data"
-DWD_FOLDER_STATION_DATA = "station_data"
-DWD_FILE_STATION_DATA = "dwd_station_data"
-STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
-DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
-NA_STRING = "-999"
-STATION_DATA_SEP = ";"
+    CLIMATE_URBAN_OBSERVATIONS = "observations_germany/climate_urban/"

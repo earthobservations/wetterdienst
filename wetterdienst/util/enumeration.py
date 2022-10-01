@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 from typing import Optional, Type, Union
@@ -71,9 +71,4 @@ def parse_enumeration_from_template(
 
 
 def parse_enumeration(values, intermediate, base=None):
-    return list(
-        map(
-            lambda x: parse_enumeration_from_template(x, intermediate, base),
-            as_list(values),
-        )
-    )
+    return [parse_enumeration_from_template(x, intermediate, base) for x in as_list(values)]

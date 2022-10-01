@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ from freezegun import freeze_time
 from pandas import Timestamp
 from pandas._testing import assert_frame_equal
 
+from wetterdienst import Parameter
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -365,6 +366,24 @@ def test_dwd_observation_data_result_missing_data():
 
 
 @pytest.mark.remote
+def test_dwd_observation_data_result_all_missing_data():
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    stations = DwdObservationRequest(
+        parameter=Parameter.PRECIPITATION_HEIGHT.name,
+        resolution=DwdObservationResolution.MINUTE_10,
+        start_date=datetime(2021, 10, 1),
+        end_date=datetime(2021, 10, 5),
+    ).filter_by_station_id(["01851"])
+
+    values = stations.values.all().df
+
+    assert all(values.value.isna())
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_result_tabular():
     """Test for actual values (tabular)"""
     Settings.tidy = False
@@ -414,14 +433,14 @@ def test_dwd_observation_data_result_tabular():
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                 ],
-                "qn_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
+                "qn_3": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
                 "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
                 "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "qn_4": pd.Series([pd.NA, 1], dtype=pd.Int64Dtype()),
+                "qn_4": pd.to_numeric([pd.NA, 1], errors="coerce"),
                 "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
                 "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
                 "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "shk_tag": pd.Series([pd.NA, 0], dtype=pd.Int64Dtype()),
+                "shk_tag": pd.to_numeric([pd.NA, 0], errors="coerce"),
                 "nm": pd.to_numeric([pd.NA, 8.0], errors="coerce"),
                 "vpm": pd.to_numeric([pd.NA, 6.4], errors="coerce"),
                 "pm": pd.to_numeric([pd.NA, 1008.60], errors="coerce"),
@@ -486,14 +505,14 @@ def test_dwd_observation_data_result_tabular_metric():
                     datetime(1933, 12, 31, tzinfo=pytz.UTC),
                     datetime(1934, 1, 1, tzinfo=pytz.UTC),
                 ],
-                "qn_3": pd.Series([pd.NA, pd.NA], dtype=pd.Int64Dtype()),
+                "qn_3": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
                 "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
                 "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "qn_4": pd.Series([pd.NA, 1], dtype=pd.Int64Dtype()),
+                "qn_4": pd.to_numeric([pd.NA, 1], errors="coerce"),
                 "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
                 "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
                 "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-                "shk_tag": pd.Series([pd.NA, 0], dtype=pd.Int64Dtype()),
+                "shk_tag": pd.to_numeric([pd.NA, 0], errors="coerce"),
                 "nm": pd.to_numeric([pd.NA, 100.0], errors="coerce"),
                 "vpm": pd.to_numeric([pd.NA, 640.0], errors="coerce"),
                 "pm": pd.to_numeric([pd.NA, 100860.0], errors="coerce"),
@@ -509,7 +528,7 @@ def test_dwd_observation_data_result_tabular_metric():
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tidy_metric():
+def test_dwd_observation_data_result_tidy_si():
     """Test for actual values (tidy) in metric units"""
     Settings.tidy = True
     Settings.humanize = False
@@ -705,6 +724,37 @@ def test_dwd_observation_data_result_tidy_metric():
 
 
 @pytest.mark.remote
+def test_dwd_observations_urban_values():
+    """Test DWD Observation urban stations"""
+    with Settings:
+        Settings.humanize = True
+        Settings.tidy = True
+        Settings.si_units = True
+
+        request = DwdObservationRequest(
+            parameter="urban_air_temperature",
+            resolution="hourly",
+            period="historical",
+            start_date="2022-06-01",
+        ).filter_by_station_id("00399")
+
+    values = request.values.all()
+
+    df_expected = pd.DataFrame(
+        {
+            "station_id": pd.Categorical(["00399"] * 2),
+            "dataset": pd.Categorical(["urban_temperature_air"] * 2),
+            "parameter": pd.Categorical(["temperature_air_mean_200", "humidity"]),
+            "date": [pd.Timestamp("2022-06-01", tz=pytz.utc)] * 2,
+            "value": [286.54999999999995, 83.0],
+            "quality": [3.0, 3.0],
+        }
+    )
+
+    assert_frame_equal(values.df, df_expected, check_categorical=False)
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy():
     """Test for actual values (tidy) in metric units"""
     Settings.tidy = True
@@ -796,7 +846,7 @@ def test_dwd_observation_data_monthly_tidy():
             "value": pd.to_numeric(
                 [34.0, 83.2, 30.3, 22.7, 33.3, 35.8, 46.8, 43.2, 52.8, 58.2, 16.4, 22.1], errors="coerce"
             ),
-            "quality": pd.to_numeric([9.0, 9.0, 9.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0], errors="coerce"),
+            "quality": pd.to_numeric([9.0] * 12, errors="coerce"),
         },
     )
 
@@ -842,16 +892,17 @@ def test_tidy_up_data():
     Settings.humanize = False
     Settings.si_units = True
 
+    station_id = "01048"
     request = DwdObservationRequest(
         "kl",
         "daily",
         "historical",
         start_date="2019-01-23 00:00:00",
-    ).filter_by_station_id((1048,))
+    ).filter_by_station_id((station_id,))
 
     df = pd.DataFrame(
         {
-            "station_id": [1048],
+            "station_id": ["01048"],
             "date": [pd.Timestamp("2019-01-23 00:00:00")],
             "qn_3": [10],
             "fx": [11.8],
@@ -873,11 +924,14 @@ def test_tidy_up_data():
     )
 
     df_tidied = request.values.tidy_up_df(df, request.parameter[0][1])
-    df_tidied_organized = request.values._organize_df_columns(df_tidied)
+
+    df_tidied_organized = request.values._organize_df_columns(
+        df_tidied, station_id, DwdObservationDataset.CLIMATE_SUMMARY
+    )
 
     df_tidy = pd.DataFrame(
         {
-            "station_id": [1048] * 14,
+            "station_id": ["01048"] * 14,
             "dataset": ["climate_summary"] * 14,
             "parameter": [
                 "fx",
@@ -917,3 +971,69 @@ def test_tidy_up_data():
     )
 
     assert_frame_equal(df_tidied_organized, df_tidy)
+
+
+@pytest.mark.remote
+def test_dwd_observation_weather_phenomena():
+    """Test for DWD weather phenomena data, thanks saschnet (https://github.com/saschnet) for providing the sample,
+    see also https://github.com/earthobservations/wetterdienst/issues/647
+    """
+    Settings.tidy = True
+    Settings.humanize = False
+    Settings.si_units = False
+
+    request = DwdObservationRequest(
+        resolution=DwdObservationResolution.HOURLY,
+        parameter=[DwdObservationParameter.HOURLY.WEATHER_PHENOMENA.WEATHER],
+        start_date=datetime(year=2022, month=3, day=1, tzinfo=timezone.utc),
+        end_date=datetime(year=2022, month=3, day=31, tzinfo=timezone.utc),
+    )
+    res = request.all().df.dropna()
+    assert len(res) > 0
+
+
+@pytest.mark.remote
+def test_dwd_observation_tidy_empty_df_no_start_end_date():
+    """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.WIND],
+        resolution=DwdObservationResolution.MINUTE_10,
+        period=DwdObservationPeriod.NOW,
+    ).filter_by_station_id("01736")
+    assert request.values.all().df.empty
+
+
+@pytest.mark.remote
+def test_dwd_observation_not_tidy_empty_df_no_start_end_date():
+    """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
+    Settings.tidy = False
+    Settings.humanize = True
+    Settings.si_units = True
+
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.WIND],
+        resolution=DwdObservationResolution.MINUTE_10,
+        period=DwdObservationPeriod.NOW,
+    ).filter_by_station_id("01736")
+    assert request.values.all().df.empty
+
+
+def test_dwd_observation_solar_daily():
+    """Test DWD observation solar daily data"""
+    Settings.tidy = True
+    Settings.humanize = True
+    Settings.si_units = True
+
+    # Snippet provided by https://github.com/pedroalencar1
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.SOLAR,
+        resolution=DwdObservationResolution.DAILY,
+        start_date=datetime(1950, 1, 1),
+        end_date=datetime(2021, 12, 31),
+    ).filter_by_station_id(station_id=[3987])
+
+    assert not request.values.all().df.value.dropna().empty

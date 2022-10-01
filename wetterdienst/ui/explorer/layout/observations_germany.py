@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from dash import dcc, html
 
@@ -86,7 +86,7 @@ def dashboard_layout() -> html:
                     html.Div(
                         [
                             html.Div(
-                                id="status-response-stations",
+                                id="status-response-stations_result",
                             ),
                             html.Hr(),
                             html.Div(
@@ -97,7 +97,7 @@ def dashboard_layout() -> html:
                         className="col wd-panel flex-column",
                     ),
                     html.Div(
-                        [dcc.Graph(id="map-stations")],
+                        [dcc.Graph(id="map-stations_result")],
                         id="map",
                         className="col wd-panel",
                     ),
@@ -117,6 +117,6 @@ def dashboard_layout() -> html:
                 ],
                 className="d-flex flex-row",
             ),
-            html.Div([], id="dataframe-stations", style={"display": "None"}),
+            html.Div([], id="dataframe-stations_result", style={"display": "None"}),
         ],
     )

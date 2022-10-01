@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -38,12 +38,12 @@ spatially and temporally high-resolution quantitative precipitation data in
 real-time for Germany.
 
 - https://www.dwd.de/EN/Home/_functions/aktuelles/2019/20190820_radolan.html
-- https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2  # noqa
+- https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2
 - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
-- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite # noqa
-- Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product # noqa
-- Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product # noqa
-"""  # Noqa:D205,D400
+- https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-Composite
+- Hourly: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-RW-Product
+- Daily: https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html#RADOLAN-SF-Product
+"""  # noqa:D205,D400,E501
 import logging
 import os
 from typing import Optional

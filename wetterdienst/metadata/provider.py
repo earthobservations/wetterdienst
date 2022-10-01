@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -33,4 +33,18 @@ class Provider(Enum):
         "United States Of America",
         "© National Oceanic And Atmospheric Administration (NOAA), " "Global Historical Climatology Network",
         "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/",
+    )
+    WSV = (
+        "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
+        "Federal Waterways and Shipping Administration",
+        "Germany",
+        "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
+        "https://pegelonline.wsv.de/webservice/ueberblick",
+    )
+    EA = (
+        "Environment Agency",
+        "Environment Agency",
+        "United Kingdom",
+        "© Environment Agency of UK",
+        "https://environment.data.gov.uk/hydrology/",
     )

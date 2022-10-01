@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
@@ -166,7 +166,7 @@ class ExportMixin:
             elif target.endswith(".parquet"):
                 """
                 # Acquire data and store to Parquet file.
-                alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
                 fetch --target="file://observations.parquet"
 
                 # Check Parquet file.
@@ -175,7 +175,7 @@ class ExportMixin:
 
                 # References
                 - https://arrow.apache.org/docs/python/parquet.html
-                """
+                """  # noqa:E501
 
                 log.info(f"Writing to Parquet file '{filepath}'")
                 import pyarrow as pa
@@ -187,13 +187,13 @@ class ExportMixin:
             elif target.endswith(".zarr"):
                 """
                 # Acquire data and store to Zarr group.
-                alias fetch="wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
-                fetch --target="file://observations.zarr"
+                alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                fetch --target="file://observation.zarr"
 
                 # References
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.from_dataframe.html
                 - https://xarray.pydata.org/en/stable/generated/xarray.Dataset.to_zarr.html
-                """
+                """  # noqa:E501
 
                 log.info(f"Writing to Zarr group '{filepath}'")
                 import xarray
@@ -251,14 +251,14 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
+                wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
 
             Example queries::
 
-                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.table("weather"))'  # noqa
-                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.execute("SELECT * FROM weather").df())'  # noqa
+                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.table("weather"))'
+                python -c 'import duckdb; c = duckdb.connect(database="dwd.duckdb"); print(c.execute("SELECT * FROM weather").df())'
 
-            """
+            """  # noqa:E501
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
             import duckdb
 
@@ -268,9 +268,9 @@ class ExportMixin:
             connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa:S608
 
             weather_table = connection.table(tablename)
-            print(weather_table)  # noqa: T001
-            print("Cardinalities:")  # noqa: T001
-            print(weather_table.to_df().count())  # noqa: T001
+            print(weather_table)  # noqa: T201
+            print("Cardinalities:")  # noqa: T201
+            print(weather_table.to_df().count())  # noqa: T201
             connection.close()
             log.info("Writing to DuckDB finished")
 
@@ -323,7 +323,7 @@ class ExportMixin:
             Example queries::
 
                 influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
-            """
+            """  # noqa:E501
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
                 version = 1
@@ -431,7 +431,7 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://crate@localhost/dwd?table=weather"
+                wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://crate@localhost/dwd?table=weather"
 
             Example queries::
 
@@ -439,9 +439,9 @@ class ExportMixin:
 
                 crash -c 'select * from dwd.weather;'
                 crash -c 'select count(*) from dwd.weather;'
-                crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', date) as datetime from dwd.weather order by datetime limit 10;"  # noqa
+                crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', date) as datetime from dwd.weather order by datetime limit 10;"
 
-            """
+            """  # noqa:E501
             log.info(f"Writing to CrateDB. target={target}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
@@ -475,7 +475,7 @@ class ExportMixin:
             Examples::
 
                 # Prepare
-                alias fetch='wetterdienst dwd observations values --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
+                alias fetch='wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
 
                 # Acquire data.
                 fetch --target="sqlite:///dwd.sqlite?table=weather"
@@ -483,7 +483,7 @@ class ExportMixin:
                 # Query data.
                 sqlite3 dwd.sqlite "SELECT * FROM weather;"
 
-            """
+            """  # noqa:E501
 
             # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999
             # for SQLite versions prior to 3.32.0 (2020-05-22),
@@ -517,7 +517,10 @@ def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
     df: pd.DataFrame = df.copy(deep=True)
 
     date_columns = list(df.select_dtypes(include=[pd.DatetimeTZDtype]).columns)
+    date_columns.extend([Columns.FROM_DATE.value, Columns.TO_DATE.value, Columns.DATE.value])
+    date_columns = set(date_columns)
     for date_column in date_columns:
-        df[date_column] = df[date_column].apply(lambda d: d.isoformat() if pd.notna(d) else None)
+        if date_column in df:
+            df[date_column] = df[date_column].apply(lambda d: d.isoformat() if pd.notna(d) else None)
 
     return df

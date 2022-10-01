@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import re
 from datetime import datetime, timedelta
@@ -10,9 +10,7 @@ import h5py
 import pybufrkit
 import pytest
 import requests
-import wradlib as wrl
 
-from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -23,6 +21,8 @@ from wetterdienst.provider.dwd.radar import (
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
+
+wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
 HERE = Path(__file__).parent
 
@@ -134,9 +134,8 @@ def test_radar_request_radolan_cdc_historic_daily_data():
     assert radolan_hourly.getvalue() == radolan_hourly_test.getvalue()
 
 
-@pytest.mark.xfail(reason="Out of service", strict=True)
 @pytest.mark.remote
-def test_radar_request_composite_historic_fx_yesterday():
+def test_radar_request_composite_historic_hg_yesterday():
     """
     Example for testing radar/composite FX for a specific date.
     """
@@ -144,7 +143,7 @@ def test_radar_request_composite_historic_fx_yesterday():
     timestamp = datetime.utcnow() - timedelta(days=1)
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.FX_REFLECTIVITY,
+        parameter=DwdRadarParameter.HG_REFLECTIVITY,
         start_date=timestamp,
     )
 
@@ -154,26 +153,32 @@ def test_radar_request_composite_historic_fx_yesterday():
         raise pytest.skip("Data currently not available")
 
     # Verify number of results.
-    assert len(results) == 25
+    assert len(results) == 1
 
     # Verify data.
-    payload = results[0].data.getvalue()
+    first = results[0]
 
-    # TODO: Use wradlib to parse binary format.
-    # https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_format.html
-    date_time = request.start_date.strftime("%d%H%M")
-    month_year = request.start_date.strftime("%m%y")
-    header = (
-        f"FX{date_time}10000{month_year}BY.......VS 3SW   2.12.0PR E-01INT   5GP 900x 900VV 000MF 00000002MS "
-        f"..<{station_reference_pattern_unsorted}>"
-    )
+    requested_header = wrl.io.read_radolan_header(first.data)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
-    assert re.match(bytes(header, encoding="ascii"), payload[:160])
+    del requested_attrs["radarlocations"]
+
+    assert requested_attrs["producttype"] == "HG"
+    dt_delta = abs(requested_attrs["datetime"] - timestamp)
+    assert dt_delta.seconds / 60 < 10
+    assert requested_attrs["radarid"] == "10000"
+    assert requested_attrs["datasize"] == 5280000
+    assert requested_attrs["maxrange"] == "150 km"
+    assert requested_attrs["radolanversion"] == "P300003H"
+    assert requested_attrs["precision"] == 1.0
+    assert requested_attrs["intervalseconds"] == 300
+    assert requested_attrs["nrow"] == 1200
+    assert requested_attrs["ncol"] == 1100
+    assert requested_attrs["predictiontime"] == 0
 
 
-@pytest.mark.xfail(reason="Out of service", strict=True)
 @pytest.mark.remote
-def test_radar_request_composite_historic_fx_timerange():
+def test_radar_request_composite_historic_hg_timerange():
     """
     Example for testing radar/composite FX for a timerange.
     """
@@ -181,7 +186,7 @@ def test_radar_request_composite_historic_fx_timerange():
     timestamp = datetime.utcnow() - timedelta(days=1)
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.FX_REFLECTIVITY,
+        parameter=DwdRadarParameter.HG_REFLECTIVITY,
         start_date=timestamp,
         end_date=timedelta(minutes=10),
     )
@@ -192,7 +197,7 @@ def test_radar_request_composite_historic_fx_timerange():
         raise pytest.skip("Data currently not available")
 
     # Verify number of results.
-    assert len(results) == 50
+    assert len(results) == 2
 
     # Verify all timestamps are properly propagated from the tarfile.
     assert all(
@@ -229,6 +234,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday():
         "producttype": "RW",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -298,6 +304,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange():
     attrs = {
         "producttype": "RW",
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -527,11 +534,9 @@ def test_radar_request_site_historic_pe_timerange(fmt):
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data works
     when using date ranges.
-
     The proof will use these parameters to acquire data:
     - start_date: Yesterday at this time
     - end_date:   start_date + 1 hour
-
     This time, we will test both the BINARY and BUFR data format.
     """
 
@@ -625,8 +630,6 @@ def test_radar_request_site_historic_px250_bufr_timerange():
 
     assert len(results) == 12
 
-    # TODO: Verify data.
-
 
 @pytest.mark.remote
 def test_radar_request_site_historic_sweep_pcp_v_bufr_yesterday():
@@ -693,7 +696,14 @@ def test_radar_request_site_historic_sweep_pcp_v_bufr_timerange():
 
     assert len(results) == 12
 
-    # TODO: Verify data.
+    hdf = h5py.File(results[0].data, "r")
+
+    assert hdf["/how"].attrs.get("scan_count") == 1
+    assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
+
+    timestamp = round_minutes(request.start_date, 5)
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
 @pytest.mark.remote
@@ -761,7 +771,14 @@ def test_radar_request_site_historic_sweep_vol_v_bufr_timerange():
 
     assert len(results) == 60
 
-    # TODO: Verify data.
+    hdf = h5py.File(results[0].data, "r")
+
+    assert hdf["/how"].attrs.get("scan_count") == 1
+    assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
+
+    timestamp = round_minutes(request.start_date, 5)
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
 @pytest.mark.remote
@@ -807,7 +824,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape == (360, 600)
+    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
@@ -840,7 +857,14 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange():
 
     assert len(results) == 12
 
-    # TODO: Verify data.
+    hdf = h5py.File(results[0].data, "r")
+
+    assert hdf["/how"].attrs.get("scan_count") == 1
+    assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
+
+    timestamp = round_minutes(request.start_date, 5)
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
 @pytest.mark.remote
@@ -886,7 +910,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (360, 720), (361, 720))
+    assert hdf["/dataset1/data1/data"].shape in ((360, 180), (360, 720), (361, 720), (358, 720))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
@@ -927,9 +951,16 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange():
     if len(results) == 0:
         raise pytest.skip("Data currently not available")
 
-    assert len(results) == 60
+    assert len(results) in (60, 59)
 
-    # TODO: Verify data.
+    hdf = h5py.File(results[0].data, "r")
+
+    assert hdf["/how"].attrs.get("scan_count") == 10
+    assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
+
+    timestamp = round_minutes(request.start_date, 5)
+    assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
+    assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
 
 @pytest.mark.remote
@@ -967,6 +998,7 @@ def test_radar_request_radvor_re_yesterday():
         "producttype": "RE",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.001,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -1077,6 +1109,7 @@ def test_radar_request_radvor_rq_yesterday():
         "producttype": "RQ",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
+        "formatversion": 3,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -1149,4 +1182,27 @@ def test_radar_request_radvor_rq_timerange():
 
     assert len(results) == 3 * 3
 
-    # TODO: Verify data.
+    requested_header = wrl.io.read_radolan_header(results[0].data)
+    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
+
+    del requested_attrs["radarlocations"]
+    quant = requested_attrs.pop("quantification")
+    assert quant in (0, 1)
+
+    attrs = {
+        "producttype": "RQ",
+        "datetime": request.start_date.to_pydatetime(),
+        "formatversion": 3,
+        "datasize": 1620000,
+        "maxrange": "150 km",
+        "precision": 0.1,
+        "intervalseconds": 3600,
+        "nrow": 900,
+        "ncol": 900,
+        "predictiontime": 0,
+        "moduleflag": 8,
+        "radarid": "10000",
+        "radolanversion": "2.29.1",
+    }
+
+    assert requested_attrs == attrs

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 from fastapi.testclient import TestClient
@@ -52,22 +52,6 @@ def test_no_network():
     assert "Choose provider and network from /restapi/coverage" in response.text
 
 
-def test_data_range(capsys):
-    response = client.get(
-        "/restapi/values",
-        params={
-            "provider": "eccc",
-            "network": "observation",
-            "parameter": "precipitation_height",
-            "resolution": "daily",
-            "period": "historical",
-            "name": "toronto",
-        },
-    )
-
-    assert "Combination of provider ECCC and network OBSERVATION requires start and end date" in response.text
-
-
 def test_dwd_stations_basic():
 
     response = client.get(
@@ -84,7 +68,7 @@ def test_dwd_stations_basic():
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "00011"
     assert response.json()["data"][0]["name"] == "Donaueschingen (Landeplatz)"
-    assert response.json()["data"][0]["latitude"] == 47.9737
+    assert response.json()["data"][0]["latitude"] == 47.9736
     assert response.json()["data"][0]["longitude"] == 8.5205
 
 
@@ -201,7 +185,6 @@ def test_dwd_values_no_resolution():
         params={
             "provider": "dwd",
             "network": "observation",
-            "stations": "01048,4411",
             "parameter": "kl",
             "period": "recent",
         },
@@ -247,8 +230,8 @@ def test_dwd_values_sql_tabular(dicts_are_same):
             "precipitation_height": 0.0,
             "pressure_air_site": 993.88,
             "pressure_vapor": 4.6,
-            "qn_3": 10.0,
-            "qn_4": 3,
+            "quality_wind": 10.0,
+            "quality": 3,
             "snow_depth": 0,
             "station_id": "01048",
             "sunshine_duration": 0.0,

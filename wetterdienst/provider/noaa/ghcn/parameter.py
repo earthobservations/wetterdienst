@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -36,11 +36,11 @@ class NoaaGhcnParameter(DatasetTreeCore):
 
         # Average cloudiness midnight to midnight from 30-second ceilometer data (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT = "acmc"  # ceilometer
-        # Average cloudiness midnight to midnight from manual observations (percent)
+        # Average cloudiness midnight to midnight from manual observation (percent)
         CLOUD_COVER_TOTAL_MIDNIGHT_TO_MIDNIGHT_MANUAL = "acmh"  # manual
         # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET = "acsc"  # ceilometer
-        # Average cloudiness sunrise to sunset from manual observations (percent)
+        # Average cloudiness sunrise to sunset from manual observation (percent)
         CLOUD_COVER_TOTAL_SUNRISE_TO_SUNSET_MANUAL = "acsh"  # manual
         # TODO: use one CLOUD_COVER_TOTAL parameter that builds one time series
         #  from the multiple existing parameters
@@ -316,11 +316,11 @@ class NoaaGhcnParameter(DatasetTreeCore):
         WATER_EQUIVALENT_SNOW_DEPTH = "wesd"
         # Water equivalent of snowfall (inches or mm as per user preference)
         WATER_EQUIVALENT_SNOW_DEPTH_NEW = "wesf"
-        # Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)
-        WIND_GUST_MAX_5SEC = "wsf5"
-        # Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)
-        WIND_GUST_MAX_1MIN = "wsf1"
         # Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)
+        WIND_GUST_MAX_5SEC = "wsf5"
+        # Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)
+        WIND_GUST_MAX_1MIN = "wsf1"
+        # Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX_2MIN = "wsf2"
         # Peak guest wind speed (miles per hour or  meters per second as per user preference)
         WIND_GUST_MAX = "wsfg"

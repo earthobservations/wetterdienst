@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from datetime import datetime
@@ -9,8 +9,6 @@ from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import pandas as pd
-from fsspec.implementations.cached import WholeFileCacheFileSystem
-from fsspec.implementations.http import HTTPFileSystem
 from requests import HTTPError
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -37,12 +35,11 @@ from wetterdienst.provider.dwd.mosmix.metadata import (
     DwdMosmixParameter,
     DwdMosmixType,
 )
-from wetterdienst.provider.dwd.mosmix.metadata.field_types import INTEGER_PARAMETERS
 from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
-from wetterdienst.util.cache import CacheExpiry, cache_dir
+from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
-from wetterdienst.util.network import list_remote_files_fsspec
+from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
 
@@ -59,21 +56,20 @@ class DwdMosmixValues(ScalarValuesCore):
     Parameters
     ----------
     station_id : List
-        - If None, data for all stations is returned.
+        - If None, data for all stations_result is returned.
         - If not None, station_ids are a list of station ids for which data is desired.
 
     parameter: List
         - If None, data for all parameters is returned.
         - If not None, list of parameters, per MOSMIX definition, see
-          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2  # noqa:B950
-    """
+          https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/mosmix_elemente_pdf.pdf?__blob=publicationFile&v=2
+    """  # noqa:B950,E501
 
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = False
 
     _irregular_parameters = ()
-    _integer_parameters = INTEGER_PARAMETERS
     _string_parameters = ()
     _date_parameters = ()
 
@@ -86,21 +82,21 @@ class DwdMosmixValues(ScalarValuesCore):
         """
         return {
             parameter.value: parameter.name.lower()
-            for parameter in self.stations.stations._parameter_base[self.stations.stations.mosmix_type.name]
+            for parameter in self.sr.stations._parameter_base[self.sr.stations.mosmix_type.name]
         }
 
-    def __init__(self, stations: StationsResult) -> None:
+    def __init__(self, stations_result: StationsResult) -> None:
         """
 
-        :param stations:
+        :param stations_result:
         """
-        super(DwdMosmixValues, self).__init__(stations=stations)
+        super(DwdMosmixValues, self).__init__(stations_result=stations_result)
 
-        parameter_base = self.stations.stations._parameter_base
-        dataset_accessor = self.stations.stations._dataset_accessor
+        parameter_base = self.sr.stations._parameter_base
+        dataset_accessor = self.sr.stations._dataset_accessor
 
         parameter_ = []
-        for parameter, dataset in self.stations.parameter:
+        for parameter, dataset in self.sr.parameter:
             if parameter == dataset:
                 parameter = [par.value for par in parameter_base[dataset_accessor]]
                 parameter_.extend(parameter)
@@ -108,7 +104,7 @@ class DwdMosmixValues(ScalarValuesCore):
                 parameter_.append(parameter.value)
 
         self.kml = KMLReader(
-            station_ids=self.stations.station_id.tolist(),
+            station_ids=self.sr.station_id.tolist(),
             parameters=parameter_,
         )
 
@@ -121,7 +117,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return:
         """
-        return self.stations.df
+        return self.sr.df
 
     def query(self) -> Generator[ValuesResult, None, None]:
         """
@@ -129,24 +125,23 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return:
         """
+        hpm = self._create_humanized_parameters_mapping()
+
         for df in self._collect_station_parameter():
             df = self._coerce_parameter_types(df)
 
-            if self.stations.stations.tidy:
-                df = self.tidy_up_df(df, self.stations.stations.mosmix_type)
+            if self.sr.stations.tidy:
+                df = self.tidy_up_df(df, self.sr.stations.mosmix_type)
 
-            df[Columns.DATASET.value] = self.stations.stations.mosmix_type.value.lower()
+            station_id = df[Columns.STATION_ID.value][0]
+            df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
 
             df = self._coerce_meta_fields(df)
 
-            if self.stations.humanize:
-                df = self._humanize(df)
+            if self.sr.humanize:
+                df = self._humanize(df, hpm)
 
-            df = self._organize_df_columns(df)
-
-            result = ValuesResult(stations=self.stations, df=df)
-
-            yield result
+            yield ValuesResult(stations=self.sr, df=df)
 
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
         """
@@ -155,14 +150,14 @@ class DwdMosmixValues(ScalarValuesCore):
 
         :return: pandas DataFrame with data corresponding to station id and parameter
         """
-        if self.stations.start_issue == DwdForecastDate.LATEST:
-            for df in self.read_mosmix(self.stations.stations.start_issue):
+        if self.sr.start_issue == DwdForecastDate.LATEST:
+            for df in self.read_mosmix(self.sr.stations.start_issue):
                 yield df
         else:
             for date in pd.date_range(
-                self.stations.stations.start_issue,
-                self.stations.stations.end_issue,
-                freq=self.stations.frequency.value,
+                self.sr.stations.start_issue,
+                self.sr.stations.end_issue,
+                freq=self.sr.frequency.value,
             ):
                 try:
                     for df in self.read_mosmix(date):
@@ -217,14 +212,14 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame
         """
-        if self.stations.stations.mosmix_type == DwdMosmixType.SMALL:
+        if self.sr.stations.mosmix_type == DwdMosmixType.SMALL:
             yield from self.read_mosmix_small(date)
         else:
             yield from self.read_mosmix_large(date)
 
     def read_mosmix_small(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
         """
-        Reads single MOSMIX-S file with all stations and returns every mosmix that
+        Reads single MOSMIX-S file with all stations_result and returns every mosmix that
         matches with one of the defined station ids.
 
         :param date: datetime or enumeration for latest MOSMIX mosmix
@@ -251,7 +246,7 @@ class DwdMosmixValues(ScalarValuesCore):
         """
         url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH)
 
-        for station_id in self.stations.station_id:
+        for station_id in self.sr.station_id:
             station_url = f"{url}{station_id}/kml"
 
             try:
@@ -460,17 +455,10 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         :return:
         """
-
-        fs = WholeFileCacheFileSystem(
-            fs=HTTPFileSystem(client_kwargs={"headers": {"User-Agent": ""}}),
-            cache_storage=cache_dir,
-            expiry_time=CacheExpiry.METAINDEX.value,
-        )
-
-        payload = fs.cat(self._url)
+        payload = download_file(self._url, CacheExpiry.METAINDEX)
 
         df = pd.read_fwf(
-            StringIO(payload.decode(encoding="latin-1")),
+            StringIO(payload.read().decode(encoding="latin-1")),
             skiprows=4,
             skip_blank_lines=True,
             colspecs=[
@@ -479,8 +467,8 @@ class DwdMosmixRequest(ScalarRequestCore):
                 (12, 17),
                 (18, 22),
                 (23, 44),
-                (45, 51),
-                (52, 58),
+                (44, 51),
+                (51, 58),
                 (59, 64),
                 (65, 71),
                 (72, 76),

@@ -16,7 +16,6 @@
 import os
 import sys
 
-import sphinx_material
 import tomlkit
 
 sys.path.insert(0, os.path.abspath(".."))
@@ -34,20 +33,15 @@ def _get_project_meta():
 pkg_meta = _get_project_meta()
 
 project = str(pkg_meta["name"])
-copyright = "Copyright (c) 2018-2020 earthobservations"
-author = str(pkg_meta["authors"])
-
-# The full version, including alpha/beta/rc tags
+copyright = "Copyright (C) 2018-2022 earthobservations"
+author = ", ".join([author.split("<")[0].strip() for author in pkg_meta["authors"]])
 version = str(pkg_meta["version"])
-
-release = version
-
 
 # -- General configuration ---------------------------------------------------
 
 master_doc = "index"
 
-# latex_engine = 'xelatex'
+latex_engine = 'xelatex'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -58,11 +52,12 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.imgconverter",
-    #"sphinxcontrib.rsvgconverter",
+    "sphinxcontrib.rsvgconverter",
     "sphinx_autodoc_typehints",
     "matplotlib.sphinxext.plot_directive",
     "IPython.sphinxext.ipython_directive",
     "IPython.sphinxext.ipython_console_highlighting",
+    "sphinx_design"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -89,7 +84,6 @@ html_static_path = ["_static"]
 
 # -- Custom options -------------------------------------------------
 
-# If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
 
@@ -113,15 +107,11 @@ autoclass_content = "both"
 # -- Material options -------------------------------------------
 
 html_show_sourcelink = True
-html_sidebars = {
-    "**": ["logo-text.html", "globaltoc.html", "localtoc.html", "searchbox.html"]
-}
+# html_sidebars = {
+#     "**": ["logo-text.html", "globaltoc.html", "localtoc.html", "searchbox.html"]
+# }
 
-# Required theme setup
-extensions.append("sphinx_material")
-html_theme = "sphinx_material"
-html_theme_path = sphinx_material.html_theme_path()
-html_context = sphinx_material.get_html_context()
+html_theme = "furo"
 
 # Material theme options (see theme.conf for more information)
 html_theme_options = {
@@ -136,7 +126,7 @@ html_theme_options = {
     #'color_primary': 'blue',
     #'color_primary': 'blue-grey',
     #'color_primary': 'indigo',
-    "color_primary": "light-blue",
+    # "color_primary": "light-blue",
     # 'color_accent': 'light-green',
     # Set the repo location to get a badge with stats
     "repo_url": "https://github.com/earthobservations/wetterdienst",
@@ -150,7 +140,7 @@ html_theme_options = {
     "master_doc": False,
     "nav_links": [],
     "heroes": {
-        # "index": "Open weather data for humans.",
+        "index": "Open weather data for humans.",
         "pages/cli": "On your fingertips.",
     },
 }

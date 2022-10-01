@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 Parse description PDF files from DWD CDC server.
@@ -26,9 +26,9 @@ def parse_section(text, headline):
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
-        if line.startswith(headline):
+        if line.strip().startswith(headline):
             capture = True
-        if line == " ":
+        if line.strip() == "":
             capture = False
         if capture:
             buffer.write(line)
@@ -42,7 +42,7 @@ def parse_parameters(text):
     capture = False
     buffer = StringIO()
     for line in text.split("\n"):
-
+        line = line.strip()
         if line == line.upper() and not line.isnumeric():
             if line != parameter:
                 more = buffer.getvalue()
@@ -57,7 +57,8 @@ def parse_parameters(text):
                         more = re.sub(r"\n(?!\d+)", " ", more, flags=re.DOTALL)
                     else:
                         more = more.replace("\n", " ")
-                    data[parameter.lower()] = more
+                    if parameter != "-":
+                        data[parameter.lower()] = more
                 buffer.truncate(0)
                 buffer.seek(0)
             parameter = line
@@ -108,7 +109,7 @@ def process(url) -> None:  # pragma: no cover
     # import json; print(json.dumps(parameters, indent=4))  # noqa: E800
 
     # Output as ASCII table.
-    print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T001
+    print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T201
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -126,6 +127,6 @@ if __name__ == "__main__":  # pragma: no cover
     )
 
     for item in ten_minutes_air, hourly_solar, daily_kl:
-        print(item)  # noqa: T001
+        print(item)  # noqa: T201
         process(item)
-        print()  # noqa: T001
+        print()  # noqa: T201

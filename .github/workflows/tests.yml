@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11-dev"]
     env:
       OS: ${{ matrix.os }}
       PYTHON: ${{ matrix.python-version }}
@@ -23,41 +23,30 @@ jobs:
     steps:
 
     - name: Acquire sources
-      uses: actions/checkout@v2
-
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-        architecture: x64
+      uses: actions/checkout@v3
 
     - name: Setup Poetry
-      uses: snok/install-poetry@v1.3.0
+      uses: snok/install-poetry@v1
       with:
-        version: 1.1.13
         virtualenvs-create: true
         virtualenvs-in-project: true
 
-    - name: Apply cache
-      id: poetry-cache-flag
-      uses: actions/cache@v2
-      env:
-        # Increase this value to reset cache if `poetry.lock` has not changed.
-        CACHE_NUMBER: 1
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
-        path: .venv
-        key: poetry-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ env.CACHE_NUMBER }}
+        python-version: ${{ matrix.python-version }}
+        architecture: x64
+        cache: poetry
 
-    - name: Install dependencies
+    - name: Install project
       run: .github/workflows/install.sh testing
-      if: steps.poetry-cache-flag.outputs.cache-hit != 'true'
 
-    - name: Test (Windows) - single core
+    - name: Run tests (Windows, sequential)
       run: |
         if [ "$RUNNER_OS" == "Windows" ]; then 
           poetry run poe test-slow
         fi
-    - name: Test (Linux/Mac) - multi core
+    - name: Run tests (Linux/macOS, parallel)
       run: |
         if [ "$RUNNER_OS" != "Windows" ]; then
           poetry run poe test

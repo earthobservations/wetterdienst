@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 from datetime import datetime, timedelta
@@ -42,7 +42,7 @@ SETTINGS_STATIONS = (
             "latitude": 51.13,
             "longitude": 13.75,
             "from_date": None,
-            "name": "DRESDEN",
+            "name": "DRESDEN/FLUGHAFEN",
             "state": None,
         },
         [13.75, 51.13, 230.0],
@@ -205,19 +205,6 @@ def test_no_network(caplog):
     assert "No API available for provider DWD and network abc" in caplog.text
 
 
-def test_data_range():
-    runner = CliRunner()
-
-    result = runner.invoke(
-        cli,
-        "values --provider=eccc --network=observation --parameter=precipitation_height "
-        "--resolution=daily --name=toronto",
-    )
-
-    assert isinstance(result.exception, TypeError)
-    assert "Combination of provider ECCC and network OBSERVATION requires start and end date" in str(result.exception)
-
-
 @pytest.mark.parametrize(
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
@@ -284,7 +271,7 @@ def test_cli_stations_csv(provider, network, setting, station_id, expected_dict,
 )
 def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmpdir_factory):
 
-    # filename = tmpdir_factory.mktemp("data").join("stations.xlsx")  # Noqa:E800
+    # filename = tmpdir_factory.mktemp("data").join("stations_result.xlsx")  # Noqa:E800
     filename = "stations.xlsx"
 
     _ = invoke_wetterdienst_stations_export(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.settings import Settings
 
 
+@pytest.mark.remote
 def test_eccc_api_stations():
     Settings.tidy = True
     Settings.humanize = True
@@ -39,7 +40,7 @@ def test_eccc_api_stations():
     assert_frame_equal(request.df, expected)
 
 
-@pytest.mark.xfail
+@pytest.mark.remote
 def test_eccc_api_values():
     Settings.tidy = True
     Settings.humanize = True

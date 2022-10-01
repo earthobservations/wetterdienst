@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from enum import Enum
 
@@ -10,13 +10,12 @@ class DwdRadarParameter(Enum):
     """
 
     # /composites
-    # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa:B950
+    # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa:B950,E501
 
     # https://opendata.dwd.de/weather/radar/composit/
     HG_REFLECTIVITY = "hg"
     PG_REFLECTIVITY = "pg"
     RV_REFLECTIVITY = "rv"
-    WX_REFLECTIVITY = "wx"
     WN_REFLECTIVITY = "wn"
 
     # /radolan
@@ -37,7 +36,6 @@ class DwdRadarParameter(Enum):
     LMAX_VOLUME_SCAN = "lmax"
     PE_ECHO_TOP = "pe"
     PF_REFLECTIVITY = "pf"
-    PL_VOLUME_SCAN = "pl"
     PR_VELOCITY = "pr"
     PX_REFLECTIVITY = "px"
     PX250_REFLECTIVITY = "px250"
@@ -60,7 +58,6 @@ RADAR_PARAMETERS_COMPOSITES = [
     DwdRadarParameter.HG_REFLECTIVITY,
     DwdRadarParameter.PG_REFLECTIVITY,
     DwdRadarParameter.RV_REFLECTIVITY,
-    DwdRadarParameter.WX_REFLECTIVITY,
     DwdRadarParameter.WN_REFLECTIVITY,
 ]
 RADAR_PARAMETERS_RADOLAN = [
@@ -78,7 +75,6 @@ RADAR_PARAMETERS_SITES = [
     DwdRadarParameter.PE_ECHO_TOP,
     DwdRadarParameter.PF_REFLECTIVITY,
     DwdRadarParameter.PX_REFLECTIVITY,
-    DwdRadarParameter.PL_VOLUME_SCAN,
     DwdRadarParameter.PR_VELOCITY,
     DwdRadarParameter.PX250_REFLECTIVITY,
     DwdRadarParameter.PZ_CAPPI,
