@@ -52,6 +52,26 @@ def test_dwd_observation_data_api():
 
 
 @pytest.mark.remote
+def test_dwd_observation_data_empty():
+    with Settings:
+        stations = DwdObservationRequest(
+            parameter=[
+                DwdObservationDataset.TEMPERATURE_AIR,
+                DwdObservationDataset.WIND,
+                DwdObservationDataset.PRECIPITATION,
+            ],
+            resolution=DwdObservationResolution.MINUTE_10,
+            period=DwdObservationPeriod.NOW,
+        )
+
+    nearest_station = stations.filter_by_rank(rank=1, latitude=52.384630, longitude=9.733908)
+
+    values = nearest_station.values.all()
+
+    assert values.df.station_id.unique() == ["02011"]
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_dataset():
     """Request a parameter set"""
     expected = DwdObservationRequest(

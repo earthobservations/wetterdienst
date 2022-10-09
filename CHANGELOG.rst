@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix passing an empty DataFrame through unit conversion and ensure set of columns
+
 0.45.0 (22.09.2022)
 *******************
 

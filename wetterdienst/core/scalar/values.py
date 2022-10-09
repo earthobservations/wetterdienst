@@ -253,9 +253,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 )
                 data.append(group)
             try:
-                return pd.concat(data)
+                return pd.concat(data, axis=0)
             except ValueError:
-                return pd.DataFrame()
+                return df
 
         return df.apply(_convert_values_to_si, axis=0, conv_factors=conversion_factors)
 
