@@ -465,7 +465,10 @@ class DwdObservationRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter: Union[str, DwdObservationDataset],
+        parameter: Union[
+            Union[str, DwdObservationDataset, DwdObservationParameter],
+            List[Union[str, DwdObservationDataset, DwdObservationParameter]],
+        ],
         resolution: Union[str, Resolution, DwdObservationResolution],
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
