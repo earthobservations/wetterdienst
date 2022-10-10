@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from datetime import datetime, timedelta
+
 import pytest
+import pytz
 
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.settings import Settings
@@ -236,6 +239,24 @@ def test_dwd_mosmix_s():
             "sund1",
         ]
     )
+
+
+@pytest.mark.remote
+def test_mosmix_date_filter():
+    now = datetime.now(tz=pytz.utc)
+
+    stations = DwdMosmixRequest(
+        parameter="small",
+        mosmix_type=DwdMosmixType.SMALL,
+        start_date=now - timedelta(hours=1),
+        end_date=now,
+        start_issue=now - timedelta(hours=5),
+    )
+
+    nearest_station = stations.filter_by_rank(rank=1, latitude=52.122050, longitude=11.619845)
+    df = nearest_station.values.all().df
+
+    assert len(df) == 40
 
 
 @pytest.mark.remote

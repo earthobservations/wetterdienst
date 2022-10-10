@@ -9,6 +9,7 @@ from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import pandas as pd
+import pytz
 from requests import HTTPError
 
 from wetterdienst.core.scalar.request import ScalarRequestCore
@@ -143,10 +144,9 @@ class DwdMosmixValues(ScalarValuesCore):
                 df = self._humanize(df, hpm)
 
             # Filter for dates range if start_date and end_date are defined
-            if not df.empty and self.sr.start_date:
+            if not df.empty and self.sr.start_date and self.sr.start_date != DwdForecastDate.LATEST:
                 df = df.loc[
-                    (df[Columns.DATE.value] >= self.sr.start_date)
-                    & (df[Columns.DATE.value] <= self.sr.end_date),
+                    (df[Columns.DATE.value] >= self.sr.start_date) & (df[Columns.DATE.value] <= self.sr.end_date),
                     :,
                 ]
 
@@ -287,6 +287,8 @@ class DwdMosmixValues(ScalarValuesCore):
             except IndexError as e:
                 raise IndexError(f"Unable to find LATEST file within {url}") from e
 
+        date = date.astimezone(pytz.UTC).replace(tzinfo=None)
+
         df_urls = pd.DataFrame({"URL": urls})
 
         df_urls[DwdColumns.DATE.value] = df_urls["URL"].apply(
@@ -416,7 +418,7 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         try:
             start_issue = parse_enumeration_from_template(start_issue, DwdForecastDate)
-        except InvalidParameter:
+        except (InvalidParameter, KeyError, ValueError):
             pass
 
         # Parse issue date if not set to fixed "latest" string
