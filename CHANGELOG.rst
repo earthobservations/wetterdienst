@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Make DwdMosmixRequest return data according to start and end date
+
 0.45.1 (10.10.2022)
 *******************
 
