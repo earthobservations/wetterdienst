@@ -133,13 +133,22 @@ class DwdMosmixValues(ScalarValuesCore):
             if self.sr.stations.tidy:
                 df = self.tidy_up_df(df, self.sr.stations.mosmix_type)
 
-            station_id = df[Columns.STATION_ID.value][0]
+            station_id = df[Columns.STATION_ID.value].iloc[0]
+
             df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
 
             df = self._coerce_meta_fields(df)
 
             if self.sr.humanize:
                 df = self._humanize(df, hpm)
+
+            # Filter for dates range if start_date and end_date are defined
+            if not df.empty and self.sr.start_date:
+                df = df.loc[
+                    (df[Columns.DATE.value] >= self.sr.start_date)
+                    & (df[Columns.DATE.value] <= self.sr.end_date),
+                    :,
+                ]
 
             yield ValuesResult(stations=self.sr, df=df)
 
