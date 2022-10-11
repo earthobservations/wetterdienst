@@ -472,7 +472,7 @@ Et voila: We just got the data we wanted for our location and are ready to analy
 temperature on historical developments.
 
 Interpolation
------------
+-------------
 
 Sometimes you might need data for your exact position instead of values measured at the location of a station.
 Therefore, we added the interpolation feature which allows you to interpolate weather data of stations around you to your exact location.
@@ -547,6 +547,33 @@ Currently the following parameters are supported (more will be added if useful):
     result = stations.interpolate(latitude=50.0, longitude=8.9)
     df = result.df
     print(df.head())
+
+Summary
+-------
+
+Similar to interpolation you may sometimes want to combine multiple stations to get a complete list of data. For that
+reason you can use `.summary(lat, lon)`, which goes through nearest stations and combines data from them meaningful.
+
+The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
+Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
+
+.. ipython:: python
+    :okwarning:
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    from wetterdienst import Parameter, Resolution
+
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        resolution=Resolution.HOURLY,
+        start_date=datetime(2022, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+
+    result = stations.summarize(latitude=50.0, longitude=8.9)
+    df = result.df
+    print(df.head())
+
 
 SQL support
 -----------

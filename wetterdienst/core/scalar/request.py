@@ -17,7 +17,11 @@ from measurement.utils import guess
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
-from wetterdienst.core.scalar.result import InterpolatedValuesResult, StationsResult
+from wetterdienst.core.scalar.result import (
+    InterpolatedValuesResult,
+    StationsResult,
+    SummarizedValuesResult,
+)
 from wetterdienst.exceptions import (
     InvalidEnumeration,
     NoParametersFound,
@@ -832,3 +836,26 @@ class ScalarRequestCore(Core):
 
         interpolated_values = get_interpolated_df(self, latitude, longitude)
         return InterpolatedValuesResult(df=interpolated_values, stations=self)
+
+    def summarize(self, latitude: float, longitude: float) -> SummarizedValuesResult:
+        """
+        Method to interpolate values
+
+        :return:
+        """
+        from wetterdienst.core.scalar.summarize import get_summarized_df
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+        if self.resolution in (
+            Resolution.MINUTE_1,
+            Resolution.MINUTE_5,
+            Resolution.MINUTE_10,
+        ):
+            log.warning("Summary might be slow for high resolutions due to mass of data")
+
+        if not isinstance(self, DwdObservationRequest):
+            log.error("Interpolation currently only works for DwdObservationRequest")
+            return SummarizedValuesResult(df=pd.DataFrame(), stations=self)
+
+        summarized_values = get_summarized_df(self, latitude, longitude)
+        return SummarizedValuesResult(df=summarized_values, stations=self)
