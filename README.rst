@@ -162,7 +162,7 @@ Features
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
-- Interpolation of station values
+- Interpolation and Summary of station values
 
 Setup
 *****
