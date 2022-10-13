@@ -343,14 +343,14 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 if par.name.startswith("QUALITY"):
                     continue
                 par_df = default_df.copy()
-                par_df.loc[:, Columns.PARAMETER.value] = par.value
+                par_df[Columns.PARAMETER.value] = par.value
 
                 data.append(par_df)
 
             df = pd.concat(data)
 
-            df.loc[:, Columns.VALUE.value] = pd.NA
-            df.loc[:, Columns.QUALITY.value] = pd.NA
+            df[Columns.VALUE.value] = pd.NA
+            df[Columns.QUALITY.value] = pd.NA
 
             return df
         else:
@@ -386,8 +386,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
             )
 
             if self.sr.tidy:
-                df.loc[:, Columns.PARAMETER.value] = parameter.value
-                df.loc[:, Columns.PARAMETER.value] = pd.Categorical(df.loc[:, Columns.PARAMETER.value])
+                df[Columns.PARAMETER.value] = parameter.value
+                df[Columns.PARAMETER.value] = pd.Categorical(df.loc[:, Columns.PARAMETER.value])
 
             return df
         else:
@@ -575,12 +575,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """
         df = self._tidy_up_df(df, dataset)
 
-        df.loc[:, Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(float)
+        df[Columns.VALUE.value] = pd.to_numeric(df[Columns.VALUE.value]).astype(float)
 
         if Columns.QUALITY.value not in df:
-            df.loc[:, Columns.QUALITY.value] = np.nan
+            df[Columns.QUALITY.value] = np.nan
 
-        df.loc[:, Columns.QUALITY.value] = pd.to_numeric(df[Columns.QUALITY.value]).astype(float)
+        df[Columns.QUALITY.value] = pd.to_numeric(df[Columns.QUALITY.value]).astype(float)
 
         # Set quality of NaN values to NaN as well
         df.loc[df[Columns.VALUE.value].isna(), Columns.QUALITY.value] = np.nan
@@ -649,7 +649,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
             Columns.TO_DATE.value,
         ):
             try:
-                df.loc[:, column] = self._coerce_dates(df[column], timezone_)
+                df[column] = self._coerce_dates(df[column], timezone_)
             except KeyError:
                 pass
 
@@ -666,13 +666,13 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :param df: pandas.DataFrame with the "fresh" data
         :return: pandas.DataFrame with meta fields being coerced
         """
-        df.loc[:, Columns.STATION_ID.value] = self._parse_station_id(df[Columns.STATION_ID.value]).astype("category")
-        df.loc[:, Columns.DATASET.value] = self._coerce_strings(df[Columns.DATASET.value]).astype("category")
+        df[Columns.STATION_ID.value] = self._parse_station_id(df[Columns.STATION_ID.value]).astype("category")
+        df[Columns.DATASET.value] = self._coerce_strings(df[Columns.DATASET.value]).astype("category")
 
         if self.sr.stations.tidy:
-            df.loc[:, Columns.PARAMETER.value] = self._coerce_strings(df[Columns.PARAMETER.value]).astype("category")
-            df.loc[:, Columns.VALUE.value] = df[Columns.VALUE.value].astype(pd.Float64Dtype()).astype(float)
-            df.loc[:, Columns.QUALITY.value] = df[Columns.QUALITY.value].astype(pd.Float64Dtype()).astype(float)
+            df[Columns.PARAMETER.value] = self._coerce_strings(df[Columns.PARAMETER.value]).astype("category")
+            df[Columns.VALUE.value] = df[Columns.VALUE.value].astype(pd.Float64Dtype()).astype(float)
+            df[Columns.QUALITY.value] = df[Columns.QUALITY.value].astype(pd.Float64Dtype()).astype(float)
 
         return df
 
@@ -745,11 +745,11 @@ class ScalarValuesCore(metaclass=ABCMeta):
             if column in self._meta_fields or column in self._date_fields:
                 continue
             if column in self._irregular_parameters:
-                df.loc[:, column] = self._coerce_irregular_parameter(df[column])
+                df[column] = self._coerce_irregular_parameter(df[column])
             elif column in self._string_parameters:
-                df.loc[:, column] = self._coerce_strings(df[column])
+                df[column] = self._coerce_strings(df[column])
             else:
-                df.loc[:, column] = self._coerce_floats(df[column])
+                df[column] = self._coerce_floats(df[column])
 
         return df
 
@@ -788,7 +788,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         if not self.sr.tidy:
             df = df.rename(columns=humanized_parameters_mapping)
         else:
-            df.loc[:, Columns.PARAMETER.value] = (
+            df[Columns.PARAMETER.value] = (
                 df.loc[:, Columns.PARAMETER.value].map(humanized_parameters_mapping).astype("category")
             )
 

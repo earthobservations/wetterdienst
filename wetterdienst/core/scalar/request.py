@@ -806,8 +806,8 @@ class ScalarRequestCore(Core):
 
         df: pd.DataFrame = duckdb.query_df(df, "data", sql).df()
 
-        df.loc[:, Columns.FROM_DATE.value] = df.loc[:, Columns.FROM_DATE.value].dt.tz_localize(self.tz)
-        df.loc[:, Columns.TO_DATE.value] = df.loc[:, Columns.TO_DATE.value].dt.tz_localize(self.tz)
+        df[Columns.FROM_DATE.value] = df.loc[:, Columns.FROM_DATE.value].dt.tz_localize(self.tz)
+        df[Columns.TO_DATE.value] = df.loc[:, Columns.TO_DATE.value].dt.tz_localize(self.tz)
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))
 

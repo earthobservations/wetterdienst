@@ -80,39 +80,37 @@ def create_file_index_for_climate_observations(
 
     file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
 
-    file_index.loc[:, DwdColumns.STATION_ID.value] = (
-        file_index[DwdColumns.FILENAME.value].str.findall(STATION_ID_REGEX).str[0]
-    )
+    file_index[DwdColumns.STATION_ID.value] = file_index[DwdColumns.FILENAME.value].str.findall(STATION_ID_REGEX).str[0]
 
     file_index = file_index.dropna().reset_index(drop=True)
 
-    file_index.loc[:, DwdColumns.STATION_ID.value] = (
+    file_index[DwdColumns.STATION_ID.value] = (
         file_index[DwdColumns.STATION_ID.value].astype(str).str.pad(5, "left", "0")
     )
 
     if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
-        file_index.loc[:, DwdColumns.DATE_RANGE.value] = (
+        file_index[DwdColumns.DATE_RANGE.value] = (
             file_index[DwdColumns.FILENAME.value].str.findall(DATE_RANGE_REGEX).str[0]
         )
 
-        file_index.loc[:, [DwdColumns.FROM_DATE.value, DwdColumns.TO_DATE.value]] = (
+        file_index[[DwdColumns.FROM_DATE.value, DwdColumns.TO_DATE.value]] = (
             file_index[DwdColumns.DATE_RANGE.value].str.split("_", expand=True).values
         )
 
-        file_index.loc[:, DwdColumns.FROM_DATE.value] = pd.to_datetime(
+        file_index[DwdColumns.FROM_DATE.value] = pd.to_datetime(
             file_index[DwdColumns.FROM_DATE.value],
             format=DatetimeFormat.YMD.value,
         )
-        file_index.loc[:, DwdColumns.FROM_DATE.value] = file_index.loc[:, DwdColumns.FROM_DATE.value].dt.tz_localize(
+        file_index[DwdColumns.FROM_DATE.value] = file_index.loc[:, DwdColumns.FROM_DATE.value].dt.tz_localize(
             timezone_germany
         )
 
-        file_index.loc[:, DwdColumns.TO_DATE.value] = pd.to_datetime(
+        file_index[DwdColumns.TO_DATE.value] = pd.to_datetime(
             file_index[DwdColumns.TO_DATE.value],
             format=DatetimeFormat.YMD.value,
         ) + pd.Timedelta(days=1)
-        file_index.loc[:, DwdColumns.TO_DATE.value] = file_index.loc[:, DwdColumns.TO_DATE.value].dt.tz_localize(
+        file_index[DwdColumns.TO_DATE.value] = file_index.loc[:, DwdColumns.TO_DATE.value].dt.tz_localize(
             timezone_germany
         )
 

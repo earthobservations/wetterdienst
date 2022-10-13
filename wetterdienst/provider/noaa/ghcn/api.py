@@ -78,7 +78,7 @@ class NoaaGhcnValues(ScalarValuesCore):
 
         df.columns = [Columns.STATION_ID.value, Columns.DATE.value, Columns.PARAMETER.value, Columns.VALUE.value]
 
-        df.loc[:, Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
+        df[Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
 
         timezone_ = self._get_timezone_from_station(station_id)
 
