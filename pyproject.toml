@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.45.2"
+version = "0.46.0"
 description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
@@ -199,7 +199,6 @@ coverage = { version = "^6.0", extras = ["toml"] }
 
 # Docs
 sphinx = "^5.2"
-sphinx-material = "^0.0.30"
 sphinx-autodoc-typehints = "^1.11"
 sphinxcontrib-svg2pdfconverter = "^1.1"
 sphinx-autobuild = "^2021.3"

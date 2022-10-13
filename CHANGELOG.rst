@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.46.0 (14.10.2022)
+*******************
+
 - Add summary of multiple weather stations for a given lat/lon point (currently only works for DWDObservationRequest)
 
 0.45.2 (11.10.2022)
