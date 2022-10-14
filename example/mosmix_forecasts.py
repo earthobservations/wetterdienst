@@ -44,7 +44,28 @@ def mosmix_example():
     output_section("Metadata", response.stations.df)
     output_section("Forecasts", response.df)
 
-    # B. MOSMIX-S -- All stations_result - specified stations_result are extracted.
+    # B. MOSMIX-L -- All stations_result - specified stations_result are extracted.
+    Settings.tidy = True
+    Settings.humanize = True
+
+    request = DwdMosmixRequest(
+        parameter=["DD", "ww"],
+        start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
+        mosmix_type=DwdMosmixType.LARGE,
+        station_group="all_stations",
+    )
+
+    stations = request.filter_by_station_id(
+        station_id=["01001", "01008"],
+    )
+
+    response = next(stations.values.query())
+
+    # meta data enriched with information from metadata_for_forecasts()
+    output_section("Metadata", response.stations.df)
+    output_section("Forecasts", response.df)
+
+    # C. MOSMIX-S -- All stations_result - specified stations_result are extracted.
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],

@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add support for reading DWD Mosmix-L all stations files
+
 0.46.0 (14.10.2022)
 *******************
 
