@@ -168,8 +168,8 @@ def test_radar_request_composite_historic_hg_yesterday():
     assert dt_delta.seconds / 60 < 10
     assert requested_attrs["radarid"] == "10000"
     assert requested_attrs["datasize"] == 5280000
-    assert requested_attrs["maxrange"] == "150 km"
-    assert requested_attrs["radolanversion"] == "P300003H"
+    assert requested_attrs["maxrange"] == "100 km"
+    assert requested_attrs["radolanversion"] == "P300001H"
     assert requested_attrs["precision"] == 1.0
     assert requested_attrs["intervalseconds"] == 300
     assert requested_attrs["nrow"] == 1200
@@ -824,7 +824,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday():
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600))
+    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600), (357, 600))
 
     timestamp = round_minutes(request.start_date, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
@@ -998,7 +998,7 @@ def test_radar_request_radvor_re_yesterday():
         "producttype": "RE",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.001,
-        "formatversion": 3,
+        "formatversion": 5,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -1109,7 +1109,7 @@ def test_radar_request_radvor_rq_yesterday():
         "producttype": "RQ",
         "datetime": request.start_date.to_pydatetime(),
         "precision": 0.1,
-        "formatversion": 3,
+        "formatversion": 5,
         "intervalseconds": 3600,
         "nrow": 900,
         "ncol": 900,
@@ -1192,9 +1192,9 @@ def test_radar_request_radvor_rq_timerange():
     attrs = {
         "producttype": "RQ",
         "datetime": request.start_date.to_pydatetime(),
-        "formatversion": 3,
+        "formatversion": 5,
         "datasize": 1620000,
-        "maxrange": "150 km",
+        "maxrange": "100 km",
         "precision": 0.1,
         "intervalseconds": 3600,
         "nrow": 900,
