@@ -656,7 +656,7 @@ Get stations for Mosmix:
 Mosmix forecasts require us to define ``station_ids`` and ``mosmix_type``. Furthermore
 we can also define explicitly the requested parameters.
 
-Get Mosmix-L data:
+Get Mosmix-L data (single station file):
 
 .. ipython:: python
     :okwarning:
@@ -666,6 +666,23 @@ Get Mosmix-L data:
     stations = DwdMosmixRequest(
         parameter="large",
         mosmix_type=DwdMosmixType.LARGE
+    ).filter_by_station_id(station_id=["01001", "01008"])
+    response =  next(stations.values.query())
+
+    print(response.stations.df)
+    print(response.df)
+
+Get Mosmix-L data (all stations file):
+
+.. ipython:: python
+    :okwarning:
+
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
+
+    stations = DwdMosmixRequest(
+        parameter="large",
+        mosmix_type=DwdMosmixType.LARGE,
+        station_group="all_stations"
     ).filter_by_station_id(station_id=["01001", "01008"])
     response =  next(stations.values.query())
 

@@ -25,6 +25,7 @@ from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.constants import (
+    DWD_MOSMIX_L_PATH,
     DWD_MOSMIX_L_SINGLE_PATH,
     DWD_MOSMIX_S_PATH,
     DWD_SERVER,
@@ -48,6 +49,11 @@ log = logging.getLogger(__name__)
 class DwdMosmixDataset(Enum):
     SMALL = "small"
     LARGE = "large"
+
+
+class DwdMosmixStationGroup(Enum):
+    SINGLE_STATIONS = "single_stations"
+    ALL_STATIONS = "all_stations"
 
 
 class DwdMosmixValues(ScalarValuesCore):
@@ -253,20 +259,28 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date:
         :return:
         """
-        url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH)
+        if self.sr.stations.station_group == DwdMosmixStationGroup.ALL_STATIONS:
+            url = urljoin(DWD_SERVER, DWD_MOSMIX_L_PATH)
 
-        for station_id in self.sr.station_id:
-            station_url = f"{url}{station_id}/kml"
-
-            try:
-                file_url = self.get_url_for_date(station_url, date)
-            except HTTPError:
-                log.warning(f"Files for {station_id} do not exist on the server")
-                continue
+            file_url = self.get_url_for_date(url, date)
 
             self.kml.read(file_url)
 
-            yield next(self.kml.get_forecasts())
+            for forecast in self.kml.get_forecasts():
+                yield forecast
+        else:
+            for station_id in self.sr.station_id:
+                station_url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
+
+                try:
+                    file_url = self.get_url_for_date(station_url, date)
+                except HTTPError:
+                    log.warning(f"Files for {station_id} do not exist on the server")
+                    continue
+
+                self.kml.read(file_url)
+
+                yield next(self.kml.get_forecasts())
 
     @staticmethod
     def get_url_for_date(url: str, date: Union[datetime, DwdForecastDate]) -> str:
@@ -393,6 +407,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         end_issue: Optional[Union[str, datetime]] = None,
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
+        station_group: Optional[DwdMosmixStationGroup] = None,
     ) -> None:
         """
 
@@ -404,6 +419,14 @@ class DwdMosmixRequest(ScalarRequestCore):
         :param end_date: end date
         """
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
+
+        if self.mosmix_type == DwdMosmixType.SMALL:
+            self.station_group = DwdMosmixStationGroup.ALL_STATIONS
+        else:
+            self.station_group = (
+                parse_enumeration_from_template(station_group, DwdMosmixStationGroup)
+                or DwdMosmixStationGroup.SINGLE_STATIONS
+            )
 
         super().__init__(
             parameter=parameter,
