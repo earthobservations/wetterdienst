@@ -23,9 +23,9 @@ contributions.
 Screenshot
 **********
 
-.. figure:: https://user-images.githubusercontent.com/453543/113444787-dcc2f680-93f4-11eb-8ca5-ad71c2e15007.png
+.. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/wetterdienst_explorer.png
     :name: Wetterdienst Explorer UI screenshot
-    :target: https://user-images.githubusercontent.com/453543/113444866-febc7900-93f4-11eb-827a-5af0e5e624de.png
+    :target: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/wetterdienst_explorer.png
 
 
 ********

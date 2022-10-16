@@ -46,6 +46,10 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 log = logging.getLogger(__name__)
 
 
+class DwdMosmixPeriod(Enum):
+    FUTURE = Period.FUTURE.value
+
+
 class DwdMosmixDataset(Enum):
     SMALL = "small"
     LARGE = "large"
@@ -336,7 +340,7 @@ class DwdMosmixRequest(ScalarRequestCore):
     _resolution_type = ResolutionType.FIXED
     _resolution_base = Resolution  # use general Resolution for fixed Resolution
     _period_type = PeriodType.FIXED
-    _period_base = Period.FUTURE
+    _period_base = DwdMosmixPeriod
     _data_range = DataRange.FIXED
     _has_datasets = True
     _unique_dataset = True

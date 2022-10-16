@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Update wetterdienst explorer with clickable stations and slighly changed layout
+
 0.50.0 (03.12.2022)
 *******************
 

@@ -4,24 +4,28 @@
 """
 Wetterdienst Explorer UI Dash application.
 """
+import json
 import logging
 from typing import Optional
 
 import dash
 import dash_bootstrap_components as dbc
+import dash_leaflet as dl
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 from dash import Input, Output, State, dcc, html
+from geojson import Feature, FeatureCollection, Point
 
 from wetterdienst.api import ApiEndpoints
+from wetterdienst.core.scalar.result import ValuesResult
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.ui.core import get_stations, get_values
 from wetterdienst.ui.explorer.layout.main import get_app_layout
-from wetterdienst.ui.explorer.library import add_annotation_no_data, default_figure
+from wetterdienst.ui.explorer.library import default_figure
 from wetterdienst.ui.explorer.util import frame_summary
 from wetterdienst.util.cli import setup_logging
 
@@ -32,6 +36,7 @@ app = dash.Dash(
     __name__,
     meta_tags=[{"name": "viewport", "content": "width=device-width"}],
     external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.themes.SANDSTONE],
+    suppress_callback_exceptions=True,
 )
 app.title = "Wetterdienst Explorer"
 app.layout = get_app_layout()
@@ -187,7 +192,9 @@ def fetch_values(
 
     log.info(f"Propagating values data frame with {frame_summary(df)}")
 
-    return df.to_json(date_format="iso", orient="split")
+    values.df.date = values.df.date.astype(str)
+
+    return json.dumps({"values": values.df.to_dict(orient="split"), "unit_dict": values.stations.stations.discover()})
 
 
 @app.callback(
@@ -199,7 +206,10 @@ def render_navigation_stations(payload):
     Compute list of items from "stations_result" data for populating the "stations_result"
     chooser element.
     """
-    stations_data = pd.read_json(payload, orient="split")
+    try:
+        stations_data = pd.read_json(payload, orient="split")
+    except ValueError:
+        stations_data = pd.DataFrame()
     if stations_data.empty:
         return []
     log.info(f"Rendering stations_result dropdown from {frame_summary(stations_data)}")
@@ -293,7 +303,11 @@ def render_status_response_values(
     """
     Report about the status of the query.
     """
-    values_data = pd.read_json(payload, orient="split")
+    try:
+        payload = json.loads(payload)
+        values_data = pd.DataFrame.from_records(payload["values"]["data"], columns=payload["values"]["columns"])
+    except (KeyError, ValueError, TypeError):
+        values_data = pd.DataFrame()
 
     messages = [dcc.Markdown("#### Values")]
 
@@ -330,79 +344,80 @@ def render_status_response_values(
 
 
 @app.callback(
-    Output("map-stations_result", "figure"),
+    Output("map-stations_result", "children"),
     [Input("dataframe-stations_result", "children")],
 )
 def render_map(payload):
     """
     Create a "map" Figure element from "stations_result" data.
     """
-    stations_data = pd.read_json(payload, orient="split")
-
-    layout_germany = {
-        "hovermode": "closest",
-        "mapbox": {
-            "bearing": 0,
-            "center": go.layout.mapbox.Center(lat=51.5, lon=10),
-            "style": "open-street-map",
-            "pitch": 0,
-            "zoom": 4.5,
-        },
-        "margin": go.layout.Margin(
-            l=0,
-            r=0,
-            b=0,
-            t=0,
-        ),
-    }
-
+    try:
+        stations_data = pd.read_json(payload, orient="split", dtype=str)
+    except (TypeError, ValueError):
+        stations_data = pd.DataFrame()
     if stations_data.empty:
-        fig = go.Figure(
-            data=go.Scattermapbox(
-                mode="markers",
-            ),
-            layout=layout_germany,
-        )
-        add_annotation_no_data(fig)
-        return fig
-
+        return []
+    stations_data = stations_data.astype({"station_id": str, "latitude": float, "longitude": float})
     log.info(f"Rendering stations_result map from {frame_summary(stations_data)}")
-    return go.Figure(
-        data=go.Scattermapbox(
-            lat=stations_data[Columns.LATITUDE.value],
-            lon=stations_data[Columns.LONGITUDE.value],
-            mode="markers",
-            marker=go.scattermapbox.Marker(size=5),
-            text=[
-                f"Name: {name}<br>Id: {station_id}<br>Height: {altitude}m "
-                for name, altitude, station_id in zip(
-                    stations_data[Columns.NAME.value],
-                    stations_data[Columns.HEIGHT.value],
-                    stations_data[Columns.STATION_ID.value],
-                )
-            ],
-        ),
-        layout=layout_germany,
-    )
+    # columns used for constructing geojson object
+    features = stations_data.apply(
+        lambda row: Feature(geometry=Point((float(row["longitude"]), float(row["latitude"])))), axis=1
+    ).tolist()
+    # all the other columns used as properties
+    properties = stations_data.drop(["latitude", "longitude"], axis=1).to_dict("records")
+    # whole geojson object
+    feature_collection = FeatureCollection(features=features, properties=properties)
+    return dl.GeoJSON(
+        id="markers", data=feature_collection, cluster=True, zoomToBounds=True, zoomToBoundsOnClick=True
+    )  # , options={"polygonOptions": {"color": "red"}}
+
+
+@app.callback(
+    Output("select-station", "value"),
+    [
+        Input("markers", "click_feature"),
+        Input("markers", "n_clicks"),
+        State("dataframe-stations_result", "children"),
+    ],  # Input({"tag": "markers", "index": ALL}, "click_feature"), Input({"tag": "markers", "index": ALL}, "n_clicks")
+)
+def map_click(click_feature, n_clicks, stations):  # feature, n_clicks,
+    if not click_feature:
+        return None
+    if click_feature.get("propertries", {}).get("cluster"):
+        return None
+    lonlat = click_feature.get("geometry", {}).get("coordinates")
+    if not lonlat:
+        return None
+    stations_data = pd.read_json(stations, orient="split", dtype=str)
+    stations_data = stations_data.astype({"latitude": float, "longitude": float})
+    return stations_data.loc[
+        (stations_data.longitude == lonlat[0]) & (stations_data.latitude == lonlat[1]), "station_id"
+    ]
+
+
+def _get_station_text(row):
+    return f"Name: {row['name']}\nId: {row['station_id']}\nHeight: {row['height']}m"
 
 
 @app.callback(
     Output("graph-values", "figure"),
-    [Input("select-parameter", "value"), Input("dataframe-values", "children")],
+    [Input("select-parameter", "value"), Input("select-resolution", "value"), Input("dataframe-values", "children")],
 )
-def render_graph(parameter, payload):
+def render_graph(parameter, resolution, payload: ValuesResult):
     """
     Create a "graph" Figure element from "values" data.
     """
-
     try:
-        climate_data = pd.read_json(payload, orient="split")
-    except ValueError:
+        payload = json.loads(payload)
+        climate_data = pd.DataFrame.from_dict(payload["values"])
+        unit_dict = payload["unit_dict"]
+    except (ValueError, KeyError, TypeError):
         climate_data = pd.DataFrame()
+        unit_dict = {}
 
     log.info(f"Rendering graph for parameter={parameter} from {frame_summary(climate_data)}")
 
-    fig = default_figure(climate_data, parameter)
+    fig = default_figure(climate_data, parameter, resolution, unit_dict)
 
     fig.update_layout(
         margin=go.layout.Margin(

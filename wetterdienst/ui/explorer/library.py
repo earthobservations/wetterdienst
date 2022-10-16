@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objs as go
 
 
-def default_figure(climate_data: pd.DataFrame, column: str) -> go.Figure:
+def default_figure(climate_data: pd.DataFrame, parameter, resolution, unit_dict) -> go.Figure:
     """
     Default figure generation
     Args:
@@ -25,8 +25,10 @@ def default_figure(climate_data: pd.DataFrame, column: str) -> go.Figure:
         add_annotation_no_data(fig)
         return fig
 
+    ytitle = f"{parameter.lower()} [{unit_dict[resolution.lower()][parameter.lower()]['si']}]"
+
     fig = go.Figure(data=[go.Scatter(x=climate_data.date, y=climate_data.value, hoverinfo="x+y")])
-    fig.update_layout(yaxis={"title": f"{column}"}, showlegend=False)
+    fig.update_layout(yaxis={"title": ytitle}, xaxis={"title": "Date"}, showlegend=False)
     return fig
 
 
