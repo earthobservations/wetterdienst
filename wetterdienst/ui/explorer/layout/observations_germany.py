@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import dash_leaflet as dl
 from dash import dcc, html
 
 from wetterdienst.api import ApiEndpoints
@@ -20,50 +21,49 @@ def dashboard_layout() -> html:
                 [
                     html.Div(
                         [
-                            html.Div("Provider:"),
                             dcc.Dropdown(
                                 id="select-provider",
                                 options=get_providers(),
                                 value=None,
                                 multi=False,
                                 className="dcc_control",
+                                placeholder="Select provider...",
                             ),
-                            html.Div("Network:"),
                             dcc.Dropdown(
                                 id="select-network",
                                 value=None,
                                 multi=False,
                                 className="dcc_control",
+                                placeholder="Select network...",
                             ),
-                            html.Div("Resolution:"),
                             dcc.Dropdown(
                                 id="select-resolution",
                                 value=None,
                                 multi=False,
                                 className="dcc_control",
+                                placeholder="Select resolution...",
                             ),
-                            html.Div("Dataset:"),
                             dcc.Dropdown(
                                 id="select-dataset",
                                 value=None,
                                 multi=False,
                                 className="dcc_control",
+                                placeholder="Select dataset...",
                             ),
-                            html.Div("Parameter:"),
                             dcc.Dropdown(
                                 id="select-parameter",
                                 value=None,
                                 multi=False,
                                 className="dcc_control",
+                                placeholder="Select parameter...",
                             ),
-                            html.Div("Period:"),
                             dcc.Dropdown(
                                 id="select-period",
                                 value=None,
                                 multi=False,
                                 className="dcc_control",
+                                placeholder="Select period...",
                             ),
-                            html.Div("Station:"),
                             dcc.Loading(
                                 id="loading-1",
                                 children=[
@@ -71,6 +71,7 @@ def dashboard_layout() -> html:
                                         id="select-station",
                                         multi=False,
                                         className="dcc_control",
+                                        placeholder="Select station...",
                                     ),
                                     html.Div(
                                         [],
@@ -81,7 +82,28 @@ def dashboard_layout() -> html:
                             ),
                         ],
                         id="navigation",
-                        className="col wd-panel d-flex flex-column",
+                        className="col map-panel d-flex flex-column",
+                    ),
+                    html.Div(
+                        [
+                            dl.Map(
+                                [
+                                    dl.LayersControl(
+                                        [
+                                            dl.BaseLayer(
+                                                dl.TileLayer(),
+                                                name="OpenStreetMaps",
+                                                checked=True,
+                                            ),
+                                            dl.LayerGroup(id="map-stations_result"),
+                                        ],
+                                    ),
+                                ],
+                                id="map",
+                            ),
+                        ],
+                        id="map-div",
+                        className="col map-panel",
                     ),
                     html.Div(
                         [
@@ -94,12 +116,7 @@ def dashboard_layout() -> html:
                             ),
                         ],
                         id="status-response",
-                        className="col wd-panel flex-column",
-                    ),
-                    html.Div(
-                        [dcc.Graph(id="map-stations_result")],
-                        id="map",
-                        className="col wd-panel",
+                        className="col map-panel flex-column",
                     ),
                 ],
                 id="header",

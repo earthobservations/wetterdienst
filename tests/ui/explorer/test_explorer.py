@@ -21,7 +21,10 @@ import time
 
 import pytest
 from bs4 import BeautifulSoup
-from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+)
 
 
 @pytest.mark.slow
@@ -103,12 +106,10 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-stations_result", timeout=5)
-    time.sleep(0.5)
 
     # Wait for status element.
     dash_tre.wait_for_contains_text("#status-response-stations_result", "No data", timeout=2)
     dash_tre.wait_for_contains_text("#status-response-values", "No data", timeout=2)
-    dash_tre.wait_for_contains_text("#map", "No data to display", timeout=2)
 
 
 @pytest.mark.slow
@@ -177,30 +178,25 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     # Select dataset.
     dash_tre.wait_for_element_by_id("select-dataset")
     dash_tre.select_dcc_dropdown("#select-dataset", value="TEMPERATURE_AIR")
-    time.sleep(0.5)
 
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="TEMPERATURE_AIR_MEAN_200")
-    time.sleep(0.5)
 
     # Select period.
     dash_tre.wait_for_element_by_id("select-period")
     dash_tre.select_dcc_dropdown("#select-period", value="RECENT")
-    time.sleep(0.5)
 
     # Select weather station.
     dash_tre.wait_for_element_by_id("select-station")
     dash_tre.select_dcc_dropdown("#select-station", value="Anklam")
-    time.sleep(0.5)
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-values")
-    time.sleep(0.5)
 
     # Wait for status element.
-    dash_tre.wait_for_contains_text("#status-response", "Records", timeout=20)
-    dash_tre.wait_for_contains_text("#status-response", "Begin date", timeout=20)
+    dash_tre.wait_for_contains_text("#status-response", "Records")
+    dash_tre.wait_for_contains_text("#status-response", "Begin date")
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
@@ -208,10 +204,11 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     data = json.loads(data_element.text)
 
     # Verify data.
-    assert data["columns"] == ["station_id", "dataset", "parameter", "date", "value"]
-    assert len(data["data"]) > 13000
+    assert data["values"]["columns"] == ["station_id", "dataset", "parameter", "date", "value", "quality"]
+    assert len(data["values"]["data"]) > 13000
 
 
+@pytest.mark.xfail(raises=ElementClickInterceptedException)
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
@@ -220,28 +217,25 @@ def test_dwd_mosmix_options(wetterdienst_ui, dash_tre):
     Verify if data for "values" has been correctly propagated.
     """
     # Select provider.
-    dash_tre.wait_for_element_by_id("select-provider")
+    dash_tre.wait_for_element_by_id_clickable("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
 
     # Select network.
-    dash_tre.wait_for_element_by_id("select-network")
+    dash_tre.wait_for_element_by_id_clickable("select-network")
     dash_tre.select_dcc_dropdown("#select-network", value="MOSMIX")
 
     # Select resolution.
-    dash_tre.wait_for_element_by_id("select-resolution")
+    dash_tre.wait_for_element_by_id_clickable("select-resolution")
     dash_tre.select_dcc_dropdown("#select-resolution", value="SMALL")
 
     # Select dataset.
-    dash_tre.wait_for_element_by_id("select-dataset")
+    dash_tre.wait_for_element_by_id_clickable("select-dataset")
     dash_tre.select_dcc_dropdown("#select-dataset", value="SMALL")
-    time.sleep(0.5)
 
     # Select parameter.
-    dash_tre.wait_for_element_by_id("select-parameter")
+    dash_tre.wait_for_element_by_id_clickable("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="TEMPERATURE_AIR_MEAN_200")
-    time.sleep(0.5)
 
     # Select period.
-    dash_tre.wait_for_element_by_id("select-period")
+    dash_tre.wait_for_element_by_id("select-period", 60)
     dash_tre.select_dcc_dropdown("#select-period", value="FUTURE")
-    time.sleep(0.5)

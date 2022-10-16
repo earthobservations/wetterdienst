@@ -127,8 +127,10 @@ tqdm = "^4.47"
 
 dash                            = { version = "^2", optional = true }  # Explorer UI feature.
 dash-bootstrap-components       = { version = "^1", optional = true }  # Explorer UI feature.
+dash-leaflet                    = { version = "^0.1.23", optional = true }  # Explorer UI feature.
 duckdb                          = { version = "^0.6.0", optional = true }  # Export feature.
 fastapi                         = { version = "^0.65", optional = true }  # HTTP REST API feature.
+geojson                         = { version = "^2.5.0", optional = true }  # Explorer UI feature.
 h5py                            = { version = "^3.1", optional = true, extras = ["radar"], python = "<3.11" }  # Radar feature.
 influxdb                        = { version = "^5.3", optional = true }  # Export feature.
 influxdb-client                 = { version = "^1.18", optional = true }  # Export feature.
@@ -176,7 +178,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 coverage = { version = "^6.0", extras = ["toml"] }
-dash = { version = "^2", extras = ["testing"] }
+dash = { version = "^2.6", extras = ["testing"] }
 freezegun = "^1.2"
 h5py = { version = "^3.1", python = "<3.11", optional = true}
 percy = "^2.0"
@@ -209,7 +211,7 @@ tomlkit = "^0.7"
 bufr                = ["pybufrkit"]
 cratedb             = ["crate"]
 duckdb              = ["duckdb"]
-explorer            = ["dash", "dash-bootstrap-components", "plotly"]
+explorer            = ["dash", "dash-bootstrap-components", "dash-leaflet", "geojson", "plotly"]
 export              = ["openpyxl", "pyarrow", "sqlalchemy", "xarray", "zarr"]
 influxdb            = ["influxdb", "influxdb-client"]
 interpolation       = ["scipy", "shapely", "utm"]
