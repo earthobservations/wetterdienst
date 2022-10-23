@@ -775,6 +775,19 @@ def test_dwd_observations_urban_values():
 
 
 @pytest.mark.remote
+def test_dwd_observations_urban_values_pressure():
+    request = DwdObservationRequest(
+        parameter="urban_pressure",
+        resolution="hourly",
+        start_date="2022-01-01",
+        end_date="2022-01-31",
+    ).filter_by_name(name="Berlin-Alexanderplatz")
+    values = request.values.all().df
+
+    assert not values.value.empty
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy():
     """Test for actual values (tidy) in metric units"""
     Settings.tidy = True
