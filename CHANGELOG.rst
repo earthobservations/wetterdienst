@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix DWD Observation urban_pressure dataset access
+
 0.47.0 (14.10.2022)
 *******************
 

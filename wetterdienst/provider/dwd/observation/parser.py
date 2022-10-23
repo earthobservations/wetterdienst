@@ -169,20 +169,24 @@ def _parse_climate_observations_data(
         df = df.reindex(columns=columns)
 
     # Special handling for hourly solar data, as it has more date columns
-    if resolution == Resolution.HOURLY and dataset == DwdObservationDataset.SOLAR:
-        # Rename date column correctly to end of interval, as it has additional minute
-        # information. Also rename column with true local time to english one
-        df = df.rename(
-            columns={
-                "mess_datum_woz": DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
-            }
-        )
+    if resolution == Resolution.HOURLY:
+        if dataset == DwdObservationDataset.SOLAR:
+            # Rename date column correctly to end of interval, as it has additional minute
+            # information. Also rename column with true local time to english one
+            df = df.rename(
+                columns={
+                    "mess_datum_woz": DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+                }
+            )
 
-        # Duplicate the date column to end of interval column
-        df[DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
+            # Duplicate the date column to end of interval column
+            df[DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
 
-        # Fix real date column by cutting of minutes
-        df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
+            # Fix real date column by cutting of minutes
+            df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
+
+        if dataset == DwdObservationDataset.URBAN_PRESSURE:
+            df = df.rename(columns={"luftdruck_nn": "luftdruck_stationshoehe"})
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.rename(
