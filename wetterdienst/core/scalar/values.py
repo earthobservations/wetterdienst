@@ -462,6 +462,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 if parameter_df.empty:
                     parameter_df = self._create_empty_station_parameter_df(station_id, parameter, dataset)
 
+                parameter_df = parameter_df.drop_duplicates(subset=[Columns.DATE.value])
+
                 # set dynamic resolution for services that have no fixed resolutions
                 if self.sr.resolution == Resolution.DYNAMIC:
                     self.sr.stations.dynamic_frequency = self.fetch_dynamic_frequency(station_id, parameter, dataset)
@@ -697,7 +699,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         if not is_datetime(series):
             series = pd.Series(series.map(lambda x: pd.Timestamp(x)))
         if not series.dt.tz:
-            series = series.dt.tz_localize(timezone_)
+            series = series.dt.tz_localize(timezone_, ambiguous=True, nonexistent="shift_forward")
         return series.dt.tz_convert(pytz.UTC)
 
     @staticmethod
