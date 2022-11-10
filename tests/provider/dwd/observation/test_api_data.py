@@ -775,9 +775,20 @@ def test_dwd_observations_urban_values():
 
 
 @pytest.mark.remote
-def test_dwd_observations_urban_values_pressure():
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        "urban_pressure",
+        "urban_temperature_air",
+        "urban_precipitation",
+        "urban_temperature_soil",
+        "urban_sun",
+        "urban_wind",
+    ],
+)
+def test_dwd_observations_urban_values_basic(dataset):
     request = DwdObservationRequest(
-        parameter="urban_pressure",
+        parameter=dataset,
         resolution="hourly",
         start_date="2022-01-01",
         end_date="2022-01-31",

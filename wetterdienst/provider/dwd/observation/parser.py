@@ -185,8 +185,8 @@ def _parse_climate_observations_data(
             # Fix real date column by cutting of minutes
             df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
 
-        if dataset == DwdObservationDataset.URBAN_PRESSURE:
-            df = df.rename(columns={"luftdruck_nn": "luftdruck_stationshoehe"})
+        if dataset == DwdObservationDataset.URBAN_TEMPERATURE_AIR:
+            df = df.drop(columns=["strahlungstemperatur"])
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.rename(
