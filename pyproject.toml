@@ -269,7 +269,7 @@ flake8-copyright = ["+*"]
 flake8-eradicate = ["+*"]
 flake8-isort = ["+*"]
 flake8-print = ["+*"]
-flake8-return = ["+*"]
+flake8-return = ["+*", "-R505"]
 flake8-2020 = ["+*"]
 
 [tool.flakeheaven.exceptions."wetterdienst/__init__.py"]
