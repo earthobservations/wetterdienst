@@ -56,7 +56,7 @@ def get_stations(
     period: List[str],
     date: Optional[str],
     issue: str,
-    all_,
+    all_: bool,
     station_id: List[str],
     name: str,
     coordinates: str,
