@@ -261,6 +261,7 @@ class DwdObservationParameter(DatasetTreeCore):
 
         class URBAN_PRESSURE(Enum):  # noqa
             QUALITY = "qualitaets_niveau"
+            PRESSURE_AIR_SEA_LEVEL = "luftdruck_nn"
             PRESSURE_AIR_SITE = "luftdruck_stationshoehe"
 
         class URBAN_SUN(Enum):  # noqa

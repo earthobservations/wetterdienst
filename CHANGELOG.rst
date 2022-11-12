@@ -4,6 +4,12 @@ Changelog
 Development
 ***********
 
+0.48.0 (11.11.2022)
+*******************
+
+- Fix DWD Observation urban_pressure dataset access (again)
+- Add example to dump DWD climate summary observations in zarr with help of xarray
+
 0.47.1 (23.10.2022)
 *******************
 

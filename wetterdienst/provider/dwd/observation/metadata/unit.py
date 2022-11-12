@@ -407,6 +407,10 @@ class DwdObservationUnit(DatasetTreeCore):
 
         class URBAN_PRESSURE(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            PRESSURE_AIR_SEA_LEVEL = (
+                OriginUnit.HECTOPASCAL.value,
+                SIUnit.PASCAL.value,
+            )
             PRESSURE_AIR_SITE = (
                 OriginUnit.HECTOPASCAL.value,
                 SIUnit.PASCAL.value,

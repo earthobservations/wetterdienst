@@ -394,13 +394,13 @@ def test_dwd_observation_data_result_all_missing_data():
     stations = DwdObservationRequest(
         parameter=Parameter.PRECIPITATION_HEIGHT.name,
         resolution=DwdObservationResolution.MINUTE_10,
-        start_date=datetime(2021, 10, 1),
+        start_date=datetime(2021, 10, 3),
         end_date=datetime(2021, 10, 5),
-    ).filter_by_station_id(["01851"])
+    ).filter_by_station_id(["05435"])
 
     values = stations.values.all().df
 
-    assert all(values.value.isna())
+    assert values.value.dropna().empty
 
 
 @pytest.mark.remote
@@ -775,9 +775,20 @@ def test_dwd_observations_urban_values():
 
 
 @pytest.mark.remote
-def test_dwd_observations_urban_values_pressure():
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        "urban_pressure",
+        "urban_temperature_air",
+        "urban_precipitation",
+        "urban_temperature_soil",
+        "urban_sun",
+        "urban_wind",
+    ],
+)
+def test_dwd_observations_urban_values_basic(dataset):
     request = DwdObservationRequest(
-        parameter="urban_pressure",
+        parameter=dataset,
         resolution="hourly",
         start_date="2022-01-01",
         end_date="2022-01-31",
