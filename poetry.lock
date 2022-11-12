@@ -3527,8 +3527,8 @@ sql = ["duckdb"]
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.8,<3.11"
-content-hash = "ef84f4c9fd6e6fe3d540b6a84d34156551f400606a1b08a0d80073448099d269"
+python-versions = "^3.8,<3.12"
+content-hash = "42f434914c0ea2c049a0fc11d161b22c009674f395d1fa152db64a0cca908825"
 
 [metadata.files]
 aenum = [
