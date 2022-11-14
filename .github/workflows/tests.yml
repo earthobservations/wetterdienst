@@ -16,18 +16,25 @@ concurrency:
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
+
     strategy:
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12-dev"]
         include:
           - os: "macos-latest"
             python-version: "3.11"
           - os: "windows-latest"
             python-version: "3.11"
+
+    env:
+      OS: ${{ matrix.os }}
+      PYTHON: ${{ matrix.python-version }}
+
     defaults:
       run:
         shell: bash
+
     name: Python ${{ matrix.python-version }} on OS ${{ matrix.os }}
     steps:
       - name: Acquire sources

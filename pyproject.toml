@@ -66,6 +66,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -99,7 +100,7 @@ classifiers = [
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
 
 [tool.poetry.dependencies]
-python = "^3.9,!=3.9.7,<3.12"
+python = "^3.9,!=3.9.7,<3.13"
 
 aenum = ">=3,<3.2"
 aiohttp = ">=3.8,<3.10"
