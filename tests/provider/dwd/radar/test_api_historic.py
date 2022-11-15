@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
-import h5py
 import pybufrkit
 import pytest
 import requests
@@ -22,6 +21,7 @@ from wetterdienst.provider.dwd.radar import (
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
 
+h5py = pytest.importorskip("h5py", reason="h5py not installed")
 wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
 HERE = Path(__file__).parent

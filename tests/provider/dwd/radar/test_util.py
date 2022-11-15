@@ -34,12 +34,16 @@ hdf5_example = (
 
 @pytest.mark.remote
 def test_radar_verify_hdf5_valid():
+    pytest.importorskip("h5py", reason="h5py not installed")
+
     buffer = BytesIO(requests.get(hdf5_example).content)
 
     verify_hdf5(buffer)
 
 
 def test_radar_verify_hdf5_invalid():
+    pytest.importorskip("h5py", reason="h5py not installed")
+
     with pytest.raises(Exception) as ex:
         buffer = BytesIO()
         verify_hdf5(buffer)

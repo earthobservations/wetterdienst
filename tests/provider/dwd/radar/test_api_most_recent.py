@@ -23,7 +23,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5():
     Example for testing radar sites most recent full SWEEP_PCP,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
-    import h5py
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -68,7 +68,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5():
     Example for testing radar sites most recent full SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
     """
-    import h5py
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
