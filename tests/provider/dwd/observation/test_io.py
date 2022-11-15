@@ -12,8 +12,6 @@ import mock
 import numpy as np
 import openpyxl
 import pandas as pd
-import pyarrow.feather as feather
-import pyarrow.parquet as pq
 import pytest
 from surrogate import surrogate
 
@@ -327,6 +325,9 @@ def test_export_spreadsheet(tmpdir_factory):
 @pytest.mark.remote
 def test_export_parquet(tmpdir_factory):
     """Test export of DataFrame to parquet"""
+
+    pq = pytest.importorskip("pyarrow.parquet")
+
     Settings.tidy = False
     Settings.humanize = True
     Settings.si_units = False
@@ -459,6 +460,8 @@ def test_export_zarr(tmpdir_factory):
 @pytest.mark.remote
 def test_export_feather(tmpdir_factory):
     """Test export of DataFrame to feather"""
+    feather = pytest.importorskip("pyarrow.feather")
+
     Settings.tidy = False
     Settings.humanize = True
     Settings.si_units = False
