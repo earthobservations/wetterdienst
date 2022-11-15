@@ -2420,20 +2420,8 @@ python-versions = "*"
 dictdiffer = "*"
 
 [[package]]
-name = "pytest-forked"
-version = "1.4.0"
-description = "run tests in isolated forked subprocesses"
-category = "dev"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-py = "*"
-pytest = ">=3.10"
-
-[[package]]
 name = "pytest-notebook"
-version = "0.7.0"
+version = "0.8.0"
 description = "A pytest plugin for testing Jupyter Notebooks."
 category = "dev"
 optional = false
@@ -2449,12 +2437,12 @@ pytest = ">=3.5.0"
 
 [package.extras]
 code-style = ["doc8 (>=0.8.0,<0.9.0)", "pre-commit (>=2.7.0,<2.8.0)"]
-docs = ["coverage (>=5.0,<6.0)", "myst-nb (>=0.13.1,<0.14.0)", "pyyaml", "sphinx (>=3)", "sphinx-book-theme (>=0.1.0,<0.2.0)"]
+docs = ["coverage (>=5.0,<6.0)", "myst-nb (>=0.13.1,<0.14.0)", "pytest-cov", "pyyaml", "sphinx (>=3)", "sphinx-book-theme (>=0.1.0,<0.2.0)"]
 testing = ["beautifulsoup4 (==4.8.0)", "black (==19.3b0)", "coverage (>=5.0,<6.0)", "ipykernel", "pytest-cov", "pytest-regressions"]
 
 [[package]]
 name = "pytest-xdist"
-version = "2.5.0"
+version = "3.0.2"
 description = "pytest xdist plugin for distributed testing and loop-on-failing modes"
 category = "dev"
 optional = false
@@ -2463,7 +2451,6 @@ python-versions = ">=3.6"
 [package.dependencies]
 execnet = ">=1.1"
 pytest = ">=6.2.0"
-pytest-forked = "*"
 
 [package.extras]
 psutil = ["psutil (>=3.0)"]
@@ -3516,7 +3503,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.12"
-content-hash = "67481bcbe8a7296556ac724abf26ca12ebb74bbf727741595d7d1a719b77f913"
+content-hash = "c8cc148843de75e634b48201a1b111486a6faa63e76f4199dc84017b6fdd7d01"
 
 [metadata.files]
 aenum = [
@@ -5549,17 +5536,13 @@ pytest-dictsdiff = [
     {file = "pytest-dictsdiff-0.5.8.tar.gz", hash = "sha256:3fca5c706232ab723ab2a06b41c195a6abf1f0df56fb3bf67d6bc83a305dd659"},
     {file = "pytest_dictsdiff-0.5.8-py2.py3-none-any.whl", hash = "sha256:8e3f4247a3610b67ddd32d2fbe31e955e55460f7b44974f31eacf0d8c326b84f"},
 ]
-pytest-forked = [
-    {file = "pytest-forked-1.4.0.tar.gz", hash = "sha256:8b67587c8f98cbbadfdd804539ed5455b6ed03802203485dd2f53c1422d7440e"},
-    {file = "pytest_forked-1.4.0-py3-none-any.whl", hash = "sha256:bbbb6717efc886b9d64537b41fb1497cfaf3c9601276be8da2cccfea5a3c8ad8"},
-]
 pytest-notebook = [
-    {file = "pytest_notebook-0.7.0-py2.py3-none-any.whl", hash = "sha256:02e74a2fb12d570cb856e99cb49cf6965bacbefbc66d0d29351890969d9b8308"},
-    {file = "pytest_notebook-0.7.0.tar.gz", hash = "sha256:b1dc5c1b86209bd47b2ea6ee214467fba57102ef1e88903ea56f86625e37f403"},
+    {file = "pytest_notebook-0.8.0-py2.py3-none-any.whl", hash = "sha256:9b3f17684f384df50383de994d3c6e51a4dbaa08472a8b4b6682029c0907e583"},
+    {file = "pytest_notebook-0.8.0.tar.gz", hash = "sha256:7b097bc6f5fc2cf5e6478dd1d74210f481db900472692b815a4af308f09e8402"},
 ]
 pytest-xdist = [
-    {file = "pytest-xdist-2.5.0.tar.gz", hash = "sha256:4580deca3ff04ddb2ac53eba39d76cb5dd5edeac050cb6fbc768b0dd712b4edf"},
-    {file = "pytest_xdist-2.5.0-py3-none-any.whl", hash = "sha256:6fe5c74fec98906deb8f2d2b616b5c782022744978e7bd4695d39c8f42d0ce65"},
+    {file = "pytest-xdist-3.0.2.tar.gz", hash = "sha256:688da9b814370e891ba5de650c9327d1a9d861721a524eb917e620eec3e90291"},
+    {file = "pytest_xdist-3.0.2-py3-none-any.whl", hash = "sha256:9feb9a18e1790696ea23e1434fa73b325ed4998b0e9fcb221f16fd1945e6df1b"},
 ]
 python-dateutil = [
     {file = "python-dateutil-2.8.2.tar.gz", hash = "sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86"},
