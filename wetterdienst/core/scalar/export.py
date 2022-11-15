@@ -108,7 +108,7 @@ class ExportMixin:
             Columns.DATE.value,
         ):
             try:
-                df[column] = df[column].dt.tz_localize(pytz.UTC)
+                df[column] = df[column].dt.tz_convert(pytz.UTC)
             except KeyError:
                 pass
 
