@@ -17,6 +17,8 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EcccObservationResolution,
 )
 
+pytest.importorskip("shapely")
+
 
 def test_interpolation_temperature_air_mean_200_hourly():
     stations = DwdObservationRequest(
