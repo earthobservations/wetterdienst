@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 flavor=$1
 
@@ -9,9 +9,14 @@ fi
 
 echo "Installing package and requirements for ${flavor}"
 
-if [[ "${flavor}" = "testing" ]]; then
-  poetry install --no-interaction --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
-  poetry run pip install wradlib --no-deps
-elif [[ "${flavor}" = "docs" ]]; then
-  poetry install --no-interaction --extras=docs --extras=interpolation
+set -e
+set -x
+
+if [ "${flavor}" = "testing" ]; then
+  poetry install --verbose --no-interaction --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
+  poetry run pip install --verbose --no-input --no-deps wradlib
+
+elif [ "${flavor}" = "docs" ]; then
+  poetry install --verbose --no-interaction --extras=docs --extras=interpolation
+
 fi
