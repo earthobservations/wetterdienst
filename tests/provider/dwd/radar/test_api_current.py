@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import h5py
 import pytest
 
 from wetterdienst.provider.dwd.radar import (
@@ -14,6 +13,8 @@ from wetterdienst.provider.dwd.radar import (
     DwdRadarValues,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
+
+h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 
 @pytest.mark.remote
