@@ -3503,7 +3503,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.12"
-content-hash = "c8cc148843de75e634b48201a1b111486a6faa63e76f4199dc84017b6fdd7d01"
+content-hash = "24105d16b7bc08aab8fbd515d34338c425a2a34961a34b4adeab2c5919b7250f"
 
 [metadata.files]
 aenum = [
