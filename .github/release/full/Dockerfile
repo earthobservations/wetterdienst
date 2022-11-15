@@ -4,9 +4,9 @@ FROM python:3.10-slim as build-step
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
-# Install GDAL.
+# Install GDAL, HDF5, and MariaDB client dependencies.
 RUN apt-get update && \
-    apt-get --yes --no-install-recommends install build-essential libgdal-dev libmariadb-dev && \
+    apt-get --yes --no-install-recommends install build-essential pkg-config libgdal-dev libmariadb-dev libhdf5-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Make sure you have numpy installed before you attempt to install the GDAL Python bindings.
