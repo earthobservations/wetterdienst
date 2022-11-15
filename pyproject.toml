@@ -163,9 +163,9 @@ poethepoet = "^0.16"
 pip-licenses = "^3.3"
 
 # Formatting/Linting
-black = "^22.3.0"
-isort = "^5.7"
-ruff = "^0.0.46"
+black = "^22.10.0"
+isort = "^5.10"
+ruff = "^0.0.120"
 
 flakeheaven = "^3.0"
 flake8-bandit = "^3.0"
@@ -300,10 +300,7 @@ line-length = 120
 extend-exclude = [
   ".venv*",
 ]
-per-file-ignores = [
-  "wetterdienst/__init__.py:E402",
-  "**/__init__.py:F401",
-]
+per-file-ignores = { "wetterdienst/__init__.py" = ["E402"], "**/__init__.py" = ["F401"], "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]}
 
 [tool.poe.tasks]
 install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E radarplus -E bufr -E restapi -E explorer -E bufr -E interpolation"
