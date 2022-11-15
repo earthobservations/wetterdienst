@@ -6,9 +6,9 @@ import json
 import os
 import shutil
 import sqlite3
+from unittest import mock
 
 import dateutil.parser
-import mock
 import numpy as np
 import openpyxl
 import pandas as pd
