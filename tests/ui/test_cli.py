@@ -365,13 +365,17 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     assert station_id in result.output
 
 
+@pytest.mark.cflake
 @pytest.mark.parametrize(
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
 def test_cli_values_excel(provider, network, setting, station_id, station_name, tmpdir_factory):
 
+    # TODO: Why doesn't this work?
     # filename = tmpdir_factory.mktemp("data").join("values.xlsx") # Noqa:E800
+
+    # FIXME: This will concurrently access the file with `pytest-xdist`, so it will croak.
     filename = "values.xlsx"
 
     _ = invoke_wetterdienst_values_export(
