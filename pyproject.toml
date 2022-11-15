@@ -190,7 +190,7 @@ surrogate = "^0.1"
 pybufrkit = "^0.2"
 selenium = "^4.0"
 percy = "^2.0"
-h5py = { version = "^3.1", python = "<3.11"}
+h5py = { version = "^3.1", python = "<3.11", optional = true}
 webdriver-manager = "^3.5.3"
 dash = { version = "^2.6", extras = ["testing"] }
 
