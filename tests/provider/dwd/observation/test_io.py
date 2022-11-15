@@ -15,7 +15,6 @@ import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
 import pytest
-import zarr
 from surrogate import surrogate
 
 from wetterdienst.core.process import filter_by_date_and_resolution
@@ -392,6 +391,9 @@ def test_export_parquet(tmpdir_factory):
 @pytest.mark.remote
 def test_export_zarr(tmpdir_factory):
     """Test export of DataFrame to zarr"""
+
+    zarr = pytest.importorskip("zarr")
+
     Settings.tidy = False
     Settings.humanize = True
     Settings.si_units = False
