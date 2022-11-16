@@ -322,7 +322,7 @@ test = ["test-parallel", "test-cflakes"]
 test-slow = "pytest -vvv tests"
 coverage = "pytest --cov=wetterdienst tests"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)' tests"
-export_requirements = "poetry export --without-hashes --dev --output requirements.txt"
+export_requirements = "poetry export --without-hashes --with=dev --output requirements.txt"
 export_licenses = "pip-licenses --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 export = ["export_requirements", "export_licenses"]
 update = "poetry update"
