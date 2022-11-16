@@ -135,6 +135,7 @@ wradlib                         = { version = "^1.13", optional = true }
 
 # Radar
 eccodes                         = { version = "1.2.0", optional = true }
+h5py                            = { version = "^3.1", optional = true, python = "<3.11"}
 pdbufr                          = { version = "^0.9.0", optional = true, extras = ["eccodes"] }
 
 # Explorer UI service
@@ -230,7 +231,8 @@ influxdb = ["influxdb", "influxdb-client"]
 cratedb = ["crate"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
-radar = ["wradlib", "pybufrkit", "h5py", "pdbufr"]
+radar = ["h5py"]
+radarplus = ["wradlib", "pybufrkit", "pdbufr"]
 bufr = ["pybufrkit", "pdbufr"]
 interpolation = ["scipy", "shapely", "utm"]
 
@@ -298,7 +300,7 @@ per-file-ignores = [
 ]
 
 [tool.poe.tasks]
-install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
+install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E radarplus -E bufr -E restapi -E explorer -E bufr -E interpolation"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
 format = ["black", "isort"]

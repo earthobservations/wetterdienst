@@ -3521,14 +3521,15 @@ ipython = ["matplotlib"]
 mpl = ["matplotlib"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
-radar = ["wradlib", "pdbufr"]
+radar = ["h5py"]
+radarplus = ["wradlib", "pdbufr"]
 restapi = ["fastapi", "uvicorn"]
 sql = ["duckdb"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.12"
-content-hash = "26fcc08adc222eee3f92025cc10584d0d1e15ed92b643e87e2781b51f7d109ce"
+content-hash = "10e7bdbca2317a15d63318055f6a5c3f9f2bdc9f67acee96f1e5104446542c5f"
 
 [metadata.files]
 aenum = [
