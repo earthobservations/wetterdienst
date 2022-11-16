@@ -33,7 +33,7 @@ satisfy our code quality rules which would ultimately fail on Github CI and bloc
     pip install ".[sql,export,restapi,explorer,interpolation]"
 
     # Option 3: Install package with extras using poetry.
-    poetry install --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
+    poetry install --with=test,dev,docs --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
     poetry shell
 
 2. For running the whole test suite, you will need to have Firefox and

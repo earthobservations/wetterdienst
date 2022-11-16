@@ -123,7 +123,7 @@ environs = "^9.4.0"
 scikit-learn = "^1.0.2"
 
 # Optional dependencies aka. "extras"
-matplotlib =  { version = "^3.3", optional = true }
+matplotlib                      = { version = "^3.3", optional = true }
 
 openpyxl                        = { version = "^3.0", optional = true }
 pyarrow                         = { version = "^10.0", python = "<3.11", optional = true}
@@ -137,12 +137,12 @@ psycopg2-binary                 = { version = "^2.8", optional = true }
 # HTTP REST API service
 fastapi                         = { version = "^0.65", optional = true }
 uvicorn                         = { version = "^0.14", optional = true }
-wradlib                         = { version = "^1.13", optional = true }
 
 # Radar
 eccodes                         = { version = "1.2.0", optional = true }
-h5py                            = { version = "^3.1", optional = true, python = "<3.11"}
+h5py                            = { version = "^3.1", optional = true, extras = ["radar"], python = "<3.11" }
 pdbufr                          = { version = "^0.9.0", optional = true, extras = ["eccodes"] }
+wradlib                         = { version = "^1.13", optional = true }
 
 # Explorer UI service
 plotly                          = { version = "^5.11", optional = true }
@@ -157,16 +157,20 @@ shapely = { version = "^1.8", optional = true }
 zarr = { version = "^2.13", python = "<3.11", optional = true }
 xarray = { version = "^2022.11", optional = true }
 
-[tool.poetry.dev-dependencies]
-poethepoet = "^0.16"
 
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+
+poethepoet = "^0.16"
 pip-licenses = "^3.3"
 
-# Formatting/Linting
+# Formatting
 black = "^22.10.0"
 isort = "^5.10"
-ruff = "^0.0.120"
 
+# Linting
 flakeheaven = "^3.0"
 flake8-bandit = "^3.0"
 bandit = "^1.7.4"
@@ -181,15 +185,20 @@ flake8-isort = "^4.1"
 flake8-print = "^5.0"
 flake8-return = "^1.1"
 flake8-2020 = "^1.6"
+ruff = "^0.0.120"
 
-# Testing
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+
+freezegun = "^1.2"
 pytest = "^7.2"
 pytest-cov = "^3.0"
 pytest-dictsdiff = "^0.5"
 pytest-notebook = "^0.8"
 pytest-xdist = "^3"
-
-freezegun = "^1.2"
 
 # Test required libraries
 surrogate = "^0.1"
@@ -203,30 +212,27 @@ dash = { version = "^2.6", extras = ["testing"] }
 # Coverage
 coverage = { version = "^6.0", extras = ["toml"] }
 
-# Docs
-sphinx = "^5.2"
-sphinx-autodoc-typehints = "^1.11"
-sphinxcontrib-svg2pdfconverter = "^1.1"
-sphinx-autobuild = "^2021.3"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+
 docformatter = "^1.4"
-tomlkit = "^0.7"
 ipython = "^8.5"
 furo = "^2022.9.15"
+sphinx = "^5.2"
+sphinx-autodoc-typehints = "^1.11"
+sphinx-autobuild = "^2021.3"
 sphinx_design = "^0.3.0"
+sphinxcontrib-svg2pdfconverter = "^1.1"
+tomlkit = "^0.7"
+matplotlib = { version = "^3.3", optional = true }
+
 
 [tool.poetry.extras]
 mpl = ["matplotlib"]
 ipython = ["ipython", "matplotlib"]
-docs = [
-    "sphinx",
-    "furo",
-    "tomlkit",
-    "sphinx-autodoc-typehints",
-    "sphinxcontrib-svg2pdfconverter",
-    "matplotlib",
-    "ipython",
-    "sphinx_design"
-]
 restapi = ["fastapi", "uvicorn"]
 explorer = ["plotly", "dash", "dash-bootstrap-components"]
 sql = ["duckdb"]
@@ -302,7 +308,7 @@ extend-exclude = [
 per-file-ignores = { "wetterdienst/__init__.py" = ["E402"], "**/__init__.py" = ["F401"], "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]}
 
 [tool.poe.tasks]
-install_dev = "poetry install -E mpl -E ipython -E docs -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E radarplus -E bufr -E restapi -E explorer -E bufr -E interpolation"
+install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
 format = ["black", "isort"]
@@ -351,5 +357,5 @@ omit = [
 ]
 
 [build-system]
-requires = ["poetry_core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
