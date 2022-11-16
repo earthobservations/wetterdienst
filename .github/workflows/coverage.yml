@@ -36,11 +36,6 @@ jobs:
         architecture: x64
         cache: poetry
 
-    - name: Install prerequisites
-      run: |
-        sudo apt-get update
-        sudo apt-get install --yes build-essential pkg-config libhdf5-dev
-
     - name: Install project
       run: .github/workflows/install.sh testing
 
