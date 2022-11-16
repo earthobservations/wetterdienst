@@ -14,7 +14,7 @@ set -x
 
 if [ "${flavor}" = "testing" ]; then
 
-  poetry install --verbose --no-interaction --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
+  poetry install --verbose --no-interaction --with=test,dev --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
   poetry run pip install --verbose --no-input --no-deps wradlib
 
   # Wheels for `h5py` not available for cp311 yet.
@@ -23,6 +23,6 @@ if [ "${flavor}" = "testing" ]; then
     || true
 
 elif [ "${flavor}" = "docs" ]; then
-  poetry install --verbose --no-interaction --extras=docs --extras=interpolation
+  poetry install --verbose --no-interaction --with=docs --extras=interpolation
 
 fi

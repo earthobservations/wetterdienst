@@ -3485,7 +3485,6 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [extras]
 bufr = ["pdbufr"]
 cratedb = []
-docs = ["matplotlib"]
 duckdb = ["duckdb"]
 explorer = ["plotly", "dash", "dash-bootstrap-components"]
 export = ["openpyxl", "sqlalchemy", "pyarrow", "xarray", "zarr"]
@@ -3503,7 +3502,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.12"
-content-hash = "24105d16b7bc08aab8fbd515d34338c425a2a34961a34b4adeab2c5919b7250f"
+content-hash = "ac713eb3f2e26379f517322e1eebdcbcec53dde1594494821afa4d75a3a13d30"
 
 [metadata.files]
 aenum = [
