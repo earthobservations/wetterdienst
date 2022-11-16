@@ -13,7 +13,7 @@ set -e
 set -x
 
 if [ "${flavor}" = "testing" ]; then
-  poetry install --verbose --no-interaction --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
+  poetry install --verbose --no-interaction --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation --extras=radar
   poetry run pip install --verbose --no-input --no-deps wradlib
 
 elif [ "${flavor}" = "docs" ]; then
