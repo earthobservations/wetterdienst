@@ -38,7 +38,7 @@ jobs:
         cache: poetry
 
     - name: Install project tooling
-      run: poetry install --no-interaction --no-root
+      run: poetry install --no-interaction --no-root --with=dev
 
     - name: Run code-style checks
       run: poetry run poe lint
