@@ -435,7 +435,7 @@ name = "contourpy"
 version = "1.0.6"
 description = "Python library for calculating contours of 2D quadrilateral grids"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -486,7 +486,7 @@ name = "cycler"
 version = "0.11.0"
 description = "Composable style cycles"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -1073,7 +1073,7 @@ name = "fonttools"
 version = "4.38.0"
 description = "Tools to manipulate font files"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.extras]
@@ -1557,7 +1557,7 @@ name = "kiwisolver"
 version = "1.4.4"
 description = "A fast implementation of the Cassowary constraint solver"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [[package]]
@@ -1624,7 +1624,7 @@ name = "matplotlib"
 version = "3.6.2"
 description = "Python plotting package"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.8"
 
 [package.dependencies]
@@ -2046,7 +2046,7 @@ name = "pillow"
 version = "9.3.0"
 description = "Python Imaging Library (Fork)"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.extras]
@@ -2671,7 +2671,7 @@ name = "setuptools-scm"
 version = "7.0.5"
 description = "the blessed package to manage your versions by scm tags"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -3502,7 +3502,7 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.12"
-content-hash = "f20b1b0034de790e5151bc1bce02b08c32cbdc84d011cbdb254ceb7984ca8d1e"
+content-hash = "6f482bb740fc6330d8fb2c356df8091ab4f04e8ed374e2685d51b9338dca72f3"
 
 [metadata.files]
 aenum = [
