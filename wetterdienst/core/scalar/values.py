@@ -462,7 +462,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 if parameter_df.empty:
                     parameter_df = self._create_empty_station_parameter_df(station_id, parameter, dataset)
 
-                parameter_df = parameter_df.drop_duplicates(subset=[Columns.DATE.value])
+                parameter_df = parameter_df.drop_duplicates()
 
                 # set dynamic resolution for services that have no fixed resolutions
                 if self.sr.resolution == Resolution.DYNAMIC:
