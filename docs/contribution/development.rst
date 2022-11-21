@@ -63,7 +63,7 @@ Using pip
     pip install --editable=".[sql,export,restapi,explorer,interpolation]"
 
     # As a last resort, if all other methods fail.
-    pip install --requirement=requirements.txt
+    pip install --requirement=requirements-dev.txt
 
 
 *********
