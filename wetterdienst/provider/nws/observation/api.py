@@ -20,7 +20,7 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
 Settings.fsspec_client_kwargs["headers"] = {
-    "User-Agent": "wetterdienst/gutzemann@gmail.com",
+    "User-Agent": "wetterdienst/0.48.0",
     "Content-Type": "application/json",
 }
 
