@@ -62,9 +62,6 @@ Using pip
     # Install package in "editable" mode.
     pip install --editable=".[sql,export,restapi,explorer,interpolation]"
 
-    # As a last resort, if all other methods fail.
-    pip install --requirement=requirements-dev.txt
-
 
 *********
 Run tests
