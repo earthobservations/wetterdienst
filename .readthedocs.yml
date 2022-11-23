@@ -14,13 +14,16 @@ build:
     python: "3.10"
   jobs:
     post_create_environment:
-      # Install poetry
-      # https://python-poetry.org/docs/#osx--linux--bashonwindows-install-instructions
-      - curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-      # Tell poetry to not use a virtual environment
-      - $HOME/.poetry/bin/poetry config virtualenvs.create false
-      # Install project's dependencies
-      - $HOME/.poetry/bin/poetry install --with=docs --extras=interpolation
+
+      # Install Poetry.
+      # https://python-poetry.org/docs/#installing-manually
+      - pip install poetry
+
+      # Tell Poetry to not use a virtual environment.
+      - poetry config virtualenvs.create false
+
+      # Install project's dependencies.
+      - poetry install --with=docs --extras=interpolation
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
