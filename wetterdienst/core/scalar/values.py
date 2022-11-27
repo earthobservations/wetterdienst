@@ -495,8 +495,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
                     parameter_df = parameter_df.loc[
                         ~parameter_df.loc[:, Columns.PARAMETER.value].isin(self._date_parameters), :
                     ]
-                    if parameter_df.empty:
-                        continue
 
                 # ensure meta columns content
                 parameter_df[Columns.STATION_ID.value] = station_id

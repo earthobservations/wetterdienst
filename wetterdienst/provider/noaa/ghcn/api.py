@@ -82,11 +82,9 @@ class NoaaGhcnValues(ScalarValuesCore):
 
         timezone_ = self._get_timezone_from_station(station_id)
 
-        df[Columns.DATE.value] = df[Columns.DATE.value].astype("datetime64")
-
         df[Columns.DATE.value] = (
             pd.to_datetime(df[Columns.DATE.value], infer_datetime_format=True)
-            .dt.tz_localize(timezone_, ambiguous=True)
+            .dt.tz_localize(timezone_, ambiguous=True, nonexistent="shift_forward")
             .dt.tz_convert(pytz.UTC)
         )
 
