@@ -5,7 +5,7 @@ import logging
 import pathlib
 from contextvars import ContextVar
 
-import appdirs
+import platformdirs
 from environs import Env
 
 log = logging.getLogger(__name__)
@@ -24,7 +24,9 @@ class Settings:
             # Check out this: https://florimond.dev/en/posts/2018/10/reconciling-dataclasses-and-properties-in-python/
             self.cache_disable: bool = self.env.bool("CACHE_DISABLE", False)
 
-            self.cache_dir: pathlib.Path = self.env.path("CACHE_DIR", appdirs.user_cache_dir(appname="wetterdienst"))
+            self.cache_dir: pathlib.Path = self.env.path(
+                "CACHE_DIR", platformdirs.user_cache_dir(appname="wetterdienst")
+            )
 
             # FSSPEC aiohttp client kwargs, may be used to pass extra arguments
             # such as proxies to aiohttp
