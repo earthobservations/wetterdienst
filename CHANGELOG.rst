@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.49.0 (28.11.2022)
+*******************
+
 - Fix bug where duplicates of acquired data would be dropped regarding only the date but not the parameter
 - Add NOAA NWS Observation API
 - Add Eaufrance Hubeau API for French river data (flow, stage)
