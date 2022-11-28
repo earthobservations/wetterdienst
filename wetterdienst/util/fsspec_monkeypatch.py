@@ -145,7 +145,7 @@ class FileDirCache(MutableMapping):
             listings_cache_location = Path(listings_cache_location) / str(listings_expiry_time)
             listings_cache_location.mkdir(exist_ok=True, parents=True)
         else:
-            listings_cache_location = Path(platformdirs.user_cache_dir(appname="fsspec_dircache")) / str(
+            listings_cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / str(
                 listings_expiry_time
             )
 
