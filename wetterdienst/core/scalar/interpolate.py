@@ -42,7 +42,7 @@ def request_stations(
     stations_dict = {}
     hard_distance_km_limit = 40
 
-    stations_ranked = request.filter_by_rank(latitude=latitude, longitude=longitude, rank=20)
+    stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
     stations_ranked_df = stations_ranked.df.dropna()
 
     for (_, station), result in zip(stations_ranked_df.iterrows(), stations_ranked.values.query()):

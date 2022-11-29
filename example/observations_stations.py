@@ -31,7 +31,7 @@ def station_example():
         end_date=datetime(2020, 1, 20),
     )
 
-    result = stations.filter_by_distance(latitude=50.0, longitude=8.9, distance=30)
+    result = stations.filter_by_distance(latlon=(50.0, 8.9), distance=30)
 
     print(result.df)
 

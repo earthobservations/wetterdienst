@@ -68,9 +68,8 @@ def test_dwd_observation_stations_nearby_number_single():
     )
 
     nearby_station = request.filter_by_rank(
-        50.0,
-        8.9,
-        1,
+        latlon=(50.0, 8.9),
+        rank=1,
     )
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
@@ -87,9 +86,8 @@ def test_dwd_observation_stations_nearby_number_multiple():
         datetime(2020, 1, 20),
     )
     nearby_station = request.filter_by_rank(
-        50.0,
-        8.9,
-        3,
+        latlon=(50.0, 8.9),
+        rank=3,
     )
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
@@ -106,13 +104,13 @@ def test_dwd_observation_stations_nearby_distance():
         datetime(2020, 1, 20),
     )
     # Kilometers
-    nearby_station = request.filter_by_distance(50.0, 8.9, 16.13, "km")
+    nearby_station = request.filter_by_distance(latlon=(50.0, 8.9), distance=16.13, unit="km")
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
 
     assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF)
 
     # Miles
-    nearby_station = request.filter_by_distance(50.0, 8.9, 10.03, "mi")
+    nearby_station = request.filter_by_distance(latlon=(50.0, 8.9), distance=10.03, unit="mi")
     nearby_station = nearby_station.df.drop(columns="to_date")
 
     assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF)
@@ -163,9 +161,8 @@ def test_dwd_observation_stations_fail():
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).filter_by_rank(
-            51.4,
-            9.3,
-            0,
+            latlon=(51.4, 9.3),
+            rank=0,
         )
     # Distance
     with pytest.raises(ValueError):
@@ -176,9 +173,8 @@ def test_dwd_observation_stations_fail():
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
         ).filter_by_distance(
-            51.4,
-            9.3,
-            -1,
+            latlon=(51.4, 9.3),
+            distance=-1,
         )
     # Bbox
     with pytest.raises(ValueError):

@@ -253,7 +253,7 @@ def test_mosmix_date_filter():
         start_issue=now - timedelta(hours=5),
     )
 
-    nearest_station = stations.filter_by_rank(rank=1, latitude=52.122050, longitude=11.619845)
+    nearest_station = stations.filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
     df = nearest_station.values.all().df
 
     assert len(df) == 40

@@ -687,16 +687,14 @@ class ScalarRequestCore(Core):
 
     def filter_by_rank(
         self,
-        latitude: float,
-        longitude: float,
+        latlon: Tuple[float, float],
         rank: int,
     ) -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
         nearest stations_result defined by number.
 
-        :param latitude: latitude in degrees
-        :param longitude: longitude in degrees
+        :param latlon: tuple of latitude and longitude for queried point
         :param rank: number of stations_result to be returned, greater 0
         :return: pandas.DataFrame with station information for the selected stations_result
         """
@@ -705,7 +703,9 @@ class ScalarRequestCore(Core):
         if rank <= 0:
             raise ValueError("'num_stations_nearby' has to be at least 1.")
 
-        coords = Coordinates(np.array(latitude), np.array(longitude))
+        lat, lon = latlon
+
+        coords = Coordinates(np.array(lat), np.array(lon))
 
         df = self.all().df.reset_index(drop=True)
 
@@ -722,21 +722,17 @@ class ScalarRequestCore(Core):
 
         if df.empty:
             log.warning(
-                f"No weather stations_result were found for coordinate "
-                f"{latitude}°N and {longitude}°E and number {rank}"
+                f"No weather stations_result were found for coordinate " f"{lat}°N and {lon}°E and number {rank}"
             )
 
         return StationsResult(self, df.reset_index(drop=True))
 
-    def filter_by_distance(
-        self, latitude: float, longitude: float, distance: float, unit: str = "km"
-    ) -> StationsResult:
+    def filter_by_distance(self, latlon: Tuple[float, float], distance: float, unit: str = "km") -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_distance using the given parameter set.
         Returns nearest stations_result defined by distance (km).
 
-        :param latitude: latitude in degrees
-        :param longitude: longitude in degrees
+        :param latlon: tuple of latitude and longitude for queried point
         :param distance: distance (km) for which stations_result will be selected
         :param unit: unit string for conversion
         :return: pandas.DataFrame with station information for the selected stations_result
@@ -751,15 +747,15 @@ class ScalarRequestCore(Core):
 
         distance_in_km = guess(distance, unit, [Distance]).km
 
-        # TODO: replace the repeating call to self.all()
-        all_nearby_stations = self.filter_by_rank(latitude, longitude, self.all().df.shape[0]).df
+        all_nearby_stations = self.filter_by_rank(latlon, self.all().df.shape[0]).df
 
         df = all_nearby_stations[all_nearby_stations[Columns.DISTANCE.value] <= distance_in_km]
 
         if df.empty:
+            lat, lon = latlon
             log.warning(
                 f"No weather stations_result were found for coordinate "
-                f"{latitude}°N and {longitude}°E and distance {distance_in_km}km"
+                f"{lat}°N and {lon}°E and distance {distance_in_km}km"
             )
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))
@@ -812,12 +808,11 @@ class ScalarRequestCore(Core):
 
         return StationsResult(stations=self, df=df.reset_index(drop=True))
 
-    def interpolate(self, latitude: float, longitude: float) -> InterpolatedValuesResult:
+    def interpolate(self, latlon: Tuple[float, float]) -> InterpolatedValuesResult:
         """
         Method to interpolate values
 
-        :param latitude:
-        :param longitude:
+        :param latlon: tuple of latitude and longitude for queried point
         :return:
         """
 
@@ -834,14 +829,15 @@ class ScalarRequestCore(Core):
         if not isinstance(self, DwdObservationRequest):
             log.error("Interpolation currently only works for DwdObservationRequest")
             return InterpolatedValuesResult(df=pd.DataFrame(), stations=self)
-
-        interpolated_values = get_interpolated_df(self, latitude, longitude)
+        lat, lon = latlon
+        interpolated_values = get_interpolated_df(self, lat, lon)
         return InterpolatedValuesResult(df=interpolated_values, stations=self)
 
-    def summarize(self, latitude: float, longitude: float) -> SummarizedValuesResult:
+    def summarize(self, latlon: Tuple[float, float]) -> SummarizedValuesResult:
         """
         Method to interpolate values
 
+        :param latlon: tuple of latitude and longitude for queried point
         :return:
         """
         from wetterdienst.core.scalar.summarize import get_summarized_df
@@ -857,6 +853,6 @@ class ScalarRequestCore(Core):
         if not isinstance(self, DwdObservationRequest):
             log.error("Interpolation currently only works for DwdObservationRequest")
             return SummarizedValuesResult(df=pd.DataFrame(), stations=self)
-
-        summarized_values = get_summarized_df(self, latitude, longitude)
+        lat, lon = latlon
+        summarized_values = get_summarized_df(self, lat, lon)
         return SummarizedValuesResult(df=summarized_values, stations=self)
