@@ -158,7 +158,7 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float):
     for station_group in combinations(stations_dict.keys(), 4):
         coords = [(stations_dict[s][0], stations_dict[s][1]) for s in station_group]
         pol = Polygon(coords)
-        if pol.contains(point):
+        if pol.covers(point):
             valid_groups.put(station_group)
 
     return valid_groups
