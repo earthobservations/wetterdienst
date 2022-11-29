@@ -163,8 +163,7 @@ def get_stations(
         lat, lon = coordinates.split(",")
 
         return r.filter_by_rank(
-            latitude=float(lat),
-            longitude=float(lon),
+            latlon=(float(lat), float(lon)),
             rank=rank,
         )
 
@@ -172,8 +171,7 @@ def get_stations(
         lat, lon = coordinates.split(",")
 
         return r.filter_by_distance(
-            latitude=float(lat),
-            longitude=float(lon),
+            latlon=(float(lat), float(lon)),
             distance=distance,
         )
 

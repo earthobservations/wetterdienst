@@ -20,7 +20,7 @@ def get_interpolated_df(start_date: datetime, end_date: datetime) -> pd.DataFram
         start_date=start_date,
         end_date=end_date,
     )
-    return stations.interpolate(latitude=50.0, longitude=8.9).df
+    return stations.interpolate(latlon=(50.0, 8.9)).df
 
 
 def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: list) -> pd.DataFrame:
@@ -30,7 +30,7 @@ def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: l
         start_date=start_date,
         end_date=end_date,
     )
-    request = stations.filter_by_distance(latitude=50.0, longitude=8.9, distance=30)
+    request = stations.filter_by_distance(latlon=(50.0, 8.9), distance=30)
     df = request.values.all().df.dropna()
     station_ids = df.station_id.tolist()
     first_station_id = set(station_ids).difference(set(exclude_stations)).pop()

@@ -27,7 +27,7 @@ def test_api_skip_empty_stations():
             resolution=DwdObservationResolution.MINUTE_10,
             start_date=start_date,
             end_date=end_date,
-        ).filter_by_rank(49.19780976647141, 8.135207205143768, 20)
+        ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
 
     values = next(stations.values.query())
 
@@ -52,7 +52,7 @@ def test_api_dropna():
             resolution=DwdObservationResolution.MINUTE_10,
             start_date=start_date,
             end_date=end_date,
-        ).filter_by_rank(49.19780976647141, 8.135207205143768, 20)
+        ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
 
     values = next(stations.values.query())
 

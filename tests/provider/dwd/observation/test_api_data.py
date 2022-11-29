@@ -64,7 +64,7 @@ def test_dwd_observation_data_empty():
             period=DwdObservationPeriod.NOW,
         )
 
-    nearest_station = stations.filter_by_rank(rank=1, latitude=52.384630, longitude=9.733908)
+    nearest_station = stations.filter_by_rank(latlon=(52.384630, 9.733908), rank=1)
 
     values = nearest_station.values.all()
 

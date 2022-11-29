@@ -22,13 +22,13 @@ pytest.importorskip("shapely")
 
 def test_interpolation_temperature_air_mean_200_hourly():
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
     )
 
-    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    result = stations.interpolate(latlon=(50.0, 8.9))
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 18001
     assert interpolated_df.dropna().shape[0] == 18001
@@ -51,13 +51,13 @@ def test_interpolation_temperature_air_mean_200_hourly():
 @pytest.mark.slow
 def test_interpolation_precipitation_height_minute_10():
     stations = DwdObservationRequest(
-        parameter=Parameter.PRECIPITATION_HEIGHT.name,
+        parameter=Parameter.PRECIPITATION_HEIGHT,
         resolution=DwdObservationResolution.MINUTE_10,
         start_date=datetime(2021, 10, 1),
         end_date=datetime(2021, 10, 5),
     )
 
-    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    result = stations.interpolate(latlon=(50.0, 8.9))
     interpolated_df = result.df
 
     assert interpolated_df.shape[0] == 577
@@ -80,13 +80,13 @@ def test_interpolation_precipitation_height_minute_10():
 
 def test_not_interpolatable_parameter():
     stations = DwdObservationRequest(
-        parameter=Parameter.WIND_DIRECTION.name,
+        parameter=Parameter.WIND_DIRECTION,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
     )
 
-    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    result = stations.interpolate(latlon=(50.0, 8.9))
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 0
     assert interpolated_df.dropna().shape[0] == 0
@@ -112,13 +112,13 @@ def test_not_interpolatable_parameter():
 
 def test_not_interpolatable_dataset():
     stations = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR.name,
+        parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2022, 1, 1),
         end_date=datetime(2022, 1, 2),
     )
 
-    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    result = stations.interpolate(latlon=(50.0, 8.9))
     interpolated_df = result.df
     assert interpolated_df.shape[0] == 0
     assert interpolated_df.dropna().shape[0] == 0
@@ -150,7 +150,7 @@ def not_supported_provider_dwd_mosmix(caplog):
         parameter=["DD", "ww"],
         mosmix_type=DwdMosmixType.SMALL,
     )
-    result = request.interpolate(latitude=50.0, longitude=8.9)
+    result = request.interpolate(latlon=(50.0, 8.9))
     assert result.df.empty
     assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
 
@@ -159,9 +159,9 @@ def test_not_supported_provider_ecc(caplog):
     station = EcccObservationRequest(
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=EcccObservationResolution.DAILY,
     )
-    result = station.interpolate(latitude=50.0, longitude=8.9)
+    result = station.interpolate(latlon=(50.0, 8.9))
     assert result.df.empty
     assert "Interpolation currently only works for DwdObservationRequest" in caplog.text

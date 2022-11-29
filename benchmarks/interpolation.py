@@ -58,7 +58,7 @@ def request_weather_data(
     )
 
     # request the nearest weather stations
-    request = stations.filter_by_distance(latitude=lat, longitude=lon, distance=distance)
+    request = stations.filter_by_distance(latlon=(lat, lon), distance=distance)
     print(request.df)
     station_ids = request.df["station_id"].values.tolist()
     latitudes = request.df["latitude"].values.tolist()
@@ -120,7 +120,7 @@ def visualize_points(data: Data):
 
 
 def main():
-    parameter = Parameter.TEMPERATURE_AIR_MEAN_200.name
+    parameter = Parameter.TEMPERATURE_AIR_MEAN_200
     latitude = 50.0
     longitude = 8.9
     distance = 21.0

@@ -361,8 +361,7 @@ Distance with default (kilometers)
     )
 
     df = stations.filter_by_distance(
-        latitude=50.0,
-        longitude=8.9,
+        latlon=(50.0, 8.9),
         distance=30,
         unit="km"
     ).df
@@ -386,8 +385,7 @@ Distance with miles
     )
 
     df = stations.filter_by_distance(
-        latitude=50.0,
-        longitude=8.9,
+        latlon=(50.0, 8.9),
         distance=30,
         unit="mi"
     ).df
@@ -411,8 +409,7 @@ Rank selection
     )
 
     df = stations.filter_by_rank(
-        latitude=50.0,
-        longitude=8.9,
+        latlon=(50.0, 8.9),
         rank=5
     ).df
 
@@ -459,8 +456,7 @@ Again from here we can jump to the corresponding data:
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     ).filter_by_distance(
-        latitude=50.0,
-        longitude=8.9,
+        latlon=(50.0, 8.9),
         distance=30
     )
 
@@ -544,7 +540,7 @@ Currently the following parameters are supported (more will be added if useful):
         end_date=datetime(2022, 1, 20),
     )
 
-    result = stations.interpolate(latitude=50.0, longitude=8.9)
+    result = stations.interpolate(latlon=(50.0, 8.9))
     df = result.df
     print(df.head())
 
@@ -570,7 +566,7 @@ Currently the following parameters are supported (more will be added if useful):
         end_date=datetime(2022, 1, 20),
     )
 
-    result = stations.summarize(latitude=50.0, longitude=8.9)
+    result = stations.summarize(latlon=(50.0, 8.9))
     df = result.df
     print(df.head())
 
