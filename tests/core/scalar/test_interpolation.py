@@ -5,6 +5,7 @@ import pytest
 from pandas._testing import assert_frame_equal
 
 from wetterdienst import Parameter
+from wetterdienst.exceptions import StationNotFoundError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.provider.dwd.observation import (
@@ -20,7 +21,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 pytest.importorskip("shapely")
 
 
-def test_interpolation_temperature_air_mean_200_hourly():
+def test_interpolation_temperature_air_mean_200_hourly_by_coords():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.HOURLY,
@@ -46,6 +47,34 @@ def test_interpolation_temperature_air_mean_200_hourly():
     )
 
     assert_frame_equal(test_df, expected_df)
+
+
+def test_interpolation_temperature_air_mean_200_daily_by_station_id():
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        resolution=DwdObservationResolution.DAILY,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+    for result in (
+        stations.interpolate(latlon=(50.0643, 8.9930)),
+        stations.interpolate_by_station_id(station_id="02480"),
+    ):
+        interpolated_df = result.df
+        assert interpolated_df.shape[0] == 751
+        assert interpolated_df.dropna().shape[0] == 751
+        test_df = result.filter_by_date("2022-01-02 00:00:00+00:00").reset_index(drop=True)
+        expected_df = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2022-01-02 00:00:00+00:00"], utc=True),
+                "parameter": ["temperature_air_mean_200"],
+                "value": [281.35],
+                "distance_mean": [13.837094521111853],
+                "station_ids": [["02480", "07341", "04411", "01424"]],
+            }
+        )
+
+        assert_frame_equal(test_df, expected_df)
 
 
 @pytest.mark.slow
@@ -165,3 +194,42 @@ def test_not_supported_provider_ecc(caplog):
     result = station.interpolate(latlon=(50.0, 8.9))
     assert result.df.empty
     assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
+
+
+def test_interpolation_temperature_air_mean_200_daily_three_floats():
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        resolution=DwdObservationResolution.DAILY,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+    with pytest.raises(ValueError) as excinfo:
+        stations.interpolate(latlon=(0, 1, 2))
+
+    assert str(excinfo.value).startswith("too many values to unpack")
+
+
+def test_interpolation_temperature_air_mean_200_daily_one_floats():
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        resolution=DwdObservationResolution.DAILY,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+    with pytest.raises(ValueError) as excinfo:
+        stations.interpolate(latlon=(0,))
+
+    assert str(excinfo.value).startswith("not enough values to unpack")
+
+
+def test_interpolation_temperature_air_mean_200_daily_no_station_found():
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        resolution=DwdObservationResolution.DAILY,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+    with pytest.raises(StationNotFoundError) as excinfo:
+        stations.interpolate_by_station_id(station_id="00")
+
+    assert str(excinfo.value) == "no station found for 00000"

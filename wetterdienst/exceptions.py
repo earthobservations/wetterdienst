@@ -47,3 +47,7 @@ class InvalidTimeInterval(ValueError):
 
 class ProviderError(Exception):
     pass
+
+
+class StationNotFoundError(Exception):
+    pass

@@ -26,6 +26,7 @@ from wetterdienst.exceptions import (
     InvalidEnumeration,
     NoParametersFound,
     StartDateEndDateError,
+    StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -813,7 +814,7 @@ class ScalarRequestCore(Core):
         Method to interpolate values
 
         :param latlon: tuple of latitude and longitude for queried point
-        :return:
+        :return: interpolated values
         """
 
         from wetterdienst.core.scalar.interpolate import get_interpolated_df
@@ -830,8 +831,18 @@ class ScalarRequestCore(Core):
             log.error("Interpolation currently only works for DwdObservationRequest")
             return InterpolatedValuesResult(df=pd.DataFrame(), stations=self)
         lat, lon = latlon
+        lat, lon = float(lat), float(lon)
         interpolated_values = get_interpolated_df(self, lat, lon)
         return InterpolatedValuesResult(df=interpolated_values, stations=self)
+
+    def interpolate_by_station_id(self, station_id: str) -> InterpolatedValuesResult:
+        """
+        Wrapper around .interpolate that uses station_id instead, for which latlon is determined by station list.
+        :param station_id:
+        :return:
+        """
+        latlon = self._get_latlon_by_station_id(station_id)
+        return self.interpolate(latlon=latlon)
 
     def summarize(self, latlon: Tuple[float, float]) -> SummarizedValuesResult:
         """
@@ -854,5 +865,33 @@ class ScalarRequestCore(Core):
             log.error("Interpolation currently only works for DwdObservationRequest")
             return SummarizedValuesResult(df=pd.DataFrame(), stations=self)
         lat, lon = latlon
+        lat, lon = float(lat), float(lon)
         summarized_values = get_summarized_df(self, lat, lon)
         return SummarizedValuesResult(df=summarized_values, stations=self)
+
+    def summarize_by_station_id(self, station_id: str) -> SummarizedValuesResult:
+        """
+        Wrapper around .summarize that uses station_id instead, for which latlon is determined by station list.
+        :param station_id: station id
+        :return:
+        """
+        latlon = self._get_latlon_by_station_id(station_id)
+        return self.summarize(latlon=latlon)
+
+    def _get_latlon_by_station_id(self, station_id: str) -> Tuple[float, float]:
+        """
+        Method to parse latlon for methods .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
+        we want users to be able to request for a station id as well.
+        :param latlon: either tuple of two floats or station id
+        :return: tuple of latlon
+        """
+        station_id = self._parse_station_id(pd.Series(station_id)).iloc[0]
+        stations = self.all().df
+        try:
+            lat, lon = stations.loc[
+                stations[Columns.STATION_ID.value] == station_id, [Columns.LATITUDE.value, Columns.LONGITUDE.value]
+            ].values.flatten()
+        except ValueError:
+            raise StationNotFoundError(f"no station found for {station_id}")
+
+        return lat, lon

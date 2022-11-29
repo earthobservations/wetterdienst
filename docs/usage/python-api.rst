@@ -544,6 +544,27 @@ Currently the following parameters are supported (more will be added if useful):
     df = result.df
     print(df.head())
 
+Instead of a latlon you may alternatively use an existing station id for which to interpolate values in a manner of
+getting a more complete dataset:
+
+.. ipython:: python
+    :okwarning:
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    from wetterdienst import Parameter, Resolution
+
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        resolution=Resolution.HOURLY,
+        start_date=datetime(2022, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+
+    result = stations.interpolate_by_station_id(station_id="02480")
+    df = result.df
+    print(df.head())
+
+
 Summary
 -------
 
@@ -570,6 +591,25 @@ Currently the following parameters are supported (more will be added if useful):
     df = result.df
     print(df.head())
 
+Instead of a latlon you may alternatively use an existing station id for which to summarize values in a manner of
+getting a more complete dataset:
+
+.. ipython:: python
+    :okwarning:
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    from wetterdienst import Parameter, Resolution
+
+    stations = DwdObservationRequest(
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        resolution=Resolution.HOURLY,
+        start_date=datetime(2022, 1, 1),
+        end_date=datetime(2022, 1, 20),
+    )
+
+    result = stations.summarize_by_station_id(station_id="02480")
+    df = result.df
+    print(df.head())
 
 SQL support
 -----------

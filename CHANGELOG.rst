@@ -7,6 +7,7 @@ Development
 - Interpolation/Summary: Now the queried point can be an existing station laying on the border of the polygon that it's
   being checked against
 - Geo: Change function signatures to use latlon tuple instead of latitude and longitude
+- Geo: Enable querying station id instead of latlon within interpolate and summarize
 
 0.49.0 (28.11.2022)
 *******************
