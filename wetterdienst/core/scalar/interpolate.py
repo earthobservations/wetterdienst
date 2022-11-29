@@ -41,7 +41,6 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     hard_distance_km_limit = 40
-
     stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
     stations_ranked_df = stations_ranked.df.dropna()
 
@@ -120,7 +119,6 @@ def apply_station_values_per_parameter(
                 .set_index(Columns.DATE.value)
                 .astype("datetime64")
             )
-
         extract_station_values(param_dict[parameter_name], result_series_param, valid_station_groups_exists)
 
 
@@ -175,7 +173,6 @@ def get_station_group_ids(valid_station_groups: Queue, vals_index: frozenset) ->
 def apply_interpolation(row, stations_dict: dict, valid_station_groups, parameter, utm_x: float, utm_y: float):
     vals_state = ~pd.isna(row.values)
     vals = row[vals_state].astype(float)
-
     station_group_ids = get_station_group_ids(valid_station_groups, frozenset(vals.index))
 
     if station_group_ids:

@@ -1,9 +1,6 @@
-import os
-import sys
 from datetime import datetime
 
 import pandas as pd
-import pytest
 import pytz
 from pandas._testing import assert_frame_equal
 
@@ -21,9 +18,6 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 )
 
 
-@pytest.mark.skipif(
-    os.getenv("CI") == "true" and sys.platform == "darwin", reason="FIXME: Produces different result on GHA/macOS"
-)
 def test_summary_temperature_air_mean_200_daily():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
@@ -31,26 +25,25 @@ def test_summary_temperature_air_mean_200_daily():
         start_date=datetime(1934, 1, 1),
         end_date=datetime(1965, 12, 31),
     )
+    for result in (stations.summarize(latlon=(51.0221, 13.8470)), stations.summarize_by_station_id(station_id="1050")):
+        summarized_df = result.df
+        selected_dates = [
+            datetime(1934, 1, 1, tzinfo=pytz.UTC),
+            datetime(1940, 1, 1, tzinfo=pytz.UTC),
+            datetime(1950, 1, 1, tzinfo=pytz.UTC),
+        ]
+        given = summarized_df.loc[summarized_df.date.isin(selected_dates)].reset_index(drop=True)
+        expected = pd.DataFrame(
+            {
+                "date": pd.to_datetime(selected_dates, utc=True),
+                "parameter": ["temperature_air_mean_200", "temperature_air_mean_200", "temperature_air_mean_200"],
+                "value": [273.65, 267.65, 270.45],
+                "distance": [13.41953430920589, 5.038443044950475, 0.0],
+                "station_id": ["01048", "01051", "01050"],
+            }
+        )
 
-    result = stations.summarize(latlon=(51.0221, 13.8470))
-    summarized_df = result.df
-    selected_dates = [
-        datetime(1934, 1, 1, tzinfo=pytz.UTC),
-        datetime(1940, 1, 1, tzinfo=pytz.UTC),
-        datetime(1950, 1, 1, tzinfo=pytz.UTC),
-    ]
-    given = summarized_df.loc[summarized_df.date.isin(selected_dates)].reset_index(drop=True)
-    expected = pd.DataFrame(
-        {
-            "date": pd.to_datetime(selected_dates, utc=True),
-            "parameter": ["temperature_air_mean_200", "temperature_air_mean_200", "temperature_air_mean_200"],
-            "value": [273.65, 267.65, 270.45],
-            "distance": [13.41953430920589, 5.038443044950475, 0.0],
-            "station_id": ["01048", "01051", "01050"],
-        }
-    )
-
-    assert_frame_equal(given, expected)
+        assert_frame_equal(given, expected)
 
 
 def test_not_summarizable_dataset():
