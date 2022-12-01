@@ -3,10 +3,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from datetime import datetime
+from enum import Enum
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,7 +29,7 @@ log = logging.getLogger(__name__)
 def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude: float) -> pd.DataFrame:
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
-    df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict)
+    df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, request.interp_use_nearby_station_until_km)
     df[Columns.DISTANCE_MEAN.value] = pd.Series(df[Columns.DISTANCE_MEAN.value].values, dtype=float)
     df[Columns.VALUE.value] = pd.Series(df[Columns.VALUE.value].values, dtype=float)
     df[Columns.DATE.value] = pd.to_datetime(df[Columns.DATE.value], infer_datetime_format=True)
@@ -122,7 +123,13 @@ def apply_station_values_per_parameter(
         extract_station_values(param_dict[parameter_name], result_series_param, valid_station_groups_exists)
 
 
-def calculate_interpolation(utm_x: float, utm_y: float, stations_dict: dict, param_dict: dict) -> pd.DataFrame:
+def calculate_interpolation(
+    utm_x: float,
+    utm_y: float,
+    stations_dict: dict,
+    param_dict: dict,
+    use_nearby_station_until_km: float,
+) -> pd.DataFrame:
     columns = [
         Columns.DATE.value,
         Columns.PARAMETER.value,
@@ -133,11 +140,17 @@ def calculate_interpolation(utm_x: float, utm_y: float, stations_dict: dict, par
     param_df_list = [pd.DataFrame(columns=columns)]
     valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
 
+    nearby_stations = [
+        "S" + station_id
+        for station_id, (_, _, distance) in stations_dict.items()
+        if distance < use_nearby_station_until_km
+    ]
+
     for parameter, param_data in param_dict.items():
         param_df = pd.DataFrame(columns=columns)
         param_df[columns[1:]] = param_data.values.apply(
             lambda row, param=parameter: apply_interpolation(
-                row, stations_dict, valid_station_groups, param, utm_x, utm_y
+                row, stations_dict, valid_station_groups, param, utm_x, utm_y, nearby_stations
             ),
             axis=1,
             result_type="expand",
@@ -148,7 +161,7 @@ def calculate_interpolation(utm_x: float, utm_y: float, stations_dict: dict, par
     return pd.concat(param_df_list).sort_values(by=[Columns.DATE.value, Columns.PARAMETER.value]).reset_index(drop=True)
 
 
-def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float):
+def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
     point = Point(utm_x, utm_y)
 
     valid_groups = Queue()
@@ -170,13 +183,38 @@ def get_station_group_ids(valid_station_groups: Queue, vals_index: frozenset) ->
     return []
 
 
-def apply_interpolation(row, stations_dict: dict, valid_station_groups, parameter, utm_x: float, utm_y: float):
+def apply_interpolation(
+    row,
+    stations_dict: dict,
+    valid_station_groups: Queue,
+    parameter: Enum,
+    utm_x: float,
+    utm_y: float,
+    nearby_stations: List[str],
+) -> Tuple[Enum, float, float, List[str]]:
+    """
+    Interpolation function that is being applied over each row of the accumulated data of different stations.
+    :param row: row with values of each station
+    :param stations_dict: station dictionary with latlon pairs
+    :param valid_station_groups: list of valid station groups
+    :param parameter: parameter that is interpolated
+    :param utm_x: utm x of interpolated location
+    :param utm_y: utm y of interpolated location
+    :param use_nearby_station: bool if the nearest station should be used. depends on distance
+    :return:
+    """
+    if nearby_stations:
+        valid_values = row[nearby_stations].dropna()
+        if not valid_values.empty:
+            first_station = valid_values.index[0]
+            return parameter, valid_values[first_station], stations_dict[first_station[1:]][2], [first_station[1:]]
     vals_state = ~pd.isna(row.values)
     vals = row[vals_state].astype(float)
-    station_group_ids = get_station_group_ids(valid_station_groups, frozenset(vals.index))
+    station_group_ids = get_station_group_ids(valid_station_groups, frozenset([s[1:] for s in vals.index]))
 
     if station_group_ids:
-        vals = vals[station_group_ids]
+        station_group_ids_with_s = ["S" + s for s in station_group_ids]
+        vals = vals[station_group_ids_with_s]
     else:
         vals = None
 
@@ -205,7 +243,7 @@ if __name__ == "__main__":
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     lat = 50.0
-    long = 8.9
+    lon = 8.9
     distance = 30.0
     start_date = datetime(2003, 1, 1)
     end_date = datetime(2004, 12, 31)
@@ -217,6 +255,6 @@ if __name__ == "__main__":
         end_date=end_date,
     )
 
-    df = stations.interpolate(lat, long)
+    df = stations.interpolate((lat, lon))
 
     log.info(df.df.dropna())

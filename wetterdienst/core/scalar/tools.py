@@ -17,14 +17,16 @@ def extract_station_values(
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
     # 3. an additional counter is below 3 (used if a station has really no or few values)
     cond1 = param_data.values.shape[1] < 4
-    cond2 = not cond1 and gain_of_value_pairs(param_data.values, result_series_param) > 0.10
+    cond2 = not cond1 and gain_of_value_pairs(param_data.values.copy(), result_series_param.copy()) > 0.10
     if (
         not valid_station_groups_exists or cond1 or cond2 or param_data.extra_station_counter < 3
     ):  # timestamps + 4 stations
         if not (cond1 or cond2):
             param_data.extra_station_counter += 1
-
-        param_data.values[result_series_param.name] = result_series_param.values
+        # TODO: remove with newer pandas version
+        # "S" is add to station id titles to prevent bug with pandas that somehow doesn't allow column name "02000"
+        # under certain circumstances
+        param_data.values.loc[:, f"S{result_series_param.name}"] = result_series_param.values
     else:
         param_data.finished = True
 
