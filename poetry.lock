@@ -3485,8 +3485,8 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 bufr = ["pdbufr"]
 cratedb = []
 duckdb = ["duckdb"]
-explorer = ["plotly", "dash", "dash-bootstrap-components"]
-export = ["openpyxl", "sqlalchemy", "pyarrow", "xarray", "zarr"]
+explorer = ["dash", "dash-bootstrap-components", "plotly"]
+export = ["openpyxl", "pyarrow", "sqlalchemy", "xarray", "zarr"]
 influxdb = ["influxdb", "influxdb-client"]
 interpolation = ["scipy", "shapely", "utm"]
 ipython = ["matplotlib"]
@@ -3494,14 +3494,14 @@ mpl = ["matplotlib"]
 mysql = ["mysqlclient"]
 postgresql = ["psycopg2-binary"]
 radar = ["h5py"]
-radarplus = ["wradlib", "pdbufr"]
+radarplus = ["pdbufr", "wradlib"]
 restapi = ["fastapi", "uvicorn"]
 sql = ["duckdb"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8,<3.12"
-content-hash = "57fac5b94a7de96d4924182e23f09ff2f270d00d88e8cfab3c06f83f2cefae20"
+content-hash = "c4dcafb6da3590da3c89733da0a09a25dae4756bf3958a5638030367ce53e699"
 
 [metadata.files]
 aenum = [
