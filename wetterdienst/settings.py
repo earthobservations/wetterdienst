@@ -41,6 +41,9 @@ class Settings:
                 self.skip_threshold: bool = self.env.float("SKIP_THRESHOLD", 0.95)
                 self.dropna: bool = self.env.bool("DROPNA", False)
 
+                with self.env.prefixed("INTERPOLATION_"):
+                    self.interp_use_nearby_station_until_km: float = self.env.float("USE_NEARBY_STATION_UNTIL_KM", 1)
+
     @property
     def cache_disable(self) -> bool:
         return self._cache_disable

@@ -143,16 +143,16 @@ def apply_summary(
     if not vals.empty:
         value = float(vals[0])
         station_id = vals.index[0]
-        distance = stations_dict[station_id][2]
+        distance = stations_dict[station_id[1:]][2]
 
-    return parameter, value, distance, station_id
+    return parameter, value, distance, station_id[1:]
 
 
 if __name__ == "__main__":
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     lat = 51.0221
-    long = 13.8470
+    lon = 13.8470
     start_date = datetime(2003, 1, 1)
     end_date = datetime(2004, 12, 31)
 
@@ -163,6 +163,6 @@ if __name__ == "__main__":
         end_date=end_date,
     )
 
-    df = stations.summarize(lat, long)
+    df = stations.summarize((lat, lon))
 
     log.info(df.df.dropna())

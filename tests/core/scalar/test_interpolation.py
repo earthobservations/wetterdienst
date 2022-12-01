@@ -51,30 +51,31 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords():
 
 def test_interpolation_temperature_air_mean_200_daily_by_station_id():
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
-        start_date=datetime(2020, 1, 1),
-        end_date=datetime(2022, 1, 20),
+        start_date=datetime(1986, 10, 31),
+        end_date=datetime(1986, 11, 1),
     )
     for result in (
-        stations.interpolate(latlon=(50.0643, 8.9930)),
-        stations.interpolate_by_station_id(station_id="02480"),
+        stations.interpolate(latlon=(48.2156, 8.9784)),
+        stations.interpolate_by_station_id(station_id="00071"),
     ):
         interpolated_df = result.df
-        assert interpolated_df.shape[0] == 751
-        assert interpolated_df.dropna().shape[0] == 751
-        test_df = result.filter_by_date("2022-01-02 00:00:00+00:00").reset_index(drop=True)
+
+        assert interpolated_df.shape[0] == 2
+        assert interpolated_df.dropna().shape[0] == 2
+
         expected_df = pd.DataFrame(
             {
-                "date": pd.to_datetime(["2022-01-02 00:00:00+00:00"], utc=True),
-                "parameter": ["temperature_air_mean_200"],
-                "value": [281.35],
-                "distance_mean": [13.837094521111853],
-                "station_ids": [["02480", "07341", "04411", "01424"]],
+                "date": pd.to_datetime(["1986-10-31 00:00:00+00:00", "1986-11-01 00:00:00+00:00"], utc=True),
+                "parameter": ["temperature_air_mean_200", "temperature_air_mean_200"],
+                "value": [279.6484850656227, 281.84999999999997],
+                "distance_mean": [16.991040957994503, 0.0],
+                "station_ids": [["00072", "02074", "02638", "04703"], ["00071"]],
             }
         )
 
-        assert_frame_equal(test_df, expected_df)
+        assert_frame_equal(interpolated_df, expected_df)
 
 
 @pytest.mark.slow
@@ -198,7 +199,7 @@ def test_not_supported_provider_ecc(caplog):
 
 def test_interpolation_temperature_air_mean_200_daily_three_floats():
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
@@ -211,7 +212,7 @@ def test_interpolation_temperature_air_mean_200_daily_three_floats():
 
 def test_interpolation_temperature_air_mean_200_daily_one_floats():
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
@@ -224,7 +225,7 @@ def test_interpolation_temperature_air_mean_200_daily_one_floats():
 
 def test_interpolation_temperature_air_mean_200_daily_no_station_found():
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),

@@ -383,6 +383,7 @@ class ScalarRequestCore(Core):
         self.skip_empty = self.tidy and settings.skip_empty
         self.skip_threshold = settings.skip_threshold
         self.dropna = self.tidy and settings.dropna
+        self.interp_use_nearby_station_until_km = settings.interp_use_nearby_station_until_km
 
         if not tidy and settings.skip_empty:
             log.warning("option 'skip_empty' is only available with option 'tidy' and is thus ignored in this request.")
