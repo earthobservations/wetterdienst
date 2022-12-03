@@ -9,6 +9,7 @@ Development
 - Geo: Change function signatures to use latlon tuple instead of latitude and longitude
 - Geo: Enable querying station id instead of latlon within interpolate and summarize
 - Geo: Allow using values of nearby stations instead of interpolated values
+- Fix timezone related problems when creating full date range
 
 0.49.0 (28.11.2022)
 *******************

@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.metadata.resolution import DAILY_AT_MOST, Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -157,14 +157,27 @@ class ScalarValuesCore(metaclass=ABCMeta):
         else:
             timezone_ = self.data_tz
 
-        tz_delta = self._get_timedelta_from_timezones(timezone_, pytz.UTC)
+        start_date = start_date.tz_convert(timezone_).replace(tzinfo=None)
+        end_date = end_date.tz_convert(timezone_).replace(tzinfo=None)
 
-        return pd.date_range(
-            start_date + datetime.timedelta(hours=tz_delta),
-            end_date + datetime.timedelta(hours=tz_delta),
+        # cut of everything smaller than day for daily or lower freq, same for monthly and annual
+        if self.sr.resolution in DAILY_AT_MOST:
+            start_date = pd.Timestamp(start_date.date()) - pd.offsets.Day(1)
+            end_date = pd.Timestamp(end_date.date()) + pd.offsets.Day(1)
+        elif self.sr.resolution == Resolution.MONTHLY:
+            start_date = pd.Timestamp(datetime.date(start_date.year, start_date.month, 1))
+            end_date = pd.Timestamp(datetime.date(end_date.year, end_date.month, 1)) + pd.offsets.MonthEnd()
+        elif self.sr.resolution == Resolution.ANNUAL:
+            start_date = pd.Timestamp(datetime.date(start_date.year, 1, 1))
+            end_date = pd.Timestamp(datetime.date(end_date.year, 1, 1)) + pd.offsets.YearEnd()
+
+        date_range = pd.date_range(
+            start_date,
+            end_date,
             freq=self.sr.frequency.value,
-            tz=pytz.UTC,
         )
+
+        return date_range.tz_localize(timezone_, ambiguous="NaT", nonexistent="shift_forward").tz_convert(pytz.UTC)
 
     def _get_timezone_from_station(self, station_id: str) -> timezone:
         """
@@ -184,23 +197,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
         tz_string = self._tf.timezone_at(lng=longitude, lat=latitude)
 
         return timezone(tz_string)
-
-    @staticmethod
-    def _get_timedelta_from_timezones(tz1: timezone, tz2: timezone) -> float:
-        """Method to get timedelta in hours (float) from two timezones
-
-        :param tz1:
-        :param tz2:
-        :return:
-        """
-        dt_1970 = datetime.datetime(1970, 1, 1)
-
-        dt_1970_tz1 = tz1.localize(dt_1970)
-        dt_1970_tz2 = tz2.localize(dt_1970).astimezone(tz1)
-
-        dt_diff = dt_1970_tz1 - dt_1970_tz2
-
-        return dt_diff.days * 24 + dt_diff.seconds / 3600
 
     def _get_base_df(self, station_id: str) -> pd.DataFrame:
         """
@@ -376,7 +372,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """
         if parameter != dataset or not self.sr.tidy:
             base_df = self._get_base_df(station_id)
-
             df = pd.merge(
                 left=base_df,
                 right=df,
@@ -384,11 +379,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 right_on=Columns.DATE.value,
                 how="left",
             )
-
             if self.sr.tidy:
                 df[Columns.PARAMETER.value] = parameter.value
                 df[Columns.PARAMETER.value] = pd.Categorical(df.loc[:, Columns.PARAMETER.value])
-
             return df
         else:
             data = []
@@ -403,7 +396,6 @@ class ScalarValuesCore(metaclass=ABCMeta):
                         parameter,
                         self.sr._parameter_base[self.sr._dataset_accessor][dataset.name],
                     )
-
                 df = pd.merge(
                     left=self._get_base_df(station_id),
                     right=group,
@@ -411,11 +403,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
                     right_on=Columns.DATE.value,
                     how="left",
                 )
-
                 df[Columns.PARAMETER.value] = parameter_.value.lower()
-
                 data.append(df)
-
             return pd.concat(data)
 
     def _organize_df_columns(self, df: pd.DataFrame, station_id: str, dataset: Enum) -> pd.DataFrame:
