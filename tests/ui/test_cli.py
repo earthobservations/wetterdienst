@@ -117,7 +117,7 @@ def invoke_wetterdienst_stations_empty(provider, network, setting, fmt="json"):
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} " f"{setting} --station=123456 --format={fmt}",
+        f"stations --provider={provider} --network={network} {setting} --station=123456 --format={fmt}",
     )
 
 
@@ -126,7 +126,7 @@ def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} " f"{setting} --station={station} --format={fmt}",
+        f"stations --provider={provider} --network={network} {setting} --station={station} --format={fmt}",
     )
 
 
@@ -135,7 +135,7 @@ def invoke_wetterdienst_stations_export(provider, network, setting, station, tar
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} " f"{setting} --station={station} --target={target}",
+        f"stations --provider={provider} --network={network} {setting} --station={station} --target={target}",
     )
 
 
@@ -155,7 +155,7 @@ def invoke_wetterdienst_values_static(provider, network, setting, station, fmt="
 
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} " f"{setting} --station={station} --format={fmt}",
+        f"values --provider={provider} --network={network} {setting} --station={station} --format={fmt}",
     )
 
 
@@ -164,7 +164,7 @@ def invoke_wetterdienst_values_export(provider, network, setting, station, targe
 
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} " f"{setting} --station={station} --target={target}",
+        f"values --provider={provider} --network={network} {setting} --station={station} --target={target}",
     )
 
 
@@ -173,7 +173,7 @@ def invoke_wetterdienst_values_static_tidy(provider, network, setting, station, 
 
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} " f"{setting} --station={station} --format={fmt} --tidy",
+        f"values --provider={provider} --network={network} {setting} --station={station} --format={fmt} --tidy",
     )
 
 

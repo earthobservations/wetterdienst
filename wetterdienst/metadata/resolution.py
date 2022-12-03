@@ -33,6 +33,19 @@ class Resolution(Enum):
     DYNAMIC = ResolutionType.DYNAMIC.value
 
 
+# required for cutting of finer granularity when creating full date range
+DAILY_AT_MOST = [
+    Resolution.MINUTE_1,
+    Resolution.MINUTE_5,
+    Resolution.MINUTE_10,
+    Resolution.MINUTE_15,
+    Resolution.HOURLY,
+    Resolution.HOUR_6,
+    Resolution.SUBDAILY,
+    Resolution.DAILY,
+]
+
+
 class Frequency(Enum):
     MINUTE_1 = "1min"
     MINUTE_2 = "2min"

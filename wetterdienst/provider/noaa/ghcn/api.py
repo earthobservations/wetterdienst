@@ -6,7 +6,6 @@ from enum import Enum
 from typing import List, Optional, Union
 
 import pandas as pd
-import pytz
 from pandas.tseries.offsets import YearEnd
 from timezonefinder import TimezoneFinder
 
@@ -69,25 +68,11 @@ class NoaaGhcnValues(ScalarValuesCore):
         :return: dataframe with read data
         """
         url = self._base_url.format(station_id=station_id)
-
         file = download_file(url, CacheExpiry.FIVE_MINUTES)
-
         df = pd.read_csv(file, sep=",", header=None, dtype=str, compression="gzip")
-
         df = df.iloc[:, :4]
-
         df.columns = [Columns.STATION_ID.value, Columns.DATE.value, Columns.PARAMETER.value, Columns.VALUE.value]
-
         df[Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
-
-        timezone_ = self._get_timezone_from_station(station_id)
-
-        df[Columns.DATE.value] = (
-            pd.to_datetime(df[Columns.DATE.value], infer_datetime_format=True)
-            .dt.tz_localize(timezone_, ambiguous=True, nonexistent="shift_forward")
-            .dt.tz_convert(pytz.UTC)
-        )
-
         return self._apply_factors(df)
 
     def _apply_factors(self, df: pd.DataFrame) -> pd.DataFrame:
