@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.50.0 (03.12.2022)
+*******************
+
 - Interpolation/Summary: Now the queried point can be an existing station laying on the border of the polygon that it's
   being checked against
 - Geo: Change function signatures to use latlon tuple instead of latitude and longitude
