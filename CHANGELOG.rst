@@ -10,6 +10,7 @@ Development
 - Geo: Enable querying station id instead of latlon within interpolate and summarize
 - Geo: Allow using values of nearby stations instead of interpolated values
 - Fix timezone related problems when creating full date range
+- UI: Add interpolate/summarize methods as subspaces
 
 0.49.0 (28.11.2022)
 *******************

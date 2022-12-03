@@ -49,54 +49,21 @@ def unpack_parameters(parameter: str) -> List[str]:
     return [unpack_parameter(p) for p in parameter]
 
 
-def get_stations(
+def _get_stations_request(
     api,
     parameter: List[str],
     resolution: str,
     period: List[str],
     date: Optional[str],
     issue: str,
-    all_: bool,
-    station_id: List[str],
-    name: str,
-    coordinates: str,
-    rank: int,
-    distance: float,
-    bbox: str,
-    sql: str,
     si_units: bool,
     tidy: bool,
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
     dropna: bool,
-) -> StationsResult:
-    """
-    Core function for querying stations via cli and restapi
-
-    :param api:
-    :param parameter:
-    :param resolution:
-    :param period:
-    :param date:
-    :param issue:
-    :param all_:
-    :param station_id:
-    :param name:#
-    :param coordinates:
-    :param rank:
-    :param distance:
-    :param bbox:
-    :param sql:
-    :param date:
-    :param si_units:
-    :param tidy:
-    :param humanize:
-    :param skip_empty:
-    :param skip_threshold:
-    :param dropna:
-    :return:
-    """
+    use_nearby_station_until_km: float,
+):
     # TODO: move this into Request core
     start_date, end_date = None, None
     if date:
@@ -146,8 +113,74 @@ def get_stations(
         Settings.skip_empty = skip_empty
         Settings.skip_threshold = skip_threshold
         Settings.dropna = dropna
+        Settings.interp_use_nearby_station_until_km = use_nearby_station_until_km
 
-        r = api(**kwargs)
+        return api(**kwargs)
+
+
+def get_stations(
+    api,
+    parameter: List[str],
+    resolution: str,
+    period: List[str],
+    date: Optional[str],
+    issue: str,
+    all_: bool,
+    station_id: List[str],
+    name: str,
+    coordinates: str,
+    rank: int,
+    distance: float,
+    bbox: str,
+    sql: str,
+    si_units: bool,
+    tidy: bool,
+    humanize: bool,
+    skip_empty: bool,
+    skip_threshold: float,
+    dropna: bool,
+) -> StationsResult:
+    """
+    Core function for querying stations via cli and restapi
+
+    :param api:
+    :param parameter:
+    :param resolution:
+    :param period:
+    :param date:
+    :param issue:
+    :param all_:
+    :param station_id:
+    :param name:#
+    :param coordinates:
+    :param rank:
+    :param distance:
+    :param bbox:
+    :param sql:
+    :param date:
+    :param si_units:
+    :param tidy:
+    :param humanize:
+    :param skip_empty:
+    :param skip_threshold:
+    :param dropna:
+    :return:
+    """
+    r = _get_stations_request(
+        api=api,
+        parameter=parameter,
+        resolution=resolution,
+        period=period,
+        date=date,
+        issue=issue,
+        si_units=si_units,
+        tidy=tidy,
+        humanize=humanize,
+        skip_empty=skip_empty,
+        skip_threshold=skip_threshold,
+        dropna=dropna,
+        use_nearby_station_until_km=0,
+    )
 
     if all_:
         return r.all()
@@ -289,6 +322,151 @@ def get_values(
     if sql_values:
         log.info(f"Filtering with SQL: {sql_values}")
 
+        values_.filter_by_sql(sql_values)
+
+    return values_
+
+
+def get_interpolate(
+    api: ScalarRequestCore,
+    parameter: List[str],
+    resolution: str,
+    date: str,
+    issue: str,
+    period: List[str],
+    coordinates: str,
+    station_id: str,
+    sql_values: str,
+    si_units: bool,
+    humanize: bool,
+    use_nearby_station_until_km: float,
+) -> ValuesResult:
+    """
+    Core function for querying values via cli and restapi
+
+    :param api:
+    :param parameter:
+    :param resolution:
+    :param date:
+    :param issue:
+    :param period:
+    :param all_:
+    :param station_id:
+    :param name:
+    :param coordinates:
+    :param sql_values:
+    :param si_units:
+    :param tidy:
+    :param humanize:
+    :param skip_empty:
+    :param skip_threshold:
+    :param dropna:
+    :return:
+    """
+    r = _get_stations_request(
+        api=api,
+        parameter=parameter,
+        resolution=resolution,
+        period=period,
+        date=date,
+        issue=issue,
+        si_units=si_units,
+        tidy=True,
+        humanize=humanize,
+        skip_empty=False,
+        skip_threshold=False,
+        dropna=False,
+        use_nearby_station_until_km=use_nearby_station_until_km,
+    )
+
+    try:
+        if coordinates:
+            lat, lon = coordinates.split(",")
+            values_ = r.interpolate((float(lat), float(lon)))
+        else:
+            values_ = r.interpolate_by_station_id(station_id)
+    except ValueError as e:
+        log.exception(e)
+        sys.exit(1)
+    else:
+        if values_.df.empty:
+            log.error("No data available for given constraints")
+            sys.exit(1)
+
+    if sql_values:
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_.filter_by_sql(sql_values)
+
+    return values_
+
+
+def get_summarize(
+    api: ScalarRequestCore,
+    parameter: List[str],
+    resolution: str,
+    date: str,
+    issue: str,
+    period: List[str],
+    coordinates: str,
+    station_id: str,
+    sql_values: str,
+    si_units: bool,
+    humanize: bool,
+) -> ValuesResult:
+    """
+    Core function for querying values via cli and restapi
+
+    :param api:
+    :param parameter:
+    :param resolution:
+    :param date:
+    :param issue:
+    :param period:
+    :param all_:
+    :param station_id:
+    :param name:
+    :param coordinates:
+    :param sql_values:
+    :param si_units:
+    :param tidy:
+    :param humanize:
+    :param skip_empty:
+    :param skip_threshold:
+    :param dropna:
+    :return:
+    """
+    r = _get_stations_request(
+        api=api,
+        parameter=parameter,
+        resolution=resolution,
+        period=period,
+        date=date,
+        issue=issue,
+        si_units=si_units,
+        tidy=True,
+        humanize=humanize,
+        skip_empty=False,
+        skip_threshold=False,
+        dropna=False,
+        use_nearby_station_until_km=0,
+    )
+
+    try:
+        if coordinates:
+            lat, lon = coordinates.split(",")
+            values_ = r.summarize((float(lat), float(lon)))
+        else:
+            values_ = r.summarize_by_station_id(station_id)
+    except ValueError as e:
+        log.exception(e)
+        sys.exit(1)
+    else:
+        if values_.df.empty:
+            log.error("No data available for given constraints")
+            sys.exit(1)
+
+    if sql_values:
+        log.info(f"Filtering with SQL: {sql_values}")
         values_.filter_by_sql(sql_values)
 
     return values_

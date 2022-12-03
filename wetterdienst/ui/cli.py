@@ -17,9 +17,17 @@ from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderError
 from wetterdienst.provider.dwd.radar.api import DwdRadarSites
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
-from wetterdienst.ui.core import get_stations, get_values, set_logging_level
+from wetterdienst.ui.core import (
+    get_interpolate,
+    get_stations,
+    get_summarize,
+    get_values,
+    set_logging_level,
+)
 
 log = logging.getLogger(__name__)
+
+CommaSeparator = StringListParamType(",")
 
 appname = f"{__appname__} {__version__}"
 
@@ -60,21 +68,33 @@ def get_api(provider: str, network: str):
         sys.exit(1)
 
 
-def station_options(command):
+def station_options_core(command):
     """
-    Station options for cli, which can be used for stations and values endpoint
+    Station options core for cli, which can be used for stations and values endpoint
 
     :param command:
     :return:
     """
     arguments = [
-        cloup.option("--parameter", type=StringListParamType(","), required=True),
+        cloup.option("--parameter", type=CommaSeparator, required=True),
         cloup.option("--resolution", type=click.STRING, required=True),
-        cloup.option("--period", type=StringListParamType(",")),
+        cloup.option("--period", type=CommaSeparator),
+    ]
+    return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
+
+
+def station_options_extension(command):
+    """
+    Station options extension for cli, which can be used for stations and values endpoint
+
+    :param command:
+    :return:
+    """
+    arguments = [
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=StringListParamType(",")),
+            cloup.option("--station", type=CommaSeparator),
         ),
         cloup.option_group(
             "Station name filtering",
@@ -102,6 +122,30 @@ def station_options(command):
         cloup.constraint(
             RequireExactly(1),
             ["all_", "station", "name", "coordinates", "bbox", "sql"],
+        ),
+    ]
+    return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
+
+
+def station_options_interpolate_summarize(command):
+    """
+    Station options for interpolate/summarize for cli, which can be used for stations and values endpoint
+
+    :param command:
+    :return:
+    """
+    arguments = [
+        cloup.option_group(
+            "Station id filtering",
+            cloup.option("--station", type=CommaSeparator),
+        ),
+        cloup.option_group(
+            "Latitude-Longitude rank/distance filtering",
+            cloup.option("--coordinates", metavar="LATITUDE,LONGITUDE", type=click.STRING),
+        ),
+        cloup.constraint(
+            RequireExactly(1),
+            ["station", "coordinates"],
         ),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
@@ -422,9 +466,9 @@ def coverage(provider, network, filter_, debug):
 @network_opt
 @cloup.option_group(
     "(DWD only) information from PDF documents",
-    click.option("--dataset", type=StringListParamType(",")),
+    click.option("--dataset", type=CommaSeparator),
     click.option("--resolution", type=click.STRING),
-    click.option("--period", type=StringListParamType(",")),
+    click.option("--period", type=CommaSeparator),
     click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False)),
     constraint=cloup.constraints.require_all,
 )
@@ -452,7 +496,8 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
 @cli.command("stations")
 @provider_opt
 @network_opt
-@station_options
+@station_options_core
+@station_options_extension
 @cloup.option_group(
     "Format/Target",
     click.option(
@@ -537,7 +582,8 @@ def stations(
 @cli.command("values")
 @provider_opt
 @network_opt
-@station_options
+@station_options_core
+@station_options_extension
 @cloup.option("--date", type=click.STRING)
 @cloup.option("--tidy", is_flag=True)
 @cloup.option("--sql-values", type=click.STRING)
@@ -615,6 +661,173 @@ def values(
             skip_empty=skip_empty,
             skip_threshold=skip_threshold,
             dropna=dropna,
+        )
+    except ValueError as ex:
+        log.exception(ex)
+        sys.exit(1)
+    else:
+        if values_.df.empty:
+            log.error("No data available for given constraints")
+            sys.exit(1)
+
+    if target:
+        values_.to_target(target)
+        return
+
+    indent = None
+    if pretty:
+        indent = 4
+
+    output = values_.to_format(fmt, indent=indent)
+
+    print(output)  # noqa: T201
+
+    return
+
+
+@cli.command("interpolate")
+@provider_opt
+@network_opt
+@station_options_core
+@station_options_interpolate_summarize
+@cloup.option("--use_nearby_station_until_km", type=click.FLOAT, default=1)
+@cloup.option("--date", type=click.STRING, required=True)
+@cloup.option("--sql-values", type=click.STRING)
+@cloup.option_group(
+    "Format/Target",
+    cloup.option(
+        "--format",
+        "fmt",
+        type=click.Choice(["json", "csv"], case_sensitive=False),
+        default="json",
+    ),
+    cloup.option("--target", type=click.STRING),
+    help="Provide either --format or --target.",
+)
+@cloup.option("--issue", type=click.STRING)
+@cloup.option("--si-units", type=click.BOOL, default=True)
+@cloup.option("--humanize", type=click.BOOL, default=True)
+@cloup.option("--pretty", is_flag=True)
+@debug_opt
+def interpolate(
+    provider: str,
+    network: str,
+    parameter: List[str],
+    resolution: str,
+    period: List[str],
+    use_nearby_station_until_km: float,
+    date: str,
+    issue: str,
+    station: str,
+    coordinates: str,
+    sql_values,
+    fmt: str,
+    target: str,
+    si_units: bool,
+    humanize: bool,
+    pretty: bool,
+    debug: bool,
+):
+    set_logging_level(debug)
+
+    api = get_api(provider, network)
+
+    try:
+        values_ = get_interpolate(
+            api=api,
+            parameter=parameter,
+            resolution=resolution,
+            period=period,
+            date=date,
+            issue=issue,
+            station_id=station,
+            coordinates=coordinates,
+            sql_values=sql_values,
+            si_units=si_units,
+            humanize=humanize,
+            use_nearby_station_until_km=use_nearby_station_until_km,
+        )
+    except ValueError as ex:
+        log.exception(ex)
+        sys.exit(1)
+    else:
+        if values_.df.empty:
+            log.error("No data available for given constraints")
+            sys.exit(1)
+
+    if target:
+        values_.to_target(target)
+        return
+
+    indent = None
+    if pretty:
+        indent = 4
+
+    output = values_.to_format(fmt, indent=indent)
+
+    print(output)  # noqa: T201
+
+    return
+
+
+@cli.command("summarize")
+@provider_opt
+@network_opt
+@station_options_core
+@station_options_interpolate_summarize
+@cloup.option("--date", type=click.STRING, required=True)
+@cloup.option("--sql-values", type=click.STRING)
+@cloup.option_group(
+    "Format/Target",
+    cloup.option(
+        "--format",
+        "fmt",
+        type=click.Choice(["json", "csv"], case_sensitive=False),
+        default="json",
+    ),
+    cloup.option("--target", type=click.STRING),
+    help="Provide either --format or --target.",
+)
+@cloup.option("--issue", type=click.STRING)
+@cloup.option("--si-units", type=click.BOOL, default=True)
+@cloup.option("--humanize", type=click.BOOL, default=True)
+@cloup.option("--pretty", is_flag=True)
+@debug_opt
+def summarize(
+    provider: str,
+    network: str,
+    parameter: List[str],
+    resolution: str,
+    period: List[str],
+    date: str,
+    issue: str,
+    station: str,
+    coordinates: str,
+    sql_values,
+    fmt: str,
+    target: str,
+    si_units: bool,
+    humanize: bool,
+    pretty: bool,
+    debug: bool,
+):
+    set_logging_level(debug)
+
+    api = get_api(provider, network)
+
+    try:
+        values_ = get_summarize(
+            api=api,
+            parameter=parameter,
+            resolution=resolution,
+            period=period,
+            date=date,
+            issue=issue,
+            station_id=station,
+            coordinates=coordinates,
+            sql_values=sql_values,
+            si_units=si_units,
+            humanize=humanize,
         )
     except ValueError as ex:
         log.exception(ex)

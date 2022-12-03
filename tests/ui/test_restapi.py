@@ -277,6 +277,70 @@ def test_dwd_values_sql_tidy(dicts_are_same):
 
 
 @pytest.mark.remote
+def test_dwd_interpolate():
+    response = client.get(
+        "/restapi/interpolate",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameter": "temperature_air_mean_200",
+            "resolution": "daily",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["data"] == [
+        {
+            "date": "1986-10-31T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 279.6484850656227,
+            "distance_mean": 16.991040957994503,
+            "station_ids": ["00072", "02074", "02638", "04703"],
+        },
+        {
+            "date": "1986-11-01T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 281.84999999999997,
+            "distance_mean": 0.0,
+            "station_ids": ["00071"],
+        },
+    ]
+
+
+@pytest.mark.remote
+def test_dwd_summarize():
+    response = client.get(
+        "/restapi/summarize",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameter": "temperature_air_mean_200",
+            "resolution": "daily",
+            "station": "00071",
+            "date": "1986-10-31/1986-11-01",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["data"] == [
+        {
+            "date": "1986-10-31T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 279.75,
+            "distance": 6.97062150863748,
+            "station_id": "00072",
+        },
+        {
+            "date": "1986-11-01T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 281.84999999999997,
+            "distance": 0.0,
+            "station_id": "00071",
+        },
+    ]
+
+
+@pytest.mark.remote
 def test_api_values_missing_null():
     response = client.get(
         "/restapi/values",

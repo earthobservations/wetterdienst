@@ -76,8 +76,8 @@ def test_cli_help():
 
     assert "Options:\n --help  Show this message and exit."
     assert (
-        "Commands:\n  about\n  explorer\n  info\n  radar\n  "
-        "restapi\n  stations\n  values\n  version\n" in result.output
+        "Commands:\n  about\n  explorer\n  info\n  interpolate\n  radar\n  "
+        "restapi\n  stations\n  summarize\n  values\n  version\n" in result.output
     )
 
 
@@ -434,6 +434,66 @@ def test_cli_values_geospatial(provider, network, setting, station_id, station_n
     station_ids = {reading["station_id"] for reading in response}
 
     assert station_id in station_ids
+
+
+def test_cli_interpolate():
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        "interpolate --provider=dwd --network=observation "
+        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
+    )
+
+    response = json.loads(result.stdout)
+
+    assert response == [
+        {
+            "date": "1986-10-31T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 279.6484850656,
+            "distance_mean": 16.991040958,
+            "station_ids": ["00072", "02074", "02638", "04703"],
+        },
+        {
+            "date": "1986-11-01T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 281.85,
+            "distance_mean": 0.0,
+            "station_ids": ["00071"],
+        },
+    ]
+
+
+def test_cli_summarize():
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        "summarize --provider=dwd --network=observation "
+        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
+    )
+
+    response = json.loads(result.stdout)
+
+    assert response == [
+        {
+            "date": "1986-10-31T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 279.75,
+            "distance": 6.9706215086,
+            "station_id": "00072",
+        },
+        {
+            "date": "1986-11-01T00:00:00+00:00",
+            "parameter": "temperature_air_mean_200",
+            "value": 281.85,
+            "distance": 0.0,
+            "station_id": "00071",
+        },
+    ]
 
 
 def test_cli_radar_stations_opera():
