@@ -20,7 +20,7 @@ Get available parameters for daily historical data of DWD:
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     observations_meta = DwdObservationRequest.discover(
-        filter_=Resolution.DAILY,
+        resolution=Resolution.DAILY,
     )
 
     # Available parameter sets
@@ -28,7 +28,7 @@ Get available parameters for daily historical data of DWD:
 
     # Available individual parameters
     observations_meta = DwdObservationRequest.discover(
-        filter_=Resolution.DAILY, flatten=False
+        resolution=Resolution.DAILY, flatten=False
     )
 
     print(observations_meta)

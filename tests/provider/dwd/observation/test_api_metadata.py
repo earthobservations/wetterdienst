@@ -12,7 +12,7 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def test_dwd_observation_metadata_discover_parameters():
-    parameters = DwdObservationRequest.discover(filter_="minute_1", flatten=True)
+    parameters = DwdObservationRequest.discover(resolution="minute_1", flatten=True)
 
     expected = {
         "minute_1": {

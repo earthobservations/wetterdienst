@@ -357,14 +357,14 @@ class DwdMosmixRequest(ScalarRequestCore):
         return self.mosmix_type.name
 
     @classmethod
-    def _setup_discover_filter(cls, filter_):
+    def _setup_resolution_filter(cls, resolution):
         """
         Use SMALL and LARGE instead of resolution, which is fixed for Mosmix
 
-        :param filter_:
+        :param resolution:
         :return:
         """
-        return pd.Series(filter_, dtype=object).apply(
+        return pd.Series(resolution, dtype=object).apply(
             parse_enumeration_from_template, args=(cls._dataset_base,)
         ).tolist() or [*cls._dataset_base]
 

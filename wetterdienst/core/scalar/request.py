@@ -486,19 +486,20 @@ class ScalarRequestCore(Core):
         return unit_string
 
     @classmethod
-    def discover(cls, filter_=None, dataset=None, flatten: bool = True) -> dict:
+    def discover(cls, resolution=None, dataset=None, flatten: bool = True, with_units: bool = True) -> dict:
         """
         Function to print/discover available parameters
 
-        :param filter_:
+        :param resolution:
         :param dataset:
         :param flatten:
+        :param with_units:
         :return:
         """
         # TODO: Refactor this!!!
         flatten = cls._unique_dataset or flatten
 
-        filter_ = cls._setup_discover_filter(filter_)
+        resolutions = cls._setup_resolution_filter(resolution)
 
         if flatten:
             if dataset:
@@ -506,25 +507,26 @@ class ScalarRequestCore(Core):
 
             parameters = {}
 
-            for f in filter_:
-                parameters[f.name.lower()] = {}
+            for resolution_item in resolutions:
 
-                for parameter in cls._parameter_base[f.name]:
+                resolution_name = resolution_item.name
+                parameters[resolution_name.lower()] = {}
+
+                for parameter in cls._parameter_base[resolution_name]:
                     if not hasattr(parameter, "name"):
                         continue
 
-                    parameters[f.name.lower()][parameter.name.lower()] = {}
-
                     if cls._unique_dataset:
-                        origin_unit, si_unit = cls._unit_tree[f.name][parameter.name].value
+                        origin_unit, si_unit = cls._unit_tree[resolution_name][parameter.name].value
                     else:
-                        origin_unit, si_unit = cls._unit_tree[f.name][parameter.__class__.__name__][
+                        origin_unit, si_unit = cls._unit_tree[resolution_name][parameter.__class__.__name__][
                             parameter.name
                         ].value
 
-                    parameters[f.name.lower()][parameter.name.lower()]["origin"] = cls._format_unit(origin_unit)
-
-                    parameters[f.name.lower()][parameter.name.lower()]["si"] = cls._format_unit(si_unit)
+                    if with_units:
+                        slot = parameters[resolution_name.lower()][parameter.name.lower()] = {}
+                        slot["origin"] = cls._format_unit(origin_unit)
+                        slot["si"] = cls._format_unit(si_unit)
 
             return parameters
 
@@ -537,10 +539,11 @@ class ScalarRequestCore(Core):
 
         parameters = {}
 
-        for f in filter_:
-            parameters[f.name.lower()] = {}
+        for resolution_item in resolutions:
+            resolution_name = resolution_item.name
+            parameters[resolution_name.lower()] = {}
 
-            for dataset in cls._parameter_base[f.name]:
+            for dataset in cls._parameter_base[resolution_name]:
                 if hasattr(dataset, "name"):
                     continue
 
@@ -548,36 +551,34 @@ class ScalarRequestCore(Core):
                 if dataset_name.startswith("_") or dataset_name.upper() not in datasets_filter:
                     continue
 
-                parameters[f.name.lower()][dataset_name] = {}
+                parameters[resolution_name.lower()][dataset_name] = {}
 
                 for parameter in dataset:
-                    parameters[f.name.lower()][dataset_name][parameter.name.lower()] = {}
 
-                    origin_unit, si_unit = cls._unit_tree[f.name][dataset_name.upper()][parameter.name].value
+                    origin_unit, si_unit = cls._unit_tree[resolution_name][dataset_name.upper()][parameter.name].value
 
-                    parameters[f.name.lower()][dataset_name][parameter.name.lower()]["origin"] = cls._format_unit(
-                        origin_unit
-                    )
-
-                    parameters[f.name.lower()][dataset_name][parameter.name.lower()]["si"] = cls._format_unit(si_unit)
+                    if with_units:
+                        slot = parameters[resolution_name.lower()][dataset_name][parameter.name.lower()] = {}
+                        slot["origin"] = cls._format_unit(origin_unit)
+                        slot["si"] = cls._format_unit(si_unit)
 
         return parameters
 
     @classmethod
-    def _setup_discover_filter(cls, filter_) -> list:
+    def _setup_resolution_filter(cls, resolution) -> list:
         """
-            Helper method to create filter for discover method, can be overwritten by
-            subclasses to use other then the resolution for filtering
+            Helper method to create resolution filter for discover method.
 
-        :param filter_: typically resolution, if used in subclass can be directed
-            towards something else
+        :param resolution: resolution label, like "recent" or "historical"
         :return:
         """
-        if not filter_:
-            filter_ = [*cls._resolution_base]
+        if not resolution:
+            resolution = [*cls._resolution_base]
 
         return (
-            pd.Series(filter_).apply(parse_enumeration_from_template, args=(cls._resolution_base, Resolution)).tolist()
+            pd.Series(resolution)
+            .apply(parse_enumeration_from_template, args=(cls._resolution_base, Resolution))
+            .tolist()
         )
 
     @staticmethod
