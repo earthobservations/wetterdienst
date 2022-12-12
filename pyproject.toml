@@ -125,8 +125,8 @@ tabulate = "^0.8"
 timezonefinder = "^6.1"
 tqdm = "^4.47"
 
-dash                            = { version = "^2.7", optional = true }  # Explorer UI feature.
-dash-bootstrap-components       = { version = "^1.2", optional = true }  # Explorer UI feature.
+dash                            = { version = "^2", optional = true }  # Explorer UI feature.
+dash-bootstrap-components       = { version = "^1", optional = true }  # Explorer UI feature.
 duckdb                          = { version = "^0.6.0", optional = true }  # Export feature.
 fastapi                         = { version = "^0.65", optional = true }  # HTTP REST API feature.
 h5py                            = { version = "^3.1", optional = true, extras = ["radar"], python = "<3.11" }  # Radar feature.
@@ -176,7 +176,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 coverage = { version = "^6.0", extras = ["toml"] }
-dash = { version = "^2.6", extras = ["testing"] }
+dash = { version = "^2", extras = ["testing"] }
 freezegun = "^1.2"
 h5py = { version = "^3.1", python = "<3.11", optional = true}
 percy = "^2.0"
