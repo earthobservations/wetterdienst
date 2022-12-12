@@ -94,7 +94,8 @@ def coverage(
     provider: str = Query(default=None),
     network: str = Query(default=None),
     debug: bool = Query(default=False),
-    filter_=Query(alias="filter", default=None),
+    dataset=Query(alias="dataset", default=None),
+    resolution=Query(alias="resolution", default=None),
 ):
     set_logging_level(debug)
 
@@ -106,7 +107,8 @@ def coverage(
     api = get_api(provider=provider, network=network)
 
     cov = api.discover(
-        filter_=filter_,
+        dataset=dataset,
+        resolution=resolution,
         flatten=False,
     )
 

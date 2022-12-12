@@ -5,6 +5,7 @@ import functools
 import json
 import logging
 import sys
+from collections import OrderedDict
 from pprint import pformat
 from typing import List
 
@@ -300,15 +301,18 @@ def cli():
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --sql-values="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 2.0;" --tidy
 
     Examples for inquiring metadata:
+
         # Display coverage/correlation between parameters, resolutions and periods.
         # This can answer questions like ...
         wetterdienst about coverage --provider=dwd --network=observation
 
-        # Tell me all periods and resolutions available for 'air_temperature'.
-        wetterdienst about coverage --provider=dwd --network=observation --parameter=air_temperature
+        # Tell me all periods and resolutions available for given dataset labels.
+        wetterdienst about coverage --provider=dwd --network=observation --dataset=climate_summary
+        wetterdienst about coverage --provider=dwd --network=observation --dataset=temperature_air
 
-        # Tell me all parameters available for 'daily' resolution.
-        wetterdienst about coverage --provider=dwd --network=observation --filter=daily
+        # Tell me all parameters available for given resolutions.
+        wetterdienst about coverage --provider=dwd --network=observation --resolution=daily
+        wetterdienst about coverage --provider=dwd --network=observation --resolution=hourly
 
     Examples for exporting data to files:
 
@@ -440,9 +444,10 @@ def about():
         type=click.STRING,
     ),
 )
-@cloup.option("--filter", "filter_", type=click.STRING, default=None)
+@cloup.option("--dataset", type=CommaSeparator, default=None)
+@cloup.option("--resolution", type=click.STRING, default=None)
 @debug_opt
-def coverage(provider, network, filter_, debug):
+def coverage(provider, network, dataset, resolution, debug):
     set_logging_level(debug)
 
     if not provider or not network:
@@ -452,13 +457,18 @@ def coverage(provider, network, filter_, debug):
     api = get_api(provider=provider, network=network)
 
     cov = api.discover(
-        filter_=filter_,
+        dataset=dataset,
+        resolution=resolution,
         flatten=False,
+        with_units=False,
     )
 
-    print(json.dumps(cov, indent=4))  # noqa: T201
+    # Compute more compact representation.
+    result = OrderedDict()
+    for resolution, labels in cov.items():
+        result[resolution] = list(labels.keys())
 
-    return
+    print(json.dumps(result, indent=2))  # noqa: T201
 
 
 @about.command("fields")
