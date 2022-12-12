@@ -446,6 +446,9 @@ def test_cli_interpolate():
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
 
+    if result.exit_code != 0:
+        raise ChildProcessError(result.stderr)
+
     response = json.loads(result.stdout)
 
     assert response == [
@@ -475,6 +478,9 @@ def test_cli_summarize():
         "--parameter=temperature_air_mean_200 --resolution=daily "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
+
+    if result.exit_code != 0:
+        raise ChildProcessError(result.stderr)
 
     response = json.loads(result.stdout)
 
