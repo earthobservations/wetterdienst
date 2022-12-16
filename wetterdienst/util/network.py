@@ -37,12 +37,15 @@ class NetworkFilesystemManager:
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(Settings.cache_dir, "fsspec", key)
-        filesystem_real = HTTPFileSystem(use_listings_cache=True, client_kwargs=Settings.fsspec_client_kwargs)
+
+        use_cache = not (Settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
+        fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=Settings.fsspec_client_kwargs)
+
         if Settings.cache_disable or ttl is CacheExpiry.NO_CACHE:
-            filesystem_effective = filesystem_real
+            filesystem_effective = fs
         else:
             filesystem_effective = WholeFileCacheFileSystem(
-                fs=filesystem_real, cache_storage=real_cache_dir, expiry_time=ttl_value
+                fs=fs, cache_storage=real_cache_dir, expiry_time=ttl_value
             )
         cls.filesystems[key] = filesystem_effective
 
@@ -65,8 +68,9 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
     :param ttl:         The cache expiration time.
     :returns:  A list of strings representing the files from the path.
     """
+    use_cache = not (Settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
-        use_listings_cache=True,
+        use_listings_cache=use_cache,
         listings_expiry_time=not Settings.cache_disable and ttl.value,
         listings_cache_type="filedircache",
         listings_cache_location=Settings.cache_dir,
