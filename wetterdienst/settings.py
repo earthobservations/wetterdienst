@@ -18,6 +18,7 @@ class Settings:
     env.read_env()
 
     def __init__(self):
+        # Evaluate environment variables `WD_CACHE_DISABLE` and `WD_CACHE_DIR`.
         with self.env.prefixed("WD_"):
             # cache
             # for initial printout we need to work with _cache_disable and
