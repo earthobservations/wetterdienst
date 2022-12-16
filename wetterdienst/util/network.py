@@ -44,9 +44,7 @@ class NetworkFilesystemManager:
         if Settings.cache_disable or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            filesystem_effective = WholeFileCacheFileSystem(
-                fs=fs, cache_storage=real_cache_dir, expiry_time=ttl_value
-            )
+            filesystem_effective = WholeFileCacheFileSystem(fs=fs, cache_storage=real_cache_dir, expiry_time=ttl_value)
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
