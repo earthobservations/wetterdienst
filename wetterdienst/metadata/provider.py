@@ -62,3 +62,10 @@ class Provider(Enum):
         "NOAA NWS (National Weather Service), Observations",
         "https://api.weather.gov/",
     )
+    METNO = (
+        "Deutscher Wetterdienst",
+        "German Weather Service",
+        "Germany",
+        "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)",
+        "https://opendata.dwd.de/climate_environment/CDC/",
+    )

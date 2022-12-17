@@ -32,6 +32,9 @@ class Settings:
             # such as proxies to aiohttp
             self.fsspec_client_kwargs: dict = self.env.dict("FSSPEC_CLIENT_KWARGS", {})
 
+            with self.env.prefixed("AUTH_"):
+                self.auth_metno_frost: dict = self.env.str("METNO_FROST", None)
+
             with self.env.prefixed("SCALAR_"):
                 # scalar
                 self.humanize: bool = self.env.bool("HUMANIZE", True)
