@@ -155,7 +155,7 @@ optional = true
 
 [tool.poetry.group.dev.dependencies]
 bandit = "^1.7.4"
-black = "^22.10.0"
+black = { version = "^22.10.0", extras = ["jupyter"] }
 flake8-bandit = "^3.0"
 flake8-black = "^0.3"
 flake8-bugbear = "^22.1"
@@ -182,6 +182,8 @@ coverage = { version = "^6.0", extras = ["toml"] }
 dash = { version = "^2.6", extras = ["testing"] }
 freezegun = "^1.2"
 h5py = { version = "^3.1", python = "<3.11", optional = true}
+ipykernel = "^6.19.4"
+jupyter = "^1.0.0"
 percy = "^2.0"
 pybufrkit = "^0.2"
 pytest = "^7.2"
@@ -242,7 +244,7 @@ multi_line_output = 3
 
 [tool.flakeheaven]
 exclude = [
-    "example/climate_observations.ipynb"
+    "example/wetterdienst_notebook.ipynb"
 ]
 format = "grouped"
 max-line-length = 120

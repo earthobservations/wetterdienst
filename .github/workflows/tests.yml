@@ -54,6 +54,9 @@ jobs:
     - name: Install project
       run: .github/workflows/install.sh testing
 
+    - name: Install jupyter kernel
+      run: poetry run python -m ipykernel install --name "python3" --user
+
     - name: Run tests (Windows, sequential)
       run: |
         if [ "$RUNNER_OS" == "Windows" ]; then 

@@ -4,22 +4,23 @@
 from pathlib import Path
 
 import pytest
-from pytest_notebook.nb_regression import NBRegressionFixture
+from pytest_notebook.nb_regression import NBRegressionError, NBRegressionFixture
+from pytest_notebook.notebook import NBConfigValidationError
 
 EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(reason="nbconvert stack has problems, see " "https://github.com/jupyter/jupyter_client/issues/637")
+@pytest.mark.remote
 def test_jupyter_example():
     """Test for climate_observations jupyter notebook"""
     fixture = NBRegressionFixture(
-        diff_ignore=(
-            "/metadata/language_info",  # Python version depends on testing
-            "/cells/*/outputs/",
-        ),
+        exec_notebook=True,
         force_regen=True,
-        exec_timeout=50,
+        exec_timeout=60,
     )
-
-    fixture.check(EXAMPLE_DIR / "climate_observations.ipynb")
+    try:
+        fixture.check(EXAMPLE_DIR / "wetterdienst_notebook.ipynb")
+    except (NBConfigValidationError, NBRegressionError):
+        # only raise execution errors, diff changes on daily basis due to station listing changes
+        pass
