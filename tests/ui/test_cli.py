@@ -2,13 +2,17 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import json
+import platform
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
 import pytest
 from click.testing import CliRunner
 
 from wetterdienst.ui.cli import cli
+
+IS_WINDOWS = platform.system() == "Windows"
 
 # Individual settings for observation and mosmix
 SETTINGS_STATIONS = (
@@ -270,9 +274,9 @@ def test_cli_stations_csv(provider, network, setting, station_id, expected_dict,
     SETTINGS_STATIONS,
 )
 def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmp_path):
-
-    # filename = tmpdir_factory.mktemp("data").join("stations_result.xlsx")  # Noqa:E800
-    filename = tmp_path.joinpath("stations_result.xlsx")
+    filename = Path("stations.xlsx")
+    if not IS_WINDOWS:
+        filename = tmp_path.joinpath(filename)
 
     _ = invoke_wetterdienst_stations_export(
         provider=provider,
@@ -282,7 +286,10 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel(str(filename), sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
+
+    if IS_WINDOWS:
+        filename.unlink(missing_ok=True)
 
     assert "name" in df
     assert expected_dict["name"] in df["name"].values
@@ -365,14 +372,14 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     assert station_id in result.output
 
 
-@pytest.mark.cflake
 @pytest.mark.parametrize(
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
 def test_cli_values_excel(provider, network, setting, station_id, station_name, tmp_path):
-
-    filename = tmp_path.joinpath("values.xlsx")
+    filename = Path("values.xlsx")
+    if not IS_WINDOWS:
+        filename = tmp_path.joinpath(filename)
 
     _ = invoke_wetterdienst_values_export(
         provider=provider,
@@ -382,7 +389,10 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         target=f"file://{filename}",
     )
 
-    df = pd.read_excel(str(filename), sheet_name="Sheet1", dtype=str)
+    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
+
+    if IS_WINDOWS:
+        filename.unlink(missing_ok=True)
 
     assert "station_id" in df
     assert station_id in df["station_id"].values
