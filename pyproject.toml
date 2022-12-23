@@ -180,6 +180,7 @@ optional = true
 [tool.poetry.group.test.dependencies]
 coverage = { version = "^6.0", extras = ["toml"] }
 dash = { version = "^2.6", extras = ["testing"] }
+dirty-equals = "^0.5.0"
 freezegun = "^1.2"
 h5py = { version = "^3.1", python = "<3.11", optional = true}
 ipykernel = "^6.19.4"

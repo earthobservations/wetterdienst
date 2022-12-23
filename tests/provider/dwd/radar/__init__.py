@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import pytest
 
 station_reference_pattern_unsorted = (
     "(asb,)?(boo,)?(ros,)?(hnr,)?umd,pro,ess,fld,(drs,)?" "(neu,)?(nhb,)?(oft,)?eis,(tur,)?(isn,)?(fbg,)?(mem)?"
