@@ -2,15 +2,16 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
+import pytz
+from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
 from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
-from wetterdienst.util.datetime import round_minutes
 
 
 @pytest.mark.xfail(reason="Out of service", strict=True)
@@ -38,7 +39,7 @@ def test_radar_request_composite_latest_rx_reflectivity():
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rw_reflectivity():
+def test_radar_request_composite_latest_rw_reflectivity(radar_locations):
     """
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
@@ -60,46 +61,23 @@ def test_radar_request_composite_latest_rw_reflectivity():
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     # Verify data.
-    assert datetime.utcnow().strftime("%m%y") == requested_attrs["datetime"].strftime("%m%y")
-
-    attrs = {
-        "producttype": "RW",
-        "precision": 0.1,
-        "formatversion": 3,
-        "intervalseconds": 3600,
-        "nrow": 900,
-        "ncol": 900,
-        "radarlocations": [
-            "asb",
-            "boo",
-            "ros",
-            "hnr",
-            "umd",
-            "pro",
-            "ess",
-            "fld",
-            "drs",
-            "neu",
-            "nhb",
-            "oft",
-            "eis",
-            "tur",
-            "isn",
-            "fbg",
-            "mem",
-        ],
-        "moduleflag": 1,
-    }
-
-    # radar locations can change over time -> check if at least 10 radar locations
-    # were found and at least 5 of them match with the provided one
-    assert len(requested_attrs["radarlocations"]) >= 10
-    assert len(list(set(requested_attrs["radarlocations"]) & set(attrs["radarlocations"]))) >= 5
-
-    skip_attrs = ["radarid", "maxrange", "datasize", "datetime", "radarlocations", "radolanversion"]
-    for attr in skip_attrs:
-        requested_attrs.pop(attr, None)
-    del attrs["radarlocations"]
+    attrs = IsDict(
+        {
+            "datasize": 1620000,
+            "datetime": IsDatetime(approx=datetime.utcnow(), delta=timedelta(minutes=65)),
+            "formatversion": 3,
+            "intervalseconds": 3600,
+            "maxrange": "150 km",
+            "moduleflag": 1,
+            "ncol": 900,
+            "nrow": 900,
+            "precision": 0.1,
+            "producttype": "RW",
+            "radarid": "10000",
+            "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
+            "radolanversion": "2.29.1",
+        }
+    )
 
     assert requested_attrs == attrs
 
@@ -123,21 +101,19 @@ def test_radar_request_site_latest_dx_reflectivity():
     requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
 
     # Verify data.
-    timestamp_aligned = round_minutes(datetime.utcnow(), 5)
-    assert timestamp_aligned.strftime("%m%y") == requested_attrs["datetime"].strftime("%m%y")
-
-    attrs = {
-        "producttype": "DX",
-        "version": " 2",
-        "cluttermap": 0,
-        "dopplerfilter": 4,
-        "statfilter": 0,
-        "elevprofile": [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-        "message": "",
-    }
-
-    skip_attrs = ["radarid", "datetime", "bytes"]
-    for attr in skip_attrs:
-        requested_attrs.pop(attr, None)
+    attrs = IsDict(
+        {
+            "bytes": IsInt(gt=0),
+            "cluttermap": 0,
+            "datetime": IsDatetime(approx=datetime.utcnow().replace(tzinfo=pytz.UTC), delta=timedelta(minutes=65)),
+            "dopplerfilter": 4,
+            "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
+            "message": "",
+            "producttype": "DX",
+            "radarid": "10132",
+            "statfilter": 0,
+            "version": " 2",
+        }
+    )
 
     assert requested_attrs == attrs

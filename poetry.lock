@@ -1280,6 +1280,22 @@ files = [
 graph = ["objgraph (>=1.7.2)"]
 
 [[package]]
+name = "dirty-equals"
+version = "0.5.0"
+description = "Doing dirty (but extremely useful) things with equals."
+category = "dev"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "dirty_equals-0.5.0-py3-none-any.whl", hash = "sha256:23f4108be991e2661c0c81ae6deedc0bd25b3cc0ecdd7482dbad7b2bc795308f"},
+    {file = "dirty_equals-0.5.0.tar.gz", hash = "sha256:f107137476d784b7f86757a3e1291fe11e8166d4720df9c02a3ee5dfa595e1fe"},
+]
+
+[package.dependencies]
+pytz = ">=2021.3"
+typing-extensions = ">=4.0.1"
+
+[[package]]
 name = "diskcache"
 version = "5.4.0"
 description = "Disk Cache -- Disk and file backed persistent cache."
@@ -6916,4 +6932,4 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8,<3.12"
-content-hash = "9e364a68ca1d871037e97864f4c7133a8bc98ad159ff678ef85b37de180633e2"
+content-hash = "aebe53beafdf1d346b30c4d2659bf04e04bf84eaf0e3428f3a9f2724815c9313"
