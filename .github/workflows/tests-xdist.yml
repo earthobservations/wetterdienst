@@ -60,4 +60,5 @@ jobs:
       run: |
         poetry run pytest -vvv --cov --numprocesses=auto -m 'not (explorer or cflake)' \
           tests-xdist tests/test_api.py tests/core tests/util \
-          tests/test_docs.py tests/test_settings.py tests/example
+          tests/test_docs.py tests/test_settings.py tests/example \
+          tests/provider
