@@ -64,7 +64,7 @@ def test_radar_request_composite_latest_rw_reflectivity(radar_locations):
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": IsDatetime(approx=datetime.utcnow(), delta=timedelta(minutes=65)),
+            "datetime": IsDatetime(approx=datetime.utcnow(), delta=timedelta(minutes=90)),
             "formatversion": 3,
             "intervalseconds": 3600,
             "maxrange": "150 km",
