@@ -57,4 +57,4 @@ jobs:
       run: poetry run python -m ipykernel install --name "python3" --user
 
     - name: Run tests
-      run: poetry run pytest -vvv --cov --numprocesses=auto -m 'not (explorer or cflake)' tests-xdist
+      run: poetry run pytest -vvv --cov --numprocesses=auto -m 'not (explorer or cflake)' tests-xdist tests/test_api.py
