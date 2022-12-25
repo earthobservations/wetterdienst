@@ -21,6 +21,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 pytest.importorskip("shapely")
 
 
+@pytest.mark.skip
 def test_interpolation_temperature_air_mean_200_hourly_by_coords():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
@@ -49,6 +50,7 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords():
     assert_frame_equal(test_df, expected_df)
 
 
+@pytest.mark.skip
 def test_interpolation_temperature_air_mean_200_daily_by_station_id():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
