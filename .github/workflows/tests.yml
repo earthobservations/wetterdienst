@@ -58,4 +58,6 @@ jobs:
       run: poetry run python -m ipykernel install --name "python3" --user
 
     - name: Run tests
-      run: poetry run poe test
+      run: |
+        poetry run pytest -vvv --numprocesses=auto -m "not (explorer or cflake)" tests
+        poetry run pytest -vvv -m cflake tests
