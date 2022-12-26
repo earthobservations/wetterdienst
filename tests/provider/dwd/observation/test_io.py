@@ -322,6 +322,7 @@ def test_export_spreadsheet(tmpdir_factory):
     os.unlink(filename)
 
 
+@pytest.mark.cflake
 @pytest.mark.remote
 def test_export_parquet(tmpdir_factory):
     """Test export of DataFrame to parquet"""
