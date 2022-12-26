@@ -58,7 +58,5 @@ jobs:
 
     - name: Run tests
       run: |
-        poetry run pytest -vvv --cov --numprocesses=auto -m 'not (explorer or cflake)' \
-          tests/test_api.py tests/core tests/util \
-          tests/test_docs.py tests/test_settings.py tests/example \
-          tests/provider tests/ui
+        poetry run pytest -vvv --numprocesses=auto -m "not (explorer or cflake)" tests
+        poetry run pytest -vvv -m cflake tests
