@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 from abc import abstractmethod
-from copy import copy
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Tuple, Union
@@ -343,12 +342,12 @@ class ScalarRequestCore(Core):
 
     def __init__(
         self,
-        settings: Settings,
         parameter: Tuple[Union[str, Enum]],
         resolution: Resolution,
         period: Period,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
     ) -> None:
         """
 
@@ -358,8 +357,7 @@ class ScalarRequestCore(Core):
         :param start_date: Start date for filtering stations_result for their available data
         :param end_date:   End date for filtering stations_result for their available data
         """
-
-        # settings = copy(Settings)
+        settings = settings or Settings.default()
         self.settings = settings
 
         super().__init__()
@@ -875,7 +873,7 @@ class ScalarRequestCore(Core):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
         if not isinstance(self, DwdObservationRequest):
-            log.error("Interpolation currently only works for DwdObservationRequest")
+            log.error("Summary currently only works for DwdObservationRequest")
             return SummarizedValuesResult(df=pd.DataFrame(), stations=self)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)

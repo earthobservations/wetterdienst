@@ -25,13 +25,13 @@ from wetterdienst.util.cli import setup_logging
 def mosmix_example():
     """Retrieve Mosmix mosmix data by DWD."""
     # A. MOSMIX-L -- Specific stations_result - each station with own file
-    Settings.tidy = True
-    Settings.humanize = True
+    settings = Settings(tidy=True, humanize=True)
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],
         start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DwdMosmixType.LARGE,
+        settings=settings,
     )
 
     stations = request.filter_by_station_id(

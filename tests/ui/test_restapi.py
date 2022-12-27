@@ -248,7 +248,6 @@ def test_dwd_values_sql_tabular(dicts_are_same):
 @pytest.mark.remote
 @pytest.mark.sql
 def test_dwd_values_sql_tidy(dicts_are_same):
-
     response = client.get(
         "/restapi/values",
         params={

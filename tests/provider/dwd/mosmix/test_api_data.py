@@ -7,20 +7,16 @@ import pytest
 import pytz
 
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
-from wetterdienst.settings import Settings
 
 
-# TODO: Apply dependency injection for `settings` here.
 @pytest.mark.remote
-def test_dwd_mosmix_l(settings):
+def test_dwd_mosmix_l(settings_humanize_false):
     """
     Test some details of a typical MOSMIX-L response.
     """
-    settings.tidy = True
-    settings.humanize = False
-    settings.si_units = True
-
-    request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE).filter_by_station_id(
+    request = DwdMosmixRequest(
+        parameter="large", mosmix_type=DwdMosmixType.LARGE, settings=settings_humanize_false
+    ).filter_by_station_id(
         station_id=["01001"],
     )
     response = next(request.values.query())
@@ -166,13 +162,11 @@ def test_dwd_mosmix_l(settings):
 
 @pytest.mark.remote
 @pytest.mark.slow
-def test_dwd_mosmix_s():
+def test_dwd_mosmix_s(settings_humanize_false):
     """Test some details of a typical MOSMIX-S response."""
-    Settings.tidy = True
-    Settings.humanize = False
-    Settings.si_units = True
-
-    request = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.SMALL,).filter_by_station_id(
+    request = DwdMosmixRequest(
+        parameter="small", mosmix_type=DwdMosmixType.SMALL, settings=settings_humanize_false
+    ).filter_by_station_id(
         station_id=["01028"],
     )
     response = next(request.values.query())
@@ -243,7 +237,7 @@ def test_dwd_mosmix_s():
 
 
 @pytest.mark.remote
-def test_mosmix_date_filter():
+def test_mosmix_date_filter(default_settings):
     now = datetime.now(tz=pytz.utc)
 
     stations = DwdMosmixRequest(
@@ -252,6 +246,7 @@ def test_mosmix_date_filter():
         start_date=now - timedelta(hours=1),
         end_date=now,
         start_issue=now - timedelta(hours=5),
+        settings=default_settings,
     )
 
     nearest_station = stations.filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
@@ -261,15 +256,13 @@ def test_mosmix_date_filter():
 
 
 @pytest.mark.remote
-def test_mosmix_l_parameters():
+def test_mosmix_l_parameters(settings_humanize_false):
     """
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
-    Settings.tidy = True
-    Settings.humanize = False
-    Settings.si_units = True
-
-    request = DwdMosmixRequest(mosmix_type=DwdMosmixType.LARGE, parameter=["DD", "ww"],).filter_by_station_id(
+    request = DwdMosmixRequest(
+        mosmix_type=DwdMosmixType.LARGE, parameter=["DD", "ww"], settings=settings_humanize_false
+    ).filter_by_station_id(
         station_id=("01001", "123"),
     )
     response = next(request.values.query())

@@ -56,7 +56,7 @@ EXPECTED_STATIONS_DF = pd.DataFrame.from_records(
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_number_single():
+def test_dwd_observation_stations_nearby_number_single(default_settings):
 
     # Test for one nearest station
     request = DwdObservationRequest(
@@ -65,6 +65,7 @@ def test_dwd_observation_stations_nearby_number_single():
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+        settings=default_settings,
     )
 
     nearby_station = request.filter_by_rank(
@@ -77,13 +78,14 @@ def test_dwd_observation_stations_nearby_number_single():
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_number_multiple():
+def test_dwd_observation_stations_nearby_number_multiple(default_settings):
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+        settings=default_settings,
     )
     nearby_station = request.filter_by_rank(
         latlon=(50.0, 8.9),
@@ -95,13 +97,14 @@ def test_dwd_observation_stations_nearby_number_multiple():
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_distance():
+def test_dwd_observation_stations_nearby_distance(default_settings):
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+        settings=default_settings,
     )
     # Kilometers
     nearby_station = request.filter_by_distance(latlon=(50.0, 8.9), distance=16.13, unit="km")
@@ -117,13 +120,14 @@ def test_dwd_observation_stations_nearby_distance():
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_bbox():
+def test_dwd_observation_stations_bbox(default_settings):
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+        settings=default_settings,
     )
     nearby_station = request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0900)
     nearby_station = nearby_station.df.drop("to_date", axis="columns")
@@ -132,13 +136,14 @@ def test_dwd_observation_stations_bbox():
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_empty():
+def test_dwd_observation_stations_empty(default_settings):
     request = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
+        settings=default_settings,
     )
 
     # Bbox
@@ -151,7 +156,7 @@ def test_dwd_observation_stations_empty():
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_fail():
+def test_dwd_observation_stations_fail(default_settings):
     # Number
     with pytest.raises(ValueError):
         DwdObservationRequest(
@@ -160,6 +165,7 @@ def test_dwd_observation_stations_fail():
             DwdObservationPeriod.HISTORICAL,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
+            settings=default_settings,
         ).filter_by_rank(
             latlon=(51.4, 9.3),
             rank=0,
@@ -172,6 +178,7 @@ def test_dwd_observation_stations_fail():
             DwdObservationPeriod.HISTORICAL,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
+            settings=default_settings,
         ).filter_by_distance(
             latlon=(51.4, 9.3),
             distance=-1,
@@ -184,6 +191,7 @@ def test_dwd_observation_stations_fail():
             DwdObservationPeriod.HISTORICAL,
             datetime(2020, 1, 1),
             datetime(2020, 1, 20),
+            settings=default_settings,
         ).filter_by_bbox(left=10, bottom=10, right=5, top=5)
 
 

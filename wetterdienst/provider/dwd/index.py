@@ -10,15 +10,13 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
 )
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 
 def _create_file_index_for_dwd_server(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
-    period: Period,
-    cdc_base: str,
+    dataset: DwdObservationDataset, resolution: Resolution, period: Period, cdc_base: str, settings: Settings
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -35,7 +33,7 @@ def _create_file_index_for_dwd_server(
 
     url = f"https://opendata.dwd.de/climate_environment/CDC/{cdc_base}/{parameter_path}"
 
-    files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.TWELVE_HOURS)
+    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.TWELVE_HOURS)
 
     if not files_server:
         raise FileNotFoundError(f"url {url} does not have a list of files")

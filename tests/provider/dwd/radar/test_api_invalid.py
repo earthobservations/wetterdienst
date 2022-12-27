@@ -16,7 +16,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
-def test_radar_request_site_historic_pe_wrong_parameters():
+def test_radar_request_site_historic_pe_wrong_parameters(default_settings):
     """
     Verify acquisition of radar/site/PE_ECHO_TOP data croaks
     when omitting RadarDataFormat.
@@ -27,6 +27,7 @@ def test_radar_request_site_historic_pe_wrong_parameters():
             parameter=DwdRadarParameter.PE_ECHO_TOP,
             site=DwdRadarSite.BOO,
             start_date=datetime.utcnow(),
+            settings=default_settings,
         )
         next(request.query())
 
@@ -34,7 +35,10 @@ def test_radar_request_site_historic_pe_wrong_parameters():
     assert str(excinfo.value).startswith("Argument 'format' is missing")
 
 
-def test_radar_request_site_historic_pe_future(caplog):
+def test_radar_request_site_historic_pe_future(
+    default_settings,
+    caplog,
+):
     """
     Verify that ``DWDRadarRequest`` will properly emit
     log messages when hitting empty results.
@@ -47,6 +51,7 @@ def test_radar_request_site_historic_pe_future(caplog):
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BUFR,
         start_date="2099-01-01 00:00:00",
+        settings=default_settings,
     )
     results = list(request.query())
     assert results == []
@@ -55,7 +60,7 @@ def test_radar_request_site_historic_pe_future(caplog):
     assert "No radar file found" in caplog.text
 
 
-def test_radar_request_site_latest_sweep_pcp_v_hdf5():
+def test_radar_request_site_latest_sweep_pcp_v_hdf5(default_settings):
     """
     Verify requesting latest HDF5 data croaks.
     """
@@ -66,6 +71,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5():
             site=DwdRadarSite.BOO,
             fmt=DwdRadarDataFormat.HDF5,
             start_date=DwdRadarDate.LATEST,
+            settings=default_settings,
         )
 
         list(request.query())
@@ -74,7 +80,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5():
     assert str(excinfo.value).startswith("HDF5 data has no '-latest-' files")
 
 
-def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters():
+def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters(default_settings):
     """
     Verify requesting HDF5 data without RadarDataFormat croaks.
     """
@@ -84,6 +90,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters():
             parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
             site=DwdRadarSite.BOO,
             start_date=DwdRadarDate.CURRENT,
+            settings=default_settings,
         )
 
         list(request.query())
@@ -92,15 +99,14 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters():
     assert str(excinfo.value).startswith("Argument 'format' is missing")
 
 
-def test_radar_request_site_without_site():
+def test_radar_request_site_without_site(default_settings):
     """
     Verify requesting site data without site croaks.
     """
 
     with pytest.raises(ValueError) as excinfo:
         request = DwdRadarValues(
-            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-            start_date=DwdRadarDate.LATEST,
+            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H, start_date=DwdRadarDate.LATEST, settings=default_settings
         )
 
         list(request.query())
@@ -109,7 +115,7 @@ def test_radar_request_site_without_site():
     assert str(excinfo.value).startswith("Argument 'site' is missing")
 
 
-def test_radar_request_hdf5_without_subset():
+def test_radar_request_hdf5_without_subset(default_settings):
     """
     Verify requesting HDF5 data without "subset" croaks.
     """
@@ -120,6 +126,7 @@ def test_radar_request_hdf5_without_subset():
             site=DwdRadarSite.BOO,
             fmt=DwdRadarDataFormat.HDF5,
             start_date=DwdRadarDate.MOST_RECENT,
+            settings=default_settings,
         )
 
         list(request.query())
@@ -136,7 +143,7 @@ def test_radar_request_hdf5_without_subset():
         DwdRadarResolution.HOURLY,
     ],
 )
-def test_radar_request_radolan_cdc_latest(time_resolution):
+def test_radar_request_radolan_cdc_latest(time_resolution, default_settings):
     """
     Verify requesting latest RADOLAN_CDC croaks.
     """
@@ -146,6 +153,7 @@ def test_radar_request_radolan_cdc_latest(time_resolution):
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution=time_resolution,
             start_date=DwdRadarDate.LATEST,
+            settings=default_settings,
         )
 
         list(request.query())
@@ -154,7 +162,7 @@ def test_radar_request_radolan_cdc_latest(time_resolution):
     assert str(excinfo.value).startswith("RADOLAN_CDC data has no '-latest-' files")
 
 
-def test_radar_request_radolan_cdc_invalid_time_resolution():
+def test_radar_request_radolan_cdc_invalid_time_resolution(default_settings):
     """
     Verify requesting 1-minute RADOLAN_CDC croaks.
     """
@@ -165,11 +173,12 @@ def test_radar_request_radolan_cdc_invalid_time_resolution():
             resolution="minute_1",
             period=DwdRadarPeriod.RECENT,
             start_date="2019-08-08 00:50:00",
+            settings=default_settings,
         )
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_future(caplog):
+def test_radar_request_radolan_cdc_future(default_settings, caplog):
     """
     Verify that ``DWDRadarRequest`` will properly emit
     log messages when hitting empty results.
@@ -181,6 +190,7 @@ def test_radar_request_radolan_cdc_future(caplog):
         resolution="daily",
         period=DwdRadarPeriod.RECENT,
         start_date="2099-01-01 00:50:00",
+        settings=default_settings,
     )
 
     results = list(request.query())

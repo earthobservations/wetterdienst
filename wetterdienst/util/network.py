@@ -34,30 +34,30 @@ class NetworkFilesystemManager:
 
     # TODO: Apply dependency injection for `wetterdienst_settings` here.
     @classmethod
-    def register(cls, wetterdienst_settings, ttl=CacheExpiry.NO_CACHE):
+    def register(cls, settings, ttl=CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
-        real_cache_dir = os.path.join(Settings.cache_dir, "fsspec", key)
+        real_cache_dir = os.path.join(settings.cache_dir, "fsspec", key)
 
-        use_cache = not (Settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
-        fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=Settings.fsspec_client_kwargs)
+        use_cache = not (settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
+        fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=settings.fsspec_client_kwargs)
 
-        if Settings.cache_disable or ttl is CacheExpiry.NO_CACHE:
+        if settings.cache_disable or ttl is CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
             filesystem_effective = WholeFileCacheFileSystem(fs=fs, cache_storage=real_cache_dir, expiry_time=ttl_value)
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
-    def get(cls, ttl=CacheExpiry.NO_CACHE) -> AbstractFileSystem:
+    def get(cls, settings, ttl=CacheExpiry.NO_CACHE) -> AbstractFileSystem:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
-            cls.register(ttl=ttl)
+            cls.register(settings=settings, ttl=ttl)
         return cls.filesystems[key]
 
 
-def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
+def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server.
 
@@ -67,19 +67,19 @@ def list_remote_files_fsspec(url: str, ttl: CacheExpiry = CacheExpiry.FILEINDEX)
     :param ttl:         The cache expiration time.
     :returns:  A list of strings representing the files from the path.
     """
-    use_cache = not (Settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
+    use_cache = not (settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
         use_listings_cache=use_cache,
-        listings_expiry_time=not Settings.cache_disable and ttl.value,
+        listings_expiry_time=not settings.cache_disable and ttl.value,
         listings_cache_type="filedircache",
-        listings_cache_location=Settings.cache_dir,
-        client_kwargs=Settings.fsspec_client_kwargs,
+        listings_cache_location=settings.cache_dir,
+        client_kwargs=settings.fsspec_client_kwargs,
     )
 
     return fs.find(url)
 
 
-def download_file(url: str, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesIO:
+def download_file(url: str, settings: Settings, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesIO:
     """
     A function used to download a specified file from the server.
 
@@ -88,6 +88,6 @@ def download_file(url: str, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesI
 
     :returns:        Bytes of the file.
     """
-    filesystem = NetworkFilesystemManager.get(ttl=ttl)
+    filesystem = NetworkFilesystemManager.get(settings=settings, ttl=ttl)
     payload = filesystem.cat(url)
     return BytesIO(payload)

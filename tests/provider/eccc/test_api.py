@@ -8,20 +8,16 @@ import pytz
 from pandas._testing import assert_frame_equal
 
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
-from wetterdienst.settings import Settings
 
 
 @pytest.mark.remote
-def test_eccc_api_stations():
-    Settings.tidy = True
-    Settings.humanize = True
-    Settings.si_units = False
-
+def test_eccc_api_stations(settings_si_false):
     request = EcccObservationRequest(
         parameter="DAILY",
         resolution="DAILY",
         start_date="1990-01-01",
         end_date="1990-01-02",
+        settings=settings_si_false,
     ).filter_by_station_id(station_id=(14,))
 
     expected = pd.DataFrame(
@@ -41,16 +37,13 @@ def test_eccc_api_stations():
 
 
 @pytest.mark.remote
-def test_eccc_api_values():
-    Settings.tidy = True
-    Settings.humanize = True
-    Settings.si_units = False
-
+def test_eccc_api_values(settings_si_false):
     request = EcccObservationRequest(
         parameter="DAILY",
         resolution="DAILY",
         start_date="1980-01-01",
         end_date="1980-01-02",
+        settings=settings_si_false,
     ).filter_by_station_id(station_id=(1652,))
 
     values = request.values.all().df

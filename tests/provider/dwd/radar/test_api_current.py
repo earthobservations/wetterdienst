@@ -19,7 +19,7 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_pcp_v_hdf5():
+def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings):
     """
     Example for testing radar sites full current SWEEP_PCP,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -31,6 +31,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -62,7 +63,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_vol_v_hdf5_full():
+def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings):
     """
     Example for testing radar sites full current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -74,6 +75,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -105,7 +107,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
 
 
 @pytest.mark.remote
-def test_radar_request_site_current_sweep_vol_v_hdf5_single():
+def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings):
     """
     Example for testing radar sites single current SWEEP_VOL,
     this time in OPERA HDF5 (ODIM_H5) format.
@@ -118,6 +120,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
         elevation=1,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -144,7 +147,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single():
         DwdRadarResolution.HOURLY,
     ],
 )
-def test_radar_request_radolan_cdc_current(resolution):
+def test_radar_request_radolan_cdc_current(resolution, default_settings):
     """
     Verify data acquisition for current RADOLAN_CDC/daily+hourly.
 
@@ -157,6 +160,7 @@ def test_radar_request_radolan_cdc_current(resolution):
         start_date=DwdRadarDate.CURRENT,
         resolution=resolution,
         period=DwdRadarPeriod.RECENT,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -168,7 +172,7 @@ def test_radar_request_radolan_cdc_current(resolution):
 
 
 @pytest.mark.remote
-def test_radar_request_radolan_cdc_current_5min():
+def test_radar_request_radolan_cdc_current_5min(default_settings):
     """
     Verify failure for RADOLAN_CDC/5 minutes.
 
@@ -178,4 +182,5 @@ def test_radar_request_radolan_cdc_current_5min():
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution=DwdRadarResolution.MINUTE_5,
             start_date=DwdRadarDate.CURRENT,
+            settings=default_settings,
         )

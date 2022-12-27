@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 from pandas._testing import assert_frame_equal
 
-from wetterdienst import Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 
 
@@ -18,17 +17,13 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
         (dt.datetime(2015, 1, 1, 1, 1, 1), dt.datetime(2022, 1, 1, 1, 1, 1)),
     ],
 )
-def test_api_amsterdam(start_date, end_date):
-    with Settings:
-        Settings.tidy = True
-        Settings.si_units = True
-        Settings.humanize = True
-
-        request = NoaaGhcnRequest(
-            parameter=[NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_200],
-            start_date=start_date,
-            end_date=end_date,
-        ).filter_by_name("DE BILT")
+def test_api_amsterdam(start_date, end_date, default_settings):
+    request = NoaaGhcnRequest(
+        parameter=[NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_200],
+        start_date=start_date,
+        end_date=end_date,
+        settings=default_settings,
+    ).filter_by_name("DE BILT")
     values = request.values.all().df
     assert not values.value.dropna().empty
     assert_frame_equal(

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import pytest
+
 from wetterdienst import boot
 
 boot.monkeypatch()
@@ -17,7 +19,6 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationParameter,
 )
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -36,7 +37,8 @@ SKIP_DATASETS = (
 )
 
 
-def test_compare_available_dwd_datasets():
+@pytest.mark.remote
+def test_compare_available_dwd_datasets(default_settings):
     """Test to compare the datasets made available with wetterdienst with the ones actually availabel on the DWD CDC
     server instance"""
     # similar to func list_remote_files_fsspec, but we don't want to get full depth
@@ -44,8 +46,8 @@ def test_compare_available_dwd_datasets():
         use_listings_cache=True,
         listings_expiry_time=CacheExpiry.TWELVE_HOURS.value,
         listings_cache_type="filedircache",
-        listings_cache_location=Settings.cache_dir,
-        client_kwargs=Settings.fsspec_client_kwargs,
+        listings_cache_location=default_settings.cache_dir,
+        client_kwargs=default_settings.fsspec_client_kwargs,
     )
 
     base_url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"

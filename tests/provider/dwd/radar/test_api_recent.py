@@ -16,7 +16,7 @@ h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 
 @pytest.mark.remote
-def test_radar_request_site_recent_sweep_pcp_v_hdf5():
+def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
     """
     Example for testing radar sites SWEEP_PCP with timerange.
     """
@@ -27,6 +27,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -59,7 +60,7 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5():
 
 
 @pytest.mark.remote
-def test_radar_request_site_recent_sweep_vol_v_hdf5():
+def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings):
     """
     Example for testing radar sites SWEEP_VOL with timerange.
     """
@@ -70,6 +71,7 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5():
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
+        settings=default_settings,
     )
 
     results = list(request.query())

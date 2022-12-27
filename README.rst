@@ -288,14 +288,17 @@ Library
     >>> pd.options.display.max_columns = 8
     >>> from wetterdienst import Settings
     >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    >>> Settings.tidy = True  # default, tidy data
-    >>> Settings.humanize = True  # default, humanized parameters
-    >>> Settings.si_units = True  # default, convert values to SI units
+    >>> settings = Settings( # default
+    ...     tidy=True,  # tidy data
+    ...     humanize=True,  # humanized parameters
+    ...     si_units=True  # convert values to SI units
+    ... )
     >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],
     ...    resolution="daily",
     ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
     ...    end_date="2020-01-01",  # if not given timezone defaulted to UTC
+    ...    settings=settings
     ... ).filter_by_station_id(station_id=(1048, 4411))
     >>> request.df.head()  # station list
         station_id                 from_date                   to_date  height  \

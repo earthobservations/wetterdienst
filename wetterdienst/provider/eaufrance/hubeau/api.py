@@ -4,7 +4,7 @@
 import json
 import math
 from enum import Enum
-from typing import Tuple
+from typing import Optional, Tuple
 
 import pandas as pd
 
@@ -18,6 +18,7 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -73,7 +74,7 @@ class HubeauValues(ScalarValuesCore):
 
     def fetch_dynamic_frequency(self, station_id, parameter, dataset):
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
-        response = download_file(url)
+        response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
         values_dict = json.load(response)["data"]
 
         try:
@@ -112,7 +113,7 @@ class HubeauValues(ScalarValuesCore):
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
-            response = download_file(url)
+            response = download_file(url=url, settings=self.sr.stations.settings)
             values_dict = json.load(response)["data"]
 
             df = pd.DataFrame.from_records(values_dict)
@@ -175,13 +176,14 @@ class HubeauRequest(ScalarRequestCore):
 
     _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"
 
-    def __init__(self, parameter, start_date=None, end_date=None):
+    def __init__(self, parameter, start_date=None, end_date=None, settings: Optional[Settings] = None):
         super(HubeauRequest, self).__init__(
             parameter=parameter,
             resolution=Resolution.DYNAMIC,
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
     def _all(self) -> pd.DataFrame:
@@ -189,7 +191,7 @@ class HubeauRequest(ScalarRequestCore):
 
         :return:
         """
-        response = download_file(self._endpoint, CacheExpiry.METAINDEX)
+        response = download_file(url=self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         stations_dict = json.load(response)["data"]
         df = pd.DataFrame.from_records(stations_dict)
 

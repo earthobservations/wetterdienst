@@ -23,6 +23,7 @@ from wetterdienst.provider.noaa.ghcn.parameter import (
     NoaaGhcnParameter,
 )
 from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
@@ -68,7 +69,7 @@ class NoaaGhcnValues(ScalarValuesCore):
         :return: dataframe with read data
         """
         url = self._base_url.format(station_id=station_id)
-        file = download_file(url, CacheExpiry.FIVE_MINUTES)
+        file = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         df = pd.read_csv(file, sep=",", header=None, dtype=str, compression="gzip")
         df = df.iloc[:, :4]
         df.columns = [Columns.STATION_ID.value, Columns.DATE.value, Columns.PARAMETER.value, Columns.VALUE.value]
@@ -123,6 +124,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
         parameter: List[str],
         start_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
     ) -> None:
         """
 
@@ -136,6 +138,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
     def _all(self) -> pd.DataFrame:
@@ -145,7 +148,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
         """
         listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
 
-        listings_file = download_file(listings_url, CacheExpiry.TWELVE_HOURS)
+        listings_file = download_file(listings_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
 
         # https://github.com/awslabs/open-data-docs/tree/main/docs/noaa/noaa-ghcn
         df = pd.read_fwf(
@@ -167,7 +170,7 @@ class NoaaGhcnRequest(ScalarRequestCore):
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
 
-        inventory_file = download_file(inventory_url, CacheExpiry.TWELVE_HOURS)
+        inventory_file = download_file(inventory_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
 
         inventory_df = pd.read_fwf(
             inventory_file,

@@ -14,14 +14,13 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rv_reflectivity(station_reference_pattern_sorted_prefixed):
+def test_radar_request_composite_latest_rv_reflectivity(default_settings, station_reference_pattern_sorted_prefixed):
     """
     Example for testing radar COMPOSITES latest.
     """
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RV_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        parameter=DwdRadarParameter.RV_REFLECTIVITY, start_date=DwdRadarDate.LATEST, settings=default_settings
     )
 
     buffer = next(request.query())[1]
@@ -36,7 +35,7 @@ def test_radar_request_composite_latest_rv_reflectivity(station_reference_patter
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rw_reflectivity(radar_locations):
+def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_locations):
     """
     Example for testing radar COMPOSITES (RADOLAN) latest.
     """
@@ -44,8 +43,7 @@ def test_radar_request_composite_latest_rw_reflectivity(radar_locations):
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RW_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        parameter=DwdRadarParameter.RW_REFLECTIVITY, start_date=DwdRadarDate.LATEST, settings=default_settings
     )
 
     results = list(request.query())
@@ -80,7 +78,7 @@ def test_radar_request_composite_latest_rw_reflectivity(radar_locations):
 
 
 @pytest.mark.remote
-def test_radar_request_site_latest_dx_reflectivity():
+def test_radar_request_site_latest_dx_reflectivity(default_settings):
     """
     Example for testing radar SITES latest.
     """
@@ -91,6 +89,7 @@ def test_radar_request_site_latest_dx_reflectivity():
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
         start_date=DwdRadarDate.LATEST,
         site=DwdRadarSite.BOO,
+        settings=default_settings,
     )
 
     buffer = next(request.query())[1]

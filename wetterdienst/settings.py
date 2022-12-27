@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
 import logging
 import pathlib
-from contextvars import ContextVar
+from copy import deepcopy
+from functools import partial
+from typing import Optional, Union
 
 import platformdirs
 from environs import Env
@@ -11,83 +14,120 @@ from environs import Env
 log = logging.getLogger(__name__)
 
 
+def _is_none(arg):
+    """Function to check if arg is None"""
+    return arg is None
+
+
+def _decide_arg(regular_arg, env_arg, default_arg, ignore_env):
+    if not _is_none(regular_arg):
+        return regular_arg
+    elif not ignore_env and not _is_none(env_arg):
+        return env_arg
+    else:
+        return default_arg
+
+
 class Settings:
     """Wetterdienst class for general settings"""
 
-    env = Env()
-    env.read_env()
+    _defaults = {
+        "cache_disable": False,
+        "cache_dir": platformdirs.user_cache_dir(appname="wetterdienst"),
+        "fsspec_client_kwargs": {},
+        "humanize": True,
+        "tidy": True,
+        "si_units": True,
+        "skip_empty": False,
+        "skip_threshold": 0.95,
+        "dropna": False,
+        "interp_use_nearby_station_until_km": 1,
+    }
 
-    def __init__(self):
+    def __init__(
+        self,
+        cache_disable: Optional[bool] = None,
+        cache_dir: Optional[pathlib.Path] = None,
+        fsspec_client_kwargs: Optional[dict] = None,
+        humanize: Optional[bool] = None,
+        tidy: Optional[bool] = None,
+        si_units: Optional[bool] = None,
+        skip_empty: Optional[bool] = None,
+        skip_threshold: Optional[float] = None,
+        dropna: Optional[bool] = None,
+        interp_use_nearby_station_until_km: Optional[Union[float, int]] = None,
+        ignore_env: bool = False,
+    ) -> None:
+        _defaults = deepcopy(self._defaults)  # make sure mutable objects are not changed
+        _da = partial(_decide_arg, ignore_env=ignore_env)
+
+        env = Env()
         # Evaluate environment variables `WD_CACHE_DISABLE` and `WD_CACHE_DIR`.
-        with self.env.prefixed("WD_"):
+        with env.prefixed("WD_"):
             # cache
-            # for initial printout we need to work with _cache_disable and
-            # Check out this: https://florimond.dev/en/posts/2018/10/reconciling-dataclasses-and-properties-in-python/
-            self.cache_disable: bool = self.env.bool("CACHE_DISABLE", False)
-
-            self.cache_dir: pathlib.Path = self.env.path(
-                "CACHE_DIR", platformdirs.user_cache_dir(appname="wetterdienst")
-            )
-
+            self.cache_disable: bool = _da(cache_disable, env.bool("CACHE_DISABLE", None), _defaults["cache_disable"])
+            self.cache_dir: pathlib.Path = _da(cache_dir, env.path("CACHE_DIR", None), _defaults["cache_dir"])
             # FSSPEC aiohttp client kwargs, may be used to pass extra arguments
             # such as proxies to aiohttp
-            self.fsspec_client_kwargs: dict = self.env.dict("FSSPEC_CLIENT_KWARGS", {})
-
-            with self.env.prefixed("SCALAR_"):
+            self.fsspec_client_kwargs: dict = _da(
+                fsspec_client_kwargs,
+                env.dict("FSSPEC_CLIENT_KWARGS", {}) or None,
+                _defaults["fsspec_client_kwargs"],
+            )
+            with env.prefixed("SCALAR_"):
                 # scalar
-                self.humanize: bool = self.env.bool("HUMANIZE", True)
-                self.tidy: bool = self.env.bool("TIDY", True)
-                self.si_units: bool = self.env.bool("SI_UNITS", True)
-                self.skip_empty: bool = self.env.bool("SKIP_EMPTY", False)
-                self.skip_threshold: bool = self.env.float("SKIP_THRESHOLD", 0.95)
-                self.dropna: bool = self.env.bool("DROPNA", False)
+                self.humanize: bool = _da(humanize, env.bool("HUMANIZE", None), _defaults["humanize"])
+                self.tidy: bool = _da(tidy, env.bool("TIDY", None), _defaults["tidy"])
+                self.si_units: bool = _da(si_units, env.bool("SI_UNITS", None), _defaults["si_units"])
+                self.skip_empty: bool = _da(skip_empty, env.bool("SKIP_EMPTY", None), _defaults["skip_empty"])
+                self.skip_threshold: bool = _da(
+                    skip_threshold, env.float("SKIP_THRESHOLD", None), _defaults["skip_threshold"]
+                )
+                self.dropna: bool = _da(dropna, env.bool("DROPNA", dropna), _defaults["dropna"])
 
-                with self.env.prefixed("INTERPOLATION_"):
-                    self.interp_use_nearby_station_until_km: float = self.env.float("USE_NEARBY_STATION_UNTIL_KM", 1)
+                with env.prefixed("INTERPOLATION_"):
+                    self.interp_use_nearby_station_until_km: float = _da(
+                        interp_use_nearby_station_until_km,
+                        env.float("USE_NEARBY_STATION_UNTIL_KM", None),
+                        _defaults["interp_use_nearby_station_until_km"],
+                    )
 
-    @property
-    def cache_disable(self) -> bool:
-        return self._cache_disable
+        if self.cache_disable:
+            log.info("Wetterdienst cache is disabled")
+        else:
+            log.info(f"Wetterdienst cache is enabled [CACHE_DIR: {self.cache_dir}]")
 
-    @cache_disable.setter
-    def cache_disable(self, value: bool) -> None:
-        self._cache_disable = value
-        status = "disabled" if value else "enabled"
-        log.info(f"Wetterdienst cache is {status}")
+    def __repr__(self) -> str:
+        settings = ",".join([f"{k}:{v}" for k, v in self.to_dict().items()])
+        settings = settings.replace(" ", "").replace("'", "")
+        return f"Settings({settings})"
 
-    def reset(self):
+    def __str__(self) -> str:
+        return f"Settings({json.dumps(self.to_dict(),indent=4)})"
+
+    def __eq__(self, other: "Settings"):
+        return self.to_dict() == other.to_dict()
+
+    def to_dict(self) -> dict:
+        return {
+            "cache_disable": self.cache_disable,
+            "cache_dir": self.cache_dir,
+            "fsspec_client_kwargs": self.fsspec_client_kwargs,
+            "humanize": self.humanize,
+            "tidy": self.tidy,
+            "si_units": self.si_units,
+            "skip_empty": self.skip_empty,
+            "skip_threshold": self.skip_threshold,
+            "dropna": self.dropna,
+            "interp_use_nearby_station_until_km": self.interp_use_nearby_station_until_km,
+        }
+
+    def reset(self) -> "Settings":
         """Reset Wetterdienst Settings to start"""
-        self.env.read_env()
-        self.__init__()
+        return self.__init__()
 
-    def default(self):
+    @classmethod
+    def default(cls) -> "Settings":
         """Ignore environmental variables and use all default arguments as defined above"""
         # Put empty env to force using the given defaults
-        self.env = Env()
-        self.__init__()
-
-    _local_settings = ContextVar("local_settings")
-    _local_settings_token = None
-
-    # Context manager for managing settings in concurrent situations
-    def __enter__(self):
-        settings_token = self._local_settings.set(self)
-        self._local_settings.get()._local_settings_token = settings_token
-        return self._local_settings.get()
-
-    def __exit__(self, type_, value, traceback):
-        self._local_settings.reset(self._local_settings_token)
-        # this is not the same object as the original one
-        return Settings.__init__()
-
-
-class DefaultSettings(Settings):
-    # TODO: Implement all default loading here.
-    pass
-
-
-# FIXME: GLOBAL VARIABLE. Not thread-safe.
-# Settings = Settings()
-
-
-# TODO: Create sweet thing which is mutable and acts like a context manager.
+        return cls(ignore_env=True)

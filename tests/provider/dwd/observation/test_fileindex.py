@@ -19,13 +19,14 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 
 
 @pytest.mark.remote
-def test_file_index_creation_success():
+def test_file_index_creation_success(default_settings):
 
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.RECENT,
+        settings=default_settings,
     )
 
     assert not file_index.empty
@@ -40,23 +41,21 @@ def test_file_index_creation_success():
 
 
 @pytest.mark.remote
-def test_file_index_creation_failure():
-
+def test_file_index_creation_failure(default_settings):
     with pytest.raises(FileNotFoundError):
         create_file_index_for_climate_observations(
-            DwdObservationDataset.CLIMATE_SUMMARY,
-            Resolution.MINUTE_1,
-            Period.HISTORICAL,
+            DwdObservationDataset.CLIMATE_SUMMARY, Resolution.MINUTE_1, Period.HISTORICAL, settings=default_settings
         )
 
 
 @pytest.mark.remote
-def test_create_file_list_for_dwd_server():
+def test_create_file_list_for_dwd_server(default_settings):
     remote_file_path = create_file_list_for_climate_observations(
         station_id="01048",
         dataset=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
+        settings=default_settings,
     )
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
@@ -70,6 +69,7 @@ def test_create_file_list_for_dwd_server():
         resolution=Resolution.MINUTE_10,
         period=Period.HISTORICAL,
         date_range="19930428_19991231",
+        settings=default_settings,
     )
 
     assert remote_file_path == [

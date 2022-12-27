@@ -15,6 +15,7 @@ from lxml.etree import iterparse  # noqa: S410
 from pandas import DatetimeIndex
 from tqdm import tqdm
 
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
@@ -24,11 +25,7 @@ log = logging.getLogger(__name__)
 
 
 class KMLReader:
-    def __init__(
-        self,
-        station_ids: List[str],
-        parameters: List[str],
-    ) -> None:
+    def __init__(self, station_ids: List[str], parameters: List[str], settings: Settings) -> None:
         self.station_ids = station_ids
         self.parameters = parameters
         self.metadata = {}
@@ -36,7 +33,7 @@ class KMLReader:
         self.nsmap = None
         self.iter_elems = None
 
-        self.dwdfs = NetworkFilesystemManager.get(ttl=CacheExpiry.FIVE_MINUTES)
+        self.dwdfs = NetworkFilesystemManager.get(settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
 
     def download(self, url: str) -> BytesIO:
         """Download kml file as bytes.

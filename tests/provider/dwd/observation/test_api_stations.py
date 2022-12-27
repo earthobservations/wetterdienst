@@ -30,13 +30,14 @@ EXPECTED_DF = pd.DataFrame(
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter():
+def test_dwd_observations_stations_filter(default_settings):
 
     # Existing combination of parameters
     request = DwdObservationRequest(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     df = request.filter_by_station_id(station_id=("00001",)).df
@@ -47,21 +48,24 @@ def test_dwd_observations_stations_filter():
 
 
 @pytest.mark.remote
-def test_dwd_observations_urban_stations():
+def test_dwd_observations_urban_stations(default_settings):
     """Test DWD Observation urban stations"""
-    stations = DwdObservationRequest(parameter="urban_air_temperature", resolution="hourly", period="historical").all()
+    stations = DwdObservationRequest(
+        parameter="urban_air_temperature", resolution="hourly", period="historical", settings=default_settings
+    ).all()
 
     assert stations.station_id.tolist() == ["00399", "13667", "15811", "15818"]
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_name():
+def test_dwd_observations_stations_filter_name(default_settings):
 
     # Existing combination of parameters
     request = DwdObservationRequest(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     df = request.filter_by_name(name="Aach").df
@@ -72,13 +76,14 @@ def test_dwd_observations_stations_filter_name():
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_empty():
+def test_dwd_observations_stations_filter_empty(default_settings):
 
     # Existing combination of parameters
     request = DwdObservationRequest(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     df = request.filter_by_station_id(station_id=("FizzBuzz",)).df
@@ -87,13 +92,14 @@ def test_dwd_observations_stations_filter_empty():
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_filter_name_empty():
+def test_dwd_observations_stations_filter_name_empty(default_settings):
 
     # Existing combination of parameters
     request = DwdObservationRequest(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     df = request.filter_by_name(name="FizzBuzz").df
@@ -102,21 +108,23 @@ def test_dwd_observations_stations_filter_name_empty():
 
 
 @pytest.mark.remote
-def test_dwd_observations_multiple_datasets_tidy():
+def test_dwd_observations_multiple_datasets_tidy(default_settings):
     request = DwdObservationRequest(
         [DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.PRECIPITATION_MORE],
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     ).all()
     assert request.tidy
 
 
-def test_dwd_observations_stations_fail():
+def test_dwd_observations_stations_fail(default_settings):
     with pytest.raises(TypeError):
         DwdObservationRequest(
             DwdObservationDataset.CLIMATE_SUMMARY,
             DwdObservationResolution.DAILY,
             DwdObservationPeriod.HISTORICAL,
+            settings=default_settings,
         ).filter_by_station_id(name="FizzBuzz")
 
     with pytest.raises(TypeError):
@@ -124,17 +132,19 @@ def test_dwd_observations_stations_fail():
             DwdObservationDataset.CLIMATE_SUMMARY,
             DwdObservationResolution.DAILY,
             DwdObservationPeriod.HISTORICAL,
+            settings=default_settings,
         ).filter_by_name(name=123)
 
 
 @pytest.mark.remote
-def test_dwd_observations_stations_geojson():
+def test_dwd_observations_stations_geojson(default_settings):
 
     # Existing combination of parameters
     request = DwdObservationRequest(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     results = request.filter_by_station_id(station_id=("00001",))

@@ -27,6 +27,7 @@ from wetterdienst.provider.dwd.radar.util import (
     RADOLAN_DT_PATTERN,
     get_date_from_filename,
 )
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
@@ -50,6 +51,7 @@ def use_cache() -> int:  # pragma: no cover
 
 def create_fileindex_radar(
     parameter: DwdRadarParameter,
+    settings: Settings,
     site: Optional[DwdRadarSite] = None,
     fmt: Optional[DwdRadarDataFormat] = None,
     subset: Optional[DwdRadarDataSubset] = None,
@@ -62,6 +64,7 @@ def create_fileindex_radar(
     bin bufr or odim-hdf5 data. The file index is created for a single parameter.
 
     :param parameter:       The radar moment to request
+    :param settings:
     :param site:            Site/station if parameter is one of
                             RADAR_PARAMETERS_SITES
     :param fmt:          Data format (BINARY, BUFR, HDF5)
@@ -85,7 +88,8 @@ def create_fileindex_radar(
     )
 
     url = f"https://opendata.dwd.de/{parameter_path}"
-    files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.NO_CACHE)
+
+    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.NO_CACHE)
 
     files_server = pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype="str")
 
@@ -111,7 +115,7 @@ def create_fileindex_radar(
     return files_server
 
 
-def create_fileindex_radolan_cdc(resolution: Resolution, period: Period) -> pd.DataFrame:
+def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, settings: Settings) -> pd.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
     will include both recent as well as historical files. A datetime column is created
@@ -125,9 +129,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period) -> pd.D
     :return:                File index as DataFrame
     """
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=resolution,
-        period=period,
+        parameter=DwdRadarParameter.RADOLAN_CDC, resolution=resolution, period=period, settings=settings
     )
 
     file_index = file_index[

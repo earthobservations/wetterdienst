@@ -33,7 +33,7 @@ parameters_reference = [
 ]
 
 
-def test_dwd_observation_parameters_constants():
+def test_dwd_observation_parameters_constants(default_settings):
     request = DwdObservationRequest(
         parameter=[
             DwdObservationParameter.DAILY.TEMPERATURE_AIR_MEAN_200,  # tmk
@@ -44,12 +44,13 @@ def test_dwd_observation_parameters_constants():
         ],
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     assert request.parameter == parameters_reference
 
 
-def test_dwd_observation_parameters_strings_lowercase():
+def test_dwd_observation_parameters_strings_lowercase(default_settings):
     request = DwdObservationRequest(
         parameter=[
             "tmk",
@@ -60,12 +61,13 @@ def test_dwd_observation_parameters_strings_lowercase():
         ],
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     assert request.parameter == parameters_reference
 
 
-def test_dwd_observation_parameters_strings_uppercase():
+def test_dwd_observation_parameters_strings_uppercase(default_settings):
     request = DwdObservationRequest(
         parameter=[
             "TMK",
@@ -76,6 +78,7 @@ def test_dwd_observation_parameters_strings_uppercase():
         ],
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
     )
 
     assert request.parameter == parameters_reference

@@ -16,32 +16,28 @@ from wetterdienst.provider.dwd.radar.metadata import (
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
-def test_radar_fileindex_composite_pg_reflectivity_bin():
+def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings):
 
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PG_REFLECTIVITY,
-        fmt=DwdRadarDataFormat.BINARY,
+        parameter=DwdRadarParameter.PG_REFLECTIVITY, fmt=DwdRadarDataFormat.BINARY, settings=default_settings
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(PurePath(url).match("*/weather/radar/composit/pg/*---bin") for url in urls)
 
 
-def test_radar_fileindex_composite_pg_reflectivity_bufr():
+def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings):
 
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PG_REFLECTIVITY,
-        fmt=DwdRadarDataFormat.BUFR,
+        parameter=DwdRadarParameter.PG_REFLECTIVITY, fmt=DwdRadarDataFormat.BUFR, settings=default_settings
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(PurePath(url).match("*/weather/radar/composit/pg/*---bufr") for url in urls)
 
 
-def test_radar_fileindex_composite_rv_reflectivity_bin():
-    file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.RV_REFLECTIVITY,
-    )
+def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings):
+    file_index = create_fileindex_radar(parameter=DwdRadarParameter.RV_REFLECTIVITY, settings=default_settings)
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(PurePath(url).match("*/weather/radar/composit/rv/*.tar.bz2") for url in urls)
 
@@ -54,11 +50,9 @@ def test_radar_fileindex_composite_rv_reflectivity_bin():
         DwdRadarParameter.SF_REFLECTIVITY,
     ],
 )
-def test_radar_fileindex_radolan_reflectivity_bin(parameter):
+def test_radar_fileindex_radolan_reflectivity_bin(parameter, default_settings):
 
-    file_index = create_fileindex_radar(
-        parameter=parameter,
-    )
+    file_index = create_fileindex_radar(parameter=parameter, settings=default_settings)
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(
@@ -68,60 +62,63 @@ def test_radar_fileindex_radolan_reflectivity_bin(parameter):
     )
 
 
-def test_radar_fileindex_sites_px_reflectivity_bin():
+def test_radar_fileindex_sites_px_reflectivity_bin(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BINARY,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(PurePath(url).match("*/weather/radar/sites/px/boo/*---bin") for url in urls)
 
 
-def test_radar_fileindex_sites_px_reflectivity_bufr():
+def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BUFR,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(PurePath(url).match("*/weather/radar/sites/px/boo/*---buf") for url in urls)
 
 
-def test_radar_fileindex_sites_px250_reflectivity_bufr():
+def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings):
 
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PX250_REFLECTIVITY,
-        site=DwdRadarSite.BOO,
+        parameter=DwdRadarParameter.PX250_REFLECTIVITY, site=DwdRadarSite.BOO, settings=default_settings
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all("/weather/radar/sites/px250/boo" in url for url in urls)
 
 
-def test_radar_fileindex_sites_sweep_bufr():
+def test_radar_fileindex_sites_sweep_bufr(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BUFR,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
     assert all(PurePath(url).match("*/weather/radar/sites/sweep_vol_v/boo/*--buf.bz2") for url in urls)
 
 
-def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple():
+def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -129,13 +126,14 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_simple():
     assert all("/weather/radar/sites/sweep_vol_v/boo/hdf5/filter_simple" in url for url in urls)
 
 
-def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric():
+def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -143,12 +141,13 @@ def test_radar_fileindex_sites_sweep_vol_v_hdf5_polarimetric():
     assert all("/weather/radar/sites/sweep_vol_v/boo/hdf5/filter_polarimetric" in url for url in urls)
 
 
-def test_radar_fileindex_radolan_cdc_daily_recent():
+def test_radar_fileindex_radolan_cdc_daily_recent(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.DAILY,
         period=Period.RECENT,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -159,12 +158,13 @@ def test_radar_fileindex_radolan_cdc_daily_recent():
     )
 
 
-def test_radar_fileindex_radolan_cdc_daily_historical():
+def test_radar_fileindex_radolan_cdc_daily_historical(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.DAILY,
         period=Period.HISTORICAL,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -175,12 +175,13 @@ def test_radar_fileindex_radolan_cdc_daily_historical():
     )
 
 
-def test_radar_fileindex_radolan_cdc_hourly_recent():
+def test_radar_fileindex_radolan_cdc_hourly_recent(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.HOURLY,
         period=Period.RECENT,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -191,12 +192,13 @@ def test_radar_fileindex_radolan_cdc_hourly_recent():
     )
 
 
-def test_radar_fileindex_radolan_cdc_hourly_historical():
+def test_radar_fileindex_radolan_cdc_hourly_historical(default_settings):
 
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=Resolution.HOURLY,
         period=Period.HISTORICAL,
+        settings=default_settings,
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()
@@ -207,11 +209,10 @@ def test_radar_fileindex_radolan_cdc_hourly_historical():
     )
 
 
-def test_radar_fileindex_radolan_cdc_5minutes():
+def test_radar_fileindex_radolan_cdc_5minutes(default_settings):
 
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.RADOLAN_CDC,
-        resolution=Resolution.MINUTE_5,
+        parameter=DwdRadarParameter.RADOLAN_CDC, resolution=Resolution.MINUTE_5, settings=default_settings
     )
 
     urls = file_index[DwdColumns.FILENAME.value].tolist()

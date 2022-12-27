@@ -20,12 +20,13 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 
 
 @pytest.mark.xfail
-def test_summary_temperature_air_mean_200_daily():
+def test_summary_temperature_air_mean_200_daily(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(1934, 1, 1),
         end_date=datetime(1965, 12, 31),
+        settings=default_settings,
     )
     for result in (stations.summarize(latlon=(51.0221, 13.8470)), stations.summarize_by_station_id(station_id="1050")):
         summarized_df = result.df
@@ -48,12 +49,13 @@ def test_summary_temperature_air_mean_200_daily():
         assert_frame_equal(given, expected)
 
 
-def test_not_summarizable_dataset():
+def test_not_summarizable_dataset(default_settings):
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2022, 1, 1),
         end_date=datetime(2022, 1, 2),
+        settings=default_settings,
     )
 
     result = stations.summarize(latlon=(50.0, 8.9))
@@ -81,25 +83,27 @@ def test_not_summarizable_dataset():
     )
 
 
-def not_supported_provider_dwd_mosmix(caplog):
+def test_not_supported_provider_dwd_mosmix(default_settings, caplog):
     request = DwdMosmixRequest(
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
         parameter=["DD", "ww"],
         mosmix_type=DwdMosmixType.SMALL,
+        settings=default_settings,
     )
     result = request.summarize(latlon=(50.0, 8.9))
     assert result.df.empty
-    assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
+    assert "Summary currently only works for DwdObservationRequest" in caplog.text
 
 
-def test_not_supported_provider_ecc(caplog):
+def test_not_supported_provider_ecc(default_settings, caplog):
     station = EcccObservationRequest(
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=EcccObservationResolution.DAILY,
+        settings=default_settings,
     )
     result = station.summarize(latlon=(50.0, 8.9))
     assert result.df.empty
-    assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
+    assert "Summary currently only works for DwdObservationRequest" in caplog.text

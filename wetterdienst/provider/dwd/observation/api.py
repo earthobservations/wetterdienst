@@ -51,6 +51,7 @@ from wetterdienst.provider.dwd.observation.util.parameter import (
     check_dwd_observations_dataset,
 )
 from wetterdienst.provider.dwd.util import build_parameter_set_identifier
+from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 log = logging.getLogger(__name__)
@@ -128,7 +129,7 @@ class DwdObservationValues(ScalarValuesCore):
 
         for period in self.sr.period:
             if self.sr.resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
-                date_ranges = self._get_historical_date_ranges(station_id, dataset)
+                date_ranges = self._get_historical_date_ranges(station_id, dataset, self.sr.stations.settings)
 
                 for date_range in date_ranges:
                     periods_and_date_ranges.append((period, date_range))
@@ -150,7 +151,7 @@ class DwdObservationValues(ScalarValuesCore):
                 continue
 
             remote_files = create_file_list_for_climate_observations(
-                station_id, dataset, self.sr.resolution, period, date_range
+                station_id, dataset, self.sr.resolution, period, self.sr.stations.settings, date_range
             )
 
             if len(remote_files) == 0:
@@ -164,7 +165,7 @@ class DwdObservationValues(ScalarValuesCore):
                 log.info(f"No files found for {parameter_identifier}. Station will be skipped.")
                 continue
 
-            filenames_and_files = download_climate_observations_data_parallel(remote_files)
+            filenames_and_files = download_climate_observations_data_parallel(remote_files, self.sr.stations.settings)
 
             period_df = parse_climate_observations_data(filenames_and_files, dataset, self.sr.resolution, period)
 
@@ -314,7 +315,9 @@ class DwdObservationValues(ScalarValuesCore):
         """
         return pd.to_datetime(series, format=DatetimeFormat.YMDH_COLUMN_M.value)
 
-    def _get_historical_date_ranges(self, station_id: str, dataset: DwdObservationDataset) -> List[str]:
+    def _get_historical_date_ranges(
+        self, station_id: str, dataset: DwdObservationDataset, settings: Settings
+    ) -> List[str]:
         """
         Get particular files for historical data which for high resolution is
         released in data chunks e.g. decades or monthly chunks
@@ -323,7 +326,9 @@ class DwdObservationValues(ScalarValuesCore):
         :param dataset:
         :return:
         """
-        file_index = create_file_index_for_climate_observations(dataset, self.sr.resolution, Period.HISTORICAL)
+        file_index = create_file_index_for_climate_observations(
+            dataset, self.sr.resolution, Period.HISTORICAL, settings
+        )
 
         file_index = file_index[(file_index[Columns.STATION_ID.value] == station_id)]
 
@@ -472,6 +477,7 @@ class DwdObservationRequest(ScalarRequestCore):
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Settings = None,
     ):
         """
 
@@ -487,6 +493,7 @@ class DwdObservationRequest(ScalarRequestCore):
             period=period,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
         if self.start_date and self.period:
@@ -521,6 +528,7 @@ class DwdObservationRequest(ScalarRequestCore):
             resolution=resolution,
             period=period,
             cdc_base="observations_germany/climate/",
+            settings=Settings.default(),
         )
 
         if language == "en":
@@ -557,9 +565,9 @@ class DwdObservationRequest(ScalarRequestCore):
 
                     continue
 
-                df = create_meta_index_for_climate_observations(dataset, self.resolution, period)
+                df = create_meta_index_for_climate_observations(dataset, self.resolution, period, self.settings)
 
-                file_index = create_file_index_for_climate_observations(dataset, self.resolution, period)
+                file_index = create_file_index_for_climate_observations(dataset, self.resolution, period, self.settings)
 
                 df = df[df.loc[:, Columns.STATION_ID.value].isin(file_index[Columns.STATION_ID.value])]
 
