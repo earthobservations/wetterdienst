@@ -8,6 +8,7 @@ from typing import Optional, Tuple, Union
 
 import pandas as pd
 
+from wetterdienst import Settings
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
@@ -566,7 +567,7 @@ class GeosphereObservationValues(ScalarValuesCore):
             start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%m"),
             end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%m"),
         )
-        response = download_file(url, ttl=CacheExpiry.FIVE_MINUTES)
+        response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         data = json.loads(response.read())
         timestamps = data.pop("timestamps")
         df = (
@@ -614,23 +615,25 @@ class GeosphereObservationRequest(ScalarRequestCore):
         resolution: Resolution,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
     ):
         if not start_date or not end_date:
             res = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
             start_date = self._default_start_dates[res.name.lower()]
             end_date = datetime.now()
-        super().__init__(
+        super(GeosphereObservationRequest, self).__init__(
             parameter=parameter,
             resolution=resolution,
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
     def _all(self) -> pd.DataFrame:
         dataset = self._dataset_base[self.resolution.name].value
         url = self._endpoint.format(dataset=dataset)
-        response = download_file(url, CacheExpiry.METAINDEX)
+        response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pd.read_csv(response)
         return df.rename(
             columns={

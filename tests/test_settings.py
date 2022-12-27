@@ -1,89 +1,77 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import inspect
 import logging
-from concurrent.futures import ThreadPoolExecutor
+import os
+import re
+from unittest import mock
 
-import numpy as np
-import pytest
+from wetterdienst import Settings
+
+WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
+WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
 
 
-@pytest.mark.skip(reason="implementation is currently not working in concurrent environment")
-@pytest.mark.cflake
-def test_settings(caplog):
-    """Check Settings object"""
+def test_default_settings(caplog):
     caplog.set_level(logging.INFO)
-
-    from wetterdienst import Settings
-
-    Settings.default()
-
-    assert not Settings.cache_disable
-    assert caplog.messages[0] == "Wetterdienst cache is enabled"
-
-    Settings.cache_disable = True
-
-    assert Settings.cache_disable
-    assert caplog.messages[-1] == "Wetterdienst cache is disabled"
-
-    Settings.cache_disable = False
-
-    assert not Settings.cache_disable
-    assert caplog.messages[-1] == "Wetterdienst cache is enabled"
-
-    assert Settings.tidy
-    assert Settings.humanize
-    assert Settings.si_units
-
-    Settings.tidy = False
-    assert not Settings.tidy
-
-    with Settings:
-        Settings.humanize = False
-        assert not Settings.humanize
-
-    assert Settings.humanize
-
-    Settings.default()
-
-    assert Settings.tidy
+    default_settings = Settings.default()
+    assert not default_settings.cache_disable
+    assert re.match(WD_CACHE_DIR_PATTERN, default_settings.cache_dir)
+    assert default_settings.fsspec_client_kwargs == {}
+    assert default_settings.humanize
+    assert default_settings.tidy
+    assert default_settings.si_units
+    assert not default_settings.skip_empty
+    assert default_settings.skip_threshold == 0.95
+    assert not default_settings.dropna
+    assert default_settings.interp_use_nearby_station_until_km == 1
+    log_message = caplog.messages[0]
+    assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
 
 
-@pytest.mark.skip(reason="implementation is currently not working in concurrent environment")
-def test_settings_concurrent():
+@mock.patch.dict(os.environ, {})
+def test_settings_envs(caplog):
+    """Test default settings but with multiple envs set"""
+    os.environ["WD_CACHE_DISABLE"] = "1"
+    os.environ["WD_SCALAR_TIDY"] = "0"
+    caplog.set_level(logging.INFO)
+    settings = Settings()
+    assert caplog.messages[0] == "Wetterdienst cache is disabled"
+    assert not settings.tidy
+
+
+@mock.patch.dict(os.environ, {})
+def test_settings_ignore_envs(caplog):
+    os.environ["WD_CACHE_DISABLE"] = "1"
+    os.environ["WD_SCALAR_TIDY"] = "0"
+    caplog.set_level(logging.INFO)
+    settings = Settings(ignore_env=True)
+    log_message = caplog.messages[0]
+    assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
+    assert settings.tidy
+
+
+@mock.patch.dict(os.environ, {})
+def test_settings_mixed(caplog):
     """Check leaking of Settings through threads"""
-    from wetterdienst import Settings
-
-    def settings_tidy_concurrent(tidy: bool):
-        with Settings:
-            Settings.tidy = tidy
-
-            return Settings.tidy
-
-    random_booleans = np.random.choice([True, False], 1000).tolist()
-
-    with ThreadPoolExecutor() as p:
-        tidy_array = list(p.map(settings_tidy_concurrent, random_booleans))
-
-    assert random_booleans == tidy_array
+    os.environ["WD_CACHE_DISABLE"] = "1"
+    os.environ["WD_SCALAR_SKIP_THRESHOLD"] = "0.89"
+    caplog.set_level(logging.INFO)
+    settings = Settings(skip_threshold=0.81, si_units=False)
+    log_message = caplog.messages[0]
+    assert settings.cache_disable
+    assert log_message == "Wetterdienst cache is disabled"  # env variable
+    assert settings.tidy  # default variable
+    assert settings.skip_threshold == 0.81  # argument variable overrules env variable
+    assert not settings.si_units  # argument variable
 
 
-@pytest.mark.skip(reason="implementation is currently not working in concurrent environment")
-@pytest.mark.cflake
-def test_settings_cache_disable(caplog):
-    """Check Settings object with default cache_disable in env"""
-
-    from wetterdienst import Settings
-
-    with Settings:
-        import os
-
-        os.environ["WD_CACHE_DISABLE"] = "True"
-
-        caplog.set_level(logging.INFO)
-
-        Settings.reset()
-
-        assert Settings.cache_disable
-
-        assert caplog.messages[-1] == "Wetterdienst cache is disabled"
+def test_settings_args():
+    """Test to check that all default values of Settings arguments are None and there is a default value in the
+    default dict instead"""
+    argspec = inspect.signature(Settings.__init__)
+    args_dict = {k: v.default for k, v in argspec.parameters.items() if k not in ("self", "ignore_env")}
+    assert all([val is None for val in args_dict.values()])
+    assert args_dict.keys() == Settings._defaults.keys()
+    assert args_dict.keys() == Settings.default().to_dict().keys()

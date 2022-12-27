@@ -20,13 +20,13 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_stations_success():
+def test_dwd_mosmix_stations_success(default_settings):
     """
     Verify full MOSMIX station list.
     """
 
     # Acquire data.
-    df = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.LARGE).all().df
+    df = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.LARGE, settings=default_settings).all().df
     assert not df.empty
 
     # Verify size of dataframe with all records.
@@ -69,13 +69,13 @@ def test_dwd_mosmix_stations_success():
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_stations_filtered():
+def test_dwd_mosmix_stations_filtered(default_settings):
     """
     Verify MOSMIX station list filtering by station identifier.
     """
 
     # Acquire data.
-    request = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.LARGE)
+    request = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.LARGE, settings=default_settings)
     df = request.all().df
     assert not df.empty
 

@@ -15,15 +15,15 @@ Requires:
 """  # Noqa:D205,D400
 import logging
 
+import matplotlib.pyplot as plt
+import pandas as pd
+
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import (
     DwdObservationParameter,
     DwdObservationRequest,
     DwdObservationResolution,
 )
-
-import pandas as pd
-import matplotlib.pyplot as plt
 
 log = logging.getLogger()
 
@@ -34,9 +34,6 @@ except ImportError:
     exit(1)
 
 
-Settings.si_units = False
-
-
 def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankfurt/Main"):
     """Retrieve stations_result of DWD that measure temperature."""
 
@@ -45,9 +42,9 @@ def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankf
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,
+        settings=Settings(si_units=False),
     )
-    result = stations.filter_by_name(name=name)
-    return result
+    return stations.filter_by_name(name=name)
 
 
 class ModelYearlyGaussians:
@@ -81,12 +78,11 @@ class ModelYearlyGaussians:
 
     def get_valid_data(self, station_data):
         valid_data_lst = []
-        for year, group in station_data.groupby(station_data.date.dt.year):
+        for _, group in station_data.groupby(station_data.date.dt.year):
             if self.validate_yearly_data(group):
                 valid_data_lst.append(group)
 
-        valid_data = pd.concat(valid_data_lst)
-        return valid_data
+        return pd.concat(valid_data_lst)
 
     def validate_yearly_data(self, df) -> bool:
         year = df.date.dt.year.unique()[0]
@@ -96,7 +92,8 @@ class ModelYearlyGaussians:
         return True
 
     def make_composite_yearly_model(self, valid_data):
-        """makes a composite model, https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models"""
+        """makes a composite model
+        https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models"""
         number_of_years = valid_data.date.dt.year.nunique()
 
         x = valid_data.index.to_numpy()
@@ -149,10 +146,10 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     station_data_one_year = station_example(start_date="2020-12-25", end_date="2022-01-01")
-    gaussian_one_year = ModelYearlyGaussians(station_data_one_year)
+    _ = ModelYearlyGaussians(station_data_one_year)
 
     station_data_many_years = station_example(start_date="1995-12-25", end_date="2022-12-31")
-    gaussian_many_years = ModelYearlyGaussians(station_data_many_years)
+    _ = ModelYearlyGaussians(station_data_many_years)
 
 
 if __name__ == "__main__":

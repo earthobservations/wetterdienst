@@ -146,7 +146,8 @@ Wetterdienst holds core settings in its Settings class. You can import and show 
 
     from wetterdienst import Settings
 
-    print(Settings)
+    settings = Settings.default()  # default settings
+    print(settings)
 
 or modify them for your very own request like
 
@@ -155,20 +156,27 @@ or modify them for your very own request like
 
     from wetterdienst import Settings
 
-    Settings.tidy = False
+    settings = Settings(tidy=False)
+    print(settings)
 
-Settings has three layers of which those arguments are sourced:
-- environmental variables
-(- a local .env file in the same folder, mainly for testing purposes)
-- Python code, which reevaluates those arguments like seen above
+Settings has four layers of which those arguments are sourced:
+- Settings arguments e.g. Settings(tidy=True)
+- environment variables e.g. WD_SCALAR_TIDY = "0"
+- local .env file in the same folder (same as above)
+- default arguments set by us
 
-To make sure that non of your environmental variables are used, call to set our default values
+The arguments are overruled in the above order meaning:
+- Settings argument overrules environmental variable
+- environment variable overrules .env file
+- .env file overrules default argument
+
+The evaluation of environment variables can be skipped by using `ignore_env`:
 
 .. ipython:: python
     :okwarning:
 
     from wetterdienst import Settings
-    Settings.default()
+    Settings.default()  # similar to Settings(ignore_env=True)
 
 and to set it back to standard
 
@@ -176,26 +184,21 @@ and to set it back to standard
     :okwarning:
 
     from wetterdienst import Settings
-    Settings.reset()
+
+    settings = Settings(tidy=False)
+    settings = settings.reset()
 
 The environmental settings recognized by our settings are
 
-.. ipython:: python
-    :okwarning:
-
-    import json
-    from wetterdienst import Settings
-    print(json.dumps(Settings.env.dump(), indent=4))
-
-Also if for whatever reason you have concurrent code running and want it all to have thread-safe settings use it like
-
-.. ipython:: python
-    :okwarning:
-
-    from wetterdienst import Settings
-    with Settings:
-        Settings.tidy = False
-        # request = DwdObservationRequest() <- with tidy = False
+- WD_CACHE_DISABLE
+- WD_FSSPEC_CLIENT_KWARGS
+- WD_SCALAR_HUMANIZE
+- WD_SCALAR_TIDY
+- WD_SCALAR_SI_UNITS
+- WD_SCALAR_SKIP_EMPTY
+- WD_SCALAR_SKIP_THRESHOLD
+- WD_SCALAR_DROPNA
+- WD_SCALAR_INTERPOLATION_USE_NEARBY_STATION_UNTIL_KM
 
 Scalar arguments are:
 - `tidy` can be used to reshape the returned data to a `tidy format`_.
@@ -218,7 +221,7 @@ you may want to use the `trust_env` like
 
 ```python
     from wetterdienst import Settings
-    Settings.fsspec_client_kwargs["trust_env"] = True
+    settings = Settings(fsspec_client_kwargs={"trust_env": True})
 ```
 
 to allow requesting through a proxy.
@@ -300,15 +303,14 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
 
-    Settings.tidy = True
-    Settings.humanize = True
-    Settings.si_units = True
+    settings = Settings(tidy=True, humanize=True, si_units=True)
 
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
         resolution=DwdObservationResolution.DAILY,
         start_date="1990-01-01",
         end_date="2020-01-01",
+        settings=settings
     ).filter_by_station_id(station_id=[3, 1048])
 
 From here you can query data by station:
@@ -624,15 +626,14 @@ The result data is provided through a virtual table called ``data``.
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
 
-    Settings.tidy = True
-    Settings.humanize = True
-    Settings.si_units = True
+    settings = Settings(tidy=True, humanize=True, si_units=True)  # defaults
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
+        settings=settings
     ).filter_by_station_id(station_id=[1048])
 
     results = stations.values.all()
@@ -658,15 +659,14 @@ Examples:
         DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
 
-    Settings.tidy = True
-    Settings.humanize = True
-    Settings.si_units = True
+    settings = Settings(tidy=True, humanize=True, si_units=True)  # defaults
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
         resolution=DwdObservationResolution.HOURLY,
         start_date="2019-01-01",
         end_date="2020-01-01",
+        settings=settings
     ).filter_by_station_id(station_id=[1048])
 
     results = stations.values.all()
@@ -826,7 +826,7 @@ FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
 
     from wetterdienst import Settings
 
-    Settings.fsspec_client_kwargs["trust_env"] = True  # use proxy from environment variables
+    settings = Settings(fsspec_client_kwargs={"trust_env": True})  # use proxy from environment variables
 
 
 .. _wradlib: https://wradlib.org/

@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 import sys
-import typing
 from typing import List, Optional, Tuple, Union
 
 from wetterdienst import Kind, Provider
@@ -13,8 +12,7 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
-from wetterdienst.settings import Settings, DefaultSettings
+from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 log = logging.getLogger(__name__)
@@ -74,7 +72,7 @@ def _get_stations_request(
         skip_empty=skip_empty,
         skip_threshold=skip_threshold,
         dropna=dropna,
-        interp_use_nearby_station_until_km=use_nearby_station_until_km
+        interp_use_nearby_station_until_km=use_nearby_station_until_km,
     )
 
     # TODO: move this into Request core
@@ -378,7 +376,7 @@ def get_interpolate(
         tidy=True,
         humanize=humanize,
         skip_empty=False,
-        skip_threshold=False,
+        skip_threshold=0,
         dropna=False,
         use_nearby_station_until_km=use_nearby_station_until_km,
     )
@@ -450,7 +448,7 @@ def get_summarize(
         tidy=True,
         humanize=humanize,
         skip_empty=False,
-        skip_threshold=False,
+        skip_threshold=0,
         dropna=False,
         use_nearby_station_until_km=0,
     )

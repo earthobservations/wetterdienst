@@ -4,6 +4,7 @@
 import json
 import logging
 from enum import Enum
+from typing import Optional
 
 import pandas as pd
 
@@ -21,11 +22,6 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
-
-Settings.fsspec_client_kwargs["headers"] = {
-    "User-Agent": "wetterdienst/0.48.0",
-    "Content-Type": "application/json",
-}
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +85,7 @@ class NwsObservationValues(ScalarValuesCore):
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
-        response = download_file(url, CacheExpiry.FIVE_MINUTES)
+        response = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
 
         data = json.loads(response.read())
         df = pd.DataFrame.from_records(data["features"])
@@ -141,17 +137,27 @@ class NwsObservationRequest(ScalarRequestCore):
     kind = Kind.OBSERVATION
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
-    def __init__(self, parameter, start_date=None, end_date=None):
+    def __init__(self, parameter, start_date=None, end_date=None, settings: Optional[Settings] = None):
         super(NwsObservationRequest, self).__init__(
             parameter=parameter,
             resolution=Resolution.HOURLY,
             period=Period.RECENT,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
+        )
+
+        self.settings.fsspec_client_kwargs.update(
+            {
+                "headers": {
+                    "User-Agent": "wetterdienst/0.48.0",
+                    "Content-Type": "application/json",
+                }
+            }
         )
 
     def _all(self) -> pd.DataFrame:
-        response = download_file(self._endpoint, CacheExpiry.METAINDEX)
+        response = download_file(self._endpoint, self.settings, CacheExpiry.METAINDEX)
         df = pd.read_csv(response, header=None, sep="\t")
         mask_us = df.iloc[:, 6] == "US"
         df = df.loc[mask_us, 1:5]

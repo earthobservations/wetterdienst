@@ -29,7 +29,7 @@ from wetterdienst import Settings, Wetterdienst
         # EA Hydrology
         ("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}, None),
         # NWS Observation
-        ("nws", "observation", {"parameter": "precipitation_height"}, "KBHM"),
+        ("nws", "observation", {"parameter": "temperature_air_mean_200"}, "KBHM"),
         # Eaufrance Hubeau
         ("eaufrance", "hubeau", {"parameter": "flow"}, None),  # noqa: E800
         # ZAMG Observation
@@ -46,13 +46,13 @@ def test_api(provider, network, kwargs, si_units, station_id):
     # Discover parameters
     assert api.discover()
 
-    Settings.si_units = si_units
+    settings = Settings(si_units=si_units, ignore_env=True)
 
     # All stations_result
     if station_id:
-        request = api(**kwargs).filter_by_station_id(station_id=station_id)
+        request = api(**kwargs, settings=settings).filter_by_station_id(station_id=station_id)
     else:
-        request = api(**kwargs).all()
+        request = api(**kwargs, settings=settings).all()
 
     stations = request.df
 
@@ -77,7 +77,4 @@ def test_api(provider, network, kwargs, si_units, station_id):
     values = next(request.values.query()).df
 
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
-
-    values = values.drop(columns="quality").dropna(axis=0)
-
-    assert not values.empty
+    assert not values.dropna(subset="value").empty

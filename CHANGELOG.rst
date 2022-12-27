@@ -9,6 +9,7 @@ Development
 - CLI: Add command line options ``wetterdienst --version`` and ``wetterdienst -v``
   to display version number
 - Further cleanups
+- Change Settings to be provided via initialization instead of having a singleton
 
 0.52.0 (19.01.2023)
 *******************

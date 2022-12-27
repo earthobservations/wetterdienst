@@ -18,6 +18,7 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -125,7 +126,7 @@ class WsvPegelValues(ScalarValuesCore):
         url = self._endpoint.format(station_id=station_id, parameter=parameter.value)
 
         try:
-            response = download_file(url, CacheExpiry.NO_CACHE)
+            response = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
         except FileNotFoundError:
             return pd.DataFrame()
 
@@ -148,7 +149,7 @@ class WsvPegelValues(ScalarValuesCore):
         """
         url = self._station_endpoint.format(station_id=station_id, parameter=parameter.value)
 
-        response = download_file(url)
+        response = download_file(url, self.sr.stations.settings)
 
         station_dict = json.load(response)
 
@@ -206,6 +207,7 @@ class WsvPegelRequest(ScalarRequestCore):
         parameter,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
     ):
         super(WsvPegelRequest, self).__init__(
             parameter=parameter,
@@ -213,6 +215,7 @@ class WsvPegelRequest(ScalarRequestCore):
             period=Period.RECENT,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
     def _all(self):
@@ -261,7 +264,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
             return gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw
 
-        response = download_file(self._endpoint, CacheExpiry.ONE_HOUR)
+        response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
 
         df = pd.read_json(response)
 

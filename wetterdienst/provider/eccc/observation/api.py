@@ -29,6 +29,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
     EcccObservationResolution,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
@@ -147,7 +148,7 @@ class EcccObservationValues(ScalarValuesCore):
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
 
-                payload = download_file(url, CacheExpiry.NO_CACHE)
+                payload = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
 
                 df_temp = pd.read_csv(payload)
 
@@ -296,6 +297,7 @@ class EcccObservationRequest(ScalarRequestCore):
         resolution: Union[EcccObservationResolution, Resolution],
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
+        settings: Optional[Settings] = None,
     ):
         """
 
@@ -310,6 +312,7 @@ class EcccObservationRequest(ScalarRequestCore):
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
     def _all(self) -> pd.DataFrame:
@@ -331,8 +334,7 @@ class EcccObservationRequest(ScalarRequestCore):
 
         return df
 
-    @staticmethod
-    def _download_stations() -> Tuple[BytesIO, int]:
+    def _download_stations(self) -> Tuple[BytesIO, int]:
         """
         Download station list from ECCC FTP server.
 
@@ -348,14 +350,14 @@ class EcccObservationRequest(ScalarRequestCore):
         payload = None
         source = None
         try:
-            payload = download_file(gdrive_url, CacheExpiry.METAINDEX)
+            payload = download_file(gdrive_url, self.settings, CacheExpiry.METAINDEX)
             source = 0
         except Exception:
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
             try:
-                response = download_file(http_url, CacheExpiry.METAINDEX)
+                response = download_file(http_url, self.settings, CacheExpiry.METAINDEX)
                 with gzip.open(response, mode="rb") as f:
                     payload = BytesIO(f.read())
                 source = 1

@@ -24,12 +24,13 @@ pytestmark = pytest.mark.slow
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_200_hourly_by_coords():
+def test_interpolation_temperature_air_mean_200_hourly_by_coords(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
+        settings=default_settings,
     )
 
     result = stations.interpolate(latlon=(50.0, 8.9))
@@ -53,12 +54,13 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords():
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_200_daily_by_station_id():
+def test_interpolation_temperature_air_mean_200_daily_by_station_id(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(1986, 10, 31),
         end_date=datetime(1986, 11, 1),
+        settings=default_settings,
     )
     for result in (
         stations.interpolate(latlon=(48.2156, 8.9784)),
@@ -83,12 +85,13 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id():
 
 
 @pytest.mark.remote
-def test_interpolation_precipitation_height_minute_10():
+def test_interpolation_precipitation_height_minute_10(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.PRECIPITATION_HEIGHT,
         resolution=DwdObservationResolution.MINUTE_10,
         start_date=datetime(2021, 10, 1),
         end_date=datetime(2021, 10, 5),
+        settings=default_settings,
     )
 
     result = stations.interpolate(latlon=(50.0, 8.9))
@@ -112,12 +115,13 @@ def test_interpolation_precipitation_height_minute_10():
     assert_frame_equal(test_df, expected_df)
 
 
-def test_not_interpolatable_parameter():
+def test_not_interpolatable_parameter(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.WIND_DIRECTION,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
+        settings=default_settings,
     )
 
     result = stations.interpolate(latlon=(50.0, 8.9))
@@ -144,12 +148,13 @@ def test_not_interpolatable_parameter():
     )
 
 
-def test_not_interpolatable_dataset():
+def test_not_interpolatable_dataset(default_settings):
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
         start_date=datetime(2022, 1, 1),
         end_date=datetime(2022, 1, 2),
+        settings=default_settings,
     )
 
     result = stations.interpolate(latlon=(50.0, 8.9))
@@ -177,36 +182,39 @@ def test_not_interpolatable_dataset():
     )
 
 
-def not_supported_provider_dwd_mosmix(caplog):
+def test_not_supported_provider_dwd_mosmix(default_settings, caplog):
     request = DwdMosmixRequest(
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
         parameter=["DD", "ww"],
         mosmix_type=DwdMosmixType.SMALL,
+        settings=default_settings,
     )
     result = request.interpolate(latlon=(50.0, 8.9))
     assert result.df.empty
     assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
 
 
-def test_not_supported_provider_ecc(caplog):
+def test_not_supported_provider_ecc(default_settings, caplog):
     station = EcccObservationRequest(
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=EcccObservationResolution.DAILY,
+        settings=default_settings,
     )
     result = station.interpolate(latlon=(50.0, 8.9))
     assert result.df.empty
     assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
 
 
-def test_interpolation_temperature_air_mean_200_daily_three_floats():
+def test_interpolation_temperature_air_mean_200_daily_three_floats(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
+        settings=default_settings,
     )
     with pytest.raises(ValueError) as excinfo:
         stations.interpolate(latlon=(0, 1, 2))
@@ -214,12 +222,13 @@ def test_interpolation_temperature_air_mean_200_daily_three_floats():
     assert str(excinfo.value).startswith("too many values to unpack")
 
 
-def test_interpolation_temperature_air_mean_200_daily_one_floats():
+def test_interpolation_temperature_air_mean_200_daily_one_floats(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
+        settings=default_settings,
     )
     with pytest.raises(ValueError) as excinfo:
         stations.interpolate(latlon=(0,))
@@ -227,12 +236,13 @@ def test_interpolation_temperature_air_mean_200_daily_one_floats():
     assert str(excinfo.value).startswith("not enough values to unpack")
 
 
-def test_interpolation_temperature_air_mean_200_daily_no_station_found():
+def test_interpolation_temperature_air_mean_200_daily_no_station_found(default_settings):
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2022, 1, 20),
+        settings=default_settings,
     )
     with pytest.raises(StationNotFoundError) as excinfo:
         stations.interpolate_by_station_id(station_id="00")

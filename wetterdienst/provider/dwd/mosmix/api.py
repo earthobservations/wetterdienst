@@ -33,6 +33,7 @@ from wetterdienst.provider.dwd.mosmix.metadata import (
     DwdMosmixType,
 )
 from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
@@ -114,8 +115,7 @@ class DwdMosmixValues(ScalarValuesCore):
                 parameter_.append(parameter.value)
 
         self.kml = KMLReader(
-            station_ids=self.sr.station_id.tolist(),
-            parameters=parameter_,
+            station_ids=self.sr.station_id.tolist(), parameters=parameter_, settings=self.sr.stations.settings
         )
 
     @property
@@ -283,8 +283,7 @@ class DwdMosmixValues(ScalarValuesCore):
 
                 yield next(self.kml.get_forecasts())
 
-    @staticmethod
-    def get_url_for_date(url: str, date: Union[datetime, DwdForecastDate]) -> str:
+    def get_url_for_date(self, url: str, date: Union[datetime, DwdForecastDate]) -> str:
         """
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
@@ -293,7 +292,7 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date: date used for filtering of the available files
         :return: file url based on the filtering
         """
-        urls = list_remote_files_fsspec(url, CacheExpiry.NO_CACHE)
+        urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
 
         if date == DwdForecastDate.LATEST:
             try:
@@ -409,6 +408,7 @@ class DwdMosmixRequest(ScalarRequestCore):
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
         station_group: Optional[DwdMosmixStationGroup] = None,
+        settings: Optional[Settings] = None,
     ) -> None:
         """
 
@@ -435,6 +435,7 @@ class DwdMosmixRequest(ScalarRequestCore):
             end_date=end_date,
             resolution=Resolution.HOURLY,
             period=Period.FUTURE,
+            settings=settings,
         )
 
         if not start_issue:
@@ -490,7 +491,7 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         :return:
         """
-        payload = download_file(self._url, CacheExpiry.METAINDEX)
+        payload = download_file(self._url, self.settings, CacheExpiry.METAINDEX)
 
         df = pd.read_fwf(
             StringIO(payload.read().decode(encoding="latin-1")),

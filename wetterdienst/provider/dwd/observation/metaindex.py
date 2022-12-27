@@ -4,6 +4,7 @@
 import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from io import BytesIO, StringIO
 from typing import List, Tuple
 
@@ -24,6 +25,7 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
 )
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
@@ -42,9 +44,7 @@ STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 
 
 def create_meta_index_for_climate_observations(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
-    period: Period,
+    dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
 ) -> pd.DataFrame:
     """
     Wrapper function that either calls the regular meta index function for general
@@ -68,21 +68,19 @@ def create_meta_index_for_climate_observations(
     cond2 = resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME
     cond3 = dataset in DWD_URBAN_DATASETS
     if cond1:
-        meta_index = _create_meta_index_for_1minute_historical_precipitation()
+        meta_index = _create_meta_index_for_1minute_historical_precipitation(settings)
     elif cond2:
-        meta_index = _create_meta_index_for_subdaily_extreme_wind(period)
+        meta_index = _create_meta_index_for_subdaily_extreme_wind(period, settings)
     elif cond3:
-        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, Period.RECENT)
+        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, Period.RECENT, settings)
     else:
-        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, period)
+        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, period, settings)
 
     # If no state column available, take state information from daily historical
     # precipitation
     if DwdColumns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
-            DwdObservationDataset.PRECIPITATION_MORE,
-            Resolution.DAILY,
-            Period.HISTORICAL,
+            DwdObservationDataset.PRECIPITATION_MORE, Resolution.DAILY, Period.HISTORICAL, settings=settings
         )
 
         meta_index = pd.merge(
@@ -95,9 +93,7 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
-    period: Period,
+    dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
 ) -> pd.DataFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
@@ -121,13 +117,13 @@ def _create_meta_index_for_climate_observations(
 
     url = f"https://opendata.dwd.de/climate_environment/CDC/{dwd_cdc_base}/{parameter_path}"
 
-    files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
+    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
 
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(files_server, url, ["beschreibung", "txt"])
 
     try:
-        file = download_file(meta_file, ttl=CacheExpiry.METAINDEX)
+        file = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)
     except InvalidURL as e:
         raise InvalidURL(f"Error: reading metadata {meta_file} file failed.") from e
 
@@ -183,7 +179,7 @@ def _read_meta_df(file: BytesIO) -> pd.DataFrame:
     return df.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
 
 
-def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame:
+def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pd.DataFrame:
     """Create metadata DataFrame for subdaily wind extreme
 
     :param period: period for which metadata is acquired
@@ -193,19 +189,19 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame
 
     url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}"
 
-    files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
+    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
 
     # Find the one meta file from the files listed on the server
     meta_file_fx3 = _find_meta_file(files_server, url, ["fx3", "beschreibung", "txt"])
     meta_file_fx6 = _find_meta_file(files_server, url, ["fx6", "beschreibung", "txt"])
 
     try:
-        meta_file_fx3 = download_file(meta_file_fx3, ttl=CacheExpiry.METAINDEX)
+        meta_file_fx3 = download_file(meta_file_fx3, settings=settings, ttl=CacheExpiry.METAINDEX)
     except InvalidURL as e:
         raise InvalidURL(f"Error: reading metadata {meta_file_fx3} file failed.") from e
 
     try:
-        meta_file_fx6 = download_file(meta_file_fx6, ttl=CacheExpiry.METAINDEX)
+        meta_file_fx6 = download_file(meta_file_fx6, settings=settings, ttl=CacheExpiry.METAINDEX)
     except InvalidURL as e:
         raise InvalidURL(f"Error: reading metadata {meta_file_fx6} file failed.") from e
 
@@ -217,7 +213,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame
     return pd.concat([df_fx3, df_fx6])
 
 
-def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
+def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) -> pd.DataFrame:
     """
     A helping function to create a raw index of metadata for stations_result of the set of
     parameters as given. This raw metadata is then used by other functions. This
@@ -232,14 +228,16 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}/meta_data/"
 
-    metadata_file_paths = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
+    metadata_file_paths = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
 
     station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
 
     meta_index_df = pd.DataFrame(columns=METADATA_COLUMNS)
 
     with ThreadPoolExecutor() as executor:
-        metadata_files = executor.map(_download_metadata_file_for_1minute_precipitation, metadata_file_paths)
+        metadata_files = executor.map(
+            partial(_download_metadata_file_for_1minute_precipitation, settings=settings), metadata_file_paths
+        )
 
     with ThreadPoolExecutor() as executor:
         metadata_dfs = executor.map(_parse_geo_metadata, zip(metadata_files, station_ids))
@@ -261,7 +259,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
     return meta_index_df
 
 
-def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> BytesIO:
+def _download_metadata_file_for_1minute_precipitation(metadata_file: str, settings: Settings) -> BytesIO:
     """A function that simply opens a filepath with help of the urllib library and then
     writes the content to a BytesIO object and returns this object. For this case as it
     opens lots of requests (there are approx 1000 different files to open for
@@ -276,7 +274,7 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str) -> Byt
 
     """
     try:
-        return download_file(metadata_file, ttl=CacheExpiry.NO_CACHE)
+        return download_file(metadata_file, settings=settings, ttl=CacheExpiry.NO_CACHE)
     except InvalidURL as e:
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 

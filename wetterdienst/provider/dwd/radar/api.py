@@ -37,6 +37,7 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import get_date_from_filename, verify_hdf5
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -99,6 +100,7 @@ class DwdRadarValues:
         end_date: Optional[Union[str, datetime, timedelta]] = None,
         resolution: Optional[Union[str, Resolution, DwdRadarResolution]] = None,
         period: Optional[Union[str, Period, DwdRadarPeriod]] = None,
+        settings: Optional[Settings] = None,
     ) -> None:
         """
         :param parameter:       The radar moment to request
@@ -190,6 +192,8 @@ class DwdRadarValues:
             self.end_date = end_date
             self.adjust_datetimes()
 
+        self.settings = settings or Settings.default()
+
     def __str__(self):
         return (
             f"DWDRadarRequest("
@@ -280,10 +284,7 @@ class DwdRadarValues:
         if self.start_date == DwdRadarDate.LATEST:
 
             file_index = create_fileindex_radar(
-                parameter=self.parameter,
-                site=self.site,
-                fmt=self.format,
-                parse_datetime=False,
+                parameter=self.parameter, site=self.site, fmt=self.format, parse_datetime=False, settings=self.settings
             )
 
             # Find "-latest-" or "LATEST" or similar file.
@@ -309,7 +310,9 @@ class DwdRadarValues:
                 results = []
                 for period in period_types:
 
-                    file_index = create_fileindex_radolan_cdc(resolution=self.resolution, period=period)
+                    file_index = create_fileindex_radolan_cdc(
+                        resolution=self.resolution, period=period, settings=self.settings
+                    )
 
                     # Filter for dates range if start_date and end_date are defined.
                     if period == Period.RECENT:
@@ -349,6 +352,7 @@ class DwdRadarValues:
                     fmt=self.format,
                     subset=self.subset,
                     parse_datetime=True,
+                    settings=self.settings,
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
@@ -414,7 +418,7 @@ class DwdRadarValues:
         if not self._should_cache_download(url):
             ttl = CacheExpiry.NO_CACHE
 
-        data = download_file(url, ttl=ttl)
+        data = download_file(url=url, ttl=ttl, settings=self.settings)
 
         # RadarParameter.FX_REFLECTIVITY
         if url.endswith(Extension.TAR_BZ2.value):
@@ -459,7 +463,7 @@ class DwdRadarValues:
         :param end_date:
         :return:            ``RadarResult`` item
         """
-        archive_in_bytes = self.__download_radolan_data(url)
+        archive_in_bytes = self.__download_radolan_data(url=url, settings=self.settings)
 
         for result in self._extract_radolan_data(archive_in_bytes):
             if not result.timestamp:
@@ -474,18 +478,18 @@ class DwdRadarValues:
             yield result
 
     @staticmethod
-    def __download_radolan_data(remote_radolan_filepath: str) -> BytesIO:
+    def __download_radolan_data(url: str, settings: Settings) -> BytesIO:
         """
         Function (cached) that downloads the RADOLAN_CDC file.
 
         Args:
-            remote_radolan_filepath: the file path to the file on the DWD server
+            url: the file path to the file on the DWD server
 
         Returns:
             the file in binary, either an archive of one file or an archive of multiple
             files
         """
-        return download_file(remote_radolan_filepath, ttl=CacheExpiry.TWELVE_HOURS)
+        return download_file(url=url, ttl=CacheExpiry.TWELVE_HOURS, settings=settings)
 
     @staticmethod
     def _extract_radolan_data(archive_in_bytes: BytesIO) -> Generator[RadarResult, None, None]:

@@ -19,6 +19,7 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit
+from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -76,7 +77,7 @@ class EaHydrologyValues(ScalarValuesCore):
 
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
         endpoint = self._base_url.format(station_id=station_id)
-        payload = download_file(endpoint, CacheExpiry.NO_CACHE)
+        payload = download_file(endpoint, self.sr.stations.settings, CacheExpiry.NO_CACHE)
 
         measures_list = json.loads(payload.read())["items"][0]["measures"]
 
@@ -135,6 +136,7 @@ class EaHydrologyRequest(ScalarRequestCore):
         resolution: EaHydrologyResolution,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
     ):
         super(EaHydrologyRequest, self).__init__(
             parameter=parameter,
@@ -142,6 +144,7 @@ class EaHydrologyRequest(ScalarRequestCore):
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
+            settings=settings,
         )
 
         if self.resolution == Resolution.MINUTE_15:
@@ -174,7 +177,7 @@ class EaHydrologyRequest(ScalarRequestCore):
 
         log.info(f"Acquiring station listing from {self.endpoint}")
 
-        response = download_file(self.endpoint, CacheExpiry.FIVE_MINUTES)
+        response = download_file(self.endpoint, self.settings, CacheExpiry.FIVE_MINUTES)
 
         payload = json.loads(response.read())["items"]
 

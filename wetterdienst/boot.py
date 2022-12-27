@@ -28,7 +28,7 @@ def info() -> None:
         "authors": "Benjamin Gutzmann <gutzemann@gmail.com>, Andreas Motl <andreas.motl@panodata.org>",
         "documentation": "https://wetterdienst.readthedocs.io/",
         "repository": "https://github.com/earthobservations/wetterdienst",
-        "cache_dir": Settings.cache_dir,
+        "cache_dir (default)": Settings().cache_dir,
     }
 
     text = get_title("Wetterdienst - Open weather data for humans")

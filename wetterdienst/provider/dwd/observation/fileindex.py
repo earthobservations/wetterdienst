@@ -17,6 +17,7 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DwdObservationDataset,
 )
 from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
+from wetterdienst.settings import Settings
 
 STATION_ID_REGEX = r"(?<!\d)\d{3,5}(?!\d)"
 DATE_RANGE_REGEX = r"(?<!\d)\d{8}_\d{8}(?!\d)"
@@ -27,6 +28,7 @@ def create_file_list_for_climate_observations(
     dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
+    settings: Settings,
     date_range: Optional[str] = None,
 ) -> List[str]:
     """
@@ -43,7 +45,7 @@ def create_file_list_for_climate_observations(
     Returns:
         List of path's to file
     """
-    file_index = create_file_index_for_climate_observations(dataset, resolution, period)
+    file_index = create_file_index_for_climate_observations(dataset, resolution, period, settings)
 
     file_index = file_index[file_index[DwdColumns.STATION_ID.value] == station_id]
 
@@ -54,9 +56,7 @@ def create_file_list_for_climate_observations(
 
 
 def create_file_index_for_climate_observations(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
-    period: Period,
+    dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
 ) -> pd.DataFrame:
     """
     Function (cached) to create a file index of the DWD station data. The file index
@@ -72,10 +72,12 @@ def create_file_index_for_climate_observations(
 
     if dataset in DWD_URBAN_DATASETS:
         file_index = _create_file_index_for_dwd_server(
-            dataset, resolution, Period.RECENT, "observations_germany/climate_urban"
+            dataset, resolution, Period.RECENT, "observations_germany/climate_urban", settings
         )
     else:
-        file_index = _create_file_index_for_dwd_server(dataset, resolution, period, "observations_germany/climate")
+        file_index = _create_file_index_for_dwd_server(
+            dataset, resolution, period, "observations_germany/climate", settings
+        )
 
     file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
 
