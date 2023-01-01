@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.51.0 (01.01.2023)
+*******************
+
 - Update wetterdienst explorer with clickable stations and slighly changed layout
 - Improve radar tests and certain dict comparisons
 - Fix problem with numeric column names in method gain_of_value_pairs
