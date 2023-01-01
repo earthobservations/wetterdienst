@@ -142,10 +142,10 @@ def apply_summary(
 
     if not vals.empty:
         value = float(vals[0])
-        station_id = vals.index[0]
-        distance = stations_dict[station_id[1:]][2]
+        station_id = vals.index[0][1:]
+        distance = stations_dict[station_id][2]
 
-    return parameter, value, distance, station_id[1:]
+    return parameter, value, distance, station_id
 
 
 if __name__ == "__main__":
