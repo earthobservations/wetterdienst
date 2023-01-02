@@ -156,6 +156,7 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 bandit = "^1.7.4"
 black = { version = "^22.10.0", extras = ["jupyter"] }
+cff-from-621 = { version = "^0.0.1", python = ">= 3.10"}
 flake8-bandit = "^3.0"
 flake8-black = "^0.3"
 flake8-bugbear = "^22.1"
@@ -307,9 +308,9 @@ test = ["test-parallel", "test-cflakes"]
 test-slow = "pytest -vvv tests"
 coverage = "pytest --cov=wetterdienst tests"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)' tests"
-export_licenses = "pip-licenses --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
-export = ["export_licenses"]
+licenses = "pip-licenses --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 update = "poetry update"
+citation = "python -m tools.citation"
 
 [tool.pytest.ini_options]
 markers = [

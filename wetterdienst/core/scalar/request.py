@@ -381,6 +381,7 @@ class ScalarRequestCore(Core):
 
         # skip empty stations
         self.skip_empty = self.tidy and settings.skip_empty
+        self.skip_counter = 0
         self.skip_threshold = settings.skip_threshold
         self.dropna = self.tidy and settings.dropna
         self.interp_use_nearby_station_until_km = settings.interp_use_nearby_station_until_km
