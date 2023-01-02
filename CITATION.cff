@@ -1,0 +1,46 @@
+---
+cff-version: 1.2.0
+type: software
+title: wetterdienst
+version: 0.51.0
+date-released: '2023-01-04'
+authors:
+- name: Benjamin Gutzmann
+- name: Andreas Motl
+license: MIT
+abstract: Open weather data for humans
+keywords:
+- open-source
+- open-data
+- weather
+- weather-data
+- weather-api
+- weather-station
+- time-series
+- observations
+- historical-data
+- recent-data
+- forecast
+- radar
+- dwd
+- deutscher-wetterdienst
+- german-weather-service
+- mosmix
+- radolan
+- eccc
+- environment-and-climate-change-canada
+- environnement-et-changement-climatique-canada
+- noaa
+- national-oceanic-and-atmospheric-administration
+- ghcn
+- global-historical-climatology-network
+- wsv
+- Wasserstraßen-und-Schifffahrtsverwaltung-des-Bundes
+- Federal-Waterways-and-Shipping-Administration
+- ea
+- environmental-agency-uk
+- noaa-nws
+- national-weather-service
+- eaufrance-hubeau
+message: If you use this software, please cite it using these metadata.
+...
