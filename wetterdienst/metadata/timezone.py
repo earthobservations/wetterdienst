@@ -6,6 +6,7 @@ from enum import Enum
 
 class Timezone(Enum):
     GERMANY = "Europe/Berlin"
+    AUSTRIA = "Europe/Vienna"
     FRANCE = "Europe/Paris"
     UTC = "UTC"
     USA = "US/Washington"

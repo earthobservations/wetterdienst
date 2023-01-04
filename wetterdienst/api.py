@@ -14,6 +14,7 @@ from wetterdienst.provider.environment_agency.hydrology.api import EaHydrologyRe
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
 from wetterdienst.provider.nws.observation.api import NwsObservationRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelRequest
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.parameter import DatasetTreeCore
 
@@ -41,6 +42,9 @@ class ApiEndpoints(DatasetTreeCore):
 
     class EAUFRANCE(Enum):
         HUBEAU = HubeauRequest
+
+    class GEOSPHERE(Enum):
+        OBSERVATION = GeosphereObservationRequest
 
 
 class Wetterdienst:

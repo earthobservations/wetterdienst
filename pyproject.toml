@@ -55,7 +55,10 @@ keywords = [
     "noaa-nws",
     "national-weather-service",
     # Eaufrance Hubeau
-    "eaufrance-hubeau"
+    "eaufrance-hubeau",
+    # Geosphere Austria
+    "geosphere",
+    "geosphere-austria"
 ]
 classifiers = [
     "Programming Language :: Python",

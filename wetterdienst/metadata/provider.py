@@ -59,6 +59,13 @@ class Provider(Enum):
         "NOAA National Weather Service",
         "NOAA National Weather Service",
         "United States Of America",
-        "NOAA NWS (National Weather Service), Observations",
+        "© NOAA NWS (National Weather Service), Observations",
         "https://api.weather.gov/",
+    )
+    GEOSPHERE = (
+        "Geosphere Österreich",
+        "Geosphere Austria",
+        "Austria",
+        "© ZAMG, Observations",
+        "https://www.zamg.ac.at/",
     )

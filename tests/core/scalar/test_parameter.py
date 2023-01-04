@@ -25,7 +25,11 @@ from wetterdienst.provider.environment_agency.hydrology.api import (
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnDataset
 from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
+from wetterdienst.provider.nws.observation import NwsObservationParameter
+from wetterdienst.provider.nws.observation.api import NwsObservationUnit
 from wetterdienst.provider.wsv.pegel.api import WsvPegelParameter, WsvPegelUnit
+from wetterdienst.provider.geosphere.observation import GeosphereObservationParameter
+from wetterdienst.provider.geosphere.observation.api import GeosphereObservationUnit
 
 ORIGIN_UNITS = [unit.value for unit in OriginUnit]
 SI_UNITS = [unit.value for unit in SIUnit]
@@ -46,6 +50,10 @@ SI_UNITS = [unit.value for unit in SIUnit]
         (WsvPegelUnit, False),
         (EaHydrologyParameter, False),
         (EaHydrologyUnit, False),
+        (NwsObservationParameter, False),
+        (NwsObservationUnit, False),
+        (GeosphereObservationParameter, False),
+        (GeosphereObservationUnit, False),
     ),
 )
 def test_parameter_names(parameter_enum, is_ds_tree):
@@ -90,6 +98,8 @@ def test_parameter_names(parameter_enum, is_ds_tree):
         (NoaaGhcnParameter, NoaaGhcnUnit, False),
         (WsvPegelParameter, WsvPegelUnit, False),
         (EaHydrologyParameter, EaHydrologyUnit, False),
+        (NwsObservationParameter, NwsObservationUnit, False),
+        (GeosphereObservationParameter, GeosphereObservationUnit, False),
     ),
 )
 def test_parameter_unit_alignment(parameter_enum, unit_enum, is_ds_tree):

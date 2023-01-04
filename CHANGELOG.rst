@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add Geosphere Observation implementation for Austrian meteorological data
+
 0.51.0 (01.01.2023)
 *******************
 
