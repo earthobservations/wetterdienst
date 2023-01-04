@@ -160,6 +160,10 @@ Eaufrance
         - data of river network of France (continental)
         - parameters flow and stage of rivers of last 30 days
 
+ZAMG (Central Institution for Meteorology and Geodynamics Austria)
+    - Observation
+        - historical meteorological data of Austrian stations
+
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.
 

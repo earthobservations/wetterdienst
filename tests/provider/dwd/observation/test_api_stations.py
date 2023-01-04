@@ -51,7 +51,7 @@ def test_dwd_observations_urban_stations():
     """Test DWD Observation urban stations"""
     stations = DwdObservationRequest(parameter="urban_air_temperature", resolution="hourly", period="historical").all()
 
-    assert stations.station_id.tolist() == ["00399", "13667", "15818"]
+    assert stations.station_id.tolist() == ["00399", "13667", "15811", "15818"]
 
 
 @pytest.mark.remote

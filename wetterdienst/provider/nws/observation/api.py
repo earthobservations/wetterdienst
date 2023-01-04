@@ -37,8 +37,8 @@ class NwsObservationParameter(DatasetTreeCore):
         WIND_DIRECTION = "winddirection"
         WIND_SPEED = "windspeed"
         WIND_GUST_MAX = "windgust"
-        PRESSURE_AIR_SH = "barometricpressure"
-        PRESSURE_AIR_SL = "sealevelpressure"
+        PRESSURE_AIR_SITE = "barometricpressure"
+        PRESSURE_AIR_SEA_LEVEL = "sealevelpressure"
         VISIBILITY_RANGE = "visibility"
         TEMPERATURE_AIR_MAX_200_LAST_24H = "maxtemperaturelast24hours"
         TEMPERATURE_AIR_MIN_200_LAST_24H = "mintemperaturelast24hours"
@@ -59,8 +59,8 @@ class NwsObservationUnit(DatasetTreeCore):
         WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
         WIND_SPEED = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
         WIND_GUST_MAX = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
-        PRESSURE_AIR_SH = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
-        PRESSURE_AIR_SL = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
+        PRESSURE_AIR_SITE = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
+        PRESSURE_AIR_SEA_LEVEL = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
         VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
         TEMPERATURE_AIR_MAX_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
         TEMPERATURE_AIR_MIN_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
