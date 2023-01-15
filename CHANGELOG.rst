@@ -5,6 +5,7 @@ Development
 ***********
 
 - Add Geosphere Observation implementation for Austrian meteorological data
+- RADAR: Clean up code and merge access module into api
 
 0.51.0 (01.01.2023)
 *******************

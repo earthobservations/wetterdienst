@@ -11,10 +11,10 @@ from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.environment_agency.hydrology.api import EaHydrologyRequest
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnRequest
 from wetterdienst.provider.nws.observation.api import NwsObservationRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelRequest
-from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.parameter import DatasetTreeCore
 
