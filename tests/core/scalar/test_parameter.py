@@ -22,14 +22,14 @@ from wetterdienst.provider.environment_agency.hydrology.api import (
     EaHydrologyParameter,
     EaHydrologyUnit,
 )
+from wetterdienst.provider.geosphere.observation import GeosphereObservationParameter
+from wetterdienst.provider.geosphere.observation.api import GeosphereObservationUnit
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter
 from wetterdienst.provider.noaa.ghcn.api import NoaaGhcnDataset
 from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
 from wetterdienst.provider.nws.observation import NwsObservationParameter
 from wetterdienst.provider.nws.observation.api import NwsObservationUnit
 from wetterdienst.provider.wsv.pegel.api import WsvPegelParameter, WsvPegelUnit
-from wetterdienst.provider.geosphere.observation import GeosphereObservationParameter
-from wetterdienst.provider.geosphere.observation.api import GeosphereObservationUnit
 
 ORIGIN_UNITS = [unit.value for unit in OriginUnit]
 SI_UNITS = [unit.value for unit in SIUnit]
