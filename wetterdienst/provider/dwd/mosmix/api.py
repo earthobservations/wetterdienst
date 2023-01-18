@@ -497,28 +497,20 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         df = pd.read_fwf(
             StringIO(payload.read().decode(encoding="latin-1")),
-            skiprows=4,
+            skiprows=2,
             skip_blank_lines=True,
             colspecs=[
                 (0, 5),
-                (6, 11),
-                (12, 17),
-                (18, 22),
-                (23, 44),
-                (44, 51),
-                (51, 58),
-                (59, 64),
-                (65, 71),
-                (72, 76),
+                (6, 10),
+                (11, 31),
+                (32, 38),
+                (39, 46),
+                (47, 52),
             ],
             na_values=["----"],
             header=None,
             dtype="str",
         )
-
-        df = df[(df.iloc[:, 0] != "=====") & (df.iloc[:, 0] != "TABLE") & (df.iloc[:, 0] != "clu")]
-
-        df = df.iloc[:, [2, 3, 4, 5, 6, 7]]
 
         df.columns = [
             Columns.STATION_ID.value,
