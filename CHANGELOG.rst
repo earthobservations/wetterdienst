@@ -7,6 +7,9 @@ Development
 - Add Geosphere Observation implementation for Austrian meteorological data
 - RADAR: Clean up code and merge access module into api
 - DWD MOSMIX: Fix parsing station list
+- DWD MOSMIX: Fix converting degrees minutes to decimal degrees within the
+  stations list. The previous method did not produce correct results on
+  negative lat/lon values.
 
 0.51.0 (01.01.2023)
 *******************
