@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.52.0 (19.01.2023)
+*******************
+
 - Add Geosphere Observation implementation for Austrian meteorological data
 - RADAR: Clean up code and merge access module into api
 - DWD MOSMIX: Fix parsing station list
