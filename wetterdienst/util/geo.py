@@ -72,7 +72,8 @@ def derive_nearest_neighbours(
 
 def convert_dm_to_dd(dms: float) -> float:
     """Convert degree minutes to decimal degree"""
-    degrees, minutes = divmod(dms, 1)
+    degrees = int(dms)
+    minutes = dms - degrees
 
     decimals = round(minutes / 60 * 100, 2)
 
