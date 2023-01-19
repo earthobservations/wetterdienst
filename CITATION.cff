@@ -2,8 +2,8 @@
 cff-version: 1.2.0
 type: software
 title: wetterdienst
-version: 0.51.0
-date-released: '2023-01-04'
+version: 0.52.0
+date-released: '2023-01-19'
 authors:
 - name: Benjamin Gutzmann
 - name: Andreas Motl
@@ -42,5 +42,7 @@ keywords:
 - noaa-nws
 - national-weather-service
 - eaufrance-hubeau
+- geosphere
+- geosphere-austria
 message: If you use this software, please cite it using these metadata.
 ...
