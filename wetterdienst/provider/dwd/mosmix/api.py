@@ -521,7 +521,8 @@ class DwdMosmixRequest(ScalarRequestCore):
             Columns.HEIGHT.value,
         ]
 
-        # Convert coordinates from degree minutes to decimal degrees
+        # The data as published by DWD has its `LAT` and `LON` columns in "Degrees Minutes" format.
+        # `convert_dm_to_dd` takes care of converting the coordinates to "Decimal Degrees".
         df[Columns.LATITUDE.value] = df[Columns.LATITUDE.value].astype(float).apply(convert_dm_to_dd)
         df[Columns.LONGITUDE.value] = df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
 
