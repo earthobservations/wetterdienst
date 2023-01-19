@@ -8,6 +8,7 @@ from io import StringIO
 from typing import Dict, Generator, Optional, Tuple, Union
 from urllib.parse import urljoin
 
+import numpy as np
 import pandas as pd
 import pytz
 from requests import HTTPError
@@ -499,14 +500,12 @@ class DwdMosmixRequest(ScalarRequestCore):
             StringIO(payload.read().decode(encoding="latin-1")),
             skiprows=2,
             skip_blank_lines=True,
-            colspecs=[
-                (0, 5),
-                (6, 10),
-                (11, 31),
-                (32, 38),
-                (39, 46),
-                (47, 52),
-            ],
+            # When inferring colspecs, make sure to look at the whole file. Otherwise,
+            # > this messes things up quite often and columns where strings get longer
+            # > towards the end of the data may get messed up and truncated.
+            # https://github.com/pandas-dev/pandas/issues/21970#issuecomment-480273621
+            colspecs="infer",
+            infer_nrows=np.Infinity,
             na_values=["----"],
             header=None,
             dtype="str",
