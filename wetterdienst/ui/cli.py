@@ -483,7 +483,7 @@ def coverage(provider, network, dataset, resolution, debug):
     click.option("--dataset", type=CommaSeparator),
     click.option("--resolution", type=click.STRING),
     click.option("--period", type=CommaSeparator),
-    click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False)),
+    click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False), default="en"),
     constraint=cloup.constraints.require_all,
 )
 @debug_opt
