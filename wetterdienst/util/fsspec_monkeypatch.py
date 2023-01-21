@@ -110,9 +110,6 @@ class HTTPFileSystem(http.HTTPFileSystem):
             sync(self.loop, self.set_session)
 
 
-http.HTTPFileSystem = HTTPFileSystem
-
-
 class FileDirCache(MutableMapping):
     def __init__(
         self,
@@ -245,4 +242,6 @@ class AsyncFileSystem(asyn.AsyncFileSystem):
         self._fs_token_ = None
 
 
-asyn.AsyncFileSystem = AsyncFileSystem
+def activate():
+    http.HTTPFileSystem = HTTPFileSystem
+    asyn.AsyncFileSystem = AsyncFileSystem

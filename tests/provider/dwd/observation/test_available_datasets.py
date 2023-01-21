@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from wetterdienst import Resolution, monkey_patch
-from wetterdienst.provider.dwd.observation import DwdObservationResolution
-from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst import boot
 
-monkey_patch()
+boot.monkeypatch()
 
 import pandas as pd
 from fsspec.implementations.http import HTTPFileSystem
 
+from wetterdienst import Resolution
+from wetterdienst.provider.dwd.observation import DwdObservationResolution
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     RESOLUTION_DATASET_MAPPING,
     DwdObservationDataset,
@@ -19,6 +19,7 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
 )
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
+from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 SKIP_DATASETS = (
     ("10_minutes", "wind_test"),
