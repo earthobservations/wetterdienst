@@ -3,6 +3,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import types
 
+from wetterdienst.util.python import classproperty
+
 
 class _GetAttrMeta(type):
     # https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class
@@ -18,4 +20,6 @@ class _GetAttrMeta(type):
 
 
 class DatasetTreeCore(metaclass=_GetAttrMeta):
-    pass
+    @classproperty
+    def name(cls):
+        return cls.__name__
