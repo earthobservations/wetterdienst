@@ -9,12 +9,16 @@ from typing import List, Optional
 
 
 def setup_logging(level=logging.INFO) -> None:
-    log_format = "%(asctime)-15s [%(name)-32s] %(levelname)-7s: %(message)s"
+    log_format = "%(asctime)-15s [%(name)-40s] %(levelname)-7s: %(message)s"
     logging.basicConfig(format=log_format, stream=sys.stderr, level=level)
 
     # Silence INFO messages from numexpr.
     numexpr_logger = logging.getLogger("numexpr")
     numexpr_logger.setLevel(logging.WARN)
+
+    # Silence WARNING messages from pint.
+    pint_logger = logging.getLogger("pint")
+    pint_logger.setLevel(logging.ERROR)
 
 
 def read_list(data: Optional[str], separator: str = ",") -> List[str]:
