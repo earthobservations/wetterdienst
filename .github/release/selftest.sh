@@ -3,6 +3,7 @@
 flavor=$1
 
 echo "Testing wetterdienst"
+foobar
 wetterdienst --version
 wetterdienst dwd about parameters
 
