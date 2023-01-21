@@ -12,7 +12,6 @@ from wetterdienst.core.scalar.result import StationsResult, ValuesResult
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -64,6 +63,8 @@ def _get_stations_request(
     dropna: bool,
     use_nearby_station_until_km: float,
 ):
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
+
     # TODO: move this into Request core
     start_date, end_date = None, None
     if date:
