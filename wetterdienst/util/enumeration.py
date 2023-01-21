@@ -4,9 +4,8 @@
 from enum import Enum
 from typing import Optional, Type, Union
 
-from numpy.distutils.misc_util import as_list
-
 from wetterdienst.exceptions import InvalidEnumeration
+from wetterdienst.util.python import to_list
 
 
 def parse_enumeration_from_template(
@@ -71,4 +70,4 @@ def parse_enumeration_from_template(
 
 
 def parse_enumeration(values, intermediate, base=None):
-    return [parse_enumeration_from_template(x, intermediate, base) for x in as_list(values)]
+    return [parse_enumeration_from_template(x, intermediate, base) for x in to_list(values)]
