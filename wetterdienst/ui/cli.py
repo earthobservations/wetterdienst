@@ -23,6 +23,7 @@ from wetterdienst.ui.core import (
     get_values,
     set_logging_level,
 )
+from wetterdienst.util.cli import docstring_format_verbatim
 
 log = logging.getLogger(__name__)
 
@@ -150,9 +151,7 @@ def station_options_interpolate_summarize(command):
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
 
-@cloup.group("wetterdienst")
-@click.version_option(__version__, "-v", "--version", message="%(version)s")
-def cli():
+def wetterdienst_help():
     """
     Usage:
 
@@ -373,6 +372,12 @@ def cli():
         wetterdienst explorer --listen=0.0.0.0:8891
 
     """  # noqa:E501
+    pass
+
+
+@cloup.group("wetterdienst", help=docstring_format_verbatim(wetterdienst_help.__doc__))
+@click.version_option(__version__, "-v", "--version", message="%(version)s")
+def cli():
     pass
 
 

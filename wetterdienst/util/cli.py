@@ -4,6 +4,7 @@
 """ A set of utility functions """
 import logging
 import sys
+import textwrap
 from typing import List, Optional
 
 
@@ -26,3 +27,21 @@ def read_list(data: Optional[str], separator: str = ",") -> List[str]:
         return []
 
     return result
+
+
+def docstring_format_verbatim(text: str) -> str:
+    """
+    Format docstring to be displayed verbatim as a help text by Click.
+
+    - https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    - https://github.com/pallets/click/issues/56
+    """
+    text = textwrap.dedent(text)
+    lines = []
+    for line in text.splitlines():
+        is_empty_line = line.strip() == ""
+        if is_empty_line:
+            lines.append("\b")
+        else:
+            lines.append(line)
+    return "\n".join(lines)
