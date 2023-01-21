@@ -16,8 +16,6 @@ from cloup.constraints import If, RequireExactly, accept_none
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderError
-from wetterdienst.provider.dwd.radar.api import DwdRadarSites
-from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.ui.core import (
     get_interpolate,
     get_stations,
@@ -879,6 +877,9 @@ def radar(
     wmo_code: str,
     country_name: str,
 ):
+    from wetterdienst.provider.dwd.radar.api import DwdRadarSites
+    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
+
     if dwd:
         data = DwdRadarSites().all()
     else:

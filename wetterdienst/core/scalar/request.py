@@ -37,7 +37,6 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
 
 log = logging.getLogger(__name__)
 
@@ -702,6 +701,8 @@ class ScalarRequestCore(Core):
         :param rank: number of stations_result to be returned, greater 0
         :return: pandas.DataFrame with station information for the selected stations_result
         """
+        from wetterdienst.util.geo import Coordinates, derive_nearest_neighbours
+
         rank = int(rank)
 
         if rank <= 0:

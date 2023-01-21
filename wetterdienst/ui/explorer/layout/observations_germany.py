@@ -4,11 +4,11 @@
 import dash_leaflet as dl
 from dash import dcc, html
 
-from wetterdienst.api import ApiEndpoints
+from wetterdienst.api import RequestRegistry
 
 
 def get_providers():
-    return [{"label": provider.__name__, "value": provider.__name__} for provider in ApiEndpoints]
+    return [{"label": provider, "value": provider} for provider in RequestRegistry.get_provider_names()]
 
 
 def dashboard_layout() -> html:

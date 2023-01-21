@@ -17,7 +17,7 @@ import requests
 from dash import Input, Output, State, dcc, html
 from geojson import Feature, FeatureCollection, Point
 
-from wetterdienst.api import ApiEndpoints
+from wetterdienst.api import RequestRegistry
 from wetterdienst.core.scalar.result import ValuesResult
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
@@ -77,7 +77,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
     if not (provider and network and resolution and dataset and parameter and period):
         return empty_frame
 
-    api = ApiEndpoints[provider][network].value
+    api = RequestRegistry.resolve(provider, network)
 
     if period == "ALL":
         period = [*api._period_base]
@@ -149,7 +149,7 @@ def fetch_values(
         log.warning("Querying without station_id is rejected")
         return empty_frame
 
-    api = ApiEndpoints[provider][network].value
+    api = RequestRegistry.resolve(provider, network)
 
     if period == "ALL":
         period = [*api._period_base]
@@ -437,7 +437,7 @@ def set_network_options(provider):
     if not provider:
         return []
 
-    return [{"label": network.name, "value": network.name} for network in ApiEndpoints[provider]]
+    return [{"label": network, "value": network} for network in RequestRegistry.get_network_names(provider)]
 
 
 @app.callback(
@@ -452,9 +452,9 @@ def set_resolution_options(provider, network):
     if not (provider and network):
         return []
 
-    api = ApiEndpoints[provider][network].value
+    api = RequestRegistry.resolve(provider, network)
 
-    if api == DwdMosmixRequest:
+    if isinstance(api, DwdMosmixRequest):
         return [{"label": resolution.name, "value": resolution.name} for resolution in DwdMosmixType]
     else:
         return [{"label": resolution.name, "value": resolution.name} for resolution in api._resolution_base]
@@ -473,7 +473,7 @@ def set_dataset_options(provider, network, resolution):
     if not (provider and network and resolution):
         return []
 
-    api = ApiEndpoints[provider][network].value
+    api = RequestRegistry.resolve(provider, network)
 
     if api._has_datasets and not api._unique_dataset:
         # first dataset is placeholder for unique dataset with parameters combined from all datasets
@@ -505,7 +505,7 @@ def set_parameter_options(provider, network, resolution, dataset):
     if not (provider and network and resolution and dataset):
         return [], []
 
-    api = ApiEndpoints[provider][network].value
+    api = RequestRegistry.resolve(provider, network)
 
     if api._has_datasets and not api._unique_dataset:
         if dataset == resolution:

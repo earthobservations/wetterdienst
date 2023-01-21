@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import types
+
+
 class _GetAttrMeta(type):
     # https://stackoverflow.com/questions/33727217/subscriptable-objects-in-class
     def __getitem__(cls, x):
@@ -9,8 +12,9 @@ class _GetAttrMeta(type):
     def __iter__(cls):
         """Getting subclasses which usually represent resolutions"""
         for attr in vars(cls):
-            if not attr.startswith("_"):
-                yield cls[attr]
+            slot = cls[attr]
+            if not attr.startswith("_") and not isinstance(slot, types.MethodType):
+                yield slot
 
 
 class DatasetTreeCore(metaclass=_GetAttrMeta):
