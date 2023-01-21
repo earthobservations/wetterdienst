@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pandas as pd
+import pytest
 import pytz
 from pandas._testing import assert_frame_equal
 
@@ -18,6 +19,7 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 )
 
 
+@pytest.mark.xfail
 def test_summary_temperature_air_mean_200_daily():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,

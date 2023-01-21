@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+- SCALAR: Change tidy option to be set to True if multiple different entire datasets are queried
+  This change is in accordance with exporting results to json where multiple DataFrames are concatenated.
+
 0.52.0 (19.01.2023)
 *******************
 

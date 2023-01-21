@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from click.testing import CliRunner
+from dirty_equals import IsDict, IsNumeric, IsStr
 
 from wetterdienst.ui.cli import cli
 
@@ -320,6 +321,31 @@ def test_cli_values_json(setting, expected_columns, capsys, caplog):
     first = response[0]
 
     assert set(first.keys()).issuperset(expected_columns)
+
+
+def test_cli_values_json_multiple_datasets(capsys, caplog):
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting="--resolution=daily --parameter=kl,more_precip --period=recent --date=2020-06-30",
+        station="01048",
+        fmt="json",
+    )
+
+    response = json.loads(result.stdout)
+
+    first = response[0]
+    # TODO: make more specific once date filtering works
+    assert first == IsDict(
+        {
+            "station_id": IsStr,
+            "dataset": IsStr,
+            "parameter": IsStr,
+            "date": IsStr,
+            "value": IsNumeric,
+            "quality": IsNumeric,
+        }
+    )
 
 
 @pytest.mark.parametrize("provider,network,setting,station_id,station_name", SETTINGS_VALUES)

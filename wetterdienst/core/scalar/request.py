@@ -372,8 +372,13 @@ class ScalarRequestCore(Core):
         self.humanize = settings.humanize
 
         tidy = settings.tidy
+
         if self._has_datasets:
-            tidy = tidy or any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
+            any_not_dataset = any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
+            multiple_datasets = (
+                len({parameter.value for parameter, dataset in self.parameter if parameter in self._dataset_base}) > 1
+            )
+            tidy = tidy or any_not_dataset or multiple_datasets
         self.tidy = tidy
 
         self.si_units = settings.si_units
