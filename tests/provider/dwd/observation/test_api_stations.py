@@ -101,6 +101,16 @@ def test_dwd_observations_stations_filter_name_empty():
     assert df.empty
 
 
+@pytest.mark.remote
+def test_dwd_observations_multiple_datasets_tidy():
+    request = DwdObservationRequest(
+        [DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.PRECIPITATION_MORE],
+        DwdObservationResolution.DAILY,
+        DwdObservationPeriod.HISTORICAL,
+    ).all()
+    assert request.tidy
+
+
 def test_dwd_observations_stations_fail():
     with pytest.raises(TypeError):
         DwdObservationRequest(
