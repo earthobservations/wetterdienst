@@ -6,6 +6,8 @@ Development
 
 - SCALAR: Change tidy option to be set to True if multiple different entire datasets are queried
   This change is in accordance with exporting results to json where multiple DataFrames are concatenated.
+- CLI: Add command line options ``wetterdienst --version`` and ``wetterdienst -v``
+  to display version number
 
 0.52.0 (19.01.2023)
 *******************
@@ -296,8 +298,8 @@ Features
 
 - Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
   [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
-- Rename wetterdienst show to wetterdienst info, make version accessible via cli with
-  wetterdienst version
+- Rename ``wetterdienst show`` to ``wetterdienst info``, make version accessible via CLI with
+  ``wetterdienst version``
 
 Bugfixes
 ========

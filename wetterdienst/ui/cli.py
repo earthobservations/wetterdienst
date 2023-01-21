@@ -151,12 +151,13 @@ def station_options_interpolate_summarize(command):
 
 
 @cloup.group("wetterdienst")
+@click.version_option(__version__, "-v", "--version", message="%(version)s")
 def cli():
     """
     Usage:
 
         wetterdienst (-h | --help)
-        wetterdienst version
+        wetterdienst --version
         wetterdienst info
 
         wetterdienst radar [--dwd=<dwd>] [--all=<all>] [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
