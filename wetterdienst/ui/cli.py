@@ -27,7 +27,7 @@ from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 
 log = logging.getLogger(__name__)
 
-CommaSeparator = StringListParamType(",")
+comma_separated_string = lambda: StringListParamType(",")
 
 appname = f"{__appname__} {__version__}"
 
@@ -76,9 +76,9 @@ def station_options_core(command):
     :return:
     """
     arguments = [
-        cloup.option("--parameter", type=CommaSeparator, required=True),
+        cloup.option("--parameter", type=comma_separated_string(), required=True),
         cloup.option("--resolution", type=click.STRING, required=True),
-        cloup.option("--period", type=CommaSeparator),
+        cloup.option("--period", type=comma_separated_string()),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
@@ -94,7 +94,7 @@ def station_options_extension(command):
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=CommaSeparator),
+            cloup.option("--station", type=comma_separated_string(), required=True),
         ),
         cloup.option_group(
             "Station name filtering",
@@ -137,7 +137,7 @@ def station_options_interpolate_summarize(command):
     arguments = [
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=CommaSeparator),
+            cloup.option("--station", type=comma_separated_string()),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
@@ -564,7 +564,7 @@ def about():
         type=click.STRING,
     ),
 )
-@cloup.option("--dataset", type=CommaSeparator, default=None)
+@cloup.option("--dataset", type=comma_separated_string(), default=None)
 @cloup.option("--resolution", type=click.STRING, default=None)
 @debug_opt
 def coverage(provider, network, dataset, resolution, debug):
@@ -596,9 +596,9 @@ def coverage(provider, network, dataset, resolution, debug):
 @network_opt
 @cloup.option_group(
     "(DWD only) information from PDF documents",
-    click.option("--dataset", type=CommaSeparator),
+    click.option("--dataset", type=comma_separated_string()),
     click.option("--resolution", type=click.STRING),
-    click.option("--period", type=CommaSeparator),
+    click.option("--period", type=comma_separated_string()),
     click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False), default="en"),
     constraint=cloup.constraints.require_all,
 )

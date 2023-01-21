@@ -41,7 +41,7 @@ def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[datet
         date = dateutil.parser.isoparse(date)
         if not date.tzinfo:
             date = date.replace(tzinfo=pytz.UTC)
-
+        date_from, date_to = date, date
         if resolution in (
             Resolution.ANNUAL,
             Resolution.MONTHLY,
