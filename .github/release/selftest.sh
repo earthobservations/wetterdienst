@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Fail on error.
+set -e
+
 flavor=$1
 
 echo "Testing wetterdienst"
