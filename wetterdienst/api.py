@@ -8,110 +8,114 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 
 class RequestRegistry(DatasetTreeCore):
+    """
+    Manage all weather data providers.
+
+    Provide their main API request factories lazily on request.
+    """
+
     class DWD(DatasetTreeCore):
-        @staticmethod
-        @property
-        def OBSERVATION():
-            from wetterdienst.provider.dwd.observation import DwdObservationRequest
+        class OBSERVATION(DatasetTreeCore):
+            @staticmethod
+            def load() -> "DwdObservationRequest":  # noqa: F821
+                from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-            return DwdObservationRequest
+                return DwdObservationRequest
 
-        @staticmethod
-        @property
-        def MOSMIX():
-            from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+        class MOSMIX(DatasetTreeCore):
+            @staticmethod
+            def load() -> "DwdMosmixRequest":  # noqa: F821
+                from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
-            return DwdMosmixRequest
+                return DwdMosmixRequest
 
-        @staticmethod
-        @property
-        def RADAR():
-            from wetterdienst.provider.dwd.radar import DwdRadarValues
+        class RADAR(DatasetTreeCore):
+            @staticmethod
+            def load() -> "DwdRadarValues":  # noqa: F821
+                from wetterdienst.provider.dwd.radar import DwdRadarValues
 
-            return DwdRadarValues
+                return DwdRadarValues
 
     class ECCC(DatasetTreeCore):
-        @staticmethod
-        @property
-        def OBSERVATION():
-            from wetterdienst.provider.eccc.observation import EcccObservationRequest
+        class OBSERVATION(DatasetTreeCore):
+            @staticmethod
+            def load() -> "EcccObservationRequest":  # noqa: F821
+                from wetterdienst.provider.eccc.observation import (
+                    EcccObservationRequest,
+                )
 
-            return EcccObservationRequest
+                return EcccObservationRequest
 
     class NOAA(DatasetTreeCore):
-        @staticmethod
-        @property
-        def GHCN():
-            from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
+        class GHCN(DatasetTreeCore):
+            @staticmethod
+            def load() -> "NoaaGhcnRequest":  # noqa: F821
+                from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
-            return NoaaGhcnRequest
+                return NoaaGhcnRequest
 
     class WSV(DatasetTreeCore):
-        @staticmethod
-        @property
-        def PEGEL():
-            from wetterdienst.provider.wsv.pegel import WsvPegelRequest
+        class PEGEL(DatasetTreeCore):
+            @staticmethod
+            def load() -> "WsvPegelRequest":  # noqa: F821
+                from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 
-            return WsvPegelRequest
+                return WsvPegelRequest
 
     class EA(DatasetTreeCore):
-        @staticmethod
-        @property
-        def HYDROLOGY():
-            from wetterdienst.provider.environment_agency.hydrology import (
-                EaHydrologyRequest,
-            )
+        class HYDROLOGY(DatasetTreeCore):
+            @staticmethod
+            def load() -> "EaHydrologyRequest":  # noqa: F821
+                from wetterdienst.provider.environment_agency.hydrology import (
+                    EaHydrologyRequest,
+                )
 
-            return EaHydrologyRequest
+                return EaHydrologyRequest
 
     class NWS(DatasetTreeCore):
-        @staticmethod
-        @property
-        def OBSERVATION():
-            from wetterdienst.provider.nws.observation import NwsObservationRequest
+        class OBSERVATION(DatasetTreeCore):
+            @staticmethod
+            def load() -> "NwsObservationRequest":  # noqa: F821
+                from wetterdienst.provider.nws.observation import NwsObservationRequest
 
-            return NwsObservationRequest
+                return NwsObservationRequest
 
     class EAUFRANCE(DatasetTreeCore):
-        @staticmethod
-        @property
-        def HUBEAU():
-            from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
+        class HUBEAU(DatasetTreeCore):
+            @staticmethod
+            def load() -> "HubeauRequest":  # noqa: F821
+                from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
 
-            return HubeauRequest
+                return HubeauRequest
 
     class GEOSPHERE(DatasetTreeCore):
-        @staticmethod
-        @property
-        def OBSERVATION():
-            from wetterdienst.provider.geosphere.observation import (
-                GeosphereObservationRequest,
-            )
+        class OBSERVATION(DatasetTreeCore):
+            @staticmethod
+            def load() -> "GeosphereObservationRequest":  # noqa: F821
+                from wetterdienst.provider.geosphere.observation import (
+                    GeosphereObservationRequest,
+                )
 
-            return GeosphereObservationRequest
+                return GeosphereObservationRequest
 
     @classmethod
     def discover(cls):
-        api_endpoints = {}
-        for provider in cls:
-            api_endpoints[provider.__name__] = [network.fget.__name__ for network in cls[provider.__name__]]
-        return api_endpoints
+        return {provider.name: [network.name for network in cls[provider.name]] for provider in cls}
 
     @classmethod
     def resolve(cls, provider: str, network: str):
         try:
-            # `.fget()` is needed to access the <property> instance.
-            return cls[provider][network.upper()].fget()
+            return cls[provider][network.upper()].load()
         except AttributeError as ex:
             raise KeyError(ex)
 
     @classmethod
     def get_provider_names(cls):
-        return [provider.__name__ for provider in cls]
+        return [provider.name for provider in cls]
 
     @classmethod
     def get_network_names(cls, provider):
-        return [network.fget.__name__ for network in cls[provider]]
+        return [network.name for network in cls[provider]]
 
 
 class Wetterdienst:
