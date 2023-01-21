@@ -304,18 +304,24 @@ format = ["black", "isort"]
 lint = "flakeheaven lint wetterdienst example tests"
 turbolint = "ruff wetterdienst example tests"
 docs = { shell = "cd docs && poetry run make html" }
-test-cflakes = "pytest -vvv -m cflake tests"
-test-parallel = "pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)' tests"
+test-cflakes = "pytest -m cflake"
+test-parallel = "pytest --numprocesses=auto -m 'not (explorer or cflake)'"
 test = ["test-parallel", "test-cflakes"]
 # For Windows CI
-test-slow = "pytest -vvv tests"
-coverage = "pytest --cov=wetterdienst tests"
-coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)' tests"
+test-slow = "pytest"
+coverage = "pytest --cov=wetterdienst"
+coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
 licenses = "pip-licenses --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 update = "poetry update"
 citation = "python -m tools.citation"
 
 [tool.pytest.ini_options]
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"
+#log_cli = true
+#log_cli_level = "DEBUG"
+log_date_format = "%Y-%m-%dT%H:%M:%S"
+log_format = "%(asctime)-15s.%(msecs)03d [%(name)-35s] %(levelname)-8s: %(message)s"
+log_level = "DEBUG"
 markers = [
     "remote: Tests accessing the internet.",
     "slow: Slow tests.",
@@ -323,14 +329,10 @@ markers = [
     "explorer: All tests related to the explorer UI.",
     "cflake: Tests which are flaky under concurrency",
 ]
-addopts = "-vvv --webdriver=Firefox --headless"
-
-#log_cli = true
-#log_cli_level = "DEBUG"
-
-log_format = "%(asctime)-15s.%(msecs)03d [%(name)-35s] %(levelname)-8s: %(message)s"
-log_date_format = "%Y-%m-%dT%H:%M:%S"
-
+minversion = "2.0"
+testpaths = ["tests"]
+# Detect tests marked with xfail, which are actually succeeding.
+# xfail_strict = true
 
 [tool.coverage.run]
 branch = true
