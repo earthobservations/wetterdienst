@@ -12,9 +12,9 @@ from wetterdienst.util.network import download_file
 def read_pdf(url):
     text = StringIO()
     response = download_file(url, CacheExpiry.NO_CACHE)
-    pdf = PyPDF2.PdfFileReader(response)
+    pdf = PyPDF2.PdfReader(response)
     for page_number in range(pdf.numPages):
-        page = pdf.getPage(page_number)
+        page = pdf.pages[page_number]
         result = page.extractText()
         text.write(result)
     return text.getvalue()
