@@ -332,6 +332,7 @@ def test_request_period_empty():
     assert request.period == []
 
 
+@pytest.mark.cflake
 @pytest.mark.remote
 def test_dwd_observation_data_result_missing_data():
     """Test for DataFrame having empty values for dates where the station should not
