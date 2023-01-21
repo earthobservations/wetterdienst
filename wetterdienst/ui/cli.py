@@ -23,7 +23,7 @@ from wetterdienst.ui.core import (
     get_values,
     set_logging_level,
 )
-from wetterdienst.util.cli import docstring_format_verbatim
+from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 
 log = logging.getLogger(__name__)
 
@@ -378,7 +378,7 @@ def wetterdienst_help():
 @cloup.group("wetterdienst", help=docstring_format_verbatim(wetterdienst_help.__doc__))
 @click.version_option(__version__, "-v", "--version", message="%(version)s")
 def cli():
-    pass
+    setup_logging()
 
 
 @cli.command("info")
