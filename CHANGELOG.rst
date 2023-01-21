@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- CLI: Fix cli arguments with multiple items separated by comma (,)
+
 0.53.0 (07.02.2023)
 *******************
 
@@ -303,8 +305,8 @@ Features
 
 - Enable selecting a parameter precisely from a dataset by passing a tuple like [("precipitation_height", "kl")] or
   [("precipitation_height", "precipitation_more")], or for cli/restapi use "precipitation_height/kl"
-- Rename wetterdienst show to wetterdienst info, make version accessible via cli with
-  wetterdienst version
+- Rename ``wetterdienst show`` to ``wetterdienst info``, make version accessible via CLI with
+  ``wetterdienst version``
 
 Bugfixes
 ========

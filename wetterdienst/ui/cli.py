@@ -25,9 +25,9 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 
-log = logging.getLogger(__name__)
+COMMA_SEPARATED_LIST = StringListParamType(",")
 
-comma_separated_string = lambda: StringListParamType(",")
+log = logging.getLogger(__name__)
 
 appname = f"{__appname__} {__version__}"
 
@@ -76,9 +76,9 @@ def station_options_core(command):
     :return:
     """
     arguments = [
-        cloup.option("--parameter", type=comma_separated_string(), required=True),
+        cloup.option("--parameter", type=COMMA_SEPARATED_LIST, required=True),
         cloup.option("--resolution", type=click.STRING, required=True),
-        cloup.option("--period", type=comma_separated_string()),
+        cloup.option("--period", type=COMMA_SEPARATED_LIST),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
@@ -94,7 +94,7 @@ def station_options_extension(command):
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=comma_separated_string(), required=True),
+            cloup.option("--station", type=COMMA_SEPARATED_LIST),
         ),
         cloup.option_group(
             "Station name filtering",
@@ -137,7 +137,7 @@ def station_options_interpolate_summarize(command):
     arguments = [
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=comma_separated_string()),
+            cloup.option("--station", type=COMMA_SEPARATED_LIST),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
@@ -319,7 +319,7 @@ def wetterdienst_help():
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --tidy
 
         # Limit output to specific date
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01 --station=1048,4411
 
         # Limit output to specified date range in ISO-8601 time interval format
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01/2020-05-05 --station=1048
@@ -564,7 +564,7 @@ def about():
         type=click.STRING,
     ),
 )
-@cloup.option("--dataset", type=comma_separated_string(), default=None)
+@cloup.option("--dataset", type=COMMA_SEPARATED_LIST, default=None)
 @cloup.option("--resolution", type=click.STRING, default=None)
 @debug_opt
 def coverage(provider, network, dataset, resolution, debug):
@@ -596,9 +596,9 @@ def coverage(provider, network, dataset, resolution, debug):
 @network_opt
 @cloup.option_group(
     "(DWD only) information from PDF documents",
-    click.option("--dataset", type=comma_separated_string()),
+    click.option("--dataset", type=COMMA_SEPARATED_LIST),
     click.option("--resolution", type=click.STRING),
-    click.option("--period", type=comma_separated_string()),
+    click.option("--period", type=COMMA_SEPARATED_LIST),
     click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False), default="en"),
     constraint=cloup.constraints.require_all,
 )
@@ -745,7 +745,7 @@ def values(
     date: str,
     issue: str,
     all_: bool,
-    station: List[str],
+    station,
     name: str,
     coordinates: str,
     rank: int,
