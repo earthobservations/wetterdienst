@@ -66,3 +66,24 @@ Run the Wetterdienst user interface using Docker::
 
     docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst-full wetterdienst explorer --listen 0.0.0.0:7891
 
+
+Serve Wetterdienst Explorer at non-root URL
+===========================================
+
+If you are wrapping up Wetterdienst behind a reverse HTTP proxy, use the
+``DASH_URL_BASE_PATHNAME`` environment variable to configure the HTTP base URL
+the service is mounted on::
+
+    export DASH_URL_BASE_PATHNAME=/explorer/
+    wetterdienst explorer --listen=localhost:8891
+
+The gist of a corresponding Nginx configuration snippet is::
+
+    server {
+      server_name wetterdienst.example.org;
+      location ~ ^/explorer {
+        proxy_set_header   Host $host;
+        proxy_pass http://localhost:8891;
+      }
+    }
+
