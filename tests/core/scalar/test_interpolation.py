@@ -20,6 +20,8 @@ from wetterdienst.provider.eccc.observation.metadata.resolution import (
 
 pytest.importorskip("shapely")
 
+pytestmark = pytest.mark.slow
+
 
 def test_interpolation_temperature_air_mean_200_hourly_by_coords():
     stations = DwdObservationRequest(
@@ -78,7 +80,6 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id():
         assert_frame_equal(interpolated_df, expected_df)
 
 
-@pytest.mark.slow
 def test_interpolation_precipitation_height_minute_10():
     stations = DwdObservationRequest(
         parameter=Parameter.PRECIPITATION_HEIGHT,

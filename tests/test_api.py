@@ -37,6 +37,7 @@ from wetterdienst import Settings, Wetterdienst
     ],
 )
 @pytest.mark.parametrize("si_units", (False, True))
+@pytest.mark.slow
 def test_api(provider, network, kwargs, si_units, station_id):
     """Test main wetterdienst API"""
     # Build API
