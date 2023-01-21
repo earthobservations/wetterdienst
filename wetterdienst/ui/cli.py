@@ -455,7 +455,7 @@ def coverage(provider, network, dataset, resolution, debug):
     set_logging_level(debug)
 
     if not provider or not network:
-        print(json.dumps(Wetterdienst.discover(), indent=4))  # noqa: T201
+        print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
         return
 
     api = get_api(provider=provider, network=network)
@@ -584,7 +584,7 @@ def stations(
 
     indent = None
     if pretty:
-        indent = 4
+        indent = 2
 
     output = stations_.to_format(fmt, indent=indent)
 
@@ -690,7 +690,7 @@ def values(
 
     indent = None
     if pretty:
-        indent = 4
+        indent = 2
 
     output = values_.to_format(fmt, indent=indent)
 
@@ -775,7 +775,7 @@ def interpolate(
 
     indent = None
     if pretty:
-        indent = 4
+        indent = 2
 
     output = values_.to_format(fmt, indent=indent)
 
@@ -857,7 +857,7 @@ def summarize(
 
     indent = None
     if pretty:
-        indent = 4
+        indent = 2
 
     output = values_.to_format(fmt, indent=indent)
 
@@ -898,7 +898,7 @@ def radar(
         elif country_name:
             data = OperaRadarSites().by_countryname(country_name)
 
-    output = json.dumps(data, indent=4)
+    output = json.dumps(data, indent=2)
 
     print(output)  # noqa: T201
 
