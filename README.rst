@@ -271,7 +271,7 @@ The ``wetterdienst`` command is also available:
     alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst-standard wetterdienst'
 
     wetterdienst --help
-    wetterdienst version
+    wetterdienst --version
     wetterdienst info
 
 Example

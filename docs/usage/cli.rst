@@ -10,7 +10,7 @@ Command Line Interface
     Usage:
 
         wetterdienst (-h | --help)
-        wetterdienst version
+        wetterdienst --version
         wetterdienst info
 
         wetterdienst radar [--dwd=<dwd>] [--all=<all>] [--odim-code=<odim-code>] [--wmo-code=<wmo-code>] [--country-name=<country-name>]
