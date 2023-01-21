@@ -21,7 +21,7 @@ SETTINGS_STATIONS = (
         "dwd",
         "observation",
         "--resolution=daily --parameter=kl --period=recent",
-        "01048",
+        ("01048",),
         # expected dict
         {
             "station_id": "01048",
@@ -39,7 +39,7 @@ SETTINGS_STATIONS = (
         "dwd",
         "mosmix",
         "--resolution=large --parameter=large",
-        "10488",
+        ("10488",),
         {
             "station_id": "10488",
             "height": 230.0,
@@ -58,8 +58,8 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "observation",
-        "--resolution=daily --parameter=kl --period=recent --date=2020-06-30",
-        "01048",
+        "--resolution=daily --parameter=kl --date=2020-06-30",
+        ("01047", "01048"),
         "Dresden-Klotzsche",
     ),
     (
@@ -67,7 +67,7 @@ SETTINGS_VALUES = (
         "mosmix",
         f"--parameter=small --resolution=large "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
-        "10488",
+        ("10488",),
         "DRESDEN",
     ),
 )
@@ -131,7 +131,7 @@ def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station={station} --format={fmt}",
+        f"stations --provider={provider} --network={network} {setting} --station={','.join(station)} --format={fmt}",
     )
 
 
@@ -140,7 +140,7 @@ def invoke_wetterdienst_stations_export(provider, network, setting, station, tar
 
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station={station} --target={target}",
+        f"stations --provider={provider} --network={network} {setting} --station={','.join(station)} --target={target}",
     )
 
 
@@ -160,7 +160,7 @@ def invoke_wetterdienst_values_static(provider, network, setting, station, fmt="
 
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={station} --format={fmt}",
+        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} --format={fmt}",
     )
 
 
@@ -169,7 +169,7 @@ def invoke_wetterdienst_values_export(provider, network, setting, station, targe
 
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={station} --target={target}",
+        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} --target={target}",
     )
 
 
@@ -178,7 +178,8 @@ def invoke_wetterdienst_values_static_tidy(provider, network, setting, station, 
 
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={station} --format={fmt} --tidy",
+        f"values --provider={provider} --network={network} "
+        f"{setting} --station={','.join(station)} --format={fmt} --tidy",
     )
 
 
@@ -314,7 +315,7 @@ def test_cli_values_json(setting, expected_columns, capsys, caplog):
 
     station_ids = {reading["station_id"] for reading in response}
 
-    assert station_id in station_ids
+    assert set(station_id).issubset(station_ids)
 
     expected_columns = {"station_id", "date"}.union(expected_columns)
 
@@ -327,8 +328,8 @@ def test_cli_values_json_multiple_datasets(capsys, caplog):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl,more_precip --period=recent --date=2020-06-30",
-        station="01048",
+        setting="--resolution=daily --parameter=kl,more_precip --date=2020-06-30",
+        station=("01048",),
         fmt="json",
     )
 
@@ -359,7 +360,7 @@ def test_cli_values_json_tidy(provider, network, setting, station_id, station_na
 
     station_ids = {reading["station_id"] for reading in response}
 
-    assert station_id in station_ids
+    assert set(station_id).issubset(station_ids)
 
     first = response[0]
 
@@ -395,7 +396,8 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     result = invoke_wetterdienst_values_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="csv"
     )
-    assert station_id in result.output
+    for s in station_id:
+        assert s in result.output
 
 
 @pytest.mark.parametrize(
@@ -421,7 +423,7 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         filename.unlink(missing_ok=True)
 
     assert "station_id" in df
-    assert station_id in df["station_id"].values
+    assert set(station_id).issubset(set(df["station_id"]))
 
 
 @pytest.mark.parametrize(
@@ -465,7 +467,7 @@ def test_cli_values_geospatial(provider, network, setting, station_id, station_n
 
     station_ids = {reading["station_id"] for reading in response}
 
-    assert station_id in station_ids
+    assert set(station_id).issubset(station_ids)
 
 
 def test_cli_interpolate():
