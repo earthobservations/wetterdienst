@@ -327,25 +327,29 @@ def wetterdienst_help():
         # The real power horse: Acquire data across historical+recent data sets
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=1969-01-01/2020-06-11 --station=1048
 
-        # Acquire monthly data for 2020-05
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --date=2020-05 --station=1048
+        # Acquire single data point for month 2020-05
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
+            --date=2020-05 --station=1048
 
-        # Acquire monthly data from 2017-01 to 2019-12
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --date=2017-01/2019-12 --station=1048,4411
+        # Acquire monthly data from 2017 to 2019
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
+            --date=2017/2019 --station=1048,4411
 
         # Acquire annual data for 2019
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --date=2019 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
+            --date=2019 --station=1048,4411
 
         # Acquire annual data from 2010 to 2020
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --date=2010/2020 --station=1048
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
+            --date=2010/2020 --station=1048
 
         # Acquire hourly data for a given time range
         wetterdienst values --provider=dwd --network=observation --parameter=air_temperature --resolution=hourly \\
             --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
-        # Acquire data for specific parameter and dataset
+        # Acquire data for multiple given parameters
         wetterdienst values --provider=dwd --network=observation \\
-            --parameter=precipitation_height/precipitation_more,temperature_air_200/kl \\
+            --parameter=precipitation_height/precipitation_more,temperature_air_mean_200/air_temperature \\
             --resolution=hourly --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
     Acquire MOSMIX data:
