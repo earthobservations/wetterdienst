@@ -426,7 +426,7 @@ class DwdRadarValues:
                     filename=file.name,
                 )
 
-        # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: E800
+        # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: E800, ERA001
         elif url.endswith(Extension.BZ2.value):
             with bz2.BZ2File(data, mode="rb") as archive:
                 data = BytesIO(archive.read())
