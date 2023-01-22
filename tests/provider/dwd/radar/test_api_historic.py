@@ -90,7 +90,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data():
         "hourly/radolan/historical/bin/2019/radolan_hourly_201908080050"
     )
 
-    payload = requests.get(radolan_hourly_backup_url)
+    payload = requests.get(radolan_hourly_backup_url, timeout=10)
 
     radolan_hourly = BytesIO(payload.content)
 
@@ -124,7 +124,7 @@ def test_radar_request_radolan_cdc_historic_daily_data():
         "daily/radolan/historical/bin/2019/radolan_daily_201908080050"
     )
 
-    payload = requests.get(radolan_daily_backup_url)
+    payload = requests.get(radolan_daily_backup_url, timeout=10)
 
     radolan_hourly = BytesIO(payload.content)
 
