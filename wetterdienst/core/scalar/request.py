@@ -621,7 +621,7 @@ class ScalarRequestCore(Core):
         """
         pass
 
-    def all(self) -> StationsResult:
+    def all(self) -> StationsResult:  # noqa: A003
         """
         Wraps the _all method and applies date filters.
 

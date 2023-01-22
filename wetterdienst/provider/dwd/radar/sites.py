@@ -59,7 +59,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         "/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile"
     )
 
-    def all(self) -> Dict:  # pragma: no cover
+    def all(self) -> Dict:  # pragma: no cover  # noqa: A003
         """
         Build dictionary from DataFrame containing radar site information.
         """

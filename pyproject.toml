@@ -239,6 +239,8 @@ select = [
     "S",
     # Bugbear
     "B",
+    # Builtins
+    "A",
     # isort
     "I",
     # Pycodestyle
