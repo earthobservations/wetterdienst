@@ -103,7 +103,7 @@ class OperaRadarSitesGenerator:
 
     def get_opera_radar_sites(self) -> List[Dict]:  # pragma: no cover
 
-        data = requests.get(self.url).json()
+        data = requests.get(self.url, timeout=10).json()
 
         # Filter empty elements and convert data types.
         integer_values = ["maxrange", "number", "startyear", "status", "wmocode"]

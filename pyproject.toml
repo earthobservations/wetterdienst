@@ -234,18 +234,21 @@ line-length = 120
 [tool.ruff]
 line-length = 120
 select = [
-    # Pyflakes
-    "F",
+    # Bandit
+    "S",
+    # isort
+    "I",
     # Pycodestyle
     "E",
     "W",
-    # isort
-    "I"
+    # Pyflakes
+    "F",
 ]
 
 [tool.ruff.per-file-ignores]
 "**/__init__.py" = ["F401"]
 "wetterdienst/__init__.py" = ["E402"]
+"tests/*" = ["S101"]
 "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
 
 [tool.poe.tasks]

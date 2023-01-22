@@ -805,7 +805,7 @@ def test_export_influxdb2_tabular():
             df = request.values.all().df
             ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
 
-            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")
+            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
 
 
 @surrogate("influxdb_client.InfluxDBClient")
@@ -839,4 +839,4 @@ def test_export_influxdb2_tidy():
             df = request.values.all().df
             ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
 
-            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")
+            mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
