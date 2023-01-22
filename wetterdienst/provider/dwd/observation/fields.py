@@ -106,7 +106,7 @@ def process(url) -> None:  # pragma: no cover
     parameters = read_description(url)
 
     # Output as JSON.
-    # import json; print(json.dumps(parameters, indent=4))  # noqa: E800
+    # import json; print(json.dumps(parameters, indent=4))  # noqa: E800, ERA001
 
     # Output as ASCII table.
     print(tabulate(list(parameters.items()), tablefmt="psql"))  # noqa: T201

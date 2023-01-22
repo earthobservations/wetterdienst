@@ -24,10 +24,10 @@ log = logging.getLogger()
 def fields_example():
     """Print DWD field examples for one specification."""
     # Output in JSON format.
-    # import json; print(json.dumps(metadata.describe_fields(), indent=4))  # Noqa:E800
+    # import json; print(json.dumps(metadata.describe_fields(), indent=4))  # noqa: E800, ERA001
 
     # Output in YAML format.
-    # import yaml; print(yaml.dump(dict(metadata.describe_fields()), default_style="|"))  # Noqa:E800
+    # import yaml; print(yaml.dump(dict(metadata.describe_fields()), default_style="|"))  # noqa: E800, ERA001
 
     # Output in pretty-print format.
     pprint(
