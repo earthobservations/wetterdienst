@@ -233,9 +233,12 @@ line-length = 120
 
 [tool.ruff]
 line-length = 120
+
 select = [
     # Bandit
     "S",
+    # Bugbear
+    "B",
     # isort
     "I",
     # Pycodestyle
@@ -245,11 +248,18 @@ select = [
     "F",
 ]
 
+extend-ignore = [
+    # zip() without an explicit strict= parameter.
+    "B905",
+]
+
+
 [tool.ruff.per-file-ignores]
 "**/__init__.py" = ["F401"]
-"wetterdienst/__init__.py" = ["E402"]
 "tests/*" = ["S101"]
 "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
+"wetterdienst/__init__.py" = ["E402"]
+"wetterdienst/ui/restapi.py" = ["B008"]
 
 [tool.poe.tasks]
 install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
