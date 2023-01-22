@@ -247,6 +247,8 @@ select = [
     "ERA",
     # isort
     "I",
+    # print
+    "T20",
     # Pycodestyle
     "E",
     "W",
@@ -262,7 +264,9 @@ extend-ignore = [
 
 [tool.ruff.per-file-ignores]
 "**/__init__.py" = ["F401"]
+"benchmarks/*" = ["T20"]
 "docs/conf.py" = ["ERA001"]
+"example/*" = ["T20"]
 "tests/*" = ["S101"]
 "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
 "wetterdienst/__init__.py" = ["E402"]
