@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.11-slim-bullseye
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
@@ -7,7 +7,7 @@ ENV TERM linux
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN pip install --no-cache-dir $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[export,restapi]
+RUN pip install --no-cache-dir $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,restapi]
 
 # Purge /tmp directory
 RUN rm /tmp/*

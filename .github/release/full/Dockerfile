@@ -1,44 +1,28 @@
 # 1. Build GDAL-python
-FROM python:3.10-slim as build-step
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
-# Install GDAL, HDF5, and MariaDB client dependencies.
+# Install GDAL and HDF5 bindings for Python, and a few other dependencies.
 RUN apt-get update && \
-    apt-get --yes --no-install-recommends install build-essential pkg-config libgdal-dev libmariadb-dev libhdf5-dev && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get --yes --no-install-recommends --no-install-suggests install \
+      ca-certificates python-is-python3 python3-gdal python3-h5py python3-pip python3-wheel && \
+    rm -rf /var/lib/apt/lists/* && rm -rf /var/cache/apt
 
-# Make sure you have numpy installed before you attempt to install the GDAL Python bindings.
-# https://gis.stackexchange.com/a/274328
-RUN pip install --no-cache-dir --upgrade setuptools==57.0.0 pip
-RUN pip install --no-cache-dir numpy
-RUN pip install --no-cache-dir cartopy==0.21.0
-RUN pip install --no-cache-dir GDAL==$(gdal-config --version)
+# Use Python 3.11.
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
 
 # Install wradlib.
-RUN pip install --no-cache-dir wradlib --no-deps
-
-# Install database adapters
-RUN pip install --no-cache-dir mysqlclient
-
-
-# 2. Main
-FROM python:3.10-slim
-
-ENV DEBIAN_FRONTEND noninteractive
-ENV TERM linux
-
-# Copy build artefacts from first build step.
-COPY --from=build-step /usr/local/lib /usr/local/lib
+RUN python -m pip install --no-cache-dir --prefer-binary --no-deps wradlib
 
 # Install Wetterdienst.
 
-# Use "poetry build --format=wheel" to build wheel packages.
+# Use `poetry build --format=wheel` to build wheel packages into `dist` folder.
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN pip install --no-cache-dir $(ls -c /tmp/wetterdienst-*-py3-none-any.whl)[export,influxdb,cratedb,mysql,postgresql,radar,bufr,restapi,explorer]
+RUN python -m pip install --no-cache-dir --prefer-binary $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer]
 
 # Purge /tmp directory
 RUN rm /tmp/*

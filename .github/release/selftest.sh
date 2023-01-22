@@ -10,10 +10,11 @@ flavor=$1
 
 echo "Testing wetterdienst"
 wetterdienst version
+wetterdienst info
 wetterdienst about coverage
 
 if [ "${flavor}" == "full" ]; then
   echo "Checking libraries"
-  python -c 'import gdal; print("gdal:", gdal.VersionInfo())'
+  python -c 'from osgeo import gdal; print("gdal:", gdal.__version__)'
   python -c 'import wradlib; print("wradlib:", wradlib.__version__)'
 fi
