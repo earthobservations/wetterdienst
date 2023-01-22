@@ -33,7 +33,7 @@ def _get_project_meta():
 pkg_meta = _get_project_meta()
 
 project = str(pkg_meta["name"])
-copyright = "Copyright (C) 2018-2023 earthobservations"
+copyright = "Copyright (C) 2018-2023 earthobservations"  # noqa: A001
 author = ", ".join([author.split("<")[0].strip() for author in pkg_meta["authors"]])
 version = str(pkg_meta["version"])
 

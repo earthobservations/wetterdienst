@@ -742,7 +742,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         return df
 
-    def all(self) -> ValuesResult:
+    def all(self) -> ValuesResult:  # noqa: A003
         """
         Collect all data from self.query
 
