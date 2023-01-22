@@ -162,7 +162,6 @@ optional = true
 bandit = "^1.7"
 black = { version = "^22.12", extras = ["jupyter"] }
 cff-from-621 = { version = "^0.0.1", python = ">= 3.10"}
-isort = "^5.11"
 pip-licenses = "^3.3"
 poethepoet = "^0.16"
 ruff = "^0.0.229"
@@ -232,14 +231,17 @@ to = {format = "pip", path = "requirements.txt"}
 [tool.black]
 line-length = 120
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-src_paths = ["wetterdienst", "example", "test"]
-extend_skip_glob = [".venv*", ".*_cache", "tmp", "var"]
-
 [tool.ruff]
 line-length = 120
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I"
+]
 
 [tool.ruff.per-file-ignores]
 "**/__init__.py" = ["F401"]
@@ -250,14 +252,13 @@ line-length = 120
 install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
 
 # Linting and formatting.
-lint = ["ruff", "isort-check", "black-check"]
+lint = ["ruff", "black-check"]
 ruff = "ruff ."
 black-check = "black --check ."
-isort-check = "isort --check ."
 
-format = ["black", "isort"]
-black = "black ."
-isort = "isort ."
+format = ["black-fix", "isort-fix"]
+black-fix = "black ."
+isort-fix = "ruff --fix --select=I ."
 
 docs = { shell = "cd docs && poetry run make html" }
 test-cflakes = "pytest -m cflake"
