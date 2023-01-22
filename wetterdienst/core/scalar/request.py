@@ -900,7 +900,7 @@ class ScalarRequestCore(Core):
             lat, lon = stations.loc[
                 stations[Columns.STATION_ID.value] == station_id, [Columns.LATITUDE.value, Columns.LONGITUDE.value]
             ].values.flatten()
-        except ValueError:
-            raise StationNotFoundError(f"no station found for {station_id}")
+        except ValueError as ex:
+            raise StationNotFoundError(f"no station found for {station_id}") from ex
 
         return lat, lon

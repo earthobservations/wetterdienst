@@ -43,7 +43,7 @@ def generate_cff_file(width: int = 79):
         Citation(cffstr=cff_serialisat).validate()
     except ValidationError as e:
         log.warning(e)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     CFF.write_text(data=cff_serialisat)
 
 

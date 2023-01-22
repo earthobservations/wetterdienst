@@ -107,7 +107,7 @@ class RequestRegistry(DatasetTreeCore):
         try:
             return cls[provider][network.upper()].load()
         except AttributeError as ex:
-            raise KeyError(ex)
+            raise KeyError(ex) from ex
 
     @classmethod
     def get_provider_names(cls):
@@ -138,8 +138,8 @@ class Wetterdienst:
             if not api:
                 raise KeyError
 
-        except (InvalidEnumeration, KeyError):
-            raise ProviderError(f"No API available for provider {provider} and network {network}")
+        except (InvalidEnumeration, KeyError) as ex:
+            raise ProviderError(f"No API available for provider {provider} and network {network}") from ex
 
         return api
 

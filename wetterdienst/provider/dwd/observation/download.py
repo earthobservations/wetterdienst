@@ -53,8 +53,8 @@ def __download_climate_observations_data(remote_file: str) -> bytes:
         file = download_file(remote_file, ttl=CacheExpiry.FIVE_MINUTES)
     except InvalidURL as e:
         raise InvalidURL(f"Error: the station data {remote_file} could not be reached.") from e
-    except Exception:
-        raise FailedDownload(f"Download failed for {remote_file}")
+    except Exception as ex:
+        raise FailedDownload(f"Download failed for {remote_file}") from ex
 
     try:
         zfs = ZipFileSystem(file)
