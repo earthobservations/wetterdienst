@@ -241,6 +241,8 @@ select = [
     "B",
     # Builtins
     "A",
+    # comprehensions
+    "C4",
     # isort
     "I",
     # Pycodestyle
