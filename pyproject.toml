@@ -157,12 +157,12 @@ zarr                            = { version = "^2.13", python = "<3.11", optiona
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-black = { version = "^22.10.0", extras = ["jupyter"] }
 # TODO: Integrate Bandit with Ruff?
 #       https://github.com/charliermarsh/ruff/issues/1646
 bandit = "^1.7"
+black = { version = "^22.12", extras = ["jupyter"] }
 cff-from-621 = { version = "^0.0.1", python = ">= 3.10"}
-isort = "^5.10"
+isort = "^5.11"
 pip-licenses = "^3.3"
 poethepoet = "^0.16"
 ruff = "^0.0.229"
@@ -235,6 +235,8 @@ line-length = 120
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+src_paths = ["wetterdienst", "example", "test"]
+extend_skip_glob = [".venv*", ".*_cache", "tmp", "var"]
 
 [tool.ruff]
 line-length = 120
@@ -246,12 +248,17 @@ line-length = 120
 
 [tool.poe.tasks]
 install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
-black = "black wetterdienst example tests"
-isort = "isort wetterdienst example tests"
+
+# Linting and formatting.
+lint = ["ruff", "isort-check", "black-check"]
 ruff = "ruff ."
+black-check = "black --check ."
+isort-check = "isort --check ."
+
 format = ["black", "isort"]
-lint = "flakeheaven lint wetterdienst example tests"
-turbolint = "ruff wetterdienst example tests"
+black = "black ."
+isort = "isort ."
+
 docs = { shell = "cd docs && poetry run make html" }
 test-cflakes = "pytest -m cflake"
 test-parallel = "pytest --numprocesses=auto -m 'not (explorer or cflake)'"

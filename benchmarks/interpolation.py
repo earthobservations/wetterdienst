@@ -13,8 +13,8 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-pd.set_option('display.width', 400)
-pd.set_option('display.max_columns', None)
+pd.set_option("display.width", 400)
+pd.set_option("display.max_columns", None)
 
 """
 example:

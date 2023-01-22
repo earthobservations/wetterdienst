@@ -40,12 +40,9 @@ def main():
     lon = 13.8470
 
     summarized_df = get_summarized_df(start_date, end_date, lat, lon)
-    summarized_df["color"] = summarized_df.station_id.map(lambda x: {
-        "01050": "yellow",
-        "01048": "green",
-        "01051": "blue",
-        "05282": "violet"
-    }.get(x))
+    summarized_df["color"] = summarized_df.station_id.map(
+        lambda x: {"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"}.get(x)
+    )
 
     regular_df_01050 = get_regular_df(start_date, end_date, "01050")
     regular_df_01048 = get_regular_df(start_date, end_date, "01048")

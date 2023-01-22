@@ -1,9 +1,12 @@
+from datetime import datetime
+
 import pandas as pd
 
 from wetterdienst import Parameter
-from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationResolution
-
-from datetime import datetime
+from wetterdienst.provider.dwd.observation import (
+    DwdObservationRequest,
+    DwdObservationResolution,
+)
 
 
 def get_interpolated_df(start_date: datetime, end_date: datetime) -> pd.DataFrame:
@@ -32,7 +35,7 @@ def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: l
 
 def calculate_percentage_difference(df: pd.DataFrame, text: str = "") -> float:
     total_amount = len(df["value"])
-    zero_amount = len(df[df["value"] == 0.])
+    zero_amount = len(df[df["value"] == 0.0])
     percentage = zero_amount / total_amount
     print(f"{text}: {percentage*100:.2f}% = {zero_amount} of {total_amount} with zero value")
     return percentage
