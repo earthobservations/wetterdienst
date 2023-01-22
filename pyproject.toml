@@ -157,26 +157,15 @@ zarr                            = { version = "^2.13", python = "<3.11", optiona
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-bandit = "^1.7.4"
 black = { version = "^22.10.0", extras = ["jupyter"] }
+# TODO: Integrate Bandit with Ruff?
+#       https://github.com/charliermarsh/ruff/issues/1646
+bandit = "^1.7"
 cff-from-621 = { version = "^0.0.1", python = ">= 3.10"}
-flake8-bandit = "^3.0"
-flake8-black = "^0.3"
-flake8-bugbear = "^22.1"
-flake8-builtins = "^1.5"
-flake8-comprehensions = "^3.7"
-flake8-copyright = "^0.2"
-flake8-docstrings = "^1.6"
-flake8-eradicate = "^1.2"
-flake8-isort = "^4.1"
-flake8-print = "^5.0"
-flake8-return = "^1.1"
-flake8-2020 = "^1.6"
-flakeheaven = "^3.0"
 isort = "^5.10"
 pip-licenses = "^3.3"
 poethepoet = "^0.16"
-ruff = "^0.0.135"
+ruff = "^0.0.229"
 
 [tool.poetry.group.test]
 optional = true
@@ -247,49 +236,8 @@ line-length = 120
 profile = "black"
 multi_line_output = 3
 
-[tool.flakeheaven]
-exclude = [
-    "example/wetterdienst_notebook.ipynb"
-]
-format = "grouped"
-max-line-length = 120
-extended_default_ignore = []
-
-[tool.flakeheaven.plugins]
-pycodestyle = ["+*", "-E203", "-W503", "-E501", "-E231"]
-pyflakes = ["+*"]
-flake8-bandit = ["+*"]
-flake8-black = ["+*"]
-flake8-bugbear = ["+*"]
-flake8-builtins = ["+*", "-A003"]
-flake8-comprehensions = ["+*"]
-flake8-copyright = ["+*"]
-flake8-eradicate = ["+*"]
-flake8-isort = ["+*"]
-flake8-print = ["+*"]
-flake8-return = ["+*", "-R505"]
-flake8-2020 = ["+*"]
-
-[tool.flakeheaven.exceptions."wetterdienst/__init__.py"]
-pycodestyle = ["-E402"]
-[tool.flakeheaven.exceptions."tests/provider/dwd/observation/test_available_datasets.py"]
-pycodestyle = ["-E402"]
-[tool.flakeheaven.exceptions."**/__init__.py"]
-pyflakes = ["-F401"]
-[tool.flakeheaven.exceptions."wetterdienst/util/fsspec_monkeypatch.py"]
-flake8-bugbear = ["-B301"]
-[tool.flakeheaven.exceptions."example/"]
-flake8-print = ["-*"]
-[tool.flakeheaven.exceptions."tests/"]
-flake8-bandit = ["-S101", "-S106"]
-[tool.flakeheaven.exceptions."wetterdienst/ui/restapi.py"]
-flake8-bugbear = ["-B008"]
-
 [tool.ruff]
 line-length = 120
-extend-exclude = [
-  ".venv*",
-]
 
 [tool.ruff.per-file-ignores]
 "**/__init__.py" = ["F401"]
@@ -300,6 +248,7 @@ extend-exclude = [
 install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
 black = "black wetterdienst example tests"
 isort = "isort wetterdienst example tests"
+ruff = "ruff ."
 format = ["black", "isort"]
 lint = "flakeheaven lint wetterdienst example tests"
 turbolint = "ruff wetterdienst example tests"

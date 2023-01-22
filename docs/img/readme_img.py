@@ -56,13 +56,13 @@ def create_temperature_ts_plot():
 
     ax.set_xlabel("Date")
 
-    title = f"Temperature (K) at Hohenpeissenberg, Germany"
+    title = "Temperature (K) at Hohenpeissenberg, Germany"
     ax.set_title(title)
     ax.legend(facecolor="white")
 
     ax.margins(x=0)
 
-    plt.savefig(f"temperature_ts.png")
+    plt.savefig("temperature_ts.png")
 
 
 def create_weather_stations_map():
@@ -202,13 +202,13 @@ def create_hohenpeissenberg_warming_stripes():
     ax.text(
         0.5,
         -0.05,
-        f"Source: Deutscher Wetterdienst",
+        "Source: Deutscher Wetterdienst",
         ha='center',
         va='center',
         transform=ax.transAxes
     )
 
-    plt.savefig(f"hohenpeissenberg_warming_stripes.png")
+    plt.savefig("hohenpeissenberg_warming_stripes.png")
 
 
 def main():

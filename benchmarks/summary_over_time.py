@@ -62,7 +62,7 @@ def main():
 
     ax[0].set_ylabel(None)
 
-    title = f"Comparison of summarized values and single stations"
+    title = "Comparison of summarized values and single stations"
     plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
