@@ -34,7 +34,7 @@ example:
 1395      00917  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  276.25      1.0
 1852      01424  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  281.05      1.0
 2309      01420  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  277.05      1.0
-"""
+"""  # noqa: E501
 
 
 @dataclass
