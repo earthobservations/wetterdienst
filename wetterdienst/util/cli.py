@@ -41,11 +41,5 @@ def docstring_format_verbatim(text: str) -> str:
     - https://github.com/pallets/click/issues/56
     """
     text = textwrap.dedent(text)
-    lines = []
-    for line in text.splitlines():
-        is_empty_line = line.strip() == ""
-        if is_empty_line:
-            lines.append("\b")
-        else:
-            lines.append(line)
+    lines = [line if line.strip() else "\b" for line in text.splitlines()]
     return "\n".join(lines)

@@ -25,7 +25,7 @@ def info() -> None:
 
     wd_info = {
         "version": __version__,
-        "authors": "Benjamin Gutzmann <gutzemann@gmail.com>, " "Andreas Motl <andreas.motl@panodata.org>",
+        "authors": "Benjamin Gutzmann <gutzemann@gmail.com>, Andreas Motl <andreas.motl@panodata.org>",
         "documentation": "https://wetterdienst.readthedocs.io/",
         "repository": "https://github.com/earthobservations/wetterdienst",
         "cache_dir": Settings.cache_dir,
@@ -41,6 +41,6 @@ def info() -> None:
     return
 
 
-def get_title(text: str):
+def get_title(text: str) -> str:
     line = "=" * len(text)
     return f"{line}\n{text}\n{line}"
