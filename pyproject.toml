@@ -254,11 +254,15 @@ select = [
     "W",
     # Pyflakes
     "F",
+    # return
+    "RET",
 ]
 
 extend-ignore = [
     # zip() without an explicit strict= parameter.
     "B905",
+    # Unnecessary `elif` after `return` statement
+    "RET505",
 ]
 
 
