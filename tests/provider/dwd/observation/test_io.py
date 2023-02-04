@@ -9,7 +9,6 @@ import sqlite3
 from unittest import mock
 
 import dateutil.parser
-import numpy as np
 import openpyxl
 import pandas as pd
 import pytest
@@ -449,9 +448,9 @@ def test_export_zarr(tmp_path):
     # Validate content.
     data = group
 
-    assert data["date"][0] == np.datetime64(datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc))
+    assert data["date"][0] == pd.Timestamp(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc).to_numpy()
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == np.datetime64(datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc))
+    assert data["date"][-1] == pd.Timestamp(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc).to_numpy()
     assert data["temperature_air_min_005"][-1] == -4.6
 
     shutil.rmtree(filename)
@@ -515,9 +514,9 @@ def test_export_feather(tmp_path):
     # Validate content.
     data = table.to_pydict()
 
-    assert data["date"][0] == datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    assert data["date"][0] == pd.Timestamp(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    assert data["date"][-1] == pd.Timestamp(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     assert data["temperature_air_min_005"][-1] == -4.6
 
     os.unlink(filename)
