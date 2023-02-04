@@ -167,37 +167,46 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
     # Select provider.
     dash_tre.wait_for_element_by_id("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+    time.sleep(0.5)
 
     # Select network.
     dash_tre.wait_for_element_by_id("select-network")
     dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+    time.sleep(0.5)
 
     # Select resolution.
     dash_tre.wait_for_element_by_id("select-resolution")
     dash_tre.select_dcc_dropdown("#select-resolution", value="HOURLY")
+    time.sleep(0.5)
 
     # Select dataset.
     dash_tre.wait_for_element_by_id("select-dataset")
     dash_tre.select_dcc_dropdown("#select-dataset", value="TEMPERATURE_AIR")
+    time.sleep(0.5)
 
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="TEMPERATURE_AIR_MEAN_200")
+    time.sleep(0.5)
 
     # Select period.
     dash_tre.wait_for_element_by_id("select-period")
     dash_tre.select_dcc_dropdown("#select-period", value="RECENT")
+    time.sleep(0.5)
 
     # Select weather station.
     dash_tre.wait_for_element_by_id("select-station")
     dash_tre.select_dcc_dropdown("#select-station", value="Anklam")
+    time.sleep(0.5)
 
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-values")
+    time.sleep(0.5)
 
     # Wait for status element.
     dash_tre.wait_for_contains_text("#status-response", "Records")
     dash_tre.wait_for_contains_text("#status-response", "Begin date")
+    time.sleep(0.5)
 
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
@@ -220,23 +229,29 @@ def test_dwd_mosmix_options(wetterdienst_ui, dash_tre):
     # Select provider.
     dash_tre.wait_for_element_by_id_clickable("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+    time.sleep(0.5)
 
     # Select network.
     dash_tre.wait_for_element_by_id_clickable("select-network")
     dash_tre.select_dcc_dropdown("#select-network", value="MOSMIX")
+    time.sleep(0.5)
 
     # Select resolution.
     dash_tre.wait_for_element_by_id_clickable("select-resolution")
     dash_tre.select_dcc_dropdown("#select-resolution", value="SMALL")
+    time.sleep(0.5)
 
     # Select dataset.
     dash_tre.wait_for_element_by_id_clickable("select-dataset")
     dash_tre.select_dcc_dropdown("#select-dataset", value="SMALL")
+    time.sleep(0.5)
 
     # Select parameter.
     dash_tre.wait_for_element_by_id_clickable("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="TEMPERATURE_AIR_MEAN_200")
+    time.sleep(0.5)
 
     # Select period.
     dash_tre.wait_for_element_by_id("select-period", 60)
     dash_tre.select_dcc_dropdown("#select-period", value="FUTURE")
+    time.sleep(0.5)
