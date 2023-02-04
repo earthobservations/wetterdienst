@@ -8,21 +8,19 @@ import pytest
 import pytz
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
-from tests.provider.dwd.radar import station_reference_pattern_unsorted
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
-@pytest.mark.xfail(reason="Out of service", strict=True)
 @pytest.mark.remote
-def test_radar_request_composite_latest_rx_reflectivity():
+def test_radar_request_composite_latest_rv_reflectivity(station_reference_pattern_sorted_prefixed):
     """
     Example for testing radar COMPOSITES latest.
     """
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RX_REFLECTIVITY,
+        parameter=DwdRadarParameter.RV_REFLECTIVITY,
         start_date=DwdRadarDate.LATEST,
     )
 
@@ -31,11 +29,10 @@ def test_radar_request_composite_latest_rx_reflectivity():
 
     month_year = datetime.utcnow().strftime("%m%y")
     header = (
-        f"RX......10000{month_year}BY 8101..VS 3SW   ......PR E\\+00INT   5GP 900x 900MS "
-        f"..<{station_reference_pattern_unsorted}>"
+        f"RV......10000{month_year}BY   2640...VS 5SW ........PR E-02INT   5GP1200x1100VV 000MF 00000008MS"
+        f"...<{station_reference_pattern_sorted_prefixed}>"
     )
-
-    assert re.match(bytes(header, encoding="ascii"), payload[:160])
+    assert re.match(bytes(header, encoding="ascii"), payload[:200]), payload[:200]
 
 
 @pytest.mark.remote

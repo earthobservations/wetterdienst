@@ -1,7 +1,10 @@
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018-2021, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def radar_locations():
     return [
         "asb",
@@ -13,7 +16,7 @@ def radar_locations():
         "fld",
         "hnr",
         "isn",
-        "mem",
+        "mhp",
         "neu",
         "nhb",
         "oft",
@@ -24,6 +27,18 @@ def radar_locations():
     ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def prefixed_radar_locations(radar_locations):
     return [f"de{location}" for location in radar_locations]
+
+
+@pytest.fixture(scope="function")
+def station_reference_pattern_sorted(radar_locations):
+    last = radar_locations.pop(-1)
+    return "".join([f"({location},)?" for location in radar_locations]) + f"({last})?"
+
+
+@pytest.fixture(scope="function")
+def station_reference_pattern_sorted_prefixed(prefixed_radar_locations):
+    last = prefixed_radar_locations.pop(-1)
+    return "".join([f"({location},)?" for location in prefixed_radar_locations]) + f"({last})?"
