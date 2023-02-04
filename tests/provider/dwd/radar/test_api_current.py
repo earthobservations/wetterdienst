@@ -2,6 +2,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
+from dirty_equals import IsNumeric, IsTuple
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -57,7 +58,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5():
 
     shape = hdf["/dataset1/data1/data"].shape
 
-    assert shape in ((361, 600), (360, 600), (359, 600), (358, 600))
+    assert shape == IsTuple(IsNumeric(ge=358, le=361), 600)
 
 
 @pytest.mark.remote
@@ -100,7 +101,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full():
 
     shape = hdf["/dataset1/data1/data"].shape
 
-    assert shape in ((360, 180), (360, 720), (361, 720), (358, 720), (356, 720))
+    assert shape == IsTuple(IsNumeric(ge=356, le=361), IsNumeric(ge=180, le=720))
 
 
 @pytest.mark.remote

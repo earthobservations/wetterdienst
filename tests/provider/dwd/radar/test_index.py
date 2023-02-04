@@ -38,15 +38,12 @@ def test_radar_fileindex_composite_pg_reflectivity_bufr():
     assert all(PurePath(url).match("*/weather/radar/composit/pg/*---bufr") for url in urls)
 
 
-@pytest.mark.xfail(reason="Out of service", strict=True)
-def test_radar_fileindex_composite_rx_reflectivity_bin():
-
+def test_radar_fileindex_composite_rv_reflectivity_bin():
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.RX_REFLECTIVITY,
+        parameter=DwdRadarParameter.RV_REFLECTIVITY,
     )
-
     urls = file_index[DwdColumns.FILENAME.value].tolist()
-    assert all(PurePath(url).match("*/weather/radar/composit/rx/*---bin") for url in urls)
+    assert all(PurePath(url).match("*/weather/radar/composit/rv/*.tar.bz2") for url in urls)
 
 
 @pytest.mark.parametrize(
