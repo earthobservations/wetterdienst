@@ -416,8 +416,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """
         columns = self._meta_fields.copy()
         columns.extend(df.columns.difference(columns, sort=False))
-        df[Columns.STATION_ID.value] = station_id
-        df[Columns.DATASET.value] = dataset.name.lower()
+        df.loc[:, Columns.STATION_ID.value] = station_id
+        df.loc[:, Columns.DATASET.value] = dataset.name.lower()
         return df.reindex(columns=columns)
 
     def query(self) -> Generator[ValuesResult, None, None]:
