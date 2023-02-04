@@ -63,7 +63,7 @@ class Parameter(Enum):
     CLOUD_COVER_BELOW_7_KM = "CLOUD_COVER_BELOW_7_KM"
     CLOUD_COVER_ABOVE_7_KM = "CLOUD_COVER_ABOVE_7_KM"
     # density
-    CLOUD_DENSITY = "CLOUD_DENSITY"  # TODO: may regroup as density
+    CLOUD_DENSITY = "CLOUD_DENSITY"
     # ---- type ----
     CLOUD_TYPE_LAYER1 = "CLOUD_TYPE_LAYER1"
     CLOUD_TYPE_LAYER2 = "CLOUD_TYPE_LAYER2"
