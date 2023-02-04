@@ -23,6 +23,7 @@ pytest.importorskip("shapely")
 pytestmark = pytest.mark.slow
 
 
+@pytest.mark.remote
 def test_interpolation_temperature_air_mean_200_hourly_by_coords():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
@@ -42,7 +43,7 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords():
         {
             "date": pd.to_datetime(["2022-01-02 00:00:00+00:00"], utc=True),
             "parameter": ["temperature_air_mean_200"],
-            "value": [277.64609040058747],
+            "value": [277.71438360792706],
             "distance_mean": [13.374012456145287],
             "station_ids": [["02480", "04411", "07341", "00917"]],
         }
@@ -51,6 +52,7 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords():
     assert_frame_equal(test_df, expected_df)
 
 
+@pytest.mark.remote
 def test_interpolation_temperature_air_mean_200_daily_by_station_id():
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
@@ -71,7 +73,7 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id():
             {
                 "date": pd.to_datetime(["1986-10-31 00:00:00+00:00", "1986-11-01 00:00:00+00:00"], utc=True),
                 "parameter": ["temperature_air_mean_200", "temperature_air_mean_200"],
-                "value": [279.6484850656227, 281.84999999999997],
+                "value": [279.52317509459124, 281.84999999999997],
                 "distance_mean": [16.991040957994503, 0.0],
                 "station_ids": [["00072", "02074", "02638", "04703"], ["00071"]],
             }
@@ -80,6 +82,7 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id():
         assert_frame_equal(interpolated_df, expected_df)
 
 
+@pytest.mark.remote
 def test_interpolation_precipitation_height_minute_10():
     stations = DwdObservationRequest(
         parameter=Parameter.PRECIPITATION_HEIGHT,

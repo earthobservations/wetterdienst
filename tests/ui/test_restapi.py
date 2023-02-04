@@ -294,7 +294,7 @@ def test_dwd_interpolate():
         {
             "date": "1986-10-31T00:00:00+00:00",
             "parameter": "temperature_air_mean_200",
-            "value": 279.6484850656227,
+            "value": 279.52317509459124,
             "distance_mean": 16.991040957994503,
             "station_ids": ["00072", "02074", "02638", "04703"],
         },

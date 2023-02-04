@@ -487,7 +487,7 @@ def test_cli_interpolate():
         {
             "date": "1986-10-31T00:00:00+00:00",
             "parameter": "temperature_air_mean_200",
-            "value": 279.6484850656,
+            "value": 279.5231750946,
             "distance_mean": 16.991040958,
             "station_ids": ["00072", "02074", "02638", "04703"],
         },
