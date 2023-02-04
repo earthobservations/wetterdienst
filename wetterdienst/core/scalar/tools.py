@@ -23,8 +23,7 @@ def extract_station_values(
     ):  # timestamps + 4 stations
         if not (cond1 or cond2):
             param_data.extra_station_counter += 1
-        # TODO: remove with newer pandas version
-        # "S" is add to station id titles to prevent bug with pandas that somehow doesn't allow column name "02000"
+        # "S" is added to station id titles to prevent bug with pandas that somehow doesn't allow column name "02000"
         # under certain circumstances
         param_data.values.loc[:, f"S{result_series_param.name}"] = result_series_param.values
     else:
