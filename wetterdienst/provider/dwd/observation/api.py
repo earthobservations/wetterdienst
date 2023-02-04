@@ -20,7 +20,6 @@ from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
@@ -521,7 +520,7 @@ class DwdObservationRequest(ScalarRequestCore):
             dataset=dataset,
             resolution=resolution,
             period=period,
-            cdc_base=DWDCDCBase.CLIMATE_OBSERVATIONS,
+            cdc_base="observations_germany/climate/",
         )
 
         if language == "en":

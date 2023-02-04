@@ -3,7 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import os
 from typing import Optional
-from urllib.parse import urljoin
 
 import pandas as pd
 from dateparser import parse
@@ -12,7 +11,6 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import DWD_CDC_PATH, DWD_SERVER
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_PARAMETERS_COMPOSITES,
@@ -86,8 +84,7 @@ def create_fileindex_radar(
         period=period,
     )
 
-    url = urljoin(DWD_SERVER, parameter_path)
-
+    url = f"https://opendata.dwd.de/{parameter_path}"
     files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.NO_CACHE)
 
     files_server = pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype="str")
@@ -191,9 +188,9 @@ def build_path_to_parameter(
             # See also page 4 on
             # https://opendata.dwd.de/climate_environment/CDC/help/RADOLAN/Unterstuetzungsdokumente/
             # Unterstuetzungsdokumente-Verwendung_von_RADOLAN-Produkten_im_ASCII-GIS-Rasterformat_in_GIS.pdf
-            return f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"
+            return f"climate_environment/CDC/grids_germany/{resolution.value}/radolan/reproc/2017_002/bin"
         else:
-            return f"{DWD_CDC_PATH}/grids_germany/{resolution.value}/radolan/{period.value}/bin"
+            return f"climate_environment/CDC/grids_germany/{resolution.value}/radolan/{period.value}/bin"
 
     elif parameter in RADAR_PARAMETERS_COMPOSITES:
         return f"weather/radar/composit/{parameter.value}"
