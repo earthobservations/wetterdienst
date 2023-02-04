@@ -4,10 +4,8 @@
 import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
-from functools import reduce
 from io import BytesIO, StringIO
 from typing import List, Tuple
-from urllib.parse import urljoin
 
 import pandas as pd
 from fsspec.implementations.zip import ZipFileSystem
@@ -22,11 +20,6 @@ from wetterdienst.provider.dwd.metadata.column_map import (
     GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
 )
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import (
-    DWD_CDC_PATH,
-    DWD_SERVER,
-    DWDCDCBase,
-)
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
@@ -122,19 +115,11 @@ def _create_meta_index_for_climate_observations(
     parameter_path = build_path_to_parameter(dataset, resolution, period)
 
     if dataset in DWD_URBAN_DATASETS:
-        dwd_cdc_base = DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS.value
+        dwd_cdc_base = "observations_germany/climate_urban/"
     else:
-        dwd_cdc_base = DWDCDCBase.CLIMATE_OBSERVATIONS.value
+        dwd_cdc_base = "observations_germany/climate/"
 
-    url = reduce(
-        urljoin,
-        [
-            DWD_SERVER,
-            DWD_CDC_PATH,
-            dwd_cdc_base,
-            parameter_path,
-        ],
-    )
+    url = f"https://opendata.dwd.de/climate_environment/CDC/{dwd_cdc_base}/{parameter_path}"
 
     files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
 
@@ -206,15 +191,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period) -> pd.DataFrame
     """
     parameter_path = build_path_to_parameter(DwdObservationDataset.WIND_EXTREME, Resolution.SUBDAILY, period)
 
-    url = reduce(
-        urljoin,
-        [
-            DWD_SERVER,
-            DWD_CDC_PATH,
-            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
-            parameter_path,
-        ],
-    )
+    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}"
 
     files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
 
@@ -253,16 +230,7 @@ def _create_meta_index_for_1minute_historical_precipitation() -> pd.DataFrame:
 
     parameter_path = f"{Resolution.MINUTE_1.value}/" f"{DwdObservationDataset.PRECIPITATION.value}/"
 
-    url = reduce(
-        urljoin,
-        [
-            DWD_SERVER,
-            DWD_CDC_PATH,
-            DWDCDCBase.CLIMATE_OBSERVATIONS.value,
-            parameter_path,
-            "meta_data/",
-        ],
-    )
+    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}/meta_data/"
 
     metadata_file_paths = list_remote_files_fsspec(url, ttl=CacheExpiry.METAINDEX)
 

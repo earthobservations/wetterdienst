@@ -1,19 +1,11 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from functools import reduce
-from urllib.parse import urljoin
-
 import pandas as pd
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import (
-    DWD_CDC_PATH,
-    DWD_SERVER,
-    DWDCDCBase,
-)
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
@@ -26,7 +18,7 @@ def _create_file_index_for_dwd_server(
     dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
-    cdc_base: DWDCDCBase,
+    cdc_base: str,
 ) -> pd.DataFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
@@ -41,7 +33,7 @@ def _create_file_index_for_dwd_server(
     """
     parameter_path = build_path_to_parameter(dataset, resolution, period)
 
-    url = reduce(urljoin, [DWD_SERVER, DWD_CDC_PATH, cdc_base.value, parameter_path])
+    url = f"https://opendata.dwd.de/climate_environment/CDC/{cdc_base}/{parameter_path}"
 
     files_server = list_remote_files_fsspec(url, ttl=CacheExpiry.TWELVE_HOURS)
 

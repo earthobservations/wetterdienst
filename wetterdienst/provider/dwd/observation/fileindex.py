@@ -11,7 +11,6 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import DWDCDCBase
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
@@ -73,10 +72,10 @@ def create_file_index_for_climate_observations(
 
     if dataset in DWD_URBAN_DATASETS:
         file_index = _create_file_index_for_dwd_server(
-            dataset, resolution, Period.RECENT, DWDCDCBase.CLIMATE_URBAN_OBSERVATIONS
+            dataset, resolution, Period.RECENT, "observations_germany/climate_urban"
         )
     else:
-        file_index = _create_file_index_for_dwd_server(dataset, resolution, period, DWDCDCBase.CLIMATE_OBSERVATIONS)
+        file_index = _create_file_index_for_dwd_server(dataset, resolution, period, "observations_germany/climate")
 
     file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
 
