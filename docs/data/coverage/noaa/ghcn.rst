@@ -6,21 +6,17 @@ Global Historical Climatology Network
 Overview
 ********
 
-NOAA Global Historical Climatology Network is a collection of **hourly** weather data put together from multiple weather
+NOAA Global Historical Climatology Network is a collection of **daily** weather data put together from multiple weather
 services around the world, even those where at this moment no data is publicly offered. Resolution is fixed on daily,
 because this is the most common and maintainable resolution with most observations practiced all over the world.
 
-Special Parameters
-******************
+License
+*******
 
-The dataset originally doesn't contain **average daily temperature**, which is why this data is calculated by
-wetterdienst with
+The NOAA GHCN incorporates data of multiple weather services across the globe. The `NOAA GHCN description`_ page
+includes more information on the usage, references, qualities etc.
 
-.. math::
-
-    tmean = (tmax + tmin) / 2
-
-so those values are not actually averages but means.
+.. _NOAA GHCN description: https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00861
 
 Structure
 *********
