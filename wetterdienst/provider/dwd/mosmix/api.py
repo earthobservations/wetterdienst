@@ -25,12 +25,6 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.constants import (
-    DWD_MOSMIX_L_PATH,
-    DWD_MOSMIX_L_SINGLE_PATH,
-    DWD_MOSMIX_S_PATH,
-    DWD_SERVER,
-)
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import (
@@ -45,6 +39,10 @@ from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 log = logging.getLogger(__name__)
+
+DWD_MOSMIX_S_PATH = "weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/"
+DWD_MOSMIX_L_PATH = "weather/local_forecasts/mos/MOSMIX_L/all_stations/kml/"
+DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations/{station_id}/kml/"
 
 
 class DwdMosmixPeriod(Enum):
@@ -119,8 +117,6 @@ class DwdMosmixValues(ScalarValuesCore):
             station_ids=self.sr.station_id.tolist(),
             parameters=parameter_,
         )
-
-    # TODO: add __eq__ and __str__
 
     @property
     def metadata(self) -> pd.DataFrame:
@@ -245,7 +241,7 @@ class DwdMosmixValues(ScalarValuesCore):
         :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame with data
         """
-        url = urljoin(DWD_SERVER, DWD_MOSMIX_S_PATH)
+        url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
 
         file_url = self.get_url_for_date(url, date)
 
@@ -265,7 +261,7 @@ class DwdMosmixValues(ScalarValuesCore):
         :return:
         """
         if self.sr.stations.station_group == DwdMosmixStationGroup.ALL_STATIONS:
-            url = urljoin(DWD_SERVER, DWD_MOSMIX_L_PATH)
+            url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_PATH)
 
             file_url = self.get_url_for_date(url, date)
 
@@ -275,7 +271,7 @@ class DwdMosmixValues(ScalarValuesCore):
                 yield forecast
         else:
             for station_id in self.sr.station_id:
-                station_url = urljoin(DWD_SERVER, DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
+                station_url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
 
                 try:
                     file_url = self.get_url_for_date(station_url, date)
@@ -522,7 +518,7 @@ class DwdMosmixRequest(ScalarRequestCore):
 
         # The data as published by DWD has its `LAT` and `LON` columns in "Degrees Minutes" format.
         # `convert_dm_to_dd` takes care of converting the coordinates to "Decimal Degrees".
-        df[Columns.LATITUDE.value] = df[Columns.LATITUDE.value].astype(float).apply(convert_dm_to_dd)
-        df[Columns.LONGITUDE.value] = df[Columns.LONGITUDE.value].astype(float).apply(convert_dm_to_dd)
+        df[Columns.LATITUDE.value] = convert_dm_to_dd(df[Columns.LATITUDE.value].astype(float))
+        df[Columns.LONGITUDE.value] = convert_dm_to_dd(df[Columns.LONGITUDE.value].astype(float))
 
         return df.reindex(columns=self._base_columns)

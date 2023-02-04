@@ -2,6 +2,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import numpy as np
+import pandas as pd
+from pandas._testing import assert_series_equal
 
 from wetterdienst.util.geo import Coordinates, convert_dm_to_dd
 
@@ -28,6 +30,7 @@ def test_get_coordinates_in_radians():
 
 def test_dms_to_dd():
     """Test conversion from degree minute second to decimal degree"""
-    # test Mosmix station Muenster/Osnabrueck
-    assert convert_dm_to_dd(7.42) == 7.7
-    assert convert_dm_to_dd(52.08) == 52.13
+    data = pd.Series([7.42, 52.08, -7.42, -52.08, 0])
+    given = convert_dm_to_dd(data)
+    expected = pd.Series([7.7, 52.13, -7.7, -52.13, 0])
+    assert_series_equal(given, expected)
