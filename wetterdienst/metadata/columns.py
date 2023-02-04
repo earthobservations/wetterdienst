@@ -7,8 +7,6 @@ from enum import Enum
 class Columns(Enum):
     """Overhauled column names for metadata fields"""
 
-    # TODO: remove columns which are only used in context of data wrangling of one of
-    #  the weather services e.g. EOR or FILENAME
     STATION_ID = "station_id"  # change to local id later
     DATE = "date"
     FROM_DATE = "from_date"
