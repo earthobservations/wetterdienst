@@ -286,9 +286,9 @@ class DwdRadarValues:
                 parse_datetime=False,
             )
 
-            # Find "-latest-" file.
+            # Find "-latest-" or "LATEST" or similar file.
             filenames = file_index[DwdColumns.FILENAME.value].tolist()
-            latest_file = list(filter(lambda x: "-latest-" in x, filenames))[0]
+            latest_file = list(filter(lambda x: "latest" in x.lower(), filenames))[0]
 
             # Yield single "RadarResult" item.
             result = next(self._download_generic_data(url=latest_file))
@@ -420,10 +420,15 @@ class DwdRadarValues:
         if url.endswith(Extension.TAR_BZ2.value):
             tfs = TarFileSystem(data, compression="bz2")
             for file in tfs.glob("*"):
+                try:
+                    file_name = file.name
+                except AttributeError:
+                    file_name = file
+
                 yield RadarResult(
-                    data=tfs.open(file).read(),
-                    timestamp=get_date_from_filename(file.name),
-                    filename=file.name,
+                    data=BytesIO(tfs.open(file).read()),
+                    timestamp=get_date_from_filename(file_name),
+                    filename=file_name,
                 )
 
         # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: E800, ERA001
