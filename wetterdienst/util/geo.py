@@ -4,6 +4,7 @@
 from typing import Tuple, Union
 
 import numpy as np
+import pandas as pd
 from sklearn.neighbors import BallTree
 
 
@@ -64,17 +65,13 @@ def derive_nearest_neighbours(
         Tuple of distances and ranks of nearest to most distant stations_result
     """
     points = np.c_[np.radians(latitudes), np.radians(longitudes)]
-
     distance_tree = BallTree(points, metric="haversine")
-
     return distance_tree.query(coordinates.get_coordinates_in_radians().reshape(-1, 2), k=number_nearby)
 
 
-def convert_dm_to_dd(dms: float) -> float:
+def convert_dm_to_dd(dms: pd.Series) -> pd.Series:
     """Convert degree minutes to decimal degree"""
-    degrees = int(dms)
+    degrees = dms.astype(int)
     minutes = dms - degrees
-
-    decimals = round(minutes / 60 * 100, 2)
-
+    decimals = (minutes / 60 * 100).round(2)
     return degrees + decimals
