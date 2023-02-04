@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, List, Tuple
 import numpy as np
 import pandas as pd
 import utm
-from scipy import interpolate
+from scipy.interpolate import LinearNDInterpolator
 from shapely.geometry import Point, Polygon
 
 from wetterdienst.core.scalar.tools import _ParameterData, extract_station_values
@@ -226,13 +226,12 @@ def apply_interpolation(
 
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
     distance_mean = sum(distances) / len(distances)
-
-    f = interpolate.interp2d(xs, ys, vals, kind="linear")
-    value = f(utm_x, utm_y)[0]  # there is only one interpolation result
+    f = LinearNDInterpolator(points=(xs, ys), values=vals)
+    value = f(utm_x, utm_y)
 
     if parameter == Parameter.PRECIPITATION_HEIGHT.name.lower():
-        f_index = interpolate.interp2d(ys, xs, vals > 0, kind="linear")
-        value_index = f_index(utm_x, utm_y)[0]  # there is only one interpolation result
+        f_index = LinearNDInterpolator(points=(xs, ys), values=vals)
+        value_index = f_index(utm_x, utm_y)
         value_index = 1 if value_index >= 0.5 else 0
         value *= value_index
 
