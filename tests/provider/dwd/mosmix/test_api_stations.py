@@ -10,10 +10,9 @@ and not in "Decimal Degrees".
 
 Source: https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations.cfg?view=nasPublication&nn=495490
 """
-from unittest import mock
-
 import pandas as pd
 import pytest
+from dirty_equals import IsInt, IsTuple
 from pandas._testing import assert_frame_equal, assert_series_equal
 
 from wetterdienst.metadata.columns import Columns
@@ -31,8 +30,7 @@ def test_dwd_mosmix_stations_success():
     assert not df.empty
 
     # Verify size of dataframe with all records.
-    assert df.shape == (mock.ANY, 9)
-    assert df.shape[0] >= 5500
+    assert df.shape == IsTuple(IsInt(ge=5500), 9)
 
     # Verify content of dataframe. For reference purposes,
     # we use the first and the last record of the list.
@@ -66,11 +64,8 @@ def test_dwd_mosmix_stations_success():
     first_station: pd.Series = df.head(1).iloc[0]
     last_station: pd.Series = df.tail(1).iloc[0]
 
-    first_station.name = None
-    last_station.name = None
-
-    assert_series_equal(first_station, first_station_reference)
-    assert_series_equal(last_station, last_station_reference)
+    assert_series_equal(first_station, first_station_reference, check_names=False)
+    assert_series_equal(last_station, last_station_reference, check_names=False)
 
 
 @pytest.mark.remote
