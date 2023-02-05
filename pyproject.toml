@@ -178,6 +178,7 @@ freezegun = "^1.2"
 h5py = { version = "^3.1", optional = true}
 ipykernel = "^6.19.4"
 jupyter = "^1.0.0"
+lmfit = "^1.1.0"  # required for example observations_station_gaussian_model.py
 percy = "^2.0"
 pybufrkit = "^0.2"
 pytest = "^7.2"
@@ -212,7 +213,7 @@ explorer            = ["dash", "dash-bootstrap-components", "dash-leaflet", "geo
 export              = ["openpyxl", "pyarrow", "sqlalchemy", "xarray", "zarr"]
 influxdb            = ["influxdb", "influxdb-client"]
 interpolation       = ["scipy", "shapely", "utm"]
-ipython             = ["ipython", "matplotlib", "jsonschema"]
+ipython             = ["ipython", "matplotlib"]
 mpl                 = ["matplotlib"]
 mysql               = ["mysqlclient"]
 postgresql          = ["psycopg2-binary"]
