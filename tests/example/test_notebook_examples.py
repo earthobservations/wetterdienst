@@ -12,7 +12,7 @@ EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
 
 @pytest.mark.slow
 @pytest.mark.remote
-def test_jupyter_example():
+def test_wetterdienst_notebook():
     """Test for climate_observations jupyter notebook"""
     fixture = NBRegressionFixture(
         exec_notebook=True,

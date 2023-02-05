@@ -9,6 +9,7 @@ from example import (
     dwd_describe_fields,
     mosmix_forecasts,
     observations_sql,
+    observations_station_gaussian_model,
     observations_stations,
 )
 
@@ -19,6 +20,7 @@ EXAMPLES = (
     mosmix_forecasts,
     observations_sql,
     observations_stations,
+    observations_station_gaussian_model,
     dwd_describe_fields,
 )
 
