@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.53.0 (07.02.2023)
+*******************
+
 - SCALAR: Change tidy option to be set to True if multiple different entire datasets are queried
   This change is in accordance with exporting results to json where multiple DataFrames are concatenated.
 - CLI: Add command line options ``wetterdienst --version`` and ``wetterdienst -v``
