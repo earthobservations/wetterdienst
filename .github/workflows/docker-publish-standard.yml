@@ -24,7 +24,7 @@ concurrency:
 
 # The name for the produced image at ghcr.io.
 env:
-  GHCR_IMAGE_NAME: wetterdienst-standard
+  GHCR_IMAGE_NAME: earthobservations/wetterdienst-standard
 
 jobs:
   build_and_test:
