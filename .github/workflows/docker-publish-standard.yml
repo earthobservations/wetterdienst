@@ -1,17 +1,18 @@
-name: Docker Standard
+# Stage Docker images through GitHub Actions (GHA) to GitHub Container Registry (GHCR).
+#
+# Derived from:
+# https://github.com/crate/cratedb-prometheus-adapter/blob/main/.github/workflows/release.yml
+name: Release Docker Standard
 
 on:
   push:
-    # Publish `main` as Docker `latest` image.
-    branches:
-      - main
-
-    # Publish `v1.2.3` tags as releases.
     tags:
-      - v*
-
-  # Run tests for any PRs.
+      - '*.*.*'
   pull_request:
+    branches: [ main ]
+
+  schedule:
+    - cron: '0 10 * * *' # everyday at 10am
 
   # Allow job to be triggered manually.
   workflow_dispatch:
@@ -21,87 +22,128 @@ concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.ref }}
 
+# The name for the produced image at ghcr.io.
 env:
-  IMAGE_NAME: wetterdienst-standard
+  GHCR_IMAGE_NAME: wetterdienst-standard
 
 jobs:
-  # Run tests.
-  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
-  test:
+  build_and_test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Acquire sources
+      -
+        name: Acquire sources
         uses: actions/checkout@v3
-
-      - name: Setup Python
+      -
+        name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-
-      - name: Setup Poetry
+      -
+        name: Setup Poetry
         uses: snok/install-poetry@v1
-
-      - name: Build wheel package
+      -
+        name: Build wheel package
         run: poetry build --format=wheel
-
-      - name: Run tests
+      -
+        name: Upload wheel package
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ runner.os }}-wheel-${{ github.sha }}
+          path: dist/wetterdienst-*.whl
+          retention-days: 7
+      -
+        name: Run tests
         run: |
           if [[ -f .github/release/standard.test.yml ]]; then
             docker-compose --file .github/release/standard.test.yml build
             docker-compose --file .github/release/standard.test.yml run sut
           fi
 
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  push:
-    # Ensure test job passes before pushing image.
-    needs: test
-
+  docker:
+    needs: build_and_test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-
     steps:
-      - name: Acquire sources
+      -
+        name: Acquire sources
         uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
-
-      - name: Setup Poetry
-        uses: snok/install-poetry@v1
-
-      - name: Build wheel package
-        run: poetry build --format=wheel
-
-      - name: Build Docker image
-        run: docker build . --file .github/release/standard/Dockerfile --tag $IMAGE_NAME
-
-      - name: Log into GitHub Container Registry
-        run: echo "${{ secrets.CR_PAT }}" | docker login https://ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Push image to GitHub Container Registry
+          fetch-depth: 0
+      -
+        name: Download wheel package
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ runner.os }}-wheel-${{ github.sha }}
+          path: dist
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          # List of Docker images to use as base name for tags
+          images: |
+            ghcr.io/${{ env.GHCR_IMAGE_NAME }}
+          # Generate Docker tags based on the following events/attributes
+          tags: |
+            type=schedule,pattern=nightly
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      -
+        name: Inspect meta
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-
-          # Change all uppercase to lowercase
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-
-          # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-
-          # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-
-          # Use Docker `latest` tag convention
-          [ "$VERSION" == "main" ] && VERSION=latest
-
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
-
-          echo "Published image $IMAGE_ID:$VERSION"
+          echo "Tags:      ${{ steps.meta.outputs.tags }}"
+          echo "Labels:    ${{ steps.meta.outputs.labels }}"
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      -
+        name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      -
+        name: Inspect builder
+        run: |
+          echo "Name:      ${{ steps.buildx.outputs.name }}"
+          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+          echo "Status:    ${{ steps.buildx.outputs.status }}"
+          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+      -
+        name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: .github/release/standard/Dockerfile
+          platforms: linux/amd64  # in future we might want to add: linux/arm64,linux/arm/v7
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+      -
+        name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+      -
+        name: Display git status
+        run: |
+          set -x
+          git describe
+          git status
