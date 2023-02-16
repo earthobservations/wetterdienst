@@ -24,7 +24,7 @@ concurrency:
 
 # The name for the produced image at ghcr.io.
 env:
-  GHCR_IMAGE_NAME: earthobservations/wetterdienst-standard
+  IMAGE_NAME: "${{ github.repository }}-standard"
 
 jobs:
   build_and_test:
@@ -82,7 +82,7 @@ jobs:
         with:
           # List of Docker images to use as base name for tags
           images: |
-            ghcr.io/${{ env.GHCR_IMAGE_NAME }}
+            ghcr.io/${{ env.IMAGE_NAME }}
           # Generate Docker tags based on the following events/attributes
           tags: |
             type=schedule,pattern=nightly
