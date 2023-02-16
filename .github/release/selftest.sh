@@ -15,6 +15,5 @@ wetterdienst about coverage
 
 if [ "${flavor}" == "full" ]; then
   echo "Checking libraries"
-  python -c 'from osgeo import gdal; print("gdal:", gdal.__version__)'
   python -c 'import wradlib; print("wradlib:", wradlib.__version__)'
 fi
