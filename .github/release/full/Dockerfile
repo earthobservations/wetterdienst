@@ -19,7 +19,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN python -m pip install --no-cache-dir --prefer-binary $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer,radarplus]
+RUN python -m pip install --no-cache-dir --prefer-binary $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer,radar,radarplus]
 
 # Purge /tmp directory
 RUN rm /tmp/*
