@@ -14,7 +14,7 @@ RUN apt-get update && \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
 
 # Install wradlib.
-RUN python -m pip install --no-cache-dir --prefer-binary --no-deps wradlib
+RUN python -m pip install --no-cache-dir --prefer-binary --no-deps wradlib==1.18.0
 
 # Install Wetterdienst.
 
