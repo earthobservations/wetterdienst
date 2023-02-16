@@ -15,7 +15,10 @@ set -x
 if [ "${flavor}" = "testing" ]; then
 
   poetry install --verbose --no-interaction --with=test,dev --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation --extras=ipython
-  poetry run pip install --verbose --no-input --no-deps wradlib==1.18.0
+
+  # Install wradlib, preventing installation of GDAL.
+  poetry run pip install --verbose --no-input xradar
+  poetry run pip install --verbose --no-input --no-deps wradlib==1.19.0
 
   # Wheels for `h5py` not available for cp311 yet.
   poetry run python -c 'import sys; sys.exit(not sys.version_info < (3, 11))' \
