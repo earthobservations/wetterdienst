@@ -5,6 +5,7 @@
 =====
 About
 =====
+
 Example for DWD radar sites OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib.
 
 See also:
@@ -12,15 +13,6 @@ See also:
 
 This program will request the latest RADAR SWEEP_PCP_VELOCITY_H data
 for Boostedt and plot the outcome with matplotlib.
-
-
-=====
-Setup
-=====
-::
-
-    brew install gdal
-    pip install wradlib
 
 """  # Noqa:D205,D400
 import logging

@@ -5,6 +5,7 @@
 =====
 About
 =====
+
 Example for DWD radar sites DX using wetterdienst and wradlib.
 
 The German Weather Service uses the DX file format to encode
@@ -16,15 +17,6 @@ See also:
 
 This program will request the latest RADAR DX data
 for Boostedt and plot the outcome with matplotlib.
-
-
-=====
-Setup
-=====
-::
-
-    brew install gdal
-    pip install wradlib
 
 """  # noqa:D205,D400,E501
 import logging

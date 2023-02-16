@@ -5,6 +5,7 @@
 =====
 About
 =====
+
 Example for DWD RADOLAN Composite RW/SF using wetterdienst and wradlib.
 Hourly and gliding 24h sum of radar- and station-based measurements (German).
 
@@ -15,18 +16,10 @@ This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00
 and plot the outcome with matplotlib.
 
 
-=====
-Setup
-=====
-::
-
-    brew install gdal
-    pip install wradlib
-
-
 =======
 Details
 =======
+
 RADOLAN: Radar Online Adjustment
 Radar based quantitative precipitation estimation
 

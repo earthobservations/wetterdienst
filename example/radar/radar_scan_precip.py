@@ -5,6 +5,7 @@
 =====
 About
 =====
+
 Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib. # noqa
 Derived from https://gist.github.com/kmuehlbauer/ac990569e6ad38a49412fc74a2035c37.
 
@@ -13,15 +14,6 @@ See also:
 
 This program will request the most recent complete SWEEP_PCP data
 for Essen and plot the outcome with matplotlib.
-
-
-=====
-Setup
-=====
-::
-
-    brew install gdal
-    pip install wradlib
 
 """  # Noqa:D205,D400
 import logging
