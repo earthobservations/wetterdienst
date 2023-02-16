@@ -10,3 +10,9 @@ updates:
     schedule:
       interval: "monthly"
     versioning-strategy: lockfile-only
+
+  - package-ecosystem: "github-actions"
+    # Workflow files stored in the default location of `.github/workflows`
+    directory: "/"
+    schedule:
+      interval: "monthly"
