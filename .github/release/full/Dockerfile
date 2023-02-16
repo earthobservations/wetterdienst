@@ -13,16 +13,13 @@ RUN apt-get update && \
 # Use Python 3.11.
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
 
-# Install wradlib.
-RUN python -m pip install --no-cache-dir --prefer-binary --no-deps wradlib==1.18.0
-
 # Install Wetterdienst.
 
 # Use `poetry build --format=wheel` to build wheel packages into `dist` folder.
 COPY dist/wetterdienst-*.whl /tmp/
 
 # Install latest wheel package.
-RUN python -m pip install --no-cache-dir --prefer-binary $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer]
+RUN python -m pip install --no-cache-dir --prefer-binary $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer,radarplus]
 
 # Purge /tmp directory
 RUN rm /tmp/*

@@ -14,8 +14,7 @@ set -x
 
 if [ "${flavor}" = "testing" ]; then
 
-  poetry install --verbose --no-interaction --with=test,dev --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation --extras=ipython
-  poetry run pip install --verbose --no-input --no-deps wradlib==1.18.0
+  poetry install --verbose --no-interaction --with=test,dev --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation --extras=ipython --extras=radarplus
 
   # Wheels for `h5py` not available for cp311 yet.
   poetry run python -c 'import sys; sys.exit(not sys.version_info < (3, 11))' \
