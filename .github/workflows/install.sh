@@ -14,8 +14,6 @@ set -x
 
 if [ "${flavor}" = "testing" ]; then
 
-  poetry install --verbose --no-interaction --with=test,dev --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation --extras=ipython
-
   # Install wradlib 1.19 only on Python 3.9 or higher.
   if poetry run python -c 'import sys; sys.exit(not sys.version_info >= (3, 9))'; then
     poetry run pip install --verbose --no-input wradlib==1.19.0
@@ -25,10 +23,15 @@ if [ "${flavor}" = "testing" ]; then
     poetry run pip install --verbose --no-input --no-deps wradlib==1.18.0
   fi
 
-  # Wheels for `h5py` not available for cp311 yet.
-  poetry run python -c 'import sys; sys.exit(not sys.version_info < (3, 11))' \
-    && poetry run pip install --verbose --no-input --no-deps h5py \
-    || true
+  poetry install --verbose --no-interaction \
+    --with=test,dev \
+    --extras=explorer \
+    --extras=export \
+    --extras=interpolation \
+    --extras=ipython \
+    --extras=radar \
+    --extras=restapi \
+    --extras=sql
 
 elif [ "${flavor}" = "docs" ]; then
   poetry install --verbose --no-interaction --with=docs --extras=interpolation

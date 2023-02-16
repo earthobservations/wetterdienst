@@ -135,7 +135,7 @@ dash-leaflet                    = { version = "^0.1.23", optional = true }  # Ex
 duckdb                          = { version = "^0.6.0", optional = true }  # Export feature.
 fastapi                         = { version = "^0.65", optional = true }  # HTTP REST API feature.
 geojson                         = { version = "^2.5.0", optional = true }  # Explorer UI feature.
-h5py                            = { version = "^3.1", optional = true, extras = ["radar"] }  # Radar feature.
+h5py                            = { version = "^3.1", optional = true }  # Radar feature.
 influxdb                        = { version = "^5.3", optional = true }  # Export feature.
 influxdb-client                 = { version = "^1.18", optional = true }  # Export feature.
 matplotlib                      = { version = "^3.3", optional = true }
