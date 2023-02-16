@@ -235,8 +235,8 @@ Docker images for each stable release will get pushed to GitHub Container Regist
 There are images in two variants, ``wetterdienst-standard`` and ``wetterdienst-full``.
 
 ``wetterdienst-standard`` will contain a minimum set of 3rd-party packages,
-while ``wetterdienst-full`` will try to serve a full environment by also
-including packages like GDAL and wradlib.
+while ``wetterdienst-full`` will try to serve a full environment, including
+*all* of the optional dependencies of Wetterdienst.
 
 Pull the Docker image:
 

@@ -2,9 +2,10 @@
 Docker
 ######
 
-Wetterdienst comes in two Docker image flavors. A "standard" variant and a
-"full" variant. The "full" variant includes some additional dependencies
-out of the box, like GDAL.
+Wetterdienst comes in two Docker image flavors. A "standard" variant, including
+all dependency packages from the ``export,restapi`` extras, and a "full" variant,
+including all dependency packages from the ``export,influxdb,cratedb,postgresql,
+radar,bufr,restapi,explorer,radar,radarplus`` extras.
 
 
 *************
