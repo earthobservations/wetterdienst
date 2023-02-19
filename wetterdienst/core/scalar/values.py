@@ -35,6 +35,8 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
     def __init__(self, stations_result: StationsResult) -> None:
         self.sr = stations_result
+        self.stations_counter = 0
+        self.stations_collected = []
 
     @classmethod
     def from_stations(cls, stations: StationsResult):
@@ -428,11 +430,18 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         :return:
         """
+        # reset station stations_counter
+        self.stations_counter = 0
+        self.stations_collected = []
+
         # mapping of original to humanized parameter names is always the same
         if self.sr.humanize:
             hpm = self._create_humanized_parameters_mapping()
 
         for station_id in self.sr.station_id:
+            if self.stations_counter == self.sr.rank:
+                break
+
             # TODO: add method to return empty result with correct response string e.g.
             #  station id not available
             station_data = []
@@ -509,14 +518,17 @@ class ScalarValuesCore(metaclass=ABCMeta):
                 station_df = pd.DataFrame()
 
             if self.sr.skip_empty:
-                ap = self._get_actual_percentage(station_df)
+                percentage = self._get_actual_percentage(df=station_df)
 
-                if ap < self.sr.skip_threshold:
+                if percentage < self.sr.skip_threshold:
                     log.info(
-                        f"station {station_id} is skipped as percentage of actual values ({ap}) "
+                        f"station {station_id} is skipped as percentage of actual values ({percentage}) "
                         f"is below threshold ({self.sr.skip_threshold})."
                     )
                     continue
+
+            self.stations_counter += 1
+            self.stations_collected.append(station_id)
 
             if self.sr.dropna:
                 station_df = station_df.loc[station_df.value.notna(), :].reset_index(drop=True)
@@ -537,7 +549,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
             if self.sr.humanize:
                 station_df = self._humanize(station_df, hpm)
 
-            yield ValuesResult(stations=self.sr, df=station_df)
+            yield ValuesResult(stations=self.sr, values=self, df=station_df)
 
     @abstractmethod
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
@@ -648,9 +660,9 @@ class ScalarValuesCore(metaclass=ABCMeta):
         """
         Method that coerces meta fields. Those fields are expected to be found in the
         DataFrame in a columnar shape. Thore are basically the station id and the date
-        fields. Furthermore if the data is tidied parameter can be found as well as
+        fields. Furthermore, if the data is tidied parameter can be found as well as
         quality. For station id, parameter and quality those columns are additionally
-        coerced to categories to reduce consumption of the DataFrame.
+        mapped to categories to reduce consumption of the DataFrame.
 
         :param df: pandas.DataFrame with the "fresh" data
         :return: pandas.DataFrame with meta fields being coerced
@@ -759,12 +771,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
             df = pd.concat(data, ignore_index=True)
         except ValueError:
             log.error("No data available for given constraints")
-            return ValuesResult(stations=self.sr, df=pd.DataFrame())
+            return ValuesResult(stations=self.sr, values=self, df=pd.DataFrame())
 
         # Have to reapply category dtype after concatenation
         df = self._coerce_meta_fields(df)
 
-        return ValuesResult(stations=self.sr, df=df)
+        return ValuesResult(stations=self.sr, values=self, df=df)
 
     def _humanize(self, df: pd.DataFrame, humanized_parameters_mapping: Dict[str, str]) -> pd.DataFrame:
         """
@@ -811,7 +823,33 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         return hpm
 
-    @staticmethod
-    def _get_actual_percentage(df: pd.DataFrame) -> float:
-        """Calculate percentage of actual values"""
-        return df.groupby("parameter").apply(lambda x: x.value.dropna().size / x.value.size).min()
+    def _get_actual_percentage(self, df: pd.DataFrame) -> float:
+        """
+        Calculate percentage of actual values. The percentage is calculated
+        per requested parameter and statistically aggregated to a float that
+        can be compared with a threshold.
+        :param df: pandas DataFrame with values
+        :return: float of actual percentage of values
+        """
+        parameters = []
+        for parameter, dataset in self.sr.parameter:
+            if parameter != dataset:
+                parameters.append(parameter.value)
+            else:
+                dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
+                parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
+        percentage = (
+            df.groupby("parameter").apply(lambda x: x.value.dropna().size / x.value.size).rename("perc").reset_index()
+        )
+        missing = pd.DataFrame.from_records(
+            [{"parameter": par, "perc": 0} for par in parameters if par not in percentage.parameter.tolist()]
+        )
+        percentage = pd.concat([percentage, missing])
+        if self.sr.settings.skip_criteria == "min":
+            return percentage.perc.min()
+        elif self.sr.settings.skip_criteria == "mean":
+            return percentage.perc.mean()
+        elif self.sr.settings.skip_criteria == "max":
+            return percentage.perc.max()
+        else:
+            KeyError("'skip_criteria must be one of 'min', 'mean', 'max'")

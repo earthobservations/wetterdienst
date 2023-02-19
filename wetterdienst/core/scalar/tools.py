@@ -15,7 +15,7 @@ def extract_station_values(
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR
-    # 3. an additional counter is below 3 (used if a station has really no or few values)
+    # 3. an additional stations_counter is below 3 (used if a station has really no or few values)
     cond1 = param_data.values.shape[1] < 4
     cond2 = not cond1 and gain_of_value_pairs(param_data.values.copy(), result_series_param.copy()) > 0.10
     if (

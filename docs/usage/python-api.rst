@@ -197,6 +197,7 @@ The environmental settings recognized by our settings are
 - WD_SCALAR_SI_UNITS
 - WD_SCALAR_SKIP_EMPTY
 - WD_SCALAR_SKIP_THRESHOLD
+- WD_SCALAR_SKIP_CRITERIA
 - WD_SCALAR_DROPNA
 - WD_SCALAR_INTERPOLATION_USE_NEARBY_STATION_UNTIL_KM
 
@@ -209,6 +210,10 @@ names.
     - empty stations are defined via `skip_threshold` which defaults to 0.95
      and requires all parameters that are requested (for an entire dataset all of the dataset parameters)
      to have at least 95 per cent of actual values (relative to start and end date if provided)
+- `skip_criteria` (requires option `tidy`) is the statistical criteria on which the percentage of actual values is
+    calculated with options "min", "mean", "max", where "min" means the percentage of the lowest available parameter is
+    taken, while "mean" takes the average percentage of all parameters and "max" does so for the parameter with the most
+    percentage
 - `skip_threshold` is used in combination with `skip_empty` to define when a station is empty, with 1.0 meaning no
  values per parameter should be missing and e.g. 0.9 meaning 10 per cent of values can be missing
 - `dropna` (requires option `tidy`) is used to drop all empty entries thus reducing the workload
@@ -416,6 +421,34 @@ Rank selection
     ).df
 
     print(df.head())
+
+Rank selection skip empty stations
+
+This will skip empty stations according to some settings. See the finally collected stations via the
+`df_stations` property on the values result.
+
+.. ipython:: python
+    :okwarning:
+
+    from datetime import datetime
+    from wetterdienst import Settings
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+
+    settings = Settings(skip_empty=True, ignore_env=True, skip_criteria="min")
+
+    stations = DwdObservationRequest(
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
+        resolution=DwdObservationResolution.DAILY,
+        start_date="2021-01-01",
+        end_date="2021-12-31",
+        settings=settings,
+    ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
+
+    values = stations.values.all()
+
+    print(values.df.head())
+    print(values.df_stations.head())
+
 
 Bbox selection
 

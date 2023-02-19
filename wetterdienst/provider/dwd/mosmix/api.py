@@ -134,6 +134,8 @@ class DwdMosmixValues(ScalarValuesCore):
         :return:
         """
         hpm = self._create_humanized_parameters_mapping()
+        self.stations_counter = 0
+        self.stations_collected = []
 
         for df in self._collect_station_parameter():
             df = self._coerce_parameter_types(df)
@@ -157,7 +159,13 @@ class DwdMosmixValues(ScalarValuesCore):
                     :,
                 ]
 
-            yield ValuesResult(stations=self.sr, df=df)
+            self.stations_counter += 1
+            self.stations_collected.append(station_id)
+
+            yield ValuesResult(stations=self.sr, values=self, df=df)
+
+            if self.stations_counter == self.sr.rank:
+                break
 
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
         """

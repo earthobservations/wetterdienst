@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import pandas as pd
 
@@ -19,15 +19,40 @@ if TYPE_CHECKING:
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
+class StationsFilter:
+    ALL = "all"
+    BY_STATION_ID = "by_station_id"
+    BY_NAME = "by_name"
+    BY_RANK = "by_rank"
+    BY_DISTANCE = "by_distance"
+    BY_BBOX = "by_bbox"
+    BY_SQL = "by_sql"
+
+
 class StationsResult(ExportMixin):
-    def __init__(self, stations: Union["ScalarRequestCore", "DwdMosmixRequest"], df: pd.DataFrame, **kwargs) -> None:
+    def __init__(
+        self,
+        stations: Union["ScalarRequestCore", "DwdMosmixRequest"],
+        df: pd.DataFrame,
+        df_all: pd.DataFrame,
+        stations_filter: StationsFilter,
+        rank: Optional[int] = None,
+        **kwargs
+    ) -> None:
         # TODO: add more attributes from ScalarStations class
         self.stations = stations
         self.df = df
+        self.df_all = df_all
+        self.stations_filter = stations_filter
+        self.rank = rank
         self._kwargs = kwargs
 
     def __eq__(self, other):
         return (self.stations == other.stations) and self.df.equals(other.df)
+
+    @property
+    def settings(self):
+        return self.stations.settings
 
     @property
     def provider(self):
@@ -182,6 +207,7 @@ class ValuesResult(ExportMixin):
     # TODO: add more meaningful metadata e.g. describe()
 
     stations: StationsResult
+    values: "ScalarValuesCore"
     df: pd.DataFrame
 
     def to_ogc_feature_collection(self):
@@ -190,6 +216,10 @@ class ValuesResult(ExportMixin):
     def filter_by_date(self, date: str) -> pd.DataFrame:
         self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
         return self.df
+
+    @property
+    def df_stations(self):
+        return self.stations.df[self.stations.df.station_id.isin(self.values.stations_collected)]
 
 
 @dataclass

@@ -6,10 +6,11 @@ import logging
 import pathlib
 from copy import deepcopy
 from functools import partial
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import platformdirs
 from environs import Env
+from marshmallow.validate import OneOf
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class Settings:
         "si_units": True,
         "skip_empty": False,
         "skip_threshold": 0.95,
+        "skip_criteria": "min",
         "dropna": False,
         "interp_use_nearby_station_until_km": 1,
     }
@@ -54,6 +56,7 @@ class Settings:
         si_units: Optional[bool] = None,
         skip_empty: Optional[bool] = None,
         skip_threshold: Optional[float] = None,
+        skip_criteria: Optional[Literal["min", "mean", "max"]] = None,
         dropna: Optional[bool] = None,
         interp_use_nearby_station_until_km: Optional[Union[float, int]] = None,
         ignore_env: bool = False,
@@ -82,6 +85,11 @@ class Settings:
                 self.skip_empty: bool = _da(skip_empty, env.bool("SKIP_EMPTY", None), _defaults["skip_empty"])
                 self.skip_threshold: bool = _da(
                     skip_threshold, env.float("SKIP_THRESHOLD", None), _defaults["skip_threshold"]
+                )
+                self.skip_criteria: bool = _da(
+                    skip_criteria,
+                    env.str("SKIP_CRITERIA", None, validate=OneOf(["min", "mean", "max"])),
+                    _defaults["skip_criteria"],
                 )
                 self.dropna: bool = _da(dropna, env.bool("DROPNA", dropna), _defaults["dropna"])
 
@@ -118,6 +126,7 @@ class Settings:
             "si_units": self.si_units,
             "skip_empty": self.skip_empty,
             "skip_threshold": self.skip_threshold,
+            "skip_criteria": self.skip_criteria,
             "dropna": self.dropna,
             "interp_use_nearby_station_until_km": self.interp_use_nearby_station_until_km,
         }

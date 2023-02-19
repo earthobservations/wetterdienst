@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -189,6 +189,7 @@ def stations(
             humanize=False,
             skip_empty=False,
             skip_threshold=0.95,
+            skip_criteria="min",
             dropna=False,
         )
     except (KeyError, ValueError) as e:
@@ -242,6 +243,7 @@ def values(
     si_units: bool = Query(alias="si-units", default=True),
     skip_empty: bool = Query(alias="skip-empty", default=False),
     skip_threshold: float = Query(alias="skip-threshold", default=0.95, gt=0, le=1),
+    skip_criteria: Literal["min", "mean", "max"] = Query(alias="skip-criteria", default="min"),
     dropna: bool = Query(alias="dropna", default=False),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
@@ -270,6 +272,7 @@ def values(
     :param tidy:        Whether to return data in tidy format. Default: True.
     :param si_units:
     :param skip_empty:
+    :param skip_criteria:
     :param skip_threshold:
     :param dropna:
     :param pretty:
@@ -334,6 +337,7 @@ def values(
             si_units=si_units,
             skip_empty=skip_empty,
             skip_threshold=skip_threshold,
+            skip_criteria=skip_criteria,
             dropna=dropna,
             tidy=tidy,
             humanize=humanize,
