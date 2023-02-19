@@ -17,6 +17,7 @@ class Columns(Enum):
     NAME = "name"
     COUNTY = "county"
     STATE = "state"
+    COUNTRY = "country"
     EOR = "eor"
     # Extra column names
     FILENAME = "filename"
@@ -51,3 +52,6 @@ class Columns(Enum):
     STATION_GROUP = "station_group"
     ROAD_SECTOR = "road_sector"
     ROAD_SURROUNDINGS_TYPE = "road_surroundings_type"
+
+    USAF = "usaf"
+    WBAN = "wban"
