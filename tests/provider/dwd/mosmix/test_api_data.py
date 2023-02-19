@@ -30,6 +30,8 @@ def test_dwd_mosmix_l(settings_humanize_false):
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
+    assert response.df_stations.station_id.tolist() == ["01001"]
+
     assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
         "station_id",

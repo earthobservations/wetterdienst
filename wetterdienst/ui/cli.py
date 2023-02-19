@@ -7,7 +7,7 @@ import logging
 import sys
 from collections import OrderedDict
 from pprint import pformat
-from typing import List
+from typing import List, Literal
 
 import click
 import cloup
@@ -686,6 +686,7 @@ def stations(
         si_units=False,
         humanize=False,
         skip_empty=False,
+        skip_criteria="min",
         skip_threshold=0.95,
         dropna=False,
     )
@@ -733,6 +734,7 @@ def stations(
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
+@cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
 @cloup.option("--dropna", type=click.BOOL, default=False)
 @debug_opt
@@ -759,6 +761,7 @@ def values(
     si_units: bool,
     humanize: bool,
     skip_empty: bool,
+    skip_criteria: Literal["min", "mean", "max"],
     skip_threshold: float,
     dropna: bool,
     pretty: bool,
@@ -789,6 +792,7 @@ def values(
             tidy=tidy,
             humanize=humanize,
             skip_empty=skip_empty,
+            skip_criteria=skip_criteria,
             skip_threshold=skip_threshold,
             dropna=dropna,
         )

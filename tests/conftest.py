@@ -3,7 +3,7 @@ import pytest
 from wetterdienst import Settings
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def default_settings():
     return Settings.default()
 

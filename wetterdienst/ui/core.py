@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
 import sys
-from typing import List, Optional, Tuple, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 from wetterdienst import Kind, Provider
 from wetterdienst.core.process import create_date_range
@@ -60,6 +60,7 @@ def _get_stations_request(
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
+    skip_criteria: Literal["min", "mean", "max"],
     dropna: bool,
     use_nearby_station_until_km: float,
 ):
@@ -70,6 +71,7 @@ def _get_stations_request(
         tidy=tidy,
         humanize=humanize,
         skip_empty=skip_empty,
+        skip_criteria=skip_criteria,
         skip_threshold=skip_threshold,
         dropna=dropna,
         interp_use_nearby_station_until_km=use_nearby_station_until_km,
@@ -140,6 +142,7 @@ def get_stations(
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
+    skip_criteria: Literal["min", "mean", "max"],
     dropna: bool,
 ) -> StationsResult:
     """
@@ -164,6 +167,7 @@ def get_stations(
     :param tidy:
     :param humanize:
     :param skip_empty:
+    :param skip_criteria:
     :param skip_threshold:
     :param dropna:
     :return:
@@ -180,6 +184,7 @@ def get_stations(
         humanize=humanize,
         skip_empty=skip_empty,
         skip_threshold=skip_threshold,
+        skip_criteria=skip_criteria,
         dropna=dropna,
         use_nearby_station_until_km=0,
     )
@@ -259,6 +264,7 @@ def get_values(
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
+    skip_criteria: Literal["min", "mean", "max"],
     dropna: bool,
 ) -> ValuesResult:
     """
@@ -283,6 +289,7 @@ def get_values(
     :param tidy:
     :param humanize:
     :param skip_empty:
+    :param skip_criteria:
     :param skip_threshold:
     :param dropna:
     :return:
@@ -307,6 +314,7 @@ def get_values(
         humanize=humanize,
         skip_empty=skip_empty,
         skip_threshold=skip_threshold,
+        skip_criteria=skip_criteria,
         dropna=dropna,
     )
 
@@ -377,6 +385,7 @@ def get_interpolate(
         humanize=humanize,
         skip_empty=False,
         skip_threshold=0,
+        skip_criteria="min",
         dropna=False,
         use_nearby_station_until_km=use_nearby_station_until_km,
     )
@@ -449,6 +458,7 @@ def get_summarize(
         humanize=humanize,
         skip_empty=False,
         skip_threshold=0,
+        skip_criteria="min",
         dropna=False,
         use_nearby_station_until_km=0,
     )

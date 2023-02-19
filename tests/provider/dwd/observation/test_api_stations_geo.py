@@ -56,44 +56,47 @@ EXPECTED_STATIONS_DF = pd.DataFrame.from_records(
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_number_single(default_settings):
-
+def test_dwd_observation_stations_filter_by_rank_single(default_settings):
     # Test for one nearest station
-    request = DwdObservationRequest(
+    stations = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
         settings=default_settings,
-    )
-
-    nearby_station = request.filter_by_rank(
+    ).filter_by_rank(
         latlon=(50.0, 8.9),
         rank=1,
     )
-    nearby_station = nearby_station.df.drop("to_date", axis="columns")
-
-    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF.iloc[[0], :])
+    df = stations.df.drop(columns="to_date")
+    assert_frame_equal(df.iloc[[0], :], EXPECTED_STATIONS_DF.iloc[[0], :])
+    values = stations.values.all()
+    assert_frame_equal(values.df_stations.iloc[[0], :].drop(columns="to_date"), EXPECTED_STATIONS_DF.iloc[[0], :])
 
 
 @pytest.mark.remote
-def test_dwd_observation_stations_nearby_number_multiple(default_settings):
-    request = DwdObservationRequest(
+def test_dwd_observation_stations_filter_by_rank_multiple(default_settings):
+    stations = DwdObservationRequest(
         DwdObservationDataset.TEMPERATURE_AIR,
         DwdObservationResolution.HOURLY,
         DwdObservationPeriod.HISTORICAL,
         datetime(2020, 1, 1),
         datetime(2020, 1, 20),
         settings=default_settings,
-    )
-    nearby_station = request.filter_by_rank(
+    ).filter_by_rank(
         latlon=(50.0, 8.9),
         rank=3,
     )
-    nearby_station = nearby_station.df.drop("to_date", axis="columns")
-
-    assert_frame_equal(nearby_station, EXPECTED_STATIONS_DF)
+    df = stations.df.drop("to_date", axis="columns")
+    assert_frame_equal(
+        df.iloc[
+            :3,
+        ],
+        EXPECTED_STATIONS_DF,
+    )
+    values = stations.values.all()
+    assert_frame_equal(values.df_stations.drop(columns="to_date"), EXPECTED_STATIONS_DF)
 
 
 @pytest.mark.remote

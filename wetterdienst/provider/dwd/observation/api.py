@@ -332,6 +332,9 @@ class DwdObservationValues(ScalarValuesCore):
 
         file_index = file_index[(file_index[Columns.STATION_ID.value] == station_id)]
 
+        if file_index.empty:
+            return []
+
         # The request interval may be None, if no start and end date
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
@@ -340,7 +343,6 @@ class DwdObservationValues(ScalarValuesCore):
         if not interval:
             from_date_min = file_index[Columns.FROM_DATE.value].min()
             to_date_max = file_index[Columns.TO_DATE.value].max()
-
             interval = pd.Interval(from_date_min, to_date_max, closed="both")
 
         # Filter for from date and end date

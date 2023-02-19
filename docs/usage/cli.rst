@@ -116,6 +116,8 @@ Command Line Interface
         --humanize                  Humanize parameters
         --si-units                  Convert to SI units
         --skip_empty                Skip empty stations according to skip_threshold
+        --skip_criteria             Skip criteria ("min", mean", max") that decides how the percentage of actual values
+                                    is determined
         --skip_threshold            Skip threshold for a station to be empty (0 < skip_threshold <= 1) [Default: 0.95]
         --dropna                    Whether to drop nan values from the result
 

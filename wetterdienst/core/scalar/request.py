@@ -18,6 +18,7 @@ from rapidfuzz import fuzz, process
 from wetterdienst.core.core import Core
 from wetterdienst.core.scalar.result import (
     InterpolatedValuesResult,
+    StationsFilter,
     StationsResult,
     SummarizedValuesResult,
 )
@@ -387,8 +388,8 @@ class ScalarRequestCore(Core):
 
         # skip empty stations
         self.skip_empty = self.tidy and settings.skip_empty
-        self.skip_counter = 0
         self.skip_threshold = settings.skip_threshold
+
         self.dropna = self.tidy and settings.dropna
         self.interp_use_nearby_station_until_km = settings.interp_use_nearby_station_until_km
 
@@ -635,9 +636,14 @@ class ScalarRequestCore(Core):
 
         df = self._coerce_meta_fields(df)
 
-        return StationsResult(self, df.reset_index(drop=True))
+        return StationsResult(
+            stations=self,
+            df=df.reset_index(drop=True),
+            df_all=df.reset_index(drop=True),
+            stations_filter=StationsFilter.ALL,
+        )
 
-    def filter_by_station_id(self, station_id: Tuple[str, ...]) -> StationsResult:
+    def filter_by_station_id(self, station_id: Union[Tuple[str, ...], List[str]]) -> StationsResult:
         """
         Method to filter stations_result by station ids
 
@@ -652,30 +658,33 @@ class ScalarRequestCore(Core):
 
         df = df[df[Columns.STATION_ID.value].isin(station_id)]
 
-        return StationsResult(self, df)
+        return StationsResult(
+            stations=self,
+            df=df.reset_index(drop=True),
+            df_all=self.all().df,
+            stations_filter=StationsFilter.BY_STATION_ID,
+        )
 
-    def filter_by_name(self, name: str, first: bool = True, threshold: int = 90) -> StationsResult:
+    def filter_by_name(self, name: str, rank: int = 1, threshold: int = 90) -> StationsResult:
         """
         Method to filter stations_result for station name using string comparison.
 
         :param name: name of looked up station
-        :param first: boolean if only first station is returned
+        :param rank: number of stations requested
         :param threshold: threshold for string match 0...100
         :return: df with matched station
         """
-        if first:
-            extract_fun = process.extractOne
-        else:
-            extract_fun = process.extract
+        rank = int(rank)
+        if rank <= 0:
+            raise ValueError("'rank' has to be at least 1.")
 
         threshold = int(threshold)
-
         if threshold < 0:
             raise ValueError("threshold must be ge 0")
 
         df = self.all().df
 
-        station_match = extract_fun(
+        station_match = process.extract(
             query=name,
             choices=df[Columns.NAME.value],
             scorer=fuzz.token_set_ratio,
@@ -683,17 +692,21 @@ class ScalarRequestCore(Core):
         )
 
         if station_match:
-            if first:
-                station_match = [station_match]
             station_name = pd.Series(station_match).apply(lambda x: x[0])
-
             df = df[df[Columns.NAME.value].isin(station_name)]
-
-            df = df.reset_index(drop=True)
         else:
-            df = pd.DataFrame().reindex(columns=df.columns)
+            df = pd.DataFrame(columns=df.columns)
 
-        return StationsResult(stations=self, df=df)
+        if df.empty:
+            log.info(f"No weather stations were found for name {name}")
+
+        return StationsResult(
+            stations=self,
+            df=df.reset_index(drop=True),
+            df_all=self.all().df,
+            stations_filter=StationsFilter.BY_NAME,
+            rank=rank,
+        )
 
     def filter_by_rank(
         self,
@@ -702,7 +715,7 @@ class ScalarRequestCore(Core):
     ) -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_number using the given parameter set. Returns
-        nearest stations_result defined by number.
+        the nearest stations_result defined by number.
 
         :param latlon: tuple of latitude and longitude for queried point
         :param rank: number of stations_result to be returned, greater 0
@@ -713,7 +726,7 @@ class ScalarRequestCore(Core):
         rank = int(rank)
 
         if rank <= 0:
-            raise ValueError("'num_stations_nearby' has to be at least 1.")
+            raise ValueError("'rank' has to be at least 1.")
 
         lat, lon = latlon
 
@@ -722,27 +735,28 @@ class ScalarRequestCore(Core):
         df = self.all().df.reset_index(drop=True)
 
         distances, indices_nearest_neighbours = derive_nearest_neighbours(
-            df[Columns.LATITUDE.value].values,
-            df[Columns.LONGITUDE.value].values,
-            coords,
-            min(rank, df.shape[0]),
+            latitudes=df[Columns.LATITUDE.value].values,
+            longitudes=df[Columns.LONGITUDE.value].values,
+            coordinates=coords,
+            number_nearby=df.shape[0],
         )
 
         df = df.iloc[indices_nearest_neighbours.flatten(), :].reset_index(drop=True)
 
         df[Columns.DISTANCE.value] = pd.Series(distances.flatten() * EARTH_RADIUS_KM, dtype=float)
 
-        if df.empty:
-            log.warning(
-                f"No weather stations_result were found for coordinate " f"{lat}°N and {lon}°E and number {rank}"
-            )
-
-        return StationsResult(self, df.reset_index(drop=True))
+        return StationsResult(
+            stations=self,
+            df=df.reset_index(drop=True),
+            df_all=self.all().df,
+            stations_filter=StationsFilter.BY_RANK,
+            rank=rank,
+        )
 
     def filter_by_distance(self, latlon: Tuple[float, float], distance: float, unit: str = "km") -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_distance using the given parameter set.
-        Returns nearest stations_result defined by distance (km).
+        Returns the nearest stations_result defined by distance (km).
 
         :param latlon: tuple of latitude and longitude for queried point
         :param distance: distance (km) for which stations_result will be selected
@@ -753,7 +767,7 @@ class ScalarRequestCore(Core):
 
         # Theoretically a distance of 0 km is possible
         if distance < 0:
-            raise ValueError("'distance' has to be at least 0.0")
+            raise ValueError("'distance' has to be at least 0")
 
         unit = unit.strip()
 
@@ -765,12 +779,17 @@ class ScalarRequestCore(Core):
 
         if df.empty:
             lat, lon = latlon
-            log.warning(
-                f"No weather stations_result were found for coordinate "
-                f"{lat}°N and {lon}°E and distance {distance_in_km}km"
+            log.info(
+                f"No weather stations were found for coordinates {lat}/{lon} (lat/lon) "
+                f"and distance {distance_in_km}km"
             )
 
-        return StationsResult(stations=self, df=df.reset_index(drop=True))
+        return StationsResult(
+            stations=self,
+            df=df.reset_index(drop=True),
+            df_all=self.all().df,
+            stations_filter=StationsFilter.BY_DISTANCE,
+        )
 
     def filter_by_bbox(self, left: float, bottom: float, right: float, top: float) -> StationsResult:
         """
@@ -801,7 +820,12 @@ class ScalarRequestCore(Core):
             :,
         ]
 
-        return StationsResult(stations=self, df=df.reset_index(drop=True))
+        if df.empty:
+            log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
+
+        return StationsResult(
+            stations=self, df=df.reset_index(drop=True), df_all=self.all().df, stations_filter=StationsFilter.BY_BBOX
+        )
 
     def filter_by_sql(self, sql: str) -> StationsResult:
         """
@@ -813,12 +837,17 @@ class ScalarRequestCore(Core):
 
         df = self.all().df
 
-        df: pd.DataFrame = duckdb.query_df(df, "data", sql).df()
+        df = duckdb.query_df(df, "data", sql).df()
 
         df[Columns.FROM_DATE.value] = df.loc[:, Columns.FROM_DATE.value].dt.tz_convert(self.tz)
         df[Columns.TO_DATE.value] = df.loc[:, Columns.TO_DATE.value].dt.tz_convert(self.tz)
 
-        return StationsResult(stations=self, df=df.reset_index(drop=True))
+        if df.empty:
+            log.info(f"No weather stations were found for sql {sql}")
+
+        return StationsResult(
+            stations=self, df=df.reset_index(drop=True), df_all=self.all().df, stations_filter=StationsFilter.BY_SQL
+        )
 
     def interpolate(self, latlon: Tuple[float, float]) -> InterpolatedValuesResult:
         """

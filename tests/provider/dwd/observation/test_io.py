@@ -16,7 +16,7 @@ from surrogate import surrogate
 
 from wetterdienst.core.process import filter_by_date_and_resolution
 from wetterdienst.core.scalar.export import ExportMixin
-from wetterdienst.core.scalar.result import StationsResult
+from wetterdienst.core.scalar.result import StationsFilter, StationsResult
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
@@ -160,7 +160,9 @@ def test_format_json():
 
 def test_format_geojson():
     """Test export of DataFrame to geojson"""
-    output = StationsResult(df=df_station, stations=None).to_geojson()
+    output = StationsResult(
+        df=df_station, df_all=df_station, stations_filter=StationsFilter.ALL, stations=None
+    ).to_geojson()
 
     response = json.loads(output)
 
