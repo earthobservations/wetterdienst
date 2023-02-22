@@ -5,6 +5,7 @@ Development
 ***********
 
 - CLI: Fix cli arguments with multiple items separated by comma (,)
+- Fix fileindex/metaindex for DWD Observation
 
 0.53.0 (07.02.2023)
 *******************
