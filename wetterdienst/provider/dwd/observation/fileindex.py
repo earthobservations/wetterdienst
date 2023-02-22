@@ -81,9 +81,13 @@ def create_file_index_for_climate_observations(
 
     file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
 
-    file_index[DwdColumns.STATION_ID.value] = file_index[DwdColumns.FILENAME.value].str.findall(STATION_ID_REGEX).str[0]
+    file_index[DwdColumns.STATION_ID.value] = (
+        file_index[DwdColumns.FILENAME.value].str.split("/").str[-1].str.findall(STATION_ID_REGEX).str[0]
+    )
 
-    file_index = file_index.dropna().reset_index(drop=True)
+    file_index = file_index.loc[
+        file_index.station_id.notnull().index & (file_index.station_id != "00000").index, :
+    ].reset_index(drop=True)
 
     file_index[DwdColumns.STATION_ID.value] = (
         file_index[DwdColumns.STATION_ID.value].astype(str).str.pad(5, "left", "0")

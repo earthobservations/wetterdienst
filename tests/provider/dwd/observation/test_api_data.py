@@ -791,6 +791,7 @@ def test_dwd_observations_urban_values_basic(dataset, default_settings):
         end_date="2022-01-31",
         settings=default_settings,
     ).filter_by_name(name="Berlin-Alexanderplatz")
+
     values = request.values.all().df
 
     assert not values.value.empty

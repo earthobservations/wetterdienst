@@ -6,11 +6,17 @@ ENV TERM linux
 # Install HDF5 bindings for Python, and a few other dependencies.
 RUN apt-get update && \
     apt-get --yes --no-install-recommends --no-install-suggests install \
-      ca-certificates python-is-python3 python3-h5py python3-pip python3-wheel && \
+      ca-certificates python-is-python3 python3-h5py python3-pip python3-wheel python3-venv && \
     rm -rf /var/lib/apt/lists/* && rm -rf /var/cache/apt
 
 # Use Python 3.11.
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
+
+# Use venv to circumvent "externally managed environment" error
+# Source: https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install wradlib.
 RUN python -m pip install --prefer-binary wradlib==1.19.0

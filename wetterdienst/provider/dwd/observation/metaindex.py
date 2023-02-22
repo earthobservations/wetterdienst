@@ -86,6 +86,7 @@ def create_meta_index_for_climate_observations(
         meta_index = pd.merge(
             left=meta_index,
             right=mdp.loc[:, [Columns.STATION_ID.value, Columns.STATE.value]],
+            on=[Columns.STATION_ID.value],
             how="left",
         )
 
@@ -170,7 +171,7 @@ def _read_meta_df(file: BytesIO) -> pd.DataFrame:
         ],
         skiprows=[1],
         dtype=str,
-        encoding="ISO-8859-1",
+        encoding="latin-1",
     )
 
     # Fix column names, as header is not aligned to fixed column widths
@@ -244,14 +245,14 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
 
     meta_index_df = pd.concat([meta_index_df] + list(metadata_dfs), ignore_index=True)
 
-    missing_to_date_index = pd.isnull(meta_index_df[Columns.TO_DATE.value])
+    missing_to_date_index = meta_index_df[Columns.TO_DATE.value].isnull()
 
     meta_index_df.loc[missing_to_date_index, Columns.TO_DATE.value] = pd.Timestamp(
         dt.date.today() - dt.timedelta(days=1)
     ).strftime("%Y%m%d")
 
     # Drop empty state column again as it will be merged later on
-    meta_index_df = meta_index_df.drop(labels=Columns.STATE.value, axis=1)
+    meta_index_df = meta_index_df.drop(columns=[Columns.STATE.value])
 
     # Make station id str
     meta_index_df[Columns.STATION_ID.value] = meta_index_df[Columns.STATION_ID.value].str.pad(5, "left", "0")
