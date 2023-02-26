@@ -9,6 +9,7 @@ Development
 - SCALAR: Improve handling skipping of empty stations, especially within .filter_by_rank function
 - DOCS: Fix precipitation height unit
 - DOCS: Fix examples with "recent" period
+- Make all parameter levels equal for all weather services to reduce complexity in code
 
 0.53.0 (07.02.2023)
 *******************

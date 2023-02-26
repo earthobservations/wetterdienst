@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from click.testing import CliRunner
-from dirty_equals import IsDict, IsNumeric, IsStr
+from dirty_equals import IsDict
 
 from wetterdienst.ui.cli import cli
 
@@ -65,7 +65,7 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "mosmix",
-        f"--parameter=small --resolution=large "
+        f"--parameter=large --resolution=large "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         ("10488",),
         "DRESDEN",
@@ -336,15 +336,15 @@ def test_cli_values_json_multiple_datasets(capsys, caplog):
     response = json.loads(result.stdout)
 
     first = response[0]
-    # TODO: make more specific once date filtering works
+
     assert first == IsDict(
         {
-            "station_id": IsStr,
-            "dataset": IsStr,
-            "parameter": IsStr,
-            "date": IsStr,
-            "value": IsNumeric,
-            "quality": IsNumeric,
+            "station_id": "01048",
+            "dataset": "climate_summary",
+            "parameter": "wind_gust_max",
+            "date": "2020-06-30T00:00:00+00:00",
+            "value": 15.3,
+            "quality": 10.0,
         }
     )
 

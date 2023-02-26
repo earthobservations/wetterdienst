@@ -17,7 +17,7 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit
+from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
@@ -37,54 +37,79 @@ FLOAT_9_TIMES = Tuple[
 
 
 class WsvPegelParameter(DatasetTreeCore):
-    class DYNAMIC(Enum):
-        WATER_LEVEL = "W"
-        DISCHARGE = "Q"
-        RUNOFF = DISCHARGE
-        TEMPERATURE_WATER = "WT"
-        ELECTRIC_CONDUCTIVITY = "LF"
-        CLEARANCE_HEIGHT = "DFH"
-        TEMPERATURE_AIR_MEAN_200 = "LT"
-        FLOW_SPEED = "VA"
-        GROUNDWATER_LEVEL = "GRU"
-        WIND_SPEED = "WG"
-        HUMIDITY = "HL"
-        OXYGEN_LEVEL = "O2"
-        TURBIDITY = "TR"
-        CURRENT = "R"
-        WIND_DIRECTION = "WR"
-        PRECIPITATION_HEIGHT = "NIEDERSCHLAG"
-        PRECIPITATION_INTENSITY = "NIEDERSCHLAGSINTENSITÄT"
-        WAVE_PERIOD = "TP"
-        WAVE_HEIGHT_SIGN = "SIGH"
-        WAVE_HEIGHT_MAX = "MAXH"
-        PH_VALUE = "PH"
-        CHLORID_CONCENTRATION = "CL"
+    class DYNAMIC(DatasetTreeCore):
+        class DYNAMIC(Enum):
+            WATER_LEVEL = "W"
+            DISCHARGE = "Q"
+            RUNOFF = DISCHARGE
+            TEMPERATURE_WATER = "WT"
+            ELECTRIC_CONDUCTIVITY = "LF"
+            CLEARANCE_HEIGHT = "DFH"
+            TEMPERATURE_AIR_MEAN_200 = "LT"
+            FLOW_SPEED = "VA"
+            GROUNDWATER_LEVEL = "GRU"
+            WIND_SPEED = "WG"
+            HUMIDITY = "HL"
+            OXYGEN_LEVEL = "O2"
+            TURBIDITY = "TR"
+            CURRENT = "R"
+            WIND_DIRECTION = "WR"
+            PRECIPITATION_HEIGHT = "NIEDERSCHLAG"
+            PRECIPITATION_INTENSITY = "NIEDERSCHLAGSINTENSITÄT"
+            WAVE_PERIOD = "TP"
+            WAVE_HEIGHT_SIGN = "SIGH"
+            WAVE_HEIGHT_MAX = "MAXH"
+            PH_VALUE = "PH"
+            CHLORID_CONCENTRATION = "CL"
+
+        WATER_LEVEL = DYNAMIC.WATER_LEVEL
+        DISCHARGE = DYNAMIC.DISCHARGE
+        RUNOFF = DYNAMIC.RUNOFF
+        TEMPERATURE_WATER = DYNAMIC.TEMPERATURE_WATER
+        ELECTRIC_CONDUCTIVITY = DYNAMIC.ELECTRIC_CONDUCTIVITY
+        CLEARANCE_HEIGHT = DYNAMIC.CLEARANCE_HEIGHT
+        TEMPERATURE_AIR_MEAN_200 = DYNAMIC.TEMPERATURE_AIR_MEAN_200
+        FLOW_SPEED = DYNAMIC.FLOW_SPEED
+        GROUNDWATER_LEVEL = DYNAMIC.GROUNDWATER_LEVEL
+        WIND_SPEED = DYNAMIC.WIND_SPEED
+        HUMIDITY = DYNAMIC.HUMIDITY
+        OXYGEN_LEVEL = DYNAMIC.OXYGEN_LEVEL
+        TURBIDITY = DYNAMIC.TURBIDITY
+        CURRENT = DYNAMIC.CURRENT
+        WIND_DIRECTION = DYNAMIC.WIND_DIRECTION
+        PRECIPITATION_HEIGHT = DYNAMIC.PRECIPITATION_HEIGHT
+        PRECIPITATION_INTENSITY = DYNAMIC.PRECIPITATION_INTENSITY
+        WAVE_PERIOD = DYNAMIC.WAVE_PERIOD
+        WAVE_HEIGHT_SIGN = DYNAMIC.WAVE_HEIGHT_SIGN
+        WAVE_HEIGHT_MAX = DYNAMIC.WAVE_HEIGHT_MAX
+        PH_VALUE = DYNAMIC.PH_VALUE
+        CHLORID_CONCENTRATION = DYNAMIC.CHLORID_CONCENTRATION
 
 
 class WsvPegelUnit(DatasetTreeCore):
-    class DYNAMIC(Enum):
-        WATER_LEVEL = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-        TEMPERATURE_WATER = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-        ELECTRIC_CONDUCTIVITY = OriginUnit.MICROSIEMENS_PER_CENTIMETER.value, SIUnit.SIEMENS_PER_METER.value
-        CLEARANCE_HEIGHT = OriginUnit.METER.value, SIUnit.METER.value
-        TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-        FLOW_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-        GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
-        WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-        HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-        OXYGEN_LEVEL = OriginUnit.MILLIGRAM_PER_LITER.value, SIUnit.MILLIGRAM_PER_LITER.value
-        TURBIDITY = OriginUnit.TURBIDITY.value, SIUnit.TURBIDITY.value
-        CURRENT = OriginUnit.MAGNETIC_FIELD_STRENGTH.value, SIUnit.MAGNETIC_FIELD_STRENGTH.value
-        WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value, SIUnit.WIND_DIRECTION.value
-        PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_INTENSITY = OriginUnit.MILLIMETER_PER_HOUR.value, SIUnit.MILLIMETER_PER_HOUR.value
-        WAVE_PERIOD = OriginUnit.WAVE_PERIOD.value, SIUnit.WAVE_PERIOD.value
-        WAVE_HEIGHT_SIGN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        WAVE_HEIGHT_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-        PH_VALUE = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
-        CHLORID_CONCENTRATION = OriginUnit.MILLIGRAM_PER_LITER.value, OriginUnit.MILLIGRAM_PER_LITER.value
+    class DYNAMIC(DatasetTreeCore):
+        class DYNAMIC(UnitEnum):
+            WATER_LEVEL = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+            TEMPERATURE_WATER = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            ELECTRIC_CONDUCTIVITY = OriginUnit.MICROSIEMENS_PER_CENTIMETER.value, SIUnit.SIEMENS_PER_METER.value
+            CLEARANCE_HEIGHT = OriginUnit.METER.value, SIUnit.METER.value
+            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            FLOW_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+            GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
+            WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+            OXYGEN_LEVEL = OriginUnit.MILLIGRAM_PER_LITER.value, SIUnit.MILLIGRAM_PER_LITER.value
+            TURBIDITY = OriginUnit.TURBIDITY.value, SIUnit.TURBIDITY.value
+            CURRENT = OriginUnit.MAGNETIC_FIELD_STRENGTH.value, SIUnit.MAGNETIC_FIELD_STRENGTH.value
+            WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value, SIUnit.WIND_DIRECTION.value
+            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_INTENSITY = OriginUnit.MILLIMETER_PER_HOUR.value, SIUnit.MILLIMETER_PER_HOUR.value
+            WAVE_PERIOD = OriginUnit.WAVE_PERIOD.value, SIUnit.WAVE_PERIOD.value
+            WAVE_HEIGHT_SIGN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+            WAVE_HEIGHT_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+            PH_VALUE = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
+            CHLORID_CONCENTRATION = OriginUnit.MILLIGRAM_PER_LITER.value, OriginUnit.MILLIGRAM_PER_LITER.value
 
 
 class WsvPegelResolution(Enum):

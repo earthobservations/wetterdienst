@@ -93,7 +93,9 @@ class DwdMosmixValues(ScalarValuesCore):
         """
         return {
             parameter.value: parameter.name.lower()
-            for parameter in self.sr.stations._parameter_base[self.sr.stations.mosmix_type.name]
+            for parameter in self.sr.stations._parameter_base[self.sr.stations.mosmix_type.name][
+                self.sr.stations.mosmix_type.name
+            ]
         }
 
     def __init__(self, stations_result: StationsResult) -> None:
@@ -109,7 +111,7 @@ class DwdMosmixValues(ScalarValuesCore):
         parameter_ = []
         for parameter, dataset in self.sr.parameter:
             if parameter == dataset:
-                parameter = [par.value for par in parameter_base[dataset_accessor]]
+                parameter = [par.value for par in parameter_base[dataset_accessor][dataset_accessor]]
                 parameter_.extend(parameter)
             else:
                 parameter_.append(parameter.value)
@@ -165,7 +167,7 @@ class DwdMosmixValues(ScalarValuesCore):
             yield ValuesResult(stations=self.sr, values=self, df=df)
 
             if self.stations_counter == self.sr.rank:
-                break
+                return
 
     def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
         """

@@ -105,6 +105,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
             humanize=True,
             skip_empty=False,
             skip_threshold=0.95,
+            skip_criteria="min",
             dropna=False,
         )
     except (requests.exceptions.ConnectionError, InvalidParameterCombination) as ex:
@@ -179,6 +180,7 @@ def fetch_values(
             si_units=True,
             skip_empty=False,
             skip_threshold=0.95,
+            skip_criteria="min",
             dropna=False,
             tidy=True,
             humanize=True,
@@ -475,17 +477,13 @@ def set_dataset_options(provider, network, resolution):
 
     api = RequestRegistry.resolve(provider, network)
 
-    if api._has_datasets and not api._unique_dataset:
-        # first dataset is placeholder for unique dataset with parameters combined from all datasets
-        datasets = [{"label": resolution, "value": resolution}]
-        for dataset in api._parameter_base[resolution]:
-            if not hasattr(dataset, "name"):
-                ds_dict = {"label": dataset.__name__, "value": dataset.__name__}
-                if ds_dict not in datasets:
-                    datasets.append(ds_dict)
-        return datasets
-    else:
-        return [{"label": resolution, "value": resolution}]
+    datasets = [{"label": resolution, "value": resolution}]
+    for dataset in api._parameter_base[resolution]:
+        if not hasattr(dataset, "name"):
+            ds_dict = {"label": dataset.__name__, "value": dataset.__name__}
+            if ds_dict not in datasets:
+                datasets.append(ds_dict)
+    return datasets
 
 
 @app.callback(
@@ -507,24 +505,17 @@ def set_parameter_options(provider, network, resolution, dataset):
 
     api = RequestRegistry.resolve(provider, network)
 
-    if api._has_datasets and not api._unique_dataset:
-        if dataset == resolution:
-            # Return tidy parameters e.g. parameters grouped under one resolution
-            parameters = [
-                {"label": parameter.name, "value": parameter.name}
-                for parameter in api._parameter_base[resolution]
-                if hasattr(parameter, "name")
-            ]
-        else:
-            # return individual parameters of one dataset e.g. climate_summary
-            parameters = [
-                {"label": parameter.name, "value": parameter.name}
-                for parameter in api._parameter_base[resolution][dataset]
-            ]
-    else:
-        # If network only provides parameters but not datasets, just return them all as option
+    if dataset == resolution:
+        # Return tidy parameters e.g. parameters grouped under one resolution
         parameters = [
-            {"label": parameter.name, "value": parameter.name} for parameter in api._parameter_base[resolution]
+            {"label": parameter.name, "value": parameter.name}
+            for parameter in api._parameter_base[resolution]
+            if hasattr(parameter, "name")
+        ]
+    else:
+        # return individual parameters of one dataset e.g. climate_summary
+        parameters = [
+            {"label": parameter.name, "value": parameter.name} for parameter in api._parameter_base[resolution][dataset]
         ]
 
     if api._period_type == PeriodType.FIXED:

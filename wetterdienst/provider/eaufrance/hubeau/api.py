@@ -17,7 +17,7 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit
+from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
@@ -33,15 +33,20 @@ class HubeauPeriod(Enum):
 
 
 class HubeauParameter(DatasetTreeCore):
-    class DYNAMIC(Enum):
-        FLOW = "Q"
-        STAGE = "H"
+    class DYNAMIC(DatasetTreeCore):
+        class DYNAMIC(Enum):
+            FLOW = "Q"
+            STAGE = "H"
+
+        FLOW = DYNAMIC.FLOW
+        STAGE = DYNAMIC.STAGE
 
 
 class HubeauUnit(DatasetTreeCore):
-    class DYNAMIC(Enum):
-        FLOW = OriginUnit.LITERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-        STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
+    class DYNAMIC(DatasetTreeCore):
+        class DYNAMIC(UnitEnum):
+            FLOW = OriginUnit.LITERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
+            STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
 
 
 class HubeauValues(ScalarValuesCore):
