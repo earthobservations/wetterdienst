@@ -362,7 +362,6 @@ Distance with default (kilometers)
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     )
@@ -386,7 +385,6 @@ Distance with miles
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     )
@@ -410,7 +408,6 @@ Rank selection
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     )
@@ -461,7 +458,6 @@ Bbox selection
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     )
@@ -487,7 +483,6 @@ Again from here we can jump to the corresponding data:
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20)
     ).filter_by_distance(

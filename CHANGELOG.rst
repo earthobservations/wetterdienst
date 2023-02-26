@@ -8,6 +8,7 @@ Development
 - Fix fileindex/metaindex for DWD Observation
 - SCALAR: Improve handling skipping of empty stations, especially within .filter_by_rank function
 - DOCS: Fix precipitation height unit
+- DOCS: Fix examples with "recent" period
 
 0.53.0 (07.02.2023)
 *******************
