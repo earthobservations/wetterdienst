@@ -108,7 +108,7 @@ precipitation_height
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -128,7 +128,7 @@ precipitation_height_liquid
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 

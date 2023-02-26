@@ -7,6 +7,7 @@ Development
 - CLI: Fix cli arguments with multiple items separated by comma (,)
 - Fix fileindex/metaindex for DWD Observation
 - SCALAR: Improve handling skipping of empty stations, especially within .filter_by_rank function
+- DOCS: Fix precipitation height unit
 
 0.53.0 (07.02.2023)
 *******************

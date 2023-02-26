@@ -228,7 +228,7 @@ precipitation_height_significant_weather_last_1h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -248,7 +248,7 @@ precipitation_height_significant_weather_last_3h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -728,7 +728,7 @@ water_equivalent_snow_depth_new_last_1h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -748,7 +748,7 @@ water_equivalent_snow_depth_new_last_3h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1160,7 +1160,7 @@ evapotranspiration_potential_last_24h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1200,7 +1200,7 @@ precipitation_height_last_1h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1220,7 +1220,7 @@ precipitation_height_last_3h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1240,7 +1240,7 @@ precipitation_height_last_6h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1260,7 +1260,7 @@ precipitation_height_last_12h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1280,7 +1280,7 @@ precipitation_height_last_24h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1300,7 +1300,7 @@ precipitation_height_liquid_significant_weather_last_1h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1320,7 +1320,7 @@ precipitation_height_significant_weather_last_1h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1340,7 +1340,7 @@ precipitation_height_significant_weather_last_3h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1360,7 +1360,7 @@ precipitation_height_significant_weather_last_6h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1380,7 +1380,7 @@ precipitation_height_significant_weather_last_12h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -1400,7 +1400,7 @@ precipitation_height_significant_weather_last_24h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -3021,7 +3021,7 @@ water_equivalent_snow_depth_new_last_1h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -3041,7 +3041,7 @@ water_equivalent_snow_depth_new_last_3h
    * - origin unit
      - :math:`kg / m^2`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 

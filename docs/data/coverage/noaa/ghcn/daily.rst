@@ -311,7 +311,7 @@ evaporation_height
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -331,7 +331,7 @@ evaporation_height_multiday
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -431,7 +431,7 @@ precipitation_height
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -451,7 +451,7 @@ precipitation_height_multiday
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -471,7 +471,7 @@ snow_depth
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -491,7 +491,7 @@ snow_depth_new
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -511,7 +511,7 @@ snow_depth_new_multiday
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -3293,7 +3293,7 @@ water_equivalent_snow_depth
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -3313,7 +3313,7 @@ water_equivalent_snow_depth_new
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -3333,7 +3333,7 @@ water_equivalent_snow_depth_new
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
