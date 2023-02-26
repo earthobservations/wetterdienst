@@ -108,7 +108,7 @@ precipitation_height
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -131,7 +131,7 @@ precipitation_form
           :stub-columns: 1
 
           * - code
-            - cloud type
+            - meaning
           * - 0
             - no precipitation (conventional or automatic measurement), relates to WMO code 10
           * - 1
@@ -148,9 +148,9 @@ precipitation_form
             - error or missing value or no automatic determination of precipitation form, relates to WMO code 15
 
    * - origin unit
-     - :math:`mm`
+     - :math:`-`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -402,7 +402,7 @@ precipitation_height
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -425,7 +425,7 @@ precipitation_form
           :stub-columns: 1
 
           * - code
-            - cloud type
+            - meaning
           * - 0
             - no precipitation (conventional or automatic measurement), relates to WMO code 10
           * - 1
@@ -442,9 +442,9 @@ precipitation_form
             - error or missing value or no automatic determination of precipitation form, relates to WMO code 15
 
    * - origin unit
-     - :math:`mm`
+     - :math:`-`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`-`
    * - constraints
      - :math:`\geq{0}`
 
@@ -840,7 +840,7 @@ water_equivalent_snow_depth
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -860,7 +860,7 @@ water_equivalent_snow_depth_excelled
    * - origin unit
      - :math:`mm`
    * - SI unit
-     - :math:`m^3 / m^2`
+     - :math:`kg / m^2`
    * - constraints
      - :math:`\geq{0}`
 
