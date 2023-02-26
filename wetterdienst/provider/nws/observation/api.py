@@ -27,44 +27,62 @@ log = logging.getLogger(__name__)
 
 
 class NwsObservationParameter(DatasetTreeCore):
-    class HOURLY(Enum):
-        TEMPERATURE_AIR_MEAN_200 = "temperature"
-        TEMPERATURE_DEW_POINT_MEAN_200 = "dewpoint"
-        WIND_DIRECTION = "winddirection"
-        WIND_SPEED = "windspeed"
-        WIND_GUST_MAX = "windgust"
-        PRESSURE_AIR_SITE = "barometricpressure"
-        PRESSURE_AIR_SEA_LEVEL = "sealevelpressure"
-        VISIBILITY_RANGE = "visibility"
-        TEMPERATURE_AIR_MAX_200_LAST_24H = "maxtemperaturelast24hours"
-        TEMPERATURE_AIR_MIN_200_LAST_24H = "mintemperaturelast24hours"
-        PRECIPITATION_HEIGHT = "precipitationlasthour"
-        PRECIPITATION_HEIGHT_LAST_3H = "precipitationlast3hours"
-        PRECIPITATION_HEIGHT_LAST_6H = "precipitationlast6hours"
-        HUMIDITY = "relativehumidity"
-        TEMPERATURE_WIND_CHILL = "windchill"
-        # HEAT_INDEX = "heatIndex" noqa: E800
-        # cloudLayers group
-        # CLOUD_BASE = "cloudLayers" noqa: E800
+    class HOURLY(DatasetTreeCore):
+        class HOURLY(Enum):
+            TEMPERATURE_AIR_MEAN_200 = "temperature"
+            TEMPERATURE_DEW_POINT_MEAN_200 = "dewpoint"
+            WIND_DIRECTION = "winddirection"
+            WIND_SPEED = "windspeed"
+            WIND_GUST_MAX = "windgust"
+            PRESSURE_AIR_SITE = "barometricpressure"
+            PRESSURE_AIR_SEA_LEVEL = "sealevelpressure"
+            VISIBILITY_RANGE = "visibility"
+            TEMPERATURE_AIR_MAX_200_LAST_24H = "maxtemperaturelast24hours"
+            TEMPERATURE_AIR_MIN_200_LAST_24H = "mintemperaturelast24hours"
+            PRECIPITATION_HEIGHT = "precipitationlasthour"
+            PRECIPITATION_HEIGHT_LAST_3H = "precipitationlast3hours"
+            PRECIPITATION_HEIGHT_LAST_6H = "precipitationlast6hours"
+            HUMIDITY = "relativehumidity"
+            TEMPERATURE_WIND_CHILL = "windchill"
+            # HEAT_INDEX = "heatIndex" noqa: E800
+            # cloudLayers group
+            # CLOUD_BASE = "cloudLayers" noqa: E800
+
+        TEMPERATURE_AIR_MEAN_200 = HOURLY.TEMPERATURE_AIR_MEAN_200
+        TEMPERATURE_DEW_POINT_MEAN_200 = HOURLY.TEMPERATURE_DEW_POINT_MEAN_200
+        WIND_DIRECTION = HOURLY.WIND_DIRECTION
+        WIND_SPEED = HOURLY.WIND_SPEED
+        WIND_GUST_MAX = HOURLY.WIND_GUST_MAX
+        PRESSURE_AIR_SITE = HOURLY.PRESSURE_AIR_SITE
+        PRESSURE_AIR_SEA_LEVEL = HOURLY.PRESSURE_AIR_SEA_LEVEL
+        VISIBILITY_RANGE = HOURLY.VISIBILITY_RANGE
+        TEMPERATURE_AIR_MAX_200_LAST_24H = HOURLY.TEMPERATURE_AIR_MAX_200_LAST_24H
+        TEMPERATURE_AIR_MIN_200_LAST_24H = HOURLY.TEMPERATURE_AIR_MIN_200_LAST_24H
+        PRECIPITATION_HEIGHT = HOURLY.PRECIPITATION_HEIGHT
+        PRECIPITATION_HEIGHT_LAST_3H = HOURLY.PRECIPITATION_HEIGHT_LAST_3H
+        PRECIPITATION_HEIGHT_LAST_6H = HOURLY.PRECIPITATION_HEIGHT_LAST_6H
+        HUMIDITY = HOURLY.HUMIDITY
+        TEMPERATURE_WIND_CHILL = HOURLY.TEMPERATURE_WIND_CHILL
 
 
 class NwsObservationUnit(DatasetTreeCore):
-    class HOURLY(UnitEnum):
-        TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-        TEMPERATURE_DEW_POINT_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-        WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
-        WIND_SPEED = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
-        WIND_GUST_MAX = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
-        PRESSURE_AIR_SITE = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
-        PRESSURE_AIR_SEA_LEVEL = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
-        VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
-        TEMPERATURE_AIR_MAX_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-        TEMPERATURE_AIR_MIN_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-        PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_HEIGHT_LAST_3H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-        PRECIPITATION_HEIGHT_LAST_6H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-        HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-        TEMPERATURE_WIND_CHILL = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+    class HOURLY(DatasetTreeCore):
+        class HOURLY(UnitEnum):
+            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_DEW_POINT_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
+            WIND_SPEED = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
+            WIND_GUST_MAX = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
+            PRESSURE_AIR_SITE = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
+            PRESSURE_AIR_SEA_LEVEL = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
+            VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
+            TEMPERATURE_AIR_MAX_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_3H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_6H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+            TEMPERATURE_WIND_CHILL = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
 
 
 class NwsObservationResolution(Enum):
@@ -95,7 +113,7 @@ class NwsObservationValues(ScalarValuesCore):
 
         df = df.properties.apply(pd.Series).rename(columns=str.lower)
 
-        parameters = {par.value for par in NwsObservationParameter.HOURLY}
+        parameters = {par.value for par in NwsObservationParameter.HOURLY.HOURLY}
         parameters.add("cloudlayers")
         parameters = parameters.intersection(df.columns)
 

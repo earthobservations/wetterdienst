@@ -26,7 +26,7 @@ def test_dwd_mosmix_stations_success(default_settings):
     """
 
     # Acquire data.
-    df = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.LARGE, settings=default_settings).all().df
+    df = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE, settings=default_settings).all().df
     assert not df.empty
 
     # Verify size of dataframe with all records.
@@ -75,7 +75,7 @@ def test_dwd_mosmix_stations_filtered(default_settings):
     """
 
     # Acquire data.
-    request = DwdMosmixRequest(parameter="small", mosmix_type=DwdMosmixType.LARGE, settings=default_settings)
+    request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE, settings=default_settings)
     df = request.all().df
     assert not df.empty
 

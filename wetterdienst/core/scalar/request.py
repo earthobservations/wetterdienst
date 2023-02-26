@@ -232,7 +232,6 @@ class ScalarRequestCore(Core):
         parameters = []
 
         for par in pd.Series(parameter):
-
             # Each parameter can either be
             #  - a dataset : gets all data from the dataset
             #  - a parameter : gets prefixed parameter from a resolution e.g.
@@ -284,7 +283,7 @@ class ScalarRequestCore(Core):
         except InvalidEnumeration:
             pass
 
-        if dataset_ and self._has_datasets and not self._unique_dataset:
+        if dataset_:
             try:
                 self._parameter_base[self._dataset_accessor][dataset_.name]
             except (KeyError, AttributeError):
@@ -504,9 +503,6 @@ class ScalarRequestCore(Core):
         :param with_units:
         :return:
         """
-        # TODO: Refactor this!!!
-        flatten = cls._unique_dataset or flatten
-
         resolutions = cls._setup_resolution_filter(resolution)
 
         if flatten:
@@ -524,12 +520,9 @@ class ScalarRequestCore(Core):
                     if not hasattr(parameter, "name"):
                         continue
 
-                    if cls._unique_dataset:
-                        origin_unit, si_unit = cls._unit_tree[resolution_name][parameter.name].value
-                    else:
-                        origin_unit, si_unit = cls._unit_tree[resolution_name][parameter.__class__.__name__][
-                            parameter.name
-                        ].value
+                    origin_unit, si_unit = cls._unit_tree[resolution_name][parameter.__class__.__name__][
+                        parameter.name
+                    ].value
 
                     if with_units:
                         slot = parameters[resolution_name.lower()][parameter.name.lower()] = {}

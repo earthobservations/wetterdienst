@@ -268,19 +268,12 @@ class ScalarValuesCore(metaclass=ABCMeta):
 
         dataset_accessor = self.sr._dataset_accessor
 
-        if self.sr._unique_dataset or not self.sr._has_datasets:
-            units = self.sr._unit_tree[dataset_accessor]
-        else:
-            units = self.sr._unit_tree[dataset_accessor][dataset]
+        units = self.sr._unit_tree[dataset_accessor][dataset]
 
         conversion_factors = {}
 
         for parameter in units:
-            if self.sr._unique_dataset or not self.sr._has_datasets:
-                parameter_name = self.sr._parameter_base[dataset_accessor][parameter.name].value.lower()
-            else:
-                parameter_name = self.sr._parameter_base[dataset_accessor][dataset][parameter.name].value.lower()
-
+            parameter_name = self.sr._parameter_base[dataset_accessor][dataset][parameter.name].value.lower()
             conversion_factors[parameter_name] = self._get_conversion_factor(*parameter.value)
 
         return conversion_factors
@@ -326,10 +319,7 @@ class ScalarValuesCore(metaclass=ABCMeta):
         resolution = self.sr.resolution
 
         # if parameter is a whole dataset, take every parameter from the dataset instead
-        if self.sr._unique_dataset or not self.sr._has_datasets:
-            parameter = [*parameter_base[resolution.name]]
-        else:
-            parameter = [*parameter_base[resolution.name][dataset.name]]
+        parameter = [*parameter_base[resolution.name][dataset.name]]
 
         if self.sr._has_tidy_data:
             if not self.sr.start_date:
@@ -388,16 +378,10 @@ class ScalarValuesCore(metaclass=ABCMeta):
         else:
             data = []
             for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
-                if self.sr._unique_dataset:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter,
-                        self.sr._parameter_base[self.sr.resolution.name],
-                    )
-                else:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter,
-                        self.sr._parameter_base[self.sr._dataset_accessor][dataset.name],
-                    )
+                parameter_ = parse_enumeration_from_template(
+                    parameter,
+                    self.sr._parameter_base[self.sr._dataset_accessor][dataset.name],
+                )
                 df = pd.merge(
                     left=self._get_base_df(station_id),
                     right=group,
@@ -803,23 +787,15 @@ class ScalarValuesCore(metaclass=ABCMeta):
         :return:
         """
         hpm = {}
-        if self.sr._unique_dataset or not self.sr._has_datasets:
-            for parameter in self.sr._parameter_base[self.sr.resolution.name]:
+        datasets = [
+            dataset for dataset in self.sr._parameter_base[self.sr.resolution.name] if hasattr(dataset, "__name__")
+        ]
+        for dataset in datasets:
+            for parameter in self.sr._parameter_base[self.sr.resolution.name][dataset.__name__]:
                 try:
                     hpm[parameter.value.lower()] = parameter.name.lower()
                 except AttributeError:
                     pass
-        else:
-            datasets = [
-                dataset for dataset in self.sr._parameter_base[self.sr.resolution.name] if hasattr(dataset, "__name__")
-            ]
-
-            for dataset in datasets:
-                for parameter in self.sr._parameter_base[self.sr.resolution.name][dataset.__name__]:
-                    try:
-                        hpm[parameter.value.lower()] = parameter.name.lower()
-                    except AttributeError:
-                        pass
 
         return hpm
 
