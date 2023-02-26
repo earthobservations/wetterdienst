@@ -15,6 +15,12 @@ Wetterdienst - Open weather data for humans
 
 |pic1| |pic2| |pic3|
 
+**Warning**
+
+This library is a work in progress!
+
+Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
+
 **What our customers say:**
 
 "Our house is on fire. I am here to say, our house is on fire. I saw it with my own eyes using **wetterdienst**
