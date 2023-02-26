@@ -15,7 +15,7 @@ Wetterdienst - Open weather data for humans
 
 |pic1| |pic2| |pic3|
 
-** Warning **
+**Warning**
 
 This library is a work in progress!
 
