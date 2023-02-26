@@ -3,6 +3,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 
+import pytest
+
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -12,8 +14,7 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def test_dwd_observation_metadata_discover_parameters():
-    parameters = DwdObservationRequest.discover(resolution="minute_1", flatten=True)
-
+    metadata = DwdObservationRequest.discover(resolution="minute_1", flatten=True)
     expected = {
         "minute_1": {
             "precipitation_height": {"origin": "mm", "si": "kg / m ** 2"},
@@ -28,7 +29,7 @@ def test_dwd_observation_metadata_discover_parameters():
             "precipitation_index": {"origin": "-", "si": "-"},
         }
     }
-    assert json.dumps(expected) in json.dumps(parameters)
+    assert json.dumps(expected) in json.dumps(metadata)
 
 
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():
@@ -37,12 +38,10 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
-
     assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
-
     assert list(metadata["parameters"].keys()) == [
         "stations_id",
         "mess_datum",
@@ -71,12 +70,10 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
     )
-
     assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
-
     assert list(
         DwdObservationRequest.describe_fields(
             dataset=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -106,8 +103,8 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
     ]
 
 
+@pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
-
     metadata = DwdObservationRequest.describe_fields(
         dataset=DwdObservationDataset.SOLAR,
         resolution=DwdObservationResolution.HOURLY,
@@ -133,7 +130,6 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 
 
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
-
     metadata = DwdObservationRequest.describe_fields(
         dataset=DwdObservationDataset.TEMPERATURE_AIR,
         resolution=DwdObservationResolution.MINUTE_10,

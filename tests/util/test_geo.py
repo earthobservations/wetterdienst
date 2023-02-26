@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pandas._testing import assert_series_equal
 
-from wetterdienst.util.geo import Coordinates, convert_dm_to_dd
+from wetterdienst.util.geo import Coordinates, convert_dm_to_dd, derive_nearest_neighbours
 
 
 def test_get_coordinates():
@@ -34,3 +34,22 @@ def test_dms_to_dd():
     given = convert_dm_to_dd(data)
     expected = pd.Series([7.7, 52.13, -7.7, -52.13, 0])
     assert_series_equal(given, expected)
+
+
+def test_derive_nearest_neighbours():
+    coords = Coordinates(np.array([50.0, 51.4]), np.array([8.9, 9.3]))
+    metadata = pd.DataFrame(
+        {
+            "station_id": [4371, 4373, 4411, 13904, 13965, 15207],
+            "latitude": [52.1042, 52.8568, 49.9195, 55.0, 48.2639, 51.2835],
+            "longitude": [8.7521, 11.1319, 8.9671, 6.3333, 8.8134, 9.359],
+        }
+    )
+    distances, indices_nearest_neighbours = derive_nearest_neighbours(
+        latitudes=metadata["latitude"].values,
+        longitudes=metadata["longitude"].values,
+        coordinates=coords,
+        number_nearby=1,
+    )
+    np.testing.assert_array_almost_equal(distances, np.array([[0.001594], [0.002133]]))
+    np.testing.assert_array_almost_equal(indices_nearest_neighbours, np.array([[2], [5]]))

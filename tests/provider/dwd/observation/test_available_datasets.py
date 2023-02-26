@@ -49,28 +49,18 @@ def test_compare_available_dwd_datasets(default_settings):
         listings_cache_location=default_settings.cache_dir,
         client_kwargs=default_settings.fsspec_client_kwargs,
     )
-
     base_url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
-
     files = fs.expand_path(base_url, recursive=True, maxdepth=3)
-
     df = pd.DataFrame({"files": files})
-
     df.files = df.files.str[len(base_url) : -1]
-
     # filter resolution folders
     df = df.loc[df.files.str.count("/") == 1, :]
-
     df.loc[:, ["resolution", "dataset"]] = df.pop("files").str.split("/").tolist()
-
     for _, (resolution, dataset) in df.iterrows():
         rd_pair = (resolution, dataset)
-
         if rd_pair in SKIP_DATASETS:
             continue
-
         resolution = parse_enumeration_from_template(resolution, DwdObservationResolution, Resolution)
         dataset = DwdObservationDataset(dataset)
-
         assert dataset in RESOLUTION_DATASET_MAPPING[resolution].keys()
         assert DwdObservationParameter[resolution.name][dataset.name]

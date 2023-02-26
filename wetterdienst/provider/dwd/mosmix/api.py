@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from enum import Enum
 from io import StringIO
-from typing import Dict, Generator, Optional, Tuple, Union
+from typing import Dict, Generator, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import numpy as np
@@ -20,6 +20,7 @@ from wetterdienst.exceptions import InvalidParameter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -411,12 +412,12 @@ class DwdMosmixRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter: Optional[Tuple[Union[str, DwdMosmixParameter], ...]],
+        parameter: Optional[List[Union[str, DwdMosmixParameter, Parameter]]],
         mosmix_type: Union[str, DwdMosmixType],
         start_issue: Optional[Union[str, datetime, DwdForecastDate]] = DwdForecastDate.LATEST,
         end_issue: Optional[Union[str, datetime]] = None,
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         station_group: Optional[DwdMosmixStationGroup] = None,
         settings: Optional[Settings] = None,
     ) -> None:

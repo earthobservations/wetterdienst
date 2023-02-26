@@ -479,7 +479,7 @@ class DwdObservationRequest(ScalarRequestCore):
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        settings: Settings = None,
+        settings: Optional[Settings] = None,
     ):
         """
 

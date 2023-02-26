@@ -16,7 +16,7 @@ from dirty_equals import IsInt, IsTuple
 from pandas._testing import assert_frame_equal, assert_series_equal
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 @pytest.mark.remote
@@ -24,14 +24,11 @@ def test_dwd_mosmix_stations_success(default_settings):
     """
     Verify full MOSMIX station list.
     """
-
     # Acquire data.
-    df = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE, settings=default_settings).all().df
-    assert not df.empty
-
+    given_df = DwdMosmixRequest(parameter="large", mosmix_type="large", settings=default_settings).all().df
+    assert not given_df.empty
     # Verify size of dataframe with all records.
-    assert df.shape == IsTuple(IsInt(ge=5500), 9)
-
+    assert given_df.shape == IsTuple(IsInt(ge=5500), 9)
     # Verify content of dataframe. For reference purposes,
     # we use the first and the last record of the list.
     first_station_reference = pd.Series(
@@ -60,10 +57,8 @@ def test_dwd_mosmix_stations_success(default_settings):
             "state": pd.NA,
         },
     )
-
-    first_station: pd.Series = df.head(1).iloc[0]
-    last_station: pd.Series = df.tail(1).iloc[0]
-
+    first_station = given_df.head(1).iloc[0]
+    last_station = given_df.tail(1).iloc[0]
     assert_series_equal(first_station, first_station_reference, check_names=False)
     assert_series_equal(last_station, last_station_reference, check_names=False)
 
@@ -73,21 +68,18 @@ def test_dwd_mosmix_stations_filtered(default_settings):
     """
     Verify MOSMIX station list filtering by station identifier.
     """
-
     # Acquire data.
-    request = DwdMosmixRequest(parameter="large", mosmix_type=DwdMosmixType.LARGE, settings=default_settings)
-    df = request.all().df
-    assert not df.empty
-
+    stations = DwdMosmixRequest(parameter="large", mosmix_type="large", settings=default_settings)
+    given_df = stations.all().df
+    assert not given_df.empty
     # Filter dataframe.
-    df_given = (
-        df.loc[df[Columns.STATION_ID.value].isin(["01001", "72306", "83891", "94767"]), :]
+    given_df = (
+        given_df.loc[given_df[Columns.STATION_ID.value].isin(["01001", "72306", "83891", "94767"]), :]
         .sort_values("station_id")
         .reset_index(drop=True)
     )
-
     # Verify content of filtered dataframe.
-    df_expected = pd.DataFrame(
+    expected_df = pd.DataFrame(
         [
             {
                 "station_id": "01001",
@@ -135,8 +127,6 @@ def test_dwd_mosmix_stations_filtered(default_settings):
             },
         ]
     )
-
-    df_expected.from_date = pd.to_datetime(df_expected.from_date, utc=True)
-    df_expected.to_date = pd.to_datetime(df_expected.to_date, utc=True)
-
-    assert_frame_equal(df_given, df_expected)
+    expected_df.from_date = pd.to_datetime(expected_df.from_date, utc=True)
+    expected_df.to_date = pd.to_datetime(expected_df.to_date, utc=True)
+    assert_frame_equal(given_df, expected_df)

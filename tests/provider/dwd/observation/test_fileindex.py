@@ -20,7 +20,6 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 
 @pytest.mark.remote
 def test_file_index_creation_success(default_settings):
-
     # Existing combination of parameters
     file_index = create_file_index_for_climate_observations(
         DwdObservationDataset.CLIMATE_SUMMARY,
@@ -28,9 +27,7 @@ def test_file_index_creation_success(default_settings):
         DwdObservationPeriod.RECENT,
         settings=default_settings,
     )
-
     assert not file_index.empty
-
     assert file_index.loc[
         file_index[DwdColumns.STATION_ID.value] == "01048",
         DwdColumns.FILENAME.value,
@@ -61,7 +58,6 @@ def test_create_file_list_for_dwd_server(default_settings):
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "daily/kl/recent/tageswerte_KL_01048_akt.zip"
     ]
-
     # with date range
     remote_file_path = create_file_list_for_climate_observations(
         station_id="00003",
@@ -71,7 +67,6 @@ def test_create_file_list_for_dwd_server(default_settings):
         date_range="19930428_19991231",
         settings=default_settings,
     )
-
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "10_minutes/air_temperature/historical/"

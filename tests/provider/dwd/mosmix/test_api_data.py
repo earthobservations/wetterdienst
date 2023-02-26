@@ -15,7 +15,7 @@ def test_dwd_mosmix_l(settings_humanize_false):
     Test some details of a typical MOSMIX-L response.
     """
     request = DwdMosmixRequest(
-        parameter="large", mosmix_type=DwdMosmixType.LARGE, settings=settings_humanize_false
+        parameter="large", mosmix_type="large", settings=settings_humanize_false
     ).filter_by_station_id(
         station_id=["01001"],
     )
@@ -167,21 +167,18 @@ def test_dwd_mosmix_l(settings_humanize_false):
 def test_dwd_mosmix_s(settings_humanize_false):
     """Test some details of a typical MOSMIX-S response."""
     request = DwdMosmixRequest(
-        parameter="small", mosmix_type=DwdMosmixType.SMALL, settings=settings_humanize_false
+        parameter="small", mosmix_type="small", settings=settings_humanize_false
     ).filter_by_station_id(
         station_id=["01028"],
     )
     response = next(request.values.query())
-
     # Verify list of stations_result.
     station_names = list(response.stations.df["name"].unique())
     assert station_names == ["BJORNOYA"]
-
     # Verify mosmix data.
     station_ids = response.df["station_id"].unique().tolist()
     assert station_ids == ["01028"]
     assert len(response.df) > 200
-
     assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
         "station_id",
@@ -191,7 +188,6 @@ def test_dwd_mosmix_s(settings_humanize_false):
         "value",
         "quality",
     ]
-
     assert set(response.df["parameter"]).issuperset(
         [
             "pppp",
@@ -241,20 +237,16 @@ def test_dwd_mosmix_s(settings_humanize_false):
 @pytest.mark.remote
 def test_mosmix_date_filter(default_settings):
     now = datetime.now(tz=pytz.utc)
-
-    stations = DwdMosmixRequest(
+    request = DwdMosmixRequest(
         parameter="small",
         mosmix_type=DwdMosmixType.SMALL,
         start_date=now - timedelta(hours=1),
         end_date=now,
         start_issue=now - timedelta(hours=5),
         settings=default_settings,
-    )
-
-    nearest_station = stations.filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
-    df = nearest_station.values.all().df
-
-    assert len(df) == 40
+    ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
+    given_df = request.values.all().df
+    assert len(given_df) == 40
 
 
 @pytest.mark.remote
@@ -263,17 +255,15 @@ def test_mosmix_l_parameters(settings_humanize_false):
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
     request = DwdMosmixRequest(
-        mosmix_type=DwdMosmixType.LARGE, parameter=["DD", "ww"], settings=settings_humanize_false
+        parameter=["dd", "ww"], mosmix_type="large", settings=settings_humanize_false
     ).filter_by_station_id(
         station_id=("01001", "123"),
     )
     response = next(request.values.query())
-
     # Verify mosmix data.
     station_ids = response.stations.df["station_id"].unique().tolist()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
-
     assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
         "station_id",

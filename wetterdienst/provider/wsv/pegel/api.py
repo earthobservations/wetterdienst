@@ -13,6 +13,7 @@ from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -229,7 +230,7 @@ class WsvPegelRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter,
+        parameter: List[Union[str, WsvPegelParameter, Parameter]],
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         settings: Optional[Settings] = None,

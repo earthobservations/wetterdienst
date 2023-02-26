@@ -10,8 +10,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
 @pytest.mark.remote
 def test_noaa_ghcn_stations(default_settings):
-    df = NoaaGhcnRequest("daily", settings=default_settings).all().df.iloc[:5, :]
-
+    df = NoaaGhcnRequest(parameter="daily", settings=default_settings).all().df.iloc[:5, :]
     df_expected = pd.DataFrame(
         {
             "station_id": pd.Series(

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import pytest
+
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationParameter,
@@ -9,31 +11,34 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-parameters_reference = [
-    (
-        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MEAN_200,
-        DwdObservationDataset.CLIMATE_SUMMARY,
-    ),
-    (
-        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
-        DwdObservationDataset.CLIMATE_SUMMARY,
-    ),
-    (
-        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
-        DwdObservationDataset.CLIMATE_SUMMARY,
-    ),
-    (
-        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
-        DwdObservationDataset.CLIMATE_SUMMARY,
-    ),
-    (
-        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_FORM,
-        DwdObservationDataset.CLIMATE_SUMMARY,
-    ),
-]
+
+@pytest.fixture
+def parameters_reference():
+    return [
+        (
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MEAN_200,
+            DwdObservationDataset.CLIMATE_SUMMARY,
+        ),
+        (
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MAX_200,
+            DwdObservationDataset.CLIMATE_SUMMARY,
+        ),
+        (
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.TEMPERATURE_AIR_MIN_200,
+            DwdObservationDataset.CLIMATE_SUMMARY,
+        ),
+        (
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
+            DwdObservationDataset.CLIMATE_SUMMARY,
+        ),
+        (
+            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_FORM,
+            DwdObservationDataset.CLIMATE_SUMMARY,
+        ),
+    ]
 
 
-def test_dwd_observation_parameters_constants(default_settings):
+def test_dwd_observation_parameters_constants(default_settings, parameters_reference):
     request = DwdObservationRequest(
         parameter=[
             DwdObservationParameter.DAILY.TEMPERATURE_AIR_MEAN_200,  # tmk
@@ -46,11 +51,10 @@ def test_dwd_observation_parameters_constants(default_settings):
         period=DwdObservationPeriod.HISTORICAL,
         settings=default_settings,
     )
-
     assert request.parameter == parameters_reference
 
 
-def test_dwd_observation_parameters_strings_lowercase(default_settings):
+def test_dwd_observation_parameters_strings_lowercase(default_settings, parameters_reference):
     request = DwdObservationRequest(
         parameter=[
             "tmk",
@@ -63,11 +67,10 @@ def test_dwd_observation_parameters_strings_lowercase(default_settings):
         period=DwdObservationPeriod.HISTORICAL,
         settings=default_settings,
     )
-
     assert request.parameter == parameters_reference
 
 
-def test_dwd_observation_parameters_strings_uppercase(default_settings):
+def test_dwd_observation_parameters_strings_uppercase(default_settings, parameters_reference):
     request = DwdObservationRequest(
         parameter=[
             "TMK",
@@ -80,5 +83,4 @@ def test_dwd_observation_parameters_strings_uppercase(default_settings):
         period=DwdObservationPeriod.HISTORICAL,
         settings=default_settings,
     )
-
     assert request.parameter == parameters_reference

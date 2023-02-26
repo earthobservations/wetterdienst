@@ -1,35 +1,31 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import numpy as np
 import pandas as pd
-import pytest
-from pandas._testing import assert_frame_equal
+from pandas._testing import assert_frame_equal, assert_series_equal
 
-from wetterdienst.exceptions import InvalidEnumeration
+from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.provider.dwd.util import build_parameter_set_identifier
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 
 
-def test_parse_enumeration_from_template():
-    assert (
-        parse_enumeration_from_template("climate_summary", DwdObservationDataset)
-        == DwdObservationDataset.CLIMATE_SUMMARY
-    )
-    assert (
-        parse_enumeration_from_template("CLIMATE_SUMMARY", DwdObservationDataset)
-        == DwdObservationDataset.CLIMATE_SUMMARY
-    )
-    assert parse_enumeration_from_template("kl", DwdObservationDataset) == DwdObservationDataset.CLIMATE_SUMMARY
+def test_coerce_strings():
+    series = ScalarValuesCore._coerce_strings(pd.Series(["foobar"]))
+    series_expected = pd.Series(["foobar"], dtype=pd.StringDtype())
 
-    with pytest.raises(InvalidEnumeration):
-        parse_enumeration_from_template("climate", DwdObservationDataset)
+    assert_series_equal(series, series_expected)
+
+
+def test_coerce_floats():
+    series = ScalarValuesCore._coerce_floats(pd.Series([42.42]))
+    series_expected = pd.Series([42.42], dtype="float64")
+
+    assert_series_equal(series, series_expected)
 
 
 def test_coerce_field_types(settings_humanize_tidy_false):
@@ -106,14 +102,3 @@ def test_coerce_field_types_with_nans(settings_humanize_tidy_false):
     df = request.values._coerce_parameter_types(df)
 
     assert_frame_equal(df, expected_df, check_categorical=False)
-
-
-def test_build_parameter_identifier():
-    parameter_identifier = build_parameter_set_identifier(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.HISTORICAL,
-        "00001",
-    )
-
-    assert parameter_identifier == "kl/daily/historical/00001"

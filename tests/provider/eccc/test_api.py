@@ -19,8 +19,8 @@ def test_eccc_api_stations(settings_si_false):
         end_date="1990-01-02",
         settings=settings_si_false,
     ).filter_by_station_id(station_id=(14,))
-
-    expected = pd.DataFrame(
+    given_df = request.df
+    expected_df = pd.DataFrame(
         {
             "station_id": pd.Series(["14"], dtype=str),
             "from_date": [pd.Timestamp("1984-01-01", tz=pytz.UTC)],
@@ -32,8 +32,7 @@ def test_eccc_api_stations(settings_si_false):
             "state": pd.Series(["BRITISH COLUMBIA"], dtype=str),
         }
     )
-
-    assert_frame_equal(request.df, expected)
+    assert_frame_equal(given_df, expected_df)
 
 
 @pytest.mark.remote
@@ -45,70 +44,34 @@ def test_eccc_api_values(settings_si_false):
         end_date="1980-01-02",
         settings=settings_si_false,
     ).filter_by_station_id(station_id=(1652,))
-
-    values = request.values.all().df
-
-    expected_df = pd.DataFrame(
-        {
-            "station_id": pd.Categorical(["1652"] * 22),
-            "dataset": pd.Categorical(["daily"] * 22),
-            "parameter": pd.Categorical(
-                [
-                    "temperature_air_max_200",
-                    "temperature_air_max_200",
-                    "temperature_air_min_200",
-                    "temperature_air_min_200",
-                    "temperature_air_mean_200",
-                    "temperature_air_mean_200",
-                    "count_days_heating_degree",
-                    "count_days_heating_degree",
-                    "count_days_cooling_degree",
-                    "count_days_cooling_degree",
-                    "precipitation_height_liquid",
-                    "precipitation_height_liquid",
-                    "snow_depth_new",
-                    "snow_depth_new",
-                    "precipitation_height",
-                    "precipitation_height",
-                    "snow_depth",
-                    "snow_depth",
-                    "wind_direction_gust_max",
-                    "wind_direction_gust_max",
-                    "wind_gust_max",
-                    "wind_gust_max",
-                ]
-            ),
-            "date": [
-                pd.Timestamp("1980-01-01", tz=pytz.UTC),
-                pd.Timestamp("1980-01-02", tz=pytz.UTC),
-            ]
-            * 11,
-            "value": [
-                -16.3,
-                -16.4,
-                -29.1,
-                -28.3,
-                -22.7,
-                -22.4,
-                40.7,
-                40.4,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.8,
-                0.0,
-                0.8,
-                0.0,
-                19.0,
-                20.0,
-                np.NaN,
-                np.NaN,
-                np.NaN,
-                np.NaN,
-            ],
-            "quality": pd.Series([np.NaN] * 22, dtype=float),
-        }
+    given_df = request.values.all().df
+    expected_df = pd.DataFrame.from_records(
+        [
+            ["1652", "daily", "temperature_air_max_200", "1980-01-01", -16.3, np.NaN],
+            ["1652", "daily", "temperature_air_max_200", "1980-01-02", -16.4, np.NaN],
+            ["1652", "daily", "temperature_air_min_200", "1980-01-01", -29.1, np.NaN],
+            ["1652", "daily", "temperature_air_min_200", "1980-01-02", -28.3, np.NaN],
+            ["1652", "daily", "temperature_air_mean_200", "1980-01-01", -22.7, np.NaN],
+            ["1652", "daily", "temperature_air_mean_200", "1980-01-02", -22.4, np.NaN],
+            ["1652", "daily", "count_days_heating_degree", "1980-01-01", 40.7, np.NaN],
+            ["1652", "daily", "count_days_heating_degree", "1980-01-02", 40.4, np.NaN],
+            ["1652", "daily", "count_days_cooling_degree", "1980-01-01", 0.0, np.NaN],
+            ["1652", "daily", "count_days_cooling_degree", "1980-01-02", 0.0, np.NaN],
+            ["1652", "daily", "precipitation_height_liquid", "1980-01-01", 0.0, np.NaN],
+            ["1652", "daily", "precipitation_height_liquid", "1980-01-02", 0.0, np.NaN],
+            ["1652", "daily", "snow_depth_new", "1980-01-01", 1.8, np.NaN],
+            ["1652", "daily", "snow_depth_new", "1980-01-02", 0.0, np.NaN],
+            ["1652", "daily", "precipitation_height", "1980-01-01", 0.8, np.NaN],
+            ["1652", "daily", "precipitation_height", "1980-01-02", 0.0, np.NaN],
+            ["1652", "daily", "snow_depth", "1980-01-01", 19.0, np.NaN],
+            ["1652", "daily", "snow_depth", "1980-01-02", 20.0, np.NaN],
+            ["1652", "daily", "wind_direction_gust_max", "1980-01-01", np.NaN, np.NaN],
+            ["1652", "daily", "wind_direction_gust_max", "1980-01-02", np.NaN, np.NaN],
+            ["1652", "daily", "wind_gust_max", "1980-01-01", np.NaN, np.NaN],
+            ["1652", "daily", "wind_gust_max", "1980-01-02", np.NaN, np.NaN],
+        ],
+        columns=["station_id", "dataset", "parameter", "date", "value", "quality"],
     )
-
-    assert_frame_equal(values.reset_index(drop=True), expected_df, check_categorical=False)
+    expected_df = expected_df.astype({"station_id": "category", "dataset": "category", "parameter": "category"})
+    expected_df.date = pd.to_datetime(expected_df.date, utc=True)
+    assert_frame_equal(given_df.reset_index(drop=True), expected_df, check_categorical=False)
