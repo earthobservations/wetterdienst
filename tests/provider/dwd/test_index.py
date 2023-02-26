@@ -34,7 +34,6 @@ def test_list_files_of_climate_observations():
         settings=Settings.default(),
         ttl=CacheExpiry.NO_CACHE,
     )
-
     assert (
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "annual/kl/recent/jahreswerte_KL_01048_akt.zip" in files_server
@@ -42,7 +41,6 @@ def test_list_files_of_climate_observations():
 
 
 def test_fileindex(default_settings):
-
     file_index = _create_file_index_for_dwd_server(
         DwdObservationDataset.CLIMATE_SUMMARY,
         DwdObservationResolution.DAILY,
@@ -50,5 +48,4 @@ def test_fileindex(default_settings):
         "observations_germany/climate/",
         settings=default_settings,
     )
-
     assert "daily/kl/recent" in file_index.iloc[0][DwdColumns.FILENAME.value]

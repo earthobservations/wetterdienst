@@ -33,9 +33,7 @@ def test_regular_examples(example):
 
 @pytest.mark.cflake
 def test_radar_examples():
-
     pytest.importorskip("wradlib")
-
     from example.radar import (
         radar_composite_rw,
         radar_radolan_cdc,

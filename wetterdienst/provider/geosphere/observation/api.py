@@ -4,11 +4,11 @@
 import json
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import pandas as pd
 
-from wetterdienst import Settings
+from wetterdienst import Parameter, Settings
 from wetterdienst.core.scalar.request import ScalarRequestCore
 from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
@@ -722,8 +722,8 @@ class GeosphereObservationRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter: Tuple[Union[str, Enum]],
-        resolution: Resolution,
+        parameter: List[Union[str, GeosphereObservationParameter, Parameter]],
+        resolution: Union[str, GeosphereObservationResolution, Resolution],
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         settings: Optional[Settings] = None,

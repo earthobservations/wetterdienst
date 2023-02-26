@@ -32,7 +32,6 @@ def test_no_provider():
             "all": "true",
         },
     )
-
     assert "Choose provider and network from /restapi/coverage" in response.text
 
 
@@ -48,12 +47,11 @@ def test_no_network():
             "all": "true",
         },
     )
-
     assert "Choose provider and network from /restapi/coverage" in response.text
 
 
+@pytest.mark.remote
 def test_dwd_stations_basic():
-
     response = client.get(
         "/restapi/stations",
         params={
@@ -72,8 +70,8 @@ def test_dwd_stations_basic():
     assert response.json()["data"][0]["longitude"] == 8.5205
 
 
+@pytest.mark.remote
 def test_dwd_stations_geo():
-
     response = client.get(
         "/restapi/stations",
         params={
@@ -93,8 +91,8 @@ def test_dwd_stations_geo():
     assert response.json()["data"][0]["longitude"] == 10.2759
 
 
+@pytest.mark.remote
 def test_dwd_stations_sql():
-
     response = client.get(
         "/restapi/stations",
         params={
@@ -111,8 +109,8 @@ def test_dwd_stations_sql():
     assert response.json()["data"][0]["name"] == "Dresden-Klotzsche"
 
 
+@pytest.mark.remote
 def test_dwd_values_success(dicts_are_same):
-
     response = client.get(
         "/restapi/values",
         params={
@@ -140,7 +138,6 @@ def test_dwd_values_success(dicts_are_same):
 
 
 def test_dwd_values_no_station():
-
     response = client.get(
         "/restapi/values",
         params={
@@ -151,7 +148,6 @@ def test_dwd_values_no_station():
             "period": "recent",
         },
     )
-
     assert response.status_code == 200
     assert (
         "'Give one of the parameters: all (boolean), station (string), "
@@ -162,7 +158,6 @@ def test_dwd_values_no_station():
 
 
 def test_dwd_values_no_parameter():
-
     response = client.get(
         "/restapi/values",
         params={
@@ -173,13 +168,11 @@ def test_dwd_values_no_parameter():
             "period": "recent",
         },
     )
-
     assert response.status_code == 400
     assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
 
 def test_dwd_values_no_resolution():
-
     response = client.get(
         "/restapi/values",
         params={
@@ -189,7 +182,6 @@ def test_dwd_values_no_resolution():
             "period": "recent",
         },
     )
-
     assert response.status_code == 400
     assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
@@ -197,7 +189,6 @@ def test_dwd_values_no_resolution():
 @pytest.mark.remote
 @pytest.mark.sql
 def test_dwd_values_sql_tabular(dicts_are_same):
-
     response = client.get(
         "/restapi/values",
         params={
@@ -213,11 +204,8 @@ def test_dwd_values_sql_tabular(dicts_are_same):
             "si-units": False,
         },
     )
-
     assert response.status_code == 200
-
     data = response.json()["data"]
-
     assert len(data) >= 8
     assert dicts_are_same(
         data[0],
@@ -355,7 +343,6 @@ def test_api_values_missing_null():
     assert response.json()["data"][0]["quality"] is None
 
 
-@pytest.mark.xfail(reason="Needs review")
 @pytest.mark.remote
 def test_api_stations_missing_null():
     response = client.get(
@@ -369,9 +356,8 @@ def test_api_stations_missing_null():
         },
     )
     assert response.status_code == 200
-
-    first = response.json()["data"][0]
-
+    first = response.json()["data"][2]
+    assert first["station_id"] == "01025"
     assert first["icao_id"] is None
     assert first["from_date"] is None
     assert first["to_date"] is None

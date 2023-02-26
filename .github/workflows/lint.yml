@@ -1,4 +1,4 @@
-name: Coverage
+name: Lint
 
 on:
   push:
@@ -15,9 +15,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  run:
+  lint:
     runs-on: ubuntu-latest
-    name: Check code coverage
     steps:
       - name: Acquire sources
         uses: actions/checkout@v3
@@ -26,25 +25,15 @@ jobs:
         run: pipx install poetry
 
       - name: Setup Python
+        id: python-setup
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
           architecture: x64
           cache: poetry
 
-      - name: Install project
-        run: .github/workflows/install.sh testing
+      - name: Install project tooling
+        run: poetry install --no-interaction --no-root --with=dev
 
-      - name: Run tests, with coverage
-        run: |
-          poetry run pytest --cov=wetterdienst tests/
-          poetry run coverage xml
-
-      - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          env_vars: OS,PYTHON
-          name: codecov-umbrella
-          fail_ci_if_error: false
+      - name: Run code-style checks
+        run: poetry run poe lint

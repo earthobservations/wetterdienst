@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from enum import Enum
 from io import BytesIO
-from typing import Generator, Optional, Tuple, Union
+from typing import Generator, List, Optional, Tuple, Union
 
 import pandas as pd
 from pandas._libs.tslibs.offsets import YearEnd
@@ -17,6 +17,7 @@ from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -293,10 +294,10 @@ class EcccObservationRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter: Tuple[Union[str, EcccObservationParameter]],
-        resolution: Union[EcccObservationResolution, Resolution],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        parameter: List[Union[str, EcccObservationParameter, Parameter]],
+        resolution: Union[str, EcccObservationResolution, Resolution],
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         settings: Optional[Settings] = None,
     ):
         """

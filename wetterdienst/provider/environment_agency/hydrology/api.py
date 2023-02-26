@@ -14,6 +14,7 @@ from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -147,8 +148,8 @@ class EaHydrologyRequest(ScalarRequestCore):
 
     def __init__(
         self,
-        parameter: EaHydrologyParameter,
-        resolution: EaHydrologyResolution,
+        parameter: List[Union[str, EaHydrologyParameter, Parameter]],
+        resolution: Union[str, EaHydrologyResolution, Resolution],
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         settings: Optional[Settings] = None,

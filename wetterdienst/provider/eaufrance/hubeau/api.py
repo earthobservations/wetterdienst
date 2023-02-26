@@ -3,8 +3,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import math
+from datetime import datetime
 from enum import Enum
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -181,7 +183,13 @@ class HubeauRequest(ScalarRequestCore):
 
     _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"
 
-    def __init__(self, parameter, start_date=None, end_date=None, settings: Optional[Settings] = None):
+    def __init__(
+        self,
+        parameter: List[Union[str, Enum, Parameter]],
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
+    ):
         super(HubeauRequest, self).__init__(
             parameter=parameter,
             resolution=Resolution.DYNAMIC,

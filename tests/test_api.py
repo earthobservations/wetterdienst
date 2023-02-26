@@ -42,20 +42,15 @@ def test_api(provider, network, kwargs, si_units, station_id):
     """Test main wetterdienst API"""
     # Build API
     api = Wetterdienst(provider, network)
-
     # Discover parameters
     assert api.discover()
-
     settings = Settings(si_units=si_units, ignore_env=True)
-
     # All stations_result
     if station_id:
         request = api(**kwargs, settings=settings).filter_by_station_id(station_id=station_id)
     else:
         request = api(**kwargs, settings=settings).all()
-
     stations = request.df
-
     # Check stations_result DataFrame columns
     assert set(stations.columns).issuperset(
         {
@@ -69,12 +64,9 @@ def test_api(provider, network, kwargs, si_units, station_id):
             "state",
         }
     )
-
     # Check that there are actually stations_result
     assert not stations.empty
-
     # Query first DataFrame from values
     values = next(request.values.query()).df
-
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
     assert not values.dropna(subset="value").empty

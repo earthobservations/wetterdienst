@@ -3,8 +3,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
+from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import List, Optional, Union
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ from wetterdienst.core.scalar.values import ScalarValuesCore
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -155,7 +157,13 @@ class NwsObservationRequest(ScalarRequestCore):
     kind = Kind.OBSERVATION
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
-    def __init__(self, parameter, start_date=None, end_date=None, settings: Optional[Settings] = None):
+    def __init__(
+        self,
+        parameter: List[Union[str, NwsObservationParameter, Parameter]],
+        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        settings: Optional[Settings] = None,
+    ):
         super(NwsObservationRequest, self).__init__(
             parameter=parameter,
             resolution=Resolution.HOURLY,

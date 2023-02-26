@@ -1,6 +1,13 @@
+import platform
+
 import pytest
 
 from wetterdienst import Settings
+
+
+@pytest.fixture
+def is_windows():
+    return platform.system() == "Windows"
 
 
 @pytest.fixture(scope="function")

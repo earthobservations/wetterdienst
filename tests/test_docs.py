@@ -7,11 +7,9 @@ from pathlib import Path
 
 def test_readme():
     readme_file = Path(__file__).parent.parent / "README.rst"
-
     failures, _ = doctest.testfile(
         filename=str(readme_file),
         module_relative=False,
         optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS,
     )
-
     assert failures == 0

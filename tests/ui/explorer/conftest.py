@@ -48,10 +48,8 @@ class DashCompositePlus(DashComposite):
 
 @pytest.fixture(scope="function")
 def wetterdienst_ui(dash_tre):
-
     # Import Dash application in testing mode.
     app = import_app("wetterdienst.ui.explorer.app")
-
     # Start testing server and wait until page is loaded.
     dash_tre.start_server(app)
     dash_tre.wait_for_page(timeout=10)

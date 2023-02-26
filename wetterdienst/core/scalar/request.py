@@ -342,9 +342,9 @@ class ScalarRequestCore(Core):
 
     def __init__(
         self,
-        parameter: Tuple[Union[str, Enum]],
-        resolution: Resolution,
-        period: Period,
+        parameter: List[Union[str, Enum, Parameter]],
+        resolution: Union[str, Resolution],
+        period: Union[str, Period],
         start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
         settings: Optional[Settings] = None,
