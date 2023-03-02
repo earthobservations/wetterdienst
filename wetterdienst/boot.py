@@ -5,10 +5,9 @@
 
 
 def monkeypatch():
-    from wetterdienst.monkeypatch import click_params_monkeypatch, fsspec_monkeypatch
+    from wetterdienst.monkeypatch import fsspec_monkeypatch
 
     fsspec_monkeypatch.activate()
-    click_params_monkeypatch.activate()
 
 
 def get_version(appname):
