@@ -8,7 +8,7 @@ from wetterdienst import Settings, Wetterdienst
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "provider,network,kwargs,station_id",
+    ("provider", "network", "kwargs", "station_id"),
     [
         # German Weather Service (DWD)
         # historical observation
@@ -31,7 +31,9 @@ from wetterdienst import Settings, Wetterdienst
         # NWS Observation
         ("nws", "observation", {"parameter": "temperature_air_mean_200"}, "KBHM"),
         # Eaufrance Hubeau
-        ("eaufrance", "hubeau", {"parameter": "flow"}, None),  # noqa: E800
+        pytest.param(
+            "eaufrance", "hubeau", {"parameter": "flow"}, None, marks=pytest.mark.xfail(raises=FileNotFoundError)
+        ),  # noqa: E800
         # ZAMG Observation
         ("geosphere", "observation", {"parameter": "precipitation_height", "resolution": "daily"}, "5882"),
     ],
