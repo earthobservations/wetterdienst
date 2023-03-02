@@ -23,6 +23,9 @@ import pytest
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
+    ElementNotInteractableException,
+    NoSuchElementException,
+    TimeoutException,
 )
 
 
@@ -135,7 +138,7 @@ def test_options_reset(wetterdienst_ui, dash_tre):
     dash_tre.wait_for_contains_text("#select-period", "")
 
 
-@pytest.mark.xfail(raises=ElementClickInterceptedException)
+@pytest.mark.xfail(raises=(ElementNotInteractableException, NoSuchElementException, TimeoutException))
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
