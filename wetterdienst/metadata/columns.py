@@ -24,7 +24,7 @@ class Columns(Enum):
     FILEID = "fileid"
     DATE_RANGE = "date_range"
     INTERVAL = "interval"
-    # Columns used for tidy data
+    # Columns used for long data format
     PARAMETER = "parameter"
     DATASET = "dataset"
     VALUE = "value"

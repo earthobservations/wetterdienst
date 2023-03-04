@@ -7,8 +7,8 @@ from typing import List, Literal, Optional, Tuple, Union
 
 from wetterdienst import Kind, Provider
 from wetterdienst.core.process import create_date_range
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.result import StationsResult, ValuesResult
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -56,25 +56,25 @@ def _get_stations_request(
     date: Optional[str],
     issue: str,
     si_units: bool,
-    tidy: bool,
+    shape: Literal["long", "wide"],
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
     skip_criteria: Literal["min", "mean", "max"],
     dropna: bool,
-    use_nearby_station_until_km: float,
+    use_nearby_station_distance: float,
 ):
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
     settings = Settings(
-        si_units=si_units,
-        tidy=tidy,
-        humanize=humanize,
-        skip_empty=skip_empty,
-        skip_criteria=skip_criteria,
-        skip_threshold=skip_threshold,
-        dropna=dropna,
-        interp_use_nearby_station_until_km=use_nearby_station_until_km,
+        ts_si_units=si_units,
+        ts_shape=shape,
+        ts_humanize=humanize,
+        ts_skip_empty=skip_empty,
+        ts_skip_criteria=skip_criteria,
+        ts_skip_threshold=skip_threshold,
+        ts_dropna=dropna,
+        ts_interpolation_use_nearby_station_distance=use_nearby_station_distance,
     )
 
     # TODO: move this into Request core
@@ -97,7 +97,7 @@ def _get_stations_request(
     if api._data_range == DataRange.LOOSELY and not start_date and not end_date:
         # TODO: use another property "network" on each class
         raise TypeError(
-            f"Combination of provider {api.provider.name} and network {api.kind.name} requires start and end date"
+            f"Combination of provider {api._provider.name} and network {api._kind.name} requires start and end date"
         )
 
     # Todo: We may have to apply other measures to allow for
@@ -110,7 +110,7 @@ def _get_stations_request(
         "start_date": start_date,
         "end_date": end_date,
     }
-    if api.provider == Provider.DWD and api.kind == Kind.FORECAST:
+    if api._provider == Provider.DWD and api._kind == Kind.FORECAST:
         kwargs["mosmix_type"] = resolution
         kwargs["start_issue"] = issue
     elif api._resolution_type == ResolutionType.MULTI:
@@ -128,7 +128,7 @@ def get_stations(
     resolution: str,
     period: List[str],
     date: Optional[str],
-    issue: str,
+    issue: Optional[str],
     all_: bool,
     station_id: List[str],
     name: str,
@@ -138,7 +138,7 @@ def get_stations(
     bbox: str,
     sql: str,
     si_units: bool,
-    tidy: bool,
+    shape: Literal["wide", "long"],
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
@@ -164,7 +164,7 @@ def get_stations(
     :param sql:
     :param date:
     :param si_units:
-    :param tidy:
+    :param shape:
     :param humanize:
     :param skip_empty:
     :param skip_criteria:
@@ -180,13 +180,13 @@ def get_stations(
         date=date,
         issue=issue,
         si_units=si_units,
-        tidy=tidy,
+        shape=shape,
         humanize=humanize,
         skip_empty=skip_empty,
         skip_threshold=skip_threshold,
         skip_criteria=skip_criteria,
         dropna=dropna,
-        use_nearby_station_until_km=0,
+        use_nearby_station_distance=0,
     )
 
     if all_:
@@ -244,7 +244,7 @@ def get_stations(
 
 
 def get_values(
-    api: ScalarRequestCore,
+    api: TimeseriesRequest,
     parameter: List[str],
     resolution: str,
     date: str,
@@ -260,7 +260,7 @@ def get_values(
     sql: str,
     sql_values: str,
     si_units: bool,
-    tidy: bool,
+    shape: Literal["wide", "long"],
     humanize: bool,
     skip_empty: bool,
     skip_threshold: float,
@@ -286,7 +286,7 @@ def get_values(
     :param sql:
     :param sql_values:
     :param si_units:
-    :param tidy:
+    :param shape:
     :param humanize:
     :param skip_empty:
     :param skip_criteria:
@@ -310,7 +310,7 @@ def get_values(
         bbox=bbox,
         sql=sql,
         si_units=si_units,
-        tidy=tidy,
+        shape=shape,
         humanize=humanize,
         skip_empty=skip_empty,
         skip_threshold=skip_threshold,
@@ -338,7 +338,7 @@ def get_values(
 
 
 def get_interpolate(
-    api: ScalarRequestCore,
+    api: TimeseriesRequest,
     parameter: List[str],
     resolution: str,
     date: str,
@@ -349,7 +349,7 @@ def get_interpolate(
     sql_values: str,
     si_units: bool,
     humanize: bool,
-    use_nearby_station_until_km: float,
+    use_nearby_station_distance: float,
 ) -> ValuesResult:
     """
     Core function for querying values via cli and restapi
@@ -360,17 +360,12 @@ def get_interpolate(
     :param date:
     :param issue:
     :param period:
-    :param all_:
     :param station_id:
-    :param name:
     :param coordinates:
     :param sql_values:
     :param si_units:
-    :param tidy:
     :param humanize:
-    :param skip_empty:
-    :param skip_threshold:
-    :param dropna:
+    :param use_nearby_station_distance:
     :return:
     """
     r = _get_stations_request(
@@ -381,13 +376,13 @@ def get_interpolate(
         date=date,
         issue=issue,
         si_units=si_units,
-        tidy=True,
+        shape="long",
         humanize=humanize,
         skip_empty=False,
         skip_threshold=0,
         skip_criteria="min",
         dropna=False,
-        use_nearby_station_until_km=use_nearby_station_until_km,
+        use_nearby_station_distance=use_nearby_station_distance,
     )
 
     try:
@@ -412,7 +407,7 @@ def get_interpolate(
 
 
 def get_summarize(
-    api: ScalarRequestCore,
+    api: TimeseriesRequest,
     parameter: List[str],
     resolution: str,
     date: str,
@@ -433,17 +428,11 @@ def get_summarize(
     :param date:
     :param issue:
     :param period:
-    :param all_:
     :param station_id:
-    :param name:
     :param coordinates:
     :param sql_values:
     :param si_units:
-    :param tidy:
     :param humanize:
-    :param skip_empty:
-    :param skip_threshold:
-    :param dropna:
     :return:
     """
     r = _get_stations_request(
@@ -454,13 +443,13 @@ def get_summarize(
         date=date,
         issue=issue,
         si_units=si_units,
-        tidy=True,
+        shape="long",
         humanize=humanize,
         skip_empty=False,
         skip_threshold=0,
         skip_criteria="min",
         dropna=False,
-        use_nearby_station_until_km=0,
+        use_nearby_station_distance=0,
     )
 
     try:

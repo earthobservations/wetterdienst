@@ -295,9 +295,9 @@ Library
     >>> from wetterdienst import Settings
     >>> from wetterdienst.provider.dwd.observation import DwdObservationRequest
     >>> settings = Settings( # default
-    ...     tidy=True,  # tidy data
-    ...     humanize=True,  # humanized parameters
-    ...     si_units=True  # convert values to SI units
+    ...     ts_shape="long",  # tidy data
+    ...     ts_humanize=True,  # humanized parameters
+    ...     ts_si_units=True  # convert values to SI units
     ... )
     >>> request = DwdObservationRequest(
     ...    parameter=["climate_summary"],

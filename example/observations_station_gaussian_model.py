@@ -42,7 +42,7 @@ def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankf
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,
-        settings=Settings(si_units=False),
+        settings=Settings(ts_si_units=False),
     )
     return stations.filter_by_name(name=name)
 

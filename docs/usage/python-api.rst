@@ -156,12 +156,12 @@ or modify them for your very own request like
 
     from wetterdienst import Settings
 
-    settings = Settings(tidy=False)
+    settings = Settings(ts_shape="wide")
     print(settings)
 
 Settings has four layers of which those arguments are sourced:
-- Settings arguments e.g. Settings(tidy=True)
-- environment variables e.g. WD_SCALAR_TIDY = "0"
+- Settings arguments e.g. Settings(ts_shape="long")
+- environment variables e.g. WD_TS_SHAPE = "wide"
 - local .env file in the same folder (same as above)
 - default arguments set by us
 
@@ -185,41 +185,41 @@ and to set it back to standard
 
     from wetterdienst import Settings
 
-    settings = Settings(tidy=False)
+    settings = Settings(ts_shape="wide")
     settings = settings.reset()
 
 The environmental settings recognized by our settings are
 
 - WD_CACHE_DISABLE
 - WD_FSSPEC_CLIENT_KWARGS
-- WD_SCALAR_HUMANIZE
-- WD_SCALAR_TIDY
-- WD_SCALAR_SI_UNITS
-- WD_SCALAR_SKIP_EMPTY
-- WD_SCALAR_SKIP_THRESHOLD
-- WD_SCALAR_SKIP_CRITERIA
-- WD_SCALAR_DROPNA
-- WD_SCALAR_INTERPOLATION_USE_NEARBY_STATION_UNTIL_KM
+- WD_TS_HUMANIZE
+- WD_TS_SHAPE
+- WD_TS_SI_UNITS
+- WD_TS_SKIP_EMPTY
+- WD_TS_SKIP_THRESHOLD
+- WD_TS_SKIP_CRITERIA
+- WD_TS_DROPNA
+- WD_TS_INTERPOLATION_USE_NEARBY_STATION_UNTIL_KM
 
-Scalar arguments are:
-- `tidy` can be used to reshape the returned data to a `tidy format`_.
+TS arguments are:
+- `shape` can be used to reshape the returned data to a `long/tidy format`_, one of "long", "wide".
 - `humanize` can be used to rename parameters to more meaningful
 names.
 - `si_units` can be used to convert values to SI units.
-- `skip_empty` (requires option `tidy`) can be used to skip empty stations
+- `skip_empty` (requires option `shape="long"`) can be used to skip empty stations
     - empty stations are defined via `skip_threshold` which defaults to 0.95
      and requires all parameters that are requested (for an entire dataset all of the dataset parameters)
      to have at least 95 per cent of actual values (relative to start and end date if provided)
-- `skip_criteria` (requires option `tidy`) is the statistical criteria on which the percentage of actual values is
+- `skip_criteria` (requires option `shape="long"`) is the statistical criteria on which the percentage of actual values is
     calculated with options "min", "mean", "max", where "min" means the percentage of the lowest available parameter is
     taken, while "mean" takes the average percentage of all parameters and "max" does so for the parameter with the most
     percentage
 - `skip_threshold` is used in combination with `skip_empty` to define when a station is empty, with 1.0 meaning no
  values per parameter should be missing and e.g. 0.9 meaning 10 per cent of values can be missing
-- `dropna` (requires option `tidy`) is used to drop all empty entries thus reducing the workload
+- `dropna` (requires option `shape="long"`) is used to drop all empty entries thus reducing the workload
 - `fsspec_client_kwargs` can be used to pass arguments to fsspec, especially for querying data behind a proxy
 
-All of `tidy`, `humanize` and `si_units` are defaulted to True.
+Both `humanize` and `si_units` are defaulted to True and `shape` defaults with "long".
 
 If your system is running behind a proxy e.g. like `here <https://github.com/earthobservations/wetterdienst/issues/524>`_
 you may want to use the `trust_env` like
@@ -231,7 +231,7 @@ you may want to use the `trust_env` like
 
 to allow requesting through a proxy.
 
-.. _tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
+.. _long/tidy format: https://vita.had.co.nz/papers/tidy-data.pdf
 
 Historical Weather Observations
 ===============================
@@ -308,7 +308,7 @@ Use the ``DwdObservationRequest`` class in order to get hold of stations.
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
 
-    settings = Settings(tidy=True, humanize=True, si_units=True)
+    settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
 
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
@@ -431,7 +431,7 @@ This will skip empty stations according to some settings. See the finally collec
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
-    settings = Settings(skip_empty=True, ignore_env=True, skip_criteria="min")
+    settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ignore_env=True)
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.SOLAR],
@@ -654,7 +654,7 @@ The result data is provided through a virtual table called ``data``.
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
 
-    settings = Settings(tidy=True, humanize=True, si_units=True)  # defaults
+    settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)  # defaults
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],
@@ -687,7 +687,7 @@ Examples:
         DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
 
-    settings = Settings(tidy=True, humanize=True, si_units=True)  # defaults
+    settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)  # defaults
 
     stations = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],

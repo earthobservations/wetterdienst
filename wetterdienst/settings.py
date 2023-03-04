@@ -15,15 +15,10 @@ from marshmallow.validate import OneOf
 log = logging.getLogger(__name__)
 
 
-def _is_none(arg):
-    """Function to check if arg is None"""
-    return arg is None
-
-
 def _decide_arg(regular_arg, env_arg, default_arg, ignore_env):
-    if not _is_none(regular_arg):
+    if regular_arg is not None:
         return regular_arg
-    elif not ignore_env and not _is_none(env_arg):
+    elif not ignore_env and env_arg is not None:
         return env_arg
     else:
         return default_arg
@@ -36,14 +31,14 @@ class Settings:
         "cache_disable": False,
         "cache_dir": platformdirs.user_cache_dir(appname="wetterdienst"),
         "fsspec_client_kwargs": {},
-        "humanize": True,
-        "tidy": True,
-        "si_units": True,
-        "skip_empty": False,
-        "skip_threshold": 0.95,
-        "skip_criteria": "min",
-        "dropna": False,
-        "interp_use_nearby_station_until_km": 1,
+        "ts_humanize": True,
+        "ts_shape": "long",
+        "ts_si_units": True,
+        "ts_skip_empty": False,
+        "ts_skip_threshold": 0.95,
+        "ts_skip_criteria": "min",
+        "ts_dropna": False,
+        "ts_interpolation_use_nearby_station_distance": 1,
     }
 
     def __init__(
@@ -51,14 +46,14 @@ class Settings:
         cache_disable: Optional[bool] = None,
         cache_dir: Optional[pathlib.Path] = None,
         fsspec_client_kwargs: Optional[dict] = None,
-        humanize: Optional[bool] = None,
-        tidy: Optional[bool] = None,
-        si_units: Optional[bool] = None,
-        skip_empty: Optional[bool] = None,
-        skip_threshold: Optional[float] = None,
-        skip_criteria: Optional[Literal["min", "mean", "max"]] = None,
-        dropna: Optional[bool] = None,
-        interp_use_nearby_station_until_km: Optional[Union[float, int]] = None,
+        ts_humanize: Optional[bool] = None,
+        ts_shape: Optional[Literal["wide", "long"]] = None,
+        ts_si_units: Optional[bool] = None,
+        ts_skip_empty: Optional[bool] = None,
+        ts_skip_threshold: Optional[float] = None,
+        ts_skip_criteria: Optional[Literal["min", "mean", "max"]] = None,
+        ts_dropna: Optional[bool] = None,
+        ts_interpolation_use_nearby_station_distance: Optional[Union[float, int]] = None,
         ignore_env: bool = False,
     ) -> None:
         _defaults = deepcopy(self._defaults)  # make sure mutable objects are not changed
@@ -77,27 +72,29 @@ class Settings:
                 env.dict("FSSPEC_CLIENT_KWARGS", {}) or None,
                 _defaults["fsspec_client_kwargs"],
             )
-            with env.prefixed("SCALAR_"):
-                # scalar
-                self.humanize: bool = _da(humanize, env.bool("HUMANIZE", None), _defaults["humanize"])
-                self.tidy: bool = _da(tidy, env.bool("TIDY", None), _defaults["tidy"])
-                self.si_units: bool = _da(si_units, env.bool("SI_UNITS", None), _defaults["si_units"])
-                self.skip_empty: bool = _da(skip_empty, env.bool("SKIP_EMPTY", None), _defaults["skip_empty"])
-                self.skip_threshold: bool = _da(
-                    skip_threshold, env.float("SKIP_THRESHOLD", None), _defaults["skip_threshold"]
+            with env.prefixed("TS_"):
+                # timeseries
+                self.ts_humanize: bool = _da(ts_humanize, env.bool("HUMANIZE", None), _defaults["ts_humanize"])
+                self.ts_shape: str = _da(
+                    ts_shape, env.str("SHAPE", None, validate=OneOf(["long", "wide"])), _defaults["ts_shape"]
                 )
-                self.skip_criteria: bool = _da(
-                    skip_criteria,
+                self.ts_si_units: bool = _da(ts_si_units, env.bool("SI_UNITS", None), _defaults["ts_si_units"])
+                self.ts_skip_empty: bool = _da(ts_skip_empty, env.bool("SKIP_EMPTY", None), _defaults["ts_skip_empty"])
+                self.ts_skip_threshold: float = _da(
+                    ts_skip_threshold, env.float("SKIP_THRESHOLD", None), _defaults["ts_skip_threshold"]
+                )
+                self.ts_skip_criteria: str = _da(
+                    ts_skip_criteria,
                     env.str("SKIP_CRITERIA", None, validate=OneOf(["min", "mean", "max"])),
-                    _defaults["skip_criteria"],
+                    _defaults["ts_skip_criteria"],
                 )
-                self.dropna: bool = _da(dropna, env.bool("DROPNA", dropna), _defaults["dropna"])
+                self.ts_dropna: bool = _da(ts_dropna, env.bool("DROPNA", ts_dropna), _defaults["ts_dropna"])
 
                 with env.prefixed("INTERPOLATION_"):
-                    self.interp_use_nearby_station_until_km: float = _da(
-                        interp_use_nearby_station_until_km,
-                        env.float("USE_NEARBY_STATION_UNTIL_KM", None),
-                        _defaults["interp_use_nearby_station_until_km"],
+                    self.ts_interpolation_use_nearby_station_distance: float = _da(
+                        ts_interpolation_use_nearby_station_distance,
+                        env.float("USE_NEARBY_STATION_DISTANCE", None),
+                        _defaults["ts_interpolation_use_nearby_station_distance"],
                     )
 
         if self.cache_disable:
@@ -121,14 +118,14 @@ class Settings:
             "cache_disable": self.cache_disable,
             "cache_dir": self.cache_dir,
             "fsspec_client_kwargs": self.fsspec_client_kwargs,
-            "humanize": self.humanize,
-            "tidy": self.tidy,
-            "si_units": self.si_units,
-            "skip_empty": self.skip_empty,
-            "skip_threshold": self.skip_threshold,
-            "skip_criteria": self.skip_criteria,
-            "dropna": self.dropna,
-            "interp_use_nearby_station_until_km": self.interp_use_nearby_station_until_km,
+            "ts_humanize": self.ts_humanize,
+            "ts_shape": self.ts_shape,
+            "ts_si_units": self.ts_si_units,
+            "ts_skip_empty": self.ts_skip_empty,
+            "ts_skip_threshold": self.ts_skip_threshold,
+            "ts_skip_criteria": self.ts_skip_criteria,
+            "ts_dropna": self.ts_dropna,
+            "ts_interpolation_use_nearby_station_distance": self.ts_interpolation_use_nearby_station_distance,
         }
 
     def reset(self) -> "Settings":

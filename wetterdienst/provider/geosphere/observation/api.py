@@ -9,8 +9,8 @@ from typing import List, Optional, Union
 import pandas as pd
 
 from wetterdienst import Parameter, Settings
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -644,10 +644,7 @@ class GeosphereObservationDataset(Enum):
     MONTHLY = "klima-v1-1m"
 
 
-class GeosphereObservationValues(ScalarValuesCore):
-    _string_parameters = ()
-    _date_parameters = ()
-    _irregular_parameters = ()
+class GeosphereObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = (
         "https://dataset.api.hub.zamg.ac.at/v1/station/historical/{resolution}?"
@@ -695,22 +692,22 @@ class GeosphereObservationValues(ScalarValuesCore):
         return df
 
 
-class GeosphereObservationRequest(ScalarRequestCore):
-    provider = Provider.GEOSPHERE
-    kind = Kind.OBSERVATION
+class GeosphereObservationRequest(TimeseriesRequest):
+    _provider = Provider.GEOSPHERE
+    _kind = Kind.OBSERVATION
+    _tz = Timezone.AUSTRIA
+    _dataset_base = GeosphereObservationDataset
+    _parameter_base = GeosphereObservationParameter
+    _unit_base = GeosphereObservationUnit
     _resolution_base = GeosphereObservationResolution
     _resolution_type = ResolutionType.MULTI
     _period_base = GeosphereObservationPeriod
     _period_type = PeriodType.FIXED
-    _parameter_base = GeosphereObservationParameter
-    _dataset_base = GeosphereObservationDataset
-    _data_range = DataRange.FIXED
     _has_datasets = True
     _unique_dataset = True
-    _has_tidy_data = True
-    _unit_tree = GeosphereObservationUnit
+    _data_range = DataRange.FIXED
     _values = GeosphereObservationValues
-    _tz = Timezone.AUSTRIA
+
     _endpoint = "https://dataset.api.hub.zamg.ac.at/v1/station/historical/{dataset}/metadata/stations"
     # dates collected from ZAMG website, end date will be set to now if not given
     _default_start_dates = {

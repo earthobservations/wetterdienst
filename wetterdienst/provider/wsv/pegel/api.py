@@ -8,8 +8,8 @@ from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -125,12 +125,8 @@ class WsvPegelDataset(Enum):
     DYNAMIC = "DYNAMIC"
 
 
-class WsvPegelValues(ScalarValuesCore):
+class WsvPegelValues(TimeseriesValues):
     """Values class for WSV Pegelonline data"""
-
-    _string_parameters = ()
-    _irregular_parameters = ()
-    _date_parameters = ()
 
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
     # Used for getting frequency of timeseries
@@ -182,35 +178,28 @@ class WsvPegelValues(ScalarValuesCore):
         return f"{station_dict['equidistance']}min"
 
 
-class WsvPegelRequest(ScalarRequestCore):
+class WsvPegelRequest(TimeseriesRequest):
     """Request class for WSV Pegelonline, a German river management facility and
     provider of river-based measurements for last 30 days"""
 
+    _provider = Provider.WSV
+    _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
-
-    _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true&includeCharacteristicValues=true"  # noqa:E501
-
-    provider = Provider.WSV
-    kind = Kind.OBSERVATION
-
+    _dataset_base = WsvPegelDataset
+    _parameter_base = WsvPegelParameter
+    _unit_base = WsvPegelUnit
     _resolution_type = ResolutionType.DYNAMIC
     _resolution_base = WsvPegelResolution
-
     _period_type = PeriodType.FIXED
     _period_base = WsvPegelPeriod
-
-    _data_range = DataRange.FIXED
-
     _has_datasets = False
-
-    _parameter_base = WsvPegelParameter
-    _dataset_base = WsvPegelDataset
-
-    _unit_tree = WsvPegelUnit
-
-    _has_tidy_data = True
-
+    _data_range = DataRange.FIXED
     _values = WsvPegelValues
+
+    _endpoint = (
+        "https://pegelonline.wsv.de/webservices/rest-api/v2/"
+        "stations.json?includeTimeseries=true&includeCharacteristicValues=true"
+    )
 
     # Characteristic/statistical values may be provided for stations_result
     characteristic_values = {
@@ -225,7 +214,7 @@ class WsvPegelRequest(ScalarRequestCore):
     }
 
     # extend base columns of core class with those of characteristic values plus gauge zero
-    _base_columns = list(ScalarRequestCore._base_columns)
+    _base_columns = list(TimeseriesRequest._base_columns)
     _base_columns.extend(["gauge_zero", *characteristic_values.keys()])
 
     def __init__(

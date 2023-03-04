@@ -15,8 +15,8 @@ import pytest
 from surrogate import surrogate
 
 from wetterdienst.core.process import filter_by_date_and_resolution
-from wetterdienst.core.scalar.export import ExportMixin
-from wetterdienst.core.scalar.result import StationsFilter, StationsResult
+from wetterdienst.core.timeseries.export import ExportMixin
+from wetterdienst.core.timeseries.result import StationsFilter, StationsResult
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
@@ -24,6 +24,43 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
     DwdObservationResolution,
 )
+
+
+@pytest.fixture
+def dwd_climate_summary_tabular_columns():
+    return [
+        "station_id",
+        "dataset",
+        "date",
+        "wind_gust_max",
+        "qn_wind_gust_max",
+        "wind_speed",
+        "qn_wind_speed",
+        "precipitation_height",
+        "qn_precipitation_height",
+        "precipitation_form",
+        "qn_precipitation_form",
+        "sunshine_duration",
+        "qn_sunshine_duration",
+        "snow_depth",
+        "qn_snow_depth",
+        "cloud_cover_total",
+        "qn_cloud_cover_total",
+        "pressure_vapor",
+        "qn_pressure_vapor",
+        "pressure_air_site",
+        "qn_pressure_air_site",
+        "temperature_air_mean_200",
+        "qn_temperature_air_mean_200",
+        "humidity",
+        "qn_humidity",
+        "temperature_air_max_200",
+        "qn_temperature_air_max_200",
+        "temperature_air_min_200",
+        "qn_temperature_air_min_200",
+        "temperature_air_min_005",
+        "qn_temperature_air_min_005",
+    ]
 
 
 @pytest.fixture
@@ -199,7 +236,7 @@ def test_export_unknown(default_settings):
 
 
 @pytest.mark.remote
-def test_export_spreadsheet(tmp_path, settings_si_tidy_false):
+def test_export_spreadsheet(tmp_path, settings_si_false_wide_shape):
     """Test export of DataFrame to spreadsheet"""
     # 1. Request data and save to .xlsx file.
     request = DwdObservationRequest(
@@ -207,7 +244,7 @@ def test_export_spreadsheet(tmp_path, settings_si_tidy_false):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        settings=settings_si_tidy_false,
+        settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -223,22 +260,34 @@ def test_export_spreadsheet(tmp_path, settings_si_tidy_false):
         ("station_id",),
         ("dataset",),
         ("date",),
-        ("quality_wind",),
         ("wind_gust_max",),
+        ("qn_wind_gust_max",),
         ("wind_speed",),
-        ("quality",),
+        ("qn_wind_speed",),
         ("precipitation_height",),
+        ("qn_precipitation_height",),
         ("precipitation_form",),
+        ("qn_precipitation_form",),
         ("sunshine_duration",),
+        ("qn_sunshine_duration",),
         ("snow_depth",),
+        ("qn_snow_depth",),
         ("cloud_cover_total",),
+        ("qn_cloud_cover_total",),
         ("pressure_vapor",),
+        ("qn_pressure_vapor",),
         ("pressure_air_site",),
+        ("qn_pressure_air_site",),
         ("temperature_air_mean_200",),
+        ("qn_temperature_air_mean_200",),
         ("humidity",),
+        ("qn_humidity",),
         ("temperature_air_max_200",),
+        ("qn_temperature_air_max_200",),
         ("temperature_air_min_200",),
+        ("qn_temperature_air_min_200",),
         ("temperature_air_min_005",),
+        ("qn_temperature_air_min_005",),
     ]
     # Validate number of records.
     assert worksheet.max_row == 367
@@ -247,50 +296,74 @@ def test_export_spreadsheet(tmp_path, settings_si_tidy_false):
         ("01048",),
         ("climate_summary",),
         ("2019-01-01T00:00:00+00:00",),
-        (10,),
         (19.9,),
+        (10,),
         (8.5,),
         (10,),
         (0.9,),
+        (10,),
         (8,),
+        (10,),
         (0,),
+        (10,),
         (0,),
+        (10,),
         (7.4,),
+        (10,),
         (7.9,),
+        (10,),
         (991.9,),
+        (10,),
         (5.9,),
+        (10,),
         (84,),
+        (10,),
         (7.5,),
+        (10,),
         (2,),
+        (10,),
         (1.5,),
+        (10,),
     ]
     last_record = list(worksheet.iter_cols(min_row=worksheet.max_row, max_row=worksheet.max_row, values_only=True))
     assert last_record == [
         ("01048",),
         ("climate_summary",),
         ("2020-01-01T00:00:00+00:00",),
-        (10,),
         (6.9,),
+        (10,),
         (3.2,),
+        (10,),
+        (0,),
         (3,),
         (0,),
-        (0,),
+        (3,),
         (3.933,),
+        (3,),
         (0,),
+        (3,),
         (4.2,),
+        (3,),
         (5.7,),
+        (3,),
         (1005.11,),
+        (3,),
         (2.4,),
+        (3,),
         (79,),
+        (3,),
         (5.6,),
+        (3,),
         (-2.8,),
+        (3,),
         (-4.6,),
+        (3,),
     ]
     os.unlink(filename)
 
 
 @pytest.mark.remote
-def test_export_parquet(tmp_path, settings_si_tidy_false):
+def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summary_tabular_columns):
     """Test export of DataFrame to parquet"""
     pq = pytest.importorskip("pyarrow.parquet")
     # Request data.
@@ -299,7 +372,7 @@ def test_export_parquet(tmp_path, settings_si_tidy_false):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        settings=settings_si_tidy_false,
+        settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -310,30 +383,10 @@ def test_export_parquet(tmp_path, settings_si_tidy_false):
     # Read back Parquet file.
     table = pq.read_table(filename)
     # Validate dimensions.
-    assert table.num_columns == 19
+    assert table.num_columns == 31
     assert table.num_rows == 366
     # Validate column names.
-    assert table.column_names == [
-        "station_id",
-        "dataset",
-        "date",
-        "quality_wind",
-        "wind_gust_max",
-        "wind_speed",
-        "quality",
-        "precipitation_height",
-        "precipitation_form",
-        "sunshine_duration",
-        "snow_depth",
-        "cloud_cover_total",
-        "pressure_vapor",
-        "pressure_air_site",
-        "temperature_air_mean_200",
-        "humidity",
-        "temperature_air_max_200",
-        "temperature_air_min_200",
-        "temperature_air_min_005",
-    ]
+    assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
     assert data["date"][0] == datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
@@ -344,7 +397,7 @@ def test_export_parquet(tmp_path, settings_si_tidy_false):
 
 
 @pytest.mark.remote
-def test_export_zarr(tmp_path, settings_si_tidy_false):
+def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary_tabular_columns):
     """Test export of DataFrame to zarr"""
     zarr = pytest.importorskip("zarr")
     # Request data.
@@ -353,7 +406,7 @@ def test_export_zarr(tmp_path, settings_si_tidy_false):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        settings=settings_si_tidy_false,
+        settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -365,31 +418,12 @@ def test_export_zarr(tmp_path, settings_si_tidy_false):
     # Read back Zarr group.
     group = zarr.open(str(filename), mode="r")
     # Validate dimensions.
-    assert len(group) == 20
+    assert len(group) == 32
     assert len(group.index) == 366
     # Validate column names.
-    assert set(group.keys()) == {
-        "index",
-        "station_id",
-        "dataset",
-        "date",
-        "quality_wind",
-        "wind_gust_max",
-        "wind_speed",
-        "quality",
-        "precipitation_height",
-        "precipitation_form",
-        "sunshine_duration",
-        "snow_depth",
-        "cloud_cover_total",
-        "pressure_vapor",
-        "pressure_air_site",
-        "temperature_air_mean_200",
-        "humidity",
-        "temperature_air_max_200",
-        "temperature_air_min_200",
-        "temperature_air_min_005",
-    }
+    columns = set(group.keys())
+    columns.discard("index")
+    assert columns == set(dwd_climate_summary_tabular_columns)
     # Validate content.
     data = group
     assert data["date"][0] == pd.Timestamp(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc).to_numpy()
@@ -400,7 +434,7 @@ def test_export_zarr(tmp_path, settings_si_tidy_false):
 
 
 @pytest.mark.remote
-def test_export_feather(tmp_path, settings_si_tidy_false):
+def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summary_tabular_columns):
     """Test export of DataFrame to feather"""
     feather = pytest.importorskip("pyarrow.feather")
     # Request data
@@ -409,7 +443,7 @@ def test_export_feather(tmp_path, settings_si_tidy_false):
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        settings=settings_si_tidy_false,
+        settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -420,30 +454,10 @@ def test_export_feather(tmp_path, settings_si_tidy_false):
     # Read back Feather file.
     table = feather.read_table(filename)
     # Validate dimensions.
-    assert table.num_columns == 19
+    assert table.num_columns == 31
     assert table.num_rows == 366
     # Validate column names.
-    assert table.column_names == [
-        "station_id",
-        "dataset",
-        "date",
-        "quality_wind",
-        "wind_gust_max",
-        "wind_speed",
-        "quality",
-        "precipitation_height",
-        "precipitation_form",
-        "sunshine_duration",
-        "snow_depth",
-        "cloud_cover_total",
-        "pressure_vapor",
-        "pressure_air_site",
-        "temperature_air_mean_200",
-        "humidity",
-        "temperature_air_max_200",
-        "temperature_air_min_200",
-        "temperature_air_min_005",
-    ]
+    assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
     assert data["date"][0] == pd.Timestamp(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
@@ -454,14 +468,14 @@ def test_export_feather(tmp_path, settings_si_tidy_false):
 
 
 @pytest.mark.remote
-def test_export_sqlite(tmp_path, settings_si_tidy_false):
+def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
     """Test export of DataFrame to sqlite db"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         start_date="2019",
         end_date="2020",
-        settings=settings_si_tidy_false,
+        settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -478,44 +492,68 @@ def test_export_sqlite(tmp_path, settings_si_tidy_false):
         "01048",
         "climate_summary",
         "2019-01-01 00:00:00.000000",
-        10.0,
         19.9,
+        10.0,
         8.5,
         10.0,
         0.9,
+        10.0,
         8.0,
+        10.0,
         0.0,
+        10.0,
         0.0,
+        10.0,
         7.4,
+        10.0,
         7.9,
+        10.0,
         991.9,
+        10.0,
         5.9,
+        10.0,
         84.0,
+        10.0,
         7.5,
+        10.0,
         2.0,
+        10.0,
         1.5,
+        10.0,
     )
 
     assert results[-1] == (
         "01048",
         "climate_summary",
         "2020-01-01 00:00:00.000000",
-        10,
         6.9,
+        10.0,
         3.2,
-        3,
+        10.0,
         0.0,
-        0,
+        3.0,
+        0.0,
+        3.0,
         3.933,
-        0,
+        3.0,
+        0.0,
+        3.0,
         4.2,
+        3.0,
         5.7,
+        3.0,
         1005.11,
+        3.0,
         2.4,
+        3.0,
         79.0,
+        3.0,
         5.6,
+        3.0,
         -2.8,
+        3.0,
         -4.6,
+        3.0,
     )
 
 
@@ -568,13 +606,13 @@ def test_export_duckdb(settings_si_false):
 
 @surrogate("influxdb.InfluxDBClient")
 @pytest.mark.remote
-def test_export_influxdb1_tabular(settings_si_tidy_false):
+def test_export_influxdb1_tabular(settings_si_false_wide_shape):
     """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
-        settings=settings_si_tidy_false,
+        settings=settings_si_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     mock_client = mock.MagicMock()
     with mock.patch(
@@ -602,8 +640,20 @@ def test_export_influxdb1_tabular(settings_si_tidy_false):
         assert points[0]["measurement"] == "weather"
         assert list(points[0]["tags"].keys()) == [
             "station_id",
-            "quality_wind",
-            "quality",
+            "qn_wind_gust_max",
+            "qn_wind_speed",
+            "qn_precipitation_height",
+            "qn_precipitation_form",
+            "qn_sunshine_duration",
+            "qn_snow_depth",
+            "qn_cloud_cover_total",
+            "qn_pressure_vapor",
+            "qn_pressure_air_site",
+            "qn_temperature_air_mean_200",
+            "qn_humidity",
+            "qn_temperature_air_max_200",
+            "qn_temperature_air_min_200",
+            "qn_temperature_air_min_005",
             "dataset",
         ]
         assert list(points[0]["fields"].keys()) == [

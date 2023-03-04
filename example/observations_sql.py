@@ -30,7 +30,7 @@ log = logging.getLogger()
 
 def sql_example():
     """Retrieve temperature data by DWD and filter by sql statement."""
-    settings = Settings(tidy=True, humanize=True, si_units=False)
+    settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=False)
 
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.TEMPERATURE_AIR],

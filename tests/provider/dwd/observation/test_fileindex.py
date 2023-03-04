@@ -6,7 +6,6 @@ import pytest
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -28,10 +27,7 @@ def test_file_index_creation_success(default_settings):
         settings=default_settings,
     )
     assert not file_index.empty
-    assert file_index.loc[
-        file_index[DwdColumns.STATION_ID.value] == "01048",
-        DwdColumns.FILENAME.value,
-    ].values.tolist() == [
+    assert file_index.loc[file_index["station_id"] == "01048", "filename",].values.tolist() == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
     ]

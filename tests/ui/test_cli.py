@@ -144,7 +144,8 @@ def invoke_wetterdienst_values_static(provider, network, setting, station, fmt="
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} --format={fmt}",
+        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} "
+        f"--shape=wide --format={fmt}",
     )
 
 
@@ -152,7 +153,8 @@ def invoke_wetterdienst_values_export(provider, network, setting, station, targe
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} --target={target}",
+        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} "
+        f"--shape=wide --target={target}",
     )
 
 
@@ -161,7 +163,7 @@ def invoke_wetterdienst_values_static_tidy(provider, network, setting, station, 
     return runner.invoke(
         cli,
         f"values --provider={provider} --network={network} "
-        f"{setting} --station={','.join(station)} --format={fmt} --tidy",
+        f"{setting} --station={','.join(station)} --format={fmt} --shape='long'",
     )
 
 
@@ -170,7 +172,7 @@ def invoke_wetterdienst_values_geo(provider, network, setting, fmt="json"):
     return runner.invoke(
         cli,
         f"values --provider={provider} --network={network} {setting} "
-        f"--coordinates=51.1280,13.7543 --rank=5 --format={fmt}",
+        f"--coordinates=51.1280,13.7543 --rank=5 --shape=wide --format={fmt}",
     )
 
 

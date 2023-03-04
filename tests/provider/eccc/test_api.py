@@ -67,8 +67,8 @@ def test_eccc_api_values(settings_si_false):
             ["1652", "daily", "snow_depth", "1980-01-02", 20.0, np.NaN],
             ["1652", "daily", "wind_direction_gust_max", "1980-01-01", np.NaN, np.NaN],
             ["1652", "daily", "wind_direction_gust_max", "1980-01-02", np.NaN, np.NaN],
-            ["1652", "daily", "wind_gust_max", "1980-01-01", np.NaN, np.NaN],
-            ["1652", "daily", "wind_gust_max", "1980-01-02", np.NaN, np.NaN],
+            ["1652", "daily", "wind_gust_max", "1980-01-01", 31.0, np.NaN],
+            ["1652", "daily", "wind_gust_max", "1980-01-02", 31.0, np.NaN],
         ],
         columns=["station_id", "dataset", "parameter", "date", "value", "quality"],
     )

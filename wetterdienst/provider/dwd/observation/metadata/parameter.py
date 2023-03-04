@@ -194,7 +194,7 @@ class DwdObservationParameter(DatasetTreeCore):
             RADIATION_GLOBAL = "fg_lberg"
             SUNSHINE_DURATION = "sd_lberg"
             SUN_ZENITH_ANGLE = "zenit"
-            TRUE_LOCAL_TIME = "true_local_time"  # original name was adjusted to this one
+            TRUE_LOCAL_TIME = "mess_datum_woz"  # original name was adjusted to this one
 
         # sun
         class SUN(Enum):

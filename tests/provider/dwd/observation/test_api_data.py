@@ -23,6 +23,43 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
 )
 
 
+@pytest.fixture
+def dwd_climate_summary_tabular_columns():
+    return [
+        "station_id",
+        "dataset",
+        "date",
+        "fx",
+        "qn_fx",
+        "fm",
+        "qn_fm",
+        "rsk",
+        "qn_rsk",
+        "rskf",
+        "qn_rskf",
+        "sdk",
+        "qn_sdk",
+        "shk_tag",
+        "qn_shk_tag",
+        "nm",
+        "qn_nm",
+        "vpm",
+        "qn_vpm",
+        "pm",
+        "qn_pm",
+        "tmk",
+        "qn_tmk",
+        "upm",
+        "qn_upm",
+        "txk",
+        "qn_txk",
+        "tnk",
+        "qn_tnk",
+        "tgk",
+        "qn_tgk",
+    ]
+
+
 @pytest.mark.remote
 def test_dwd_observation_data_empty(default_settings):
     request = DwdObservationRequest(
@@ -186,39 +223,21 @@ def test_dwd_observation_data_result_all_missing_data(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tabular(settings_humanize_si_tidy_false):
+def test_dwd_observation_data_result_tabular(
+    settings_humanize_si_false_wide_shape, dwd_climate_summary_tabular_columns
+):
     """Test for actual values (tabular)"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_si_tidy_false,
+        settings=settings_humanize_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
     given_df = request.values.all().df
-    assert list(given_df.columns.values) == [
-        "station_id",
-        "dataset",
-        "date",
-        "qn_3",
-        "fx",
-        "fm",
-        "qn_4",
-        "rsk",
-        "rskf",
-        "sdk",
-        "shk_tag",
-        "nm",
-        "vpm",
-        "pm",
-        "tmk",
-        "upm",
-        "txk",
-        "tnk",
-        "tgk",
-    ]
+    assert list(given_df.columns.values) == dwd_climate_summary_tabular_columns
     expected_df = pd.DataFrame(
         {
             "station_id": pd.Categorical(["01048"] * 2),
@@ -227,22 +246,34 @@ def test_dwd_observation_data_result_tabular(settings_humanize_si_tidy_false):
                 datetime(1933, 12, 31, tzinfo=pytz.UTC),
                 datetime(1934, 1, 1, tzinfo=pytz.UTC),
             ],
-            "qn_3": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "qn_fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_4": pd.to_numeric([pd.NA, 1], errors="coerce"),
+            "qn_fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
+            "qn_rsk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
+            "qn_rskf": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "qn_sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "shk_tag": pd.to_numeric([pd.NA, 0], errors="coerce"),
+            "qn_shk_tag": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "nm": pd.to_numeric([pd.NA, 8.0], errors="coerce"),
+            "qn_nm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "vpm": pd.to_numeric([pd.NA, 6.4], errors="coerce"),
+            "qn_vpm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "pm": pd.to_numeric([pd.NA, 1008.60], errors="coerce"),
+            "qn_pm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "tmk": pd.to_numeric([pd.NA, 0.5], errors="coerce"),
+            "qn_tmk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "upm": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
+            "qn_upm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "txk": pd.to_numeric([pd.NA, 0.7], errors="coerce"),
+            "qn_txk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "tnk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
+            "qn_tnk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "qn_tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
         }
     )
     assert_frame_equal(
@@ -253,39 +284,22 @@ def test_dwd_observation_data_result_tabular(settings_humanize_si_tidy_false):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tabular_metric(settings_humanize_tidy_false):
+def test_dwd_observation_data_result_tabular_si(
+    settings_humanize_false_wide_shape, dwd_climate_summary_tabular_columns
+):
     """Test for actual values (tabular) in metric units"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
-        settings=settings_humanize_tidy_false,
+        settings=settings_humanize_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
     given_df = request.values.all().df
-    assert list(given_df.columns.values) == [
-        "station_id",
-        "dataset",
-        "date",
-        "qn_3",
-        "fx",
-        "fm",
-        "qn_4",
-        "rsk",
-        "rskf",
-        "sdk",
-        "shk_tag",
-        "nm",
-        "vpm",
-        "pm",
-        "tmk",
-        "upm",
-        "txk",
-        "tnk",
-        "tgk",
-    ]
+
+    assert list(given_df.columns.values) == dwd_climate_summary_tabular_columns
     expected_df = pd.DataFrame(
         {
             "station_id": pd.Categorical(["01048"] * 2),
@@ -294,22 +308,34 @@ def test_dwd_observation_data_result_tabular_metric(settings_humanize_tidy_false
                 datetime(1933, 12, 31, tzinfo=pytz.UTC),
                 datetime(1934, 1, 1, tzinfo=pytz.UTC),
             ],
-            "qn_3": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "qn_fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_4": pd.to_numeric([pd.NA, 1], errors="coerce"),
+            "qn_fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
+            "qn_rsk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
+            "qn_rskf": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "qn_sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
             "shk_tag": pd.to_numeric([pd.NA, 0], errors="coerce"),
+            "qn_shk_tag": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "nm": pd.to_numeric([pd.NA, 100.0], errors="coerce"),
+            "qn_nm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "vpm": pd.to_numeric([pd.NA, 640.0], errors="coerce"),
+            "qn_vpm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "pm": pd.to_numeric([pd.NA, 100860.0], errors="coerce"),
+            "qn_pm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "tmk": pd.to_numeric([pd.NA, 273.65], errors="coerce"),
+            "qn_tmk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "upm": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
+            "qn_upm": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "txk": pd.to_numeric([pd.NA, 273.84999999999997], errors="coerce"),
+            "qn_txk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "tnk": pd.to_numeric([pd.NA, 273.34999999999997], errors="coerce"),
+            "qn_tnk": pd.to_numeric([pd.NA, 1], errors="coerce"),
             "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "qn_tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
         }
     )
     assert_frame_equal(
@@ -321,7 +347,7 @@ def test_dwd_observation_data_result_tabular_metric(settings_humanize_tidy_false
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
-    """Test for actual values (tidy) in metric units"""
+    """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameter=["kl"],
         resolution="daily",
@@ -630,7 +656,7 @@ def test_dwd_observations_urban_values_basic(dataset, default_settings):
 
 @pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_si_false):
-    """Test for actual values (tidy) in metric units"""
+    """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameter=["pressure_air_site"],
         resolution="minute_10",
@@ -680,7 +706,7 @@ def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_si_false)
 
 @pytest.mark.remote
 def test_dwd_observation_data_monthly_tidy(default_settings):
-    """Test for actual values (tidy) in metric units"""
+    """Test for actual values (format) in metric units"""
     request = DwdObservationRequest(
         parameter=[DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT],
         resolution=DwdObservationResolution.MONTHLY,
@@ -752,7 +778,7 @@ def test_create_humanized_column_names_mapping():
 
 @pytest.mark.remote
 def test_tidy_up_data(settings_humanize_false):
-    """Test for function to tidy data"""
+    """Test for function to format data"""
     request = DwdObservationRequest(
         parameter="kl",
         resolution="daily",
@@ -782,7 +808,8 @@ def test_tidy_up_data(settings_humanize_false):
             "tgk": [-11.4],
         }
     )
-    given_df = request.values.tidy_up_df(df, request.parameter[0][1])
+    given_df = request.values._tidy_up_df(df, request.parameter[0][1])
+    given_df.quality = given_df.quality.astype(float)
     given_df = request.values._organize_df_columns(given_df, "01048", DwdObservationDataset.CLIMATE_SUMMARY)
     expected_df = pd.DataFrame(
         {
@@ -856,13 +883,13 @@ def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_tidy_false):
+def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_wide_shape):
     """Test for DWD observation data with expected empty df for the case that no start and end date is given"""
     request = DwdObservationRequest(
         parameter=["wind"],
         resolution="minute_10",
         period="now",
-        settings=settings_tidy_false,
+        settings=settings_wide_shape,
     ).filter_by_station_id("01736")
     assert request.values.all().df.empty
 

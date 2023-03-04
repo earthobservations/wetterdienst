@@ -13,9 +13,9 @@ import pandas as pd
 import pytz
 from requests import HTTPError
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.result import StationsResult, ValuesResult
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidParameter
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -25,7 +25,6 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import (
@@ -61,7 +60,7 @@ class DwdMosmixStationGroup(Enum):
     ALL_STATIONS = "all_stations"
 
 
-class DwdMosmixValues(ScalarValuesCore):
+class DwdMosmixValues(TimeseriesValues):
     """
     Fetch weather mosmix data (KML/MOSMIX_S dataset).
 
@@ -80,10 +79,6 @@ class DwdMosmixValues(ScalarValuesCore):
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = False
-
-    _irregular_parameters = ()
-    _string_parameters = ()
-    _date_parameters = ()
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """
@@ -141,10 +136,9 @@ class DwdMosmixValues(ScalarValuesCore):
         self.stations_collected = []
 
         for df in self._collect_station_parameter():
-            df = self._coerce_parameter_types(df)
+            df = self._tidy_up_df(df, self.sr.stations.mosmix_type)
 
-            if self.sr.stations.tidy:
-                df = self.tidy_up_df(df, self.sr.stations.mosmix_type)
+            df = self._coerce_parameter_types(df)
 
             station_id = df[Columns.STATION_ID.value].iloc[0]
 
@@ -161,6 +155,9 @@ class DwdMosmixValues(ScalarValuesCore):
                     (df[Columns.DATE.value] >= self.sr.start_date) & (df[Columns.DATE.value] <= self.sr.end_date),
                     :,
                 ]
+
+            if not self.sr.tidy:
+                df = self._tabulate_df(df)
 
             self.stations_counter += 1
             self.stations_collected.append(station_id)
@@ -224,8 +221,7 @@ class DwdMosmixValues(ScalarValuesCore):
         for df_forecast in self._read_mosmix(date):
             df_forecast = df_forecast.rename(
                 columns={
-                    "station_id": DwdColumns.STATION_ID.value,
-                    "datetime": DwdColumns.DATE.value,
+                    "datetime": Columns.DATE.value,
                 }
             )
 
@@ -316,17 +312,13 @@ class DwdMosmixValues(ScalarValuesCore):
 
         df_urls = pd.DataFrame({"URL": urls})
 
-        df_urls[DwdColumns.DATE.value] = df_urls["URL"].apply(
-            lambda url_: url_.split("/")[-1].split("_")[2].replace(".kmz", "")
-        )
+        df_urls["date"] = df_urls["URL"].apply(lambda url_: url_.split("/")[-1].split("_")[2].replace(".kmz", ""))
 
-        df_urls = df_urls[df_urls[DwdColumns.DATE.value] != "LATEST"]
+        df_urls = df_urls[df_urls["date"] != "LATEST"]
 
-        df_urls[DwdColumns.DATE.value] = pd.to_datetime(
-            df_urls[DwdColumns.DATE.value], format=DatetimeFormat.YMDH.value
-        )
+        df_urls["date"] = pd.to_datetime(df_urls["date"], format=DatetimeFormat.YMDH.value)
 
-        df_urls = df_urls.loc[df_urls[DwdColumns.DATE.value] == date]
+        df_urls = df_urls.loc[df_urls[Columns.DATE.value] == date]
 
         if df_urls.empty:
             raise IndexError(f"Unable to find {date} file within {url}")
@@ -334,27 +326,23 @@ class DwdMosmixValues(ScalarValuesCore):
         return df_urls["URL"].item()
 
 
-class DwdMosmixRequest(ScalarRequestCore):
+class DwdMosmixRequest(TimeseriesRequest):
     """Implementation of sites for MOSMIX mosmix sites"""
 
-    provider = Provider.DWD
-    kind = Kind.FORECAST
-
+    _provider = Provider.DWD
+    _kind = Kind.FORECAST
     _tz = Timezone.GERMANY
+    _dataset_base = DwdMosmixDataset
     _parameter_base = DwdMosmixParameter
-    _values = DwdMosmixValues
-
+    _unit_base = DwdMosmixUnit
     _resolution_type = ResolutionType.FIXED
     _resolution_base = Resolution  # use general Resolution for fixed Resolution
     _period_type = PeriodType.FIXED
     _period_base = DwdMosmixPeriod
-    _data_range = DataRange.FIXED
     _has_datasets = True
     _unique_dataset = True
-    _has_tidy_data = False
-
-    _dataset_base = DwdMosmixDataset
-    _unit_tree = DwdMosmixUnit
+    _data_range = DataRange.FIXED
+    _values = DwdMosmixValues
 
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 

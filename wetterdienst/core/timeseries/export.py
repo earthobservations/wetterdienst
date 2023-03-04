@@ -41,7 +41,7 @@ class ExportMixin:
         # Convert all datetime columns to ISO format.
         df = convert_datetimes(self.df)
 
-        # Return dictionary with scalar types.
+        # Return dictionary with timeseries types.
         return df.to_dict(orient="records")
 
     def to_json(self, indent: int = 4):

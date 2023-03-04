@@ -7,12 +7,9 @@ from typing import List, Tuple
 
 import pandas as pd
 
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.column_map import (
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
-)
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns, DwdOrigColumns
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
@@ -29,6 +26,51 @@ PRECIPITATION_PARAMETERS = (
 )
 
 PRECIPITATION_MINUTE_1_QUALITY = DwdObservationParameter.MINUTE_1.PRECIPITATION.QUALITY
+
+DROPPABLE_PARAMETERS = {
+    # EOR
+    "eor",
+    "struktur_version",
+    # STRING_PARAMETERS
+    # hourly
+    # cloud_type
+    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_COVER_TOTAL_INDEX.value,
+    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,
+    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,
+    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
+    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
+    # cloudiness
+    DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDEX.value,
+    # visibility
+    DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDEX.value,
+    # DATE_PARAMETERS_IRREGULAR
+    DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
+    DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value,
+    # URBAN_TEMPERATURE_AIR
+    "strahlungstemperatur",
+}
+
+DATE_FIELDS_REGULAR = {
+    Columns.DATE.value,
+    Columns.FROM_DATE.value,
+    Columns.TO_DATE.value,
+}
+
+DWD_TO_ENGLISH_COLUMNS_MAPPING = {
+    "stations_id": Columns.STATION_ID.value,
+    "mess_datum": Columns.DATE.value,
+    "von_datum": Columns.FROM_DATE.value,
+    "bis_datum": Columns.TO_DATE.value,
+    "mess_datum_beginn": Columns.FROM_DATE.value,
+    "mess_datum_ende": Columns.TO_DATE.value,
+    "stationshoehe": Columns.HEIGHT.value,
+    "geobreite": Columns.LATITUDE.value,
+    "geogr.breite": Columns.LATITUDE.value,
+    "geolaenge": Columns.LONGITUDE.value,
+    "geogr.laenge": Columns.LONGITUDE.value,
+    "stationsname": Columns.NAME.value,
+    "bundesland": Columns.STATE.value,
+}
 
 
 def parse_climate_observations_data(
@@ -94,7 +136,7 @@ def _parse_climate_observations_data(
 
     try:
         df = pd.read_csv(
-            filepath_or_buffer=file,  # prevent leading/trailing whitespace
+            filepath_or_buffer=file,
             sep=";",
             dtype="str",
             na_values="-999",
@@ -115,29 +157,29 @@ def _parse_climate_observations_data(
     df = df.rename(columns=str.lower)
 
     # End of record (EOR) has no value, so drop it right away.
-    df = df.drop(columns=[DwdColumns.EOR.value, "struktur_version"], errors="ignore")
+    df = df.drop(columns=DROPPABLE_PARAMETERS, errors="ignore")
 
     if resolution == Resolution.MINUTE_1 and dataset == DwdObservationDataset.PRECIPITATION:
         # Need to unfold historical data, as it is encoded in its run length e.g.
         # from time X to time Y precipitation is 0
         if period == Period.HISTORICAL:
-            df[DwdOrigColumns.FROM_DATE_ALTERNATIVE.value] = pd.to_datetime(
-                df[DwdOrigColumns.FROM_DATE_ALTERNATIVE.value],
+            df["mess_datum_beginn"] = pd.to_datetime(
+                df["mess_datum_beginn"],
                 format=DatetimeFormat.YMDHM.value,
             )
-            df[DwdOrigColumns.TO_DATE_ALTERNATIVE.value] = pd.to_datetime(
-                df[DwdOrigColumns.TO_DATE_ALTERNATIVE.value],
+            df["mess_datum_ende"] = pd.to_datetime(
+                df["mess_datum_ende"],
                 format=DatetimeFormat.YMDHM.value,
             )
 
             # Insert date range column over the given from and to dates
             df.insert(
                 1,
-                DwdOrigColumns.DATE.value,
+                "mess_datum",
                 df.apply(
-                    lambda x: pd.date_range(
-                        x[DwdOrigColumns.FROM_DATE_ALTERNATIVE.value],
-                        x[DwdOrigColumns.TO_DATE_ALTERNATIVE.value],
+                    lambda row: pd.date_range(
+                        row["mess_datum_beginn"],
+                        row["mess_datum_ende"],
                         freq="1min",
                     ),
                     axis=1,
@@ -146,23 +188,22 @@ def _parse_climate_observations_data(
 
             df = df.drop(
                 columns=[
-                    DwdOrigColumns.FROM_DATE_ALTERNATIVE.value,
-                    DwdOrigColumns.TO_DATE_ALTERNATIVE.value,
+                    "mess_datum_beginn",
+                    "mess_datum_ende",
                 ]
             )
 
             # Expand dataframe over calculated date ranges -> one datetime per row
-            df = df.explode(DwdOrigColumns.DATE.value)
+            df = df.explode("mess_datum")
         else:
-            for parameter in PRECIPITATION_PARAMETERS:
-                if parameter not in df:
-                    df[parameter] = pd.NA
+            columns = df.columns.union(PRECIPITATION_PARAMETERS)
+            df = df.reindex(columns=columns)
 
     if resolution == Resolution.MINUTE_5 and dataset == DwdObservationDataset.PRECIPITATION:
         # apparently historical datasets differ from recent and now having all columns as described in the
         # parameter enumeration when recent and now datasets only have precipitation form and
         # precipitation height but not rocker and droplet information
-        columns = [DwdOrigColumns.STATION_ID.value, DwdOrigColumns.DATE.value]
+        columns = ["stations_id", "mess_datum"]
         for parameter in DwdObservationParameter[resolution.name][dataset.name]:
             columns.append(parameter.value)
 
@@ -171,31 +212,13 @@ def _parse_climate_observations_data(
     # Special handling for hourly solar data, as it has more date columns
     if resolution == Resolution.HOURLY:
         if dataset == DwdObservationDataset.SOLAR:
-            # Rename date column correctly to end of interval, as it has additional minute
-            # information. Also rename column with true local time to english one
-            df = df.rename(
-                columns={
-                    "mess_datum_woz": DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
-                }
-            )
-
-            # Duplicate the date column to end of interval column
-            df[DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value] = df[DwdOrigColumns.DATE.value]
-
             # Fix real date column by cutting of minutes
-            df[DwdOrigColumns.DATE.value] = df[DwdOrigColumns.DATE.value].str[:-3]
-
-        if dataset == DwdObservationDataset.URBAN_TEMPERATURE_AIR:
-            df = df.drop(columns=["strahlungstemperatur"])
+            df["mess_datum"] = df["mess_datum"].str[:-3]
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
-        df = df.rename(
-            columns={
-                DwdOrigColumns.FROM_DATE.value: DwdColumns.DATE.value,
-                DwdOrigColumns.FROM_DATE_ALTERNATIVE.value: DwdColumns.DATE.value,
-            }
+        df = df.drop(columns=["bis_datum", "mess_datum_ende"], errors="ignore").rename(
+            columns={"mess_datum_beginn": Columns.DATE.value}
         )
-        df = df.drop(columns=[DwdOrigColumns.TO_DATE.value, DwdOrigColumns.TO_DATE_ALTERNATIVE.value], errors="ignore")
 
     # Assign meaningful column names (baseline).
-    return df.rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    return df.rename(columns=DWD_TO_ENGLISH_COLUMNS_MAPPING)

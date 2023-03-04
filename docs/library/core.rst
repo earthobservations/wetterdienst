@@ -15,7 +15,7 @@ Core
 .. automodule:: wetterdienst.core.core
     :members:
 
-.. automodule:: wetterdienst.core.scalar
+.. automodule:: wetterdienst.core.timeseries
     :members:
 
 Settings

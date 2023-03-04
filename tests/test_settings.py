@@ -8,9 +8,24 @@ import re
 from unittest import mock
 
 from wetterdienst import Settings
+from wetterdienst.settings import _decide_arg
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
+
+
+def test__decide_arg():
+    # regular_arg
+    assert _decide_arg(1, 2, 3, True) == 1
+    assert _decide_arg(1, 2, 3, False) == 1
+    # env_arg
+    assert _decide_arg(None, 2, 3, False) == 2
+    # default_arg
+    assert _decide_arg(None, 2, 3, True) == 3
+    assert _decide_arg(None, None, 3, True) == 3
+    assert _decide_arg(None, None, 3, False) == 3
+    assert _decide_arg(None, None, None, True) is None
+    assert _decide_arg(None, 2, None, True) is None
 
 
 def test_default_settings(caplog):
@@ -19,13 +34,13 @@ def test_default_settings(caplog):
     assert not default_settings.cache_disable
     assert re.match(WD_CACHE_DIR_PATTERN, default_settings.cache_dir)
     assert default_settings.fsspec_client_kwargs == {}
-    assert default_settings.humanize
-    assert default_settings.tidy
-    assert default_settings.si_units
-    assert not default_settings.skip_empty
-    assert default_settings.skip_threshold == 0.95
-    assert not default_settings.dropna
-    assert default_settings.interp_use_nearby_station_until_km == 1
+    assert default_settings.ts_humanize
+    assert default_settings.ts_shape == "long"
+    assert default_settings.ts_si_units
+    assert not default_settings.ts_skip_empty
+    assert default_settings.ts_skip_threshold == 0.95
+    assert not default_settings.ts_dropna
+    assert default_settings.ts_interpolation_use_nearby_station_distance == 1
     log_message = caplog.messages[0]
     assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
 
@@ -34,37 +49,37 @@ def test_default_settings(caplog):
 def test_settings_envs(caplog):
     """Test default settings but with multiple envs set"""
     os.environ["WD_CACHE_DISABLE"] = "1"
-    os.environ["WD_SCALAR_TIDY"] = "0"
+    os.environ["WD_TS_SHAPE"] = "wide"
     caplog.set_level(logging.INFO)
     settings = Settings()
     assert caplog.messages[0] == "Wetterdienst cache is disabled"
-    assert not settings.tidy
+    assert settings.ts_shape == "wide"
 
 
 @mock.patch.dict(os.environ, {})
 def test_settings_ignore_envs(caplog):
     os.environ["WD_CACHE_DISABLE"] = "1"
-    os.environ["WD_SCALAR_TIDY"] = "0"
+    os.environ["WD_TS_SHAPE"] = "wide"
     caplog.set_level(logging.INFO)
     settings = Settings(ignore_env=True)
     log_message = caplog.messages[0]
     assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
-    assert settings.tidy
+    assert settings.ts_shape == "long"
 
 
 @mock.patch.dict(os.environ, {})
 def test_settings_mixed(caplog):
     """Check leaking of Settings through threads"""
     os.environ["WD_CACHE_DISABLE"] = "1"
-    os.environ["WD_SCALAR_SKIP_THRESHOLD"] = "0.89"
+    os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"
     caplog.set_level(logging.INFO)
-    settings = Settings(skip_threshold=0.81, si_units=False)
+    settings = Settings(ts_skip_threshold=0.81, ts_si_units=False)
     log_message = caplog.messages[0]
     assert settings.cache_disable
     assert log_message == "Wetterdienst cache is disabled"  # env variable
-    assert settings.tidy  # default variable
-    assert settings.skip_threshold == 0.81  # argument variable overrules env variable
-    assert not settings.si_units  # argument variable
+    assert settings.ts_shape  # default variable
+    assert settings.ts_skip_threshold == 0.81  # argument variable overrules env variable
+    assert not settings.ts_si_units  # argument variable
 
 
 def test_settings_args():

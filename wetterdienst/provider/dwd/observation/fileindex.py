@@ -6,11 +6,11 @@ from typing import List, Optional
 import pandas as pd
 from pytz import timezone
 
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
@@ -47,12 +47,12 @@ def create_file_list_for_climate_observations(
     """
     file_index = create_file_index_for_climate_observations(dataset, resolution, period, settings)
 
-    file_index = file_index[file_index[DwdColumns.STATION_ID.value] == station_id]
+    file_index = file_index[file_index["station_id"] == station_id]
 
     if date_range:
-        file_index = file_index[file_index[DwdColumns.DATE_RANGE.value] == date_range]
+        file_index = file_index[file_index["date_range"] == date_range]
 
-    return file_index[DwdColumns.FILENAME.value].values.tolist()
+    return file_index["filename"].values.tolist()
 
 
 def create_file_index_for_climate_observations(
@@ -79,61 +79,51 @@ def create_file_index_for_climate_observations(
             dataset, resolution, period, "observations_germany/climate", settings
         )
 
-    file_index = file_index.loc[file_index[DwdColumns.FILENAME.value].str.endswith(Extension.ZIP.value), :]
+    file_index = file_index.loc[file_index["filename"].str.endswith(Extension.ZIP.value), :]
 
-    file_index[DwdColumns.STATION_ID.value] = (
-        file_index[DwdColumns.FILENAME.value].str.split("/").str[-1].str.findall(STATION_ID_REGEX).str[0]
-    )
+    file_index["station_id"] = file_index["filename"].str.split("/").str[-1].str.findall(STATION_ID_REGEX).str[0]
 
     file_index = file_index[file_index.station_id.notnull() & (file_index.station_id != "00000")].reset_index(drop=True)
 
-    file_index[DwdColumns.STATION_ID.value] = (
-        file_index[DwdColumns.STATION_ID.value].astype(str).str.pad(5, "left", "0")
-    )
+    file_index["station_id"] = file_index["station_id"].astype(str).str.pad(5, "left", "0")
 
     if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
-        file_index[DwdColumns.DATE_RANGE.value] = (
-            file_index[DwdColumns.FILENAME.value].str.findall(DATE_RANGE_REGEX).str[0]
+        file_index["date_range"] = file_index["filename"].str.findall(DATE_RANGE_REGEX).str[0]
+
+        file_index[[Columns.FROM_DATE.value, Columns.TO_DATE.value]] = (
+            file_index["date_range"].str.split("_", expand=True).values
         )
 
-        file_index[[DwdColumns.FROM_DATE.value, DwdColumns.TO_DATE.value]] = (
-            file_index[DwdColumns.DATE_RANGE.value].str.split("_", expand=True).values
-        )
-
-        file_index[DwdColumns.FROM_DATE.value] = pd.to_datetime(
-            file_index[DwdColumns.FROM_DATE.value],
+        file_index[Columns.FROM_DATE.value] = pd.to_datetime(
+            file_index[Columns.FROM_DATE.value],
             format=DatetimeFormat.YMD.value,
         )
-        file_index[DwdColumns.FROM_DATE.value] = file_index.loc[:, DwdColumns.FROM_DATE.value].dt.tz_localize(
+        file_index[Columns.FROM_DATE.value] = file_index.loc[:, Columns.FROM_DATE.value].dt.tz_localize(
             timezone_germany
         )
 
-        file_index[DwdColumns.TO_DATE.value] = pd.to_datetime(
-            file_index[DwdColumns.TO_DATE.value],
+        file_index[Columns.TO_DATE.value] = pd.to_datetime(
+            file_index[Columns.TO_DATE.value],
             format=DatetimeFormat.YMD.value,
         ) + pd.Timedelta(days=1)
-        file_index[DwdColumns.TO_DATE.value] = file_index.loc[:, DwdColumns.TO_DATE.value].dt.tz_localize(
-            timezone_germany
-        )
+        file_index[Columns.TO_DATE.value] = file_index.loc[:, Columns.TO_DATE.value].dt.tz_localize(timezone_germany)
 
         # Temporary fix for filenames with wrong ordered/faulty dates
         # Fill those cases with minimum/maximum date to ensure that they are loaded as
         # we don't know what exact date range the included data has
-        wrong_date_order_index = file_index[DwdColumns.FROM_DATE.value] > file_index[DwdColumns.TO_DATE.value]
+        wrong_date_order_index = file_index[Columns.FROM_DATE.value] > file_index[Columns.TO_DATE.value]
 
-        file_index.loc[wrong_date_order_index, DwdColumns.FROM_DATE.value] = file_index[
-            DwdColumns.FROM_DATE.value
-        ].min()
-        file_index.loc[wrong_date_order_index, DwdColumns.TO_DATE.value] = file_index[DwdColumns.TO_DATE.value].max()
+        file_index.loc[wrong_date_order_index, Columns.FROM_DATE.value] = file_index[Columns.FROM_DATE.value].min()
+        file_index.loc[wrong_date_order_index, Columns.TO_DATE.value] = file_index[Columns.TO_DATE.value].max()
 
-        file_index.loc[:, DwdColumns.INTERVAL.value] = file_index.apply(
+        file_index.loc[:, "interval"] = file_index.apply(
             lambda x: pd.Interval(
-                left=x[DwdColumns.FROM_DATE.value],
-                right=x[DwdColumns.TO_DATE.value],
+                left=x[Columns.FROM_DATE.value],
+                right=x[Columns.TO_DATE.value],
                 closed="both",
             ),
             axis=1,
         )
 
-    return file_index.sort_values(by=[DwdColumns.STATION_ID.value, DwdColumns.FILENAME.value])
+    return file_index.sort_values(by=["station_id", "filename"])

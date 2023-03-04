@@ -11,8 +11,8 @@ from typing import Generator, List, Optional, Tuple, Union
 import pandas as pd
 from pandas._libs.tslibs.offsets import YearEnd
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -41,14 +41,8 @@ class EcccObservationPeriod(Enum):
     HISTORICAL = Period.HISTORICAL.value
 
 
-class EcccObservationValues(ScalarValuesCore):
-
-    _string_parameters = ()
-    _irregular_parameters = ()
-    _date_parameters = ()
-
+class EcccObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
-
     _has_quality = True
 
     _base_url = (
@@ -81,14 +75,14 @@ class EcccObservationValues(ScalarValuesCore):
         """internal time step string for resolution"""
         return self._time_step_mapping.get(self.sr.stations.resolution)
 
-    def _tidy_up_df(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+    @staticmethod
+    def _tidy_up_df(df: pd.DataFrame) -> pd.DataFrame:
         """
         Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
 
         :param df: DataFrame with loaded data
         :return: tidied DataFrame
         """
-
         data = []
 
         columns = df.columns
@@ -189,6 +183,12 @@ class EcccObservationValues(ScalarValuesCore):
 
         df[Columns.STATION_ID.value] = station_id
 
+        df = self._tidy_up_df(df)
+
+        mask = df[Columns.VALUE.value].map(str).str.startswith("<")
+        df.loc[mask, Columns.VALUE.value] = df.loc[mask, Columns.VALUE.value].str[1:]
+        df[Columns.QUALITY.value] = pd.NA
+
         return df
 
     def _create_file_urls(self, station_id: str, start_year: int, end_year: int) -> Generator[str, None, None]:
@@ -218,7 +218,7 @@ class EcccObservationValues(ScalarValuesCore):
             yield url
 
 
-class EcccObservationRequest(ScalarRequestCore):
+class EcccObservationRequest(TimeseriesRequest):
     """
     Download weather data from Environment and Climate Change Canada (ECCC).
     - https://www.canada.ca/en/environment-climate-change.html
@@ -229,24 +229,19 @@ class EcccObservationRequest(ScalarRequestCore):
 
     """
 
-    provider = Provider.ECCC
-    kind = Kind.OBSERVATION
-
+    _provider = Provider.ECCC
+    _kind = Kind.OBSERVATION
     _tz = Timezone.UTC
-
-    _resolution_base = EcccObservationResolution
+    _dataset_base = EcccObservationDataset
+    _parameter_base = EcccObservationParameter  # replace with parameter enumeration
+    _unit_base = EcccObservationUnit
     _resolution_type = ResolutionType.MULTI
+    _resolution_base = EcccObservationResolution
     _period_type = PeriodType.FIXED
     _period_base = EcccObservationPeriod
-    _parameter_base = EcccObservationParameter  # replace with parameter enumeration
-    _data_range = DataRange.FIXED
     _has_datasets = True
-    _dataset_base = EcccObservationDataset
     _unique_dataset = True
-    _has_tidy_data = False
-
-    _unit_tree = EcccObservationUnit
-
+    _data_range = DataRange.FIXED
     _values = EcccObservationValues
 
     @property

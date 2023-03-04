@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pandas._testing import assert_frame_equal, assert_series_equal
 
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -15,20 +15,20 @@ from wetterdienst.provider.dwd.observation import (
 
 
 def test_coerce_strings():
-    series = ScalarValuesCore._coerce_strings(pd.Series(["foobar"]))
+    series = TimeseriesValues._coerce_strings(pd.Series(["foobar"]))
     series_expected = pd.Series(["foobar"], dtype=pd.StringDtype())
 
     assert_series_equal(series, series_expected)
 
 
 def test_coerce_floats():
-    series = ScalarValuesCore._coerce_floats(pd.Series([42.42]))
+    series = TimeseriesValues._coerce_floats(pd.Series([42.42]))
     series_expected = pd.Series([42.42], dtype="float64")
 
     assert_series_equal(series, series_expected)
 
 
-def test_coerce_field_types(settings_humanize_tidy_false):
+def test_coerce_field_types(settings_humanize_false_wide_shape):
     """Test coercion of fields"""
     # Special cases
     # We require a stations_result object with hourly resolution in order to accurately parse
@@ -38,7 +38,7 @@ def test_coerce_field_types(settings_humanize_tidy_false):
         parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
-        settings=settings_humanize_tidy_false,
+        settings=settings_humanize_false_wide_shape,
     ).all()
 
     # Here we don't query the actual data because it takes too long
@@ -47,11 +47,10 @@ def test_coerce_field_types(settings_humanize_tidy_false):
         {
             "station_id": ["00001"],
             "dataset": ["climate_summary"],
+            "parameter": ["rs_ind_01"],
             "date": ["1970010100"],
-            "qn": ["1"],
-            "rs_ind_01": [1],
-            "end_of_interval": ["1970010100:00"],
-            "v_vv_i": ["p"],
+            "value": [1],
+            "quality": ["1"],
         }
     )
 
@@ -63,39 +62,36 @@ def test_coerce_field_types(settings_humanize_tidy_false):
         {
             "station_id": pd.Categorical(["00001"]),
             "dataset": pd.Categorical(["climate_summary"]),
+            "parameter": ["rs_ind_01"],
             "date": [pd.Timestamp("1970-01-01").tz_localize("utc")],
-            "qn": pd.Series([1], dtype=float),
-            "rs_ind_01": pd.Series([1], dtype=float),
-            "end_of_interval": [np.NaN],
-            "v_vv_i": pd.Series(["p"], dtype=pd.StringDtype()),
+            "value": pd.Series([1], dtype=float),
+            "quality": pd.Series([1], dtype=float),
         }
     )
 
     assert_frame_equal(df, expected_df, check_categorical=False)
 
 
-def test_coerce_field_types_with_nans(settings_humanize_tidy_false):
+def test_coerce_field_types_with_nans(settings_humanize_false_wide_shape):
     """Test field coercion with NaNs"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.SOLAR,  # RS_IND_01,
+        parameter=DwdObservationDataset.SOLAR,
         resolution=DwdObservationResolution.HOURLY,
         period=DwdObservationPeriod.RECENT,
-        settings=settings_humanize_tidy_false,
+        settings=settings_humanize_false_wide_shape,
     ).all()
 
     df = pd.DataFrame(
         {
-            "qn": [pd.NA, np.nan, "1"],
-            "rs_ind_01": [pd.NA, np.nan, "1"],
-            "v_vv_i": [pd.NA, np.nan, "p"],
+            "quality": [pd.NA, np.nan, "1"],
+            "value": [pd.NA, np.nan, "1"],
         }
     )
 
     expected_df = pd.DataFrame(
         {
-            "qn": pd.to_numeric([pd.NA, np.nan, 1], errors="coerce"),
-            "rs_ind_01": pd.to_numeric([pd.NA, np.nan, 1], errors="coerce"),
-            "v_vv_i": pd.Series([pd.NA, np.nan, "p"], dtype=pd.StringDtype()),
+            "quality": pd.to_numeric([pd.NA, np.nan, 1], errors="coerce"),
+            "value": pd.to_numeric([pd.NA, np.nan, 1], errors="coerce"),
         }
     )
 
