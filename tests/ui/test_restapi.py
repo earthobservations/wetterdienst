@@ -200,7 +200,7 @@ def test_dwd_values_sql_tabular(dicts_are_same):
             "period": "historical",
             "date": "2020/2021",
             "sql-values": "SELECT * FROM data WHERE temperature_air_max_200 < 2.0",
-            "tidy": False,
+            "shape": "wide",
             "si-units": False,
         },
     )
@@ -211,31 +211,43 @@ def test_dwd_values_sql_tabular(dicts_are_same):
         data[0],
         {
             "cloud_cover_total": 6.9,
+            "qn_cloud_cover_total": 3,
             "dataset": "climate_summary",
             "date": "2020-01-25T00:00:00+00:00",
             "humidity": 88.88,
+            "qn_humidity": 3,
             "precipitation_form": 0.0,
+            "qn_precipitation_form": 3,
             "precipitation_height": 0.0,
+            "qn_precipitation_height": 3,
             "pressure_air_site": 993.88,
+            "qn_pressure_air_site": 3,
             "pressure_vapor": 4.6,
-            "quality_wind": 10.0,
-            "quality": 3,
+            "qn_pressure_vapor": 3,
             "snow_depth": 0,
+            "qn_snow_depth": 3,
             "station_id": "01048",
             "sunshine_duration": 0.0,
+            "qn_sunshine_duration": 3,
             "temperature_air_max_200": -0.6,
+            "qn_temperature_air_max_200": 3,
             "temperature_air_mean_200": -2.2,
+            "qn_temperature_air_mean_200": 3,
             "temperature_air_min_005": -6.6,
+            "qn_temperature_air_min_005": 3,
             "temperature_air_min_200": -4.6,
+            "qn_temperature_air_min_200": 3,
             "wind_gust_max": 4.6,
+            "qn_wind_gust_max": 10.0,
             "wind_speed": 1.9,
+            "qn_wind_speed": 10.0,
         },
     )
 
 
 @pytest.mark.remote
 @pytest.mark.sql
-def test_dwd_values_sql_tidy(dicts_are_same):
+def test_dwd_values_sql_long(dicts_are_same):
     response = client.get(
         "/restapi/values",
         params={

@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
-from wetterdienst.core.scalar.request import ScalarRequestCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.exceptions import ProviderError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.ui.cli import get_api
@@ -122,7 +122,7 @@ def stations(
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
-    all_: str = Query(alias="all", default=False),
+    all_: bool = Query(alias="all", default=False),
     station_id: str = Query(default=None),
     name: str = Query(default=None),
     coordinates: str = Query(default=None),
@@ -184,7 +184,7 @@ def stations(
             distance=distance,
             bbox=bbox,
             sql=sql,
-            tidy=False,
+            shape="long",
             si_units=False,
             humanize=False,
             skip_empty=False,
@@ -213,7 +213,7 @@ def stations(
     elif fmt == "geojson":
         output = stations_.to_ogc_feature_collection()
 
-    output = make_json_response(output, api.provider)
+    output = make_json_response(output, api._provider)
 
     output = json.dumps(output, indent=indent, ensure_ascii=False)
 
@@ -239,12 +239,12 @@ def values(
     sql: str = Query(default=None),
     sql_values: str = Query(alias="sql-values", default=None),
     humanize: bool = Query(default=True),
-    tidy: bool = Query(default=True),
+    shape: Literal["long", "wide"] = Query(default="long"),
     si_units: bool = Query(alias="si-units", default=True),
     skip_empty: bool = Query(alias="skip-empty", default=False),
     skip_threshold: float = Query(alias="skip-threshold", default=0.95, gt=0, le=1),
     skip_criteria: Literal["min", "mean", "max"] = Query(alias="skip-criteria", default="min"),
-    dropna: bool = Query(alias="dropna", default=False),
+    dropna: bool = Query(alias="ts_dropna", default=False),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
 ):
@@ -269,7 +269,7 @@ def values(
     :param sql_values:
     :param fmt:
     :param humanize:
-    :param tidy:        Whether to return data in tidy format. Default: True.
+    :param shape:        Whether to return data in "long" or "wide" format. Default: "long".
     :param si_units:
     :param skip_empty:
     :param skip_criteria:
@@ -303,7 +303,7 @@ def values(
     set_logging_level(debug)
 
     try:
-        api: ScalarRequestCore = Wetterdienst(provider, network)
+        api: TimeseriesRequest = Wetterdienst(provider, network)
     except ProviderError:
         return HTTPException(
             status_code=404,
@@ -339,7 +339,7 @@ def values(
             skip_threshold=skip_threshold,
             skip_criteria=skip_criteria,
             dropna=dropna,
-            tidy=tidy,
+            shape=shape,
             humanize=humanize,
         )
     except Exception as e:
@@ -359,7 +359,7 @@ def values(
 
     output = output.to_dict(orient="records")
 
-    output = make_json_response(output, api.provider)
+    output = make_json_response(output, api._provider)
 
     output = json.dumps(output, indent=indent, ensure_ascii=False)
 
@@ -373,7 +373,6 @@ def interpolate(
     parameter: str = Query(default=None),
     resolution: str = Query(default=None),
     period: str = Query(default=None),
-    use_nearby_station_until_km: float = Query(default=1.0),
     date: str = Query(default=None),
     issue: str = Query(default="latest"),
     station: str = Query(default=None),
@@ -381,6 +380,7 @@ def interpolate(
     sql_values: str = Query(alias="sql-values", default=None),
     humanize: bool = Query(default=True),
     si_units: bool = Query(alias="si-units", default=True),
+    use_nearby_station_distance: float = Query(default=1.0),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
 ):
@@ -399,6 +399,7 @@ def interpolate(
     :param sql_values:
     :param humanize:
     :param si_units:
+    :param use_nearby_station_distance:
     :param pretty:
     :param debug:
     :return:
@@ -427,7 +428,7 @@ def interpolate(
     set_logging_level(debug)
 
     try:
-        api: ScalarRequestCore = Wetterdienst(provider, network)
+        api: TimeseriesRequest = Wetterdienst(provider, network)
     except ProviderError:
         return HTTPException(
             status_code=404,
@@ -454,7 +455,7 @@ def interpolate(
             sql_values=sql_values,
             si_units=si_units,
             humanize=humanize,
-            use_nearby_station_until_km=use_nearby_station_until_km,
+            use_nearby_station_distance=use_nearby_station_distance,
         )
     except Exception as e:
         log.exception(e)
@@ -473,7 +474,7 @@ def interpolate(
 
     output = output.to_dict(orient="records")
 
-    output = make_json_response(output, api.provider)
+    output = make_json_response(output, api._provider)
 
     output = json.dumps(output, indent=indent, ensure_ascii=False)
 
@@ -540,7 +541,7 @@ def summarize(
     set_logging_level(debug)
 
     try:
-        api: ScalarRequestCore = Wetterdienst(provider, network)
+        api: TimeseriesRequest = Wetterdienst(provider, network)
     except ProviderError:
         return HTTPException(
             status_code=404,
@@ -585,7 +586,7 @@ def summarize(
 
     output = output.to_dict(orient="records")
 
-    output = make_json_response(output, api.provider)
+    output = make_json_response(output, api._provider)
 
     output = json.dumps(output, indent=indent, ensure_ascii=False)
 

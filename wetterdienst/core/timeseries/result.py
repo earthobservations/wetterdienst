@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING, Optional, Union
 import pandas as pd
 
 from wetterdienst.core.process import filter_by_date_and_resolution
-from wetterdienst.core.scalar.export import ExportMixin
+from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Frequency, Resolution
 
 if TYPE_CHECKING:
-    from wetterdienst.core.scalar.request import ScalarRequestCore
-    from wetterdienst.core.scalar.values import ScalarValuesCore
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
+    from wetterdienst.core.timeseries.values import TimeseriesValues
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
@@ -32,7 +32,7 @@ class StationsFilter:
 class StationsResult(ExportMixin):
     def __init__(
         self,
-        stations: Union["ScalarRequestCore", "DwdMosmixRequest"],
+        stations: Union["TimeseriesRequest", "DwdMosmixRequest"],
         df: pd.DataFrame,
         df_all: pd.DataFrame,
         stations_filter: StationsFilter,
@@ -56,7 +56,7 @@ class StationsResult(ExportMixin):
 
     @property
     def provider(self):
-        return self.stations.provider
+        return self.stations._provider
 
     @property
     def now(self):
@@ -75,7 +75,7 @@ class StationsResult(ExportMixin):
         return self.stations._resolution_type
 
     @property
-    def values(self) -> "ScalarValuesCore":
+    def values(self) -> "TimeseriesValues":
         return self.stations._values.from_stations(self)
 
     @property
@@ -147,8 +147,8 @@ class StationsResult(ExportMixin):
         return self.stations._has_datasets
 
     @property
-    def _unit_tree(self) -> bool:
-        return self.stations._unit_tree
+    def _unit_base(self) -> bool:
+        return self.stations._unit_base
 
     @property
     def _parameter_base(self) -> bool:
@@ -207,7 +207,7 @@ class ValuesResult(ExportMixin):
     # TODO: add more meaningful metadata e.g. describe()
 
     stations: StationsResult
-    values: "ScalarValuesCore"
+    values: "TimeseriesValues"
     df: pd.DataFrame
 
     def to_ogc_feature_collection(self):

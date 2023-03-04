@@ -7,7 +7,6 @@ from wetterdienst.provider.dwd.index import (
     _create_file_index_for_dwd_server,
     build_path_to_parameter,
 )
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -48,4 +47,4 @@ def test_fileindex(default_settings):
         "observations_germany/climate/",
         settings=default_settings,
     )
-    assert "daily/kl/recent" in file_index.iloc[0][DwdColumns.FILENAME.value]
+    assert "daily/kl/recent" in file_index.iloc[0]["filename"]

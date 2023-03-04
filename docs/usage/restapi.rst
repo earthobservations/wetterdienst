@@ -35,4 +35,4 @@ Observations
     http localhost:7890/api/dwd/observation/values stations==1048,4411 parameter==kl resolution==daily period==recent date==2020-08-01/2020-08-05
 
     # Observations with SQL.
-    http localhost:7890/api/dwd/observation/values stations==1048,4411 parameter==kl resolution==daily period==recent tidy==False sql=="SELECT * FROM data WHERE temperature_air_max_200 < 2.0;"
+    http localhost:7890/api/dwd/observation/values stations==1048,4411 parameter==kl resolution==daily period==recent shape=="wide" sql=="SELECT * FROM data WHERE temperature_air_max_200 < 2.0;"

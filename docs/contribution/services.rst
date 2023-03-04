@@ -153,7 +153,7 @@ Step 2: Request class
 *********************
 
 The request class represents a request and carries all the required attributes as well as the values class that is
-responsible for acquiring the data later on. The implementation is based on `ScalarRequestCore` from `wetterdienst.core`.
+responsible for acquiring the data later on. The implementation is based on `TimeseriesRequest` from `wetterdienst.core`.
 
 Attributes:
 
@@ -226,14 +226,7 @@ Attributes:
 
     @property
     @abstractmethod
-    def _has_tidy_data(self) -> bool:
-        """If data is generally provided tidy -> then data should not be tidied but
-        rather tabulated if data is requested to not being tidy"""
-        pass
-
-    @property
-    @abstractmethod
-    def _unit_tree(self):
+    def _unit_base(self):
         pass
 
     @property
@@ -242,7 +235,7 @@ Attributes:
         """Class to get the values for a request"""
         pass
 
-`ScalarRequestCore` has one abstract method that has to be implemented: the `_all` which manages to get a listing of
+`TimeseriesRequest` has one abstract method that has to be implemented: the `_all` which manages to get a listing of
 stations for the requested datasets/parameters. The listing includes:
 - station_id
 - from_date
@@ -258,6 +251,6 @@ The names can be mapped using the `Columns` enumeration.
 Step 3: Values class
 *********************
 
-The values class is based on `ScalarValuesCore` and manages the acquisition of actual data. The
-class is also part of the `ScalarRequestCore` being accessed via the `_values` property. It has to implement the
+The values class is based on `TimeseriesValues` and manages the acquisition of actual data. The
+class is also part of the `TimeseriesRequest` being accessed via the `_values` property. It has to implement the
 `_collect_station_parameter` method that takes care of getting values of a parameter/dataset for a station id.

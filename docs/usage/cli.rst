@@ -51,7 +51,7 @@ Command Line Interface
 
             # Output options
             [--format=<format>] [--pretty]
-            [--tidy] [--humanize] [--si-units]
+            [--shape=<shape>] [--humanize] [--si-units]
             [--dropna] [--skip_empty] [--skip_threshold=0.95]
 
             # Export options
@@ -112,7 +112,7 @@ Command Line Interface
         --sql-values                SQL filter to apply to values
 
     Transformation options:
-        --tidy                      Tidy DataFrame
+        --shape                     Shape of DataFrame, "long" or "wide"
         --humanize                  Humanize parameters
         --si-units                  Convert to SI units
         --skip_empty                Skip empty stations according to skip_threshold
@@ -173,8 +173,8 @@ Command Line Interface
         # Get daily climate summary data for specific stations in CSV format
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
 
-        # Get daily climate summary data for specific stations in tidy format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --tidy
+        # Get daily climate summary data for specific stations in long format
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --shape="long"
 
         # Limit output to specific date
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01 --station=1048,4411
@@ -244,10 +244,10 @@ Command Line Interface
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
             --station=1048,4411 --sql-values="SELECT * FROM data WHERE wind_gust_max > 20.0;"
 
-        # Filter measurements: Same as above, but use tidy format.
+        # Filter measurements: Same as above, but use long format.
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
             --station=1048,4411 \
-            --tidy --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0;"
+            --shape="long" --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0;"
 
     Inquire metadata:
 

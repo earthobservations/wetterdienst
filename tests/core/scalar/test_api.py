@@ -13,13 +13,13 @@ from wetterdienst.provider.dwd.observation import (
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "skip_criteria,expected_stations",
+    "ts_skip_criteria,expected_stations",
     [("min", ["05906", "04928"]), ("mean", ["05426", "04177"]), ("max", ["00377", "05426"])],
 )
-def test_api_skip_empty_stations(settings_skip_empty_true, skip_criteria, expected_stations):
+def test_api_skip_empty_stations(settings_skip_empty_true, ts_skip_criteria, expected_stations):
     # overcharge skip criteria
-    settings_skip_empty_true.skip_criteria = skip_criteria
-    settings_skip_empty_true.skip_threshold = 0.6
+    settings_skip_empty_true.ts_skip_criteria = ts_skip_criteria
+    settings_skip_empty_true.ts_skip_threshold = 0.6
     request = DwdObservationRequest(
         parameter=["kl", "solar"],
         resolution="daily",
@@ -52,20 +52,20 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(s
             .values.all()
         )
 
-    settings_skip_empty_true.skip_threshold = 0.9
+    settings_skip_empty_true.ts_skip_threshold = 0.9
     expected_station = ["05426"]
 
-    settings_skip_empty_true.skip_criteria = "min"
+    settings_skip_empty_true.ts_skip_criteria = "min"
     values = _get_values(settings_skip_empty_true)
     assert values.df.station_id.unique().tolist() == expected_station
     assert values.df_stations.station_id.tolist() == expected_station
 
-    settings_skip_empty_true.skip_criteria = "mean"
+    settings_skip_empty_true.ts_skip_criteria = "mean"
     values = _get_values(settings_skip_empty_true)
     assert values.df.station_id.unique().tolist() == expected_station
     assert values.df_stations.station_id.tolist() == expected_station
 
-    settings_skip_empty_true.skip_criteria = "max"
+    settings_skip_empty_true.ts_skip_criteria = "max"
     values = _get_values(settings_skip_empty_true)
     assert values.df.station_id.unique().tolist() == expected_station
     assert values.df_stations.station_id.tolist() == expected_station

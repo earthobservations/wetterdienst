@@ -18,7 +18,6 @@ from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,
@@ -288,7 +287,7 @@ class DwdRadarValues:
             )
 
             # Find "-latest-" or "LATEST" or similar file.
-            filenames = file_index[DwdColumns.FILENAME.value].tolist()
+            filenames = file_index["filename"].tolist()
             latest_file = list(filter(lambda x: "latest" in x.lower(), filenames))[0]
 
             # Yield single "RadarResult" item.
@@ -317,15 +316,14 @@ class DwdRadarValues:
                     # Filter for dates range if start_date and end_date are defined.
                     if period == Period.RECENT:
                         file_index = file_index[
-                            (file_index[DwdColumns.DATETIME.value] >= self.start_date)
-                            & (file_index[DwdColumns.DATETIME.value] < self.end_date)
+                            (file_index["datetime"] >= self.start_date) & (file_index["datetime"] < self.end_date)
                         ]
 
                     # This is for matching historical data, e.g. "RW-200509.tar.gz".
                     else:
                         file_index = file_index[
-                            (file_index[DwdColumns.DATETIME.value].dt.year == self.start_date.year)
-                            & (file_index[DwdColumns.DATETIME.value].dt.month == self.start_date.month)
+                            (file_index["datetime"].dt.year == self.start_date.year)
+                            & (file_index["datetime"].dt.month == self.start_date.month)
                         ]
 
                     results.append(file_index)
@@ -339,7 +337,7 @@ class DwdRadarValues:
 
                 # Iterate list of files and yield "RadarResult" items.
                 for _, row in file_index.iterrows():
-                    url = row[DwdColumns.FILENAME.value]
+                    url = row["filename"]
                     try:
                         yield from self._download_radolan_data(url, self.start_date, self.end_date)
                     except FailedDownload as e:
@@ -357,13 +355,12 @@ class DwdRadarValues:
 
                 # Filter for dates range if start_date and end_date are defined.
                 file_index = file_index[
-                    (file_index[DwdColumns.DATETIME.value] >= self.start_date)
-                    & (file_index[DwdColumns.DATETIME.value] < self.end_date)
+                    (file_index["datetime"] >= self.start_date) & (file_index["datetime"] < self.end_date)
                 ]
 
                 # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
                 if self.elevation is not None:
-                    filename = file_index[DwdColumns.FILENAME.value]
+                    filename = file_index["filename"]
                     file_index = file_index[
                         (filename.str.contains(f"vradh_{self.elevation:02d}"))
                         | (filename.str.contains(f"sweep_vol_v_{self.elevation}"))
@@ -377,8 +374,8 @@ class DwdRadarValues:
 
                 # Iterate list of files and yield "RadarResult" items.
                 for _, row in file_index.iterrows():
-                    date_time = row[DwdColumns.DATETIME.value]
-                    url = row[DwdColumns.FILENAME.value]
+                    date_time = row["datetime"]
+                    url = row["filename"]
 
                     for result in self._download_generic_data(url=url):
                         if not result.timestamp:

@@ -17,14 +17,11 @@ from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.index import build_path_to_parameter
-from wetterdienst.provider.dwd.metadata.column_map import (
-    GERMAN_TO_ENGLISH_COLUMNS_MAPPING,
-)
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
 )
+from wetterdienst.provider.dwd.observation.parser import DWD_TO_ENGLISH_COLUMNS_MAPPING
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
@@ -78,7 +75,7 @@ def create_meta_index_for_climate_observations(
 
     # If no state column available, take state information from daily historical
     # precipitation
-    if DwdColumns.STATE.value not in meta_index:
+    if Columns.STATE.value not in meta_index:
         mdp = _create_meta_index_for_climate_observations(
             DwdObservationDataset.PRECIPITATION_MORE, Resolution.DAILY, Period.HISTORICAL, settings=settings
         )
@@ -177,7 +174,7 @@ def _read_meta_df(file: BytesIO) -> pd.DataFrame:
     # Fix column names, as header is not aligned to fixed column widths
     df.columns = "".join([column for column in df.columns if "unnamed" not in column.lower()]).split(" ")
 
-    return df.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    return df.rename(columns=str.lower).rename(columns=DWD_TO_ENGLISH_COLUMNS_MAPPING)
 
 
 def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pd.DataFrame:
@@ -304,7 +301,7 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
 
     df = _parse_zipped_data_into_df(file)
 
-    df = df.rename(columns=str.lower).rename(columns=GERMAN_TO_ENGLISH_COLUMNS_MAPPING)
+    df = df.rename(columns=str.lower).rename(columns=DWD_TO_ENGLISH_COLUMNS_MAPPING)
 
     df[Columns.FROM_DATE.value] = df.loc[0, Columns.FROM_DATE.value]
 

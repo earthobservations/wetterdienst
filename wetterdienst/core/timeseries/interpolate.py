@@ -15,18 +15,18 @@ import utm
 from scipy.interpolate import LinearNDInterpolator
 from shapely.geometry import Point, Polygon
 
-from wetterdienst.core.scalar.tools import _ParameterData, extract_station_values
+from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
 
 if TYPE_CHECKING:
-    from wetterdienst.core.scalar.request import ScalarRequestCore
-    from wetterdienst.core.scalar.result import StationsResult
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
+    from wetterdienst.core.timeseries.result import StationsResult
 
 log = logging.getLogger(__name__)
 
 
-def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude: float) -> pd.DataFrame:
+def get_interpolated_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pd.DataFrame:
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, request.interp_use_nearby_station_until_km)
@@ -37,7 +37,7 @@ def get_interpolated_df(request: "ScalarRequestCore", latitude: float, longitude
 
 
 def request_stations(
-    request: "ScalarRequestCore", latitude: float, longitude: float, utm_x: float, utm_y: float
+    request: "TimeseriesRequest", latitude: float, longitude: float, utm_x: float, utm_y: float
 ) -> Tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}

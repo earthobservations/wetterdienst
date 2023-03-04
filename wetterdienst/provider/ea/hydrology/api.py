@@ -9,8 +9,8 @@ from typing import List, Optional, Union
 
 import pandas as pd
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -84,11 +84,8 @@ class EaHydrologyPeriod(Enum):
     HISTORICAL = Period.HISTORICAL.value
 
 
-class EaHydrologyValues(ScalarValuesCore):
+class EaHydrologyValues(TimeseriesValues):
     _base_url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
-    _irregular_parameters = ()
-    _string_parameters = ()
-    _date_parameters = ()
     _data_tz = Timezone.UK
 
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
@@ -122,29 +119,31 @@ class EaHydrologyValues(ScalarValuesCore):
 
         df = pd.DataFrame.from_records(readings)
 
-        return df.loc[:, ["dateTime", "value"]].rename(
-            columns={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value}
-        )
+        df[Columns.PARAMETER.value] = parameter.value
+
+        df = df.loc[:, ["parameter", "dateTime", "value"]]
+
+        return df.rename(columns={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
 
     def fetch_dynamic_frequency(self, station_id, parameter, dataset):
         return
 
 
-class EaHydrologyRequest(ScalarRequestCore):
-    endpoint = "https://environment.data.gov.uk/hydrology/id/stations.json"
-    _values = EaHydrologyValues
-    _unit_tree = EaHydrologyUnit
+class EaHydrologyRequest(TimeseriesRequest):
+    _provider = Provider.EA
+    _kind = Kind.OBSERVATION
     _tz = Timezone.UK
-    provider = Provider.EA
-    kind = Kind.OBSERVATION
+    _parameter_base = EaHydrologyParameter
+    _unit_base = EaHydrologyUnit
     _resolution_base = EaHydrologyResolution
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
     _period_base = EaHydrologyPeriod
-    _parameter_base = EaHydrologyParameter
-    _data_range = DataRange.FIXED
     _has_datasets = False
-    _has_tidy_data = True
+    _data_range = DataRange.FIXED
+    _values = EaHydrologyValues
+
+    endpoint = "https://environment.data.gov.uk/hydrology/id/stations.json"
 
     def __init__(
         self,

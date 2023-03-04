@@ -9,8 +9,8 @@ from typing import List, Optional, Union
 
 import pandas as pd
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -95,10 +95,7 @@ class NwsObservationPeriod(Enum):
     RECENT = Period.RECENT.value
 
 
-class NwsObservationValues(ScalarValuesCore):
-    _string_parameters = ()
-    _irregular_parameters = ()
-    _date_parameters = ()
+class NwsObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
@@ -141,20 +138,20 @@ class NwsObservationValues(ScalarValuesCore):
         return df.rename(columns={"timestamp": Columns.DATE.value})
 
 
-class NwsObservationRequest(ScalarRequestCore):
-    _values = NwsObservationValues
-    _unit_tree = NwsObservationUnit
-    _data_range = DataRange.FIXED
+class NwsObservationRequest(TimeseriesRequest):
+    _provider = Provider.NWS
+    _kind = Kind.OBSERVATION
     _tz = Timezone.USA
     _parameter_base = NwsObservationParameter
-    _has_tidy_data = True
-    _has_datasets = False
-    _period_base = NwsObservationPeriod
-    _period_type = PeriodType.FIXED
+    _unit_base = NwsObservationUnit
     _resolution_base = NwsObservationResolution
     _resolution_type = ResolutionType.FIXED
-    provider = Provider.NWS
-    kind = Kind.OBSERVATION
+    _period_type = PeriodType.FIXED
+    _period_base = NwsObservationPeriod
+    _has_datasets = False
+    _data_range = DataRange.FIXED
+    _values = NwsObservationValues
+
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
     def __init__(

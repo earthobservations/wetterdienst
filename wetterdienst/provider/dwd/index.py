@@ -5,7 +5,6 @@ import pandas as pd
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
@@ -38,7 +37,7 @@ def _create_file_index_for_dwd_server(
     if not files_server:
         raise FileNotFoundError(f"url {url} does not have a list of files")
 
-    return pd.DataFrame(files_server, columns=[DwdColumns.FILENAME.value], dtype=str)
+    return pd.DataFrame(files_server, columns=["filename"], dtype=str)
 
 
 def build_path_to_parameter(

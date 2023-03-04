@@ -16,7 +16,7 @@ from measurement.utils import guess
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
-from wetterdienst.core.scalar.result import (
+from wetterdienst.core.timeseries.result import (
     InterpolatedValuesResult,
     StationsFilter,
     StationsResult,
@@ -43,18 +43,18 @@ log = logging.getLogger(__name__)
 EARTH_RADIUS_KM = 6371
 
 
-class ScalarRequestCore(Core):
+class TimeseriesRequest(Core):
     """Core for stations_result information of a source"""
 
     @property
     @abstractmethod
-    def provider(self) -> Provider:
+    def _provider(self) -> Provider:
         """Optional enumeration for multiple resolutions"""
         pass
 
     @property
     @abstractmethod
-    def kind(self) -> Kind:
+    def _kind(self) -> Kind:
         """Optional enumeration for multiple resolutions"""
         pass
 
@@ -108,6 +108,11 @@ class ScalarRequestCore(Core):
 
     @property
     @abstractmethod
+    def _unit_base(self):
+        pass
+
+    @property
+    @abstractmethod
     def _data_range(self) -> DataRange:
         """State whether data from this provider is given in fixed data chunks
         or has to be defined over start and end date"""
@@ -144,13 +149,6 @@ class ScalarRequestCore(Core):
         return self.resolution.name
 
     @property
-    @abstractmethod
-    def _has_tidy_data(self) -> bool:
-        """If data is generally provided tidy -> then data should not be tidied but
-        rather tabulated if data is requested to not being tidy"""
-        pass
-
-    @property
     def _parameter_to_dataset_mapping(self) -> dict:
         """Mapping to go from a (flat) parameter to dataset"""
         if not self._unique_dataset:
@@ -158,15 +156,9 @@ class ScalarRequestCore(Core):
         return {}
 
     @property
-    @abstractmethod
-    def _unit_tree(self):
-        pass
-
-    @property
     def datasets(self):
         datasets = self._dataset_tree[self._dataset_accessor].__dict__.keys()
-
-        return list(filter(lambda x: x not in ("__module__", "__doc__"), datasets))
+        return [ds for ds in datasets if ds not in ("__module__", "__doc__")]
 
     @property
     @abstractmethod
@@ -371,32 +363,35 @@ class ScalarRequestCore(Core):
         if not self.parameter:
             raise NoParametersFound("no valid parameters could be parsed from given argument")
 
-        self.humanize = settings.humanize
-
-        tidy = settings.tidy
-
+        self.humanize = settings.ts_humanize
+        shape = settings.ts_shape
         if self._has_datasets:
             any_not_dataset = any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
             multiple_datasets = (
                 len({parameter.value for parameter, dataset in self.parameter if parameter in self._dataset_base}) > 1
             )
-            tidy = tidy or any_not_dataset or multiple_datasets
-        self.tidy = tidy
-
-        self.si_units = settings.si_units
+            shape = "long" if (any_not_dataset or multiple_datasets) else shape
+        self.shape = shape
+        self.tidy = 1 if shape == "long" else 0
+        self.si_units = settings.ts_si_units
 
         # skip empty stations
-        self.skip_empty = self.tidy and settings.skip_empty
-        self.skip_threshold = settings.skip_threshold
+        self.skip_empty = self.tidy and settings.ts_skip_empty
+        self.skip_threshold = settings.ts_skip_threshold
 
-        self.dropna = self.tidy and settings.dropna
-        self.interp_use_nearby_station_until_km = settings.interp_use_nearby_station_until_km
+        self.dropna = self.tidy and settings.ts_dropna
+        self.interp_use_nearby_station_until_km = settings.ts_interpolation_use_nearby_station_distance
 
-        if not tidy and settings.skip_empty:
-            log.warning("option 'skip_empty' is only available with option 'tidy' and is thus ignored in this request.")
+        if not self.tidy and settings.ts_skip_empty:
+            log.info(
+                "option 'ts_skip_empty' is only available with option 'ts_shape' "
+                "and is thus ignored in this request."
+            )
 
-        if not tidy and settings.dropna:
-            log.warning("option 'dropna' is only available with option 'tidy' and is thus ignored in this request.")
+        if not self.tidy and settings.ts_dropna:
+            log.info(
+                "option 'ts_dropna' is only available with option 'ts_shape' " "and is thus ignored in this request."
+            )
 
         # optional attribute for dynamic resolutions
         if self.resolution == Resolution.DYNAMIC:
@@ -417,7 +412,7 @@ class ScalarRequestCore(Core):
             f"start_date={str(self.start_date)}, "
             f"end_date={str(self.end_date)}, "
             f"humanize={self.humanize}, "
-            f"tidy={self.tidy}, "
+            f"format={self.shape}, "
             f"si_units={self.si_units})"
         )
 
@@ -507,7 +502,7 @@ class ScalarRequestCore(Core):
 
         if flatten:
             if dataset:
-                log.warning("dataset filter will be ignored due to 'flatten'")
+                log.info("dataset filter will be ignored due to 'flatten'")
 
             parameters = {}
 
@@ -520,7 +515,7 @@ class ScalarRequestCore(Core):
                     if not hasattr(parameter, "name"):
                         continue
 
-                    origin_unit, si_unit = cls._unit_tree[resolution_name][parameter.__class__.__name__][
+                    origin_unit, si_unit = cls._unit_base[resolution_name][parameter.__class__.__name__][
                         parameter.name
                     ].value
 
@@ -556,7 +551,7 @@ class ScalarRequestCore(Core):
 
                 for parameter in dataset:
 
-                    origin_unit, si_unit = cls._unit_tree[resolution_name][dataset_name.upper()][parameter.name].value
+                    origin_unit, si_unit = cls._unit_base[resolution_name][dataset_name.upper()][parameter.name].value
 
                     if with_units:
                         slot = parameters[resolution_name.lower()][dataset_name][parameter.name.lower()] = {}
@@ -850,7 +845,7 @@ class ScalarRequestCore(Core):
         :return: interpolated values
         """
 
-        from wetterdienst.core.scalar.interpolate import get_interpolated_df
+        from wetterdienst.core.timeseries.interpolate import get_interpolated_df
         from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
         if self.resolution in (
@@ -884,7 +879,7 @@ class ScalarRequestCore(Core):
         :param latlon: tuple of latitude and longitude for queried point
         :return:
         """
-        from wetterdienst.core.scalar.summarize import get_summarized_df
+        from wetterdienst.core.timeseries.summarize import get_summarized_df
         from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
         if self.resolution in (

@@ -9,8 +9,8 @@ import pandas as pd
 from pandas.tseries.offsets import YearEnd
 from timezonefinder import TimezoneFinder
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -41,14 +41,7 @@ class NoaaGhcnPeriod(Enum):
     HISTORICAL = Period.HISTORICAL.value
 
 
-class NoaaGhcnValues(ScalarValuesCore):
-    _string_parameters = ()
-    _irregular_parameters = ()
-    _date_parameters = (
-        NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,
-        NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX_1MILE_OR_1MIN.value,
-    )
-
+class NoaaGhcnValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
 
     _base_url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
@@ -75,6 +68,15 @@ class NoaaGhcnValues(ScalarValuesCore):
         df = df.iloc[:, :4]
         df.columns = [Columns.STATION_ID.value, Columns.DATE.value, Columns.PARAMETER.value, Columns.VALUE.value]
         df[Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
+        df = df.loc[
+            ~df[Columns.PARAMETER.value].isin(
+                (
+                    NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,
+                    NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX_1MILE_OR_1MIN.value,
+                )
+            ),
+            :,
+        ]
         return self._apply_factors(df)
 
     def _apply_factors(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -97,28 +99,21 @@ class NoaaGhcnValues(ScalarValuesCore):
         return pd.concat(data)
 
 
-class NoaaGhcnRequest(ScalarRequestCore):
-    provider = Provider.NOAA
-    kind = Kind.OBSERVATION
-
+class NoaaGhcnRequest(TimeseriesRequest):
+    _provider = Provider.NOAA
+    _kind = Kind.OBSERVATION
+    _tz = Timezone.USA
     _dataset_base = NoaaGhcnDataset
     _parameter_base = NoaaGhcnParameter
-
+    _unit_base = NoaaGhcnUnit
     _resolution_type = ResolutionType.FIXED
     _resolution_base = NoaaGhcnResolution
     _period_type = PeriodType.FIXED
     _period_base = NoaaGhcnPeriod
-    _data_range = DataRange.FIXED
-
     _has_datasets = True
     _unique_dataset = True
-    _has_tidy_data = True
-
-    _unit_tree = NoaaGhcnUnit
-
+    _data_range = DataRange.FIXED
     _values = NoaaGhcnValues
-
-    _tz = Timezone.USA
 
     def __init__(
         self,

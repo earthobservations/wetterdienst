@@ -18,7 +18,7 @@ from dash import Input, Output, State, dcc, html
 from geojson import Feature, FeatureCollection, Point
 
 from wetterdienst.api import RequestRegistry
-from wetterdienst.core.scalar.result import ValuesResult
+from wetterdienst.core.timeseries.result import ValuesResult
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import PeriodType
@@ -506,7 +506,7 @@ def set_parameter_options(provider, network, resolution, dataset):
     api = RequestRegistry.resolve(provider, network)
 
     if dataset == resolution:
-        # Return tidy parameters e.g. parameters grouped under one resolution
+        # Return long shape parameters e.g. parameters grouped under one resolution
         parameters = [
             {"label": parameter.name, "value": parameter.name}
             for parameter in api._parameter_base[resolution]

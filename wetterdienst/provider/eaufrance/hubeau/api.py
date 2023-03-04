@@ -9,8 +9,8 @@ from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -51,13 +51,8 @@ class HubeauUnit(DatasetTreeCore):
             STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
 
 
-class HubeauValues(ScalarValuesCore):
-    _string_parameters = ()
-    _irregular_parameters = ()
-    _date_parameters = ()
-
+class HubeauValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
-
     _endpoint = (
         "https://hubeau.eaufrance.fr/api/v1/hydrometrie/observations_tr?code_entite={station_id}"
         "&grandeur_hydro={grandeur_hydro}&sort=asc&date_debut_obs={start_date}&date_fin_obs={end_date}"
@@ -139,17 +134,22 @@ class HubeauValues(ScalarValuesCore):
                 ]
             )
 
-        return df.rename(
+        df[Columns.PARAMETER.value] = parameter.value.lower()
+
+        df = df.rename(
             columns={
                 "code_station": Columns.STATION_ID.value,
                 "date_obs": Columns.DATE.value,
                 "resultat_obs": Columns.VALUE.value,
                 "code_qualification_obs": Columns.QUALITY.value,
             }
-        ).loc[
+        )
+
+        return df.loc[
             :,
             [
                 Columns.STATION_ID.value,
+                Columns.PARAMETER.value,
                 Columns.DATE.value,
                 Columns.VALUE.value,
                 Columns.QUALITY.value,
@@ -157,29 +157,19 @@ class HubeauValues(ScalarValuesCore):
         ]
 
 
-class HubeauRequest(ScalarRequestCore):
-    _values = HubeauValues
-
-    _unit_tree = HubeauUnit
-
+class HubeauRequest(TimeseriesRequest):
+    _provider = Provider.EAUFRANCE
+    _kind = Kind.OBSERVATION
     _tz = Timezone.FRANCE
-
     _parameter_base = HubeauParameter
-
-    _has_tidy_data = True
-    _has_datasets = False
-
-    _data_range = DataRange.FIXED
-
-    _period_base = Period.HISTORICAL
-
+    _unit_base = HubeauUnit
     _resolution_type = ResolutionType.DYNAMIC
     _resolution_base = HubeauResolution
-
     _period_type = PeriodType.FIXED
-
-    provider = Provider.EAUFRANCE
-    kind = Kind.OBSERVATION
+    _period_base = Period.HISTORICAL
+    _has_datasets = False
+    _data_range = DataRange.FIXED
+    _values = HubeauValues
 
     _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"
 

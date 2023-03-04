@@ -46,7 +46,7 @@ def test_api(provider, network, kwargs, si_units, station_id):
     api = Wetterdienst(provider, network)
     # Discover parameters
     assert api.discover()
-    settings = Settings(si_units=si_units, ignore_env=True)
+    settings = Settings(ts_si_units=si_units, ignore_env=True)
     # All stations_result
     if station_id:
         request = api(**kwargs, settings=settings).filter_by_station_id(station_id=station_id)

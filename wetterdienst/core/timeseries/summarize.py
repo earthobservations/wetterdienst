@@ -6,15 +6,15 @@ import numpy as np
 import pandas as pd
 
 from wetterdienst import Parameter
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.result import StationsResult
-from wetterdienst.core.scalar.tools import _ParameterData, extract_station_values
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.result import StationsResult
+from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
 
 log = logging.getLogger(__name__)
 
 
-def get_summarized_df(request: "ScalarRequestCore", latitude: float, longitude: float) -> pd.DataFrame:
+def get_summarized_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pd.DataFrame:
     stations_dict, param_dict = request_stations(request, latitude, longitude)
     df = calculate_summary(stations_dict, param_dict)
     df[Columns.DISTANCE.value] = pd.Series(df[Columns.DISTANCE.value].values, dtype=float)
@@ -23,7 +23,7 @@ def get_summarized_df(request: "ScalarRequestCore", latitude: float, longitude: 
     return df
 
 
-def request_stations(request: "ScalarRequestCore", latitude: float, longitude: float) -> Tuple[dict, dict]:
+def request_stations(request: "TimeseriesRequest", latitude: float, longitude: float) -> Tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
     hard_distance_km_limit = 40

@@ -195,7 +195,7 @@ def wetterdienst_help():
 
             # Output options
             [--format=<format>] [--pretty]
-            [--tidy] [--humanize] [--si-units]
+            [--shape=<shape>] [--humanize] [--si-units]
             [--dropna] [--skip_empty] [--skip_threshold=0.95]
 
             # Export options
@@ -256,11 +256,11 @@ def wetterdienst_help():
         --sql-values                SQL filter to apply to values
 
     Transformation options:
-        --tidy                      Tidy DataFrame
+        --shape                     Shape of DataFrame, "wide" or "long"
         --humanize                  Humanize parameters
         --si-units                  Convert to SI units
-        --skip_empty                Skip empty stations according to skip_threshold
-        --skip_threshold            Skip threshold for a station to be empty (0 < skip_threshold <= 1) [Default: 0.95]
+        --skip_empty                Skip empty stations according to ts_skip_threshold
+        --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
         --dropna                    Whether to drop nan values from the result
 
     Output options:
@@ -315,8 +315,8 @@ def wetterdienst_help():
         # Get daily climate summary data for specific stations in CSV format
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
 
-        # Get daily climate summary data for specific stations in tidy format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --tidy
+        # Get daily climate summary data for specific stations in long format
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --shape="long"
 
         # Limit output to specific date
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01 --station=1048,4411
@@ -386,10 +386,10 @@ def wetterdienst_help():
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --station=1048,4411 --sql-values="SELECT * FROM data WHERE wind_gust_max > 20.0;"
 
-        # Filter measurements: Same as above, but use tidy format.
+        # Filter measurements: Same as above, but use long format.
         wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --station=1048,4411 \\
-            --tidy --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0;"
+            --shape="long" --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0;"
 
     Inquire metadata:
 
@@ -682,7 +682,7 @@ def stations(
         distance=distance,
         bbox=bbox,
         sql=sql,
-        tidy=False,
+        shape="long",
         si_units=False,
         humanize=False,
         skip_empty=False,
@@ -716,7 +716,6 @@ def stations(
 @station_options_core
 @station_options_extension
 @cloup.option("--date", type=click.STRING)
-@cloup.option("--tidy", is_flag=True)
 @cloup.option("--sql-values", type=click.STRING)
 @cloup.option_group(
     "Format/Target",
@@ -730,6 +729,7 @@ def stations(
     help="Provide either --format or --target.",
 )
 @cloup.option("--issue", type=click.STRING)
+@cloup.option("--shape", type=click.Choice(["long", "wide"]), default="long")
 @cloup.option("--si-units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
@@ -757,7 +757,7 @@ def values(
     sql_values,
     fmt: str,
     target: str,
-    tidy: bool,
+    shape: Literal["long", "wide"],
     si_units: bool,
     humanize: bool,
     skip_empty: bool,
@@ -789,7 +789,7 @@ def values(
             sql=sql,
             sql_values=sql_values,
             si_units=si_units,
-            tidy=tidy,
+            shape=shape,
             humanize=humanize,
             skip_empty=skip_empty,
             skip_criteria=skip_criteria,
@@ -824,7 +824,7 @@ def values(
 @network_opt
 @station_options_core
 @station_options_interpolate_summarize
-@cloup.option("--use_nearby_station_until_km", type=click.FLOAT, default=1)
+@cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=True)
 @cloup.option("--sql-values", type=click.STRING)
 @cloup.option_group(
@@ -849,7 +849,7 @@ def interpolate(
     parameter: List[str],
     resolution: str,
     period: List[str],
-    use_nearby_station_until_km: float,
+    use_nearby_station_distance: float,
     date: str,
     issue: str,
     station: str,
@@ -879,7 +879,7 @@ def interpolate(
             sql_values=sql_values,
             si_units=si_units,
             humanize=humanize,
-            use_nearby_station_until_km=use_nearby_station_until_km,
+            use_nearby_station_distance=use_nearby_station_distance,
         )
     except ValueError as ex:
         log.exception(ex)

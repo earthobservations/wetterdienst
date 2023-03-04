@@ -7,7 +7,6 @@ from datetime import datetime
 import pandas as pd
 from pytz import timezone
 
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.timezone import Timezone
 
 
@@ -29,13 +28,6 @@ class Core(metaclass=ABCMeta):
     def _tz(self) -> Timezone:
         """Abstract representation of timezone that has to be implemented by source
         class, uses the Timezone enumeration"""
-        pass
-
-    @property
-    @abstractmethod
-    def provider(self) -> Provider:
-        """Abstract representation of source that is related to the request, used for
-        identification of returned data"""
         pass
 
     @property

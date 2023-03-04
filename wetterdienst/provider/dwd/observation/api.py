@@ -6,11 +6,12 @@ from datetime import datetime, timezone
 from itertools import repeat
 from typing import List, Optional, Union
 
+import numpy as np
 import pandas as pd
 from pandas import Timedelta, Timestamp
 
-from wetterdienst.core.scalar.request import ScalarRequestCore
-from wetterdienst.core.scalar.values import ScalarValuesCore
+from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -19,8 +20,6 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
-from wetterdienst.provider.dwd.metadata.column_names import DwdColumns
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
 )
@@ -32,10 +31,6 @@ from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationDataset,
     DwdObservationParameter,
     DwdObservationResolution,
-)
-from wetterdienst.provider.dwd.observation.metadata.field_types import (
-    DATE_PARAMETERS_IRREGULAR,
-    STRING_PARAMETERS,
 )
 from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
 from wetterdienst.provider.dwd.observation.metadata.resolution import (
@@ -57,7 +52,7 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 log = logging.getLogger(__name__)
 
 
-class DwdObservationValues(ScalarValuesCore):
+class DwdObservationValues(TimeseriesValues):
     """
     The DWDObservationData class represents a request for
     observation data as provided by the DWD service.
@@ -66,11 +61,6 @@ class DwdObservationValues(ScalarValuesCore):
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _has_quality = True
-
-    _string_parameters = STRING_PARAMETERS
-    _irregular_parameters = ()
-    _date_parameters = DATE_PARAMETERS_IRREGULAR
-
     _resolution_type = ResolutionType.MULTI
     _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
@@ -179,8 +169,6 @@ class DwdObservationValues(ScalarValuesCore):
         # Filter out values which already are in the DataFrame
         parameter_df = parameter_df.drop_duplicates(subset=Columns.DATE.value)
 
-        # TODO: temporary fix -> reduce time steps before 2000 by 1 hour
-        #  for 1minute and 10minutes resolution data
         if not parameter_df.empty:
             if self.sr.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
                 # Have to parse dates here, although they should actually be parsed
@@ -188,9 +176,9 @@ class DwdObservationValues(ScalarValuesCore):
                 parameter_df[Columns.DATE.value] = pd.to_datetime(
                     parameter_df[Columns.DATE.value], infer_datetime_format=True
                 )
-                return self._fix_timestamps(parameter_df)
+                parameter_df = self._fix_timestamps(parameter_df)
 
-        return parameter_df
+        return self._tidy_up_df(parameter_df, dataset)
 
     @staticmethod
     def _fix_timestamps(df: pd.DataFrame) -> pd.DataFrame:
@@ -216,7 +204,6 @@ class DwdObservationValues(ScalarValuesCore):
         :param dataset: dataset enumeration
         :return: tidied DataFrame
         """
-
         droppable_columns = [
             # Hourly
             # Cloud type
@@ -266,13 +253,14 @@ class DwdObservationValues(ScalarValuesCore):
                         pd.Series(repeat(quality_precipitation, 2)).explode(),
                     ]
                 )
-        elif resolution == Resolution.SUBDAILY and DwdObservationDataset.WIND_EXTREME:
+        elif resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME:
             quality_fx_3 = df.pop("qn_8_3")
             quality_fx_6 = df.pop("qn_8_6")
             quality = pd.concat([quality_fx_3, quality_fx_6])
         else:
+            meta_columns = [Columns.DATE.value, Columns.STATION_ID.value]
             quality = df.pop(df.columns[2])
-            quality = pd.Series(repeat(quality, df.shape[1])).explode()
+            quality = pd.Series(repeat(quality, df.shape[1] - len(meta_columns))).explode()
 
         possible_id_vars = (
             Columns.STATION_ID.value,
@@ -288,7 +276,8 @@ class DwdObservationValues(ScalarValuesCore):
             var_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
-        df_tidy[Columns.QUALITY.value] = quality.reset_index(drop=True)
+        df_tidy[Columns.QUALITY.value] = quality.values
+        df_tidy.loc[df_tidy[Columns.VALUE.value].isna(), Columns.QUALITY.value] = np.nan
 
         return df_tidy
 
@@ -304,16 +293,6 @@ class DwdObservationValues(ScalarValuesCore):
         if not series.dt.tz:
             return series.dt.tz_localize(self.data_tz)
         return series
-
-    def _coerce_irregular_parameter(self, series: pd.Series) -> pd.Series:
-        """
-        Only one particular parameter is irregular which is the related to some
-        datetime found in solar.
-
-        :param series:
-        :return:
-        """
-        return pd.to_datetime(series, format=DatetimeFormat.YMDH_COLUMN_M.value)
 
     def _get_historical_date_ranges(
         self, station_id: str, dataset: DwdObservationDataset, settings: Settings
@@ -354,30 +333,26 @@ class DwdObservationValues(ScalarValuesCore):
         return file_index_filtered[Columns.DATE_RANGE.value].tolist()
 
 
-class DwdObservationRequest(ScalarRequestCore):
+class DwdObservationRequest(TimeseriesRequest):
     """
     The DWDObservationStations class represents a request for
     a station list as provided by the DWD service.
     """
 
-    provider = Provider.DWD
-    kind = Kind.OBSERVATION
-
-    _values = DwdObservationValues
-    _parameter_base = DwdObservationParameter
+    _provider = Provider.DWD
+    _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
-
+    _dataset_base = DwdObservationDataset
+    _parameter_base = DwdObservationParameter
+    _unit_base = DwdObservationUnit
     _resolution_type = ResolutionType.MULTI
     _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
     _period_base = DwdObservationPeriod
-    _data_range = DataRange.FIXED
     _has_datasets = True
-    _has_tidy_data = False
     _unique_dataset = False
-    _dataset_base = DwdObservationDataset
-
-    _unit_tree = DwdObservationUnit
+    _data_range = DataRange.FIXED
+    _values = DwdObservationValues
 
     @property
     def _interval(self) -> Optional[pd.Interval]:
@@ -540,9 +515,9 @@ class DwdObservationRequest(ScalarRequestCore):
         else:
             raise ValueError("Only language 'en' or 'de' supported")
 
-        file_index = file_index[file_index[DwdColumns.FILENAME.value].str.contains(file_prefix)]
+        file_index = file_index[file_index["filename"].str.contains(file_prefix)]
 
-        description_file_url = str(file_index[DwdColumns.FILENAME.value].tolist()[0])
+        description_file_url = str(file_index["filename"].tolist()[0])
         log.info(f"Acquiring field information from {description_file_url}")
 
         return read_description(description_file_url, language=language)
@@ -583,6 +558,6 @@ class DwdObservationRequest(ScalarRequestCore):
         stations_df = stations_df.drop_duplicates(subset=Columns.STATION_ID.value, keep="first")
 
         if not stations_df.empty:
-            return stations_df.sort_values([Columns.STATION_ID.value], key=lambda x: x.astype(int))
+            return stations_df.sort_values(by=[Columns.STATION_ID.value], key=lambda x: x.astype(int))
 
         return stations_df

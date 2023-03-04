@@ -137,10 +137,10 @@ Cloud types
 | Automated     | -1   |
 +---------------+------+
 
-Tidy parameters
+Long parameters
 ===============
 
-The tidy version of DWD observation data excludes several parameters
+DWD observation data excludes several parameters
 which contain strings. Those parameters are:
 
 - cloud type abbreviations (1 - 4) in **hourly cloud type** dataset

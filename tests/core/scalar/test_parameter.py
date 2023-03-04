@@ -13,15 +13,15 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationParameter,
 )
 from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
+from wetterdienst.provider.ea.hydrology.api import (
+    EaHydrologyParameter,
+    EaHydrologyUnit,
+)
 from wetterdienst.provider.eccc.observation.metadata.parameter import (
     EcccObservationDataset,
     EcccObservationParameter,
 )
 from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
-from wetterdienst.provider.environment_agency.hydrology.api import (
-    EaHydrologyParameter,
-    EaHydrologyUnit,
-)
 from wetterdienst.provider.geosphere.observation import GeosphereObservationParameter
 from wetterdienst.provider.geosphere.observation.api import GeosphereObservationUnit
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter

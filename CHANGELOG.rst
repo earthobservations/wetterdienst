@@ -10,6 +10,10 @@ Development
 - DOCS: Fix precipitation height unit
 - DOCS: Fix examples with "recent" period
 - Make all parameter levels equal for all weather services to reduce complexity in code
+- Change ``tidy`` option to ``shape``, where ``shape="long"`` equals ``tidy=True`` and ``shape="wide"`` equals ``tidy=False``
+- Naming things: All things "Scalar" are now called "Timeseries", with settings prefix ``ts_``
+- Drop some unnecessary enums
+- Rename Environment Agency to ea in subspace
 
 0.53.0 (07.02.2023)
 *******************
