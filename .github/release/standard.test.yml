@@ -1,4 +1,0 @@
-sut:
-  build: ../..
-  dockerfile: .github/release/standard/Dockerfile
-  command: selftest.sh standard

@@ -1,5 +1,0 @@
-sut:
-  build: ../..
-  dockerfile: .github/release/full/Dockerfile
-  # TODO: We might want to improve this. Just say "wetterdienst about system" here.
-  command: selftest.sh full
