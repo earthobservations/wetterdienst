@@ -1,8 +1,19 @@
+import os
 import platform
 
 import pytest
 
 from wetterdienst import Settings
+
+
+@pytest.fixture
+def is_ci():
+    return os.environ.get("CI", False)
+
+
+@pytest.fixture
+def is_linux():
+    return platform.system() == "Linux"
 
 
 @pytest.fixture

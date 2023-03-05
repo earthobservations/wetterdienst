@@ -5,30 +5,32 @@ from pathlib import Path
 
 import pytest
 
-from example import (
-    dwd_describe_fields,
-    mosmix_forecasts,
-    observations_sql,
-    observations_station_gaussian_model,
-    observations_stations,
-)
-
-THIS = Path(__name__).parent.absolute()
-EXAMPLES_DIR = THIS.parent.parent / "example"
-
-EXAMPLES = (
-    mosmix_forecasts,
-    observations_sql,
-    observations_stations,
-    observations_station_gaussian_model,
-    dwd_describe_fields,
-)
+HERE = Path(__name__).parent.absolute()
+EXAMPLES_DIR = HERE.parent.parent / "example"
 
 
 @pytest.mark.cflake
-@pytest.mark.parametrize("example", EXAMPLES)
-def test_regular_examples(example):
-    assert example.main() is None
+def test_regular_examples():
+    from example import (
+        dwd_describe_fields,
+        mosmix_forecasts,
+        observations_sql,
+        observations_stations,
+    )
+
+    assert dwd_describe_fields.main() is None
+    assert mosmix_forecasts.main() is None
+    assert observations_sql.main() is None
+    assert observations_stations.main() is None
+
+
+@pytest.mark.cflake
+def test_gaussian_example(is_ci, is_linux):
+    if is_ci and not is_linux:
+        raise pytest.skip("stalls on Mac/Windows in CI")
+    from example import observations_station_gaussian_model
+
+    assert observations_station_gaussian_model.main() is None
 
 
 @pytest.mark.cflake
