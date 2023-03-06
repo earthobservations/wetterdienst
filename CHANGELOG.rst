@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.54.0 (06.03.2023)
+*******************
+
 - CLI: Fix cli arguments with multiple items separated by comma (,)
 - Fix fileindex/metaindex for DWD Observation
 - SCALAR: Improve handling skipping of empty stations, especially within .filter_by_rank function
