@@ -177,6 +177,7 @@ dirty-equals = "^0.5.0"
 freezegun = "^1.2"
 h5py = { version = "^3.1", optional = true}
 ipykernel = "^6.19.4"
+jsonschema = {extras = ["format-nongpl"], version = "^4.17.3"}
 jupyter = "^1.0.0"
 lmfit = "^1.1.0"  # required for example observations_station_gaussian_model.py
 percy = "^2.0"

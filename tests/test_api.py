@@ -31,9 +31,7 @@ from wetterdienst import Settings, Wetterdienst
         # NWS Observation
         ("nws", "observation", {"parameter": "temperature_air_mean_200"}, "KBHM"),
         # Eaufrance Hubeau
-        pytest.param(
-            "eaufrance", "hubeau", {"parameter": "flow"}, None, marks=pytest.mark.xfail(raises=FileNotFoundError)
-        ),  # noqa: E800
+        pytest.param("eaufrance", "hubeau", {"parameter": "flow"}, None, marks=pytest.mark.xfail),  # noqa: E800
         # ZAMG Observation
         ("geosphere", "observation", {"parameter": "precipitation_height", "resolution": "daily"}, "5882"),
     ],

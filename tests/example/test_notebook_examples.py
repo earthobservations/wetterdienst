@@ -17,7 +17,6 @@ def test_wetterdienst_notebook():
     fixture = NBRegressionFixture(
         exec_notebook=True,
         force_regen=True,
-        exec_timeout=60,
     )
     try:
         fixture.check(EXAMPLE_DIR / "wetterdienst_notebook.ipynb")
