@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.54.1 (13.03.2023)
+*******************
+
 - Fix DWD Observations 1 minute fileindex
 
 0.54.0 (06.03.2023)
