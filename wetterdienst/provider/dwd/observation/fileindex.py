@@ -83,9 +83,11 @@ def create_file_index_for_climate_observations(
 
     file_index["station_id"] = file_index["filename"].str.split("/").str[-1].str.findall(STATION_ID_REGEX).str[0]
 
-    file_index = file_index[file_index.station_id.notnull() & (file_index.station_id != "00000")].reset_index(drop=True)
+    file_index = file_index[file_index.station_id.notnull()].reset_index(drop=True)
 
     file_index["station_id"] = file_index["station_id"].astype(str).str.pad(5, "left", "0")
+
+    file_index = file_index[file_index.station_id != "00000"]
 
     if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
