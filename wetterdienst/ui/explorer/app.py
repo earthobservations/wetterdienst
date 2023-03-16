@@ -18,7 +18,6 @@ from dash import Input, Output, State, dcc, html
 from geojson import Feature, FeatureCollection, Point
 
 from wetterdienst.api import RequestRegistry
-from wetterdienst.core.timeseries.result import ValuesResult
 from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import PeriodType
@@ -196,7 +195,7 @@ def fetch_values(
 
     values.df.date = values.df.date.astype(str)
 
-    return json.dumps({"values": values.df.to_dict(orient="split"), "unit_dict": values.stations.stations.discover()})
+    return json.dumps({"values": values.df.to_dict(orient="records"), "unit_dict": values.stations.stations.discover()})
 
 
 @app.callback(
@@ -307,13 +306,13 @@ def render_status_response_values(
     """
     try:
         payload = json.loads(payload)
-        values_data = pd.DataFrame.from_records(payload["values"]["data"], columns=payload["values"]["columns"])
+        climate_data = pd.DataFrame.from_records(payload["values"])
     except (KeyError, ValueError, TypeError):
-        values_data = pd.DataFrame()
+        climate_data = pd.DataFrame()
 
     messages = [dcc.Markdown("#### Values")]
 
-    if values_data.empty:
+    if climate_data.empty:
 
         # Main message.
         empty_message = [html.Span("No data. ")]
@@ -330,16 +329,16 @@ def render_status_response_values(
         messages += [html.Div(empty_message), html.Br()]
 
     messages += [
-        html.Div(f"Columns: {len(values_data.columns)}"),
-        html.Div(f"Records: {len(values_data)}"),
+        html.Div(f"Columns: {len(climate_data.columns)}"),
+        html.Div(f"Records: {len(climate_data)}"),
         html.Br(),
     ]
 
-    if "date" in values_data:
+    if "date" in climate_data:
         messages += [
             html.Div(f"Station: {station}"),
-            html.Div(f"Begin date: {values_data.date.iloc[0]}"),
-            html.Div(f"End date: {values_data.date.iloc[-1]}"),
+            html.Div(f"Begin date: {climate_data.date.iloc[0]}"),
+            html.Div(f"End date: {climate_data.date.iloc[-1]}"),
         ]
 
     return html.Div(messages)
@@ -363,7 +362,11 @@ def render_map(payload):
     log.info(f"Rendering stations_result map from {frame_summary(stations_data)}")
     # columns used for constructing geojson object
     features = stations_data.apply(
-        lambda row: Feature(geometry=Point((float(row["longitude"]), float(row["latitude"])))), axis=1
+        lambda row: Feature(
+            geometry=Point((float(row["longitude"]), float(row["latitude"]))),
+            properties={"station_id": row["station_id"]},
+        ),
+        axis=1,
     ).tolist()
     # all the other columns used as properties
     properties = stations_data.drop(["latitude", "longitude"], axis=1).to_dict("records")
@@ -378,23 +381,12 @@ def render_map(payload):
     Output("select-station", "value"),
     [
         Input("markers", "click_feature"),
-        Input("markers", "n_clicks"),
-        State("dataframe-stations_result", "children"),
-    ],  # Input({"tag": "markers", "index": ALL}, "click_feature"), Input({"tag": "markers", "index": ALL}, "n_clicks")
+    ],
 )
-def map_click(click_feature, n_clicks, stations):  # feature, n_clicks,
-    if not click_feature:
-        return None
-    if click_feature.get("propertries", {}).get("cluster"):
-        return None
-    lonlat = click_feature.get("geometry", {}).get("coordinates")
-    if not lonlat:
-        return None
-    stations_data = pd.read_json(stations, orient="split", dtype=str)
-    stations_data = stations_data.astype({"latitude": float, "longitude": float})
-    return stations_data.loc[
-        (stations_data.longitude == lonlat[0]) & (stations_data.latitude == lonlat[1]), "station_id"
-    ]
+def map_click(click_feature):
+    if click_feature is not None:
+        return click_feature.get("properties", {}).get("station_id")
+    return None
 
 
 def _get_station_text(row):
@@ -405,15 +397,15 @@ def _get_station_text(row):
     Output("graph-values", "figure"),
     [Input("select-parameter", "value"), Input("select-resolution", "value"), Input("dataframe-values", "children")],
 )
-def render_graph(parameter, resolution, payload: ValuesResult):
+def render_graph(parameter, resolution, payload: str):
     """
     Create a "graph" Figure element from "values" data.
     """
     try:
         payload = json.loads(payload)
-        climate_data = pd.DataFrame.from_dict(payload["values"])
+        climate_data = pd.DataFrame.from_records(payload["values"])
         unit_dict = payload["unit_dict"]
-    except (ValueError, KeyError, TypeError):
+    except (KeyError, ValueError):
         climate_data = pd.DataFrame()
         unit_dict = {}
 
@@ -456,7 +448,7 @@ def set_resolution_options(provider, network):
 
     api = RequestRegistry.resolve(provider, network)
 
-    if isinstance(api, DwdMosmixRequest):
+    if issubclass(api, DwdMosmixRequest):
         return [{"label": resolution.name, "value": resolution.name} for resolution in DwdMosmixType]
     else:
         return [{"label": resolution.name, "value": resolution.name} for resolution in api._resolution_base]
