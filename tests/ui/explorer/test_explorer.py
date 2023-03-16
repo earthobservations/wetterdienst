@@ -43,8 +43,32 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     """
     Verify if data for "stations_result" has been correctly propagated.
     """
+    # Select provider.
+    dash_tre.wait_for_element_by_id("select-provider")
+    dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+    time.sleep(0.5)
+    # Select network.
+    dash_tre.wait_for_element_by_id("select-network")
+    dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+    time.sleep(0.5)
+    # Select resolution.
+    dash_tre.wait_for_element_by_id("select-resolution")
+    dash_tre.select_dcc_dropdown("#select-resolution", value="DAILY")
+    time.sleep(0.5)
+    # Select dataset.
+    dash_tre.wait_for_element_by_id("select-dataset")
+    dash_tre.select_dcc_dropdown("#select-dataset", value="CLIMATE_SUMMARY")
+    time.sleep(0.5)
+    # Select parameter.
+    dash_tre.wait_for_element_by_id("select-parameter")
+    dash_tre.select_dcc_dropdown("#select-parameter", value="PRECIPITATION_HEIGHT")
+    time.sleep(0.5)
+    # Select period.
+    dash_tre.wait_for_element_by_id("select-period")
+    dash_tre.select_dcc_dropdown("#select-period", value="ALL")
+    time.sleep(0.5)
     # Wait for data element.
-    dash_tre.wait_for_element_by_id("dataframe-stations_result", timeout=10)
+    dash_tre.wait_for_element_by_id("dataframe-stations_result", timeout=5)
     time.sleep(1)
     # Read payload from data element.
     dom: BeautifulSoup = dash_tre.dash_innerhtml_dom
@@ -75,21 +99,27 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
     # Select provider.
     dash_tre.wait_for_element_by_id("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+    time.sleep(0.5)
     # Select network.
     dash_tre.wait_for_element_by_id("select-network")
     dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+    time.sleep(0.5)
     # Select resolution.
     dash_tre.wait_for_element_by_id("select-resolution")
     dash_tre.select_dcc_dropdown("#select-resolution", value="DAILY")
+    time.sleep(0.5)
     # Select dataset.
     dash_tre.wait_for_element_by_id("select-dataset")
     dash_tre.select_dcc_dropdown("#select-dataset", value="CLIMATE_SUMMARY")
+    time.sleep(0.5)
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="PRECIPITATION_HEIGHT")
+    time.sleep(0.5)
     # Select period.
     dash_tre.wait_for_element_by_id("select-period")
     dash_tre.select_dcc_dropdown("#select-period", value="NOW")
+    time.sleep(0.5)
     # Wait for data element.
     dash_tre.wait_for_element_by_id("dataframe-stations_result", timeout=5)
     # Wait for status element.
@@ -108,24 +138,31 @@ def test_options_reset(wetterdienst_ui, dash_tre):
     # Select provider.
     dash_tre.wait_for_element_by_id("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
+    time.sleep(0.5)
     # Select network.
     dash_tre.wait_for_element_by_id("select-network")
     dash_tre.select_dcc_dropdown("#select-network", value="OBSERVATION")
+    time.sleep(0.5)
     # Select resolution.
     dash_tre.wait_for_element_by_id("select-resolution")
     dash_tre.select_dcc_dropdown("#select-resolution", value="DAILY")
+    time.sleep(0.5)
     # Select dataset.
     dash_tre.wait_for_element_by_id("select-dataset")
     dash_tre.select_dcc_dropdown("#select-dataset", value="CLIMATE_SUMMARY")
+    time.sleep(0.5)
     # Select parameter.
     dash_tre.wait_for_element_by_id("select-parameter")
     dash_tre.select_dcc_dropdown("#select-parameter", value="PRECIPITATION_HEIGHT")
+    time.sleep(0.5)
     # Select period.
     dash_tre.wait_for_element_by_id("select-period")
     dash_tre.select_dcc_dropdown("#select-period", value="HISTORICAL")
+    time.sleep(0.5)
     # Set another provider
     dash_tre.wait_for_element_by_id("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="ECCC")
+    time.sleep(0.5)
     # Check other options for reset
     dash_tre.wait_for_contains_text("#select-network", "")
     dash_tre.wait_for_contains_text("#select-resolution", "")
