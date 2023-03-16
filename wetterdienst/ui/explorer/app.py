@@ -101,7 +101,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
             bbox=None,
             sql=None,
             si_units=True,
-            tidy=True,
+            shape="long",
             humanize=True,
             skip_empty=False,
             skip_threshold=0.95,
@@ -178,11 +178,11 @@ def fetch_values(
             sql=None,
             sql_values=None,
             si_units=True,
+            shape="long",
             skip_empty=False,
             skip_threshold=0.95,
             skip_criteria="min",
             dropna=False,
-            tidy=True,
             humanize=True,
         )
         df = values.df

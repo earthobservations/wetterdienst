@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Explorer: Fix function calls
+
 0.54.1 (13.03.2023)
 *******************
 

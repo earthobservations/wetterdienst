@@ -34,6 +34,19 @@ def test_file_index_creation_success(default_settings):
 
 
 @pytest.mark.remote
+def test_file_index_creation_precipitation_minute_1(default_settings):
+    # Existing combination of parameters
+    file_index = create_file_index_for_climate_observations(
+        DwdObservationDataset.PRECIPITATION,
+        DwdObservationResolution.MINUTE_1,
+        DwdObservationPeriod.HISTORICAL,
+        settings=default_settings,
+    )
+    assert not file_index.empty
+    assert "00000" not in file_index["station_id"].values
+
+
+@pytest.mark.remote
 def test_file_index_creation_failure(default_settings):
     with pytest.raises(FileNotFoundError):
         create_file_index_for_climate_observations(
