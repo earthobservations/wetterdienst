@@ -63,7 +63,6 @@ keywords = [
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -100,7 +99,7 @@ classifiers = [
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
 
 [tool.poetry.dependencies]
-python = "^3.8,<3.12"
+python = "^3.9,<3.12"
 
 aenum = "^3.0"
 aiohttp = "^3.8.1"
@@ -150,7 +149,7 @@ shapely                         = { version = "^1.8", optional = true }  # Inter
 sqlalchemy                      = { version = "^1.4", optional = true }  # Export feature.
 utm                             = { version = "^0.7", optional = true }  # Interpolation feature.
 uvicorn                         = { version = "^0.14", optional = true }  # HTTP REST API feature.
-wradlib                         = { version = "^1.13", optional = true }  # Radar feature.
+wradlib                         = { version = "^1.19", optional = true }  # Radar feature.
 xarray                          = { version = "^2022.11", optional = true }
 zarr                            = { version = "^2.13", optional = true }  # Export feature.
 
