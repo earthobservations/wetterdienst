@@ -5,6 +5,7 @@ Development
 ***********
 
 - Explorer: Fix function calls
+- Drop Python 3.8 support
 
 0.54.1 (13.03.2023)
 *******************
