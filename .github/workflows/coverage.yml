@@ -18,6 +18,9 @@ jobs:
   run:
     runs-on: ubuntu-latest
     name: Check code coverage
+    env:
+      OS: "ubuntu-latest"
+      PYTHON: "3.11"
     steps:
       - name: Acquire sources
         uses: actions/checkout@v3

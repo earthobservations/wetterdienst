@@ -14,6 +14,16 @@ set -x
 
 if [ "${flavor}" = "testing" ]; then
 
+  # Install wradlib and gdal only on ubuntu and latest python version
+  if [ "${OS}" = "ubuntu-latest" ] && [ "${PYTHON}" = "3.11" ]; then
+    sudo add-apt-repository ppa:ubuntugis/ppa
+    sudo apt-get update
+    sudo apt-get install gdal-bin
+    sudo apt-get install libgdal-dev
+    poetry run pip install GDAL=="$(gdal-config --version)"
+    poetry run pip install --verbose --no-input --force-reinstall wradlib
+  fi
+
   poetry install --verbose --no-interaction \
     --with=test,dev \
     --extras=explorer \
