@@ -1,5 +1,6 @@
 import os
 import platform
+import sys
 
 import pytest
 
@@ -14,6 +15,12 @@ def is_ci():
 @pytest.fixture
 def is_linux():
     return platform.system() == "Linux"
+
+
+@pytest.fixture
+def is_linux_311(is_linux):
+    python_version = sys.version_info[:2]
+    return is_linux and python_version == (3, 11)
 
 
 @pytest.fixture

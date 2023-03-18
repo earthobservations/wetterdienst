@@ -188,6 +188,9 @@ class DwdRadarValues:
         # Evaluate any datetime for "start_date".
         else:
             self.start_date = pd.to_datetime(start_date, infer_datetime_format=True)
+            if end_date:
+                if isinstance(end_date, str):
+                    end_date = pd.to_datetime(end_date, infer_datetime_format=True)
             self.end_date = end_date
             self.adjust_datetimes()
 
