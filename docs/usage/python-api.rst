@@ -793,7 +793,7 @@ To use ``DWDRadarRequest``, you have to provide a ``RadarParameter``,
 which designates the type of radar data you want to obtain. There is
 radar data available at different locations within the DWD data repository:
 
-- https://opendata.dwd.de/weather/radar/composit/
+- https://opendata.dwd.de/weather/radar/composite/
 - https://opendata.dwd.de/weather/radar/radolan/
 - https://opendata.dwd.de/weather/radar/radvor/
 - https://opendata.dwd.de/weather/radar/sites/

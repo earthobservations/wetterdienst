@@ -81,7 +81,7 @@ class DwdRadarValues:
 
     Request radar data from different places on the DWD data repository.
 
-    - https://opendata.dwd.de/weather/radar/composit/
+    - https://opendata.dwd.de/weather/radar/composite/
     - https://opendata.dwd.de/weather/radar/sites/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/

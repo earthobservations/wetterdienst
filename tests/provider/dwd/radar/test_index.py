@@ -22,23 +22,21 @@ def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings):
     )
 
     urls = file_index["filename"].tolist()
-    assert all(PurePath(url).match("*/weather/radar/composit/pg/*---bin") for url in urls)
+    assert all(PurePath(url).match("*/weather/radar/composite/pg/*---bin") for url in urls)
 
 
 def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings):
-
     file_index = create_fileindex_radar(
         parameter=DwdRadarParameter.PG_REFLECTIVITY, fmt=DwdRadarDataFormat.BUFR, settings=default_settings
     )
-
     urls = file_index["filename"].tolist()
-    assert all(PurePath(url).match("*/weather/radar/composit/pg/*---bufr") for url in urls)
+    assert all(PurePath(url).match("*/weather/radar/composite/pg/*---bufr") for url in urls)
 
 
 def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings):
     file_index = create_fileindex_radar(parameter=DwdRadarParameter.RV_REFLECTIVITY, settings=default_settings)
     urls = file_index["filename"].tolist()
-    assert all(PurePath(url).match("*/weather/radar/composit/rv/*.tar.bz2") for url in urls)
+    assert all(PurePath(url).match("*/weather/radar/composite/rv/*.tar.bz2") for url in urls)
 
 
 @pytest.mark.parametrize(

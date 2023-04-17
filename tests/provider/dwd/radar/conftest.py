@@ -16,6 +16,7 @@ def radar_locations():
         "fld",
         "hnr",
         "isn",
+        "mem",
         "mhp",
         "neu",
         "nhb",

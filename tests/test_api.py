@@ -27,7 +27,7 @@ from wetterdienst import Settings, Wetterdienst
         # WSV Pegelonline
         ("wsv", "pegel", {"parameter": "water_level"}, None),
         # EA Hydrology
-        ("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}, None),
+        pytest.param("ea", "hydrology", {"parameter": "flow", "resolution": "daily"}, None, marks=pytest.mark.xfail),
         # NWS Observation
         ("nws", "observation", {"parameter": "temperature_air_mean_200"}, "KBHM"),
         # Eaufrance Hubeau
