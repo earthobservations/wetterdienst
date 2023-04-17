@@ -4,6 +4,14 @@ Changelog
 Development
 ***********
 
+0.55.1 (17.04.2023)
+*******************
+
+- Fix setting empty values in DWD observation data
+
+0.55.0 (19.03.2023)
+*******************
+
 - Explorer: Fix function calls
 - Drop Python 3.8 support
 
