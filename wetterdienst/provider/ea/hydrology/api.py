@@ -60,9 +60,6 @@ class EaHydrologyParameter(DatasetTreeCore):
         GROUNDWATER_LEVEL = DAILY.GROUNDWATER_LEVEL
 
 
-PARAMETER_MAPPING = {"flow": "Water Flow", "groundwater_level": "Groundwater level"}
-
-
 class EaHydrologyUnit(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
         class MINUTE_15(UnitEnum):
@@ -185,7 +182,7 @@ class EaHydrologyRequest(TimeseriesRequest):
                 pd.Series(measures)
                 .map(
                     lambda measure: measure.get("period", 86400) == resolution_as_int
-                    and measure["observedProperty"]["label"] in parameters
+                    and measure["parameter"] in parameters
                 )
                 .any()
             )
@@ -198,7 +195,7 @@ class EaHydrologyRequest(TimeseriesRequest):
 
         df = pd.DataFrame.from_dict(payload)
 
-        parameters = [PARAMETER_MAPPING[parameter.value] for parameter, _ in self.parameter]
+        parameters = [parameter.value for parameter, _ in self.parameter]
 
         df.measures.apply(_check_parameter_and_period, resolution_as_int=self._resolution_as_int, parameters=parameters)
         # filter for stations that have wanted resolution and parameter combinations

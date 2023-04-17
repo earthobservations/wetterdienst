@@ -162,7 +162,7 @@ def build_path_to_parameter(
 
     Composites
     ----------
-    - https://opendata.dwd.de/weather/radar/composit/
+    - https://opendata.dwd.de/weather/radar/composite/
     - https://opendata.dwd.de/weather/radar/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
@@ -194,7 +194,7 @@ def build_path_to_parameter(
             return f"climate_environment/CDC/grids_germany/{resolution.value}/radolan/{period.value}/bin"
 
     elif parameter in RADAR_PARAMETERS_COMPOSITES:
-        return f"weather/radar/composit/{parameter.value}"
+        return f"weather/radar/composite/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_RADOLAN:
         return f"weather/radar/radolan/{parameter.value}"

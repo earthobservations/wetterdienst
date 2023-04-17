@@ -8,6 +8,7 @@ Development
 *******************
 
 - Fix setting empty values in DWD observation data
+- Fix DWD Radar composite path
 
 0.55.0 (19.03.2023)
 *******************
