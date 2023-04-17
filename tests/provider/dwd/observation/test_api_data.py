@@ -906,3 +906,19 @@ def test_dwd_observation_solar_daily(default_settings):
         settings=default_settings,
     ).filter_by_station_id(station_id=[3987])
     assert not request.values.all().df.value.dropna().empty
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_si_false):
+    """Test for actual values with correctly dropped -999 values"""
+    request = DwdObservationRequest(
+        parameter=["precipitation_height"],
+        resolution="minute_10",
+        start_date="1991-01-01 00:00",
+        end_date="1992-12-31 23:00",
+        settings=settings_humanize_si_false,
+    ).filter_by_station_id(
+        station_id=(1048,),
+    )
+    df = request.values.all().df
+    assert df[df["value"] == -999].empty

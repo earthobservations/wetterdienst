@@ -134,6 +134,8 @@ def _parse_climate_observations_data(
     """
     filename, file = filename_and_file
 
+    file = BytesIO(file.read().replace(b" ", b""))
+
     try:
         df = pd.read_csv(
             filepath_or_buffer=file,
