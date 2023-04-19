@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix precipitation index interpolation
+
 0.55.1 (17.04.2023)
 *******************
 

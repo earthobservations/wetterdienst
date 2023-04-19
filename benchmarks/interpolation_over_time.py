@@ -13,9 +13,9 @@ from wetterdienst.provider.dwd.observation import (
 plt.style.use("seaborn")
 
 
-def get_interpolated_df(start_date: datetime, end_date: datetime) -> pd.DataFrame:
+def get_interpolated_df(parameter: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=parameter,
         resolution=DwdObservationResolution.HOURLY,
         start_date=start_date,
         end_date=end_date,
@@ -23,9 +23,9 @@ def get_interpolated_df(start_date: datetime, end_date: datetime) -> pd.DataFram
     return stations.interpolate(latlon=(50.0, 8.9)).df
 
 
-def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: list) -> pd.DataFrame:
+def get_regular_df(parameter: str, start_date: datetime, end_date: datetime, exclude_stations: list) -> pd.DataFrame:
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200.name,
+        parameter=parameter,
         resolution=DwdObservationResolution.HOURLY,
         start_date=start_date,
         end_date=end_date,
@@ -54,11 +54,12 @@ def visualize(regular_df: pd.DataFrame, interpolated_df: pd.DataFrame):
 
 
 def main():
+    parameter = Parameter.TEMPERATURE_AIR_MEAN_200.name
     start_date = datetime(2022, 1, 1)
     end_date = datetime(2022, 2, 24)
-    interpolated_df = get_interpolated_df(start_date, end_date)
+    interpolated_df = get_interpolated_df(parameter, start_date, end_date)
     exclude_stations = interpolated_df.station_ids[0]
-    regular_df = get_regular_df(start_date, end_date, exclude_stations)
+    regular_df = get_regular_df(parameter, start_date, end_date, exclude_stations)
     visualize(regular_df, interpolated_df)
 
 

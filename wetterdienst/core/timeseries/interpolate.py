@@ -230,10 +230,9 @@ def apply_interpolation(
     value = f(utm_x, utm_y)
 
     if parameter == Parameter.PRECIPITATION_HEIGHT.name.lower():
-        f_index = LinearNDInterpolator(points=(xs, ys), values=vals)
+        f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in vals])
         value_index = f_index(utm_x, utm_y)
-        value_index = 1 if value_index >= 0.5 else 0
-        value *= value_index
+        value = value if value_index >= 0.5 else 0
 
     return parameter, value, distance_mean, station_group_ids
 
