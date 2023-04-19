@@ -19,7 +19,7 @@ def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pd.
         start_date=start_date,
         end_date=end_date,
     )
-    return stations.summarize(latitude=lat, longitude=lon).df
+    return stations.summarize((lat, lon)).df
 
 
 def get_regular_df(start_date: datetime, end_date: datetime, station_id) -> pd.DataFrame:
@@ -51,7 +51,7 @@ def main():
 
     fig, ax = plt.subplots(nrows=5, tight_layout=True, sharex=True)
 
-    summarized_df.plot.scatter("date", "value", c="color", label="summarized", ax=ax[0], size=5)
+    summarized_df.plot("date", "value", c="color", label="summarized", kind="scatter", ax=ax[0], s=5)
     regular_df_01050.plot("date", "value", color="yellow", label="01050", ax=ax[1])
     regular_df_01051.plot("date", "value", color="blue", label="01051", ax=ax[2])
     regular_df_01048.plot("date", "value", color="green", label="01048", ax=ax[3])

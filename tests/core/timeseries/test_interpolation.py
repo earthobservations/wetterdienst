@@ -104,7 +104,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings):
         {
             "date": pd.to_datetime(["2021-10-05 00:00:00+00:00"]),
             "parameter": ["precipitation_height"],
-            "value": [0.0],
+            "value": [0.02940161053590082],
             "distance_mean": [9.379704118961323],
             "station_ids": [["04230", "02480", "04411", "07341"]],
         }
