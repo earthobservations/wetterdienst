@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Update docker images
+
 0.55.2 (20.04.2023)
 *******************
 
