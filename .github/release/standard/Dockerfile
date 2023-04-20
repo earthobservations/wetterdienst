@@ -3,6 +3,8 @@ FROM python:3.11-slim-bullseye
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
+RUN apt-get update && apt-get --yes --no-install-recommends install build-essential
+
 # Use "poetry build --format=wheel" to build wheel packages.
 COPY dist/wetterdienst-*.whl /tmp/
 
