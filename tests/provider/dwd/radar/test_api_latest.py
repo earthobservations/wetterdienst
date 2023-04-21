@@ -5,7 +5,6 @@ import re
 from datetime import datetime, timedelta
 
 import pytest
-import pytz
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -95,13 +94,14 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings):
     buffer = next(request.query())[1]
     requested_header = wrl.io.read_radolan_header(buffer)
     requested_attrs = wrl.io.radolan.parse_dx_header(requested_header)
+    requested_attrs["datetime"] = requested_attrs["datetime"].replace(tzinfo=None)
 
     # Verify data.
     attrs = IsDict(
         {
             "bytes": IsInt(gt=0),
             "cluttermap": 0,
-            "datetime": IsDatetime(approx=datetime.utcnow().replace(tzinfo=pytz.UTC), delta=timedelta(minutes=65)),
+            "datetime": IsDatetime(approx=datetime.utcnow().replace(tzinfo=None), delta=timedelta(minutes=65)),
             "dopplerfilter": 4,
             "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
             "message": "",
