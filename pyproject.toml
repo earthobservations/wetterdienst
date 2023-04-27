@@ -152,6 +152,7 @@ utm                             = { version = "^0.7", optional = true }  # Inter
 uvicorn                         = { version = "^0.14", optional = true }  # HTTP REST API feature.
 wradlib                         = { version = "^1.19", optional = true }  # Radar feature.
 xarray                          = { version = "^2023.1", optional = true }
+xradar                          = { version = "^0.2.0", optional = true }  # Radar feature.
 zarr                            = { version = "^2.13", optional = true }  # Export feature.
 
 [tool.poetry.group.dev]
@@ -220,7 +221,7 @@ mpl                 = ["matplotlib"]
 mysql               = ["mysqlclient"]
 postgresql          = ["psycopg2-binary"]
 radar               = ["h5py"]
-radarplus           = ["pybufrkit", "wradlib"]
+radarplus           = ["pybufrkit", "wradlib", "xradar"]
 restapi             = ["fastapi", "httpx", "uvicorn"]
 sql                 = ["duckdb"]
 

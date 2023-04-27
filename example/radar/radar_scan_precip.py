@@ -23,7 +23,9 @@ from itertools import chain
 import matplotlib.pyplot as plt
 import pytest
 import wradlib as wrl
-
+import xarray
+import xarray as xr
+import xradar
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -37,27 +39,20 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: wrl.io.XRadVolume):
+def plot(data: xr.Dataset):
     """Plot radar data with prefixed settings."""
     # Get first sweep in volume.
-    swp0 = data[0].data
+    swp0 = data.isel({"time": 0})
 
     # Georeference Data.
-    swp0 = swp0.pipe(wrl.georef.georeference_dataset)
+    swp0 = swp0.pipe(xradar.georeference.add_crs)
 
     # Plot and display data using cartopy.
     fig = plt.figure(figsize=(20, 8))
     ax1 = fig.add_subplot(121, aspect="equal")
-    swp0.DBZH[0].plot(x="x", y="y", ax=ax1)
+    swp0.DBZH.plot(x="x", y="y", ax=ax1)
     ax2 = fig.add_subplot(122, aspect="equal")
-    swp0.VRADH[0].plot(x="x", y="y", ax=ax2)
-
-
-def radar_info(data: wrl.io.XRadVolume):
-    """Display data from radar request."""
-    print(data)
-
-    print("Keys:", data.root)
+    swp0.VRADH.plot(x="x", y="y", ax=ax2)
 
 
 @pytest.mark.remote
@@ -87,10 +82,13 @@ def radar_scan_precip():
     files = [item.data for item in results]
 
     # Decode data using wradlib.
-    data = wrl.io.open_odim(files)
+    data = []
+    for file in files:
+        data.append(xradar.io.open_odim_datatree(file).to_dataset())
+    data = xarray.concat(data, dim="time")
 
     # Output debug information.
-    radar_info(data)
+    print(data)
 
     # Plot and display data.
     plot(data)
