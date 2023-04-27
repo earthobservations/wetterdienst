@@ -91,7 +91,7 @@ def request_weather_data(
 
 def interpolate_data(latitude: float, longitude: float, data: Data):
     # function for bilinear interpolation
-    f = interpolate.interp2d(data.utm_x, data.utm_y, data.values, kind="linear")
+    f = interpolate.LinearNDInterpolator(points=list(zip(data.utm_x, data.utm_y)), values=data.values)
     x, y, _, _ = utm.from_latlon(latitude, longitude)
     interpolated = f(x, y)
     print(f"{interpolated=}")
@@ -99,7 +99,7 @@ def interpolate_data(latitude: float, longitude: float, data: Data):
     # append interpolated value to the list to visualize the points later on
     data.utm_x.append(x)
     data.utm_y.append(y)
-    data.values.append(interpolated[0])
+    data.values.append(interpolated)
     data.station_ids.append("interpolated")
     data.colors.append("red")
 
