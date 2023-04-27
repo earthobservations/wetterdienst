@@ -22,6 +22,7 @@ from itertools import chain
 
 import matplotlib.pyplot as plt
 import wradlib as wrl
+import xarray as xr
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -36,10 +37,10 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: wrl.io.XRadVolume):
+def plot(data: xr.Dataset):
     """Plot radar data with prefixed settings."""
     # Get first sweep in volume.
-    swp0 = data[0].data
+    swp0 = data.isel({"time": 0})
 
     # Georeference Data.
     swp0 = swp0.pipe(wrl.georef.georeference_dataset)
@@ -47,21 +48,9 @@ def plot(data: wrl.io.XRadVolume):
     # Plot and display data using cartopy.
     fig = plt.figure(figsize=(20, 8))
     ax1 = fig.add_subplot(121, aspect="equal")
-    swp0.DBZH[0].plot(x="x", y="y", ax=ax1)
+    swp0.DBZH.plot(x="x", y="y", ax=ax1)
     ax2 = fig.add_subplot(122, aspect="equal")
-    swp0.VRADH[0].plot(x="x", y="y", ax=ax2)
-
-
-def radar_info(data: dict):
-    """Display data from radar request."""
-    print(data)
-    return
-
-    print("Keys:", data.keys())
-
-    log.info("Data")
-    for key, value in data.items():
-        print(f"- {key}: {value}")
+    swp0.VRADH.plot(x="x", y="y", ax=ax2)
 
 
 def radar_scan_volume():
@@ -94,10 +83,10 @@ def radar_scan_volume():
         log.warning("No radar files found for the given constraints")
 
     # Decode data using wradlib.
-    data = wrl.io.open_odim(files)
+    data = wrl.io.open_odim_mfdataset(files)
 
     # Output debug information.
-    radar_info(data)
+    print(data)
 
     # Plot and display data.
     plot(data)
