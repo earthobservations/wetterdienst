@@ -22,10 +22,7 @@ from itertools import chain
 
 import matplotlib.pyplot as plt
 import pytest
-import wradlib as wrl
-import xarray
 import xarray as xr
-import xradar
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -41,11 +38,8 @@ log = logging.getLogger()
 
 def plot(data: xr.Dataset):
     """Plot radar data with prefixed settings."""
-    # Get first sweep in volume.
-    swp0 = data.isel({"time": 0})
-
     # Georeference Data.
-    swp0 = swp0.pipe(xradar.georeference.add_crs)
+    swp0 = data.xradar.georeference()
 
     # Plot and display data using cartopy.
     fig = plt.figure(figsize=(20, 8))
@@ -81,11 +75,8 @@ def radar_scan_precip():
     # Collect list of buffers.
     files = [item.data for item in results]
 
-    # Decode data using wradlib.
-    data = []
-    for file in files:
-        data.append(xradar.io.open_odim_datatree(file).to_dataset())
-    data = xarray.concat(data, dim="time")
+    # Decode data using xradar odim backend
+    data = xr.open_mfdataset(files, engine="odim")
 
     # Output debug information.
     print(data)
