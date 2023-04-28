@@ -18,11 +18,13 @@ for Essen and plot the outcome with matplotlib.
 """  # Noqa:D205,D400
 import logging
 import os
-from itertools import chain
+import numpy as np
+import datetime as dt
 
 import matplotlib.pyplot as plt
-import wradlib as wrl
 import xarray as xr
+from datatree import DataTree
+
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -39,11 +41,8 @@ log = logging.getLogger()
 
 def plot(data: xr.Dataset):
     """Plot radar data with prefixed settings."""
-    # Get first sweep in volume.
-    swp0 = data.isel({"time": 0})
-
     # Georeference Data.
-    swp0 = swp0.pipe(wrl.georef.georeference_dataset)
+    swp0 = data.xradar.georeference()
 
     # Plot and display data using cartopy.
     fig = plt.figure(figsize=(20, 8))
@@ -55,41 +54,82 @@ def plot(data: xr.Dataset):
 
 def radar_scan_volume():
     """Retrieve radar sweep volume velocity h from site ESS in format HDF5 as subset polarimetric."""
-    request_velocity = DwdRadarValues(
-        parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
-        site=DwdRadarSite.ESS,
-        fmt=DwdRadarDataFormat.HDF5,
-        subset=DwdRadarDataSubset.POLARIMETRIC,
-    )
-    request_reflectivity = DwdRadarValues(
-        parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
-        site=DwdRadarSite.ESS,
-        fmt=DwdRadarDataFormat.HDF5,
-        subset=DwdRadarDataSubset.POLARIMETRIC,
-    )
 
-    log.info(f"Acquiring radar SWEEP_VOL data for {DwdRadarSite.ESS} at " f"{request_velocity.start_date}")
+    ed = dt.datetime.utcnow()
+    end_date = dt.datetime(ed.year, ed.month, ed.day, ed.hour, (ed.minute // 5) * 5)
+    start_date = end_date - dt.timedelta(minutes=5)
+    elevations = range(10)
 
-    # Submit requests.
-    results = chain(request_velocity.query(), request_reflectivity.query())
+    results_velocity = []
+    results_reflectivity = []
+
+    for el in elevations:
+        request_velocity = DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
+            start_date=start_date,
+            end_date=end_date,
+            elevation=el,
+            site=DwdRadarSite.ESS,
+            fmt=DwdRadarDataFormat.HDF5,
+            subset=DwdRadarDataSubset.POLARIMETRIC,
+        )
+        request_reflectivity = DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+            start_date=start_date,
+            end_date=end_date,
+            elevation=el,
+            site=DwdRadarSite.ESS,
+            fmt=DwdRadarDataFormat.HDF5,
+            subset=DwdRadarDataSubset.POLARIMETRIC,
+        )
+
+        # Submit requests.
+        results_velocity.append(request_velocity.query())
+        results_reflectivity.append(request_reflectivity.query())
+
+    log.info(
+        f"Acquiring radar SWEEP_VOL data for {DwdRadarSite.ESS} at elevation {request_velocity.elevation}")
 
     # Collect list of buffers.
-    files = [item.data for item in results]
+    volume_velocity = []
+    for item1 in results_velocity:
+        files = []
+        for item2 in item1:
+            files.append(item2.data)
+        volume_velocity.append(files)
+    volume_velocity = [v[-1:] for v in volume_velocity]
+    volume_velocity = np.array(volume_velocity).T.tolist()
+
+    volume_reflectivity = []
+    for item1 in results_reflectivity:
+        files = []
+        for item2 in item1:
+            files.append(item2.data)
+        volume_reflectivity.append(files)
+    volume_reflectivity = [v[-1:] for v in volume_reflectivity]
+    volume_reflectivity = np.array(volume_reflectivity).T.tolist()
 
     # Sanity checks.
-    if not files:
+    if not volume_reflectivity[0] and not volume_velocity[0]:
         log.warning("No radar files found for the given constraints")
 
-    # Decode data using wradlib.
-    data = wrl.io.open_odim_mfdataset(files)
+    # merge-open sweeps into list
+    ds_list = []
+    for r, v in zip(volume_reflectivity[0], volume_velocity[0]):
+        ds = xr.open_mfdataset([r, v], engine="odim", group="sweep_0")
+        ds_list.append(ds)
+
+    # Fill DataTree.
+    dtree = DataTree()
+    [DataTree(swp, parent=dtree, name=f"sweep_{i}") for i, swp in enumerate(ds_list)]
 
     # Output debug information.
-    print(data)
+    print(dtree)
 
-    # Plot and display data.
-    plot(data)
+    # Plot and display data for all sweeps.
+    for node in dtree.groups:
+        if "sweep" in node:
+            plot(dtree[node].ds)
     if "PYTEST_CURRENT_TEST" not in os.environ:
         plt.show()
 
