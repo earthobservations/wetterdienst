@@ -16,20 +16,18 @@ This program will request the most recent complete SWEEP_VOL data
 for Essen and plot the outcome with matplotlib.
 
 """  # Noqa:D205,D400
+import datetime as dt
 import logging
 import os
-import numpy as np
-import datetime as dt
 
 import matplotlib.pyplot as plt
+import numpy as np
 import xarray as xr
 from datatree import DataTree
-
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
-    DwdRadarDate,
     DwdRadarParameter,
     DwdRadarSite,
     DwdRadarValues,
@@ -87,8 +85,7 @@ def radar_scan_volume():
         results_velocity.append(request_velocity.query())
         results_reflectivity.append(request_reflectivity.query())
 
-    log.info(
-        f"Acquiring radar SWEEP_VOL data for {DwdRadarSite.ESS} at elevation {request_velocity.elevation}")
+    log.info(f"Acquiring radar SWEEP_VOL data for {DwdRadarSite.ESS} at elevation {request_velocity.elevation}")
 
     # Collect list of buffers.
     volume_velocity = []
