@@ -5,6 +5,7 @@ Development
 ***********
 
 - Update docker images
+- Fix now and now_local attributes on core class
 
 0.55.2 (20.04.2023)
 *******************

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import logging
-from datetime import datetime, timezone
 from itertools import repeat
 from typing import List, Optional, Union
 
@@ -281,7 +281,7 @@ class DwdObservationValues(TimeseriesValues):
 
         return df_tidy
 
-    def _coerce_dates(self, series: pd.Series, timezone_: timezone) -> pd.Series:
+    def _coerce_dates(self, series: pd.Series, timezone_: dt.timezone) -> pd.Series:
         """
         Use predefined datetime format for given resolution to reduce processing
         time.
@@ -377,11 +377,9 @@ class DwdObservationRequest(TimeseriesRequest):
 
         :return:
         """
-        historical_end = self._now_local.replace(month=1, day=1)
-
+        historical_end = pd.Timestamp(self._now_local.replace(month=1, day=1))
         # a year that is way before any data is collected
-        historical_begin = pd.Timestamp(datetime(year=1678, month=1, day=1)).tz_localize(historical_end.tz)
-
+        historical_begin = pd.Timestamp(dt.datetime(year=1678, month=1, day=1)).tz_localize(historical_end.tzinfo)
         return pd.Interval(left=historical_begin, right=historical_end, closed="both")
 
     @property
@@ -393,9 +391,8 @@ class DwdObservationRequest(TimeseriesRequest):
         :return:
         """
         recent_end = self._now_local.replace(hour=0, minute=0, second=0)
-        recent_begin = recent_end - pd.Timedelta(days=500)
-
-        return pd.Interval(left=recent_begin, right=recent_end, closed="both")
+        recent_begin = recent_end - dt.timedelta(days=500)
+        return pd.Interval(left=pd.Timestamp(recent_begin), right=pd.Timestamp(recent_end), closed="both")
 
     @property
     def _now_interval(self) -> pd.Interval:
@@ -407,8 +404,7 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         now_end = self._now_local
         now_begin = now_end.replace(hour=0, minute=0, second=0) - pd.Timedelta(days=1)
-
-        return pd.Interval(left=now_begin, right=now_end, closed="both")
+        return pd.Interval(left=pd.Timestamp(now_begin), right=pd.Timestamp(now_end), closed="both")
 
     def _get_periods(self) -> List[Period]:
         """
@@ -422,16 +418,13 @@ class DwdObservationRequest(TimeseriesRequest):
         :return:
         """
         periods = []
-
         interval = self._interval
-
         if interval.overlaps(self._historical_interval):
             periods.append(Period.HISTORICAL)
         if interval.overlaps(self._recent_interval):
             periods.append(Period.RECENT)
         if interval.overlaps(self._now_interval):
             periods.append(Period.NOW)
-
         return periods
 
     def _parse_station_id(self, series: pd.Series) -> pd.Series:
@@ -452,8 +445,8 @@ class DwdObservationRequest(TimeseriesRequest):
         ],
         resolution: Union[str, Resolution, DwdObservationResolution],
         period: Optional[Union[str, Period, DwdObservationPeriod]] = None,
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
+        end_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
         settings: Optional[Settings] = None,
     ):
         """
