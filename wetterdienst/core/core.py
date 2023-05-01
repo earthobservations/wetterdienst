@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 from abc import ABCMeta, abstractmethod
-from datetime import datetime
 
-import pandas as pd
 from pytz import timezone
 
 from wetterdienst.metadata.timezone import Timezone
@@ -15,7 +14,7 @@ class Core(metaclass=ABCMeta):
 
     def __init__(self):
         # Time of request.
-        self.now = datetime.utcnow()
+        self.now = dt.datetime.now(dt.timezone.utc)
 
     @property
     def tz(self) -> timezone:
@@ -31,7 +30,7 @@ class Core(metaclass=ABCMeta):
         pass
 
     @property
-    def _now_local(self) -> datetime:
+    def _now_local(self) -> dt.datetime:
         """Local now time based on the given timezone that represents the request time
         in local time"""
-        return pd.Timestamp(self.now, tz=self.tz)
+        return self.now.astimezone(self.tz)

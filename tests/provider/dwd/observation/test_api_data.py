@@ -156,6 +156,17 @@ def test_request_period_now_fixed_date(default_settings):
     assert Period.NOW in request.period
 
 
+def test_request_period_now_previous_hour(default_settings):
+    # Now period
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
+        resolution=DwdObservationResolution.DAILY,
+        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=1),
+        settings=default_settings,
+    )
+    assert Period.NOW in request.period
+
+
 def test_request_period_empty(default_settings):
     # No period (for example in future)
     request = DwdObservationRequest(
