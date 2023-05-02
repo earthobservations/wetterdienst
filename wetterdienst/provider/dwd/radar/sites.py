@@ -19,7 +19,7 @@ References
 from enum import Enum
 from typing import Dict
 
-import pandas as pd
+import polars as pl
 
 
 class DwdRadarSite(Enum):
@@ -65,13 +65,13 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         """
         df = self.read_pdf()
         result = {}
-        for item in df.to_dict(orient="records"):
+        for item in df.to_dicts():
             key = item["dwd_id"]
             value = item
             result[key] = value
         return result
 
-    def read_pdf(self) -> pd.DataFrame:
+    def read_pdf(self) -> pl.DataFrame:
         """
         Parse PDF file and build DataFrame containing radar site information.
         """
@@ -80,6 +80,8 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         import tabula
 
         df = tabula.read_pdf(self.url, multiple_tables=False, pages=1)[0]
+
+        df = pl.from_pandas(df)
 
         # Set column names.
         df.columns = [
@@ -100,26 +102,25 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         df = df.shift(-8)
 
         # Drop empty rows.
-        df = df.dropna(axis="index", how="all")
+        df = df.filter(~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all()))
 
         # Select each second row, starting from first one.
-        firsts = df.iloc[::2]
+        firsts = df[::2, :]
 
         # Select each second row, starting from second one.
-        seconds = df.iloc[1::2]
+        seconds = df[1::2, :]
 
         # Mungle into one coherent data frame.
         data = firsts
-        data = data.drop(labels=["coordinates_wgs84_text", "coordinates_gauss"], axis="columns")
-        data = data.rename(columns={"coordinates_wgs84": "latitude"})
-        data.insert(4, "longitude", seconds["coordinates_wgs84"].values)
-        data = data.reset_index(drop=True)
-
-        for column in ["latitude", "longitude"]:
-            data[column] = data[column].apply(lambda x: x.strip("NE").replace(",", ".")).apply(float)
-
-        for column in ["wmo_id", "altitude"]:
-            data[column] = data[column].apply(int)
+        data = data.drop(columns=["coordinates_wgs84_text", "coordinates_gauss"])
+        data = data.rename(mapping={"coordinates_wgs84": "latitude"})
+        data = data.with_columns(seconds.get_column("coordinates_wgs84").alias("longitude"))
+        data = data.with_columns(
+            pl.col("latitude").apply(lambda x: x.strip("NE").replace(",", ".")).cast(float),
+            pl.col("longitude").apply(lambda x: x.strip("NE").replace(",", ".")).cast(float),
+            pl.col("wmo_id").cast(int),
+            pl.col("altitude").cast(int),
+        )
 
         return data
 

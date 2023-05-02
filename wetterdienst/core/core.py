@@ -3,8 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 from abc import ABCMeta, abstractmethod
-
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from wetterdienst.metadata.timezone import Timezone
 
@@ -17,10 +16,10 @@ class Core(metaclass=ABCMeta):
         self.now = dt.datetime.now(dt.timezone.utc)
 
     @property
-    def tz(self) -> timezone:
+    def tz(self) -> ZoneInfo:
         """timezone of country that may be used for internal date parsing or reflection
         of release schedules"""
-        return timezone(self._tz.value)
+        return ZoneInfo(self._tz.value)
 
     @property
     @abstractmethod

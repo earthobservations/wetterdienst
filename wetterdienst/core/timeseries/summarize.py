@@ -2,8 +2,7 @@ import logging
 from datetime import datetime
 from typing import Tuple
 
-import numpy as np
-import pandas as pd
+import polars as pl
 
 from wetterdienst import Parameter
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -14,13 +13,9 @@ from wetterdienst.metadata.columns import Columns
 log = logging.getLogger(__name__)
 
 
-def get_summarized_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pd.DataFrame:
+def get_summarized_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pl.DataFrame:
     stations_dict, param_dict = request_stations(request, latitude, longitude)
-    df = calculate_summary(stations_dict, param_dict)
-    df[Columns.DISTANCE.value] = pd.Series(df[Columns.DISTANCE.value].values, dtype=float)
-    df[Columns.VALUE.value] = pd.Series(df[Columns.VALUE.value].values, dtype=float)
-    df[Columns.DATE.value] = pd.to_datetime(df[Columns.DATE.value], infer_datetime_format=True)
-    return df
+    return calculate_summary(stations_dict, param_dict)
 
 
 def request_stations(request: "TimeseriesRequest", latitude: float, longitude: float) -> Tuple[dict, dict]:
@@ -29,9 +24,9 @@ def request_stations(request: "TimeseriesRequest", latitude: float, longitude: f
     hard_distance_km_limit = 40
 
     stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
-    stations_ranked_df = stations_ranked.df.dropna()
+    stations_ranked_df = stations_ranked.df.drop_nulls()
 
-    for (_, station), result in zip(stations_ranked_df.iterrows(), stations_ranked.values.query()):
+    for station, result in zip(stations_ranked_df.iter_rows(named=True), stations_ranked.values.query()):
         if station[Columns.DISTANCE.value] > hard_distance_km_limit:
             break
 
@@ -39,23 +34,20 @@ def request_stations(request: "TimeseriesRequest", latitude: float, longitude: f
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
             break
 
-        if result.df.dropna().empty:
+        if result.df.drop_nulls().is_empty():
             continue
 
-        # convert to utc
-        result.df.date = result.df.date.dt.tz_convert("UTC")
-
-        stations_dict[station.station_id] = (station.longitude, station.latitude, station.distance)
+        stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
         apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station)
 
     return stations_dict, param_dict
 
 
 def apply_station_values_per_parameter(
-    result_df: pd.DataFrame,
+    result_df: pl.DataFrame,
     stations_ranked: "StationsResult",
     param_dict: dict,
-    station: pd.Series,
+    station: dict,
 ):
     km_limit = {
         Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
@@ -72,7 +64,7 @@ def apply_station_values_per_parameter(
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
 
-        if station.distance > km_limit[parameter.name]:
+        if station["distance"] > km_limit[parameter.name]:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
 
@@ -81,69 +73,83 @@ def apply_station_values_per_parameter(
             continue
 
         # Filter only for exact parameter
-        result_series_param = result_df.loc[result_df[Columns.PARAMETER.value] == parameter_name]
-        if result_series_param.dropna().empty:
+        result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter_name))
+        if result_series_param.drop_nulls().is_empty():
             continue
 
-        result_series_param = result_series_param.loc[:, Columns.VALUE.value]
-        result_series_param.name = station.station_id
+        result_series_param = result_series_param.get_column(Columns.VALUE.value).rename(station["station_id"])
 
         if parameter_name not in param_dict:
             param_dict[parameter_name] = _ParameterData(
-                pd.DataFrame(
+                pl.DataFrame(
                     {
-                        Columns.DATE.value: pd.date_range(
-                            start=stations_ranked.stations.start_date,
-                            end=stations_ranked.stations.end_date,
-                            freq=stations_ranked.frequency.value,
-                            tz="UTC",
+                        Columns.DATE.value: pl.date_range(
+                            low=stations_ranked.stations.start_date,
+                            high=stations_ranked.stations.end_date,
+                            interval=stations_ranked.frequency_polars.value,
+                            time_zone="UTC",
                         )
                     }
                 )
-                .set_index(Columns.DATE.value)
-                .astype("datetime64")
             )
 
         extract_station_values(param_dict[parameter_name], result_series_param, True)
 
 
-def calculate_summary(stations_dict: dict, param_dict: dict) -> pd.DataFrame:
-    columns = [
-        Columns.DATE.value,
-        Columns.PARAMETER.value,
-        Columns.VALUE.value,
-        Columns.DISTANCE.value,
-        Columns.STATION_ID.value,
+def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
+    data = [
+        pl.DataFrame(
+            schema={
+                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+                Columns.PARAMETER.value: pl.Utf8,
+                Columns.VALUE.value: pl.Float64,
+                Columns.DISTANCE.value: pl.Float64,
+                Columns.STATION_ID.value: pl.Utf8,
+            }
+        )
     ]
-    param_df_list = [pd.DataFrame(columns=columns)]
 
     for parameter, param_data in param_dict.items():
-        param_df = pd.DataFrame(columns=columns)
-        param_df[columns[1:]] = param_data.values.apply(
-            lambda row, param=parameter: apply_summary(row, stations_dict, param),
-            axis=1,
-            result_type="expand",
+        param_df = pl.DataFrame({Columns.DATE.value: param_data.values.get_column(Columns.DATE.value)})
+        results = []
+        for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
+            results.append(apply_summary(row, stations_dict, parameter))
+        results = pl.DataFrame(
+            results,
+            schema={
+                Columns.PARAMETER.value: pl.Utf8,
+                Columns.VALUE.value: pl.Float64,
+                Columns.DISTANCE.value: pl.Float64,
+                Columns.STATION_ID.value: pl.Utf8,
+            },
         )
-        param_df[Columns.DATE.value] = param_data.values.index
-        param_df_list.append(param_df)
+        param_df = pl.concat([param_df, results], how="horizontal")
+        data.append(param_df)
 
-    return pd.concat(param_df_list).sort_values(by=[Columns.DATE.value, Columns.PARAMETER.value]).reset_index(drop=True)
+    df = pl.concat(data)
+    df = df.with_columns(pl.col(Columns.VALUE.value).round(2), pl.col(Columns.DISTANCE.value).round(2))
+
+    return df.sort(
+        by=[
+            Columns.PARAMETER.value,
+            Columns.DATE.value,
+        ]
+    )
 
 
 def apply_summary(
-    row,
+    row: dict,
     stations_dict: dict,
     parameter,
 ):
-    vals_state = ~pd.isna(row.values)
-    vals = row[vals_state]
+    vals = {s: v for s, v in row.items() if v is not None}
 
-    value, station_id, distance = np.nan, np.nan, np.nan
+    if not vals:
+        return None, None, None
 
-    if not vals.empty:
-        value = float(vals[0])
-        station_id = vals.index[0][1:]
-        distance = stations_dict[station_id][2]
+    value = list(vals.values())[0]
+    station_id = list(vals.keys())[0][1:]
+    distance = stations_dict[station_id][2]
 
     return parameter, value, distance, station_id
 
@@ -163,6 +169,6 @@ if __name__ == "__main__":
         end_date=end_date,
     )
 
-    df = stations.summarize((lat, lon))
+    result = stations.summarize((lat, lon))
 
-    log.info(df.df.dropna())
+    log.info(result.df.drop_nulls())

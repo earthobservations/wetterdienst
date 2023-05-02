@@ -5,8 +5,7 @@ import json
 import logging
 from typing import Literal, Optional
 
-import numpy as np
-import pandas as pd
+import polars as pl
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
@@ -71,10 +70,10 @@ def index():
             {PRODUCER_NAME} - <a href="{PRODUCER_LINK}">{PRODUCER_LINK}</a></li>
             <h4>Examples</h4>
             <ul>
-            <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD Observation stations</a></li>
-            <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011">DWD Observation values</a></li>
-            <li><a href="restapi/interpolate?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01">DWD Observation values</a></li>
-            <li><a href="restapi/summarize?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01">DWD Observation values</a></li>
+            <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD observation stations</a></li>
+            <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011">DWD observation values</a></li>
+            <li><a href="restapi/interpolate?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01">DWD observation interpolation</a></li>
+            <li><a href="restapi/summarize?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01">DWD observation summary</a></li>
             </ul>
         </body>
     </html>
@@ -101,7 +100,6 @@ def coverage(
 
     if not provider or not network:
         cov = Wetterdienst.discover()
-
         return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
     api = get_api(provider=provider, network=network)
@@ -143,24 +141,24 @@ def stations(
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' " "and 'period' are required",
+            detail="Query arguments 'parameter', 'resolution' and 'period' are required",
         )
 
     if fmt not in ("json", "geojson"):
         raise HTTPException(
             status_code=400,
-            detail="format argument must be one of json, geojson",
+            detail="'format' argument must be one of 'json', 'geojson'",
         )
 
     set_logging_level(debug)
 
     try:
         api = Wetterdienst(provider, network)
-    except ProviderError:
-        return HTTPException(
+    except ProviderError as e:
+        raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
-        )
+        ) from e
 
     parameter = read_list(parameter)
     if period:
@@ -193,21 +191,20 @@ def stations(
             dropna=False,
         )
     except (KeyError, ValueError) as e:
-        return HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     if not stations_.parameter or not stations_.resolution:
-        return HTTPException(
-            status_code=404,
+        raise HTTPException(
+            status_code=400,
             detail=f"No parameter found for provider {provider}, network {network}, "
             f"parameter(s) {parameter} and resolution {resolution}.",
         )
-
-    stations_.df = stations_.df.replace({np.nan: None, pd.NA: None})
 
     indent = None
     if pretty:
         indent = 4
 
+    output = None
     if fmt == "json":
         output = stations_.to_dict()
     elif fmt == "geojson":
@@ -244,7 +241,7 @@ def values(
     skip_empty: bool = Query(alias="skip-empty", default=False),
     skip_threshold: float = Query(alias="skip-threshold", default=0.95, gt=0, le=1),
     skip_criteria: Literal["min", "mean", "max"] = Query(alias="skip-criteria", default="min"),
-    dropna: bool = Query(alias="ts_dropna", default=False),
+    dropna: bool = Query(alias="dropna", default=False),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
 ):
@@ -291,13 +288,13 @@ def values(
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' " "and 'date' are required",
+            detail="Query arguments 'parameter', 'resolution' and 'date' are required",
         )
 
     if fmt not in ("json", "geojson"):
         raise HTTPException(
             status_code=400,
-            detail="format argument must be one of json, geojson",
+            detail="'format' argument must be one of 'json', 'geojson'",
         )
 
     set_logging_level(debug)
@@ -344,20 +341,13 @@ def values(
         )
     except Exception as e:
         log.exception(e)
-
-        return HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     indent = None
     if pretty:
         indent = 4
 
-    output = values_.df
-
-    output[Columns.DATE.value] = output[Columns.DATE.value].apply(lambda ts: ts.isoformat())
-
-    output = output.replace({np.NaN: None, pd.NA: None})
-
-    output = output.to_dict(orient="records")
+    output = values_.to_dict()
 
     output = make_json_response(output, api._provider)
 
@@ -416,7 +406,7 @@ def interpolate(
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' " "and 'date' are required",
+            detail="Query arguments 'parameter', 'resolution' and 'date' are required",
         )
 
     if fmt not in ("json", "geojson"):
@@ -429,12 +419,12 @@ def interpolate(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderError:
-        return HTTPException(
+    except ProviderError as err:
+        raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
             f"Choose provider and network from {Wetterdienst.discover()}",
-        )
+        ) from err
 
     parameter = read_list(parameter)
     if period:
@@ -457,10 +447,9 @@ def interpolate(
             humanize=humanize,
             use_nearby_station_distance=use_nearby_station_distance,
         )
-    except Exception as e:
-        log.exception(e)
-
-        return HTTPException(status_code=404, detail=str(e))
+    except Exception as err:
+        log.exception(err)
+        raise HTTPException(status_code=404, detail=str(err)) from err
 
     indent = None
     if pretty:
@@ -468,11 +457,9 @@ def interpolate(
 
     output = values_.df
 
-    output[Columns.DATE.value] = output[Columns.DATE.value].apply(lambda ts: ts.isoformat())
+    output = output.with_columns(pl.col(Columns.DATE.value).apply(lambda d: d.isoformat()))
 
-    output = output.replace({np.NaN: None, pd.NA: None})
-
-    output = output.to_dict(orient="records")
+    output = output.to_dicts()
 
     output = make_json_response(output, api._provider)
 
@@ -542,12 +529,12 @@ def summarize(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderError:
-        return HTTPException(
+    except ProviderError as err:
+        raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
             f"Choose provider and network from {Wetterdienst.discover()}",
-        )
+        ) from err
 
     parameter = read_list(parameter)
     if period:
@@ -569,10 +556,9 @@ def summarize(
             si_units=si_units,
             humanize=humanize,
         )
-    except Exception as e:
-        log.exception(e)
-
-        return HTTPException(status_code=404, detail=str(e))
+    except Exception as err:
+        log.exception(err)
+        raise HTTPException(status_code=404, detail=str(err)) from err
 
     indent = None
     if pretty:
@@ -580,11 +566,9 @@ def summarize(
 
     output = values_.df
 
-    output[Columns.DATE.value] = output[Columns.DATE.value].apply(lambda ts: ts.isoformat())
+    output = output.with_columns(pl.col(Columns.DATE.value).apply(lambda d: d.isoformat()))
 
-    output = output.replace({np.NaN: None, pd.NA: None})
-
-    output = output.to_dict(orient="records")
+    output = output.to_dicts()
 
     output = make_json_response(output, api._provider)
 

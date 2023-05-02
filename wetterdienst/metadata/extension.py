@@ -11,5 +11,6 @@ class Extension(Enum):
     ZIP = "zip"
     GZ = "gz"
     BZ2 = "bz2"
+    TAR = "tar"
     TAR_GZ = "tar.gz"
     TAR_BZ2 = "tar.bz2"

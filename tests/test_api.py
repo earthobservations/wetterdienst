@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import zoneinfo
+
 import pytest
 
 from wetterdienst import Settings, Wetterdienst
@@ -21,7 +23,7 @@ from wetterdienst import Settings, Wetterdienst
         # station forecasts
         ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}, None),
         # Environment and Climate Change Canada
-        # ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}), # noqa: E800, ERA001
+        ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None),  # noqa: E800, ERA001
         # NOAA Ghcn
         ("noaa", "ghcn", {"parameter": "precipitation_height"}, None),
         # WSV Pegelonline
@@ -51,6 +53,12 @@ def test_api(provider, network, kwargs, si_units, station_id):
     else:
         request = api(**kwargs, settings=settings).all()
     stations = request.df
+    first_from_date = stations.get_column("from_date").to_list()[0]
+    if first_from_date:
+        assert first_from_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    first_to_date = stations.get_column("to_date").to_list()[0]
+    if first_to_date:
+        assert first_to_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     # Check stations_result DataFrame columns
     assert set(stations.columns).issuperset(
         {
@@ -65,8 +73,10 @@ def test_api(provider, network, kwargs, si_units, station_id):
         }
     )
     # Check that there are actually stations_result
-    assert not stations.empty
+    assert not stations.is_empty()
     # Query first DataFrame from values
     values = next(request.values.query()).df
+    first_date = values.get_column("date").to_list()[0]
+    assert first_date.tzinfo
     assert set(values.columns).issuperset({"station_id", "parameter", "date", "value", "quality"})
-    assert not values.dropna(subset="value").empty
+    assert not values.drop_nulls(subset="value").is_empty()

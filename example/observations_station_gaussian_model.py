@@ -14,11 +14,16 @@ Requires:
 
 """  # Noqa:D205,D400
 import logging
+import os
+from typing import Tuple
 
 import matplotlib.pyplot as plt
-import pandas as pd
+import polars as pl
+from lmfit import Parameters
+from lmfit.model import ModelResult
 
 from wetterdienst import Settings
+from wetterdienst.core.timeseries.result import StationsResult
 from wetterdienst.provider.dwd.observation import (
     DwdObservationParameter,
     DwdObservationRequest,
@@ -58,17 +63,19 @@ class ModelYearlyGaussians:
 
     """
 
-    def __init__(self, station_data):
+    def __init__(self, station_data: StationsResult):
         self._station_data = station_data
 
-        result_values = station_data.values.all().df.dropna(axis=0)
+        result_values = station_data.values.all().df.drop_nulls()
 
         valid_data = self.get_valid_data(result_values)
 
+        valid_data = valid_data.with_row_count("rc")
+
         model, pars = self.make_composite_yearly_model(valid_data)
 
-        x = valid_data.index.to_numpy()
-        y = valid_data.value.to_numpy()
+        x = valid_data.get_column("rc").to_numpy()
+        y = valid_data.get_column("value").to_numpy()
 
         out = model.fit(y, pars, x=x)
 
@@ -76,33 +83,34 @@ class ModelYearlyGaussians:
 
         self.plot_data_and_model(valid_data, out, savefig_to_file=True)
 
-    def get_valid_data(self, station_data):
+    def get_valid_data(self, result_values: pl.DataFrame) -> pl.DataFrame:
         valid_data_lst = []
-        for _, group in station_data.groupby(station_data.date.dt.year):
+        for _, group in result_values.groupby(pl.col("date").dt.year()):
             if self.validate_yearly_data(group):
                 valid_data_lst.append(group)
 
-        return pd.concat(valid_data_lst)
+        return pl.concat(valid_data_lst)
 
-    def validate_yearly_data(self, df) -> bool:
-        year = df.date.dt.year.unique()[0]
-        if df.empty or not (df.date.min().month <= 2 and df.date.max().month > 10):
+    @staticmethod
+    def validate_yearly_data(df: pl.DataFrame) -> bool:
+        year = df.get_column("date").dt.year().unique()[0]
+        if df.is_empty() or not (df.get_column("date").min().month <= 2 and df.get_column("date").max().month > 10):
             log.info(f"skip year {year}")
             return False
         return True
 
-    def make_composite_yearly_model(self, valid_data):
+    def make_composite_yearly_model(self, valid_data: pl.DataFrame) -> Tuple[GaussianModel, Parameters]:
         """makes a composite model
         https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models"""
-        number_of_years = valid_data.date.dt.year.nunique()
+        number_of_years = valid_data.get_column("date").dt.year().n_unique()
 
-        x = valid_data.index.to_numpy()
-        y = valid_data.value.to_numpy()
+        x = valid_data.get_column("rc").to_numpy()
+        y = valid_data.get_column("value").to_numpy()
 
         index_per_year = x.max() / number_of_years
 
         pars, composite_model = None, None
-        for year, group in valid_data.groupby(valid_data.date.dt.year):
+        for year, group in valid_data.groupby(pl.col("date").dt.year(), maintain_order=True):
             gmod = GaussianModel(prefix=f"g{year}_")
             if pars is None:
                 pars = gmod.make_params()
@@ -115,9 +123,12 @@ class ModelYearlyGaussians:
                 composite_model = composite_model + gmod
         return composite_model, pars
 
-    def model_pars_update(self, year, group, pars, index_per_year, y_max):
+    @staticmethod
+    def model_pars_update(
+        year: int, group: pl.DataFrame, pars: Parameters, index_per_year: float, y_max: float
+    ) -> Parameters:
         """updates the initial values of the model parameters"""
-        idx = group.index.to_numpy()
+        idx = group.get_column("rc").to_numpy()
         mean_index = idx.mean()
 
         pars[f"g{year}_center"].set(value=mean_index, min=0.75 * mean_index, max=1.25 * mean_index)
@@ -126,19 +137,26 @@ class ModelYearlyGaussians:
 
         return pars
 
-    def plot_data_and_model(self, valid_data, out, savefig_to_file=True):
+    def plot_data_and_model(self, valid_data: pl.DataFrame, out: ModelResult, savefig_to_file=True) -> None:
         """plots the data and the model"""
         if savefig_to_file:
-            fig, ax = fig, ax = plt.subplots(figsize=(12, 12))
-        df = pd.DataFrame({"year": valid_data.date, "value": valid_data.value.to_numpy(), "model": out.best_fit})
-        title = valid_data.parameter.unique()[0]
-        df.plot(x="year", y=["value", "model"], title=title)
+            _ = plt.subplots(figsize=(12, 12))
+        df = pl.DataFrame(
+            {
+                "year": valid_data.get_column("date"),
+                "value": valid_data.get_column("value").to_numpy(),
+                "model": out.best_fit,
+            }
+        )
+        title = valid_data.get_column("parameter").unique()[0]
+        df.to_pandas().plot(x="year", y=["value", "model"], title=title)
         if savefig_to_file:
-            number_of_years = valid_data.date.dt.year.nunique()
+            number_of_years = valid_data.get_column("date").dt.year().n_unique()
             filename = f"{self.__class__.__qualname__}_wetter_model_{number_of_years}"
             plt.savefig(filename, dpi=300, bbox_inches="tight")
             log.info("saved fig to file: " + filename)
-            plt.show()
+            if "PYTEST_CURRENT_TEST" not in os.environ:
+                plt.show()
 
 
 def main():

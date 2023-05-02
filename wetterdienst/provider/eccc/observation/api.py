@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import gzip
 import logging
-from datetime import datetime
 from enum import Enum
 from io import BytesIO
 from typing import Generator, List, Optional, Tuple, Union
 
-import pandas as pd
-from pandas._libs.tslibs.offsets import YearEnd
+import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -43,7 +42,6 @@ class EcccObservationPeriod(Enum):
 
 class EcccObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
-    _has_quality = True
 
     _base_url = (
         "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
@@ -76,7 +74,7 @@ class EcccObservationValues(TimeseriesValues):
         return self._time_step_mapping.get(self.sr.stations.resolution)
 
     @staticmethod
-    def _tidy_up_df(df: pd.DataFrame) -> pd.DataFrame:
+    def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
         """
         Tidy up dataframe pairwise by column 'DATE', 'Temp (°C)', 'Temp Flag', ...
 
@@ -87,25 +85,22 @@ class EcccObservationValues(TimeseriesValues):
 
         columns = df.columns
         for parameter_column, quality_column in zip(columns[1::2], columns[2::2]):
-            df_parameter = pd.DataFrame(
-                {
-                    Columns.DATE.value: df[Columns.DATE.value],
-                    Columns.VALUE.value: df[parameter_column],
-                    Columns.QUALITY.value: df[quality_column],
-                }
+            df_parameter = df.select(
+                pl.col(Columns.DATE.value),
+                pl.lit(parameter_column).alias(Columns.PARAMETER.value),
+                pl.col(parameter_column).apply(lambda v: v if v != "" else None).alias(Columns.VALUE.value),
+                pl.col(quality_column).apply(lambda v: v if v != "" else None).alias(Columns.QUALITY.value),
             )
-            df_parameter[Columns.PARAMETER.value] = parameter_column
             data.append(df_parameter)
 
         try:
-            return pd.concat(data, ignore_index=True)
+            return pl.concat(data)
         except ValueError:
-            # TODO: add logging
-            return pd.DataFrame()
+            return pl.LazyFrame()
 
     def _collect_station_parameter(
         self, station_id: str, parameter: EcccObservationParameter, dataset: Enum
-    ) -> pd.DataFrame:
+    ) -> pl.DataFrame:
         """
 
         :param station_id: station id being queried
@@ -113,18 +108,19 @@ class EcccObservationValues(TimeseriesValues):
         :param dataset: dataset of query, can be skipped as ECCC has unique dataset
         :return: pandas.DataFrame with data
         """
-        meta = self.sr.df[self.sr.df[Columns.STATION_ID.value] == station_id]
+        meta = self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
 
-        from_date, to_date = meta[
-            [
-                Columns.FROM_DATE.value,
-                Columns.TO_DATE.value,
-            ]
-        ].values.flatten()
-
-        # start and end year from station
-        start_year = None if pd.isna(from_date) else from_date.year
-        end_year = None if pd.isna(to_date) else to_date.year
+        start_year, end_year = (
+            meta.select(
+                [
+                    pl.col(Columns.FROM_DATE.value).dt.year(),
+                    pl.col(Columns.TO_DATE.value).dt.year(),
+                ]
+            )
+            .transpose()
+            .to_series()
+            .to_list()
+        )
 
         # start_date and end_date from request
         start_date = self.sr.stations.start_date
@@ -142,54 +138,46 @@ class EcccObservationValues(TimeseriesValues):
         if start_year and end_year:
             for url in self._create_file_urls(station_id, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
-
                 payload = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
-
-                df_temp = pd.read_csv(payload)
-
-                df_temp = df_temp.rename(columns=str.lower)
-
-                df_temp = df_temp.drop(
-                    columns=[
-                        "longitude (x)",
-                        "latitude (y)",
-                        "station name",
-                        "climate id",
-                        "year",
-                        "month",
-                        "day",
-                        "time (lst)",
-                    ],
-                    errors="ignore",
+                df = pl.read_csv(payload, infer_schema_length=0).lazy()
+                df = df.rename(mapping={col: col.lower() for col in df.columns})
+                droppable_columns = [
+                    "longitude (x)",
+                    "latitude (y)",
+                    "station name",
+                    "climate id",
+                    "year",
+                    "month",
+                    "day",
+                    "time (lst)",
+                    "data quality",
+                ]
+                df = df.drop(
+                    columns=[col for col in droppable_columns if col in df.columns],
                 )
-
-                data.append(df_temp)
+                data.append(df)
 
         try:
-            df = pd.concat(data)
+            df = pl.concat(data)
         except ValueError:
-            df = pd.DataFrame()
+            df = pl.LazyFrame()
 
         df = df.rename(
-            columns={
-                "date/time (lst)": Columns.DATE.value,
-                "date/time": Columns.DATE.value,
-            }
+            mapping={col: Columns.DATE.value for col in ["date/time (lst)", "date/time"] if col in df.columns}
         )
-
-        df = df.reset_index(drop=True)
-
-        df = df.drop(columns=["data quality"], errors="ignore")
-
-        df[Columns.STATION_ID.value] = station_id
 
         df = self._tidy_up_df(df)
 
-        mask = df[Columns.VALUE.value].map(str).str.startswith("<")
-        df.loc[mask, Columns.VALUE.value] = df.loc[mask, Columns.VALUE.value].str[1:]
-        df[Columns.QUALITY.value] = pd.NA
-
-        return df
+        return df.with_columns(
+            pl.col(Columns.DATE.value).str.strptime(pl.Datetime(time_zone="UTC"), fmt="%Y-%m-%d"),
+            pl.lit(station_id).alias(Columns.STATION_ID.value),
+            pl.when(pl.col(Columns.VALUE.value).str.starts_with("<"))
+            .then(pl.col(Columns.VALUE.value).str.slice(1))
+            .otherwise(pl.col(Columns.VALUE.value))
+            .alias(Columns.VALUE.value)
+            .cast(pl.Float64),
+            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        ).collect()
 
     def _create_file_urls(self, station_id: str, start_year: int, end_year: int) -> Generator[str, None, None]:
         """
@@ -201,20 +189,17 @@ class EcccObservationValues(TimeseriesValues):
         """
         resolution = self.sr.stations.resolution
 
-        freq = "Y"
+        freq = "1y"
         if resolution == Resolution.HOURLY:
-            freq = "M"
+            freq = "1mo"
 
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
-        for date in pd.date_range(f"{start_year}-01-01", f"{end_year + 1}-01-01", freq=freq, inclusive=None):
+        for date in pl.date_range(dt.datetime(start_year, 1, 1), dt.datetime(end_year + 1, 1, 1), interval=freq):
             url = self._base_url.format(int(station_id), self._timeframe)
-
             url += f"&Year={date.year}"
-
             if resolution == Resolution.HOURLY:
                 url += f"&Month={date.month}"
-
             yield url
 
 
@@ -291,8 +276,8 @@ class EcccObservationRequest(TimeseriesRequest):
         self,
         parameter: List[Union[str, EcccObservationParameter, Parameter]],
         resolution: Union[str, EcccObservationResolution, Resolution],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
         """
@@ -311,24 +296,41 @@ class EcccObservationRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         # Acquire raw CSV payload.
         csv_payload, source = self._download_stations()
 
-        header = source == 0 and 3 or 2
+        header = 2 if source else 3
 
         # Read into Pandas data frame.
-        df = pd.read_csv(csv_payload, header=header, dtype=str)
+        df = pl.read_csv(csv_payload, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
 
-        df = df.rename(columns=str.lower)
+        df = df.rename(mapping={col: col.lower() for col in df.columns})
 
-        df = df.drop(columns=["latitude", "longitude"], errors="ignore")
+        df = df.drop(columns=["latitude", "longitude"])
 
-        df = df.rename(columns=self._columns_mapping)
+        df = df.rename(mapping=self._columns_mapping)
 
-        df[Columns.TO_DATE.value] = pd.to_datetime(df[Columns.TO_DATE.value]) + YearEnd()
+        df = df.with_columns(
+            pl.col(Columns.FROM_DATE.value).apply(lambda v: v or None),
+            pl.col(Columns.TO_DATE.value).apply(lambda v: v or None),
+            pl.col(Columns.HEIGHT.value).apply(lambda v: v or None),
+        )
 
-        return df
+        df = df.with_columns(
+            pl.col(Columns.FROM_DATE.value).map(lambda s: s.fill_null(s.cast(int).min())),
+            pl.col(Columns.TO_DATE.value).map(lambda s: s.fill_null(s.cast(int).max())),
+        )
+
+        df = df.with_columns(
+            pl.col(Columns.FROM_DATE.value).str.strptime(datatype=pl.Datetime, fmt="%Y"),
+            pl.col(Columns.TO_DATE.value)
+            .cast(int)
+            .map(lambda s: s + 1)
+            .apply(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1)),
+        )
+
+        return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))
 
     def _download_stations(self) -> Tuple[BytesIO, int]:
         """

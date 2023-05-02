@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import logging
 from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Tuple, Union
 
-import dateutil.parser
 import numpy as np
-import pandas as pd
-import pytz
+import polars as pl
+from backports.datetime_fromisoformat import MonkeyPatch
 from measurement.measures import Distance
 from measurement.utils import guess
+from polars import NoDataError
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
@@ -34,10 +35,12 @@ from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Frequency, FrequencyPolars, Resolution, ResolutionType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.python import to_list
 
+MonkeyPatch.patch_fromisoformat()
 log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
@@ -77,6 +80,12 @@ class TimeseriesRequest(Core):
         if self.resolution == Resolution.DYNAMIC:
             return self._dynamic_frequency
         return Frequency[self.resolution.name]
+
+    @property
+    def frequency_polars(self) -> FrequencyPolars:
+        """Frequency for the given resolution, used to create a full date range for
+        mering"""
+        return FrequencyPolars[self.resolution.name]
 
     @property
     def dynamic_frequency(self) -> Optional[Frequency]:
@@ -198,11 +207,11 @@ class TimeseriesRequest(Core):
         elif self._period_type == PeriodType.FIXED:
             return [period]
         else:
-            return (
-                pd.Series(period)
-                .apply(parse_enumeration_from_template, args=(self._period_base, Period))
-                .sort_values()
-                .tolist()
+            return sorted(
+                [
+                    parse_enumeration_from_template(p, intermediate=self._period_base, base=Period)
+                    for p in to_list(period)
+                ]
             )
 
     def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Tuple[Enum, Enum]]:
@@ -223,7 +232,7 @@ class TimeseriesRequest(Core):
 
         parameters = []
 
-        for par in pd.Series(parameter):
+        for par in to_list(parameter):
             # Each parameter can either be
             #  - a dataset : gets all data from the dataset
             #  - a parameter : gets prefixed parameter from a resolution e.g.
@@ -231,7 +240,7 @@ class TimeseriesRequest(Core):
             #  - a tuple of parameter -> dataset : to decide from which dataset
             #    the parameter is taken
             try:
-                parameter, dataset = pd.Series(par)
+                parameter, dataset = to_list(par)
             except (ValueError, TypeError):
                 parameter, dataset = par, par
 
@@ -322,23 +331,22 @@ class TimeseriesRequest(Core):
         return parameter_, dataset_
 
     @staticmethod
-    def _parse_station_id(series: pd.Series) -> pd.Series:
+    def _parse_station_id(series: pl.Series) -> pl.Series:
         """
         Dedicated method for parsing station ids, by default uses the same method as
         parse_strings but could be modified by the implementation class
-
         :param series:
         :return:
         """
-        return series.astype(str)
+        return series.cast(pl.Utf8)
 
     def __init__(
         self,
         parameter: List[Union[str, Enum, Parameter]],
         resolution: Union[str, Resolution],
         period: Union[str, Period],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, datetime]] = None,
+        end_date: Optional[Union[str, datetime]] = None,
         settings: Optional[Settings] = None,
     ) -> None:
         """
@@ -428,9 +436,9 @@ class TimeseriesRequest(Core):
 
     @staticmethod
     def convert_timestamps(
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-    ) -> Union[Tuple[None, None], Tuple[pd.Timestamp, pd.Timestamp]]:
+        start_date: Optional[Union[str, datetime]] = None,
+        end_date: Optional[Union[str, datetime]] = None,
+    ) -> Union[Tuple[None, None], Tuple[datetime, datetime]]:
         """
         Sort out start_date vs. end_date, parse strings to datetime
         objects and finally convert both to pd.Timestamp types.
@@ -445,15 +453,15 @@ class TimeseriesRequest(Core):
 
         if start_date:
             if isinstance(start_date, str):
-                start_date = dateutil.parser.isoparse(start_date)
+                start_date = dt.datetime.fromisoformat(start_date)
             if not start_date.tzinfo:
-                start_date = start_date.replace(tzinfo=pytz.UTC)
+                start_date = start_date.replace(tzinfo=dt.timezone.utc)
 
         if end_date:
             if isinstance(end_date, str):
-                end_date = dateutil.parser.isoparse(end_date)
+                end_date = dt.datetime.fromisoformat(end_date)
             if not end_date.tzinfo:
-                end_date = end_date.replace(tzinfo=pytz.UTC)
+                end_date = end_date.replace(tzinfo=dt.timezone.utc)
 
         # If only one date given, set the other one to equal.
         if not start_date:
@@ -466,7 +474,7 @@ class TimeseriesRequest(Core):
         if not start_date <= end_date:
             raise StartDateEndDateError("Error: 'start_date' must be smaller or equal to 'end_date'.")
 
-        return pd.Timestamp(start_date), pd.Timestamp(end_date)
+        return start_date, end_date
 
     @staticmethod
     def _format_unit(unit) -> str:
@@ -527,8 +535,9 @@ class TimeseriesRequest(Core):
             return parameters
 
         datasets_filter = (
-            pd.Series(dataset, dtype=str).apply(parse_enumeration_from_template, args=(cls._dataset_base,)).tolist()
-            or cls._dataset_base
+            [parse_enumeration_from_template(ds, intermediate=cls._dataset_base) for ds in to_list(dataset)]
+            if dataset
+            else cls._dataset_base
         )
 
         datasets_filter = [ds.name for ds in datasets_filter]
@@ -571,39 +580,32 @@ class TimeseriesRequest(Core):
         if not resolution:
             resolution = [*cls._resolution_base]
 
-        return (
-            pd.Series(resolution)
-            .apply(parse_enumeration_from_template, args=(cls._resolution_base, Resolution))
-            .tolist()
-        )
+        return [
+            parse_enumeration_from_template(r, intermediate=cls._resolution_base, base=Resolution)
+            for r in to_list(resolution)
+        ]
 
     @staticmethod
-    def _coerce_meta_fields(df) -> pd.DataFrame:
+    def _coerce_meta_fields(df: pl.LazyFrame) -> pl.LazyFrame:
         """
         Method for metadata column coercion.
 
         :param df: DataFrame with columns as strings
         :return: DataFrame with columns coerced to date etc.
         """
-        df[Columns.STATION_ID.value] = pd.Series(df[Columns.STATION_ID.value].values, dtype=str)
-        df[Columns.HEIGHT.value] = pd.Series(df[Columns.HEIGHT.value], dtype=float)
-        df[Columns.LATITUDE.value] = df[Columns.LATITUDE.value].astype(float)
-        df[Columns.LONGITUDE.value] = df[Columns.LONGITUDE.value].astype(float)
-        df[Columns.NAME.value] = pd.Series(df[Columns.NAME.value].values, dtype=str)
-        df[Columns.STATE.value] = pd.Series(df[Columns.STATE.value].values, dtype=str)
-
-        df[Columns.FROM_DATE.value] = pd.to_datetime(df[Columns.FROM_DATE.value], infer_datetime_format=True)
-
-        if not df[Columns.FROM_DATE.value].dt.tz:
-            df[Columns.FROM_DATE.value] = df[Columns.FROM_DATE.value].dt.tz_localize(pytz.UTC)
-        df[Columns.TO_DATE.value] = pd.to_datetime(df[Columns.TO_DATE.value], infer_datetime_format=True)
-        if not df[Columns.TO_DATE.value].dt.tz:
-            df[Columns.TO_DATE.value] = df[Columns.TO_DATE.value].dt.tz_localize(pytz.UTC)
-
-        return df
+        return df.with_columns(
+            pl.col(Columns.STATION_ID.value).cast(pl.Utf8),
+            pl.col(Columns.HEIGHT.value).cast(pl.Float64),
+            pl.col(Columns.LATITUDE.value).cast(pl.Float64),
+            pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
+            pl.col(Columns.NAME.value).cast(pl.Utf8),
+            pl.col(Columns.STATE.value).cast(pl.Utf8),
+            pl.col(Columns.FROM_DATE.value).cast(pl.Datetime(time_zone="UTC")),
+            pl.col(Columns.TO_DATE.value).cast(pl.Datetime(time_zone="UTC")),
+        )
 
     @abstractmethod
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
         Abstract method for gathering of sites information for a given implementation.
         Information consist of a DataFrame with station ids, location, name, etc
@@ -618,16 +620,18 @@ class TimeseriesRequest(Core):
 
         :return: pandas.DataFrame with the information of different available stations_result
         """
-        df = self._all().copy().reset_index(drop=True)
+        df = self._all()
 
-        df = df.reindex(columns=self._base_columns)
+        df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
 
         df = self._coerce_meta_fields(df)
 
+        df = df.collect()
+
         return StationsResult(
             stations=self,
-            df=df.reset_index(drop=True),
-            df_all=df.reset_index(drop=True),
+            df=df,
+            df_all=df,
             stations_filter=StationsFilter.ALL,
         )
 
@@ -640,16 +644,16 @@ class TimeseriesRequest(Core):
         """
         df = self.all().df
 
-        station_id = self._parse_station_id(pd.Series(station_id))
+        station_id = self._parse_station_id(pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)))
 
         log.info(f"Filtering for station_id={list(station_id)}")
 
-        df = df[df[Columns.STATION_ID.value].isin(station_id)]
+        df_station_id = df.join(other=station_id.to_frame(), on=Columns.STATION_ID.value, how="inner")
 
         return StationsResult(
             stations=self,
-            df=df.reset_index(drop=True),
-            df_all=self.all().df,
+            df=df_station_id,
+            df_all=df,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
 
@@ -680,17 +684,17 @@ class TimeseriesRequest(Core):
         )
 
         if station_match:
-            station_name = pd.Series(station_match).apply(lambda x: x[0])
-            df = df[df[Columns.NAME.value].isin(station_name)]
+            station_name = pl.Series(station_match).apply(lambda x: x[0])
+            df = df.filter(pl.col(Columns.NAME.value).is_in(station_name))
         else:
-            df = pd.DataFrame(columns=df.columns)
+            df = pl.DataFrame(schema=df.schema)
 
-        if df.empty:
+        if df.is_empty():
             log.info(f"No weather stations were found for name {name}")
 
         return StationsResult(
             stations=self,
-            df=df.reset_index(drop=True),
+            df=df,
             df_all=self.all().df,
             stations_filter=StationsFilter.BY_NAME,
             rank=rank,
@@ -720,22 +724,22 @@ class TimeseriesRequest(Core):
 
         coords = Coordinates(np.array(lat), np.array(lon))
 
-        df = self.all().df.reset_index(drop=True)
+        df = self.all().df
 
         distances, indices_nearest_neighbours = derive_nearest_neighbours(
-            latitudes=df[Columns.LATITUDE.value].values,
-            longitudes=df[Columns.LONGITUDE.value].values,
+            latitudes=df.get_column(Columns.LATITUDE.value),
+            longitudes=df.get_column(Columns.LONGITUDE.value),
             coordinates=coords,
             number_nearby=df.shape[0],
         )
+        distances = distances.flatten() * EARTH_RADIUS_KM
 
-        df = df.iloc[indices_nearest_neighbours.flatten(), :].reset_index(drop=True)
-
-        df[Columns.DISTANCE.value] = pd.Series(distances.flatten() * EARTH_RADIUS_KM, dtype=float)
+        df = df[indices_nearest_neighbours.flatten(), :]
+        df = df.with_columns(pl.lit(distances).alias(Columns.DISTANCE.value))
 
         return StationsResult(
             stations=self,
-            df=df.reset_index(drop=True),
+            df=df,
             df_all=self.all().df,
             stations_filter=StationsFilter.BY_RANK,
             rank=rank,
@@ -763,9 +767,9 @@ class TimeseriesRequest(Core):
 
         all_nearby_stations = self.filter_by_rank(latlon, self.all().df.shape[0]).df
 
-        df = all_nearby_stations[all_nearby_stations[Columns.DISTANCE.value] <= distance_in_km]
+        df = all_nearby_stations.filter(pl.col(Columns.DISTANCE.value).le(distance_in_km))
 
-        if df.empty:
+        if df.is_empty():
             lat, lon = latlon
             log.info(
                 f"No weather stations were found for coordinates {lat}/{lon} (lat/lon) "
@@ -774,7 +778,7 @@ class TimeseriesRequest(Core):
 
         return StationsResult(
             stations=self,
-            df=df.reset_index(drop=True),
+            df=df,
             df_all=self.all().df,
             stations_filter=StationsFilter.BY_DISTANCE,
         )
@@ -797,23 +801,17 @@ class TimeseriesRequest(Core):
         if bottom >= top:
             raise ValueError("bbox bottom border should be smaller then top")
 
-        lat_interval = pd.Interval(bottom, top, closed="both")
-        lon_interval = pd.Interval(left, right, closed="both")
-
         df = self.all().df
 
-        df = df.loc[
-            df[Columns.LATITUDE.value].apply(lambda x: x in lat_interval)
-            & df[Columns.LONGITUDE.value].apply(lambda x: x in lon_interval),
-            :,
-        ]
+        df = df.filter(
+            pl.col(Columns.LATITUDE.value).is_between(bottom, top, closed="both")
+            & pl.col(Columns.LONGITUDE.value).is_between(left, right, closed="both")
+        )
 
-        if df.empty:
+        if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
 
-        return StationsResult(
-            stations=self, df=df.reset_index(drop=True), df_all=self.all().df, stations_filter=StationsFilter.BY_BBOX
-        )
+        return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_BBOX)
 
     def filter_by_sql(self, sql: str) -> StationsResult:
         """
@@ -825,17 +823,19 @@ class TimeseriesRequest(Core):
 
         df = self.all().df
 
-        df = duckdb.query_df(df, "data", sql).df()
+        df = duckdb.query_df(df.to_pandas(), "data", sql).df()
 
-        df[Columns.FROM_DATE.value] = df.loc[:, Columns.FROM_DATE.value].dt.tz_convert(self.tz)
-        df[Columns.TO_DATE.value] = df.loc[:, Columns.TO_DATE.value].dt.tz_convert(self.tz)
+        df = pl.from_pandas(df)
 
-        if df.empty:
+        df = df.with_columns(
+            pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(time_zone="UTC").alias(Columns.FROM_DATE.value),
+            pl.col(Columns.TO_DATE.value).dt.replace_time_zone(time_zone="UTC").alias(Columns.TO_DATE.value),
+        )
+
+        if df.is_empty():
             log.info(f"No weather stations were found for sql {sql}")
 
-        return StationsResult(
-            stations=self, df=df.reset_index(drop=True), df_all=self.all().df, stations_filter=StationsFilter.BY_SQL
-        )
+        return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: Tuple[float, float]) -> InterpolatedValuesResult:
         """
@@ -857,7 +857,7 @@ class TimeseriesRequest(Core):
 
         if not isinstance(self, DwdObservationRequest):
             log.error("Interpolation currently only works for DwdObservationRequest")
-            return InterpolatedValuesResult(df=pd.DataFrame(), stations=self)
+            return InterpolatedValuesResult(df=pl.DataFrame(), stations=self)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         interpolated_values = get_interpolated_df(self, lat, lon)
@@ -891,7 +891,7 @@ class TimeseriesRequest(Core):
 
         if not isinstance(self, DwdObservationRequest):
             log.error("Summary currently only works for DwdObservationRequest")
-            return SummarizedValuesResult(df=pd.DataFrame(), stations=self)
+            return SummarizedValuesResult(df=pl.DataFrame(), stations=self)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         summarized_values = get_summarized_df(self, lat, lon)
@@ -913,13 +913,15 @@ class TimeseriesRequest(Core):
         :param latlon: either tuple of two floats or station id
         :return: tuple of latlon
         """
-        station_id = self._parse_station_id(pd.Series(station_id)).iloc[0]
+        station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df
         try:
-            lat, lon = stations.loc[
-                stations[Columns.STATION_ID.value] == station_id, [Columns.LATITUDE.value, Columns.LONGITUDE.value]
-            ].values.flatten()
-        except ValueError as ex:
+            lat, lon = (
+                stations.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
+                .select(pl.col(Columns.LATITUDE.value), pl.col(Columns.LONGITUDE.value))
+                .transpose()
+                .to_series()
+            )
+        except NoDataError as ex:
             raise StationNotFoundError(f"no station found for {station_id}") from ex
-
         return lat, lon

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import json
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import List, Optional, Union
 
-import pandas as pd
+import polars as pl
 
 from wetterdienst import Parameter, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -655,13 +656,7 @@ class GeosphereObservationValues(TimeseriesValues):
         "output_format=geojson"
     )
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
-        def _extract_parameter_values(d: dict):
-            data = []
-            for k, v in d.items():
-                data.append({"parameter": k, "value": v["data"]})
-            return data
-
+    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         if parameter == dataset:
             parameter = [par.value for par in self.sr._parameter_base[self.sr.resolution.name]]
         else:
@@ -672,24 +667,27 @@ class GeosphereObservationValues(TimeseriesValues):
             station_id=station_id,
             parameters=",".join(parameter),
             resolution=GeosphereObservationDataset[dataset.name].value,
-            start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%m"),
-            end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%m"),
+            start_date=start_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
+            end_date=end_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
         )
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
-        data = json.loads(response.read())
-        timestamps = data.pop("timestamps")
-        df = (
-            pd.DataFrame(data["features"])
-            .pop("properties")
-            .map(lambda x: x["parameters"])
-            .apply(_extract_parameter_values)
-            .explode()
-            .apply(pd.Series)
-            .explode("value")
+        data_raw = json.loads(response.read())
+        timestamps = data_raw.pop("timestamps")
+        data = {Columns.DATE.value: timestamps}
+        for par, par_dict in data_raw["features"][0]["properties"]["parameters"].items():
+            data[par] = par_dict["data"]
+        df = pl.DataFrame(data)
+        df = df.melt(
+            id_vars=[Columns.DATE.value], variable_name=Columns.PARAMETER.value, value_name=Columns.VALUE.value
         )
-        df.value = df.value.astype(float)
-        df[Columns.DATE.value] = pd.to_datetime(pd.Series(timestamps).repeat(len(parameter)).values)
-        return df
+
+        return df.with_columns(
+            pl.col(Columns.DATE.value)
+            .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M+%H:%M")
+            .dt.replace_time_zone("UTC"),
+            pl.lit(station_id).alias(Columns.STATION_ID.value),
+            pl.lit(None, pl.Float64).alias(Columns.QUALITY.value),
+        )
 
 
 class GeosphereObservationRequest(TimeseriesRequest):
@@ -721,8 +719,8 @@ class GeosphereObservationRequest(TimeseriesRequest):
         self,
         parameter: List[Union[str, GeosphereObservationParameter, Parameter]],
         resolution: Union[str, GeosphereObservationResolution, Resolution],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
         if not start_date or not end_date:
@@ -738,13 +736,14 @@ class GeosphereObservationRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         dataset = self._dataset_base[self.resolution.name].value
         url = self._endpoint.format(dataset=dataset)
         response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
-        df = pd.read_csv(response)
-        return df.rename(
-            columns={
+        df = pl.read_csv(response).lazy()
+        df = df.drop(columns=["Sonnenschein", "Globalstrahlung"])
+        df = df.rename(
+            mapping={
                 "id": Columns.STATION_ID.value,
                 "Stationsname": Columns.NAME.value,
                 "Länge [°E]": Columns.LONGITUDE.value,
@@ -754,4 +753,8 @@ class GeosphereObservationRequest(TimeseriesRequest):
                 "Enddatum": Columns.TO_DATE.value,
                 "Bundesland": Columns.STATE.value,
             }
-        ).drop(columns=["Sonnenschein", "Globalstrahlung"])
+        )
+        return df.with_columns(
+            pl.col(Columns.FROM_DATE.value).str.strptime(pl.Datetime),
+            pl.col(Columns.TO_DATE.value).str.strptime(pl.Datetime),
+        )

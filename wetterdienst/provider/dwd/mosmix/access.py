@@ -3,16 +3,16 @@
 # Distributed under the MIT License. See LICENSE for more info.
 # Source:
 # https://github.com/jlewis91/dwdbulk/blob/master/dwdbulk/api/forecasts.py
+import datetime as dt
 import logging
 from io import BytesIO
 from os.path import basename
-from typing import List
+from typing import Iterator, List
 
-import numpy as np
-import pandas as pd
+import polars as pl
+from backports.datetime_fromisoformat import MonkeyPatch
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse  # noqa: S410
-from pandas import DatetimeIndex
 from tqdm import tqdm
 
 from wetterdienst.settings import Settings
@@ -21,6 +21,7 @@ from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
+MonkeyPatch.patch_fromisoformat()
 log = logging.getLogger(__name__)
 
 
@@ -113,14 +114,14 @@ class KMLReader:
                     break
 
         self.metadata = {k: prod_definition.find(f"{{{nsmap['dwd']}}}{v}").text for k, v in prod_items.items()}
-        self.metadata["issue_time"] = pd.Timestamp(self.metadata["issue_time"])
+        self.metadata["issue_time"] = dt.datetime.fromisoformat(self.metadata["issue_time"])
 
         # Get time steps.
         timesteps = prod_definition.findall(
             "dwd:ForecastTimeSteps",
             nsmap,
         )[0]
-        self.timesteps = DatetimeIndex([pd.Timestamp(i.text) for i in timesteps.getchildren()])
+        self.timesteps = [dt.datetime.fromisoformat(i.text) for i in timesteps.getchildren()]
 
         # save namespace map for later iteration
         self.nsmap = nsmap
@@ -142,9 +143,9 @@ class KMLReader:
                     element.clear()
 
     def get_metadata(self):
-        return pd.DataFrame([self.metadata])
+        return pl.DataFrame([self.metadata])
 
-    def get_forecasts(self):
+    def get_forecasts(self) -> Iterator[pl.DataFrame]:
         for station_forecast in self.iter_items():
             station_ids = station_forecast.find("kml:name", self.nsmap).text
 
@@ -153,20 +154,15 @@ class KMLReader:
             data_dict = {"station_id": station_ids, "datetime": self.timesteps}
 
             for measurement_item in measurement_list:
-
                 measurement_parameter = measurement_item.get(f"{{{self.nsmap['dwd']}}}elementName")
-
                 if measurement_parameter.lower() in self.parameters:
                     measurement_string = measurement_item.getchildren()[0].text
-
                     measurement_values = " ".join(measurement_string.split()).split(" ")
-                    measurement_values = [np.nan if i == "-" else float(i) for i in measurement_values]
-
+                    measurement_values = [None if i == "-" else float(i) for i in measurement_values]
                     assert len(measurement_values) == len(  # noqa:S101
                         self.timesteps
                     ), "Number of time steps does not match number of measurement values"
-
                     data_dict[measurement_parameter.lower()] = measurement_values
 
             station_forecast.clear()
-            yield pd.DataFrame.from_dict(data_dict)
+            yield pl.DataFrame(data_dict)

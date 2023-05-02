@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import pytest
-
 from wetterdienst import boot
 
 boot.monkeypatch()
 
-import pandas as pd
+import polars as pl
+import pytest
 from fsspec.implementations.http import HTTPFileSystem
 
 from wetterdienst import Resolution
@@ -51,12 +50,15 @@ def test_compare_available_dwd_datasets(default_settings):
     )
     base_url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
     files = fs.expand_path(base_url, recursive=True, maxdepth=3)
-    df = pd.DataFrame({"files": files})
-    df.files = df.files.str[len(base_url) : -1]
+    df = pl.DataFrame({"files": files})
+    df = df.with_columns(pl.col("files").apply(lambda s: s[len(base_url) : -1]))
     # filter resolution folders
-    df = df.loc[df.files.str.count("/") == 1, :]
-    df.loc[:, ["resolution", "dataset"]] = df.pop("files").str.split("/").tolist()
-    for _, (resolution, dataset) in df.iterrows():
+    df = df.filter(pl.col("files").apply(lambda s: s.count("/")) == 1)
+    df = df.select(
+        pl.col("files").str.split("/").arr.first().alias("resolution"),
+        pl.col("files").str.split("/").arr.last().alias("dataset"),
+    )
+    for (resolution, dataset) in df.iter_rows():
         rd_pair = (resolution, dataset)
         if rd_pair in SKIP_DATASETS:
             continue

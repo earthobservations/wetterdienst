@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import json
 import logging
-from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Union
 
-import pandas as pd
+import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -60,6 +60,9 @@ class EaHydrologyParameter(DatasetTreeCore):
         GROUNDWATER_LEVEL = DAILY.GROUNDWATER_LEVEL
 
 
+PARAMETER_MAPPING = {"flow": "Water Flow", "groundwater_level": "Groundwater level"}
+
+
 class EaHydrologyUnit(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
         class MINUTE_15(UnitEnum):
@@ -85,45 +88,28 @@ class EaHydrologyValues(TimeseriesValues):
     _base_url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
     _data_tz = Timezone.UK
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         endpoint = self._base_url.format(station_id=station_id)
         payload = download_file(endpoint, self.sr.stations.settings, CacheExpiry.NO_CACHE)
-
         measures_list = json.loads(payload.read())["items"][0]["measures"]
-
-        if type(measures_list) == dict:
-            measures_list = [measures_list]
-
-        measures_list = pd.Series(measures_list)
-
-        measures_list = measures_list[
-            measures_list.map(
-                lambda measure: measure["parameterName"].lower().replace(" ", "")
-                == parameter.value.lower().replace("_", "")
-            )
-        ]
-
+        measures_list = pl.Series(name="measure", values=measures_list).to_frame()
+        measures_list = measures_list.filter(
+            pl.col("measure")
+            .apply(lambda measure: measure["parameterName"])
+            .str.to_lowercase()
+            .str.replace(" ", "")
+            .eq(parameter.value.lower().replace("_", ""))
+        )
         try:
-            measure_dict = measures_list[0]
+            measure_dict = measures_list.get_column("measure")[0]
         except IndexError:
-            return pd.DataFrame()
-
+            return pl.DataFrame()
         values_endpoint = f"{measure_dict['@id']}/readings.json"
-
         payload = download_file(values_endpoint, CacheExpiry.FIVE_MINUTES)
-
         readings = json.loads(payload.read())["items"]
-
-        df = pd.DataFrame.from_records(readings)
-
-        df[Columns.PARAMETER.value] = parameter.value
-
-        df = df.loc[:, ["parameter", "dateTime", "value"]]
-
-        return df.rename(columns={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
-
-    def fetch_dynamic_frequency(self, station_id, parameter, dataset):
-        return
+        df = pl.from_dicts(readings)
+        df = df.select(pl.lit(parameter.value).alias("parameter"), pl.col("dateTime"), pl.col("value"))
+        return df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
 
 
 class EaHydrologyRequest(TimeseriesRequest):
@@ -146,8 +132,8 @@ class EaHydrologyRequest(TimeseriesRequest):
         self,
         parameter: List[Union[str, EaHydrologyParameter, Parameter]],
         resolution: Union[str, EaHydrologyResolution, Resolution],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
         super(EaHydrologyRequest, self).__init__(
@@ -166,50 +152,31 @@ class EaHydrologyRequest(TimeseriesRequest):
         else:
             self._resolution_as_int = 86400
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
         Get stations listing UK environment agency data
         :return:
         """
-
-        def _check_parameter_and_period(
-            measures: Union[dict, List[dict]], resolution_as_int: int, parameters: List[str]
-        ):
-            # default: daily, for groundwater stations
-            if type(measures) != list:
-                measures = [measures]
-            return (
-                pd.Series(measures)
-                .map(
-                    lambda measure: measure.get("period", 86400) == resolution_as_int
-                    and measure["parameter"] in parameters
-                )
-                .any()
-            )
-
         log.info(f"Acquiring station listing from {self.endpoint}")
-
         response = download_file(self.endpoint, self.settings, CacheExpiry.FIVE_MINUTES)
-
         payload = json.loads(response.read())["items"]
-
-        df = pd.DataFrame.from_dict(payload)
-
-        parameters = [parameter.value for parameter, _ in self.parameter]
-
-        df.measures.apply(_check_parameter_and_period, resolution_as_int=self._resolution_as_int, parameters=parameters)
+        df = pl.DataFrame(payload).lazy()
         # filter for stations that have wanted resolution and parameter combinations
-        df = df[
-            df.measures.apply(
-                _check_parameter_and_period, resolution_as_int=self._resolution_as_int, parameters=parameters
-            )
-        ]
+        df_measures = (
+            df.select(pl.col("notation"), pl.col("measures"))
+            .explode("measures")
+            .with_columns(pl.col("measures").apply(lambda measure: measure["parameter"]))
+            .groupby("notation")
+            .agg(pl.col("measures").is_in(["flow", "level"]).any().alias("has_measures"))
+        )
+        df = df.join(df_measures.filter(pl.col("has_measures")), how="inner", on="notation")
+        df = df.rename(mapping={col: col.lower() for col in df.columns})
 
         return df.rename(
-            columns={
+            mapping={
                 "label": Columns.NAME.value,
                 "lat": Columns.LATITUDE.value,
                 "long": Columns.LONGITUDE.value,
                 "notation": Columns.STATION_ID.value,
             }
-        ).rename(columns=str.lower)
+        )

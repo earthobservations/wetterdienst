@@ -7,11 +7,11 @@ Library of generic components.
 Examples:
 - Different figures for different data types.
 """
-import pandas as pd
 import plotly.graph_objs as go
+import polars as pl
 
 
-def default_figure(climate_data: pd.DataFrame, parameter, resolution, unit_dict) -> go.Figure:
+def default_figure(climate_data: pl.DataFrame, parameter, resolution, unit_dict) -> go.Figure:
     """
     Default figure generation
     Args:
@@ -20,14 +20,22 @@ def default_figure(climate_data: pd.DataFrame, parameter, resolution, unit_dict)
     Returns:
         plotly Figure object
     """
-    if climate_data.empty:
+    if climate_data.is_empty():
         fig = go.Figure()
         add_annotation_no_data(fig)
         return fig
 
     ytitle = f"{parameter.lower()} [{unit_dict[resolution.lower()][parameter.lower()]['si']}]"
 
-    fig = go.Figure(data=[go.Scatter(x=climate_data.date, y=climate_data.value, hoverinfo="x+y")])
+    fig = go.Figure(
+        data=[
+            go.Scatter(
+                x=climate_data.get_column("date").to_list(),
+                y=climate_data.get_column("value").to_list(),
+                hoverinfo="x+y",
+            )
+        ]
+    )
     fig.update_layout(yaxis={"title": ytitle}, xaxis={"title": "Date"}, showlegend=False)
     return fig
 

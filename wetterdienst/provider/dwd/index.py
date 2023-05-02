@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import pandas as pd
+
+import polars as pl
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -16,7 +17,7 @@ from wetterdienst.util.network import list_remote_files_fsspec
 
 def _create_file_index_for_dwd_server(
     dataset: DwdObservationDataset, resolution: Resolution, period: Period, cdc_base: str, settings: Settings
-) -> pd.DataFrame:
+) -> pl.LazyFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as
     zipped/archived data. The file index is created for an individual set of parameters.
@@ -37,7 +38,7 @@ def _create_file_index_for_dwd_server(
     if not files_server:
         raise FileNotFoundError(f"url {url} does not have a list of files")
 
-    return pd.DataFrame(files_server, columns=["filename"], dtype=str)
+    return pl.DataFrame(files_server, schema={"filename": pl.Utf8}).lazy()
 
 
 def build_path_to_parameter(

@@ -2,10 +2,10 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import os
+from functools import partial
 from typing import Optional
 
-import pandas as pd
-from dateparser import parse
+import polars as pl
 
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -23,6 +23,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import (
+    RADAR_DT_PATTERN,
     RADOLAN_DT_PATTERN,
     get_date_from_filename,
 )
@@ -57,7 +58,7 @@ def create_fileindex_radar(
     resolution: Optional[Resolution] = None,
     period: Optional[Period] = None,
     parse_datetime: bool = False,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Function to create a file index of the DWD radar data, which is shipped as
     bin bufr or odim-hdf5 data. The file index is created for a single parameter.
@@ -76,7 +77,6 @@ def create_fileindex_radar(
     :return:                File index as pandas.DataFrame with FILENAME
                             and DATETIME columns
     """
-
     parameter_path = build_path_to_parameter(
         parameter=parameter,
         site=site,
@@ -85,36 +85,46 @@ def create_fileindex_radar(
         resolution=resolution,
         period=period,
     )
-
     url = f"https://opendata.dwd.de/{parameter_path}"
-
-    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.NO_CACHE)
-
-    files_server = pd.DataFrame(files_server, columns=["filename"], dtype="str")
+    files_serv = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.NO_CACHE)
+    df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.Utf8})
 
     # Some directories have both "---bin" and "---bufr" files within the same directory,
     # so we need to filter here by designated RadarDataFormat. Example:
     # https://opendata.dwd.de/weather/radar/sites/px/boo/
     if fmt is not None:
         if fmt == DwdRadarDataFormat.BINARY:
-            files_server = files_server[files_server["filename"].str.contains("--bin")]
+            df_fileindex = df_fileindex.filter(pl.col("filename").str.contains("--bin", literal=True))
         elif fmt == DwdRadarDataFormat.BUFR:
-            files_server = files_server[files_server["filename"].str.contains("--buf")]
+            df_fileindex = df_fileindex.filter(pl.col("filename").str.contains("--buf", literal=True))
 
     # Drop duplicates of files packed as .bz2, if not all files are .bz2
-    if not all(files_server["filename"].str.endswith(".bz2")):
-        files_server = files_server[~files_server["filename"].str.endswith(".bz2")]
+    if not df_fileindex.get_column("filename").str.ends_with(".bz2").all():
+        df_fileindex = df_fileindex.filter(~pl.col("filename").str.ends_with(".bz2"))
+
+    if parameter in RADAR_PARAMETERS_SWEEPS:
+        formats = [DatetimeFormat.YMDHM.value]
+    elif site and parameter is DwdRadarParameter.PX250_REFLECTIVITY:
+        formats = [DatetimeFormat.YMDHM.value]
+    elif site and fmt is DwdRadarDataFormat.BUFR:
+        formats = [DatetimeFormat.YMDHM.value]
+    else:
+        formats = [DatetimeFormat.ymdhm.value]
 
     # Decode datetime of file for filtering.
     if parse_datetime:
-        files_server["datetime"] = files_server["filename"].apply(get_date_from_filename)
+        df_fileindex = df_fileindex.with_columns(
+            pl.col("filename")
+            .apply(
+                partial(get_date_from_filename, pattern=RADAR_DT_PATTERN, formats=formats),
+            )
+            .alias("datetime")
+        )
 
-        return files_server.dropna()
-
-    return files_server
+    return df_fileindex.drop_nulls()
 
 
-def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, settings: Settings) -> pd.DataFrame:
+def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, settings: Settings) -> pl.DataFrame:
     """
     Function used to create a file index for the RADOLAN_CDC product. The file index
     will include both recent as well as historical files. A datetime column is created
@@ -127,24 +137,29 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
 
     :return:                File index as DataFrame
     """
-    file_index = create_fileindex_radar(
+    df_fileindex = create_fileindex_radar(
         parameter=DwdRadarParameter.RADOLAN_CDC, resolution=resolution, period=period, settings=settings
     )
 
-    file_index = file_index[
-        file_index["filename"].str.contains("/bin/")
-        & file_index["filename"].str.endswith((Extension.GZ.value, Extension.TAR_GZ.value))
-    ].copy()
-
-    # Decode datetime of file for filtering.
-    file_index["datetime"] = file_index["filename"].apply(
-        lambda filename: parse(
-            RADOLAN_DT_PATTERN.findall(filename)[0],
-            date_formats=[DatetimeFormat.YM.value, DatetimeFormat.ymdhm.value],
-        )
+    df_fileindex = df_fileindex.filter(
+        pl.col("filename").str.contains("/bin/", literal=True)
+        & (pl.col("filename").str.ends_with(Extension.GZ.value) | pl.col("filename").str.ends_with(Extension.TAR.value))
     )
 
-    return file_index
+    if period == Period.HISTORICAL:
+        formats = [DatetimeFormat.YM.value]
+    else:
+        formats = [DatetimeFormat.ymdhm.value]
+
+    df_fileindex = df_fileindex.with_columns(
+        pl.col("filename")
+        .apply(
+            partial(get_date_from_filename, pattern=RADOLAN_DT_PATTERN, formats=formats),
+        )
+        .alias("datetime")
+    )
+
+    return df_fileindex.drop_nulls()
 
 
 def build_path_to_parameter(

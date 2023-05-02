@@ -1,10 +1,8 @@
-from datetime import datetime
+import datetime as dt
 
-import pandas as pd
+import polars as pl
 import pytest
-import pytz
-from pandas import Timestamp
-from pandas._testing import assert_frame_equal
+from polars.testing import assert_frame_equal
 
 from wetterdienst import Period, Resolution
 from wetterdienst.exceptions import StartDateEndDateError
@@ -19,11 +17,11 @@ from wetterdienst.provider.dwd.observation import (
 
 @pytest.fixture
 def expected_stations_df():
-    return pd.DataFrame.from_records(
+    return pl.DataFrame(
         [
             (
                 "02480",
-                Timestamp("2004-09-01 00:00:00", tzinfo=pytz.UTC),
+                dt.datetime(2004, 9, 1, tzinfo=dt.timezone.utc),
                 108.0,
                 50.0643,
                 8.993,
@@ -33,7 +31,7 @@ def expected_stations_df():
             ),
             (
                 "04411",
-                Timestamp("2002-01-24 00:00:00", tzinfo=pytz.UTC),
+                dt.datetime(2002, 1, 24, tzinfo=dt.timezone.utc),
                 155.0,
                 49.9195,
                 8.9671,
@@ -43,7 +41,7 @@ def expected_stations_df():
             ),
             (
                 "07341",
-                Timestamp("2005-07-16 00:00:00", tzinfo=pytz.UTC),
+                dt.datetime(2005, 7, 16, tzinfo=dt.timezone.utc),
                 119.0,
                 50.0900,
                 8.7862,
@@ -52,7 +50,16 @@ def expected_stations_df():
                 12.891318342515483,
             ),
         ],
-        columns=["station_id", "from_date", "height", "latitude", "longitude", "name", "state", "distance"],
+        schema={
+            "station_id": pl.Utf8,
+            "from_date": pl.Datetime(time_zone="UTC"),
+            "height": pl.Float64,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "name": pl.Utf8,
+            "state": pl.Utf8,
+            "distance": pl.Float64,
+        },
     )
 
 
@@ -62,8 +69,8 @@ def default_request(default_settings):
         parameter="temperature_air",
         resolution="hourly",
         period="historical",
-        start_date=datetime(2020, 1, 1),
-        end_date=datetime(2020, 1, 20),
+        start_date=dt.datetime(2020, 1, 1),
+        end_date=dt.datetime(2020, 1, 20),
         settings=default_settings,
     )
 
@@ -205,8 +212,8 @@ def test_dwd_observation_data_dates(default_settings):
         period=[
             DwdObservationPeriod.HISTORICAL,
         ],
-        start_date=datetime(1971, 1, 1),
-        end_date=datetime(1971, 1, 1),
+        start_date=dt.datetime(1971, 1, 1),
+        end_date=dt.datetime(1971, 1, 1),
         settings=default_settings,
     ).filter_by_station_id(
         station_id=[1],
@@ -227,8 +234,8 @@ def test_dwd_observation_data_dates(default_settings):
         period=[
             "historical",
         ],
-        start_date=datetime(1971, 1, 1),
-        end_date=datetime(1971, 1, 1),
+        start_date=dt.datetime(1971, 1, 1),
+        end_date=dt.datetime(1971, 1, 1),
         settings=default_settings,
     ).filter_by_station_id(
         station_id=[1],
@@ -249,7 +256,7 @@ def test_dwd_observations_stations_filter_empty(default_request):
     # Existing combination of parameters
     request = default_request.filter_by_station_id(station_id=("FizzBuzz",))
     given_df = request.df
-    assert given_df.empty
+    assert given_df.is_empty()
 
 
 @pytest.mark.remote
@@ -257,7 +264,7 @@ def test_dwd_observations_stations_filter_name_empty(default_request):
     # Existing combination of parameters
     request = default_request.filter_by_name(name="FizzBuzz")
     given_df = request.df
-    assert given_df.empty
+    assert given_df.is_empty()
 
 
 def test_dwd_observations_multiple_datasets_tidy(default_settings):
@@ -286,9 +293,9 @@ def test_dwd_observation_stations_filter_by_rank_single(default_request, expecte
         rank=1,
     )
     given_df = request.df.drop(columns="to_date")
-    assert_frame_equal(given_df.iloc[[0], :], expected_stations_df.iloc[[0], :])
+    assert_frame_equal(given_df[0, :], expected_stations_df[0, :])
     values = request.values.all()
-    assert_frame_equal(values.df_stations.iloc[[0], :].drop(columns="to_date"), expected_stations_df.iloc[[0], :])
+    assert_frame_equal(values.df_stations[0, :].drop(columns="to_date"), expected_stations_df[0, :])
 
 
 @pytest.mark.remote
@@ -297,11 +304,9 @@ def test_dwd_observation_stations_filter_by_rank_multiple(default_request, expec
         latlon=(50.0, 8.9),
         rank=3,
     )
-    given_df = request.df.drop("to_date", axis="columns")
+    given_df = request.df.drop(columns="to_date")
     assert_frame_equal(
-        given_df.iloc[
-            :3,
-        ],
+        given_df.head(3),
         expected_stations_df,
     )
     values = request.values.all()
@@ -312,7 +317,7 @@ def test_dwd_observation_stations_filter_by_rank_multiple(default_request, expec
 def test_dwd_observation_stations_nearby_distance(default_request, expected_stations_df):
     # Kilometers
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=16.13, unit="km")
-    nearby_station = nearby_station.df.drop("to_date", axis="columns")
+    nearby_station = nearby_station.df.drop(columns="to_date")
     assert_frame_equal(nearby_station, expected_stations_df)
     # Miles
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=10.03, unit="mi")
@@ -323,7 +328,7 @@ def test_dwd_observation_stations_nearby_distance(default_request, expected_stat
 @pytest.mark.remote
 def test_dwd_observation_stations_bbox(default_request, expected_stations_df):
     nearby_station = default_request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0900)
-    nearby_station = nearby_station.df.drop("to_date", axis="columns")
+    nearby_station = nearby_station.df.drop(columns="to_date")
     assert_frame_equal(nearby_station, expected_stations_df.drop(columns=["distance"]))
 
 
@@ -335,7 +340,7 @@ def test_dwd_observation_stations_bbox_empty(default_request):
         bottom=-20,
         right=-90,
         top=-10,
-    ).df.empty
+    ).df.is_empty()
 
 
 @pytest.mark.remote

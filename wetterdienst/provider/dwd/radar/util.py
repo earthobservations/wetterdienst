@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import re
 from io import BytesIO
-
-import dateparser
-
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from typing import List, Optional
 
 # 6-character timestamps are used for data within "RADOLAN_CDC/historical".
 # Examples:
@@ -31,22 +29,22 @@ RADAR_DT_REGEX_MEDIUM = r"(?<!\d)\d{10}(?!\d)"
 RADAR_DT_REGEX_LONG = r"(?<!\d)\d{12}"
 
 
-RADAR_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}")
+RADAR_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}|{RADAR_DT_REGEX_SHORT}")
 RADOLAN_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_SHORT}|{RADAR_DT_REGEX_MEDIUM}")
 
 
-def get_date_from_filename(filename):
+def get_date_from_filename(filename: str, pattern: re.Pattern, formats: List[str]) -> Optional[dt.datetime]:
     try:
-        datestr = RADAR_DT_PATTERN.findall(filename)[0]
-        return dateparser.parse(
-            datestr,
-            date_formats=[
-                DatetimeFormat.ymdhm.value,
-                DatetimeFormat.YMDHM.value,
-            ],
-        )
+        date_string = pattern.findall(filename)[0]
     except IndexError:
-        pass
+        return None
+
+    for fmt in formats:
+        try:
+            return dt.datetime.strptime(date_string, fmt)
+        except ValueError:
+            pass
+    return None
 
 
 def verify_hdf5(buffer: BytesIO):

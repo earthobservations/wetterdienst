@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import re
-from datetime import datetime, timedelta
 
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
@@ -25,7 +25,7 @@ def test_radar_request_composite_latest_rv_reflectivity(default_settings, statio
     buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
-    month_year = datetime.utcnow().strftime("%m%y")
+    month_year = dt.datetime.utcnow().strftime("%m%y")
     header = (
         f"RV......10000{month_year}BY   2640...VS 5SW ........PR E-02INT   5GP1200x1100VV 000MF 00000008MS"
         f"...<{station_reference_pattern_sorted_prefixed}>"
@@ -58,7 +58,7 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": IsDatetime(approx=datetime.utcnow(), delta=timedelta(minutes=90)),
+            "datetime": IsDatetime(approx=dt.datetime.utcnow(), delta=dt.timedelta(minutes=90)),
             "formatversion": 3,
             "intervalseconds": 3600,
             "maxrange": "150 km",
@@ -101,7 +101,7 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings):
         {
             "bytes": IsInt(gt=0),
             "cluttermap": 0,
-            "datetime": IsDatetime(approx=datetime.utcnow().replace(tzinfo=None), delta=timedelta(minutes=65)),
+            "datetime": IsDatetime(approx=dt.datetime.utcnow().replace(tzinfo=None), delta=dt.timedelta(minutes=65)),
             "dopplerfilter": 4,
             "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
             "message": "",

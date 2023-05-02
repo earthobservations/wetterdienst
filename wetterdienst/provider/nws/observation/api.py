@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import json
 import logging
-from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Union
 
-import pandas as pd
+import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -99,43 +99,107 @@ class NwsObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
         response = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
 
         data = json.loads(response.read())
-        df = pd.DataFrame.from_records(data["features"])
 
-        if df.empty:
-            return pd.DataFrame()
+        try:
+            data = [feature["properties"] for feature in data["features"]]
+        except KeyError:
+            return pl.DataFrame()
 
-        df = df.properties.apply(pd.Series).rename(columns=str.lower)
+        df = pl.from_dicts(
+            data,
+            schema={
+                "station": pl.Utf8,
+                "timestamp": pl.Utf8,
+                "temperature": pl.Struct(
+                    [
+                        pl.Field("value", pl.Float64),
+                    ]
+                ),
+                "dewpoint": pl.Struct(
+                    [
+                        pl.Field("value", pl.Float64),
+                    ]
+                ),
+                "windDirection": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "windSpeed": pl.Struct(
+                    [
+                        pl.Field("value", pl.Float64),
+                    ]
+                ),
+                "windGust": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int32),
+                    ]
+                ),
+                "barometricPressure": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "seaLevelPressure": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "visibility": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "maxTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
+                "minTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
+                "precipitationLastHour": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "precipitationLast3Hours": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "precipitationLast6Hours": pl.Struct(
+                    [
+                        pl.Field("value", pl.Int64),
+                    ]
+                ),
+                "relativeHumidity": pl.Struct(
+                    [
+                        pl.Field("value", pl.Float64),
+                    ]
+                ),
+                "windChill": pl.Struct(
+                    [
+                        pl.Field("value", pl.Float64),
+                    ]
+                ),
+            },
+        )
 
-        parameters = {par.value for par in NwsObservationParameter.HOURLY.HOURLY}
-        parameters.add("cloudlayers")
-        parameters = parameters.intersection(df.columns)
+        df = df.rename(mapping={col: col.lower() for col in df.columns})
+        df = df.rename(mapping={"station": Columns.STATION_ID.value, "timestamp": Columns.DATE.value})
 
-        df = df.loc[:, ["station", "timestamp", *parameters]].melt(
-            id_vars=["timestamp"],
-            var_name=Columns.PARAMETER.value,
+        df = df.melt(
+            id_vars=[Columns.STATION_ID.value, Columns.DATE.value],
+            variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
-            value_vars=parameters,
         )
-
-        cloud_mask = df.parameter == "cloudlayers"
-        df_cloud = df.loc[cloud_mask, :].explode("value")
-        df = df.loc[~cloud_mask, :]
-        df.value = df.value.map(lambda x: x["value"])
-        df_cloud_parameters = df_cloud.pop("value").apply(pd.Series)
-        df_cloud = pd.concat([df_cloud, df_cloud_parameters], axis=1)
-        df_cloud = df_cloud.melt(
-            id_vars=["timestamp"], var_name=Columns.PARAMETER.value, value_vars=["base"], value_name=Columns.VALUE.value
+        df = df.filter(pl.col("parameter").ne("cloudlayers"))
+        return df.with_columns(
+            pl.col("date").apply(dt.datetime.fromisoformat).cast(pl.Datetime(time_zone="UTC")),
+            pl.col("value").apply(lambda value: value["value"]).cast(pl.Float64),
+            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
-        df_cloud.parameter = df_cloud.parameter.map({"base": "cloud_base_m"})
-        df_cloud.value = df_cloud.value.map(lambda x: x["value"] if type(x) == dict else x)
-        df = pd.concat([df, df_cloud], ignore_index=True)
-        return df.rename(columns={"timestamp": Columns.DATE.value})
 
 
 class NwsObservationRequest(TimeseriesRequest):
@@ -157,8 +221,8 @@ class NwsObservationRequest(TimeseriesRequest):
     def __init__(
         self,
         parameter: List[Union[str, NwsObservationParameter, Parameter]],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
         super(NwsObservationRequest, self).__init__(
@@ -179,17 +243,20 @@ class NwsObservationRequest(TimeseriesRequest):
             }
         )
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         response = download_file(self._endpoint, self.settings, CacheExpiry.METAINDEX)
-        df = pd.read_csv(response, header=None, sep="\t")
-        mask_us = df.iloc[:, 6] == "US"
-        df = df.loc[mask_us, 1:5]
-        df.columns = [
-            Columns.STATION_ID.value,
-            Columns.LATITUDE.value,
-            Columns.LONGITUDE.value,
-            Columns.HEIGHT.value,
-            Columns.NAME.value,
-        ]
-        mask_geo = (df.longitude < 0) & (df.latitude > 0)  # limit stations to those actually (approx) in the US area
-        return df[mask_geo]
+        df = pl.read_csv(source=response, has_header=False, separator="\t").lazy()
+        df = df.filter(pl.col("column_7").eq("US"))
+        df = df.select(
+            pl.col("column_2"), pl.col("column_3"), pl.col("column_4"), pl.col("column_5"), pl.col("column_6")
+        )
+        df = df.rename(
+            mapping={
+                "column_2": Columns.STATION_ID.value,
+                "column_3": Columns.LATITUDE.value,
+                "column_4": Columns.LONGITUDE.value,
+                "column_5": Columns.HEIGHT.value,
+                "column_6": Columns.NAME.value,
+            }
+        )
+        return df.filter(pl.col("longitude").lt(0) & pl.col("latitude").gt(0))

@@ -7,6 +7,7 @@ from io import BytesIO
 from typing import List, Tuple
 from zipfile import BadZipFile
 
+import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
 from requests.exceptions import InvalidURL
 
@@ -17,7 +18,7 @@ from wetterdienst.util.network import download_file
 
 
 def download_climate_observations_data_parallel(
-    remote_files: List[str], settings: Settings
+    remote_files: pl.Series, settings: Settings
 ) -> List[Tuple[str, BytesIO]]:
     """
     Wrapper for ``_download_dwd_data`` to provide a multiprocessing feature.

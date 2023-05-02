@@ -17,7 +17,6 @@ REGISTRY.define("one_eighth = 0.125 frac = 1/8")
 REGISTRY.define("beaufort = 1 frac = bft")
 REGISTRY.define("significant_weather = 1frac = sign [0..95]")
 REGISTRY.define("@alias degree = wind_direction = []")
-REGISTRY.define("siemens = 1 kg**-1 * m**−2 s**3 A**2 = S")
 REGISTRY.define("nephelometric_turbidity = 1 = NTU")  # turbidity unit, not actually convertable to any SI unit
 REGISTRY.define("magnetic_field_strength = 1 A / m = MGN")
 

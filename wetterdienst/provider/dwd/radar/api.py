@@ -2,22 +2,24 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import bz2
+import datetime as dt
 import gzip
 import logging
 import re
 import tarfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Generator, Optional, Union
 
-import pandas as pd
+import polars as pl
+from backports.datetime_fromisoformat import MonkeyPatch
 from fsspec.implementations.tar import TarFileSystem
 
 from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,
@@ -34,7 +36,7 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarParameter,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
-from wetterdienst.provider.dwd.radar.util import get_date_from_filename, verify_hdf5
+from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_from_filename, verify_hdf5
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
@@ -42,6 +44,7 @@ from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
+MonkeyPatch.patch_fromisoformat()
 log = logging.getLogger(__name__)
 
 
@@ -53,7 +56,7 @@ class RadarResult:
     """
 
     data: BytesIO
-    timestamp: datetime = None
+    timestamp: dt.datetime = None
     url: str = None
     filename: str = None
 
@@ -95,8 +98,8 @@ class DwdRadarValues:
         fmt: Optional[DwdRadarDataFormat] = None,
         subset: Optional[DwdRadarDataSubset] = None,
         elevation: Optional[int] = None,
-        start_date: Optional[Union[str, datetime, DwdRadarDate]] = None,
-        end_date: Optional[Union[str, datetime, timedelta]] = None,
+        start_date: Optional[Union[str, dt.datetime, DwdRadarDate]] = None,
+        end_date: Optional[Union[str, dt.datetime, dt.timedelta]] = None,
         resolution: Optional[Union[str, Resolution, DwdRadarResolution]] = None,
         period: Optional[Union[str, Period, DwdRadarPeriod]] = None,
         settings: Optional[Settings] = None,
@@ -168,16 +171,19 @@ class DwdRadarValues:
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
         if fmt == DwdRadarDataFormat.HDF5 and start_date == DwdRadarDate.MOST_RECENT:
-            start_date = datetime.utcnow() - timedelta(minutes=5)
+            start_date = dt.datetime.utcnow() - dt.timedelta(minutes=5)
             end_date = None
 
         if start_date == DwdRadarDate.MOST_RECENT and parameter == DwdRadarParameter.RADOLAN_CDC:
-            start_date = datetime.utcnow() - timedelta(minutes=50)
+            start_date = dt.datetime.utcnow() - dt.timedelta(minutes=50)
             end_date = None
 
         # Evaluate "RadarDate.CURRENT" for "start_date".
         if start_date == DwdRadarDate.CURRENT:
-            start_date = datetime.utcnow()
+            start_date = dt.datetime.utcnow()
+            if parameter == DwdRadarParameter.RADOLAN_CDC:
+                if start_date.minute < 20:
+                    start_date = start_date - dt.timedelta(hours=1)
             end_date = None
 
         # Evaluate "RadarDate.LATEST" for "start_date".
@@ -187,10 +193,12 @@ class DwdRadarValues:
 
         # Evaluate any datetime for "start_date".
         else:
-            self.start_date = pd.to_datetime(start_date, infer_datetime_format=True)
+            if isinstance(start_date, str):
+                start_date = dt.datetime.fromisoformat(start_date)
             if end_date:
                 if isinstance(end_date, str):
-                    end_date = pd.to_datetime(end_date, infer_datetime_format=True)
+                    end_date = dt.datetime.fromisoformat(end_date)
+            self.start_date = start_date
             self.end_date = end_date
             self.adjust_datetimes()
 
@@ -236,18 +244,17 @@ class DwdRadarValues:
         """
 
         if self.parameter == DwdRadarParameter.RADOLAN_CDC or self.parameter in RADAR_PARAMETERS_RADOLAN:
-
             # Align "start_date" to the most recent 50 minute mark available.
             self.start_date = raster_minutes(self.start_date, 50)
 
             # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, timedelta):
+            if isinstance(self.end_date, dt.timedelta):
                 self.end_date = self.start_date + self.end_date
 
             # Use "end_date = start_date" to make the machinery
             # pick a single file from the fileindex.
-            if self.end_date is None:
-                self.end_date = self.start_date + timedelta(microseconds=1)
+            if not self.end_date:
+                self.end_date = self.start_date + dt.timedelta(microseconds=1)
 
         elif self.parameter == DwdRadarParameter.RQ_REFLECTIVITY:
 
@@ -255,25 +262,24 @@ class DwdRadarValues:
             self.start_date = round_minutes(self.start_date, 15)
 
             # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, timedelta):
-                self.end_date = self.start_date + self.end_date
+            if isinstance(self.end_date, dt.timedelta):
+                self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
 
             # Expand "end_date" to the end of the 5 minute mark.
             if self.end_date is None:
-                self.end_date = self.start_date + timedelta(minutes=15)
+                self.end_date = self.start_date + dt.timedelta(minutes=15) - dt.timedelta(seconds=1)
 
         else:
-
             # Align "start_date" to the 5 minute mark before tm.
             self.start_date = round_minutes(self.start_date, 5)
 
             # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, timedelta):
-                self.end_date = self.start_date + self.end_date
+            if isinstance(self.end_date, dt.timedelta):
+                self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
 
             # Expand "end_date" to the end of the 5 minute mark.
             if self.end_date is None:
-                self.end_date = self.start_date + timedelta(minutes=5)
+                self.end_date = self.start_date + dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
 
     def query(self) -> Generator[RadarResult, None, None]:
         """
@@ -290,8 +296,11 @@ class DwdRadarValues:
             )
 
             # Find "-latest-" or "LATEST" or similar file.
-            filenames = file_index["filename"].tolist()
-            latest_file = list(filter(lambda x: "latest" in x.lower(), filenames))[0]
+            latest_file = (
+                file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
+                .get_column("filename")
+                .item()
+            )
 
             # Yield single "RadarResult" item.
             result = next(self._download_generic_data(url=latest_file))
@@ -318,28 +327,28 @@ class DwdRadarValues:
 
                     # Filter for dates range if start_date and end_date are defined.
                     if period == Period.RECENT:
-                        file_index = file_index[
-                            (file_index["datetime"] >= self.start_date) & (file_index["datetime"] < self.end_date)
-                        ]
+                        file_index = file_index.filter(
+                            pl.col("datetime").is_between(self.start_date, self.end_date, closed="both")
+                        )
 
                     # This is for matching historical data, e.g. "RW-200509.tar.gz".
                     else:
-                        file_index = file_index[
-                            (file_index["datetime"].dt.year == self.start_date.year)
-                            & (file_index["datetime"].dt.month == self.start_date.month)
-                        ]
+                        file_index = file_index.filter(
+                            pl.col("datetime").dt.year().eq(self.start_date.year)
+                            & pl.col("datetime").dt.month().eq(self.start_date.month)
+                        )
 
                     results.append(file_index)
 
-                file_index = pd.concat(results)
+                file_index = pl.concat(results)
 
-                if file_index.empty:
+                if file_index.is_empty():
                     # TODO: Extend this log message.
                     log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
                     return
 
                 # Iterate list of files and yield "RadarResult" items.
-                for _, row in file_index.iterrows():
+                for row in file_index.iter_rows(named=True):
                     url = row["filename"]
                     try:
                         yield from self._download_radolan_data(url, self.start_date, self.end_date)
@@ -357,26 +366,25 @@ class DwdRadarValues:
                 )
 
                 # Filter for dates range if start_date and end_date are defined.
-                file_index = file_index[
-                    (file_index["datetime"] >= self.start_date) & (file_index["datetime"] < self.end_date)
-                ]
+                file_index = file_index.filter(
+                    pl.col("datetime").is_between(self.start_date, self.end_date, closed="both")
+                )
 
                 # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
                 if self.elevation is not None:
-                    filename = file_index["filename"]
-                    file_index = file_index[
-                        (filename.str.contains(f"vradh_{self.elevation:02d}"))
-                        | (filename.str.contains(f"sweep_vol_v_{self.elevation}"))
-                        | (filename.str.contains(f"dbzh_{self.elevation:02d}"))
-                        | (filename.str.contains(f"sweep_vol_z_{self.elevation}"))
-                    ]
+                    file_index = file_index.filter(
+                        pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
+                        | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
+                        | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
+                        | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}")
+                    )
 
-                if file_index.empty:
+                if file_index.is_empty():
                     log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
                     return
 
                 # Iterate list of files and yield "RadarResult" items.
-                for _, row in file_index.iterrows():
+                for row in file_index.iter_rows(named=True):
                     date_time = row["datetime"]
                     url = row["filename"]
 
@@ -431,7 +439,9 @@ class DwdRadarValues:
 
                 yield RadarResult(
                     data=BytesIO(tfs.open(file).read()),
-                    timestamp=get_date_from_filename(file_name),
+                    timestamp=get_date_from_filename(
+                        file_name, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+                    ),
                     filename=file_name,
                 )
 
@@ -439,16 +449,32 @@ class DwdRadarValues:
         elif url.endswith(Extension.BZ2.value):
             with bz2.BZ2File(data, mode="rb") as archive:
                 data = BytesIO(archive.read())
-                yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
+                yield RadarResult(
+                    url=url,
+                    data=data,
+                    timestamp=get_date_from_filename(
+                        url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+                    ),
+                )
 
         # RADAR_PARAMETERS_RADVOR
         elif url.endswith(Extension.GZ.value):
             with gzip.GzipFile(fileobj=data, mode="rb") as archive:
                 data = BytesIO(archive.read())
-                yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
+                yield RadarResult(
+                    url=url,
+                    data=data,
+                    timestamp=get_date_from_filename(
+                        url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+                    ),
+                )
 
         else:
-            yield RadarResult(url=url, data=data, timestamp=get_date_from_filename(url))
+            yield RadarResult(
+                url=url,
+                data=data,
+                timestamp=get_date_from_filename(url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]),
+            )
 
     def _download_radolan_data(self, url: str, start_date, end_date) -> Generator[RadarResult, None, None]:
         """
@@ -469,7 +495,7 @@ class DwdRadarValues:
             if not result.timestamp:
                 # if result has no timestamp, take it from main url instead of files in archive
                 datetime_string = re.findall(r"\d{10}", url)[0]
-                date_time = datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
+                date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
                 result.timestamp = date_time
             if result.timestamp < start_date or result.timestamp > end_date:
                 continue
@@ -508,7 +534,7 @@ class DwdRadarValues:
 
             for file in tfs.glob("*"):
                 datetime_string = re.findall(r"\d{10}", file)[0]
-                date_time = datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
+                date_time = dt.datetime.strptime("20" + datetime_string, "%Y%m%d%H%M")
                 file_in_bytes = tfs.tar.extractfile(file).read()
 
                 yield RadarResult(

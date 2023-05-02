@@ -29,10 +29,10 @@ def test_api_skip_empty_stations(settings_skip_empty_true, ts_skip_criteria, exp
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
     values = request.values.all()
     assert (
-        values.df.station_id.iloc[0] != request.df.station_id.iloc[0]
+        values.df.get_column("station_id").take(0).to_list() != request.df.get_column("station_id").take(0).to_list()
     )  # not supposed to be the first station of the list
-    assert values.df.station_id.unique().tolist() == expected_stations
-    assert values.df_stations.station_id.tolist() == expected_stations
+    assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_stations
+    assert values.df_stations.get_column("station_id").to_list() == expected_stations
 
 
 @pytest.mark.remote
@@ -57,18 +57,18 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(s
 
     settings_skip_empty_true.ts_skip_criteria = "min"
     values = _get_values(settings_skip_empty_true)
-    assert values.df.station_id.unique().tolist() == expected_station
-    assert values.df_stations.station_id.tolist() == expected_station
+    assert values.df.get_column("station_id").unique().to_list() == expected_station
+    assert values.df_stations.get_column("station_id").to_list() == expected_station
 
     settings_skip_empty_true.ts_skip_criteria = "mean"
     values = _get_values(settings_skip_empty_true)
-    assert values.df.station_id.unique().tolist() == expected_station
-    assert values.df_stations.station_id.tolist() == expected_station
+    assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
+    assert values.df_stations.get_column("station_id").to_list() == expected_station
 
     settings_skip_empty_true.ts_skip_criteria = "max"
     values = _get_values(settings_skip_empty_true)
-    assert values.df.station_id.unique().tolist() == expected_station
-    assert values.df_stations.station_id.tolist() == expected_station
+    assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
+    assert values.df_stations.get_column("station_id").to_list() == expected_station
 
 
 @pytest.mark.remote

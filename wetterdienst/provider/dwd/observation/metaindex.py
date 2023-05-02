@@ -8,7 +8,7 @@ from functools import partial
 from io import BytesIO, StringIO
 from typing import List, Tuple
 
-import pandas as pd
+import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
 from requests.exceptions import InvalidURL
 
@@ -21,10 +21,20 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
 )
-from wetterdienst.provider.dwd.observation.parser import DWD_TO_ENGLISH_COLUMNS_MAPPING
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
+
+DWD_COLUMN_NAMES_MAPPING = {
+    "0": Columns.STATION_ID.value,
+    "1": Columns.FROM_DATE.value,
+    "2": Columns.TO_DATE.value,
+    "3": Columns.HEIGHT.value,
+    "4": Columns.LATITUDE.value,
+    "5": Columns.LONGITUDE.value,
+    "6": Columns.NAME.value,
+    "7": Columns.STATE.value,
+}
 
 METADATA_COLUMNS = [
     Columns.STATION_ID.value,
@@ -42,7 +52,7 @@ STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 
 def create_meta_index_for_climate_observations(
     dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
-) -> pd.DataFrame:
+) -> pl.LazyFrame:
     """
     Wrapper function that either calls the regular meta index function for general
     parameters or the special function for 1minute precipitation historical where meta
@@ -75,24 +85,31 @@ def create_meta_index_for_climate_observations(
 
     # If no state column available, take state information from daily historical
     # precipitation
-    if Columns.STATE.value not in meta_index:
+    if cond1:
         mdp = _create_meta_index_for_climate_observations(
             DwdObservationDataset.PRECIPITATION_MORE, Resolution.DAILY, Period.HISTORICAL, settings=settings
         )
 
-        meta_index = pd.merge(
-            left=meta_index,
-            right=mdp.loc[:, [Columns.STATION_ID.value, Columns.STATE.value]],
+        meta_index = meta_index.join(
+            other=mdp.select([Columns.STATION_ID.value, Columns.STATE.value]),
             on=[Columns.STATION_ID.value],
             how="left",
         )
 
-    return meta_index.sort_values(Columns.STATION_ID.value).reset_index(drop=True)
+    meta_index = meta_index.with_columns(
+        pl.col(Columns.FROM_DATE.value).str.strptime(pl.Datetime, "%Y%m%d"),
+        pl.col(Columns.TO_DATE.value).str.strptime(pl.Datetime, "%Y%m%d"),
+        pl.col(Columns.HEIGHT.value).cast(pl.Float64),
+        pl.col(Columns.LATITUDE.value).cast(pl.Float64),
+        pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
+    )
+
+    return meta_index.sort(by=[pl.col(Columns.STATION_ID.value)])
 
 
 def _create_meta_index_for_climate_observations(
     dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
-) -> pd.DataFrame:
+) -> pl.LazyFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
 
@@ -149,35 +166,35 @@ def _find_meta_file(files: List[str], url: str, strings: List[str]) -> str:
     raise MetaFileNotFound(f"No meta file was found amongst the files at {url}.")
 
 
-def _read_meta_df(file: BytesIO) -> pd.DataFrame:
-    """Read metadata into pandas.DataFrame
+def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
+    """Read metadata into DataFrame
     :param file: metadata file loaded in bytes
-    :return: pandas.DataFrame with Stations
+    :return: DataFrame with Stations
     """
-    df = pd.read_fwf(
-        filepath_or_buffer=file,
-        colspecs=[
-            (0, 5),
-            (5, 14),
-            (14, 23),
-            (23, 38),
-            (38, 50),
-            (50, 60),
-            (60, 102),
-            (102, 200),
-        ],
-        skiprows=[1],
-        dtype=str,
-        encoding="latin-1",
-    )
+    df = pl.read_csv(source=file, skip_rows=2, encoding="latin-1", has_header=False).lazy()
 
-    # Fix column names, as header is not aligned to fixed column widths
-    df.columns = "".join([column for column in df.columns if "unnamed" not in column.lower()]).split(" ")
+    colspecs = [
+        (0, 5),
+        (6, 8),
+        (15, 9),
+        (23, 15),
+        (38, 12),
+        (50, 10),
+        (60, 42),
+        (102, 98),
+    ]
 
-    return df.rename(columns=str.lower).rename(columns=DWD_TO_ENGLISH_COLUMNS_MAPPING)
+    df = df.with_columns(
+        [
+            pl.col("column_1").str.slice(slice_tuple[0], slice_tuple[1]).str.strip().alias(str(i))
+            for i, slice_tuple in enumerate(colspecs)
+        ]
+    ).drop("column_1")
+
+    return df.rename(mapping={k: v for k, v in DWD_COLUMN_NAMES_MAPPING.items() if k in df.columns})
 
 
-def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pd.DataFrame:
+def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pl.LazyFrame:
     """Create metadata DataFrame for subdaily wind extreme
 
     :param period: period for which metadata is acquired
@@ -206,12 +223,12 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     df_fx3 = _read_meta_df(meta_file_fx3)
     df_fx6 = _read_meta_df(meta_file_fx6)
 
-    df_fx6 = df_fx6.loc[df_fx6[Columns.STATION_ID.value].isin(df_fx3[Columns.STATION_ID.value].tolist()), :]
+    df_fx6 = df_fx6.join(df_fx3.get_column(Columns.STATION_ID.value), on=[Columns.STATION_ID.value], how="inner")
 
-    return pd.concat([df_fx3, df_fx6])
+    return pl.concat([df_fx3, df_fx6])
 
 
-def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) -> pd.DataFrame:
+def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) -> pl.LazyFrame:
     """
     A helping function to create a raw index of metadata for stations_result of the set of
     parameters as given. This raw metadata is then used by other functions. This
@@ -221,40 +238,32 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     - especially for precipitation/1_minute/historical!
 
     """
-
     parameter_path = f"{Resolution.MINUTE_1.value}/" f"{DwdObservationDataset.PRECIPITATION.value}/"
-
     url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}/meta_data/"
-
     metadata_file_paths = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
-
     station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
-
-    meta_index_df = pd.DataFrame(columns=METADATA_COLUMNS)
 
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
             partial(_download_metadata_file_for_1minute_precipitation, settings=settings), metadata_file_paths
         )
 
-    with ThreadPoolExecutor() as executor:
-        metadata_dfs = executor.map(_parse_geo_metadata, zip(metadata_files, station_ids))
+    metadata_dfs = [_parse_geo_metadata((file, station_id)) for file, station_id in zip(metadata_files, station_ids)]
 
-    meta_index_df = pd.concat([meta_index_df] + list(metadata_dfs), ignore_index=True)
+    meta_index_df = pl.concat(list(metadata_dfs))
 
-    missing_to_date_index = meta_index_df[Columns.TO_DATE.value].isnull()
-
-    meta_index_df.loc[missing_to_date_index, Columns.TO_DATE.value] = pd.Timestamp(
-        dt.date.today() - dt.timedelta(days=1)
-    ).strftime("%Y%m%d")
+    meta_index_df = meta_index_df.with_columns(
+        pl.when(pl.col(Columns.TO_DATE.value).str.strip() == "")
+        .then((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d"))
+        .otherwise(pl.col(Columns.TO_DATE.value))
+        .alias(Columns.TO_DATE.value)
+    )
 
     # Drop empty state column again as it will be merged later on
-    meta_index_df = meta_index_df.drop(columns=[Columns.STATE.value])
+    meta_index_df = meta_index_df.select(pl.exclude(Columns.STATE.value))
 
     # Make station id str
-    meta_index_df[Columns.STATION_ID.value] = meta_index_df[Columns.STATION_ID.value].str.pad(5, "left", "0")
-
-    return meta_index_df
+    return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.rjust(5, "0"))
 
 
 def _download_metadata_file_for_1minute_precipitation(metadata_file: str, settings: Settings) -> BytesIO:
@@ -277,7 +286,7 @@ def _download_metadata_file_for_1minute_precipitation(metadata_file: str, settin
         raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 
 
-def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd.DataFrame:
+def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pl.LazyFrame:
     """A function that analysis the given file (bytes) and extracts geography of
     1minute metadata zip and catches the relevant information and create a similar file
     to those that can usually be found already prepared for other
@@ -293,24 +302,32 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pd
     """
     metadata_file, station_id = metadata_file_and_station_id
 
-    metadata_geo_filename = f"Metadaten_Geographie_{station_id}.txt"
-
     zfs = ZipFileSystem(metadata_file, mode="r")
 
-    file = zfs.open(metadata_geo_filename).read()
+    file = zfs.open(f"Metadaten_Geographie_{station_id}.txt").read()
 
     df = _parse_zipped_data_into_df(file)
 
-    df = df.rename(columns=str.lower).rename(columns=DWD_TO_ENGLISH_COLUMNS_MAPPING)
+    df = df.rename(
+        mapping={
+            "Stations_id": Columns.STATION_ID.value,
+            "Stationshoehe": Columns.HEIGHT.value,
+            "Geogr.Breite": Columns.LATITUDE.value,
+            "Geogr.Laenge": Columns.LONGITUDE.value,
+            "von_datum": Columns.FROM_DATE.value,
+            "bis_datum": Columns.TO_DATE.value,
+            "Stationsname": Columns.NAME.value,
+        }
+    )
 
-    df[Columns.FROM_DATE.value] = df.loc[0, Columns.FROM_DATE.value]
+    df = df.with_columns(pl.col(Columns.FROM_DATE.value).first().cast(str), pl.col(Columns.TO_DATE.value).cast(str))
 
-    df = df.iloc[[-1], :]
+    df = df.last()
 
-    return df.reindex(columns=METADATA_COLUMNS)
+    return df.select([col for col in METADATA_COLUMNS if col != Columns.STATE.value])
 
 
-def _parse_zipped_data_into_df(file: bytes) -> pd.DataFrame:
+def _parse_zipped_data_into_df(file: bytes) -> pl.LazyFrame:
     """A wrapper for read_csv of pandas library that has set the typically used
     parameters in the found data of the
     german weather service.
@@ -327,10 +344,8 @@ def _parse_zipped_data_into_df(file: bytes) -> pd.DataFrame:
     except UnicodeDecodeError:
         file_decoded = file.decode("ISO-8859-1")
 
-    return pd.read_csv(
-        filepath_or_buffer=StringIO(file_decoded),
-        sep=";",
-        na_values="-999",
-        dtype=str,
-        skipinitialspace=True,
-    )
+    return pl.read_csv(
+        source=StringIO(file_decoded),
+        separator=";",
+        null_values=["-999"],
+    ).lazy()

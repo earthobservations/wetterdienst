@@ -2,6 +2,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """ tests for file index creation """
+import polars as pl
 import pytest
 
 from wetterdienst.metadata.period import Period
@@ -25,9 +26,9 @@ def test_file_index_creation_success(default_settings):
         DwdObservationResolution.DAILY,
         DwdObservationPeriod.RECENT,
         settings=default_settings,
-    )
-    assert not file_index.empty
-    assert file_index.loc[file_index["station_id"] == "01048", "filename",].values.tolist() == [
+    ).collect()
+    assert not file_index.is_empty()
+    assert file_index.filter(pl.col("station_id").eq("01048")).get_column("filename").to_list() == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
         "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
     ]
@@ -41,9 +42,9 @@ def test_file_index_creation_precipitation_minute_1(default_settings):
         DwdObservationResolution.MINUTE_1,
         DwdObservationPeriod.HISTORICAL,
         settings=default_settings,
-    )
-    assert not file_index.empty
-    assert "00000" not in file_index["station_id"].values
+    ).collect()
+    assert not file_index.is_empty()
+    assert "00000" not in file_index.get_column("station_id")
 
 
 @pytest.mark.remote
@@ -62,7 +63,7 @@ def test_create_file_list_for_dwd_server(default_settings):
         resolution=DwdObservationResolution.DAILY,
         period=DwdObservationPeriod.RECENT,
         settings=default_settings,
-    )
+    ).to_list()
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "daily/kl/recent/tageswerte_KL_01048_akt.zip"
@@ -75,7 +76,7 @@ def test_create_file_list_for_dwd_server(default_settings):
         period=Period.HISTORICAL,
         date_range="19930428_19991231",
         settings=default_settings,
-    )
+    ).to_list()
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "10_minutes/air_temperature/historical/"

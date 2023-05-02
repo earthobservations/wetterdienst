@@ -4,9 +4,11 @@
 import datetime as dt
 from enum import Enum
 from typing import List, Optional, Union
+from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
-from pandas.tseries.offsets import YearEnd
+import polars as pl
 from timezonefinder import TimezoneFinder
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -43,16 +45,13 @@ class NoaaGhcnPeriod(Enum):
 
 class NoaaGhcnValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
-
     _base_url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
-
     # use to get timezones from stations_result
     _tf = TimezoneFinder()
-
     # multiplication factors
     _mp_factors = PARAMETER_MULTIPLICATION_FACTORS
 
-    def _collect_station_parameter(self, station_id: str, parameter, dataset) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter, dataset) -> pl.DataFrame:
         """
         Collection method for NOAA GHCN data. Parameter and dataset can be ignored as data
         is provided as a whole.
@@ -64,22 +63,45 @@ class NoaaGhcnValues(TimeseriesValues):
         """
         url = self._base_url.format(station_id=station_id)
         file = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
-        df = pd.read_csv(file, sep=",", header=None, dtype=str, compression="gzip")
-        df = df.iloc[:, :4]
-        df.columns = [Columns.STATION_ID.value, Columns.DATE.value, Columns.PARAMETER.value, Columns.VALUE.value]
-        df[Columns.PARAMETER.value] = df.loc[:, Columns.PARAMETER.value].str.lower()
-        df = df.loc[
-            ~df[Columns.PARAMETER.value].isin(
+        df = pl.read_csv(
+            source=file, separator=",", has_header=False, infer_schema_length=0, storage_options={"compression": "gzip"}
+        )
+        df = df.rename(
+            mapping={
+                "column_1": Columns.STATION_ID.value,
+                "column_2": Columns.DATE.value,
+                "column_3": Columns.PARAMETER.value,
+                "column_4": Columns.VALUE.value,
+            }
+        )
+        time_zone = self._get_timezone_from_station(station_id)
+        df = df.with_columns(
+            pl.col(Columns.DATE.value)
+            .str.strptime(pl.Datetime, fmt="%Y%m%d")
+            .apply(lambda date: date.replace(tzinfo=ZoneInfo(time_zone))),
+            pl.col(Columns.PARAMETER.value).str.to_lowercase(),
+            pl.col(Columns.VALUE.value).cast(float),
+            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        )
+        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
+        df = df.filter(
+            ~pl.col(Columns.PARAMETER.value).is_in(
                 (
                     NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,
                     NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX_1MILE_OR_1MIN.value,
                 )
-            ),
-            :,
-        ]
-        return self._apply_factors(df)
+            )
+        )
+        df = self._apply_factors(df)
+        return df.select(
+            pl.col(Columns.STATION_ID.value),
+            pl.col(Columns.DATE.value),
+            pl.col(Columns.PARAMETER.value),
+            pl.col(Columns.VALUE.value),
+            pl.col(Columns.QUALITY.value),
+        )
 
-    def _apply_factors(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _apply_factors(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         Method to apply given factors on parameters that have been
         converted to integers by making their unit one tenth e.g.
@@ -88,15 +110,12 @@ class NoaaGhcnValues(TimeseriesValues):
         :return: DataFrame with applied factors
         """
         data = []
-
-        for parameter, group in df.groupby(Columns.PARAMETER.value):
+        for parameter, group in df.groupby(pl.col(Columns.PARAMETER.value)):
             factor = self._mp_factors.get(parameter)
             if factor:
-                group[Columns.VALUE.value] = group[Columns.VALUE.value].astype(float) * factor
-
+                group = group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
             data.append(group)
-
-        return pd.concat(data)
+        return pl.concat(data)
 
 
 class NoaaGhcnRequest(TimeseriesRequest):
@@ -137,23 +156,23 @@ class NoaaGhcnRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
         Method to acquire station listing,
         :return: DataFrame with all stations_result
         """
         listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
-
         listings_file = download_file(listings_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
-
         # https://github.com/awslabs/open-data-docs/tree/main/docs/noaa/noaa-ghcn
         df = pd.read_fwf(
             listings_file,
             dtype=str,
             header=None,
-            colspecs=[(0, 11), (12, 20), (21, 30), (31, 37), (38, 40), (41, 71), (80, 85)],
+            colspecs="infer",
+            infer_nrows=np.inf,
         )
-
+        df = pl.from_pandas(df)
+        df = df[:, [0, 1, 2, 3, 4, 5, 8]]
         df.columns = [
             Columns.STATION_ID.value,
             Columns.LATITUDE.value,
@@ -165,30 +184,20 @@ class NoaaGhcnRequest(TimeseriesRequest):
         ]
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
-
         inventory_file = download_file(inventory_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
-
-        inventory_df = pd.read_fwf(
-            inventory_file,
-            header=None,
-            colspecs=[(0, 11), (36, 40), (41, 45)],
-        )
-
+        inventory_df = pd.read_fwf(inventory_file, header=None, colspecs="infer", infer_nrows=np.inf)
+        inventory_df = pl.from_pandas(inventory_df)
+        inventory_df = inventory_df[:, [0, 4, 5]]
         inventory_df.columns = [Columns.STATION_ID.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
-
-        inventory_df = (
-            inventory_df.groupby(Columns.STATION_ID.value)
-            .agg({Columns.FROM_DATE.value: min, Columns.TO_DATE.value: max})
-            .reset_index()
+        inventory_df = inventory_df.groupby(pl.col(Columns.STATION_ID.value)).agg(
+            pl.col(Columns.FROM_DATE.value).min(), pl.col(Columns.TO_DATE.value).max()
         )
-
-        inventory_df[Columns.FROM_DATE.value] = pd.to_datetime(
-            inventory_df[Columns.FROM_DATE.value], format="%Y", errors="coerce"
+        inventory_df = inventory_df.with_columns(
+            pl.col(Columns.FROM_DATE.value).cast(str).str.strptime(datatype=pl.Datetime, fmt="%Y"),
+            pl.col(Columns.TO_DATE.value)
+            .map(lambda s: s + 1)
+            .cast(str)
+            .str.strptime(datatype=pl.Datetime, fmt="%Y")
+            .map(lambda s: s - dt.timedelta(days=1)),
         )
-        inventory_df[Columns.TO_DATE.value] = pd.to_datetime(
-            inventory_df[Columns.TO_DATE.value], format="%Y", errors="coerce"
-        )
-
-        inventory_df[Columns.TO_DATE.value] += YearEnd()
-
-        return df.merge(inventory_df, how="left", left_on=Columns.STATION_ID.value, right_on=Columns.STATION_ID.value)
+        return df.join(other=inventory_df, how="left", on=[Columns.STATION_ID.value]).lazy()

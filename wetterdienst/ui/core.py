@@ -325,7 +325,7 @@ def get_values(
         log.exception(e)
         sys.exit(1)
     else:
-        if values_.df.empty:
+        if values_.df.is_empty():
             log.error("No data available for given constraints")
             sys.exit(1)
 
@@ -395,7 +395,7 @@ def get_interpolate(
         log.exception(e)
         sys.exit(1)
     else:
-        if values_.df.empty:
+        if values_.df.is_empty():
             log.error("No data available for given constraints")
             sys.exit(1)
 
@@ -462,7 +462,7 @@ def get_summarize(
         log.exception(e)
         sys.exit(1)
     else:
-        if values_.df.empty:
+        if values_.df.is_empty():
             log.error("No data available for given constraints")
             sys.exit(1)
 
