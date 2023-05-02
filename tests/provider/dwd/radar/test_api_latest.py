@@ -62,7 +62,6 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
             "formatversion": 3,
             "intervalseconds": 3600,
             "maxrange": "150 km",
-            "moduleflag": 1,
             "ncol": 900,
             "nrow": 900,
             "precision": 0.1,
