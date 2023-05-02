@@ -56,6 +56,9 @@ jobs:
 
       - name: Run tests
         run: |
+          export DOCKER_BUILDKIT=1
+          export COMPOSE_DOCKER_CLI_BUILD=1
+          export BUILDKIT_PROGRESS=plain    
           if [[ -f .github/release/standard.test.yml ]]; then
             docker-compose --file .github/release/standard.test.yml build
             docker-compose --file .github/release/standard.test.yml run sut
