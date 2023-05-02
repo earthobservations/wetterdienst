@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.56.0 (02.05.2023)
+*******************
+
 - Update docker images
 - Fix now and now_local attributes on core class
 
