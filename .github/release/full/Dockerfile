@@ -3,11 +3,16 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
-# Install HDF5 bindings for Python, and a few other dependencies.
-RUN apt-get update && \
-    apt-get --yes --no-install-recommends --no-install-suggests install \
-      ca-certificates python-is-python3 python3-h5py python3-pip python3-wheel python3-venv && \
-    rm -rf /var/lib/apt/lists/* && rm -rf /var/cache/apt
+# Install build prerequisites.
+RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+RUN \
+    --mount=type=cache,id=apt,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=apt,sharing=locked,target=/var/lib/apt \
+    true \
+    && apt-get update \
+    && apt-get install --no-install-recommends --no-install-suggests --yes \
+      git build-essential ca-certificates \
+      python-is-python3 python3-h5py python3-pip python3-wheel python3-venv
 
 # Use Python 3.11.
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
@@ -26,8 +31,17 @@ RUN python -m pip install --prefer-binary wradlib
 # Use `poetry build --format=wheel` to build wheel packages into `dist` folder.
 COPY dist/wetterdienst-*.whl /tmp/
 
-# Install latest wheel package.
-RUN python -m pip install --no-cache-dir --prefer-binary $(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1)[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer,radar,radarplus]
+# Install package.
+# Pick latest wheel package from `/tmp` folder.
+RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
+    true \
+    && pip install --upgrade pip \
+    && pip install --prefer-binary versioningit wheel \
+    && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
+    && pip install --use-pep517 --prefer-binary ${WHEEL}[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer,radar,radarplus]
+
+# Uninstall build prerequisites again.
+RUN apt-get --yes remove --purge git build-essential && apt-get --yes autoremove
 
 # Purge /tmp directory
 RUN rm /tmp/*
