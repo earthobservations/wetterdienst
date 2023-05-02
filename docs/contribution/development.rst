@@ -86,6 +86,53 @@ In order to run only specific tests, invoke::
     poe test -m "not (remote or slow)"
 
 
+****************
+Build OCI images
+****************
+
+Before building OCI images, you will need a recent wheel package. In order to
+build one from the current working tree, run::
+
+    pip install build
+    python -m build --wheel
+
+To build the OCI images suitable to run on Docker, Podman, Kubernetes, and friends,
+invoke::
+
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+    export BUILDKIT_PROGRESS=plain
+
+    docker build \
+        --tag=local/wetterdienst-standard \
+        --file=.github/release/standard/Dockerfile \
+        .
+
+For the ``full`` image variant::
+
+    docker build \
+        --tag=local/wetterdienst-full \
+        --file=.github/release/full/Dockerfile \
+        .
+
+In order to build images for other platforms than ``linux/amd64``, use the
+``--platform`` option, For ARM 64-bit::
+
+    docker build \
+        --tag=local/wetterdienst-standard \
+        --file=.github/release/standard/Dockerfile \
+        --platform=linux/arm64 \
+        .
+
+For ARM 32-bit::
+
+    docker build \
+        --tag=local/wetterdienst-standard \
+        --file=.github/release/standard/Dockerfile \
+        --platform=linux/arm/v7 \
+        .
+
+
 ************
 Contributing
 ************
