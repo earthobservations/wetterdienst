@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import datetime
 import logging
 import operator
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
+from zoneinfo import ZoneInfo
 
 import pandas as pd
-import pytz
-from pandas.api.types import is_datetime64_any_dtype as is_datetime
+import polars as pl
+from backports.datetime_fromisoformat import MonkeyPatch
 from pint import Quantity
-from pytz import timezone
 from timezonefinder import timezonefinder
 from tqdm import tqdm
 
@@ -22,6 +21,8 @@ from wetterdienst.metadata.resolution import DAILY_AT_MOST, Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.logging import TqdmToLogger
+
+MonkeyPatch.patch_fromisoformat()
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     def __repr__(self):
         """Representation of values object"""
-        station_ids_joined = ", ".join(self.sr.station_id.tolist())
+        station_ids_joined = ", ".join(self.sr.station_id.to_list())
         parameters_joined = ", ".join(
             [f"({parameter.value}/{dataset.value})" for parameter, dataset in self.sr.stations.parameter]
         )
@@ -66,7 +67,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
-    def _meta_fields(self) -> List[str]:
+    def _meta_fields(self) -> Dict[str, str]:
         """
         Metadata fields that are independent of actual values and should be parsed
         differently
@@ -74,20 +75,20 @@ class TimeseriesValues(metaclass=ABCMeta):
         :return: list of strings representing the metadata fields/columns
         """
         if not self.sr.tidy:
-            return [
-                Columns.STATION_ID.value,
-                Columns.DATASET.value,
-                Columns.DATE.value,
-            ]
+            return {
+                Columns.STATION_ID.value: str,
+                Columns.DATASET.value: str,
+                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+            }
         else:
-            return [
-                Columns.STATION_ID.value,
-                Columns.DATASET.value,
-                Columns.PARAMETER.value,
-                Columns.DATE.value,
-                Columns.VALUE.value,
-                Columns.QUALITY.value,
-            ]
+            return {
+                Columns.STATION_ID.value: str,
+                Columns.DATASET.value: str,
+                Columns.PARAMETER.value: str,
+                Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+                Columns.VALUE.value: pl.Float64,
+                Columns.QUALITY.value: pl.Float64,
+            }
 
     # Fields for date coercion
     _date_fields = [Columns.DATE.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
@@ -95,9 +96,9 @@ class TimeseriesValues(metaclass=ABCMeta):
     # TODO: add data type (mosmix, observation, ...)
 
     @property
-    def data_tz(self) -> timezone:
+    def data_tz(self) -> str:
         """Timezone of the published data"""
-        return timezone(self._data_tz.value)
+        return self._data_tz.value
 
     @property
     @abstractmethod
@@ -119,7 +120,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         if self.sr.resolution == Resolution.DYNAMIC:
             raise NotImplementedError("implement this method if the service has a dynamic resolution")
 
-    def _get_complete_dates(self, station_id) -> pd.DatetimeIndex:
+    def _get_complete_dates(self, station_id) -> pl.Series:
         """
         Complete datetime index for the requested start and end date, used for
         building a complementary pandas DataFrame with the date column on which
@@ -129,39 +130,69 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         start_date, end_date = self.sr.start_date, self.sr.end_date
 
-        if self.sr.resolution == Resolution.MONTHLY:
-            end_date += pd.Timedelta(days=31)
-        elif self.sr.resolution == Resolution.ANNUAL:
-            end_date += pd.Timedelta(days=366)
-
         if self._data_tz == Timezone.DYNAMIC:
             timezone_ = self._get_timezone_from_station(station_id)
         else:
             timezone_ = self.data_tz
 
-        start_date = start_date.tz_convert(timezone_).replace(tzinfo=None)
-        end_date = end_date.tz_convert(timezone_).replace(tzinfo=None)
-
         # cut of everything smaller than day for daily or lower freq, same for monthly and annual
         if self.sr.resolution in DAILY_AT_MOST:
-            start_date = pd.Timestamp(start_date.date()) - pd.offsets.Day(1)
-            end_date = pd.Timestamp(end_date.date()) + pd.offsets.Day(1)
+            start_date = start_date.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            end_date = end_date.replace(
+                hour=23,
+                minute=59,
+                second=0,
+                microsecond=0,
+            )
         elif self.sr.resolution == Resolution.MONTHLY:
-            start_date = pd.Timestamp(datetime.date(start_date.year, start_date.month, 1))
-            end_date = pd.Timestamp(datetime.date(end_date.year, end_date.month, 1)) + pd.offsets.MonthEnd()
+            start_date = start_date.replace(
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            end_date = end_date.replace(
+                day=31,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
         elif self.sr.resolution == Resolution.ANNUAL:
-            start_date = pd.Timestamp(datetime.date(start_date.year, 1, 1))
-            end_date = pd.Timestamp(datetime.date(end_date.year, 1, 1)) + pd.offsets.YearEnd()
+            start_date = start_date.replace(
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            end_date = end_date.replace(
+                month=1,
+                day=31,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
 
-        date_range = pd.date_range(
-            start_date,
-            end_date,
-            freq=self.sr.frequency.value,
-        )
+        start_date = start_date.replace(tzinfo=ZoneInfo(timezone_))
+        end_date = end_date.replace(tzinfo=ZoneInfo(timezone_))
 
-        return date_range.tz_localize(timezone_, ambiguous="NaT", nonexistent="shift_forward").tz_convert(pytz.UTC)
+        date_range = pd.date_range(start_date, end_date, freq=self.sr.frequency.value).to_series()
+        if self.sr.resolution not in DAILY_AT_MOST:
+            date_range = date_range.apply(lambda date: date.replace(day=1))
+        date_range = pl.Series(values=date_range).dt.cast_time_unit("us")
 
-    def _get_timezone_from_station(self, station_id: str) -> timezone:
+        return date_range.dt.convert_time_zone("UTC")
+
+    def _get_timezone_from_station(self, station_id: str) -> str:
         """
         Get timezone information for explicit station that is used to set the
         correct timezone for the timestamps of the returned values
@@ -169,27 +200,26 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param station_id: station id string
         :return: timezone
         """
-
         stations = self.sr.df
+        longitude, latitude = (
+            stations.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
+            .select([pl.col(Columns.LONGITUDE.value), pl.col(Columns.LATITUDE.value)])
+            .transpose()
+            .to_series()
+            .to_list()
+        )
+        return self._tf.timezone_at(lng=longitude, lat=latitude)
 
-        station = stations[stations[Columns.STATION_ID.value] == station_id]
-
-        longitude, latitude = station.loc[:, [Columns.LONGITUDE.value, Columns.LATITUDE.value]].T.values
-
-        tz_string = self._tf.timezone_at(lng=longitude, lat=latitude)
-
-        return timezone(tz_string)
-
-    def _get_base_df(self, station_id: str) -> pd.DataFrame:
+    def _get_base_df(self, station_id: str) -> pl.DataFrame:
         """
         Base dataframe which is used for creating empty dataframes if no data is
         found or for merging other dataframes on the full dates
 
         :return: pandas DataFrame with a date column with complete dates
         """
-        return pd.DataFrame({Columns.DATE.value: self._get_complete_dates(station_id)})
+        return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(station_id)})
 
-    def _convert_values_to_si(self, df: pd.DataFrame, dataset) -> pd.DataFrame:
+    def _convert_values_to_si(self, df: pl.DataFrame, dataset) -> pl.DataFrame:
         """
         Function to convert values to metric units with help of conversion factors
 
@@ -197,19 +227,21 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param dataset: dataset for which the conversion factors are created
         :return: pandas DataFrame with converted (SI) values
         """
-        if df.empty:
+        if df.is_empty():
             return df
 
         conversion_factors = self._create_conversion_factors(dataset)
 
         data = []
-        for (dataset, parameter), group in df.groupby(by=[Columns.DATASET.value, Columns.PARAMETER.value], sort=False):
+        for (dataset, parameter), group in df.groupby(
+            by=[pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)], maintain_order=True
+        ):
             op, factor = conversion_factors.get(dataset).get(parameter, (None, None))
             if op:
-                group[Columns.VALUE.value] = op(group[Columns.VALUE.value], factor)
+                group = group.with_columns(pl.col(Columns.VALUE.value).map(lambda s, o=op, f=factor: o(s, f)))
             data.append(group)
 
-        return pd.concat(data)
+        return pl.concat(data)
 
     def _create_conversion_factors(
         self, datasets: List[str]
@@ -266,7 +298,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             factor = Quantity(1, origin_unit).to(si_unit).magnitude
             return operator.mul, factor
 
-    def _create_empty_station_parameter_df(self, station_id: str, dataset: Enum) -> pd.DataFrame:
+    def _create_empty_station_parameter_df(self, station_id: str, dataset: Enum) -> pl.DataFrame:
         """
         Function to create an empty DataFrame
         :param station_id:
@@ -277,25 +309,26 @@ class TimeseriesValues(metaclass=ABCMeta):
         parameter = [*self.sr._parameter_base[self.sr.resolution.name][dataset.name]]
 
         if not self.sr.start_date:
-            return pd.DataFrame(columns=self._meta_fields)
+            return pl.DataFrame(schema=self._meta_fields)
+
+        base_df = self._get_base_df(station_id)
 
         data = []
-        default_df = self._get_base_df(station_id)
-        for par in pd.Series(parameter):
+        for par in pl.Series(parameter):
             if par.name.startswith("QUALITY"):
                 continue
-            par_df = default_df.copy()
-            par_df[Columns.PARAMETER.value] = par.value
+            par_df = base_df.with_columns(pl.lit(par.value).alias(Columns.PARAMETER.value))
             data.append(par_df)
 
-        df = pd.concat(data)
+        df = pl.concat(data)
 
-        df[Columns.VALUE.value] = pd.NA
-        df[Columns.QUALITY.value] = pd.NA
+        return df.with_columns(
+            pl.lit(value=station_id, dtype=pl.Utf8).alias(Columns.STATION_ID.value),
+            pl.lit(value=None, dtype=pl.Float64).alias(Columns.VALUE.value),
+            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        )
 
-        return df
-
-    def _build_complete_df(self, df: pd.DataFrame, station_id: str) -> pd.DataFrame:
+    def _build_complete_df(self, df: pl.DataFrame, station_id: str) -> pl.DataFrame:
         """Method to build a complete df with all dates from start to end date included. For cases where requests
         are not defined by start and end date but rather by periods, use the returned df without modifications
         We may put a standard date range here if no data is found
@@ -306,31 +339,36 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param dataset:
         :return:
         """
+        base_df = self._get_base_df(station_id)
         data = []
-        for parameter, group in df.groupby(Columns.PARAMETER.value, sort=False):
-            df = pd.merge(
-                left=self._get_base_df(station_id),
-                right=group,
-                left_on=Columns.DATE.value,
-                right_on=Columns.DATE.value,
+        for (station_id, parameter), group in df.groupby(
+            [Columns.STATION_ID.value, Columns.PARAMETER.value], maintain_order=True
+        ):
+            par_df = base_df.join(
+                other=group,
+                on=[Columns.DATE.value],
                 how="left",
             )
-            df[Columns.PARAMETER.value] = parameter
-            data.append(df)
-        return pd.concat(data)
+            par_df = par_df.with_columns(
+                pl.lit(station_id).alias(Columns.STATION_ID.value), pl.lit(parameter).alias(Columns.PARAMETER.value)
+            )
+            data.append(par_df)
+        return pl.concat(data)
 
-    def _organize_df_columns(self, df: pd.DataFrame, station_id: str, dataset: Enum) -> pd.DataFrame:
+    def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: Enum) -> pl.DataFrame:
         """
         Method to reorder index to always have the same order of columns
 
         :param df:
         :return:
         """
-        columns = self._meta_fields.copy()
-        columns.extend(df.columns.difference(columns, sort=False))
-        df.loc[:, Columns.STATION_ID.value] = station_id
-        df.loc[:, Columns.DATASET.value] = dataset.name.lower()
-        return df.reindex(columns=columns)
+        columns = list(self._meta_fields.keys())
+        columns.extend(set(df.columns).difference(columns))
+        df = df.with_columns(
+            pl.lit(station_id).alias(Columns.STATION_ID.value),
+            pl.lit(dataset.name.lower()).alias(Columns.DATASET.value),
+        )
+        return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
 
     def query(self) -> Generator[ValuesResult, None, None]:
         """
@@ -362,20 +400,19 @@ class TimeseriesValues(metaclass=ABCMeta):
                     station_id=station_id, parameter=parameter, dataset=dataset
                 )
 
-                if parameter_df.empty:
+                if parameter_df.is_empty():
                     parameter_df = self._create_empty_station_parameter_df(station_id=station_id, dataset=dataset)
 
                 if parameter != dataset:
-                    parameter_df = parameter_df.loc[parameter_df[Columns.PARAMETER.value] == parameter.value.lower(), :]
+                    parameter_df = parameter_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.value.lower()))
 
-                parameter_df = parameter_df.drop_duplicates()
+                parameter_df = parameter_df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value])
 
                 # set dynamic resolution for services that have no fixed resolutions
                 if self.sr.resolution == Resolution.DYNAMIC:
                     self.sr.stations.dynamic_frequency = self.fetch_dynamic_frequency(station_id, parameter, dataset)
 
-                if not parameter_df.empty and self.sr.start_date:
-                    parameter_df = self._coerce_date_fields(parameter_df, station_id)
+                if self.sr.start_date:
                     parameter_df = self._build_complete_df(parameter_df, station_id)
 
                 parameter_df = self._organize_df_columns(parameter_df, station_id, dataset)
@@ -383,9 +420,18 @@ class TimeseriesValues(metaclass=ABCMeta):
                 station_data.append(parameter_df)
 
             try:
-                station_df = pd.concat(station_data, ignore_index=True)
+                station_df = pl.concat(station_data)
             except ValueError:
-                station_df = pd.DataFrame()
+                station_df = pl.DataFrame()
+
+            if self.sr.start_date:
+                station_df = station_df.filter(
+                    pl.col(Columns.DATE.value).is_between(
+                        self.sr.start_date,
+                        self.sr.end_date,
+                        closed="both",
+                    )
+                )
 
             if self.sr.skip_empty:
                 percentage = self._get_actual_percentage(df=station_df)
@@ -397,19 +443,9 @@ class TimeseriesValues(metaclass=ABCMeta):
                     continue
 
             if self.sr.dropna:
-                station_df = station_df.dropna(subset="value").reset_index(drop=True)
+                station_df = station_df.drop_nulls(subset="value")
 
-            station_df = self._coerce_date_fields(df=station_df, station_id=station_id)
-            station_df = self._coerce_meta_fields(df=station_df)
-
-            if not station_df.empty:
-                if self.sr.start_date:
-                    station_df = station_df.loc[
-                        (station_df[Columns.DATE.value] >= self.sr.start_date)
-                        & (station_df[Columns.DATE.value] <= self.sr.end_date),
-                        :,
-                    ]
-                station_df = self._coerce_parameter_types(station_df)
+            if not station_df.is_empty():
                 if self.sr.si_units:
                     station_df = self._convert_values_to_si(station_df, datasets)
 
@@ -425,7 +461,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             self.stations_collected.append(station_id)
 
     @abstractmethod
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         """
         Implementation of data collection for a station id plus parameter from the
         specified weather service. Takes care of the gathering of the data and putting
@@ -440,7 +476,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         pass
 
     @staticmethod
-    def _tabulate_df(df: pd.DataFrame) -> pd.DataFrame:
+    def _tabulate_df(df: pl.DataFrame) -> pl.DataFrame:
         """
         Method to tabulate a dataframe with each row having one timestamp and
         all parameter values and corresponding quality levels.
@@ -462,117 +498,19 @@ class TimeseriesValues(metaclass=ABCMeta):
         :returns pandas.DataFrame with tabulated data e.g. pairwise columns of values
         and quality flags
         """
-        df_tabulated = (
-            df.loc[:, [Columns.STATION_ID.value, Columns.DATASET.value, Columns.DATE.value]].drop_duplicates().copy()
-        )
+        df_tabulated = df.select(
+            [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)]
+        ).unique()
 
-        for parameter, parameter_df in df.groupby(by=[df[Columns.PARAMETER.value]], sort=False):
+        for parameter, parameter_df in df.groupby(by=pl.col(Columns.PARAMETER.value), maintain_order=True):
             # Build quality column name
             parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
-            df_tabulated[parameter] = parameter_df[Columns.VALUE.value].values
-            df_tabulated[parameter_quality] = parameter_df[Columns.QUALITY.value].values
+            parameter_df = parameter_df.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]).rename(
+                mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality}
+            )
+            df_tabulated = df_tabulated.join(parameter_df, on=[Columns.DATE.value])
 
         return df_tabulated
-
-    def _coerce_date_fields(self, df: pd.DataFrame, station_id: str) -> pd.DataFrame:
-        """
-        Function for coercion of possible date fields
-
-        :param df:
-        :return:
-        """
-        if self._data_tz == Timezone.DYNAMIC:
-            timezone_ = self._get_timezone_from_station(station_id)
-        else:
-            timezone_ = self.data_tz
-
-        for column in (
-            Columns.DATE.value,
-            Columns.FROM_DATE.value,
-            Columns.TO_DATE.value,
-        ):
-            try:
-                df[column] = self._coerce_dates(df[column], timezone_)
-            except KeyError:
-                pass
-
-        return df
-
-    def _coerce_meta_fields(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Method that coerces meta fields. Those fields are expected to be found in the
-        DataFrame in a columnar shape. Thore are basically the station id and the date
-        fields. Furthermore, if the data is tidied parameter can be found as well as
-        quality. For station id, parameter and quality those columns are additionally
-        mapped to categories to reduce consumption of the DataFrame.
-
-        :param df: pandas.DataFrame with the "fresh" data
-        :return: pandas.DataFrame with meta fields being coerced
-        """
-        df[Columns.STATION_ID.value] = self._parse_station_id(df[Columns.STATION_ID.value]).astype("category")
-        df[Columns.DATASET.value] = self._coerce_strings(df[Columns.DATASET.value]).astype("category")
-
-        if self.sr.tidy:
-            df[Columns.PARAMETER.value] = self._coerce_strings(df[Columns.PARAMETER.value]).astype("category")
-            df[Columns.VALUE.value] = df[Columns.VALUE.value].astype(pd.Float64Dtype()).astype(float)
-            df[Columns.QUALITY.value] = df[Columns.QUALITY.value].astype(pd.Float64Dtype()).astype(float)
-
-        return df
-
-    def _parse_station_id(self, series: pd.Series) -> pd.Series:
-        """
-        Dedicated method for parsing station ids, by default uses the same method as
-        parse_strings but could be modified by the implementation class
-
-        :param series:
-        :return:
-        """
-        return self.sr.stations._parse_station_id(series)
-
-    def _coerce_dates(self, series: pd.Series, timezone_: timezone) -> pd.Series:
-        """
-        Method to parse dates in the pandas.DataFrame. Leverages the data timezone
-        attribute to ensure correct comparison of dates.
-
-        :param series:
-        :return:
-        """
-        if not is_datetime(series):
-            series = pd.Series(series.map(lambda x: pd.Timestamp(x)))
-        if not series.dt.tz:
-            series = series.dt.tz_localize(timezone_, ambiguous=True, nonexistent="shift_forward")
-        return series.dt.tz_convert(pytz.UTC)
-
-    @staticmethod
-    def _coerce_strings(series: pd.Series) -> pd.Series:
-        """
-        Method to parse strings for type coercion.
-
-        :param series:
-        :return:
-        """
-        return series.astype(pd.StringDtype())
-
-    @staticmethod
-    def _coerce_floats(series: pd.Series) -> pd.Series:
-        """
-        Method to parse floats for type coercion.
-
-        :param series:
-        :return:
-        """
-        return pd.to_numeric(series, errors="coerce").astype(float)
-
-    def _coerce_parameter_types(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Method for parameter type coercion. Depending on the shape of the data.
-
-        :param df:
-        :return:
-        """
-        df[Columns.VALUE.value] = self._coerce_floats(df[Columns.VALUE.value])
-        df[Columns.QUALITY.value] = self._coerce_floats(df[Columns.QUALITY.value])
-        return df
 
     def all(self) -> ValuesResult:  # noqa: A003
         """
@@ -588,18 +526,15 @@ class TimeseriesValues(metaclass=ABCMeta):
             data.append(result.df)
 
         try:
-            df = pd.concat(data, ignore_index=True)
+            df = pl.concat(data)
         except ValueError:
             log.error("No data available for given constraints")
-            return ValuesResult(stations=self.sr, values=self, df=pd.DataFrame())
-
-        # Have to reapply category dtype after concatenation
-        df = self._coerce_meta_fields(df)
+            return ValuesResult(stations=self.sr, values=self, df=pl.DataFrame())
 
         return ValuesResult(stations=self.sr, values=self, df=df)
 
     @staticmethod
-    def _humanize(df: pd.DataFrame, humanized_parameters_mapping: Dict[str, str]) -> pd.DataFrame:
+    def _humanize(df: pl.DataFrame, humanized_parameters_mapping: Dict[str, str]) -> pl.DataFrame:
         """
         Method for humanizing parameters.
 
@@ -607,10 +542,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param humanized_parameters_mapping: mapping of original parameter names to humanized ones
         :return: pandas.DataFrame with renamed columns
         """
-        df[Columns.PARAMETER.value] = (
-            df.loc[:, Columns.PARAMETER.value].map(humanized_parameters_mapping).astype("category")
-        )
-        return df
+        return df.with_columns(pl.col(Columns.PARAMETER.value).map_dict(humanized_parameters_mapping))
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """
@@ -632,7 +564,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         return hpm
 
-    def _get_actual_percentage(self, df: pd.DataFrame) -> float:
+    def _get_actual_percentage(self, df: pl.DataFrame) -> float:
         """
         Calculate percentage of actual values. The percentage is calculated
         per requested parameter and statistically aggregated to a float that
@@ -647,18 +579,19 @@ class TimeseriesValues(metaclass=ABCMeta):
             else:
                 dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
                 parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
-        percentage = (
-            df.groupby("parameter").apply(lambda x: x.value.dropna().size / x.value.size).rename("perc").reset_index()
+        percentage = df.groupby("parameter").agg(
+            (pl.col("value").drop_nulls().len() / pl.col("value").len()).alias("perc")
         )
-        missing = pd.DataFrame.from_records(
-            [{"parameter": par, "perc": 0} for par in parameters if par not in percentage.parameter.tolist()]
+        missing = pl.DataFrame(
+            [{"parameter": par, "perc": 0.0} for par in parameters if par not in percentage.get_column("parameter")],
+            schema={"parameter": pl.Utf8, "perc": pl.Float64},
         )
-        percentage = pd.concat([percentage, missing])
+        percentage = pl.concat([percentage, missing])
         if self.sr.settings.ts_skip_criteria == "min":
-            return percentage.perc.min()
+            return percentage.get_column("perc").min()
         elif self.sr.settings.ts_skip_criteria == "mean":
-            return percentage.perc.mean()
+            return percentage.get_column("perc").mean()
         elif self.sr.settings.ts_skip_criteria == "max":
-            return percentage.perc.max()
+            return percentage.get_column("perc").max()
         else:
             KeyError("'ts_skip_criteria must be one of 'min', 'mean', 'max'")

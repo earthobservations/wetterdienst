@@ -53,9 +53,24 @@ class Frequency(Enum):
     MINUTE_10 = "10min"
     MINUTE_15 = "15min"
     MINUTE_60 = "60min"  # similar to hourly, needed for WSV frequency detection
-    HOURLY = "1H"
-    HOUR_6 = "6H"
-    SUBDAILY = "1H"
-    DAILY = "1D"
-    MONTHLY = "MS"  # month start
-    ANNUAL = "AS"  # year start
+    HOURLY = "1h"
+    HOUR_6 = "6h"
+    SUBDAILY = "1h"
+    DAILY = "1d"
+    MONTHLY = "1m"  # month start
+    ANNUAL = "1y"  # year start
+
+
+class FrequencyPolars(Enum):
+    MINUTE_1 = "1m"
+    MINUTE_2 = "2m"
+    MINUTE_5 = "5m"
+    MINUTE_10 = "10m"
+    MINUTE_15 = "15m"
+    MINUTE_60 = "60m"  # similar to hourly, needed for WSV frequency detection
+    HOURLY = "1h"
+    HOUR_6 = "6h"
+    SUBDAILY = "1h"
+    DAILY = "1d"
+    MONTHLY = "1mo"  # month start
+    ANNUAL = "1y"  # year start

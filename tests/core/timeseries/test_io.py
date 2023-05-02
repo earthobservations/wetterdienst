@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import datetime
+import datetime as dt
 import json
 import os
 import shutil
 import sqlite3
 from unittest import mock
 
-import dateutil.parser
+import duckdb
 import openpyxl
-import pandas as pd
+import polars as pl
 import pytest
 from surrogate import surrogate
 
-from wetterdienst.core.process import filter_by_date_and_resolution
+from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.core.timeseries.result import StationsFilter, StationsResult
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -65,11 +64,11 @@ def dwd_climate_summary_tabular_columns():
 
 @pytest.fixture
 def df_station():
-    return pd.DataFrame.from_dict(
+    return pl.DataFrame(
         {
             "station_id": ["19087"],
-            "from_date": [dateutil.parser.isoparse("1957-05-01T00:00:00.000Z")],
-            "to_date": [dateutil.parser.isoparse("1995-11-30T00:00:00.000Z")],
+            "from_date": [dt.datetime(1957, 5, 1)],
+            "to_date": [dt.datetime(1995, 11, 30)],
             "height": [645.0],
             "latitude": [48.8049],
             "longitude": [13.5528],
@@ -82,25 +81,75 @@ def df_station():
 
 @pytest.fixture
 def df_data():
-    return pd.DataFrame.from_dict(
-        {
-            "station_id": ["01048"],
-            "dataset": ["climate_summary"],
-            "parameter": ["temperature_air_max_200"],
-            "date": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
-            "value": [1.3],
-            "quality": [None],
-        }
+    return pl.DataFrame(
+        [
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2019, 1, 1, tzinfo=dt.timezone.utc),
+                "value": 1.3,
+                "quality": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2019, 12, 1, tzinfo=dt.timezone.utc),
+                "value": 1.0,
+                "quality": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2019, 12, 28, tzinfo=dt.timezone.utc),
+                "value": 1.3,
+                "quality": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+                "value": 2.0,
+                "quality": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2021, 1, 1, tzinfo=dt.timezone.utc),
+                "value": 3.0,
+                "quality": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2022, 1, 1, tzinfo=dt.timezone.utc),
+                "value": 4.0,
+                "quality": None,
+            },
+        ],
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
     )
 
 
 def test_to_dict(df_data):
     """Test export of DataFrame to dictioanry"""
-    data = ExportMixin(df=df_data).to_dict()
+    data = ExportMixin(df=df_data[0, :]).to_dict()
     assert data == [
         {
             "dataset": "climate_summary",
-            "date": "2019-12-28T00:00:00+00:00",
+            "date": "2019-01-01T00:00:00+00:00",
             "parameter": "temperature_air_max_200",
             "quality": None,
             "station_id": "01048",
@@ -111,60 +160,22 @@ def test_to_dict(df_data):
 
 def test_filter_by_date(df_data):
     """Test filter by date"""
-    df = filter_by_date_and_resolution(df_data, "2019-12-28", Resolution.HOURLY)
-    assert not df.empty
-    df = filter_by_date_and_resolution(df_data, "2019-12-27", Resolution.HOURLY)
-    assert df.empty
+    df = filter_by_date(df_data, "2019-12-28")
+    assert not df.is_empty()
+    df = filter_by_date(df_data, "2019-12-27")
+    assert df.is_empty()
 
 
 def test_filter_by_date_interval(df_data):
     """Test filter by date interval"""
-    df = filter_by_date_and_resolution(df_data, "2019-12-27/2019-12-29", Resolution.HOURLY)
-    assert not df.empty
-    df = filter_by_date_and_resolution(df_data, "2020/2022", Resolution.HOURLY)
-    assert df.empty
-
-
-def test_filter_by_date_monthly():
-    """Test filter by date in monthly scope"""
-    result = pd.DataFrame.from_dict(
-        {
-            "station_id": ["01048"],
-            "dataset": ["climate_summary"],
-            "parameter": ["temperature_air_max_200"],
-            "from_date": [dateutil.parser.isoparse("2019-12-28T00:00:00.000Z")],
-            "to_date": [dateutil.parser.isoparse("2020-01-28T00:00:00.000Z")],
-            "value": [1.3],
-            "quality": [None],
-        }
-    )
-    df = filter_by_date_and_resolution(result, "2019-12/2020-01", Resolution.MONTHLY)
-    assert not df.empty
-    df = filter_by_date_and_resolution(result, "2020/2022", Resolution.MONTHLY)
-    assert df.empty
-    df = filter_by_date_and_resolution(result, "2020", Resolution.MONTHLY)
-    assert df.empty
-
-
-def test_filter_by_date_annual():
-    """Test filter by date in annual scope"""
-    df = pd.DataFrame.from_dict(
-        {
-            "station_id": ["01048"],
-            "dataset": ["climate_summary"],
-            "parameter": ["temperature_air_max_200"],
-            "from_date": [dateutil.parser.isoparse("2019-01-01T00:00:00.000Z")],
-            "to_date": [dateutil.parser.isoparse("2019-12-31T00:00:00.000Z")],
-            "value": [1.3],
-            "quality": [None],
-        }
-    )
-    df = filter_by_date_and_resolution(df, date="2019-05/2019-09", resolution=Resolution.ANNUAL)
-    assert not df.empty
-    df = filter_by_date_and_resolution(df, date="2020/2022", resolution=Resolution.ANNUAL)
-    assert df.empty
-    df = filter_by_date_and_resolution(df, date="2020", resolution=Resolution.ANNUAL)
-    assert df.empty
+    df = filter_by_date(df_data, "2019-12-27/2019-12-29")
+    assert not df.is_empty()
+    df = filter_by_date(df_data, "2019-12/2020-01")
+    assert df.get_column("value").to_list() == [1.0, 1.3, 2.0]
+    df = filter_by_date(df, date="2020/2022")
+    assert not df.is_empty()
+    df = filter_by_date(df, date="2020")
+    assert not df.is_empty()
 
 
 @pytest.mark.sql
@@ -173,11 +184,11 @@ def test_filter_by_sql(df_data):
     df = ExportMixin(df=df_data).filter_by_sql(
         sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
     )
-    assert not df.empty
+    assert not df.is_empty()
     df = ExportMixin(df=df_data).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 1.5"
+        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 4"
     )
-    assert df.empty
+    assert df.is_empty()
 
 
 def test_format_json(df_data):
@@ -215,7 +226,7 @@ def test_request(default_settings):
         settings=default_settings,
     ).filter_by_station_id(station_id=[1048])
     df = request.values.all().df
-    assert not df.empty
+    assert not df.is_empty()
 
 
 @pytest.mark.remote
@@ -242,8 +253,8 @@ def test_export_spreadsheet(tmp_path, settings_si_false_wide_shape):
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
-        start_date="2019",
-        end_date="2020",
+        start_date="2019-01-01",
+        end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -370,8 +381,8 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
-        start_date="2019",
-        end_date="2020",
+        start_date="2019-01-01",
+        end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -389,9 +400,9 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
-    assert data["date"][0] == datetime.datetime(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
     assert data["temperature_air_min_005"][-1] == -4.6
     os.unlink(filename)
 
@@ -404,8 +415,8 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
-        start_date="2019",
-        end_date="2020",
+        start_date="2019-01-01",
+        end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -426,9 +437,13 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     assert columns == set(dwd_climate_summary_tabular_columns)
     # Validate content.
     data = group
-    assert data["date"][0] == pd.Timestamp(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc).to_numpy()
+    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9, tz=dt.timezone.utc) == dt.datetime(
+        2019, 1, 1, 0, 0, tzinfo=dt.timezone.utc
+    )
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == pd.Timestamp(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc).to_numpy()
+    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9, tz=dt.timezone.utc) == dt.datetime(
+        2020, 1, 1, 0, 0, tzinfo=dt.timezone.utc
+    )
     assert data["temperature_air_min_005"][-1] == -4.6
     shutil.rmtree(filename)
 
@@ -441,8 +456,8 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
-        start_date="2019",
-        end_date="2020",
+        start_date="2019-01-01",
+        end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -460,9 +475,9 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
-    assert data["date"][0] == pd.Timestamp(2019, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == pd.Timestamp(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
     assert data["temperature_air_min_005"][-1] == -4.6
     os.unlink(filename)
 
@@ -473,8 +488,8 @@ def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
-        start_date="2019",
-        end_date="2020",
+        start_date="2019-01-01",
+        end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -488,10 +503,12 @@ def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
     results = cursor.fetchall()
     cursor.close()
     connection.close()
-    assert results[0] == (
+    first = list(results[0])
+    first[2] = dt.datetime.fromisoformat(first[2])
+    assert first == [
         "01048",
         "climate_summary",
-        "2019-01-01 00:00:00.000000",
+        dt.datetime(2019, 1, 1),
         19.9,
         10.0,
         8.5,
@@ -520,11 +537,13 @@ def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
         10.0,
         1.5,
         10.0,
-    )
-    assert results[-1] == (
+    ]
+    last = list(results[-1])
+    last[2] = dt.datetime.fromisoformat(last[2])
+    assert last == [
         "01048",
         "climate_summary",
-        "2020-01-01 00:00:00.000000",
+        dt.datetime(2020, 1, 1),
         6.9,
         10.0,
         3.2,
@@ -553,11 +572,13 @@ def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
         10.0,
         -4.6,
         10.0,
-    )
+    ]
 
 
 @pytest.mark.remote
-def test_export_cratedb(settings_si_false):
+def test_export_cratedb(
+    settings_si_false,
+):
     """Test export of DataFrame to cratedb"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -582,25 +603,32 @@ def test_export_cratedb(settings_si_false):
         )
 
 
-@surrogate("duckdb.connect")
 @pytest.mark.remote
-def test_export_duckdb(settings_si_false):
+def test_export_duckdb(settings_si_false, tmp_path):
     """Test export of DataFrame to duckdb"""
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        period=DwdObservationPeriod.HISTORICAL,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
-    mock_connection = mock.MagicMock()
-    with mock.patch("duckdb.connect", side_effect=[mock_connection], create=True) as mock_connect:
-        df = request.values.all().df
-        ExportMixin(df=df).to_target("duckdb:///test.duckdb?table=testdrive")
-        mock_connect.assert_called_once_with(database="test.duckdb", read_only=False)
-        mock_connection.register.assert_called_once()
-        mock_connection.execute.assert_called()
-        mock_connection.table.assert_called_once_with("testdrive")
-        mock_connection.close.assert_called_once()
+    filename = tmp_path.joinpath("test.duckdb")
+    df = request.values.all().df
+    ExportMixin(df=df).to_target(f"duckdb:///{filename}?table=testdrive")
+    connection = duckdb.connect(str(filename), read_only=True)
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM testdrive")
+    results = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    assert results[300_000] == (
+        "01048",
+        "climate_summary",
+        "temperature_air_max_200",
+        dt.datetime(1939, 7, 26),
+        21.0,
+        1.0,
+    )
 
 
 @surrogate("influxdb.InfluxDBClient")
@@ -637,39 +665,37 @@ def test_export_influxdb1_tabular(settings_si_false_wide_shape):
         )
         points = mock_client.write_points.call_args.kwargs["points"]
         assert points[0]["measurement"] == "weather"
-        assert list(points[0]["tags"].keys()) == [
-            "station_id",
-            "qn_wind_gust_max",
-            "qn_wind_speed",
-            "qn_precipitation_height",
-            "qn_precipitation_form",
-            "qn_sunshine_duration",
-            "qn_snow_depth",
-            "qn_cloud_cover_total",
-            "qn_pressure_vapor",
-            "qn_pressure_air_site",
-            "qn_temperature_air_mean_200",
-            "qn_humidity",
-            "qn_temperature_air_max_200",
-            "qn_temperature_air_min_200",
-            "qn_temperature_air_min_005",
-            "dataset",
-        ]
         assert list(points[0]["fields"].keys()) == [
+            "station_id",
+            "dataset",
             "wind_gust_max",
+            "qn_wind_gust_max",
             "wind_speed",
+            "qn_wind_speed",
             "precipitation_height",
+            "qn_precipitation_height",
             "precipitation_form",
+            "qn_precipitation_form",
             "sunshine_duration",
+            "qn_sunshine_duration",
             "snow_depth",
+            "qn_snow_depth",
             "cloud_cover_total",
+            "qn_cloud_cover_total",
             "pressure_vapor",
+            "qn_pressure_vapor",
             "pressure_air_site",
+            "qn_pressure_air_site",
             "temperature_air_mean_200",
+            "qn_temperature_air_mean_200",
             "humidity",
+            "qn_humidity",
             "temperature_air_max_200",
+            "qn_temperature_air_max_200",
             "temperature_air_min_200",
+            "qn_temperature_air_min_200",
             "temperature_air_min_005",
+            "qn_temperature_air_min_005",
         ]
 
 
@@ -707,14 +733,12 @@ def test_export_influxdb1_tidy(settings_si_false):
         )
         points = mock_client.write_points.call_args.kwargs["points"]
         assert points[0]["measurement"] == "weather"
-        assert list(points[0]["tags"].keys()) == [
+        assert list(points[0]["fields"].keys()) == [
             "station_id",
-            "quality",
             "dataset",
             "parameter",
-        ]
-        assert list(points[0]["fields"].keys()) == [
             "value",
+            "quality",
         ]
 
 

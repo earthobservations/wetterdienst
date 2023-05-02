@@ -7,11 +7,11 @@ from wetterdienst.provider.dwd.index import (
     _create_file_index_for_dwd_server,
     build_path_to_parameter,
 )
-from wetterdienst.provider.dwd.observation import (
+from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DwdObservationDataset,
-    DwdObservationPeriod,
-    DwdObservationResolution,
 )
+from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
+from wetterdienst.provider.dwd.observation.metadata.resolution import DwdObservationResolution
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
@@ -39,6 +39,7 @@ def test_list_files_of_climate_observations():
     )
 
 
+@pytest.mark.remote
 def test_fileindex(default_settings):
     file_index = _create_file_index_for_dwd_server(
         DwdObservationDataset.CLIMATE_SUMMARY,
@@ -46,5 +47,5 @@ def test_fileindex(default_settings):
         DwdObservationPeriod.RECENT,
         "observations_germany/climate/",
         settings=default_settings,
-    )
-    assert "daily/kl/recent" in file_index.iloc[0]["filename"]
+    ).collect()
+    assert file_index.get_column("filename").str.contains("daily/kl/recent").all()

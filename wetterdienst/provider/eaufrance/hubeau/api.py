@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import json
 import math
-from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 import pandas as pd
+import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -24,6 +25,17 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
+
+REQUIRED_ENTRIES = [
+    "code_station",
+    "libelle_station",
+    "longitude_station",
+    "latitude_station",
+    "altitude_ref_alti_station",
+    "libelle_departement",
+    "date_ouverture_station",
+    "date_fermeture_station",
+]
 
 
 class HubeauResolution(Enum):
@@ -62,36 +74,39 @@ class HubeauValues(TimeseriesValues):
         "grandeur_hydro={grandeur_hydro}&sort=asc&size=2"
     )
 
-    @staticmethod
-    def _get_hubeau_dates() -> Tuple[pd.Timestamp, pd.Timestamp]:
+    def _get_hubeau_dates(self, station_id, parameter, dataset) -> Iterator[Tuple[dt.datetime, dt.datetime]]:
         """
         Method to get the Hubeau interval, which is roughly today - 30 days. We'll add another day on
         each end as buffer.
         :return:
         """
-        end = pd.Timestamp.utcnow()
-        start = end - pd.Timedelta(days=30)
-        start = start.normalize()
-        return start, end
+        freq, freq_unit = self._get_dynamic_frequency(station_id, parameter, dataset)
+        end = dt.datetime.utcnow()
+        start = end - dt.timedelta(days=30)
+        delta = end - start
+        n_dates = delta / pd.Timedelta(freq, freq_unit)
+        periods = math.ceil(n_dates / 1000)
+        request_date_range = pd.date_range(start=start, end=end, periods=periods).to_pydatetime()
+        return zip(request_date_range[:-1], request_date_range[1:])
 
-    def fetch_dynamic_frequency(self, station_id, parameter, dataset):
+    def _get_dynamic_frequency(self, station_id, parameter, dataset) -> Tuple[int, str]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
         values_dict = json.load(response)["data"]
-
         try:
             second_date = values_dict[1]["date_obs"]
             first_date = values_dict[0]["date_obs"]
         except IndexError:
-            return "1H"
-
-        date_diff = pd.to_datetime(second_date) - pd.to_datetime(first_date)
-
+            return 1, "H"
+        date_diff = dt.datetime.fromisoformat(second_date) - dt.datetime.fromisoformat(first_date)
         minutes = int(date_diff.seconds / 60)
+        return minutes, "min"
 
-        return f"{minutes}min"
+    def fetch_dynamic_frequency(self, station_id, parameter, dataset) -> str:
+        freq, unit = self._get_dynamic_frequency(station_id, parameter, dataset)
+        return f"{freq}{unit}"
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         """
         Method to collect data from Eaufrance Hubeau service. Requests are limited to 1000 units so eventually
         multiple requests have to be sent to get all data.
@@ -101,14 +116,8 @@ class HubeauValues(TimeseriesValues):
         :param dataset:
         :return:
         """
-        hubeau_start, hubeau_end = self._get_hubeau_dates()
-        freq = self.fetch_dynamic_frequency(station_id, parameter, dataset)
-        required_date_range = pd.date_range(start=hubeau_start, end=hubeau_end, freq=freq, inclusive="both")
-        periods = math.ceil(len(required_date_range) / 1000)
-        request_date_range = pd.date_range(hubeau_start, hubeau_end, periods=periods)
-
         data = []
-        for start_date, end_date in zip(request_date_range[:-1], request_date_range[1:]):
+        for start_date, end_date in self._get_hubeau_dates(station_id=station_id, parameter=parameter, dataset=dataset):
             url = self._endpoint.format(
                 station_id=station_id,
                 grandeur_hydro=parameter.value,
@@ -116,28 +125,29 @@ class HubeauValues(TimeseriesValues):
                 end_date=end_date.isoformat(),
             )
             response = download_file(url=url, settings=self.sr.stations.settings)
-            values_dict = json.load(response)["data"]
-
-            df = pd.DataFrame.from_records(values_dict)
-
+            data_dict = json.load(response)["data"]
+            df = pl.DataFrame(data_dict)
             data.append(df)
 
         try:
-            df = pd.concat(data)
+            df = pl.concat(data)
         except ValueError:
-            df = pd.DataFrame(
-                columns=[
-                    Columns.STATION_ID.value,
-                    Columns.DATE.value,
-                    Columns.VALUE.value,
-                    Columns.QUALITY.value,
-                ]
+            df = pl.DataFrame(
+                schema={
+                    Columns.STATION_ID.value: pl.Utf8,
+                    Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+                    Columns.VALUE.value: pl.Float64,
+                    Columns.QUALITY.value: pl.Float64,
+                }
             )
+        else:
+            df = df.with_columns(pl.col("date_obs").apply(dt.datetime.fromisoformat))
+            df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
 
-        df[Columns.PARAMETER.value] = parameter.value.lower()
+        df = df.with_columns(pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value))
 
         df = df.rename(
-            columns={
+            mapping={
                 "code_station": Columns.STATION_ID.value,
                 "date_obs": Columns.DATE.value,
                 "resultat_obs": Columns.VALUE.value,
@@ -145,16 +155,13 @@ class HubeauValues(TimeseriesValues):
             }
         )
 
-        return df.loc[
-            :,
-            [
-                Columns.STATION_ID.value,
-                Columns.PARAMETER.value,
-                Columns.DATE.value,
-                Columns.VALUE.value,
-                Columns.QUALITY.value,
-            ],
-        ]
+        return df.select(
+            pl.col(Columns.STATION_ID.value),
+            pl.col(Columns.PARAMETER.value),
+            pl.col(Columns.DATE.value),
+            pl.col(Columns.VALUE.value),
+            pl.col(Columns.QUALITY.value),
+        )
 
 
 class HubeauRequest(TimeseriesRequest):
@@ -176,8 +183,8 @@ class HubeauRequest(TimeseriesRequest):
     def __init__(
         self,
         parameter: List[Union[str, Enum, Parameter]],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
         super(HubeauRequest, self).__init__(
@@ -189,17 +196,23 @@ class HubeauRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
 
         :return:
         """
         response = download_file(url=self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
-        stations_dict = json.load(response)["data"]
-        df = pd.DataFrame.from_records(stations_dict)
+        data = json.load(response)["data"]
+        for entry in data:
+            keys = list(entry.keys())
+            for key in keys:
+                if key not in REQUIRED_ENTRIES:
+                    entry.pop(key)
+
+        df = pl.LazyFrame(data)
 
         df = df.rename(
-            columns={
+            mapping={
                 "code_station": Columns.STATION_ID.value,
                 "libelle_station": Columns.NAME.value,
                 "longitude_station": Columns.LONGITUDE.value,
@@ -211,4 +224,12 @@ class HubeauRequest(TimeseriesRequest):
             }
         )
 
-        return df.loc[df[Columns.STATION_ID.value].str[0].str.isalpha(), :]
+        df = df.with_columns(
+            pl.col(Columns.FROM_DATE.value).apply(dt.datetime.fromisoformat),
+            pl.when(pl.col(Columns.TO_DATE.value).is_null())
+            .then(dt.date.today())
+            .alias(Columns.TO_DATE.value)
+            .cast(pl.Datetime),
+        )
+
+        return df.filter(pl.col(Columns.STATION_ID.value).apply(lambda v: v[0].isalpha()))

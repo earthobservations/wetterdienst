@@ -4,4 +4,3 @@ License
    :maxdepth: 1
 
    wetterdienst
-   third_party

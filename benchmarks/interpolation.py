@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
-import pandas as pd
+import polars as pl
 import utm
 from scipy import interpolate
 
@@ -13,8 +13,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-pd.set_option("display.width", 400)
-pd.set_option("display.max_columns", None)
+pl.Config.set_tbl_width_chars(400)
 
 """
 example:
@@ -60,9 +59,9 @@ def request_weather_data(
     # request the nearest weather stations
     request = stations.filter_by_distance(latlon=(lat, lon), distance=distance)
     print(request.df)
-    station_ids = request.df["station_id"].values.tolist()
-    latitudes = request.df["latitude"].values.tolist()
-    longitudes = request.df["longitude"].values.tolist()
+    station_ids = request.df.get_column("station_id")
+    latitudes = request.df.get_column("latitude")
+    longitudes = request.df.get_column("longitude")
 
     utm_x = []
     utm_y = []
@@ -72,16 +71,16 @@ def request_weather_data(
         utm_y.append(y)
 
     # request parameter from weather stations
-    df = request.values.all().df.dropna()
+    df = request.values.all().df.drop_nulls()
 
     # filters by one exact time and saves the given parameter per station at this time
     day_time = start_date + timedelta(days=1)
-    filtered_df = df[df["date"].astype(str).str[:] == day_time.strftime("%Y-%m-%d %H:%M:%S+00:00")]
+    filtered_df = df.filter(pl.col("date").eq(day_time))
     print(filtered_df)
-    values = filtered_df["value"].values.tolist()
+    values = filtered_df.get_column("value").to_list()
 
     return Data(
-        station_ids=station_ids,
+        station_ids=station_ids.to_list(),
         utm_x=utm_x,
         utm_y=utm_y,
         values=values,

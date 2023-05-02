@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 
-import pandas as pd
+import polars as pl
 
-from wetterdienst.core.process import filter_by_date_and_resolution
+from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Frequency, Resolution
+from wetterdienst.metadata.resolution import Frequency, FrequencyPolars, Resolution
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -33,8 +33,8 @@ class StationsResult(ExportMixin):
     def __init__(
         self,
         stations: Union["TimeseriesRequest", "DwdMosmixRequest"],
-        df: pd.DataFrame,
-        df_all: pd.DataFrame,
+        df: pl.DataFrame,
+        df_all: pl.DataFrame,
         stations_filter: StationsFilter,
         rank: Optional[int] = None,
         **kwargs
@@ -48,7 +48,7 @@ class StationsResult(ExportMixin):
         self._kwargs = kwargs
 
     def __eq__(self, other):
-        return (self.stations == other.stations) and self.df.equals(other.df)
+        return (self.stations == other.stations) and self.df.frame_equal(other.df)
 
     @property
     def settings(self):
@@ -63,8 +63,8 @@ class StationsResult(ExportMixin):
         return self.stations._now
 
     @property
-    def station_id(self) -> pd.Series:
-        return self.df[Columns.STATION_ID.value]
+    def station_id(self) -> pl.Series:
+        return self.df.get_column(Columns.STATION_ID.value)
 
     @property
     def parameter(self):
@@ -87,15 +87,19 @@ class StationsResult(ExportMixin):
         return self.stations.frequency
 
     @property
+    def frequency_polars(self) -> FrequencyPolars:
+        return self.stations.frequency_polars
+
+    @property
     def period(self) -> Period:
         return self.stations.period
 
     @property
-    def start_date(self) -> pd.Timestamp:
+    def start_date(self) -> datetime:
         return self.stations.start_date
 
     @property
-    def end_date(self) -> pd.Timestamp:
+    def end_date(self) -> datetime:
         return self.stations.end_date
 
     @property
@@ -162,24 +166,17 @@ class StationsResult(ExportMixin):
         Return:
              Dictionary in GeoJSON FeatureCollection format.
         """
-
         features = []
-        for _, station in self.df.iterrows():
+        for station in self.df.iter_rows(named=True):
             features.append(
                 {
                     "type": "Feature",
                     "properties": {
                         "id": station["station_id"],
                         "name": station["name"],
-                        "state": station["state"]
-                        if pd.notna(station["state"]) and station["state"] is not None
-                        else None,
-                        "from_date": station["from_date"].isoformat()
-                        if pd.notna(station["from_date"]) and station["from_date"] is not None
-                        else None,
-                        "to_date": station["to_date"].isoformat()
-                        if pd.notna(station["to_date"]) and station["to_date"] is not None
-                        else None,
+                        "state": station["state"],
+                        "from_date": station["from_date"].isoformat() if station["from_date"] else None,
+                        "to_date": station["to_date"].isoformat() if station["to_date"] else None,
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees
@@ -208,26 +205,26 @@ class ValuesResult(ExportMixin):
 
     stations: StationsResult
     values: "TimeseriesValues"
-    df: pd.DataFrame
+    df: pl.DataFrame
 
     def to_ogc_feature_collection(self):
         raise NotImplementedError()
 
-    def filter_by_date(self, date: str) -> pd.DataFrame:
-        self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
+    def filter_by_date(self, date: str) -> pl.DataFrame:
+        self.df = filter_by_date(self.df, date=date, resolution=self.stations.resolution)
         return self.df
 
     @property
     def df_stations(self):
-        return self.stations.df[self.stations.df.station_id.isin(self.values.stations_collected)]
+        return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
 
 @dataclass
 class InterpolatedValuesResult(ExportMixin):
     stations: StationsResult
-    df: pd.DataFrame
+    df: pl.DataFrame
 
-    def __init__(self, df: pd.DataFrame, stations: StationsResult = None, **kwargs) -> None:
+    def __init__(self, df: pl.DataFrame, stations: StationsResult = None, **kwargs) -> None:
         self.stations = stations
         self.df = df
         self._kwargs = kwargs
@@ -235,17 +232,17 @@ class InterpolatedValuesResult(ExportMixin):
     def to_ogc_feature_collection(self):
         raise NotImplementedError()
 
-    def filter_by_date(self, date: str) -> pd.DataFrame:
-        self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
+    def filter_by_date(self, date: str) -> pl.DataFrame:
+        self.df = filter_by_date(self.df, date=date)
         return self.df
 
 
 @dataclass
 class SummarizedValuesResult(ExportMixin):
     stations: StationsResult
-    df: pd.DataFrame
+    df: pl.DataFrame
 
-    def __init__(self, df: pd.DataFrame, stations: StationsResult = None, **kwargs) -> None:
+    def __init__(self, df: pl.DataFrame, stations: StationsResult = None, **kwargs) -> None:
         self.stations = stations
         self.df = df
         self._kwargs = kwargs
@@ -253,6 +250,6 @@ class SummarizedValuesResult(ExportMixin):
     def to_ogc_feature_collection(self):
         raise NotImplementedError()
 
-    def filter_by_date(self, date: str) -> pd.DataFrame:
-        self.df = filter_by_date_and_resolution(self.df, date=date, resolution=self.stations.resolution)
+    def filter_by_date(self, date: str) -> pl.DataFrame:
+        self.df = filter_by_date(self.df, date=date, resolution=self.stations.resolution)
         return self.df

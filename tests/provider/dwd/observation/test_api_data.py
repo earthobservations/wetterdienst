@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime, timezone
+import datetime as dt
+from zoneinfo import ZoneInfo
 
-import pandas as pd
+import polars as pl
 import pytest
-import pytz
 from freezegun import freeze_time
-from pandas import Timestamp
-from pandas._testing import assert_frame_equal
+from polars.testing import assert_frame_equal
 
 from wetterdienst import Parameter
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.observation import (
@@ -73,8 +73,13 @@ def test_dwd_observation_data_empty(default_settings):
         settings=default_settings,
     ).filter_by_rank(latlon=(52.384630, 9.733908), rank=1)
     given_df = request.values.all().df
-    assert given_df.station_id.unique() == ["02011"]
-    assert given_df.query("dataset == 'wind' | dataset == 'temperature_air'").dropna(subset="value").empty
+    assert given_df.select(pl.col("station_id")).to_series().unique().to_list() == ["02011"]
+    assert (
+        given_df.filter(pl.col("dataset").is_in(["wind", "temperature_air"]))
+        .select(pl.col("value"))
+        .drop_nulls()
+        .is_empty()
+    )
 
 
 def test_request_period_historical(default_settings):
@@ -96,7 +101,7 @@ def test_request_period_historical_recent(default_settings):
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
-        end_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(days=400),
+        end_date=dt.datetime.utcnow() - dt.timedelta(days=400),
         settings=default_settings,
     )
     assert request.period == [
@@ -111,7 +116,7 @@ def test_request_period_historical_recent_now(default_settings):
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
-        end_date=pd.Timestamp(datetime.utcnow()),
+        end_date=dt.datetime.utcnow(),
         settings=default_settings,
     )
     assert request.period == [
@@ -121,36 +126,36 @@ def test_request_period_historical_recent_now(default_settings):
     ]
 
 
-@freeze_time(datetime(2022, 1, 29, 1, 30, tzinfo=pytz.timezone(Timezone.GERMANY.value)))
+@freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo(Timezone.GERMANY.value)))
 def test_request_period_recent_now(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
+        start_date=dt.datetime.utcnow() - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert request.period == [Period.RECENT, Period.NOW]
 
 
-@freeze_time(datetime(2022, 1, 29, 2, 30, tzinfo=pytz.timezone(Timezone.GERMANY.value)))
+@freeze_time(dt.datetime(2022, 1, 29, 2, 30, tzinfo=ZoneInfo(Timezone.GERMANY.value)))
 def test_request_period_now(default_settings):
     # Now period
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
+        start_date=dt.datetime.utcnow() - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert request.period == [Period.NOW]
 
 
-@freeze_time(datetime(2021, 3, 28, 18, 38, tzinfo=pytz.timezone(Timezone.GERMANY.value)))
+@freeze_time(dt.datetime(2021, 3, 28, 18, 38, tzinfo=ZoneInfo(Timezone.GERMANY.value)))
 def test_request_period_now_fixed_date(default_settings):
     # Now period
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=2),
+        start_date=dt.datetime.utcnow() - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert Period.NOW in request.period
@@ -161,7 +166,7 @@ def test_request_period_now_previous_hour(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.utcnow()) - pd.Timedelta(hours=1),
+        start_date=dt.datetime.utcnow() - dt.timedelta(hours=1),
         settings=default_settings,
     )
     assert Period.NOW in request.period
@@ -172,7 +177,7 @@ def test_request_period_empty(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=pd.Timestamp(datetime.utcnow()) + pd.Timedelta(days=720),
+        start_date=dt.datetime.utcnow() + dt.timedelta(days=720),
         settings=default_settings,
     )
     assert request.period == []
@@ -191,8 +196,10 @@ def test_dwd_observation_data_result_missing_data(default_settings):
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df.drop("quality", axis=1)
-    assert not given_df.query("date.dt.year in (1933, 1934)").dropna().empty
+    given_df = request.values.all().df.drop("quality")
+    assert not given_df.filter(
+        pl.col("date").dt.year().is_in((1933, 1934)) & ~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all())
+    ).is_empty()
     request = DwdObservationRequest(
         parameter=DwdObservationParameter.HOURLY.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.HOURLY,
@@ -203,34 +210,33 @@ def test_dwd_observation_data_result_missing_data(default_settings):
         station_id=["03348"],
     )
     given_df = request.values.all().df
-    expected_df = pd.DataFrame(
+    expected_df = pl.DataFrame(
         {
-            "station_id": pd.Categorical(["03348"]),
-            "dataset": pd.Categorical(["temperature_air"]),
-            "parameter": pd.Categorical(["temperature_air_mean_200"]),
-            "date": [datetime(2020, 6, 9, 12, 0, 0, tzinfo=pytz.UTC)],
-            "value": pd.Series([pd.NA], dtype=pd.Float64Dtype()).astype(float),
-            "quality": pd.Series([pd.NA], dtype=pd.Float64Dtype()).astype(float),
+            "station_id": ["03348"],
+            "dataset": ["temperature_air"],
+            "parameter": ["temperature_air_mean_200"],
+            "date": [dt.datetime(2020, 6, 9, 12, 0, 0, tzinfo=dt.timezone.utc)],
+            "value": [None],
+            "quality": [None],
         }
     )
     assert_frame_equal(
         given_df,
         expected_df,
-        check_categorical=False,
     )
 
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_all_missing_data(default_settings):
     request = DwdObservationRequest(
-        parameter=Parameter.PRECIPITATION_HEIGHT.name,
+        parameter=Parameter.PRECIPITATION_HEIGHT,
         resolution=DwdObservationResolution.MINUTE_10,
-        start_date=datetime(2021, 10, 3),
-        end_date=datetime(2021, 10, 5),
+        start_date=dt.datetime(2021, 10, 3),
+        end_date=dt.datetime(2021, 10, 5),
         settings=default_settings,
     ).filter_by_station_id(["05435"])
     given_df = request.values.all().df
-    assert given_df.value.dropna().empty
+    assert given_df.drop_nulls(Columns.VALUE.value).is_empty()
 
 
 @pytest.mark.remote
@@ -248,49 +254,48 @@ def test_dwd_observation_data_result_tabular(
         station_id=[1048],
     )
     given_df = request.values.all().df
-    assert list(given_df.columns.values) == dwd_climate_summary_tabular_columns
-    expected_df = pd.DataFrame(
+    assert given_df.columns == dwd_climate_summary_tabular_columns
+    expected_df = pl.DataFrame(
         {
-            "station_id": pd.Categorical(["01048"] * 2),
-            "dataset": pd.Categorical(["climate_summary"] * 2),
+            "station_id": ["01048"] * 2,
+            "dataset": ["climate_summary"] * 2,
             "date": [
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
             ],
-            "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
-            "qn_rsk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
-            "qn_rskf": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "shk_tag": pd.to_numeric([pd.NA, 0], errors="coerce"),
-            "qn_shk_tag": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "nm": pd.to_numeric([pd.NA, 8.0], errors="coerce"),
-            "qn_nm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "vpm": pd.to_numeric([pd.NA, 6.4], errors="coerce"),
-            "qn_vpm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "pm": pd.to_numeric([pd.NA, 1008.60], errors="coerce"),
-            "qn_pm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "tmk": pd.to_numeric([pd.NA, 0.5], errors="coerce"),
-            "qn_tmk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "upm": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
-            "qn_upm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "txk": pd.to_numeric([pd.NA, 0.7], errors="coerce"),
-            "qn_txk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "tnk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
-            "qn_tnk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "fx": [None, None],
+            "qn_fx": [None, None],
+            "fm": [None, None],
+            "qn_fm": [None, None],
+            "rsk": [None, 0.2],
+            "qn_rsk": [None, 1.0],
+            "rskf": [None, 8.0],
+            "qn_rskf": [None, 1.0],
+            "sdk": [None, None],
+            "qn_sdk": [None, None],
+            "shk_tag": [None, 0.0],
+            "qn_shk_tag": [None, 1.0],
+            "nm": [None, 8.0],
+            "qn_nm": [None, 1.0],
+            "vpm": [None, 6.4],
+            "qn_vpm": [None, 1.0],
+            "pm": [None, 1008.60],
+            "qn_pm": [None, 1.0],
+            "tmk": [None, 0.5],
+            "qn_tmk": [None, 1.0],
+            "upm": [None, 97.00],
+            "qn_upm": [None, 1.0],
+            "txk": [None, 0.7],
+            "qn_txk": [None, 1.0],
+            "tnk": [None, 0.2],
+            "qn_tnk": [None, 1.0],
+            "tgk": [None, None],
+            "qn_tgk": [None, None],
         }
     )
     assert_frame_equal(
         given_df,
         expected_df,
-        check_categorical=False,
     )
 
 
@@ -309,50 +314,48 @@ def test_dwd_observation_data_result_tabular_si(
         station_id=[1048],
     )
     given_df = request.values.all().df
-
-    assert list(given_df.columns.values) == dwd_climate_summary_tabular_columns
-    expected_df = pd.DataFrame(
+    assert given_df.columns == dwd_climate_summary_tabular_columns
+    expected_df = pl.DataFrame(
         {
-            "station_id": pd.Categorical(["01048"] * 2),
-            "dataset": pd.Categorical(["climate_summary"] * 2),
+            "station_id": ["01048"] * 2,
+            "dataset": ["climate_summary"] * 2,
             "date": [
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
             ],
-            "fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_fx": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_fm": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "rsk": pd.to_numeric([pd.NA, 0.2], errors="coerce"),
-            "qn_rsk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "rskf": pd.to_numeric([pd.NA, 8], errors="coerce"),
-            "qn_rskf": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_sdk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "shk_tag": pd.to_numeric([pd.NA, 0], errors="coerce"),
-            "qn_shk_tag": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "nm": pd.to_numeric([pd.NA, 100.0], errors="coerce"),
-            "qn_nm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "vpm": pd.to_numeric([pd.NA, 640.0], errors="coerce"),
-            "qn_vpm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "pm": pd.to_numeric([pd.NA, 100860.0], errors="coerce"),
-            "qn_pm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "tmk": pd.to_numeric([pd.NA, 273.65], errors="coerce"),
-            "qn_tmk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "upm": pd.to_numeric([pd.NA, 97.00], errors="coerce"),
-            "qn_upm": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "txk": pd.to_numeric([pd.NA, 273.84999999999997], errors="coerce"),
-            "qn_txk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "tnk": pd.to_numeric([pd.NA, 273.34999999999997], errors="coerce"),
-            "qn_tnk": pd.to_numeric([pd.NA, 1], errors="coerce"),
-            "tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
-            "qn_tgk": pd.to_numeric([pd.NA, pd.NA], errors="coerce"),
+            "fx": [None, None],
+            "qn_fx": [None, None],
+            "fm": [None, None],
+            "qn_fm": [None, None],
+            "rsk": [None, 0.2],
+            "qn_rsk": [None, 1.0],
+            "rskf": [None, 8.0],
+            "qn_rskf": [None, 1.0],
+            "sdk": [None, None],
+            "qn_sdk": [None, None],
+            "shk_tag": [None, 0.0],
+            "qn_shk_tag": [None, 1.0],
+            "nm": [None, 100.0],
+            "qn_nm": [None, 1.0],
+            "vpm": [None, 640.0],
+            "qn_vpm": [None, 1.0],
+            "pm": [None, 100860.0],
+            "qn_pm": [None, 1.0],
+            "tmk": [None, 273.65],
+            "qn_tmk": [None, 1.0],
+            "upm": [None, 97.00],
+            "qn_upm": [None, 1.0],
+            "txk": [None, 273.84999999999997],
+            "qn_txk": [None, 1.0],
+            "tnk": [None, 273.34999999999997],
+            "qn_tnk": [None, 1.0],
+            "tgk": [None, None],
+            "qn_tgk": [None, None],
         }
     )
     assert_frame_equal(
         given_df,
         expected_df,
-        check_categorical=False,
     )
 
 
@@ -369,7 +372,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
         station_id=(1048,),
     )
     given_df = request.values.all().df
-    assert list(given_df.columns.values) == [
+    assert given_df.columns == [
         "station_id",
         "dataset",
         "parameter",
@@ -377,53 +380,53 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
         "value",
         "quality",
     ]
-    expected_df = pd.DataFrame.from_records(
+    expected_df = pl.DataFrame(
         [
             [
                 "01048",
                 "climate_summary",
                 "fx",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "fx",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "fm",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "fm",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "rsk",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "rsk",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 0.2,
                 1,
             ],
@@ -431,15 +434,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "rskf",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "rskf",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 8,
                 1,
             ],
@@ -447,31 +450,31 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "sdk",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "sdk",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "shk_tag",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "shk_tag",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 0,
                 1.0,
             ],
@@ -479,15 +482,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "nm",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "nm",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 100,
                 1,
             ],
@@ -495,15 +498,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "vpm",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "vpm",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 640,
                 1,
             ],
@@ -511,15 +514,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "pm",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "pm",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 100860.0,
                 1,
             ],
@@ -527,15 +530,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "tmk",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "tmk",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 273.65,
                 1,
             ],
@@ -543,15 +546,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "upm",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "upm",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 97.00,
                 1,
             ],
@@ -559,15 +562,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "txk",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "txk",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 273.84999999999997,
                 1,
             ],
@@ -575,15 +578,15 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "tnk",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "tnk",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 273.34999999999997,
                 1,
             ],
@@ -591,29 +594,31 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "01048",
                 "climate_summary",
                 "tgk",
-                datetime(1933, 12, 31, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
             [
                 "01048",
                 "climate_summary",
                 "tgk",
-                datetime(1934, 1, 1, tzinfo=pytz.UTC),
-                pd.NA,
-                pd.NA,
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                None,
+                None,
             ],
         ],
-        columns=["station_id", "dataset", "parameter", "date", "value", "quality"],
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
     )
-    expected_df = expected_df.astype({"station_id": "category", "dataset": "category", "parameter": "category"})
-    expected_df.value = pd.to_numeric(expected_df.value)
-    expected_df.quality = pd.to_numeric(expected_df.quality)
     assert_frame_equal(
         given_df,
         expected_df,
-        # Needed since pandas 1.2?
-        check_categorical=False,
     )
 
 
@@ -628,17 +633,17 @@ def test_dwd_observations_urban_values(default_settings):
         settings=default_settings,
     ).filter_by_station_id("00399")
     given_df = request.values.all().df
-    expected_df = pd.DataFrame(
+    expected_df = pl.DataFrame(
         {
-            "station_id": pd.Categorical(["00399"] * 2),
-            "dataset": pd.Categorical(["urban_temperature_air"] * 2),
-            "parameter": pd.Categorical(["temperature_air_mean_200", "humidity"]),
-            "date": [pd.Timestamp("2022-06-01", tz=pytz.utc)] * 2,
+            "station_id": ["00399"] * 2,
+            "dataset": ["urban_temperature_air"] * 2,
+            "parameter": ["temperature_air_mean_200", "humidity"],
+            "date": [dt.datetime(2022, 6, 1, tzinfo=dt.timezone.utc)] * 2,
             "value": [286.54999999999995, 83.0],
             "quality": [3.0, 3.0],
         }
     )
-    assert_frame_equal(given_df, expected_df, check_categorical=False)
+    assert_frame_equal(given_df, expected_df)
 
 
 @pytest.mark.remote
@@ -662,7 +667,7 @@ def test_dwd_observations_urban_values_basic(dataset, default_settings):
         settings=default_settings,
     ).filter_by_name(name="Berlin-Alexanderplatz")
     given_df = request.values.all().df
-    assert not given_df.value.empty
+    assert not given_df.drop_nulls(Columns.VALUE.value).is_empty()
 
 
 @pytest.mark.remote
@@ -671,47 +676,84 @@ def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_si_false)
     request = DwdObservationRequest(
         parameter=["pressure_air_site"],
         resolution="minute_10",
-        start_date="1999-12-31 22:00",
-        end_date="1999-12-31 23:00",
+        start_date="1999-12-31 21:00",
+        end_date="1999-12-31 22:00",
         settings=settings_humanize_si_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
     given_df = request.values.all().df
-    expected_df = pd.DataFrame(
-        {
-            "station_id": pd.Categorical(["01048"] * 7),
-            "dataset": pd.Categorical(["temperature_air"] * 7),
-            "parameter": pd.Categorical(["pp_10"] * 7),
-            "date": [
-                datetime(1999, 12, 31, 22, 00, tzinfo=pytz.UTC),
-                datetime(1999, 12, 31, 22, 10, tzinfo=pytz.UTC),
-                datetime(1999, 12, 31, 22, 20, tzinfo=pytz.UTC),
-                datetime(1999, 12, 31, 22, 30, tzinfo=pytz.UTC),
-                datetime(1999, 12, 31, 22, 40, tzinfo=pytz.UTC),
-                datetime(1999, 12, 31, 22, 50, tzinfo=pytz.UTC),
-                datetime(1999, 12, 31, 23, 00, tzinfo=pytz.UTC),
-            ],
-            "value": pd.to_numeric(
-                [
-                    996.1,
-                    996.2,
-                    996.2,
-                    996.2,
-                    996.3,
-                    996.4,
-                    pd.NA,
-                ],
-                errors="coerce",
-            ).astype(float),
-            "quality": pd.to_numeric([1, 1, 1, 1, 1, 1, pd.NA], errors="coerce").astype(float),
+    expected_df = pl.DataFrame(
+        [
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 21, 00, tzinfo=dt.timezone.utc),
+                "value": 996.0,
+                "quality": 1.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 21, 10, tzinfo=dt.timezone.utc),
+                "value": 995.9,
+                "quality": 1.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 21, 20, tzinfo=dt.timezone.utc),
+                "value": 995.9,
+                "quality": 1.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 21, 30, tzinfo=dt.timezone.utc),
+                "value": 996.0,
+                "quality": 1.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 21, 40, tzinfo=dt.timezone.utc),
+                "value": 996.0,
+                "quality": 1.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 21, 50, tzinfo=dt.timezone.utc),
+                "value": 996.0,
+                "quality": 1.0,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "temperature_air",
+                "parameter": "pp_10",
+                "date": dt.datetime(1999, 12, 31, 22, 00, tzinfo=dt.timezone.utc),
+                "value": 996.1,
+                "quality": 1.0,
+            },
+        ],
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
         },
     )
     assert_frame_equal(
         given_df,
         expected_df,
-        # Needed since pandas 1.2?
-        check_categorical=False,
     )
 
 
@@ -721,37 +763,120 @@ def test_dwd_observation_data_monthly_tidy(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationParameter.MONTHLY.PRECIPITATION_HEIGHT],
         resolution=DwdObservationResolution.MONTHLY,
-        start_date="2020-01-01",
-        end_date="2020-12-31",
+        start_date="2020-01-01T00:00:00",
+        end_date="2020-12-01T00:00:00",
         settings=default_settings,
     ).filter_by_station_id("00433")
     given_df = request.values.all().df
-    expected_df = pd.DataFrame(
-        {
-            "station_id": pd.Categorical(["00433"] * 12),
-            "dataset": pd.Categorical(["climate_summary"] * 12),
-            "parameter": pd.Categorical(["precipitation_height"] * 12),
-            "date": [
-                Timestamp("2020-01-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-02-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-03-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-04-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-05-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-06-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-07-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-08-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-09-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-10-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-11-01 00:00:00+0000", tz="UTC"),
-                Timestamp("2020-12-01 00:00:00+0000", tz="UTC"),
-            ],
-            "value": pd.to_numeric(
-                [34.0, 83.2, 30.3, 22.7, 33.3, 35.8, 46.8, 43.2, 52.8, 58.2, 16.4, 22.1], errors="coerce"
-            ),
-            "quality": pd.to_numeric([9.0] * 12, errors="coerce"),
+    expected_df = pl.DataFrame(
+        [
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+                "value": 34.0,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 2, 1, tzinfo=dt.timezone.utc),
+                "value": 83.2,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 3, 1, tzinfo=dt.timezone.utc),
+                "value": 30.3,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 4, 1, tzinfo=dt.timezone.utc),
+                "value": 22.7,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 5, 1, tzinfo=dt.timezone.utc),
+                "value": 33.3,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 6, 1, tzinfo=dt.timezone.utc),
+                "value": 35.8,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 7, 1, tzinfo=dt.timezone.utc),
+                "value": 46.8,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 8, 1, tzinfo=dt.timezone.utc),
+                "value": 43.2,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 9, 1, tzinfo=dt.timezone.utc),
+                "value": 52.8,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 10, 1, tzinfo=dt.timezone.utc),
+                "value": 58.2,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 11, 1, tzinfo=dt.timezone.utc),
+                "value": 16.4,
+                "quality": 9.0,
+            },
+            {
+                "station_id": "00433",
+                "dataset": "climate_summary",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2020, 12, 1, tzinfo=dt.timezone.utc),
+                "value": 22.1,
+                "quality": 9.0,
+            },
+        ],
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
         },
     )
-    assert_frame_equal(given_df, expected_df, check_categorical=False)
+    assert_frame_equal(given_df, expected_df)
 
 
 def test_create_humanized_column_names_mapping():
@@ -797,10 +922,10 @@ def test_tidy_up_data(settings_humanize_false):
         start_date="2019-01-23 00:00:00",
         settings=settings_humanize_false,
     ).filter_by_station_id(("01048",))
-    df = pd.DataFrame(
+    df = pl.DataFrame(
         {
             "station_id": ["01048"],
-            "date": [pd.Timestamp("2019-01-23 00:00:00")],
+            "date": [dt.datetime(2019, 1, 23)],
             "qn_3": [10],
             "fx": [11.8],
             "fm": [5.8],
@@ -820,9 +945,8 @@ def test_tidy_up_data(settings_humanize_false):
         }
     )
     given_df = request.values._tidy_up_df(df, request.parameter[0][1])
-    given_df.quality = given_df.quality.astype(float)
     given_df = request.values._organize_df_columns(given_df, "01048", DwdObservationDataset.CLIMATE_SUMMARY)
-    expected_df = pd.DataFrame(
+    expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 14,
             "dataset": ["climate_summary"] * 14,
@@ -842,7 +966,7 @@ def test_tidy_up_data(settings_humanize_false):
                 "tnk",
                 "tgk",
             ],
-            "date": [pd.Timestamp("2019-01-23 00:00:00")] * 14,
+            "date": [dt.datetime(2019, 1, 23)] * 14,
             "value": [
                 11.8,
                 5.8,
@@ -859,7 +983,7 @@ def test_tidy_up_data(settings_humanize_false):
                 -7.9,
                 -11.4,
             ],
-            "quality": pd.Series([10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=float),
+            "quality": [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
         }
     )
     assert_frame_equal(given_df, expected_df)
@@ -873,11 +997,11 @@ def test_dwd_observation_weather_phenomena(settings_humanize_si_false):
     request = DwdObservationRequest(
         parameter=["weather"],
         resolution="hourly",
-        start_date=datetime(year=2022, month=3, day=1, tzinfo=timezone.utc),
-        end_date=datetime(year=2022, month=3, day=31, tzinfo=timezone.utc),
+        start_date=dt.datetime(year=2022, month=3, day=1, tzinfo=dt.timezone.utc),
+        end_date=dt.datetime(year=2022, month=3, day=31, tzinfo=dt.timezone.utc),
         settings=settings_humanize_si_false,
     )
-    given_df = request.all().df.dropna()
+    given_df = request.all().df.drop_nulls()
     assert len(given_df) > 0
 
 
@@ -890,7 +1014,7 @@ def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings):
         period="now",
         settings=default_settings,
     ).filter_by_station_id("01736")
-    assert request.values.all().df.empty
+    assert request.values.all().df.is_empty()
 
 
 @pytest.mark.remote
@@ -902,7 +1026,7 @@ def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_wide_shape
         period="now",
         settings=settings_wide_shape,
     ).filter_by_station_id("01736")
-    assert request.values.all().df.empty
+    assert request.values.all().df.is_empty()
 
 
 @pytest.mark.remote
@@ -912,11 +1036,11 @@ def test_dwd_observation_solar_daily(default_settings):
     request = DwdObservationRequest(
         parameter="solar",
         resolution="daily",
-        start_date=datetime(1950, 1, 1),
-        end_date=datetime(2021, 12, 31),
+        start_date=dt.datetime(1950, 1, 1),
+        end_date=dt.datetime(2021, 12, 31),
         settings=default_settings,
     ).filter_by_station_id(station_id=[3987])
-    assert not request.values.all().df.value.dropna().empty
+    assert not request.values.all().df.get_column("value").drop_nulls().is_empty()
 
 
 @pytest.mark.remote
@@ -932,4 +1056,4 @@ def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_si_false
         station_id=(1048,),
     )
     df = request.values.all().df
-    assert df[df["value"] == -999].empty
+    assert df.filter(pl.col("value").eq(-999)).is_empty()

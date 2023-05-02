@@ -5,13 +5,13 @@ import json
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
+from typing import List
 from urllib.parse import urlunparse
 
-import pandas as pd
-import pytz
+import polars as pl
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.util.pandas import chunker
+from wetterdienst.util.polars import chunker
 from wetterdienst.util.url import ConnectionString
 
 log = logging.getLogger(__name__)
@@ -26,35 +26,35 @@ class ExportMixin:
     acquired through the core machinery.
     """
 
-    df: pd.DataFrame
+    df: pl.DataFrame
 
     def fill_gaps(self):
         self.df = self.df.fillna(-999)
         return self.df
 
-    def filter_by_sql(self, sql: str) -> pd.DataFrame:
+    def filter_by_sql(self, sql: str) -> pl.DataFrame:
         self.df = self._filter_by_sql(self.df, sql)
         return self.df
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> List[dict]:
 
         # Convert all datetime columns to ISO format.
         df = convert_datetimes(self.df)
 
         # Return dictionary with timeseries types.
-        return df.to_dict(orient="records")
+        return df.to_dicts()
 
-    def to_json(self, indent: int = 4):
-        df = self.df.copy()
-
+    def to_json(self, pretty: bool = True):
+        df = self.df.select(pl.all())
         for column in ("from_date", "to_date", "date"):
             if column in df:
-                df[column] = df[column].map(lambda x: x.isoformat() if pd.notna(x) and x is not None else None)
-
-        return df.to_json(orient="records", date_format="iso", indent=indent, force_ascii=False)
+                df = df.with_columns(
+                    pl.col(column).apply(lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8)
+                )
+        return df.write_json(row_oriented=True, pretty=pretty)
 
     def to_csv(self):
-        return self.df.to_csv(index=False, date_format="%Y-%m-%dT%H-%M-%S")
+        return self.df.write_csv(datetime_format="%Y-%m-%dT%H-%M-%S")
 
     def to_geojson(self, indent: int = 4) -> str:
         """
@@ -75,7 +75,7 @@ class ExportMixin:
         fmt = fmt.lower()
 
         if fmt == "json":
-            return self.to_json(indent=kwargs.get("indent"))
+            return self.to_json(pretty=kwargs.get("pretty"))
         elif fmt == "csv":
             return self.to_csv()
         elif fmt == "geojson":
@@ -84,7 +84,7 @@ class ExportMixin:
             raise KeyError("Unknown output format")
 
     @staticmethod
-    def _filter_by_sql(df: pd.DataFrame, sql: str) -> pd.DataFrame:
+    def _filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
         """
         Filter Pandas DataFrame using an SQL query.
         The virtual table name is "data", so queries
@@ -100,19 +100,9 @@ class ExportMixin:
         """
         import duckdb
 
-        df = duckdb.query_df(df, "data", sql).df()
-
-        for column in (
-            Columns.FROM_DATE.value,
-            Columns.TO_DATE.value,
-            Columns.DATE.value,
-        ):
-            try:
-                df[column] = df[column].dt.tz_convert(pytz.UTC)
-            except KeyError:
-                pass
-
-        return df
+        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None)).to_pandas()
+        df = duckdb.query_df(df, "data", sql).pl()
+        return df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
 
     @abstractmethod
     def to_ogc_feature_collection(self):
@@ -139,7 +129,7 @@ class ExportMixin:
         :return: self
         """
 
-        log.info(f"Exporting records to {target}\n{self.df.count()}")
+        log.info(f"Exporting records to {target}\n{self.df.select(pl.count())}")
 
         connspec = ConnectionString(target)
         protocol = connspec.url.scheme
@@ -151,17 +141,14 @@ class ExportMixin:
 
             if target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
-
                 # Convert all datetime columns to ISO format.
                 df = convert_datetimes(self.df)
-                df.to_excel(filepath, index=False)
+                df.write_excel(filepath)
 
             elif target.endswith(".feather"):
                 # https://arrow.apache.org/docs/python/feather.html
                 log.info(f"Writing to Feather file '{filepath}'")
-                import pyarrow.feather as feather
-
-                feather.write_feather(self.df, filepath, compression="lz4")
+                self.df.write_ipc(filepath, compression="lz4")
 
             elif target.endswith(".parquet"):
                 """
@@ -178,11 +165,8 @@ class ExportMixin:
                 """  # noqa:E501
 
                 log.info(f"Writing to Parquet file '{filepath}'")
-                import pyarrow as pa
-                import pyarrow.parquet as pq
 
-                table = pa.Table.from_pandas(self.df)
-                pq.write_table(table, filepath)
+                self.df.write_parquet(filepath)
 
             elif target.endswith(".zarr"):
                 """
@@ -198,19 +182,9 @@ class ExportMixin:
                 log.info(f"Writing to Zarr group '{filepath}'")
                 import xarray
 
-                df = self.df
-
-                # Problem: `ValueError: Cannot setitem on a Categorical with a new category, set the categories first`.
-                # Solution: Let's convert all categorical columns back to their designated type representations.
-                #           https://stackoverflow.com/questions/32011359/convert-categorical-data-in-pandas-dataframe/32011969#32011969
-                if "quality" in df:
-                    df.quality = df.quality.astype("Int64")
-                categorical_columns = df.select_dtypes(["category"]).columns
-                df[categorical_columns] = df[categorical_columns].astype("str")
-
                 # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
                 # Solution: Fill gaps in the data.
-                df = df.fillna(-999)
+                df = self.df.fill_null(-999).to_pandas()
 
                 # Convert pandas DataFrame to xarray Dataset.
                 dataset = xarray.Dataset.from_dataframe(df)
@@ -262,8 +236,10 @@ class ExportMixin:
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
             import duckdb
 
+            df = self.df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None)).to_pandas()
+
             connection = duckdb.connect(database=database, read_only=False)
-            connection.register("origin", self.df)
+            connection.register("origin", df)
             connection.execute(f"DROP TABLE IF EXISTS {tablename};")
             connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa:S608
 
@@ -334,26 +310,6 @@ class ExportMixin:
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
-            # 1. Mungle the data frame.
-            # Use the "date" column as appropriate timestamp index.
-            df = self.df.set_index(pd.DatetimeIndex(self.df["date"]))
-            df = df.drop(["date"], axis=1)
-
-            # Compute designated tag fields from some candidates.
-            tag_columns = []
-            tag_candidates = [
-                Columns.STATION_ID.value,
-                Columns.QUALITY.value,
-                Columns.QUALITY_PREFIX.value,
-                Columns.DATASET.value,
-                Columns.PARAMETER.value,
-            ]
-            for tag_candidate in tag_candidates:
-                tag_candidate = tag_candidate.lower()
-                for column in df.columns:
-                    if column.startswith(tag_candidate):
-                        tag_columns.append(column)
-
             # Setup the connection.
             if version == 1:
                 from influxdb import InfluxDBClient
@@ -377,27 +333,20 @@ class ExportMixin:
                 write_api = client.write_api(write_options=SYNCHRONOUS)
 
             points = []
-            for items in chunker(df, chunksize=50000):
-
-                for date, record in items.iterrows():
-                    time = date.isoformat()
-                    tags = {tag: record.pop(tag) for tag in tag_columns if tag in record}
-
-                    fields = record.dropna().to_dict()
+            for items in chunker(self.df, chunksize=50000):
+                for record in items.iter_rows(named=True):
+                    time = record.pop("date").isoformat()
+                    fields = {k: v for k, v in record.items() if v is not None}
                     if not fields:
                         continue
-
                     if version == 1:
                         point = {
                             "measurement": tablename,
                             "time": time,
-                            "tags": tags,
                             "fields": fields,
                         }
                     elif version == 2:
-                        point = Point(tablename).time(date.isoformat())
-                        for tag, value in tags.items():
-                            point = point.tag(tag, value)
+                        point = Point(tablename).time(time)
                         for field, value in fields.items():
                             point = point.field(field, value)
 
@@ -450,9 +399,9 @@ class ExportMixin:
 
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
-            self.df.date = self.df.date.dt.tz_localize(None)
+            df = self.df.with_columns(pl.col("date").dt.replace_time_zone(time_zone=None))
 
-            self.df.to_sql(
+            df.to_pandas().to_sql(
                 name=tablename,
                 con=cratedb_target,
                 schema=database,
@@ -475,7 +424,8 @@ class ExportMixin:
             Examples::
 
                 # Prepare
-                alias fetch='wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent'
+                alias fetch='wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily
+                --period=recent'
 
                 # Acquire data.
                 fetch --target="sqlite:///dwd.sqlite?table=weather"
@@ -483,44 +433,42 @@ class ExportMixin:
                 # Query data.
                 sqlite3 dwd.sqlite "SELECT * FROM weather;"
 
-            """  # noqa:E501
-
+            """
             # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999
             # for SQLite versions prior to 3.32.0 (2020-05-22),
             # see https://www.sqlite.org/limits.html#max_variable_number.
-            chunksize = 5000
+            chunk_size = 5000
             if target.startswith("sqlite://"):
                 import sqlite3
 
                 if sqlite3.sqlite_version_info < (3, 32, 0):
-                    chunksize = int(999 / len(self.df.columns))
+                    chunk_size = int(999 / len(self.df.columns))
 
             log.info("Writing to SQL database")
-            self.df.to_sql(
+            self.df.to_pandas().to_sql(
                 name=tablename,
                 con=target,
                 if_exists="replace",
                 index=False,
                 method="multi",
-                chunksize=chunksize,
+                chunksize=chunk_size,
             )
             log.info("Writing to SQL database finished")
 
 
-def convert_datetimes(df: pd.DataFrame) -> pd.DataFrame:
+def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
     """
     Convert all datetime columns to ISO format.
 
     :param df:        df[Columns.FROM_DATE] = df[Columns.FROM_DATE].dt.tz_localize(self.tz)
     :return:
     """
-    df: pd.DataFrame = df.copy(deep=True)
-
-    date_columns = list(df.select_dtypes(include=[pd.DatetimeTZDtype]).columns)
+    date_columns = list(df.select(pl.col(pl.Datetime)).columns)
     date_columns.extend([Columns.FROM_DATE.value, Columns.TO_DATE.value, Columns.DATE.value])
     date_columns = set(date_columns)
     for date_column in date_columns:
         if date_column in df:
-            df[date_column] = df[date_column].apply(lambda d: d.isoformat() if pd.notna(d) else None)
-
+            df = df.with_columns(
+                pl.col(date_column).apply(lambda v: v.isoformat() if v else None, return_dtype=pl.Utf8)
+            )
     return df

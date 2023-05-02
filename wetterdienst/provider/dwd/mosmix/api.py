@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import logging
-from datetime import datetime
 from enum import Enum
 from io import StringIO
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import numpy as np
 import pandas as pd
-import pytz
+import polars as pl
+from backports.datetime_fromisoformat import MonkeyPatch
 from requests import HTTPError
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -38,7 +39,9 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.python import to_list
 
+MonkeyPatch.patch_fromisoformat()
 log = logging.getLogger(__name__)
 
 DWD_MOSMIX_S_PATH = "weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/"
@@ -78,7 +81,6 @@ class DwdMosmixValues(TimeseriesValues):
 
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
-    _has_quality = False
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """
@@ -113,11 +115,11 @@ class DwdMosmixValues(TimeseriesValues):
                 parameter_.append(parameter.value)
 
         self.kml = KMLReader(
-            station_ids=self.sr.station_id.tolist(), parameters=parameter_, settings=self.sr.stations.settings
+            station_ids=self.sr.station_id.to_list(), parameters=parameter_, settings=self.sr.stations.settings
         )
 
     @property
-    def metadata(self) -> pd.DataFrame:
+    def metadata(self) -> pl.DataFrame:
         """
         Wrapper for mosmix metadata
 
@@ -125,7 +127,7 @@ class DwdMosmixValues(TimeseriesValues):
         """
         return self.sr.df
 
-    def query(self) -> Generator[ValuesResult, None, None]:
+    def query(self) -> Iterator[ValuesResult]:
         """
         Replace collect data method as all information is read once from kml file
 
@@ -136,25 +138,16 @@ class DwdMosmixValues(TimeseriesValues):
         self.stations_collected = []
 
         for df in self._collect_station_parameter():
-            df = self._tidy_up_df(df, self.sr.stations.mosmix_type)
-
-            df = self._coerce_parameter_types(df)
-
-            station_id = df[Columns.STATION_ID.value].iloc[0]
-
+            df = self._tidy_up_df(df)
+            station_id = df.get_column(Columns.STATION_ID.value).take(0).item()
             df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
-
-            df = self._coerce_meta_fields(df)
 
             if self.sr.humanize:
                 df = self._humanize(df, hpm)
 
             # Filter for dates range if start_date and end_date are defined
-            if not df.empty and self.sr.start_date and self.sr.start_date != DwdForecastDate.LATEST:
-                df = df.loc[
-                    (df[Columns.DATE.value] >= self.sr.start_date) & (df[Columns.DATE.value] <= self.sr.end_date),
-                    :,
-                ]
+            if not df.is_empty() and self.sr.start_date and self.sr.start_date != DwdForecastDate.LATEST:
+                df = df.filter(pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date))
 
             if not self.sr.tidy:
                 df = self._tabulate_df(df)
@@ -167,7 +160,7 @@ class DwdMosmixValues(TimeseriesValues):
             if self.stations_counter == self.sr.rank:
                 return
 
-    def _collect_station_parameter(self) -> Generator[pd.DataFrame, None, None]:
+    def _collect_station_parameter(self) -> Iterator[pl.DataFrame]:
         """
         Wrapper of read_mosmix to collect mosmix data (either latest or for
         defined dates)
@@ -178,10 +171,10 @@ class DwdMosmixValues(TimeseriesValues):
             for df in self.read_mosmix(self.sr.stations.start_issue):
                 yield df
         else:
-            for date in pd.date_range(
+            for date in pl.date_range(
                 self.sr.stations.start_issue,
                 self.sr.stations.end_issue,
-                freq=self.sr.frequency.value,
+                interval=self.sr.frequency.value,
             ):
                 try:
                     for df in self.read_mosmix(date):
@@ -190,27 +183,26 @@ class DwdMosmixValues(TimeseriesValues):
                     log.warning(e)
                     continue
 
-    def _tidy_up_df(self, df: pd.DataFrame, dataset: Enum) -> pd.DataFrame:
+    @staticmethod
+    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
         """
 
         :param df: pandas DataFrame that is being tidied
         :param dataset: enum of dataset, used for writing dataset in pandas DataFrame
         :return: tidied pandas DataFrame
         """
-        df_tidy = df.melt(
+        df = df.melt(
             id_vars=[
                 Columns.STATION_ID.value,
                 Columns.DATE.value,
             ],
-            var_name=Columns.PARAMETER.value,
+            variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
 
-        df_tidy[Columns.QUALITY.value] = pd.Series(dtype=float)
+        return df.with_columns(pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value))
 
-        return df_tidy
-
-    def read_mosmix(self, date: Union[datetime, DwdForecastDate]) -> Generator[pd.DataFrame, None, None]:
+    def read_mosmix(self, date: Union[dt.datetime, DwdForecastDate]) -> Iterator[pl.DataFrame]:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -220,14 +212,14 @@ class DwdMosmixValues(TimeseriesValues):
         """
         for df_forecast in self._read_mosmix(date):
             df_forecast = df_forecast.rename(
-                columns={
+                mapping={
                     "datetime": Columns.DATE.value,
                 }
             )
 
             yield df_forecast
 
-    def _read_mosmix(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
+    def _read_mosmix(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
         """
         Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type
@@ -240,7 +232,7 @@ class DwdMosmixValues(TimeseriesValues):
         else:
             yield from self.read_mosmix_large(date)
 
-    def read_mosmix_small(self, date: Union[DwdForecastDate, datetime]) -> Generator[pd.DataFrame, None, None]:
+    def read_mosmix_small(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
         """
         Reads single MOSMIX-S file with all stations_result and returns every mosmix that
         matches with one of the defined station ids.
@@ -249,17 +241,14 @@ class DwdMosmixValues(TimeseriesValues):
         :return: pandas DataFrame with data
         """
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
-
         file_url = self.get_url_for_date(url, date)
-
         self.kml.read(file_url)
-
         for forecast in self.kml.get_forecasts():
             yield forecast
 
     def read_mosmix_large(
-        self, date: Union[DwdForecastDate, datetime]
-    ) -> Generator[Tuple[pd.DataFrame, pd.DataFrame], None, None]:
+        self, date: Union[DwdForecastDate, dt.datetime]
+    ) -> Iterator[Tuple[pl.DataFrame, pl.DataFrame]]:
         """
         Reads multiple MOSMIX-L files with one per each station and returns a
         mosmix per file.
@@ -290,7 +279,7 @@ class DwdMosmixValues(TimeseriesValues):
 
                 yield next(self.kml.get_forecasts())
 
-    def get_url_for_date(self, url: str, date: Union[datetime, DwdForecastDate]) -> str:
+    def get_url_for_date(self, url: str, date: Union[dt.datetime, DwdForecastDate]) -> str:
         """
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
@@ -308,22 +297,22 @@ class DwdMosmixValues(TimeseriesValues):
             except IndexError as e:
                 raise IndexError(f"Unable to find LATEST file within {url}") from e
 
-        date = date.astimezone(pytz.UTC).replace(tzinfo=None)
+        date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
 
-        df_urls = pd.DataFrame({"URL": urls})
+        df = pl.DataFrame({"url": urls})
 
-        df_urls["date"] = df_urls["URL"].apply(lambda url_: url_.split("/")[-1].split("_")[2].replace(".kmz", ""))
+        df = df.with_columns(pl.col("url").str.split("/").arr.last().str.split("_").arr.take(2).flatten().alias("date"))
 
-        df_urls = df_urls[df_urls["date"] != "LATEST"]
+        df = df.filter(pl.col("date").ne("LATEST"))
 
-        df_urls["date"] = pd.to_datetime(df_urls["date"], format=DatetimeFormat.YMDH.value)
+        df = df.with_columns(pl.col("date").str.strptime(pl.Datetime, fmt=DatetimeFormat.YMDH.value))
 
-        df_urls = df_urls.loc[df_urls[Columns.DATE.value] == date]
+        df = df.filter(pl.col("date").eq(date))
 
-        if df_urls.empty:
+        if df.is_empty():
             raise IndexError(f"Unable to find {date} file within {url}")
 
-        return df_urls["URL"].item()
+        return df.get_column("url").item()
 
 
 class DwdMosmixRequest(TimeseriesRequest):
@@ -363,9 +352,11 @@ class DwdMosmixRequest(TimeseriesRequest):
         :param resolution:
         :return:
         """
-        return pd.Series(resolution, dtype=object).apply(
-            parse_enumeration_from_template, args=(cls._dataset_base,)
-        ).tolist() or [*cls._dataset_base]
+        return (
+            [parse_enumeration_from_template(res, intermediate=cls._dataset_base) for res in to_list(resolution)]
+            if resolution
+            else [*cls._dataset_base]
+        )
 
     _base_columns = [
         Columns.STATION_ID.value,
@@ -380,7 +371,7 @@ class DwdMosmixRequest(TimeseriesRequest):
     ]
 
     @staticmethod
-    def adjust_datetime(datetime_: datetime) -> datetime:
+    def adjust_datetime(datetime_: dt.datetime) -> dt.datetime:
         """
         Adjust datetime to MOSMIX release frequency, which is required for MOSMIX-L
         that is only released very 6 hours (3, 9, 15, 21). Datetime is floored
@@ -389,23 +380,23 @@ class DwdMosmixRequest(TimeseriesRequest):
         :param datetime_: datetime that is adjusted
         :return: adjusted datetime with floored hour
         """
-        regular_date = datetime_ + pd.offsets.DateOffset(hour=3)
+        regular_date = dt.datetime.fromordinal(datetime_.date().toordinal()).replace(hour=3)
 
         if regular_date > datetime_:
-            regular_date -= pd.Timedelta(hours=6)
+            regular_date -= dt.timedelta(hours=6)
 
         delta_hours = (datetime_.hour - regular_date.hour) % 6
 
-        return datetime_ - pd.Timedelta(hours=delta_hours)
+        return datetime_ - dt.timedelta(hours=delta_hours)
 
     def __init__(
         self,
         parameter: Optional[List[Union[str, DwdMosmixParameter, Parameter]]],
         mosmix_type: Union[str, DwdMosmixType],
-        start_issue: Optional[Union[str, datetime, DwdForecastDate]] = DwdForecastDate.LATEST,
-        end_issue: Optional[Union[str, datetime]] = None,
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_issue: Optional[Union[str, dt.datetime, DwdForecastDate]] = DwdForecastDate.LATEST,
+        end_issue: Optional[Union[str, dt.datetime]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         station_group: Optional[DwdMosmixStationGroup] = None,
         settings: Optional[Settings] = None,
     ) -> None:
@@ -456,9 +447,12 @@ class DwdMosmixRequest(TimeseriesRequest):
                 end_issue = start_issue
             elif not start_issue:
                 start_issue = end_issue
-
-            start_issue = pd.to_datetime(start_issue, infer_datetime_format=True).floor("1H")
-            end_issue = pd.to_datetime(end_issue, infer_datetime_format=True).floor("1H")
+            if type(start_issue) == str:
+                start_issue = dt.datetime.fromisoformat(start_issue)
+            start_issue = dt.datetime(start_issue.year, start_issue.month, start_issue.day, start_issue.hour)
+            if type(end_issue) == str:
+                end_issue = dt.datetime.fromisoformat(end_issue)
+            end_issue = dt.datetime(end_issue.year, end_issue.month, end_issue.day, end_issue.hour)
 
             # Shift start date and end date to 3, 9, 15, 21 hour format
             if mosmix_type == DwdMosmixType.LARGE:
@@ -484,7 +478,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         """Required for typing"""
         return self.issue_end
 
-    def _all(self) -> pd.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
         Create meta data DataFrame from available station list
 
@@ -507,6 +501,8 @@ class DwdMosmixRequest(TimeseriesRequest):
             dtype="str",
         )
 
+        df = pl.from_pandas(df)
+
         df.columns = [
             Columns.STATION_ID.value,
             Columns.ICAO_ID.value,
@@ -516,9 +512,11 @@ class DwdMosmixRequest(TimeseriesRequest):
             Columns.HEIGHT.value,
         ]
 
-        # The data as published by DWD has its `LAT` and `LON` columns in "Degrees Minutes" format.
-        # `convert_dm_to_dd` takes care of converting the coordinates to "Decimal Degrees".
-        df[Columns.LATITUDE.value] = convert_dm_to_dd(df[Columns.LATITUDE.value].astype(float))
-        df[Columns.LONGITUDE.value] = convert_dm_to_dd(df[Columns.LONGITUDE.value].astype(float))
+        df = df.lazy()
 
-        return df.reindex(columns=self._base_columns)
+        df = df.with_columns(
+            pl.col(Columns.LATITUDE.value).cast(float).map(convert_dm_to_dd),
+            pl.col(Columns.LONGITUDE.value).cast(float).map(convert_dm_to_dd),
+        )
+
+        return df.select([pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns])

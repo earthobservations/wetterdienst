@@ -1,9 +1,8 @@
 import datetime as dt
 
-import numpy as np
-import pandas as pd
+import polars as pl
 import pytest
-from pandas._testing import assert_frame_equal
+from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 
@@ -25,19 +24,17 @@ def test_api_amsterdam(start_date, end_date, default_settings):
         settings=default_settings,
     ).filter_by_name("DE BILT")
     given_df = request.values.all().df
-    given_df_filtered = given_df[given_df["date"] == pd.Timestamp("2021-01-01 23:00:00+00:00")].reset_index(drop=True)
-    expected_df = pd.DataFrame(
+    expected_df = pl.DataFrame(
         {
-            "station_id": pd.Categorical(["NLM00006260"]),
-            "dataset": pd.Categorical(["daily"]),
-            "parameter": pd.Categorical(["temperature_air_mean_200"]),
-            "date": [pd.Timestamp("2021-01-01 23:00:00+0000", tz="UTC")],
+            "station_id": ["NLM00006260"],
+            "dataset": ["daily"],
+            "parameter": ["temperature_air_mean_200"],
+            "date": [dt.datetime(2021, 1, 1, 23, tzinfo=dt.timezone.utc)],
             "value": [276.84999999999997],
-            "quality": [np.nan],
+            "quality": [None],
         }
     )
     assert_frame_equal(
-        given_df_filtered,
+        given_df.filter(pl.col("date").eq(dt.datetime(2021, 1, 1, 23, tzinfo=dt.timezone.utc))),
         expected_df,
-        check_categorical=False,
     )

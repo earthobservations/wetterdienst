@@ -1,44 +1,47 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import dateutil.parser
+import datetime as dt
+
 import pytest
-import pytz
+from backports.datetime_fromisoformat import MonkeyPatch
 
 from wetterdienst import Resolution
 from wetterdienst.util.datetime import mktimerange
 
+MonkeyPatch.patch_fromisoformat()
+
 
 def test_mktimerange_annual():
-    assert mktimerange(Resolution.ANNUAL, dateutil.parser.isoparse("2019").replace(tzinfo=pytz.UTC)) == (
-        dateutil.parser.isoparse("2019-01-01 00:00:00Z"),
-        dateutil.parser.isoparse("2019-12-31 00:00:00Z"),
+    assert mktimerange(Resolution.ANNUAL, dt.datetime(2019, 1, 1, tzinfo=dt.timezone.utc)) == (
+        dt.datetime.fromisoformat("2019-01-01 00:00:00+00:00"),
+        dt.datetime.fromisoformat("2019-12-31 00:00:00+00:00"),
     )
     assert mktimerange(
         Resolution.ANNUAL,
-        dateutil.parser.isoparse("2010").replace(tzinfo=pytz.UTC),
-        dateutil.parser.isoparse("2020").replace(tzinfo=pytz.UTC),
+        dt.datetime(2010, 1, 1, tzinfo=dt.timezone.utc),
+        dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
     ) == (
-        dateutil.parser.isoparse("2010-01-01 00:00:00Z"),
-        dateutil.parser.isoparse("2020-12-31 00:00:00Z"),
+        dt.datetime.fromisoformat("2010-01-01 00:00:00Z"),
+        dt.datetime.fromisoformat("2020-12-31 00:00:00Z"),
     )
 
 
 def test_mktimerange_monthly():
-    assert mktimerange(Resolution.MONTHLY, dateutil.parser.isoparse("2020-05").replace(tzinfo=pytz.UTC)) == (
-        dateutil.parser.isoparse("2020-05-01 00:00:00Z"),
-        dateutil.parser.isoparse("2020-05-31 00:00:00Z"),
+    assert mktimerange(Resolution.MONTHLY, dt.datetime(2020, 5, 1, tzinfo=dt.timezone.utc)) == (
+        dt.datetime.fromisoformat("2020-05-01 00:00:00+00:00"),
+        dt.datetime.fromisoformat("2020-05-31 00:00:00+00:00"),
     )
     assert mktimerange(
         Resolution.MONTHLY,
-        dateutil.parser.isoparse("2017-01").replace(tzinfo=pytz.UTC),
-        dateutil.parser.isoparse("2019-12").replace(tzinfo=pytz.UTC),
+        dt.datetime(2017, 1, 1, tzinfo=dt.timezone.utc),
+        dt.datetime(2019, 12, 1, tzinfo=dt.timezone.utc),
     ) == (
-        dateutil.parser.isoparse("2017-01-01 00:00:00Z"),
-        dateutil.parser.isoparse("2019-12-31 00:00:00Z"),
+        dt.datetime.fromisoformat("2017-01-01 00:00:00+00:00"),
+        dt.datetime.fromisoformat("2019-12-31 00:00:00+00:00"),
     )
 
 
 def test_mktimerange_invalid():
     with pytest.raises(NotImplementedError):
-        mktimerange(Resolution.DAILY, dateutil.parser.isoparse("2020-05-01"))
+        mktimerange(Resolution.DAILY, dt.datetime.fromisoformat("2020-05-01"))

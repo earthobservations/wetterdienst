@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import json
-from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import pandas as pd
+import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -24,17 +25,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
-FLOAT_9_TIMES = Tuple[
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-]
+FLOAT_9_TIMES = List[Optional[float]]
 
 
 class WsvPegelParameter(DatasetTreeCore):
@@ -136,7 +127,7 @@ class WsvPegelValues(TimeseriesValues):
     def _data_tz(self) -> Timezone:
         return Timezone.GERMANY
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pd.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         """
         Method to collect data for station parameter from WSV Pegelonline following its open REST-API at
         https://pegelonline.wsv.de/webservices/rest-api/v2/stations/
@@ -150,15 +141,16 @@ class WsvPegelValues(TimeseriesValues):
         try:
             response = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
         except FileNotFoundError:
-            return pd.DataFrame()
+            return pl.DataFrame()
 
-        df = pd.read_json(response)
-
-        df = df.rename(columns={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
-
-        df[Columns.PARAMETER.value] = parameter.value.lower()
-
-        return df
+        df = pl.read_json(response)
+        df = df.rename(mapping={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
+        df = df.with_columns(pl.col(Columns.DATE.value).apply(dt.datetime.fromisoformat))
+        return df.with_columns(
+            pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),
+            pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value),
+            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        )
 
     def fetch_dynamic_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
         """
@@ -220,8 +212,8 @@ class WsvPegelRequest(TimeseriesRequest):
     def __init__(
         self,
         parameter: List[Union[str, WsvPegelParameter, Parameter]],
-        start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
         super(WsvPegelRequest, self).__init__(
@@ -233,7 +225,7 @@ class WsvPegelRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self):
+    def _all(self) -> pl.LazyFrame:
         """
         Method to get stations_result for WSV Pegelonline. It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
@@ -257,48 +249,48 @@ class WsvPegelRequest(TimeseriesRequest):
                     break
 
             if not ts_water:
-                return pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA
+                return [None, None, None, None, None, None, None, None, None]
 
-            gauge_datum = ts_water.get("gaugeZero", {}).get("value", pd.NA)
+            gauge_datum = ts_water.get("gaugeZero", {}).get("value", None)
 
             characteristic_values = ts_water.get("characteristicValues") or {}  # could be empty list so ensure dict
 
             if characteristic_values:
-                characteristic_values = (
-                    pd.DataFrame.from_dict(characteristic_values).set_index("shortname").loc[:, "value"].to_dict()
-                )
+                characteristic_values = pl.DataFrame(characteristic_values).select(["shortname", "value"]).to_dict()
 
-            m_i = characteristic_values.get("M_I", pd.NA)
-            m_ii = characteristic_values.get("M_II", pd.NA)
-            m_iii = characteristic_values.get("M_III", pd.NA)
-            mnw = characteristic_values.get("MNW", pd.NA)
-            mw = characteristic_values.get("MW", pd.NA)
-            mhw = characteristic_values.get("MHW", pd.NA)
-            hhw = characteristic_values.get("HHW", pd.NA)
-            hsw = characteristic_values.get("HSW", pd.NA)
+            m_i = characteristic_values.get("M_I", None)
+            m_ii = characteristic_values.get("M_II", None)
+            m_iii = characteristic_values.get("M_III", None)
+            mnw = characteristic_values.get("MNW", None)
+            mw = characteristic_values.get("MW", None)
+            mhw = characteristic_values.get("MHW", None)
+            hhw = characteristic_values.get("HHW", None)
+            hsw = characteristic_values.get("HSW", None)
 
-            return gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw
+            return [gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw]
 
         response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
 
         df = pd.read_json(response)
-
-        df = df.rename(columns={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
-
-        df.loc[:, "water"] = df["water"].map(lambda x: x["shortname"])
-
-        timeseries = df.pop("timeseries")
-
-        # Get available parameters per station
-        df["ts"] = timeseries.apply(lambda ts_list: {t["shortname"].lower() for t in ts_list})
-
+        df = pl.from_pandas(df).lazy()
+        df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
+        df = df.with_columns(pl.col("water").apply(lambda value: value["shortname"]))
+        df = df.select(
+            pl.all(),
+            pl.col("timeseries").apply(lambda ts_list: {t["shortname"].lower() for t in ts_list}).alias("ts"),
+        )
         parameters = {par.value.lower() for par, ds in self.parameter}
-
-        # Filter out stations_result that do not have any of the parameters requested
-        df = df.loc[df["ts"].map(lambda par: not not par.intersection(parameters)), :]
-
-        df[["gauge_datum", "m_i", "m_ii", "m_iii", "mnw", "mw", "mhw", "hhw", "hsw"]] = timeseries.apply(
-            func=_extract_ts
-        ).apply(pd.Series)
-
-        return df
+        df = df.filter(pl.col("ts").apply(lambda par: bool(par.intersection(parameters))))
+        df = df.with_columns(pl.col("timeseries").apply(_extract_ts))
+        return df.select(
+            pl.all().exclude(["timeseries", "ts"]),
+            pl.col("timeseries").arr.get(0).alias("gauge_datum"),
+            pl.col("timeseries").arr.get(1).alias("m_i"),
+            pl.col("timeseries").arr.get(2).alias("m_ii"),
+            pl.col("timeseries").arr.get(3).alias("m_iii"),
+            pl.col("timeseries").arr.get(4).alias("mnw"),
+            pl.col("timeseries").arr.get(5).alias("mw"),
+            pl.col("timeseries").arr.get(6).alias("mhw"),
+            pl.col("timeseries").arr.get(7).alias("hhw"),
+            pl.col("timeseries").arr.get(8).alias("hsw"),
+        )

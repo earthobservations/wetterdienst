@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 import pytest
 from click.testing import CliRunner
 from dirty_equals import IsDict
@@ -257,11 +257,11 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         station=station_id,
         target=f"file://{filename}",
     )
-    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
+    df = pl.read_excel(source=filename, sheet_name="Sheet1")
     if is_windows:
         filename.unlink(missing_ok=True)
     assert "name" in df
-    assert expected_dict["name"] in df["name"].values
+    assert expected_dict["name"] in df.get_column("name")
 
 
 @pytest.mark.remote
@@ -272,7 +272,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         (("precipitation_height", "temperature_air_max_200"), ("wind_direction",)),
     ),
 )
-def test_cli_values_json(setting, expected_columns, capsys, caplog):
+def test_cli_values_json(setting, expected_columns):
     provider, network, setting, station_id, station_name = setting
     result = invoke_wetterdienst_values_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="json"
@@ -369,11 +369,11 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         station=station_id,
         target=f"file://{filename}",
     )
-    df = pd.read_excel(filename, sheet_name="Sheet1", dtype=str)
+    df = pl.read_excel(filename, sheet_name="Sheet1")
     if is_windows:
         filename.unlink(missing_ok=True)
-    assert "station_id" in df
-    assert set(station_id).issubset(set(df["station_id"]))
+    assert "station_id" in df.columns
+    assert df.get_column("station_id").cast(str).apply(lambda s: any(s in sid for sid in station_id)).any()
 
 
 @pytest.mark.parametrize(
@@ -428,8 +428,8 @@ def test_cli_interpolate():
         {
             "date": "1986-10-31T00:00:00+00:00",
             "parameter": "temperature_air_mean_200",
-            "value": 279.5231750946,
-            "distance_mean": 16.991040958,
+            "value": 279.52,
+            "distance_mean": 16.99,
             "station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
@@ -459,7 +459,7 @@ def test_cli_summarize():
             "date": "1986-10-31T00:00:00+00:00",
             "parameter": "temperature_air_mean_200",
             "value": 279.75,
-            "distance": 6.9706215086,
+            "distance": 6.97,
             "station_id": "00072",
         },
         {

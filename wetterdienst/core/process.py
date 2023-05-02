@@ -1,34 +1,28 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime
+import datetime as dt
 from typing import Optional, Tuple
 
-import dateutil
-import pandas as pd
-import pytz
+import polars as pl
+from backports.datetime_fromisoformat import MonkeyPatch
 
 from wetterdienst.exceptions import InvalidTimeInterval
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.util.datetime import mktimerange
+from wetterdienst.util.datetime import mktimerange, parse_date
+
+MonkeyPatch.patch_fromisoformat()
 
 
-def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[datetime], Optional[datetime]]:
-    date_from, date_to = None, None
-
+def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[dt.datetime], Optional[dt.datetime]]:
     if "/" in date:
         if date.count("/") >= 2:
             raise InvalidTimeInterval("Invalid ISO 8601 time interval")
 
         date_from, date_to = date.split("/")
-        date_from = dateutil.parser.isoparse(date_from)
-        if not date_from.tzinfo:
-            date_from = date_from.replace(tzinfo=pytz.UTC)
-
-        date_to = dateutil.parser.isoparse(date_to)
-        if not date_to.tzinfo:
-            date_to = date_to.replace(tzinfo=pytz.UTC)
+        date_from = parse_date(date_from)
+        date_to = parse_date(date_to)
 
         if resolution in (
             Resolution.ANNUAL,
@@ -38,9 +32,7 @@ def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[datet
 
     # Filter by specific date.
     else:
-        date = dateutil.parser.isoparse(date)
-        if not date.tzinfo:
-            date = date.replace(tzinfo=pytz.UTC)
+        date = parse_date(date)
         date_from, date_to = date, date
         if resolution in (
             Resolution.ANNUAL,
@@ -51,7 +43,7 @@ def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[datet
     return date_from, date_to
 
 
-def filter_by_date_and_resolution(df: pd.DataFrame, date: str, resolution: Resolution) -> pd.DataFrame:
+def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
     """
     Filter Pandas DataFrame by date or date interval.
 
@@ -67,7 +59,6 @@ def filter_by_date_and_resolution(df: pd.DataFrame, date: str, resolution: Resol
 
     :param df:
     :param date:
-    :param resolution:
     :return: Filtered DataFrame
     """
 
@@ -80,36 +71,17 @@ def filter_by_date_and_resolution(df: pd.DataFrame, date: str, resolution: Resol
             raise InvalidTimeInterval("Invalid ISO 8601 time interval")
 
         date_from, date_to = date.split("/")
-        date_from = dateutil.parser.isoparse(date_from)
-        if not date_from.tzinfo:
-            date_from = date_from.replace(tzinfo=pytz.UTC)
+        date_from = parse_date(date_from)
+        date_to = parse_date(date_to)
 
-        date_to = dateutil.parser.isoparse(date_to)
-        if not date_to.tzinfo:
-            date_to = date_to.replace(tzinfo=pytz.UTC)
+        expression = pl.col(Columns.DATE.value).is_between(date_from, date_to, closed="both")
 
-        if resolution in (
-            Resolution.ANNUAL,
-            Resolution.MONTHLY,
-        ):
-            date_from, date_to = mktimerange(resolution, date_from, date_to)
-            expression = (date_from <= df[Columns.FROM_DATE.value]) & (df[Columns.TO_DATE.value] <= date_to)
-        else:
-            expression = (date_from <= df[Columns.DATE.value]) & (df[Columns.DATE.value] <= date_to)
-        return df[expression]
+        return df.filter(expression)
 
     # Filter by specific date.
     else:
-        date = dateutil.parser.isoparse(date)
-        if not date.tzinfo:
-            date = date.replace(tzinfo=pytz.UTC)
+        date = parse_date(date)
 
-        if resolution in (
-            Resolution.ANNUAL,
-            Resolution.MONTHLY,
-        ):
-            date_from, date_to = mktimerange(resolution, date)
-            expression = (date_from <= df[Columns.FROM_DATE.value]) & (df[Columns.TO_DATE.value] <= date_to)
-        else:
-            expression = date == df[Columns.DATE.value]
-        return df[expression]
+        expression = pl.col(Columns.DATE.value).eq(date)
+
+        return df.filter(expression)

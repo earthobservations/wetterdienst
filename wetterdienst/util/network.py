@@ -34,7 +34,7 @@ class NetworkFilesystemManager:
 
     # TODO: Apply dependency injection for `wetterdienst_settings` here.
     @classmethod
-    def register(cls, settings, ttl=CacheExpiry.NO_CACHE):
+    def register(cls, settings, ttl: Union[int, CacheExpiry] = CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(settings.cache_dir, "fsspec", key)
@@ -49,7 +49,7 @@ class NetworkFilesystemManager:
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
-    def get(cls, settings, ttl=CacheExpiry.NO_CACHE) -> AbstractFileSystem:
+    def get(cls, settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE) -> AbstractFileSystem:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
@@ -79,7 +79,9 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
     return fs.find(url)
 
 
-def download_file(url: str, settings: Settings, ttl: Optional[int] = CacheExpiry.NO_CACHE) -> BytesIO:
+def download_file(
+    url: str, settings: Settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE
+) -> BytesIO:
     """
     A function used to download a specified file from the server.
 

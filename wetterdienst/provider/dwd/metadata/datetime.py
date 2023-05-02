@@ -8,6 +8,7 @@ class DatetimeFormat(Enum):
     YMD = "%Y%m%d"
     YMDH = "%Y%m%d%H"
     YMDHM = "%Y%m%d%H%M"
+    YMDHMS = "%Y%m%d%H%M%S"
     YMDH_COLUMN_M = "%Y%m%d%H:%M"
     YMD_TIME_H = "%Y-%m-%dT%H"
 

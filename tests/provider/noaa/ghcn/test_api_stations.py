@@ -1,51 +1,74 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import pandas as pd
+import datetime as dt
+
+import polars as pl
 import pytest
-from pandas._testing import assert_frame_equal
+from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
 
 @pytest.mark.remote
 def test_noaa_ghcn_stations(default_settings):
-    df = NoaaGhcnRequest(parameter="daily", settings=default_settings).all().df.iloc[:5, :]
-    df_expected = pd.DataFrame(
-        {
-            "station_id": pd.Series(
-                [
-                    "ACW00011604",
-                    "ACW00011647",
-                    "AE000041196",
-                    "AEM00041194",
-                    "AEM00041217",
-                ],
-                dtype=str,
-            ),
-            "from_date": pd.to_datetime(
-                [
-                    "1949-01-01 00:00:00+00:00",
-                    "1957-01-01 00:00:00+00:00",
-                    "1944-01-01 00:00:00+00:00",
-                    "1983-01-01 00:00:00+00:00",
-                    "1983-01-01 00:00:00+00:00",
-                ]
-            ),
-            "height": pd.Series([10.1, 19.2, 34.0, 10.4, 26.8], dtype=float),
-            "latitude": pd.Series([17.1167, 17.1333, 25.333, 25.255, 24.433], dtype=float),
-            "longitude": pd.Series([-61.7833, -61.7833, 55.517, 55.364, 54.651], dtype=float),
-            "name": pd.Series(
-                [
-                    "ST JOHNS COOLIDGE FLD",
-                    "ST JOHNS",
-                    "SHARJAH INTER. AIRP",
-                    "DUBAI INTL",
-                    "ABU DHABI INTL",
-                ],
-                dtype=str,
-            ),
-            "state": pd.Series([pd.NA] * 5, dtype=str),
-        }
+    df = NoaaGhcnRequest(parameter="daily", settings=default_settings).all().df.head(5)
+    df_expected = pl.DataFrame(
+        [
+            {
+                "station_id": "ACW00011604",
+                "from_date": dt.datetime(1949, 1, 1, tzinfo=dt.timezone.utc),
+                "height": 10.1,
+                "latitude": 17.1167,
+                "longitude": -61.7833,
+                "name": "ST JOHNS COOLIDGE FLD",
+                "state": None,
+            },
+            {
+                "station_id": "ACW00011647",
+                "from_date": dt.datetime(1957, 1, 1, tzinfo=dt.timezone.utc),
+                "height": 19.2,
+                "latitude": 17.1333,
+                "longitude": -61.7833,
+                "name": "ST JOHNS",
+                "state": None,
+            },
+            {
+                "station_id": "AE000041196",
+                "from_date": dt.datetime(1944, 1, 1, tzinfo=dt.timezone.utc),
+                "height": 34.0,
+                "latitude": 25.333,
+                "longitude": 55.517,
+                "name": "SHARJAH INTER. AIRP",
+                "state": None,
+            },
+            {
+                "station_id": "AEM00041194",
+                "from_date": dt.datetime(1983, 1, 1, tzinfo=dt.timezone.utc),
+                "height": 10.4,
+                "latitude": 25.255,
+                "longitude": 55.364,
+                "name": "DUBAI INTL",
+                "state": None,
+            },
+            {
+                "station_id": "AEM00041217",
+                "from_date": dt.datetime(1983, 1, 1, tzinfo=dt.timezone.utc),
+                "height": 26.8,
+                "latitude": 24.433,
+                "longitude": 54.651,
+                "name": "ABU DHABI INTL",
+                "state": None,
+            },
+        ],
+        schema={
+            "station_id": str,
+            "from_date": pl.Datetime(time_zone="UTC"),
+            "height": float,
+            "latitude": float,
+            "longitude": float,
+            "name": str,
+            "state": str,
+        },
     )
     assert_frame_equal(df.drop(columns="to_date"), df_expected)

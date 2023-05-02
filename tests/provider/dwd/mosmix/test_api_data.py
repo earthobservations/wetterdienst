@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime, timedelta
+import datetime as dt
 
 import pytest
-import pytz
 
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
@@ -22,15 +21,15 @@ def test_dwd_mosmix_l(settings_humanize_false):
     response = next(request.values.query())
 
     # Verify list of stations_result.
-    station_names = response.stations.df["name"].unique().tolist()
+    station_names = response.stations.df.get_column("name").unique().to_list()
     assert station_names == ["JAN MAYEN"]
 
     # Verify mosmix data.
-    station_ids = response.df["station_id"].unique().tolist()
+    station_ids = response.df.get_column("station_id").unique().to_list()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
 
-    assert response.df_stations.station_id.tolist() == ["01001"]
+    assert response.df_stations.get_column("station_id").to_list() == ["01001"]
 
     assert len(response.df.columns) == 6
     assert list(response.df.columns) == [
@@ -173,10 +172,10 @@ def test_dwd_mosmix_s(settings_humanize_false):
     )
     response = next(request.values.query())
     # Verify list of stations_result.
-    station_names = list(response.stations.df["name"].unique())
+    station_names = response.stations.df.get_column("name").unique().to_list()
     assert station_names == ["BJORNOYA"]
     # Verify mosmix data.
-    station_ids = response.df["station_id"].unique().tolist()
+    station_ids = response.df.get_column("station_id").unique().to_list()
     assert station_ids == ["01028"]
     assert len(response.df) > 200
     assert len(response.df.columns) == 6
@@ -236,13 +235,13 @@ def test_dwd_mosmix_s(settings_humanize_false):
 
 @pytest.mark.remote
 def test_mosmix_date_filter(default_settings):
-    now = datetime.now(tz=pytz.utc)
+    now = dt.datetime.now(tz=dt.timezone.utc)
     request = DwdMosmixRequest(
         parameter="small",
         mosmix_type=DwdMosmixType.SMALL,
-        start_date=now - timedelta(hours=1),
+        start_date=now - dt.timedelta(hours=1),
         end_date=now,
-        start_issue=now - timedelta(hours=5),
+        start_issue=now - dt.timedelta(hours=5),
         settings=default_settings,
     ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
     given_df = request.values.all().df
@@ -261,7 +260,7 @@ def test_mosmix_l_parameters(settings_humanize_false):
     )
     response = next(request.values.query())
     # Verify mosmix data.
-    station_ids = response.stations.df["station_id"].unique().tolist()
+    station_ids = response.stations.df.get_column("station_id").unique().to_list()
     assert station_ids == ["01001"]
     assert len(response.df) > 200
     assert len(response.df.columns) == 6

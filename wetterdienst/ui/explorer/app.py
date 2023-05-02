@@ -11,8 +11,8 @@ from typing import Optional
 import dash
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
-import pandas as pd
 import plotly.graph_objects as go
+import polars as pl
 import requests
 from dash import Input, Output, State, dcc, html
 from geojson import Feature, FeatureCollection, Point
@@ -40,7 +40,7 @@ app = dash.Dash(
 app.title = "Wetterdienst Explorer"
 app.layout = get_app_layout()
 
-empty_frame = pd.DataFrame().to_json(date_format="iso", orient="split")
+empty_frame = pl.DataFrame().write_json(row_oriented=True)
 
 
 @app.callback(
@@ -114,9 +114,14 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
 
     df = stations.df
 
+    df = df.with_columns(
+        pl.col(Columns.FROM_DATE.value).apply(lambda date: date.isoformat()),
+        pl.col(Columns.TO_DATE.value).apply(lambda date: date.isoformat()),
+    )
+
     log.info(f"Propagating stations data frame with {frame_summary(df)}")
 
-    return df.to_json(date_format="iso", orient="split")
+    return df.write_json(row_oriented=True)
 
 
 @app.callback(
@@ -184,18 +189,17 @@ def fetch_values(
             dropna=False,
             humanize=True,
         )
-        df = values.df
     except ValueError:
         log.exception("No data received")
         return empty_frame
 
-    df = df.drop(columns="quality").dropna(axis=0)
+    df = values.df
+    df = df.drop(columns="quality").drop_nulls()
+    df = df.with_columns(pl.col("date").apply(lambda date: date.isoformat()))
 
     log.info(f"Propagating values data frame with {frame_summary(df)}")
 
-    values.df.date = values.df.date.astype(str)
-
-    return json.dumps({"values": values.df.to_dict(orient="records"), "unit_dict": values.stations.stations.discover()})
+    return json.dumps({"values": df.to_dicts(), "unit_dict": values.stations.stations.discover()})
 
 
 @app.callback(
@@ -207,21 +211,20 @@ def render_navigation_stations(payload):
     Compute list of items from "stations_result" data for populating the "stations_result"
     chooser element.
     """
-    try:
-        stations_data = pd.read_json(payload, orient="split")
-    except ValueError:
-        stations_data = pd.DataFrame()
-    if stations_data.empty:
+    data = json.loads(payload)
+
+    if not data:
         return []
+
+    try:
+        stations_data = pl.from_dicts(data, infer_schema_length=0)
+    except ValueError:
+        stations_data = pl.DataFrame()
+
     log.info(f"Rendering stations_result dropdown from {frame_summary(stations_data)}")
     return [
         {"label": name, "value": station_id}
-        for name, station_id in sorted(
-            zip(
-                stations_data[Columns.NAME.value],
-                stations_data[Columns.STATION_ID.value],
-            )
-        )
+        for name, station_id in stations_data.select("name", "station_id").iter_rows()
     ]
 
 
@@ -260,13 +263,12 @@ def render_status_response_stations(
         )
     ]
 
-    try:
-        stations_data = pd.read_json(payload, orient="split")
-    except ValueError:
+    data = json.loads(payload)
+
+    if not data:
         return title + empty_message
 
-    if stations_data.empty:
-        return title + empty_message
+    stations_data = pl.from_dicts(data)
 
     return title + [
         html.Div(
@@ -305,27 +307,22 @@ def render_status_response_values(
     Report about the status of the query.
     """
     try:
-        payload = json.loads(payload)
-        climate_data = pd.DataFrame.from_records(payload["values"])
+        climate_data = pl.from_dicts(payload["values"])
     except (KeyError, ValueError, TypeError):
-        climate_data = pd.DataFrame()
+        climate_data = pl.DataFrame()
 
     messages = [dcc.Markdown("#### Values")]
 
-    if climate_data.empty:
-
+    if climate_data.is_empty():
         # Main message.
         empty_message = [html.Span("No data. ")]
-
         candidates = ["provider", "network", "resolution", "dataset", "parameter", "period", "station"]
         missing = []
         for candidate in candidates:
             if locals().get(candidate) is None:
                 missing.append(candidate)
-
         if missing:
             empty_message.append(html.Span(f"Please select all of the missing options {missing}."))
-
         messages += [html.Div(empty_message), html.Br()]
 
     messages += [
@@ -333,12 +330,11 @@ def render_status_response_values(
         html.Div(f"Records: {len(climate_data)}"),
         html.Br(),
     ]
-
     if "date" in climate_data:
         messages += [
             html.Div(f"Station: {station}"),
-            html.Div(f"Begin date: {climate_data.date.iloc[0]}"),
-            html.Div(f"End date: {climate_data.date.iloc[-1]}"),
+            html.Div(f"Begin date: {climate_data.get_column('date').min()}"),
+            html.Div(f"End date: {climate_data.get_column('date').max()}"),
         ]
 
     return html.Div(messages)
@@ -352,29 +348,27 @@ def render_map(payload):
     """
     Create a "map" Figure element from "stations_result" data.
     """
-    try:
-        stations_data = pd.read_json(payload, orient="split", dtype=str)
-    except (TypeError, ValueError):
-        stations_data = pd.DataFrame()
-    if stations_data.empty:
+    data = json.loads(payload)
+    if not data:
         return []
-    stations_data = stations_data.astype({"station_id": str, "latitude": float, "longitude": float})
+    stations_data = pl.from_dicts(data, infer_schema_length=0)
+    stations_data = stations_data.with_columns(
+        pl.col("station_id").cast(pl.Utf8), pl.col("latitude").cast(pl.Float64), pl.col("longitude").cast(pl.Float64)
+    )
     log.info(f"Rendering stations_result map from {frame_summary(stations_data)}")
     # columns used for constructing geojson object
-    features = stations_data.apply(
-        lambda row: Feature(
-            geometry=Point((float(row["longitude"]), float(row["latitude"]))),
-            properties={"station_id": row["station_id"]},
-        ),
-        axis=1,
-    ).tolist()
+    features = [
+        Feature(
+            geometry=Point((longitude, latitude)),
+            properties={"station_id": station_id},
+        )
+        for station_id, latitude, longitude in stations_data.select("station_id", "latitude", "longitude").iter_rows()
+    ]
     # all the other columns used as properties
-    properties = stations_data.drop(["latitude", "longitude"], axis=1).to_dict("records")
+    properties = stations_data.drop(["latitude", "longitude"]).to_dicts()
     # whole geojson object
     feature_collection = FeatureCollection(features=features, properties=properties)
-    return dl.GeoJSON(
-        id="markers", data=feature_collection, cluster=True, zoomToBounds=True, zoomToBoundsOnClick=True
-    )  # , options={"polygonOptions": {"color": "red"}}
+    return dl.GeoJSON(id="markers", data=feature_collection, cluster=True, zoomToBounds=True, zoomToBoundsOnClick=True)
 
 
 @app.callback(
@@ -401,12 +395,13 @@ def render_graph(parameter, resolution, payload: str):
     """
     Create a "graph" Figure element from "values" data.
     """
+    data = json.loads(payload)
+
     try:
-        payload = json.loads(payload)
-        climate_data = pd.DataFrame.from_records(payload["values"])
-        unit_dict = payload["unit_dict"]
-    except (KeyError, ValueError):
-        climate_data = pd.DataFrame()
+        climate_data = pl.from_dicts(data["values"])
+        unit_dict = data["unit_dict"]
+    except (KeyError, ValueError, TypeError):
+        climate_data = pl.DataFrame()
         unit_dict = {}
 
     log.info(f"Rendering graph for parameter={parameter} from {frame_summary(climate_data)}")

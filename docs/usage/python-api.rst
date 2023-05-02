@@ -325,14 +325,14 @@ From here you can query data by station:
 
     for result in request.values.query():
         # analyse the station here
-        print(result.df.dropna().head())
+        print(result.df.drop_nulls().head())
 
 Query data all together:
 
 .. ipython:: python
     :okwarning:
 
-    df = request.values.all().df.dropna()
+    df = request.values.all().df.drop_nulls()
     print(df.head())
 
 This gives us the most options to work with the data, getting multiple parameters at
@@ -492,7 +492,7 @@ Again from here we can jump to the corresponding data:
 
     for result in stations.values.query():
         # analyse the station here
-        print(result.df.dropna().head())
+        print(result.df.drop_nulls().head())
 
 Et voila: We just got the data we wanted for our location and are ready to analyse the
 temperature on historical developments.
@@ -853,9 +853,11 @@ FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
     :okwarning:
 
     from wetterdienst import Settings
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     settings = Settings(fsspec_client_kwargs={"trust_env": True})  # use proxy from environment variables
 
+    # DwdObservationRequest(..., settings=settings)
 
 .. _wradlib: https://wradlib.org/
 .. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/main/example/radar

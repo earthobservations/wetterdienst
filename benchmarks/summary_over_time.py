@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import matplotlib.pyplot as plt
-import pandas as pd
+import polars as pl
 
 from wetterdienst import Parameter
 from wetterdienst.provider.dwd.observation import (
@@ -12,17 +12,17 @@ from wetterdienst.provider.dwd.observation import (
 plt.style.use("seaborn")
 
 
-def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pd.DataFrame:
+def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pl.DataFrame:
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,
     )
-    return stations.summarize((lat, lon)).df
+    return stations.summarize(latlon=(lat, lon)).df
 
 
-def get_regular_df(start_date: datetime, end_date: datetime, station_id) -> pd.DataFrame:
+def get_regular_df(start_date: datetime, end_date: datetime, station_id) -> pl.DataFrame:
     stations = DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
         resolution=DwdObservationResolution.DAILY,

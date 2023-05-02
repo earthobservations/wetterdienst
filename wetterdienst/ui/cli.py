@@ -691,7 +691,7 @@ def stations(
         dropna=False,
     )
 
-    if stations_.df.empty:
+    if stations_.df.is_empty():
         log.error("No stations available for given constraints")
         sys.exit(1)
 
@@ -699,11 +699,7 @@ def stations(
         stations_.to_target(target)
         return
 
-    indent = None
-    if pretty:
-        indent = 2
-
-    output = stations_.to_format(fmt, indent=indent)
+    output = stations_.to_format(fmt, pretty=pretty)
 
     print(output)  # noqa: T201
 
@@ -800,7 +796,7 @@ def values(
         log.exception(ex)
         sys.exit(1)
     else:
-        if values_.df.empty:
+        if values_.df.is_empty():
             log.error("No data available for given constraints")
             sys.exit(1)
 
@@ -808,11 +804,7 @@ def values(
         values_.to_target(target)
         return
 
-    indent = None
-    if pretty:
-        indent = 2
-
-    output = values_.to_format(fmt, indent=indent)
+    output = values_.to_format(fmt, pretty=pretty)
 
     print(output)  # noqa: T201
 
@@ -885,7 +877,7 @@ def interpolate(
         log.exception(ex)
         sys.exit(1)
     else:
-        if values_.df.empty:
+        if values_.df.is_empty():
             log.error("No data available for given constraints")
             sys.exit(1)
 
@@ -893,11 +885,7 @@ def interpolate(
         values_.to_target(target)
         return
 
-    indent = None
-    if pretty:
-        indent = 2
-
-    output = values_.to_format(fmt, indent=indent)
+    output = values_.to_format(fmt, pretty=pretty)
 
     print(output)  # noqa: T201
 
@@ -967,7 +955,7 @@ def summarize(
         log.exception(ex)
         sys.exit(1)
     else:
-        if values_.df.empty:
+        if values_.df.is_empty():
             log.error("No data available for given constraints")
             sys.exit(1)
 
@@ -975,11 +963,7 @@ def summarize(
         values_.to_target(target)
         return
 
-    indent = None
-    if pretty:
-        indent = 2
-
-    output = values_.to_format(fmt, indent=indent)
+    output = values_.to_format(fmt, pretty=pretty)
 
     print(output)  # noqa: T201
 

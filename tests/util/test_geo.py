@@ -2,8 +2,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import numpy as np
-import pandas as pd
-from pandas._testing import assert_series_equal
+import polars as pl
+from polars.testing import assert_series_equal
 
 from wetterdienst.util.geo import Coordinates, convert_dm_to_dd, derive_nearest_neighbours
 
@@ -30,15 +30,15 @@ def test_get_coordinates_in_radians():
 
 def test_dms_to_dd():
     """Test conversion from degree minute second to decimal degree"""
-    data = pd.Series([7.42, 52.08, -7.42, -52.08, 0])
+    data = pl.Series(values=[7.42, 52.08, -7.42, -52.08, 0])
     given = convert_dm_to_dd(data)
-    expected = pd.Series([7.7, 52.13, -7.7, -52.13, 0])
+    expected = pl.Series(values=[7.7, 52.13, -7.7, -52.13, 0])
     assert_series_equal(given, expected)
 
 
 def test_derive_nearest_neighbours():
     coords = Coordinates(np.array([50.0, 51.4]), np.array([8.9, 9.3]))
-    metadata = pd.DataFrame(
+    metadata = pl.DataFrame(
         {
             "station_id": [4371, 4373, 4411, 13904, 13965, 15207],
             "latitude": [52.1042, 52.8568, 49.9195, 55.0, 48.2639, 51.2835],
@@ -46,8 +46,8 @@ def test_derive_nearest_neighbours():
         }
     )
     distances, indices_nearest_neighbours = derive_nearest_neighbours(
-        latitudes=metadata["latitude"].values,
-        longitudes=metadata["longitude"].values,
+        latitudes=metadata.get_column("latitude"),
+        longitudes=metadata.get_column("longitude"),
         coordinates=coords,
         number_nearby=1,
     )
