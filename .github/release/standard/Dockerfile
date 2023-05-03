@@ -10,7 +10,8 @@ RUN \
     --mount=type=cache,id=apt,sharing=locked,target=/var/lib/apt \
     true \
     && apt-get update \
-    && apt-get install --no-install-recommends --no-install-suggests --yes git build-essential
+    && apt-get install --no-install-recommends --no-install-suggests --yes \
+      git build-essential python3-pip python3-wheel python3-venv
 
 # Use "poetry build --format=wheel" to build wheel packages.
 COPY dist/wetterdienst-*.whl /tmp/
@@ -19,13 +20,14 @@ COPY dist/wetterdienst-*.whl /tmp/
 # Pick latest wheel package from `/tmp` folder.
 RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     true \
-    && pip install --upgrade pip \
-    && pip install --prefer-binary versioningit wheel \
+    && pip install --prefer-binary versioningit \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
     && pip install --use-pep517 --prefer-binary ${WHEEL}[export,restapi]
 
 # Uninstall build prerequisites again.
-RUN apt-get --yes remove --purge git build-essential && apt-get --yes autoremove
+RUN true \
+    && apt-get --yes remove --purge git build-essential python3-pip python3-wheel python3-venv \
+    && apt-get --yes autoremove
 
 # Purge /tmp directory
 RUN rm /tmp/*
