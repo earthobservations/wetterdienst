@@ -12,7 +12,7 @@ RUN \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests --yes \
       git build-essential ca-certificates \
-      python-is-python3 python3-h5py python3-pip python3-wheel python3-venv
+      python-is-python3 python3-h5py python3-dev python3-pip python3-venv python3-wheel
 
 # Use Python 3.11.
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
@@ -41,7 +41,7 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
 
 # Uninstall build prerequisites again.
 RUN true \
-    && apt-get --yes remove --purge git build-essential python3-pip python3-wheel python3-venv \
+    && apt-get --yes remove --purge git build-essential python3-dev python3-pip python3-venv python3-wheel \
     && apt-get --yes autoremove
 
 # Purge /tmp directory

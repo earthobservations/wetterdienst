@@ -11,7 +11,7 @@ RUN \
     true \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests --yes \
-      git build-essential python3-pip python3-wheel python3-venv
+      git build-essential python3-dev python3-pip python3-venv python3-wheel
 
 # Use "poetry build --format=wheel" to build wheel packages.
 COPY dist/wetterdienst-*.whl /tmp/
@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
 
 # Uninstall build prerequisites again.
 RUN true \
-    && apt-get --yes remove --purge git build-essential python3-pip python3-wheel python3-venv \
+    && apt-get --yes remove --purge git build-essential python3-dev python3-pip python3-venv python3-wheel \
     && apt-get --yes autoremove
 
 # Purge /tmp directory
