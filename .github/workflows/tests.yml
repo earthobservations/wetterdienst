@@ -26,9 +26,6 @@ jobs:
             python-version: "3.11"
           - os: "windows-latest"
             python-version: "3.11"
-    env:
-      OS: ${{ matrix.os }}
-      PYTHON: ${{ matrix.python-version }}
     defaults:
       run:
         shell: bash
