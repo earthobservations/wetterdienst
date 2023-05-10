@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+0.56.1 (10.05.2023)
+*******************
+
+- Fix JOULE_PER_SQUARE_METER definition from kilojoule/m2 to joule/m2
+
 0.56.0 (02.05.2023)
 *******************
 
