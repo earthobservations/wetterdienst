@@ -16,7 +16,6 @@ REGISTRY.define("percent = 1e-2 frac = pct")
 REGISTRY.define("one_eighth = 0.125 frac = 1/8")
 REGISTRY.define("beaufort = 1 frac = bft")
 REGISTRY.define("significant_weather = 1frac = sign [0..95]")
-REGISTRY.define("global_irradiance = 1/80 frac = % [0..80]")
 REGISTRY.define("@alias degree = wind_direction = []")
 REGISTRY.define("siemens = 1 kg**-1 * m**−2 s**3 A**2 = S")
 REGISTRY.define("nephelometric_turbidity = 1 = NTU")  # turbidity unit, not actually convertable to any SI unit
@@ -67,7 +66,6 @@ class OriginUnit(Enum):
     WAVE_PERIOD = 1 / (100 * REGISTRY.second)
 
     # Energy
-    GLOBAL_IRRADIANCE = REGISTRY.global_irradiance  # should stay the same in SI
     JOULE_PER_SQUARE_CENTIMETER = REGISTRY.joule / (REGISTRY.centimeter**2)
     JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter**2)
     KILOJOULE_PER_SQUARE_METER = REGISTRY.kilojoule / (REGISTRY.meter**2)
@@ -119,7 +117,6 @@ class SIUnit(Enum):
     WAVE_PERIOD = 1 / (100 * REGISTRY.second)
 
     # Energy
-    GLOBAL_IRRADIANCE = REGISTRY.global_irradiance  # should stay the same in SI
     JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter**2)
 
     # Precipitation
