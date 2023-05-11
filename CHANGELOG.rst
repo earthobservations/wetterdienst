@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+0.56.2 (11.05.2023)
+*******************
+
+- Fix Unit definition for RADIATION_GLOBAL
+
 0.56.1 (10.05.2023)
 *******************
 
