@@ -221,7 +221,7 @@ class DwdMosmixUnit(DatasetTreeCore):
             )
             RADIATION_GLOBAL = (
                 OriginUnit.KILOJOULE_PER_SQUARE_METER.value,
-                SIUnit.JOULE_PER_SQUARE_METER.value
+                SIUnit.JOULE_PER_SQUARE_METER.value,
             )
             RADIATION_SKY_LONG_WAVE_LAST_3H = (
                 OriginUnit.KILOJOULE_PER_SQUARE_METER.value,
