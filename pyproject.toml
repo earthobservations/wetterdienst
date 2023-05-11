@@ -165,7 +165,6 @@ bandit = "^1.7"
 black = { version = "^22.12", extras = ["jupyter"] }
 # TODO: currently there is a version constraint with jsonschema here
 #cff-from-621 = { version = "^0.0.1", python = ">= 3.10"}
-pip-licenses = "^3.3"
 poethepoet = "^0.18.1"
 ruff = "^0.0.250"
 
@@ -303,7 +302,6 @@ test = ["test-parallel", "test-cflakes"]
 test-slow = "pytest"
 coverage = "pytest --cov=wetterdienst"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
-licenses = "pip-licenses --format=plain-vertical --with-authors --with-urls --with-license-file --no-license-path --ignore-packages wetterdienst --output-file=THIRD_PARTY_NOTICES"
 update = "poetry update"
 citation = "python -m tools.citation"
 
