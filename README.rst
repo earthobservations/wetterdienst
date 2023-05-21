@@ -280,6 +280,34 @@ The ``wetterdienst`` command is also available:
     wetterdienst --version
     wetterdienst info
 
+
+Raspberry Pi / LINUX ARM
+========================
+
+Running wetterdienst on Raspberry Pi, you need to install **numpy**
+and **lxml** prior to installing wetterdienst by running the following
+lines:
+
+.. code-block:: bash
+
+    # not all installations may be required to get lxml running
+    sudo apt-get install gfortran
+    sudo apt-get install libopenblas-base
+    sudo apt-get install libopenblas-dev
+    sudo apt-get install libatlas-base-dev
+    sudo apt-get install python3-lxml
+
+Additionally expanding the Swap to 2048 mb may be required and can be done via swap-file:
+
+.. code-block:: bash
+
+    sudo nano /etc/dphys-swapfile
+
+Thanks `chr-sto`_ for reporting back to us!
+
+
+.. _chr-sto: https://github.com/chr-sto
+
 Example
 *******
 
