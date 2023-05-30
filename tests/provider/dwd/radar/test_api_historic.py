@@ -281,7 +281,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange(radar_locations, 
     results = list(request.query())
 
     # Verify number of results.
-    assert len(results) == 3
+    assert len(results) == 18
 
     buffer = results[0].data
 
