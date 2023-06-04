@@ -363,7 +363,7 @@ Library
     │ 01048      ┆ climate_summary ┆ wind_gust_max ┆ 1990-01-05 00:00:00 UTC ┆ 7.0   ┆ 10.0    │
     └────────────┴─────────────────┴───────────────┴─────────────────────────┴───────┴─────────┘
 
- .. code-block:: python
+.. code-block:: python
 
     values.to_pandas() # to get a pandas DataFrame and e.g. create some matplotlib plots
 
