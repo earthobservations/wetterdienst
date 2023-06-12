@@ -114,6 +114,8 @@ the data in your project to be sure that you fulfill copyright requirements!
 
 .. _data: https://wetterdienst.readthedocs.io/en/latest/data/index.html
 .. _coverage: https://wetterdienst.readthedocs.io/en/improve-documentation/data/coverage.html
+.. _map: https://bookdown.org/brry/rdwd/interactive-map.html
+.. _table: https://bookdown.org/brry/rdwd/available-datasets.html
 
 Here is a short glimpse on the data that is included:
 
@@ -124,7 +126,7 @@ DWD (Deutscher Wetterdienst / German Weather Service / Germany)
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
         - Every minute to yearly resolution
         - Time series of stations in Germany
-        - see the rdwd page for an [interactive map](https://bookdown.org/brry/rdwd/interactive-map.html) and [tabular overview](https://bookdown.org/brry/rdwd/available-datasets.html) of available datasets
+        - see the rdwd pages for an interactive map_ and table_ of available datasets
     - Mosmix - statistical optimized scalar forecasts extracted from weather models
         - Point forecast
         - 5400 stations worldwide
