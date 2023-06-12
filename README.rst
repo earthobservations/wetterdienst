@@ -124,6 +124,7 @@ DWD (Deutscher Wetterdienst / German Weather Service / Germany)
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
         - Every minute to yearly resolution
         - Time series of stations in Germany
+        - see the rdwd page for an [interactive map](https://bookdown.org/brry/rdwd/interactive-map.html) and [tabular overview](https://bookdown.org/brry/rdwd/available-datasets.html) of available datasets
     - Mosmix - statistical optimized scalar forecasts extracted from weather models
         - Point forecast
         - 5400 stations worldwide
