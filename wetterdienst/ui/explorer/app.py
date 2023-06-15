@@ -115,8 +115,8 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
     df = stations.df
 
     df = df.with_columns(
-        pl.col(Columns.FROM_DATE.value).apply(lambda date: date.isoformat()),
-        pl.col(Columns.TO_DATE.value).apply(lambda date: date.isoformat()),
+        pl.col(Columns.FROM_DATE.value).apply(lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8),
+        pl.col(Columns.TO_DATE.value).apply(lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8),
     )
 
     log.info(f"Propagating stations data frame with {frame_summary(df)}")

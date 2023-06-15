@@ -43,3 +43,10 @@ class Columns(Enum):
     # Columns used for interpolation
     DISTANCE_MEAN = "distance_mean"
     STATION_IDS = "station_ids"
+    # for road weather
+    ROAD_NAME = "road_name"
+    ROAD_TYPE = "road_type"
+    ROAD_SURFACE_TYPE = "road_surface_type"
+    STATION_GROUP = "station_group"
+    ROAD_SECTOR = "road_sector"
+    ROAD_SURROUNDINGS_TYPE = "road_surroundings_type"

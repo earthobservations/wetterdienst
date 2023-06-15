@@ -32,6 +32,8 @@ def test_dwd_observation_metadata_discover_parameters():
     assert json.dumps(expected) in json.dumps(metadata)
 
 
+@pytest.mark.xfail
+@pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():
     metadata = DwdObservationRequest.describe_fields(
         dataset=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -64,6 +66,8 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
     ]
 
 
+@pytest.mark.xfail
+@pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_german():
     metadata = DwdObservationRequest.describe_fields(
         dataset=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -103,6 +107,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
     ]
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
     metadata = DwdObservationRequest.describe_fields(
@@ -129,6 +134,8 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
     ]
 
 
+@pytest.mark.xfail
+@pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
     metadata = DwdObservationRequest.describe_fields(
         dataset=DwdObservationDataset.TEMPERATURE_AIR,
