@@ -190,7 +190,7 @@ temperature_air_max_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 temperature_air_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -210,7 +210,7 @@ temperature_air_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 temperature_air_min_200
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -230,7 +230,7 @@ temperature_air_min_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 wind_direction_gust_max
 ^^^^^^^^^^^^^^^^^^^^^^^

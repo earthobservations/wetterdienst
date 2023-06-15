@@ -18,11 +18,11 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
+from wetterdienst.provider.dwd.index import _create_file_index_for_dwd_server
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
-    _create_file_index_for_dwd_server,
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
 )
@@ -44,9 +44,9 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 )
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.provider.dwd.observation.util.parameter import (
-    build_parameter_set_identifier,
     check_dwd_observations_dataset,
 )
+from wetterdienst.provider.dwd.util import build_parameter_set_identifier
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list

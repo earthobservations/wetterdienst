@@ -3,7 +3,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
-from wetterdienst.provider.dwd.observation.fileindex import _create_file_index_for_dwd_server, build_path_to_parameter
+from wetterdienst.provider.dwd.index import (
+    _create_file_index_for_dwd_server,
+    build_path_to_parameter,
+)
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DwdObservationDataset,
 )

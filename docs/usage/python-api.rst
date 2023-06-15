@@ -191,7 +191,6 @@ and to set it back to standard
 The environmental settings recognized by our settings are
 
 - WD_CACHE_DISABLE
-- WD_ECCODES_DIR
 - WD_FSSPEC_CLIENT_KWARGS
 - WD_TS_HUMANIZE
 - WD_TS_SHAPE

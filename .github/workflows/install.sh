@@ -15,7 +15,6 @@ set -x
 if [ "${flavor}" = "testing" ]; then
   poetry install --verbose --no-interaction \
     --with=test,dev \
-    --extras=bufr \
     --extras=explorer \
     --extras=export \
     --extras=interpolation \

@@ -46,5 +46,4 @@ Products
 
    dwd/observation
    dwd/mosmix
-   dwd/road
    dwd/radar

@@ -70,7 +70,7 @@ temperature_air_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 humidity
 ^^^^^^^^

@@ -94,25 +94,22 @@ def apply_station_values_per_parameter(
         if result_series_param.drop_nulls().is_empty():
             continue
 
-        if parameter_name not in param_dict:
-            df = pl.DataFrame(
-                {
-                    Columns.DATE.value: pl.date_range(
-                        low=stations_ranked.stations.start_date,
-                        high=stations_ranked.stations.end_date,
-                        interval=stations_ranked.frequency_polars.value,
-                        time_zone="UTC",
-                    ).dt.round(stations_ranked.frequency_polars.value)
-                }
-            )
-            param_dict[parameter_name] = _ParameterData(df)
-
-        result_series_param = (
-            param_dict[parameter_name].values.select("date").join(result_series_param, on="date", how="left")
-        )
         result_series_param = result_series_param.get_column(Columns.VALUE.value)
         result_series_param = result_series_param.rename(station["station_id"])
 
+        if parameter_name not in param_dict:
+            param_dict[parameter_name] = _ParameterData(
+                pl.DataFrame(
+                    {
+                        Columns.DATE.value: pl.date_range(
+                            low=stations_ranked.stations.start_date,
+                            high=stations_ranked.stations.end_date,
+                            interval=stations_ranked.frequency_polars.value,
+                            time_zone="UTC",
+                        )
+                    }
+                )
+            )
         extract_station_values(param_dict[parameter_name], result_series_param, valid_station_groups_exists)
 
 

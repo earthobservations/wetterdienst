@@ -190,7 +190,7 @@ temperature_air_max_200_last_24h
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 temperature_air_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -210,7 +210,7 @@ temperature_air_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 temperature_air_min_200_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -230,7 +230,7 @@ temperature_air_min_200_last_24h
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 temperature_dew_point_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -250,7 +250,7 @@ temperature_dew_point_mean_200
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 temperature_wind_chill
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -270,7 +270,7 @@ temperature_wind_chill
    * - SI unit
      - :math:`K`
    * - constraints
-     - :math:`None`
+     - :math:`none`
 
 visibility_range
 ^^^^^^^^^^^^^^^^

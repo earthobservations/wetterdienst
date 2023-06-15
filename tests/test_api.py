@@ -6,7 +6,6 @@ import zoneinfo
 import pytest
 
 from wetterdienst import Settings, Wetterdienst
-from wetterdienst.util.eccodes import ensure_eccodes
 
 
 @pytest.mark.remote
@@ -23,14 +22,6 @@ from wetterdienst.util.eccodes import ensure_eccodes
         ),
         # station forecasts
         ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}, None),
-        # road weather
-        pytest.param(
-            "dwd",
-            "road",
-            {"parameter": "temperature_air_mean_200"},
-            None,
-            marks=pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed"),
-        ),
         # Environment and Climate Change Canada
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None),  # noqa: E800, ERA001
         # NOAA Ghcn

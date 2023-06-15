@@ -5,7 +5,6 @@ Development
 ***********
 
 - Backend: Migrate from pandas to polars
-- Sources: Add DWD Road Weather data
 
 0.56.2 (11.05.2023)
 *******************
