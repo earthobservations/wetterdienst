@@ -132,6 +132,8 @@ DWD (Deutscher Wetterdienst / German Weather Service / Germany)
         - 5400 stations worldwide
         - Both MOSMIX-L and MOSMIX-S is supported
         - Up to 115 parameters
+    - Road Weather Observations
+        - Historical weather observations of German highway stations
     - Radar
         - 16 locations in Germany
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
