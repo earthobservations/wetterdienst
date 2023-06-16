@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from functools import lru_cache
+
+
+@lru_cache
 def ensure_eccodes() -> bool:
     """Function to ensure that eccodes is loaded"""
     try:
@@ -12,6 +16,7 @@ def ensure_eccodes() -> bool:
     return True
 
 
+@lru_cache
 def ensure_pdbufr() -> bool:
     """Function to ensure that pdbufr is loaded"""
     try:
@@ -21,6 +26,7 @@ def ensure_pdbufr() -> bool:
     return True
 
 
+@lru_cache
 def check_pdbufr():
     """ensure pdbufr is installed before doing anything else"""
     try:

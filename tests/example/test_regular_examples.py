@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
+
 HERE = Path(__name__).parent.absolute()
 EXAMPLES_DIR = HERE.parent.parent / "example"
 
@@ -13,6 +15,7 @@ EXAMPLES_DIR = HERE.parent.parent / "example"
 def test_regular_examples():
     from example import (
         dwd_describe_fields,
+        dwd_road_weather,
         mosmix_forecasts,
         observations_sql,
         observations_stations,
@@ -22,6 +25,9 @@ def test_regular_examples():
     assert mosmix_forecasts.main() is None
     assert observations_sql.main() is None
     assert observations_stations.main() is None
+
+    if ensure_eccodes() and ensure_pdbufr():
+        assert dwd_road_weather.main() is None
 
 
 @pytest.mark.cflake

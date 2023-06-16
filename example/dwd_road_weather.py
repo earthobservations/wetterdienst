@@ -14,6 +14,7 @@ and compare them in a plot.
 
 """  # Noqa:D205,D400
 import datetime as dt
+import os
 
 import matplotlib.pyplot as plt
 
@@ -44,7 +45,8 @@ def dwd_road_weather_example():
     df_drw.drop_nulls(subset="value").to_pandas().plot(x="date", y="value", label="DRW", ax=ax)
     df_dobs.drop_nulls(subset="value").to_pandas().plot(x="date", y="value", label="DOBS", ax=ax)
 
-    plt.show()
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        plt.show()
 
 
 def main():
