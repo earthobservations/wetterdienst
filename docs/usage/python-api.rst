@@ -225,10 +225,11 @@ Both `humanize` and `si_units` are defaulted to True and `shape` defaults with "
 If your system is running behind a proxy e.g. like `here <https://github.com/earthobservations/wetterdienst/issues/524>`_
 you may want to use the `trust_env` like
 
-```python
+.. ipython:: python
+    :okwarning:
+    
     from wetterdienst import Settings
     settings = Settings(fsspec_client_kwargs={"trust_env": True})
-```
 
 to allow requesting through a proxy.
 
