@@ -10,6 +10,15 @@ Development
 - Backend: Migrate from pandas to polars
 - Sources: Add DWD Road Weather data
 
+.. attention::
+
+    Switching to Polars may cause breaking changes for certain user-space code
+    heavily using pandas idioms, because Wetterdienst now returns a `Polars DataFrame`_.
+    If you absolutely must use a pandas DataFrame, you can cast the Polars DataFrame
+    to pandas by using the ``.to_pandas()`` method.
+
+.. _Polars DataFrame: https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/
+
 0.56.2 (11.05.2023)
 *******************
 
