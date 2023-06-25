@@ -21,6 +21,13 @@ This library is a work in progress!
 
 Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
 
+.. note::
+
+    Wetterdienst 0.57.0 switched from pandas to Polars, which may cause breaking changes
+    for certain user-space code heavily using pandas idioms, because Wetterdienst now
+    returns a `Polars DataFrame`_. If you absolutely must use a pandas DataFrame, you can
+    cast the Polars DataFrame to pandas by using the ``.to_pandas()`` method.
+
 **What our customers say:**
 
 "Our house is on fire. I am here to say, our house is on fire. I saw it with my own eyes using **wetterdienst**
@@ -414,3 +421,6 @@ Important Links
 - Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
 - Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/example
 - Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks
+
+
+.. _Polars DataFrame: https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/
