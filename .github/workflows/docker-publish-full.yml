@@ -28,7 +28,6 @@ env:
 
 jobs:
   build_and_test:
-    if: ${{ ! startsWith(github.head_ref, '^dependabot/*') }} && ${{ ! github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
     steps:
       - name: Acquire sources
@@ -65,9 +64,10 @@ jobs:
           fi
 
   docker:
-    if: ${{ ! startsWith(github.head_ref, '^dependabot/*') }} && ${{ ! github.event.pull_request.head.repo.fork }}
     needs: build_and_test
     runs-on: ubuntu-latest
+    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
+
     steps:
       - name: Acquire sources
         uses: actions/checkout@v3
