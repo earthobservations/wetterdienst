@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wetterdienst"
-version = "0.57.0"
+version = "0.57.1"
 description = "Open weather data for humans"
 authors = [
     "Benjamin Gutzmann <gutzemann@gmail.com>",
@@ -218,7 +218,7 @@ bufr                = ["pybufrkit", "pdbufr"]
 cratedb             = ["crate"]
 duckdb              = ["duckdb"]
 explorer            = ["dash", "dash-bootstrap-components", "dash-leaflet", "geojson", "plotly"]
-export              = ["openpyxl", "pyarrow", "sqlalchemy", "xarray", "zarr"]
+export              = ["openpyxl", "sqlalchemy", "xarray", "zarr"]
 influxdb            = ["influxdb", "influxdb-client"]
 interpolation       = ["scipy", "shapely", "utm"]
 ipython             = ["ipython", "matplotlib"]
