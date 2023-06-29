@@ -5,27 +5,13 @@ import sys
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 
-
-@pytest.fixture
-def is_ci():
-    return os.environ.get("CI", False)
-
-
-@pytest.fixture
-def is_linux():
-    return platform.system() == "Linux"
-
-
-@pytest.fixture
-def is_linux_311(is_linux):
-    python_version = sys.version_info[:2]
-    return is_linux and python_version == (3, 11)
-
-
-@pytest.fixture
-def is_windows():
-    return platform.system() == "Windows"
+IS_CI = os.environ.get("CI", False) and True
+IS_LINUX = platform.system() == "Linux"
+IS_LINUX_39 = IS_LINUX and sys.version_info[:2] == (3, 11)
+IS_WINDOWS = platform.system() == "Windows"
+ENSURE_ECCODES_PDBUFR = ensure_eccodes() and ensure_pdbufr()
 
 
 @pytest.fixture(scope="function")

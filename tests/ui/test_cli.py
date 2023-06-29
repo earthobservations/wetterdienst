@@ -10,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 from dirty_equals import IsDict
 
+from tests.conftest import IS_WINDOWS
 from wetterdienst.ui.cli import cli
 
 # Individual settings for observation and mosmix
@@ -246,9 +247,9 @@ def test_cli_stations_csv(provider, network, setting, station_id, expected_dict,
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmp_path, is_windows):
+def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmp_path):
     filename = Path("stations.xlsx")
-    if not is_windows:
+    if not IS_WINDOWS:
         filename = tmp_path.joinpath(filename)
     _ = invoke_wetterdienst_stations_export(
         provider=provider,
@@ -258,7 +259,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
         target=f"file://{filename}",
     )
     df = pl.read_excel(source=filename, sheet_name="Sheet1")
-    if is_windows:
+    if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "name" in df
     assert expected_dict["name"] in df.get_column("name")
@@ -358,9 +359,9 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_excel(provider, network, setting, station_id, station_name, tmp_path, is_windows):
+def test_cli_values_excel(provider, network, setting, station_id, station_name, tmp_path):
     filename = Path("values.xlsx")
-    if not is_windows:
+    if not IS_WINDOWS:
         filename = tmp_path.joinpath(filename)
     _ = invoke_wetterdienst_values_export(
         provider=provider,
@@ -370,7 +371,7 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         target=f"file://{filename}",
     )
     df = pl.read_excel(filename, sheet_name="Sheet1")
-    if is_windows:
+    if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "station_id" in df.columns
     assert df.get_column("station_id").cast(str).apply(lambda s: any(s in sid for sid in station_id)).any()

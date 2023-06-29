@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 import pytest
 import xarray as xr
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -59,6 +60,7 @@ def radar_scan_precip():
         site=DwdRadarSite.ESS,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
+        settings=Settings(cache_disable=True),
     )
     request_reflectivity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
@@ -66,6 +68,7 @@ def radar_scan_precip():
         site=DwdRadarSite.ESS,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
+        settings=Settings(cache_disable=True),
     )
 
     log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at " f"{request_velocity.start_date}")
