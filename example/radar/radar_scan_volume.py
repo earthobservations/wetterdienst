@@ -25,6 +25,7 @@ import numpy as np
 import xarray as xr
 from datatree import DataTree
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -70,6 +71,7 @@ def radar_scan_volume():
             site=DwdRadarSite.ESS,
             fmt=DwdRadarDataFormat.HDF5,
             subset=DwdRadarDataSubset.POLARIMETRIC,
+            settings=Settings(cache_disable=True),
         )
         request_reflectivity = DwdRadarValues(
             parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
@@ -79,6 +81,7 @@ def radar_scan_volume():
             site=DwdRadarSite.ESS,
             fmt=DwdRadarDataFormat.HDF5,
             subset=DwdRadarDataSubset.POLARIMETRIC,
+            settings=Settings(cache_disable=True),
         )
 
         # Submit requests.

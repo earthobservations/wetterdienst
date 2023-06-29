@@ -22,6 +22,8 @@ import time
 import pytest
 from bs4 import BeautifulSoup
 
+from tests.conftest import IS_CI
+
 
 @pytest.mark.slow
 @pytest.mark.cflake
@@ -171,16 +173,15 @@ def test_options_reset(wetterdienst_ui, dash_tre):
     dash_tre.wait_for_contains_text("#select-period", "")
 
 
+@pytest.mark.skipif(IS_CI, reason="times out")
 @pytest.mark.xfail
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_app_data_values(wetterdienst_ui, dash_tre, is_ci):
+def test_app_data_values(wetterdienst_ui, dash_tre):
     """
     Verify if data for "values" has been correctly propagated.
     """
-    if is_ci:
-        pytest.skip(reason="times out")
     # Select provider.
     dash_tre.wait_for_element_by_id("select-provider")
     dash_tre.select_dcc_dropdown("#select-provider", value="DWD")
