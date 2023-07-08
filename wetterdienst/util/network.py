@@ -5,6 +5,7 @@ import os
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple, Union
 
+import stamina
 from fsspec import AbstractFileSystem
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
@@ -57,6 +58,7 @@ class NetworkFilesystemManager:
         return cls.filesystems[key]
 
 
+@stamina.retry(on=Exception, attempts=3)
 def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
     """
     A function used to create a listing of all files of a given path on the server.
@@ -79,6 +81,7 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
     return fs.find(url)
 
 
+@stamina.retry(on=Exception, attempts=3)
 def download_file(
     url: str, settings: Settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE
 ) -> BytesIO:
