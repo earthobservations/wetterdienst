@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add retry to functions
+
 0.57.1 (28.06.2023)
 *******************
 

@@ -5593,6 +5593,27 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "stamina"
+version = "23.1.0"
+description = "Production-grade retries made easy."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "stamina-23.1.0-py3-none-any.whl", hash = "sha256:850de8c2c2469aabf42a4c02e7372eaa12c2eced78f2bfa34162b8676c2846e5"},
+    {file = "stamina-23.1.0.tar.gz", hash = "sha256:b16ce3d52d658aa75db813fc6a6661b770abfea915f72cda48e325f2a7854786"},
+]
+
+[package.dependencies]
+tenacity = "*"
+typing-extensions = {version = "*", markers = "python_version < \"3.10\""}
+
+[package.extras]
+dev = ["nox", "prometheus-client", "stamina[tests,typing]", "structlog", "tomli"]
+docs = ["furo", "myst-parser", "prometheus-client", "sphinx", "sphinx-notfound-page", "structlog"]
+tests = ["pytest", "pytest-asyncio"]
+typing = ["mypy (>=1.4)"]
+
+[[package]]
 name = "starlette"
 version = "0.27.0"
 description = "The little ASGI library that shines."
@@ -6419,4 +6440,4 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,<3.12"
-content-hash = "a78b583840133ffc92a20503f17a1b99b2f061ee05d68739c03bdb1795717f29"
+content-hash = "65e69670a281bb7ef55c0852f561fddc13f125ae55e95866f615c0021c4ea4a1"
