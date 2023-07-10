@@ -243,11 +243,11 @@ class ImgwHydrologyValues(TimeseriesValues):
                 pl.col("station_id"),
                 pl.col("date"),
                 pl.concat_str(
-                    [
+                    exprs=[
                         pl.col("extremity").map_dict({"1": "minimalna", "2": "średnia", "3": "maksymalna"}),
                         pl.col("parameter"),
                     ],
-                    " ",
+                    separator=" ",
                 ).alias("parameter"),
                 pl.col("value"),
             )
