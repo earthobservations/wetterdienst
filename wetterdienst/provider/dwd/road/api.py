@@ -306,7 +306,7 @@ class DwdRoadValues(TimeseriesValues):
         df = df.select(
             pl.col("shortStationName"),
             pl.concat_str(
-                [
+                exprs=[
                     pl.col("year").cast(pl.Utf8),
                     pl.col("month").cast(pl.Utf8).str.rjust(2, "0"),
                     pl.col("day").cast(pl.Utf8).str.rjust(2, "0"),
