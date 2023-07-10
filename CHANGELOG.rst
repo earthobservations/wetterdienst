@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.58.0 (10.07.2023)
+*******************
+
 - Add retry to functions
 - Add IMGW Hydrology API
 - Add IMGW Meteorology API
