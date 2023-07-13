@@ -191,33 +191,51 @@ and to set it back to standard
 The environmental settings recognized by our settings are
 
 - WD_CACHE_DISABLE
+
 - WD_ECCODES_DIR
+
 - WD_FSSPEC_CLIENT_KWARGS
+
 - WD_TS_HUMANIZE
+
 - WD_TS_SHAPE
+
 - WD_TS_SI_UNITS
+
 - WD_TS_SKIP_EMPTY
+
 - WD_TS_SKIP_THRESHOLD
+
 - WD_TS_SKIP_CRITERIA
+
 - WD_TS_DROPNA
+
 - WD_TS_INTERPOLATION_USE_NEARBY_STATION_UNTIL_KM
 
 TS arguments are:
+
 - `shape` can be used to reshape the returned data to a `long/tidy format`_, one of "long", "wide".
-- `humanize` can be used to rename parameters to more meaningful
-names.
+
+- `humanize` can be used to rename parameters to more meaningful names.
+
 - `si_units` can be used to convert values to SI units.
+
 - `skip_empty` (requires option `shape="long"`) can be used to skip empty stations
-    - empty stations are defined via `skip_threshold` which defaults to 0.95
-     and requires all parameters that are requested (for an entire dataset all of the dataset parameters)
-     to have at least 95 per cent of actual values (relative to start and end date if provided)
+
+  - empty stations are defined via `skip_threshold` which defaults to 0.95
+    and requires all parameters that are requested (for an entire dataset all of the dataset parameters)
+    to have at least 95 per cent of actual values (relative to start and end date if provided)
+
 - `skip_criteria` (requires option `shape="long"`) is the statistical criteria on which the percentage of actual values is
-    calculated with options "min", "mean", "max", where "min" means the percentage of the lowest available parameter is
-    taken, while "mean" takes the average percentage of all parameters and "max" does so for the parameter with the most
-    percentage
+  calculated with options "min", "mean", "max", where "min" means the percentage of the lowest available parameter is
+  taken, while "mean" takes the average percentage of all parameters and "max" does so for the parameter with the most
+  percentage
+
 - `skip_threshold` is used in combination with `skip_empty` to define when a station is empty, with 1.0 meaning no
- values per parameter should be missing and e.g. 0.9 meaning 10 per cent of values can be missing
+  values per parameter should be missing and e.g. 0.9 meaning 10 per cent of values can be missing
+
 - `dropna` (requires option `shape="long"`) is used to drop all empty entries thus reducing the workload
+
 - `fsspec_client_kwargs` can be used to pass arguments to fsspec, especially for querying data behind a proxy
 
 Both `humanize` and `si_units` are defaulted to True and `shape` defaults with "long".
@@ -349,9 +367,9 @@ Inquire the list of stations by geographic coordinates.
 
 - Calculate weather stations close to the given coordinates and set of parameters.
 - Select stations by
-    - rank (n stations)
-    - distance (km, mi,...)
-    - bbox
+  - rank (n stations)
+  - distance (km, mi,...)
+  - bbox
 
 Distance with default (kilometers)
 
@@ -859,7 +877,11 @@ FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
 
     settings = Settings(fsspec_client_kwargs={"trust_env": True})  # use proxy from environment variables
 
-    # DwdObservationRequest(..., settings=settings)
+    stations = DwdObservationRequest(
+        parameter=[DwdObservationDataset.TEMPERATURE_AIR],
+        resolution=DwdObservationResolution.HOURLY,
+        settings=settings
+    ).filter_by_station_id(station_id=[1048])
 
 .. _wradlib: https://wradlib.org/
 .. _example/radar/: https://github.com/earthobservations/wetterdienst/tree/main/example/radar
