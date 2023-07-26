@@ -685,6 +685,7 @@ class GeosphereObservationValues(TimeseriesValues):
             pl.col(Columns.DATE.value)
             .str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M+%H:%M")
             .dt.replace_time_zone("UTC"),
+            pl.col(Columns.PARAMETER.value).str.to_lowercase(),
             pl.lit(station_id).alias(Columns.STATION_ID.value),
             pl.lit(None, pl.Float64).alias(Columns.QUALITY.value),
         )

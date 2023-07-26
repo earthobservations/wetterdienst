@@ -334,6 +334,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param dataset:
         :return:
         """
+        if df.is_empty():
+            return df
         base_df = self._get_base_df(station_id)
         data = []
         for (station_id, parameter), group in df.groupby(
