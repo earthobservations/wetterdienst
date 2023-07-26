@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix bug with Geosphere parameter case
+
 0.58.0 (10.07.2023)
 *******************
 
