@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.59.0 (30.07.2023)
+*******************
+
 - Revise type hints for parameter and station_id
 - Fix Geosphere Observation parsing of dates in values -> thanks to @mhuber89 who discovered the bug and delivered a fix
 
