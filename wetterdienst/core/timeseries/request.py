@@ -45,6 +45,8 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 
+_PARAMETER_TYPE = Union[Union[str, Enum, Parameter], Tuple[Union[str, Enum, Parameter], Union[str, Enum, Parameter]]]
+
 
 class TimeseriesRequest(Core):
     """Core for stations_result information of a source"""
@@ -342,7 +344,7 @@ class TimeseriesRequest(Core):
 
     def __init__(
         self,
-        parameter: List[Union[str, Enum, Parameter]],
+        parameter: Union[_PARAMETER_TYPE, Tuple[_PARAMETER_TYPE], List[_PARAMETER_TYPE]],
         resolution: Union[str, Resolution],
         period: Union[str, Period],
         start_date: Optional[Union[str, datetime]] = None,
@@ -635,7 +637,7 @@ class TimeseriesRequest(Core):
             stations_filter=StationsFilter.ALL,
         )
 
-    def filter_by_station_id(self, station_id: Union[Tuple[str, ...], List[str]]) -> StationsResult:
+    def filter_by_station_id(self, station_id: Union[str, Tuple[str, ...], List[str]]) -> StationsResult:
         """
         Method to filter stations_result by station ids
 

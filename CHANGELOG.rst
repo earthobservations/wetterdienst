@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Revise type hints for parameter and station_id
+
 0.58.1 (26.07.2023)
 *******************
 

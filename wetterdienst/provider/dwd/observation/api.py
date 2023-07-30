@@ -4,7 +4,7 @@
 import datetime as dt
 import logging
 from itertools import repeat
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 import polars as pl
@@ -485,7 +485,7 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.period = self._parse_period([*self._period_base])
 
-    def filter_by_station_id(self, station_id):
+    def filter_by_station_id(self, station_id: Union[str, int, Tuple[str, ...], Tuple[int, ...], List[str], List[int]]):
         return super().filter_by_station_id(
             pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.rjust(5, "0")
         )
