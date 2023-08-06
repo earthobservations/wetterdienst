@@ -5,9 +5,7 @@ import pytest
 
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.unit import OriginUnit, SIUnit
-from wetterdienst.provider.dwd.mosmix.api import DwdMosmixDataset
-from wetterdienst.provider.dwd.mosmix.metadata.parameter import DwdMosmixParameter
-from wetterdienst.provider.dwd.mosmix.metadata.unit import DwdMosmixUnit
+from wetterdienst.provider.dwd.mosmix.api import DwdMosmixDataset, DwdMosmixParameter, DwdMosmixUnit
 from wetterdienst.provider.dwd.observation import DwdObservationDataset
 from wetterdienst.provider.dwd.observation.metadata.parameter import (
     DwdObservationParameter,

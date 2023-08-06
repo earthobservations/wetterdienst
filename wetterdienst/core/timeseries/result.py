@@ -16,6 +16,7 @@ from wetterdienst.metadata.resolution import Frequency, FrequencyPolars, Resolut
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
@@ -32,7 +33,7 @@ class StationsFilter:
 class StationsResult(ExportMixin):
     def __init__(
         self,
-        stations: Union["TimeseriesRequest", "DwdMosmixRequest"],
+        stations: Union["TimeseriesRequest", "DwdMosmixRequest", "DwdDmoRequest"],
         df: pl.DataFrame,
         df_all: pl.DataFrame,
         stations_filter: StationsFilter,

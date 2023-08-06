@@ -29,6 +29,13 @@ class RequestRegistry(DatasetTreeCore):
 
                 return DwdMosmixRequest
 
+        class DMO(DatasetTreeCore):
+            @staticmethod
+            def load() -> "DwdMosmixRequest":  # noqa: F821
+                from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+
+                return DwdDmoRequest
+
         class ROAD(DatasetTreeCore):
             @staticmethod
             def load() -> "DwdRoadRequest":  # noqa: F821
