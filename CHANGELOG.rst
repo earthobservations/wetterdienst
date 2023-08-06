@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add implementation for DWD DMO
+
 0.59.3 (11.09.2023)
 *******************
 

@@ -23,6 +23,7 @@ from wetterdienst.util.eccodes import ensure_eccodes
         ),
         # station forecasts
         ("dwd", "mosmix", {"parameter": "large", "mosmix_type": "large"}, None),
+        ("dwd", "dmo", {"parameter": "icon", "dmo_type": "icon"}, None),
         # road weather
         pytest.param(
             "dwd",
