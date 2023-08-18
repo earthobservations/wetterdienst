@@ -182,7 +182,7 @@ radiation_global
    :stub-columns: 1
 
    * - original name
-     - D6X
+     - GSX
    * - description file
      - 
    * - description
@@ -442,7 +442,7 @@ wind_direction
    :stub-columns: 1
 
    * - original name
-     - GSX
+     - D6X
    * - description file
      - 
    * - description

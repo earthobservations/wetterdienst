@@ -126,7 +126,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
             PRESSURE_AIR_SEA_LEVEL = "PPY"  # Luftdruck auf Meeresniveau reduziert mbar
             PRESSURE_AIR_SITE = "PPX"  # Luftdruck Stationsniveau mbar
             PRESSURE_VAPOR = "VPX"  # Dampfdruck mbar
-            RADIATION_GLOBAL = "D6X"  # Globalstrahlung J/cm²
+            RADIATION_GLOBAL = "GSX"  # Globalstrahlung J/cm²
             RADIATION_SKY_SHORT_WAVE_DIFFUSE = "HSX"  # Diffusstrahlung J/cm² pro Stunde
             RADIATION_SKY_SHORT_WAVE_DIRECT = "SST"  # Direkte Sonnenstrahlung (direkt) J/cm² pro Stunde
             SNOW_DEPTH = "SCH"  # Schneehöhe cm
@@ -139,7 +139,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
             TEMPERATURE_SOIL_MEAN_100 = "TT5"  # Erdbodentemperatur in 100 cm Tiefe °C
             TEMPERATURE_SOIL_MEAN_200 = "TT0"  # Erdbodentemperatur in 200 cm Tiefe °C
             TEMPERATURE_DEW_POINT_MEAN_200 = "TDX"  # Taupunktstemperatur °C
-            WIND_DIRECTION = "GSX"  # Windrichtung °
+            WIND_DIRECTION = "D6X"  # Windrichtung °
             WIND_DIRECTION_GUST_MAX = "WSD"  # Windrichtung der Windspitze °
             WIND_GUST_MAX = "WSX"  # Windspitzen m/s
             WIND_SPEED = "VVX"  # Windgeschwindigkeit m/s
