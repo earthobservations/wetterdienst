@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+0.59.1 (18.07.2023)
+*******************
+
+- Fix Geosphere parameter names
+
 0.59.0 (30.07.2023)
 *******************
 
