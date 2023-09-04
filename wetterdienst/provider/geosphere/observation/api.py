@@ -680,7 +680,13 @@ class GeosphereObservationValues(TimeseriesValues):
         df = df.melt(
             id_vars=[Columns.DATE.value], variable_name=Columns.PARAMETER.value, value_name=Columns.VALUE.value
         )
-
+        if self.sr.resolution == Resolution.MINUTE_10:
+            df = df.with_columns(
+                pl.when(pl.col(Columns.PARAMETER.value).is_in(["GSX", "HSX"]))
+                .then(pl.col(Columns.VALUE.value) * 600)
+                .otherwise(pl.col(Columns.VALUE.value))
+                .alias(Columns.VALUE.value)
+            )
         return df.with_columns(
             pl.col(Columns.DATE.value).str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
             pl.col(Columns.PARAMETER.value).str.to_lowercase(),

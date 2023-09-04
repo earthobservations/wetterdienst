@@ -190,7 +190,7 @@ radiation_global
    * - origin unit
      - :math:`J / cm^2`
    * - SI unit
-     - :math:`J / cm^2`
+     - :math:`J / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -210,7 +210,7 @@ radiation_sky_short_wave_diffuse
    * - origin unit
      - :math:`J / cm^2`
    * - SI unit
-     - :math:`J / cm^2`
+     - :math:`J / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -230,7 +230,7 @@ radiation_sky_short_wave_direct
    * - origin unit
      - :math:`J / cm^2`
    * - SI unit
-     - :math:`J / cm^2`
+     - :math:`J / m^2`
    * - constraints
      - :math:`\geq{0}`
 
