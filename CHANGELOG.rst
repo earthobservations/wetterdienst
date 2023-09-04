@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix documentation and unit conversion for Geosphere 10minute radiation data
+
 0.59.1 (18.07.2023)
 *******************
 

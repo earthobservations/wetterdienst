@@ -148,9 +148,9 @@ radiation_global
    * - description
      -
    * - origin unit
-     - :math:`W / m^2`
-   * - SI unit
      - :math:`J / cm^2`
+   * - SI unit
+     - :math:`J / m^2`
    * - constraints
      - :math:`\geq{0}`
 
@@ -162,15 +162,15 @@ radiation_sky_short_wave_diffuse
    :stub-columns: 1
 
    * - original name
-     - GSX
+     - HSX
    * - description file
      - 
    * - description
      -
    * - origin unit
-     - :math:`W / m^2`
-   * - SI unit
      - :math:`J / cm^2`
+   * - SI unit
+     - :math:`J / m^2`
    * - constraints
      - :math:`\geq{0}`
 
