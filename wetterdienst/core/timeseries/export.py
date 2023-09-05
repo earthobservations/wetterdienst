@@ -37,7 +37,6 @@ class ExportMixin:
         return self.df
 
     def to_dict(self) -> List[dict]:
-
         # Convert all datetime columns to ISO format.
         df = convert_datetimes(self.df)
 

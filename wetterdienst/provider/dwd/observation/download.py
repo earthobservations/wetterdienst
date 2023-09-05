@@ -51,7 +51,6 @@ def _download_climate_observations_data(remote_file: str, settings: Settings) ->
 
 
 def __download_climate_observations_data(remote_file: str, settings: Settings) -> bytes:
-
     try:
         file = download_file(remote_file, settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
     except InvalidURL as e:

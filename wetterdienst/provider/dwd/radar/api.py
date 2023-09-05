@@ -128,7 +128,6 @@ class DwdRadarValues:
 
         # Sanity checks.
         if self.parameter == DwdRadarParameter.RADOLAN_CDC:
-
             if self.resolution not in (
                 Resolution.HOURLY,
                 Resolution.DAILY,
@@ -143,7 +142,6 @@ class DwdRadarValues:
             raise ValueError(f"Argument 'elevation' only valid for parameter={elevation_parameters}")
 
         if start_date == DwdRadarDate.LATEST:
-
             # HDF5 folders do not have "-latest-" files.
             if self.parameter == DwdRadarParameter.RADOLAN_CDC:
                 raise ValueError("RADOLAN_CDC data has no '-latest-' files")
@@ -257,7 +255,6 @@ class DwdRadarValues:
                 self.end_date = self.start_date + dt.timedelta(microseconds=1)
 
         elif self.parameter == DwdRadarParameter.RQ_REFLECTIVITY:
-
             # Align "start_date" to the 15 minute mark before tm.
             self.start_date = round_minutes(self.start_date, 15)
 
@@ -290,7 +287,6 @@ class DwdRadarValues:
         log.info(f"acquiring radar data for {str(self)}")
         # Find latest file.
         if self.start_date == DwdRadarDate.LATEST:
-
             file_index = create_fileindex_radar(
                 parameter=self.parameter, site=self.site, fmt=self.format, parse_datetime=False, settings=self.settings
             )
@@ -307,9 +303,7 @@ class DwdRadarValues:
             yield result
 
         else:
-
             if self.parameter == DwdRadarParameter.RADOLAN_CDC:
-
                 if self.period:
                     period_types = [self.period]
                 else:
@@ -320,7 +314,6 @@ class DwdRadarValues:
 
                 results = []
                 for period in period_types:
-
                     file_index = create_fileindex_radolan_cdc(
                         resolution=self.resolution, period=period, settings=self.settings
                     )
@@ -554,7 +547,6 @@ class DwdRadarValues:
 
 class DwdRadarSites(OperaRadarSites):
     def __init__(self):
-
         # Load all OPERA radar sites.
         super().__init__()
 

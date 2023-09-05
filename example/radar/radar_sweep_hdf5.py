@@ -62,7 +62,6 @@ def radar_hdf5_example():
     )
 
     for item in request.query():
-
         # Decode data using wradlib.
         log.info(f"Parsing radar data for {request.site} at '{item.timestamp}'")
         data = wrl.io.read_opera_hdf5(item.data)

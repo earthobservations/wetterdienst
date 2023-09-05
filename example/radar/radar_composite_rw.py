@@ -82,7 +82,6 @@ def radar_rw_example():
     )
 
     for item in radolan.query():
-
         # Decode data using wradlib.
         log.info("Parsing radar RW composite data for %s", item.timestamp)
         data, attributes = wrl.io.read_radolan_composite(item.data)

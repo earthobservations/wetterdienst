@@ -108,7 +108,7 @@ beautifulsoup4 = "^4.9"
 cachetools = "^5.2"
 click = "^8.0"
 click-params = "^0.4.1"
-cloup = "^2.0"
+cloup = "^3.0.1"
 deprecation = "^2.1"
 diskcache = "^5.4.0"
 environs = "^9.4.0"
@@ -120,7 +120,7 @@ pandas = "^2.0"
 Pint = "^0.17"
 platformdirs = "^3.8"
 polars = "^0.16"
-pyarrow = "^12.0"
+pyarrow = "^13.0"
 pypdf = "^3.12.1"
 python-dateutil = "^2.8.2"
 rapidfuzz = "^3.1"
@@ -137,7 +137,7 @@ xlsxwriter = "^3.0.9"
 crate                           = { version = "^0.30.1", optional = true }  # Export feature.
 dash                            = { version = "^2.8", optional = true }  # Explorer UI feature.
 dash-bootstrap-components       = { version = "^1.4", optional = true }  # Explorer UI feature.
-dash-leaflet                    = { version = "^0.1.23", optional = true }  # Explorer UI feature.
+dash-leaflet                    = { version = "^1.0.8", optional = true }  # Explorer UI feature.
 duckdb                          = { version = "^0.7.1", optional = true }  # Export feature.
 eccodes                         = { version = "^1.5.2", optional = true }
 fastapi                         = { version = "^0.95.1", optional = true }  # HTTP REST API feature.
@@ -166,10 +166,7 @@ zarr                            = { version = "^2.13", optional = true }  # Expo
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-# TODO: Integrate Bandit with Ruff?
-#       https://github.com/charliermarsh/ruff/issues/1646
-bandit = "^1.7"
-black = { version = "^22.12", extras = ["jupyter"] }
+black = { version = "^23.1", extras = ["jupyter"] }
 # TODO: currently there is a version constraint with jsonschema here
 #cff-from-621 = { version = "^0.0.1", python = ">= 3.10"}
 poethepoet = "^0.18.1"
@@ -179,13 +176,12 @@ ruff = "^0.0.250"
 optional = true
 
 [tool.poetry.group.test.dependencies]
-coverage = { version = "^6.0", extras = ["toml"] }
+coverage = { version = "^7.3", extras = ["toml"] }
 dash = { version = "^2.6", extras = ["testing"] }
 dirty-equals = "^0.5.0"
 freezegun = "^1.2"
-h5py = { version = "^3.1", optional = true}
 ipykernel = "^6.19.4"
-jsonschema = {extras = ["format-nongpl"], version = "^4.17.3"}
+jsonschema = { version = "^4.17.3", extras = ["format-nongpl"] }
 jupyter = "^1.0.0"
 lmfit = "^1.1.0"  # required for example observations_station_gaussian_model.py
 percy = "^2.0"
@@ -197,20 +193,22 @@ pytest-notebook = "^0.8"
 pytest-xdist = "^3"
 selenium = "^4.0"
 surrogate = "^0.1"
-webdriver-manager = "^3.5.3"
+webdriver-manager = "^4.0.0"
+
+h5py = { version = "^3.1", optional = true}
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
 docformatter = "^1.4"
-furo = "^2022.9.15"
+furo = "^2023.8.19"
 ipython = "^8.5"
 matplotlib = "^3.3"
-sphinx = "^5.2"
+sphinx = "^7.2.5"
 sphinx-autodoc-typehints = "^1.11"
 sphinx-autobuild = "^2021.3"
-sphinx_design = "^0.3.0"
+sphinx_design = "^0.5.0"
 sphinxcontrib-svg2pdfconverter = "^1.1"
 tomlkit = "^0.7"
 
