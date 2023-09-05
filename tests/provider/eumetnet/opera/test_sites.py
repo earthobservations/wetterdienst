@@ -7,7 +7,6 @@ from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
 
 def test_radar_sites_sizes():
-
     ors = OperaRadarSites()
 
     assert len(ors.all()) == 205
@@ -16,7 +15,6 @@ def test_radar_sites_sizes():
 
 
 def test_radar_sites_by_odimcode():
-
     ors = OperaRadarSites()
 
     assert ors.by_odimcode("ukdea")["location"] == "Dean Hill"
@@ -37,7 +35,6 @@ def test_radar_sites_by_odimcode():
 
 
 def test_radar_sites_by_wmocode():
-
     ors = OperaRadarSites()
 
     assert ors.by_wmocode(3859)["location"] == "Dean Hill"
@@ -45,7 +42,6 @@ def test_radar_sites_by_wmocode():
 
 
 def test_radar_sites_by_countryname():
-
     ors = OperaRadarSites()
 
     sites_uk = ors.by_countryname(name="United Kingdom")

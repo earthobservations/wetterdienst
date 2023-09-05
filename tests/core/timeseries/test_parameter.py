@@ -80,7 +80,6 @@ def test_parameter_names(parameter_enum):
 
     for res in parameter_enum:
         for dataset in res:
-
             if hasattr(dataset, "name"):
                 continue
 

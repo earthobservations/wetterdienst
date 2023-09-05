@@ -72,7 +72,6 @@ def parse_parameters(text):
 
 
 def read_description(url, language: str = "en") -> dict:
-
     if language == "en":
         sections = {
             "parameters": "Parameters",
@@ -102,7 +101,6 @@ def read_description(url, language: str = "en") -> dict:
 
 
 def process(url) -> None:  # pragma: no cover
-
     parameters = read_description(url)
 
     # Output as JSON.

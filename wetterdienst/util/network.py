@@ -23,7 +23,6 @@ class NetworkFilesystemManager:
 
     @staticmethod
     def resolve_ttl(ttl: Union[int, CacheExpiry]) -> Tuple[str, int]:
-
         ttl_name = ttl
         ttl_value = ttl
 

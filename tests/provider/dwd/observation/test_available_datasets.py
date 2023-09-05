@@ -58,7 +58,7 @@ def test_compare_available_dwd_datasets(default_settings):
         pl.col("files").str.split("/").arr.first().alias("resolution"),
         pl.col("files").str.split("/").arr.last().alias("dataset"),
     )
-    for (resolution, dataset) in df.iter_rows():
+    for resolution, dataset in df.iter_rows():
         rd_pair = (resolution, dataset)
         if rd_pair in SKIP_DATASETS:
             continue

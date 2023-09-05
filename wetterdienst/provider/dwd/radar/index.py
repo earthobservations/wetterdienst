@@ -218,13 +218,11 @@ def build_path_to_parameter(
         return f"weather/radar/radvor/{parameter.value}"
 
     elif parameter in RADAR_PARAMETERS_SITES:
-
         # Sanity checks.
         if site is None:
             raise ValueError("Argument 'site' is missing")
 
         if fmt is None:
-
             ambiguous_parameters = [
                 DwdRadarParameter.PE_ECHO_TOP,
                 DwdRadarParameter.PR_VELOCITY,

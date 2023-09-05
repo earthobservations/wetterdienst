@@ -517,7 +517,6 @@ class TimeseriesRequest(Core):
             parameters = {}
 
             for resolution_item in resolutions:
-
                 resolution_name = resolution_item.name
                 parameters[resolution_name.lower()] = {}
 
@@ -561,7 +560,6 @@ class TimeseriesRequest(Core):
                 parameters[resolution_name.lower()][dataset_name] = {}
 
                 for parameter in dataset:
-
                     origin_unit, si_unit = cls._unit_base[resolution_name][dataset_name.upper()][parameter.name].value
 
                     if with_units:

@@ -62,7 +62,6 @@ def radar_dx_example():
     )
 
     for item in request.query():
-
         # Decode data using wradlib.
         log.info(f"Parsing radar data for {request.site} at '{item.timestamp}'")
         data, metadata = wrl.io.read_dx(item.data)
