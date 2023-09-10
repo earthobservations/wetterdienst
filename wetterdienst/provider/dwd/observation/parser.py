@@ -188,7 +188,7 @@ def _parse_climate_observations_data(
     if resolution == Resolution.HOURLY:
         if dataset == DwdObservationDataset.SOLAR:
             # Fix real date column by cutting of minutes
-            df = df.with_columns(pl.col("mess_datum").str.slice(0, pl.col("mess_datum").str.n_chars() - 3))
+            df = df.with_columns(pl.col("mess_datum").apply(lambda date: date[:-3]))
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop(columns=[col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns]).rename(

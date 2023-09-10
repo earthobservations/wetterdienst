@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix DWD solar date string correction
+
 0.59.2 (06.09.2023)
 *******************
 
