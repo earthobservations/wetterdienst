@@ -9,7 +9,7 @@ import pytest
 from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Parameter
+from wetterdienst import Parameter, Settings
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.timezone import Timezone
@@ -1041,6 +1041,32 @@ def test_dwd_observation_solar_daily(default_settings):
         settings=default_settings,
     ).filter_by_station_id(station_id=[3987])
     assert not request.values.all().df.get_column("value").drop_nulls().is_empty()
+
+
+@pytest.mark.remote
+def test_dwd_observation_solar_hourly(default_settings):
+    """Test DWD observation solar hourly data"""
+    # Snippet provided by @lasinludwig
+    settings = Settings(
+        ts_shape="long",
+        ts_si_units=False,
+        ts_skip_empty=True,
+        ts_skip_threshold=0.90,
+        ts_skip_criteria="min",
+        ts_dropna=True,
+        ignore_env=True,
+    )
+    latlon_bremen: tuple[float, float] = 53.0980433, 8.7747248
+    # request for radiation
+    request = DwdObservationRequest(
+        parameter="radiation_global",
+        resolution="hourly",
+        start_date=dt.datetime(2022, 1, 1, 0, 0),
+        end_date=dt.datetime(2022, 12, 31, 23, 59),
+        settings=settings,
+    ).filter_by_distance(latlon_bremen, 500)
+    values_df = next(request.values.query()).df
+    assert values_df.get_column("value").sum() == 417997.0
 
 
 @pytest.mark.remote
