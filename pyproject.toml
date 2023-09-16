@@ -184,7 +184,7 @@ ipykernel = "^6.19.4"
 jsonschema = { version = "^4.17.3", extras = ["format-nongpl"] }
 jupyter = "^1.0.0"
 lmfit = "^1.1.0"  # required for example observations_station_gaussian_model.py
-percy = "^2.0"
+percy-selenium = "^2.0.0"
 pybufrkit = "^0.2"
 pytest = "^7.2"
 pytest-cov = "^4.0"
