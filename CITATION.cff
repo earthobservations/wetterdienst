@@ -2,8 +2,8 @@
 cff-version: 1.2.0
 type: software
 title: wetterdienst
-version: 0.56.0
-date-released: '2023-05-02'
+version: 0.60.0
+date-released: '2023-09-16'
 authors:
 - name: Benjamin Gutzmann
 - name: Andreas Motl
