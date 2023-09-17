@@ -8,6 +8,8 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
+LATLON = (52.52, 13.40)
+
 
 def get_interpolated_df(start_date: datetime, end_date: datetime) -> pl.DataFrame:
     stations = DwdObservationRequest(
@@ -16,7 +18,7 @@ def get_interpolated_df(start_date: datetime, end_date: datetime) -> pl.DataFram
         start_date=start_date,
         end_date=end_date,
     )
-    return stations.interpolate(latlon=(50.0, 8.9)).df
+    return stations.interpolate(latlon=LATLON).df
 
 
 def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: list) -> pl.DataFrame:
@@ -26,7 +28,7 @@ def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: l
         start_date=start_date,
         end_date=end_date,
     )
-    request = stations.filter_by_distance(latlon=(50.0, 8.9), distance=30)
+    request = stations.filter_by_distance(latlon=LATLON, distance=30)
     df = request.values.all().df.drop_nulls()
     station_ids = df.get_column("station_id")
     first_station_id = set(station_ids).difference(set(exclude_stations)).pop()

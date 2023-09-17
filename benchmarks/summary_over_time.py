@@ -40,8 +40,10 @@ def main():
     lon = 13.8470
 
     summarized_df = get_summarized_df(start_date, end_date, lat, lon)
-    summarized_df["color"] = summarized_df.station_id.map(
-        lambda x: {"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"}.get(x)
+    summarized_df = summarized_df.with_columns(
+        pl.col("station_id")
+        .map_dict({"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"})
+        .alias("color")
     )
 
     regular_df_01050 = get_regular_df(start_date, end_date, "01050")
@@ -51,11 +53,11 @@ def main():
 
     fig, ax = plt.subplots(nrows=5, tight_layout=True, sharex=True)
 
-    summarized_df.plot("date", "value", c="color", label="summarized", kind="scatter", ax=ax[0], s=5)
-    regular_df_01050.plot("date", "value", color="yellow", label="01050", ax=ax[1])
-    regular_df_01051.plot("date", "value", color="blue", label="01051", ax=ax[2])
-    regular_df_01048.plot("date", "value", color="green", label="01048", ax=ax[3])
-    regular_df_05282.plot("date", "value", color="pink", label="05282", ax=ax[4])
+    summarized_df.to_pandas().plot("date", "value", c="color", label="summarized", kind="scatter", ax=ax[0], s=5)
+    regular_df_01050.to_pandas().plot("date", "value", color="yellow", label="01050", ax=ax[1])
+    regular_df_01051.to_pandas().plot("date", "value", color="blue", label="01051", ax=ax[2])
+    regular_df_01048.to_pandas().plot("date", "value", color="green", label="01048", ax=ax[3])
+    regular_df_05282.to_pandas().plot("date", "value", color="pink", label="05282", ax=ax[4])
 
     ax[0].set_ylabel(None)
 

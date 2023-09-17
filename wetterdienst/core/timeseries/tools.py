@@ -13,7 +13,7 @@ class _ParameterData:
 
 def extract_station_values(
     param_data: _ParameterData, result_series_param: pl.Series, valid_station_groups_exists: bool
-):
+) -> None:
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
     # 2. a gain of 10% of timestamps with at least 4 existing values over all stations is seen OR

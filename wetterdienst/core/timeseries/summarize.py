@@ -1,6 +1,8 @@
 import logging
+from collections import defaultdict
 from datetime import datetime
-from typing import Tuple
+from enum import Enum
+from typing import Optional, Tuple
 
 import polars as pl
 
@@ -12,6 +14,17 @@ from wetterdienst.metadata.columns import Columns
 
 log = logging.getLogger(__name__)
 
+SUMMARY_STATION_KM_LIMIT = defaultdict(
+    lambda: 40,
+    {
+        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
+        Parameter.TEMPERATURE_AIR_MAX_200.name: 40,
+        Parameter.TEMPERATURE_AIR_MIN_200.name: 40,
+        Parameter.WIND_SPEED.name: 40,
+        Parameter.PRECIPITATION_HEIGHT.name: 20,
+    },
+)
+
 
 def get_summarized_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pl.DataFrame:
     stations_dict, param_dict = request_stations(request, latitude, longitude)
@@ -21,13 +34,12 @@ def get_summarized_df(request: "TimeseriesRequest", latitude: float, longitude: 
 def request_stations(request: "TimeseriesRequest", latitude: float, longitude: float) -> Tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
-    hard_distance_km_limit = 40
 
     stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
     stations_ranked_df = stations_ranked.df.drop_nulls()
 
     for station, result in zip(stations_ranked_df.iter_rows(named=True), stations_ranked.values.query()):
-        if station[Columns.DISTANCE.value] > hard_distance_km_limit:
+        if station[Columns.DISTANCE.value] > max(SUMMARY_STATION_KM_LIMIT.values()):
             break
 
         # check if all parameters found enough stations and the stations build a valid station group
@@ -48,13 +60,7 @@ def apply_station_values_per_parameter(
     stations_ranked: "StationsResult",
     param_dict: dict,
     station: dict,
-):
-    km_limit = {
-        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
-        Parameter.WIND_SPEED.name: 40,
-        Parameter.PRECIPITATION_HEIGHT.name: 20,
-    }
-
+) -> None:
     for parameter, dataset in stations_ranked.stations.parameter:
         if parameter == dataset:
             log.info("only individual parameters can be interpolated")
@@ -64,7 +70,7 @@ def apply_station_values_per_parameter(
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
 
-        if station["distance"] > km_limit[parameter.name]:
+        if station["distance"] > SUMMARY_STATION_KM_LIMIT[parameter.name]:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
 
@@ -142,12 +148,12 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
 def apply_summary(
     row: dict,
     stations_dict: dict,
-    parameter,
-):
+    parameter: Enum,
+) -> Tuple[Enum, Optional[float], Optional[float], Optional[str]]:
     vals = {s: v for s, v in row.items() if v is not None}
 
     if not vals:
-        return None, None, None, None
+        return parameter, None, None, None
 
     value = list(vals.values())[0]
     station_id = list(vals.keys())[0][1:]
