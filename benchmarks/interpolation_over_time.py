@@ -3,6 +3,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from sklearn.feature_selection import r_regression
+from sklearn.metrics import mean_squared_error
 
 from wetterdienst import Parameter
 from wetterdienst.provider.dwd.observation import (
@@ -37,13 +39,16 @@ def get_regular_df(parameter: str, start_date: datetime, end_date: datetime, exc
     return df.filter(pl.col("station_id").eq(first_station_id))
 
 
-def get_rmse(regular_values: pl.Series, interpolated_values: pl.Series):
-    n = regular_values.len()
-    return (((regular_values - interpolated_values).drop_nulls() ** 2).sum() / n) ** 0.5
+def get_rmse(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
+    return mean_squared_error(
+        regular_values.reshape((-1, 1)).to_list(), interpolated_values.reshape((-1, 1)).to_list(), squared=False
+    )
 
 
-def get_corr(regular_values: pl.Series, interpolated_values: pl.Series):
-    return np.corrcoef(regular_values.to_list(), interpolated_values.to_list())[0][1].item()
+def get_corr(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
+    return r_regression(
+        regular_values.reshape((-1, 1)).to_list(), interpolated_values.reshape((-1, 1)).to_list()
+    ).item()
 
 
 def visualize(parameter: str, unit: str, regular_df: pl.DataFrame, interpolated_df: pl.DataFrame):

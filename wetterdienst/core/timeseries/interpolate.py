@@ -2,6 +2,7 @@
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
+from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from functools import lru_cache
@@ -24,6 +25,17 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+INTERPOLATION_STATION_KM_LIMIT = defaultdict(
+    lambda: 40,
+    {
+        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
+        Parameter.TEMPERATURE_AIR_MAX_200.name: 40,
+        Parameter.TEMPERATURE_AIR_MIN_200.name: 40,
+        Parameter.WIND_SPEED.name: 40,
+        Parameter.PRECIPITATION_HEIGHT.name: 20,
+    },
+)
+
 
 def get_interpolated_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pl.DataFrame:
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
@@ -36,12 +48,11 @@ def request_stations(
 ) -> Tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
-    hard_distance_km_limit = 40
     stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
     stations_ranked_df = stations_ranked.df.drop_nulls()
 
     for station, result in zip(stations_ranked_df.iter_rows(named=True), stations_ranked.values.query()):
-        if station[Columns.DISTANCE.value] > hard_distance_km_limit:
+        if station[Columns.DISTANCE.value] > max(INTERPOLATION_STATION_KM_LIMIT.values()):
             break
 
         valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
@@ -65,13 +76,7 @@ def apply_station_values_per_parameter(
     param_dict: dict,
     station: dict,
     valid_station_groups_exists: bool,
-):
-    km_limit = {
-        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
-        Parameter.WIND_SPEED.name: 40,
-        Parameter.PRECIPITATION_HEIGHT.name: 20,
-    }
-
+) -> None:
     for parameter, dataset in stations_ranked.stations.parameter:
         if parameter == dataset:
             log.info("only individual parameters can be interpolated")
@@ -81,7 +86,7 @@ def apply_station_values_per_parameter(
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
 
-        if station["distance"] > km_limit[parameter.name]:
+        if station["distance"] > INTERPOLATION_STATION_KM_LIMIT[parameter.name]:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
 
@@ -219,7 +224,6 @@ def apply_interpolation(
         if valid_values:
             first_station = list(valid_values.keys())[0]
             return parameter, valid_values[first_station], stations_dict[first_station[1:]][2], [first_station[1:]]
-
     vals = {s: v for s, v in row.items() if v is not None}
     station_group_ids = get_station_group_ids(valid_station_groups, frozenset([s[1:] for s in vals.keys()]))
 
@@ -230,7 +234,7 @@ def apply_interpolation(
         vals = None
 
     if not vals or len(vals) < 4:
-        return parameter, None, None, station_group_ids
+        return parameter, None, None, []
 
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
     distance_mean = sum(distances) / len(distances)
