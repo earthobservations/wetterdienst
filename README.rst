@@ -210,10 +210,13 @@ Features
 - Define general settings in Settings context
 - Command line interface
 - Web-API via FastAPI
+- Rich UI features like wetterdienst explorer and `streamlit app`_
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
 - Interpolation and Summary of station values
+
+.. _streamlit app: https://wetterdienst.streamlit.app
 
 Setup
 *****
