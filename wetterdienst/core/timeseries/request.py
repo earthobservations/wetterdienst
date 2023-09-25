@@ -825,6 +825,13 @@ class TimeseriesRequest(Core):
 
         df = self.all().df
 
+        if Columns.DATE.value in df.columns:
+            df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None))
+        if Columns.FROM_DATE.value in df.columns:
+            df = df.with_columns(pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(None))
+        if Columns.TO_DATE.value in df.columns:
+            df = df.with_columns(pl.col(Columns.TO_DATE.value).dt.replace_time_zone(None))
+
         df = duckdb.query_df(df.to_pandas(), "data", sql).df()
 
         df = pl.from_pandas(df)

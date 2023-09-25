@@ -10,6 +10,7 @@ Development
 - Fix imgw meteorology station list parsing
 - Improve streamlit app plotting capabilities
 - Fix DWD DMO api
+- Fix issue with datetime in duckdb
 
 0.60.0 (16.09.2023)
 *******************
