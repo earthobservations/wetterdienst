@@ -8,6 +8,12 @@ import streamlit as st
 
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
+SQL_DEFAULT = """
+SELECT * 
+FROM data
+WHERE value IS NOT NULL
+""".strip()
+
 request = DwdObservationRequest("climate_summary", "daily")
 
 
@@ -53,9 +59,17 @@ def main():
         st.map(get_dwd_observation_station(station["station_id"]).df)
 
     st.subheader("DataFrame")
+    sql_query = st.text_area(
+        "sql query",
+        value=SQL_DEFAULT,
+    )
     df = pl.DataFrame()
     if station:
         df = get_dwd_observation_station_values(station["station_id"]).df
+        if sql_query:
+            sql_context = pl.SQLContext()
+            sql_context.register("data", lf=df.lazy())
+            df = sql_context.execute(sql_query).collect()
         st.dataframe(df, hide_index=True, use_container_width=True)
         st.download_button("Download CSV", df.write_csv(), "data.csv", "text/csv")
 
