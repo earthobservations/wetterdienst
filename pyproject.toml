@@ -312,7 +312,7 @@ coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (expl
 update = "poetry update"
 citation = "python -m tools.citation"
 
-stlit = "streamlit run ./wetterdienst/ui/stlit.py"
+streamlit = "streamlit run ./wetterdienst/ui/streamlit/app.py"
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"

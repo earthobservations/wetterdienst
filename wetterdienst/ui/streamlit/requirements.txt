@@ -1,2 +1,3 @@
 wetterdienst
+duckdb
 plotly
