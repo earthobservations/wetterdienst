@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Acquire sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Poetry
         run: pipx install poetry
@@ -70,7 +70,7 @@ jobs:
 
     steps:
       - name: Acquire sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
