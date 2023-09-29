@@ -4209,18 +4209,21 @@ poetry-plugin = ["poetry (>=1.0,<2.0)"]
 
 [[package]]
 name = "polars"
-version = "0.17.15"
+version = "0.16.18"
 description = "Blazingly fast DataFrame library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "polars-0.17.15-cp37-abi3-macosx_10_7_x86_64.whl", hash = "sha256:e14f31799e73cd6aa7a5f28b7acc40fc0b70eb6f8554f8e9246bf7afc620a929"},
-    {file = "polars-0.17.15-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:9ecec1476764d615a0def5a35421e4a8f0f43dbf365cda7f95d79bb29d80da34"},
-    {file = "polars-0.17.15-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0ce049ed923ff2a8902f8925bde0e10722e7a9747133b7d0856feb86000543bd"},
-    {file = "polars-0.17.15-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2f3a723ee318f8f7e7330df82bb27c9efd3c345d3ecd03307389e4e1564f4df6"},
-    {file = "polars-0.17.15-cp37-abi3-win_amd64.whl", hash = "sha256:112300a41b97291486edb604945275f7e5238ec1335f164f028e476c0401fca4"},
-    {file = "polars-0.17.15.tar.gz", hash = "sha256:78a1d520279c0ade91712d19c530d7933e07885d87f09c0cd38daac6260162bf"},
+    {file = "polars-0.16.18-cp37-abi3-macosx_10_7_x86_64.whl", hash = "sha256:ee471d3f79daf93e7b0a5412a25473fdc27b59caa05d3baeb786e2022f0e16b0"},
+    {file = "polars-0.16.18-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:bee894337be02706056e17248a361d8b2aeb59971ddc04d0a2be2df568977846"},
+    {file = "polars-0.16.18-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:674645118122c0ddd93668735d736a080290f5d2de1ea9a751f3639a331a4784"},
+    {file = "polars-0.16.18-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ed6d2b07a43baf1563a68beb88b9a561f41967815fd57c9682aaac4502ee4499"},
+    {file = "polars-0.16.18-cp37-abi3-win_amd64.whl", hash = "sha256:eaeba3902d6a412eb2986c2477387cc400f1502abd22cf79b2cc32b435d8abe4"},
+    {file = "polars-0.16.18.tar.gz", hash = "sha256:221125b1e1d043d13d889c336ba1f592ed8f150ec06124067e72e40600b3c96a"},
 ]
+
+[package.dependencies]
+typing_extensions = {version = ">=4.0.1", markers = "python_version < \"3.11\""}
 
 [package.extras]
 all = ["polars[connectorx,deltalake,fsspec,matplotlib,numpy,pandas,pyarrow,sqlalchemy,timezone,xlsx2csv,xlsxwriter]"]
@@ -4229,8 +4232,8 @@ deltalake = ["deltalake (>=0.8.0)"]
 fsspec = ["fsspec"]
 matplotlib = ["matplotlib"]
 numpy = ["numpy (>=1.16.0)"]
-pandas = ["pandas", "pyarrow (>=7.0.0)"]
-pyarrow = ["pyarrow (>=7.0.0)"]
+pandas = ["pandas", "pyarrow (>=4.0.0)"]
+pyarrow = ["pyarrow (>=4.0.0)"]
 sqlalchemy = ["pandas", "sqlalchemy"]
 timezone = ["backports.zoneinfo", "tzdata"]
 xlsx2csv = ["xlsx2csv (>=0.8.0)"]
@@ -7040,4 +7043,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "fc6a49f64ae7c4e681ddab3f9b85ef1e753a1529ee7936505a6961014903c0e5"
+content-hash = "d330c7a220a25008ebf886e908eafe7cdf96560a3f23f627ecb6b42ec8eedcb0"
