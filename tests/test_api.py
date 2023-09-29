@@ -35,9 +35,14 @@ from wetterdienst.util.eccodes import ensure_eccodes
         # Environment and Climate Change Canada
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None),  # noqa: E800, ERA001
         # IMGW Hydrology
-        ("imgw", "hydrology", {"parameter": "hydrology", "resolution": "daily"}, None),
+        # FIXME: Deactivated after flaw in data discovered on 2023-09-26
+        pytest.param(
+            "imgw", "hydrology", {"parameter": "hydrology", "resolution": "daily"}, None, marks=pytest.mark.xfail
+        ),
         # IMGW Meteorology
-        ("imgw", "meteorology", {"parameter": "climate", "resolution": "daily"}, "249200180"),
+        pytest.param(
+            "imgw", "meteorology", {"parameter": "climate", "resolution": "daily"}, "249200180", marks=pytest.mark.xfail
+        ),
         # NOAA Ghcn
         ("noaa", "ghcn", {"parameter": "precipitation_height"}, None),
         # WSV Pegelonline
