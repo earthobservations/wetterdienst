@@ -4005,13 +4005,13 @@ requests = ">=2.14.0"
 
 [[package]]
 name = "percy-selenium"
-version = "2.0.0"
+version = "1.1.0"
 description = "Python client for visual testing with Percy"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "percy-selenium-2.0.0.tar.gz", hash = "sha256:369107b106f0404504e12cc713f0d17f04eea886034d4733b489d6d011b4db65"},
-    {file = "percy_selenium-2.0.0-py3-none-any.whl", hash = "sha256:ea4be0ac9feafe250b553422db66c88b218da55f922928a13856ed699dafedf2"},
+    {file = "percy-selenium-1.1.0.tar.gz", hash = "sha256:3995c719458d537df469fdd1ac8b1168f37fdb98b0fd8d566a945aaecc8c4cbf"},
+    {file = "percy_selenium-1.1.0-py3-none-any.whl", hash = "sha256:7f6628d114266281f7115db65c93c575a9ffd639654afddcd59f748c44b472fa"},
 ]
 
 [package.dependencies]
@@ -6948,4 +6948,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "02a43a071e4bcc6e33a101c1a7e3fb9f9942240504d173c3e61f017d682eace5"
+content-hash = "3b71f630daf5edca7d51c2bccfb6328e0243f8b83fae644ae7f754ac97c5aad2"
