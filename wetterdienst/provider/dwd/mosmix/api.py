@@ -1205,8 +1205,7 @@ class DwdMosmixValues(TimeseriesValues):
 
         if date == DwdForecastDate.LATEST:
             try:
-                url = list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
-                return url
+                return list(filter(lambda url_: "LATEST" in url_.upper(), urls))[0]
             except IndexError as e:
                 raise IndexError(f"Unable to find LATEST file within {url}") from e
 
@@ -1360,10 +1359,10 @@ class DwdMosmixRequest(TimeseriesRequest):
                 end_issue = start_issue
             elif not start_issue:
                 start_issue = end_issue
-            if type(start_issue) == str:
+            if isinstance(start_issue, str):
                 start_issue = dt.datetime.fromisoformat(start_issue)
             start_issue = dt.datetime(start_issue.year, start_issue.month, start_issue.day, start_issue.hour)
-            if type(end_issue) == str:
+            if isinstance(end_issue, str):
                 end_issue = dt.datetime.fromisoformat(end_issue)
             end_issue = dt.datetime(end_issue.year, end_issue.month, end_issue.day, end_issue.hour)
 

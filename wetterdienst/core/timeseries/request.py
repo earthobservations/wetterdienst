@@ -378,7 +378,7 @@ class TimeseriesRequest(Core):
         self.humanize = settings.ts_humanize
         shape = settings.ts_shape
         if self._has_datasets:
-            any_not_dataset = any([parameter not in self._dataset_base for parameter, dataset in self.parameter])
+            any_not_dataset = any(parameter not in self._dataset_base for parameter, dataset in self.parameter)
             multiple_datasets = (
                 len({parameter.value for parameter, dataset in self.parameter if parameter in self._dataset_base}) > 1
             )

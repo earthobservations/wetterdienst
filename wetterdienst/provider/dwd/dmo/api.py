@@ -1355,10 +1355,10 @@ class DwdDmoRequest(TimeseriesRequest):
                 end_issue = start_issue
             elif not start_issue:
                 start_issue = end_issue
-            if type(start_issue) == str:
+            if isinstance(start_issue, str):
                 start_issue = dt.datetime.fromisoformat(start_issue)
             start_issue = dt.datetime(start_issue.year, start_issue.month, start_issue.day, start_issue.hour)
-            if type(end_issue) == str:
+            if isinstance(end_issue, str):
                 end_issue = dt.datetime.fromisoformat(end_issue)
             end_issue = dt.datetime(end_issue.year, end_issue.month, end_issue.day, end_issue.hour)
 
@@ -1453,7 +1453,6 @@ class DwdDmoRequest(TimeseriesRequest):
 
         :return:
         """
-        pl.read_csv
         payload = download_file(self._url, self.settings, CacheExpiry.METAINDEX)
         df = pd.read_fwf(
             StringIO(payload.read().decode(encoding="latin-1")),

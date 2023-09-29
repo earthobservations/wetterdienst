@@ -234,10 +234,10 @@ class AsyncFileSystem(asyn.AsyncFileSystem):
             self.dircache = FileDirCache(**storage_options)
 
         if storage_options.pop("add_docs", None):
-            warnings.warn("add_docs is no longer supported.", FutureWarning)
+            warnings.warn("add_docs is no longer supported.", FutureWarning, stacklevel=2)
 
         if storage_options.pop("add_aliases", None):
-            warnings.warn("add_aliases has been removed.", FutureWarning)
+            warnings.warn("add_aliases has been removed.", FutureWarning, stacklevel=2)
         # This is set in _Cached
         self._fs_token_ = None
 

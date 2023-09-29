@@ -87,6 +87,6 @@ def test_settings_args():
     default dict instead"""
     argspec = inspect.signature(Settings.__init__)
     args_dict = {k: v.default for k, v in argspec.parameters.items() if k not in ("self", "ignore_env")}
-    assert all([val is None for val in args_dict.values()])
+    assert all(val is None for val in args_dict.values())
     assert args_dict.keys() == Settings._defaults.keys()
     assert args_dict.keys() == Settings.default().to_dict().keys()
