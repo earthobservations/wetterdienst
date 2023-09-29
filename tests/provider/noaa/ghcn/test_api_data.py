@@ -7,6 +7,7 @@ from polars.testing import assert_frame_equal
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "start_date,end_date",
     [
