@@ -895,6 +895,21 @@ files = [
 click = ">=8.0,<9.0"
 
 [[package]]
+name = "cmweather"
+version = "0.1.0"
+description = "A library of useful colormaps when visualizing weather and climate data, with numerous color vision deficiency friendly options"
+optional = true
+python-versions = ">=3.6"
+files = [
+    {file = "cmweather-0.1.0-py3-none-any.whl", hash = "sha256:3dd21141c868982d914126102464dfd33ab284dee8d29fbecf31c170ddbade3d"},
+    {file = "cmweather-0.1.0.tar.gz", hash = "sha256:7c2dc87d75732b4d890e6b903120445efe114b7be6d783236ecd7414403386a4"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
@@ -6874,16 +6889,17 @@ files = [
 
 [[package]]
 name = "xradar"
-version = "0.2.0"
+version = "0.4.0"
 description = "Xradar includes all the tools to get your weather radar into the xarray data model."
 optional = true
 python-versions = ">=3.9"
 files = [
-    {file = "xradar-0.2.0-py3-none-any.whl", hash = "sha256:f565364479f0838583e4378499208467c9151ece063454fa7bd13c7a40d55111"},
-    {file = "xradar-0.2.0.tar.gz", hash = "sha256:d5bf6bb3234b24ab4dae6dabf337df2d4f96090d65841006273d661d137ceadb"},
+    {file = "xradar-0.4.0-py3-none-any.whl", hash = "sha256:dcba75704311dae3c383cb5158731e618eb6bf307d16147ead00c2367a7b590c"},
+    {file = "xradar-0.4.0.tar.gz", hash = "sha256:c47f46accbabd8d09587c62f55cf6ee86496aba3905e35fe0d68f3f8bc681482"},
 ]
 
 [package.dependencies]
+cmweather = "*"
 dask = "*"
 h5netcdf = "*"
 h5py = "*"
@@ -7043,4 +7059,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "f883b64e409bc342784e54b276c234aaf749220e149273e8929148a1aa5f1686"
+content-hash = "4445c470a64ec78b4c5663534f90ceebfd4ef3527480eba6b6d89df711b53065"
