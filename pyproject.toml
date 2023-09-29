@@ -293,13 +293,21 @@ extend-ignore = [
 install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
 
 # Linting and formatting.
-lint = ["ruff", "black-check"]
-ruff = "ruff ."
-black-check = "black --check ."
 
-format = ["black-fix", "isort-fix"]
-black-fix = "black ."
-isort-fix = "ruff --fix --select=I ."
+format = [
+  { cmd = "black ." },
+  # Fix all things with ruff, but skip a few:
+  # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
+  { cmd = "ruff --fix --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 ." },
+  # { cmd = "pyproject-fmt pyproject.toml" },
+]
+
+lint = [
+  { cmd = "ruff ." },
+  { cmd = "black --check ." },
+  # { cmd = "validate-pyproject pyproject.toml" },
+  # { cmd = "mypy" },
+]
 
 docs = { shell = "cd docs && poetry run make html" }
 test-cflakes = "pytest -m cflake"
