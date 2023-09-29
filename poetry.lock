@@ -6948,4 +6948,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "4b3e6808031704d33a266cc167ff7df9336f16519c05c300cdc784a9c46c7f62"
+content-hash = "02a43a071e4bcc6e33a101c1a7e3fb9f9942240504d173c3e61f017d682eace5"
