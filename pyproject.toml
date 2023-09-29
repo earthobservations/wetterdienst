@@ -112,7 +112,7 @@ cloup = ">=3.0.1,<4"
 deprecation = ">=2.1,<3"
 diskcache = ">=5.4.0,<6"
 environs = ">=9.4.0,<10"
-fsspec = "^2023.9"
+fsspec = ">=2023.1,<2023.10"
 lxml = ">=4.9.1,<5"
 measurement = ">=3.2,<4"
 numpy = ">=1.22,<1.27"
@@ -130,7 +130,7 @@ stamina = ">=23,<24"
 tabulate = ">=0.8,<0.9"
 timezonefinder = "<7"
 tqdm = ">=4,<5"
-tzdata = "^2023.3"
+tzdata = "*"
 xlsx2csv = ">=0.8.1,<0.9"
 xlsxwriter = ">=3.0.9,<3.2"
 
@@ -159,7 +159,7 @@ streamlit                       = { version = ">=1.27,<2", optional = true }  # 
 utm                             = { version = ">=0.7,<1", optional = true }  # Interpolation feature.
 uvicorn                         = { version = ">=0.14,<1", optional = true }  # HTTP REST API feature.
 wradlib                         = { version = ">=1.19,<2", optional = true }  # Radar feature.
-xarray                          = { version = "^2023.1", optional = true }
+xarray                          = { version = ">=2023.1,<2023.10", optional = true }
 xradar                          = { version = ">=0.2,<0.5", optional = true } # Radar feature.
 zarr                            = { version = ">=2.13,<3", optional = true }  # Export feature.
 
@@ -203,12 +203,12 @@ optional = true
 
 [tool.poetry.group.docs.dependencies]
 docformatter = ">=1.4,<1.8"
-furo = "^2023.9"
+furo = ">=2023.3,<2023.10"
 ipython = ">=8.5,<9"
 matplotlib = ">=3.3,<3.9"
 sphinx = ">=7,<8"
 sphinx-autodoc-typehints = ">=1.11,<2"
-sphinx-autobuild = "^2021.3"
+sphinx-autobuild = ">=2020.9,<2021.4"
 sphinx_design = ">=0.5,<1"
 sphinxcontrib-svg2pdfconverter = ">=1.1,<2"
 tomlkit = ">=0.7,<1"
