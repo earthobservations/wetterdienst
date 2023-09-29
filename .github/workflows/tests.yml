@@ -43,6 +43,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
           cache: poetry
+          cache-dependency-path: |
+            pyproject.toml
+            poetry.lock
 
       - name: Install eccodes (Mac only)
         if: startsWith(matrix.os, 'macOS')

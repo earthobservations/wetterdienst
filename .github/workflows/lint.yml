@@ -31,6 +31,9 @@ jobs:
           python-version: "3.11"
           architecture: x64
           cache: poetry
+          cache-dependency-path: |
+            pyproject.toml
+            poetry.lock
 
       - name: Install project tooling
         run: poetry install --no-interaction --no-root --with=dev
