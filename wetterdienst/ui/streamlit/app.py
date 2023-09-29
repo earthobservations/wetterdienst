@@ -10,7 +10,7 @@ import streamlit as st
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 SQL_DEFAULT = """
-SELECT * 
+SELECT *
 FROM df
 WHERE value IS NOT NULL
 """.strip()
@@ -42,11 +42,11 @@ def main():
     st.subheader("Introduction")
     st.markdown(
         """
-        This is a streamlit app based on the [wetterdienst](https://github.com/earthobservations/wetterdienst) 
+        This is a streamlit app based on the [wetterdienst](https://github.com/earthobservations/wetterdienst)
         library that allows analysis of German climate stations (internally phrased "climate summary") by
         the [Deutscher Wetterdienst](https://www.dwd.de/). There are over 1_500 climate stations in Germany and
-        all of the data can be accessed freely thanks to the open data initiative. The app enables you to select any 
-        of the stations (by station id or name), download its data (as CSV) and get visualizations of it. 
+        all of the data can be accessed freely thanks to the open data initiative. The app enables you to select any
+        of the stations (by station id or name), download its data (as CSV) and get visualizations of it.
         """
     )
     st.markdown("Here's a map of all stations:")
@@ -64,9 +64,9 @@ def main():
     st.subheader("DataFrame")
     st.info(
         """
-        Use [duckdb](https://duckdb.org/docs/sql/introduction.html) sql queries to transform the data. 
-        Important: 
-          - use **FROM df** 
+        Use [duckdb](https://duckdb.org/docs/sql/introduction.html) sql queries to transform the data.
+        Important:
+          - use **FROM df**
           - make sure the result has **parameter**, **date** and **value** columns.
         """
     )
@@ -108,11 +108,11 @@ def main():
     st.subheader("Credits")
     st.markdown(
         """
-        This app is powered by [wetterdienst](https://github.com/earthobservations/wetterdienst) from 
-        [earthobservations](https://github.com/earthobservations). Credits for the data go to 
+        This app is powered by [wetterdienst](https://github.com/earthobservations/wetterdienst) from
+        [earthobservations](https://github.com/earthobservations). Credits for the data go to
         [Deutscher Wetterdienst](https://www.dwd.de) - Germany's national meteorological service - for
-        publishing their data as **open data**. Credits also go to [streamlit](https://streamlit.io/) for hosting this 
-        app. If you have any issues or ideas regarding this app, please let us know in the 
+        publishing their data as **open data**. Credits also go to [streamlit](https://streamlit.io/) for hosting this
+        app. If you have any issues or ideas regarding this app, please let us know in the
         [issues](https://github.com/earthobservations/wetterdienst/issues).
         """
     )

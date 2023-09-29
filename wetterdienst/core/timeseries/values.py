@@ -6,7 +6,6 @@ import operator
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 import polars as pl
@@ -15,6 +14,7 @@ from dateutil.relativedelta import relativedelta
 from pint import Quantity
 from timezonefinder import timezonefinder
 from tqdm import tqdm
+from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
@@ -592,3 +592,4 @@ class TimeseriesValues(metaclass=ABCMeta):
             return percentage.get_column("perc").max()
         else:
             KeyError("'ts_skip_criteria must be one of 'min', 'mean', 'max'")
+            return None

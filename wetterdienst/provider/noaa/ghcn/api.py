@@ -4,12 +4,12 @@
 import datetime as dt
 from enum import Enum
 from typing import List, Optional, Union
-from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 import polars as pl
 from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues

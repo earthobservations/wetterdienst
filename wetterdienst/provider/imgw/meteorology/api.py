@@ -7,12 +7,12 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import partial
 from typing import Optional, Union
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 import polars as pl
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
+from zoneinfo import ZoneInfo
 
 from wetterdienst import Kind, Period, Provider, Resolution, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest

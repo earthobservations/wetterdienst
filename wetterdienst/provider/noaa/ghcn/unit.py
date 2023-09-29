@@ -174,12 +174,12 @@ class NoaaGhcnUnit(DatasetTreeCore):
             ----------------------------------------------------------------------
             SN*# = Minimum soil temperature
             SX*# = Maximum soil temperature
-    
+
                 where
                  * corresponds to a code for ground cover and
                  # corresponds to a code for soil depth (Fahrenheit or Celsius
                  as per user preference)
-    
+
                 Ground cover codes include the following:
                     0 = unknown
                     1 = grass
@@ -190,7 +190,7 @@ class NoaaGhcnUnit(DatasetTreeCore):
                     6 = straw mulch
                     7 = grass muck
                     8 = bare muck
-    
+
                 Depth codes include the following:
                     1 = 5 cm
                     2 = 10 cm
