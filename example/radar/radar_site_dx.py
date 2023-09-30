@@ -12,8 +12,7 @@ The German Weather Service uses the DX file format to encode
 local radar sweeps. DX data are in polar coordinates.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_reading_dx.html
+- https://docs.wradlib.org/en/stable/notebooks/fileio/legacy/read_dx.html
 
 This program will request the latest RADAR DX data
 for Boostedt and plot the outcome with matplotlib.
@@ -25,6 +24,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import wradlib as wrl
+import xarray as xr
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDate,
@@ -37,10 +37,10 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: np.ndarray):
+def plot(data: xr.DataArray):
     """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
-    wrl.vis.plot_ppi(data, fig=fig, proj="cg")
+    data.wrl.vis.plot(data, fig=fig, proj="cg")
 
 
 def radar_info(data: np.ndarray, metadata: dict):
@@ -66,11 +66,13 @@ def radar_dx_example():
         log.info(f"Parsing radar data for {request.site} at '{item.timestamp}'")
         data, metadata = wrl.io.read_dx(item.data)
 
+        da = wrl.georef.create_xarray_dataarray(data).wrl.georef.georeference()
+
         # Output debug information.
         radar_info(data, metadata)
 
         # Plot and display data.
-        plot(data)
+        plot(da)
         if "PYTEST_CURRENT_TEST" not in os.environ:
             plt.show()
 

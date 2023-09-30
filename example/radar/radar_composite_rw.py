@@ -40,7 +40,7 @@ def plot(ds: xr.Dataset):
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
     pm = ds.RW.plot(ax=ax, cmap="viridis", shading="auto")
-    plt.title("{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat()))
+    plt.title(f"RW Product\n{ds.time.min().values}")
     plt.grid(color="r")
 
 
@@ -62,7 +62,11 @@ def radar_rw_example():
         log.info("Parsing radar RW composite data for %s", item.timestamp)
         ds = xr.open_dataset(item.data, engine="radolan")
 
-        radar_info(ds)
+        # print Dataset
+        print(ds)
+
+        # print DataArray
+        print(data["RW"])
 
         # Plot and display data.
         plot(ds)

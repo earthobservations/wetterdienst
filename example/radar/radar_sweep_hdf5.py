@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -9,7 +9,7 @@ About
 Example for DWD radar sites OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5) # noqa
+- https://docs.wradlib.org/en/stable/notebooks/fileio/legacy/read_odim.html # noqa
 
 This program will request the latest RADAR SWEEP_PCP_VELOCITY_H data
 for Boostedt and plot the outcome with matplotlib.

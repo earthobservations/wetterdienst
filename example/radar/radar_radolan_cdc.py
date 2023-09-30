@@ -68,7 +68,7 @@ def plot_radolan(ds: xr.Dataset, clabel: str = None):
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
     pm = ds[label].plot(ax=ax, cmap="viridis", shading="auto")
-    plt.title(f"{label} Product\n{ds.time.min()}")
+    plt.title(f"{label} Product\n{ds.time.min().values}")
     plt.grid(color="r")
 
 
@@ -107,6 +107,9 @@ def radolan_grid_example():
 
         # print Dataset    
         print(ds)
+
+        # print DataArray    
+        print(ds[label])
 
         # Plot and display data.
         plot(ds, label)

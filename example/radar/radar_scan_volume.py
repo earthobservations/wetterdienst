@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -10,7 +10,7 @@ Example for DWD radar sites data in OPERA HDF5 (ODIM_H5) format using wetterdien
 Derived from https://gist.github.com/kmuehlbauer/ac990569e6ad38a49412fc74a2035c37.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5) # noqa
+- https://docs.openradarscience.org/projects/xradar/en/stable/notebooks/ODIM_H5.html # noqa
 
 This program will request the most recent complete SWEEP_VOL data
 for Essen and plot the outcome with matplotlib.
