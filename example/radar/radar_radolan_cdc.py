@@ -107,7 +107,7 @@ def radolan_grid_example():
         # show Dataset
         print(ds)
 
-        # show DataArray    
+        # show DataArray
         print(ds[label])
 
         # Plot and display data.
