@@ -6786,13 +6786,13 @@ files = [
 
 [[package]]
 name = "wradlib"
-version = "1.19.2"
+version = "2.0.0"
 description = "wradlib - An Open Source Library for Weather Radar Data Processing"
 optional = true
 python-versions = ">=3.9"
 files = [
-    {file = "wradlib-1.19.2-py3-none-any.whl", hash = "sha256:c9280060281211cd62e2b9d350c3aab9c791203e03b9e206a27ee4858407bf2b"},
-    {file = "wradlib-1.19.2.tar.gz", hash = "sha256:7ab9a4073539b1fd0ea6b634b97f5f72a774d085c837d64a87d0368dfc421ab7"},
+    {file = "wradlib-2.0.0-py3-none-any.whl", hash = "sha256:78e1a673b554211adf21bc803f4af09c5b703861c059e568e5954ee98f7350eb"},
+    {file = "wradlib-2.0.0-py3-none-any.whl", hash = "sha256:78e1a673b554211adf21bc803f4af09c5b703861c059e568e5954ee98f7350eb"},
 ]
 
 [package.dependencies]
