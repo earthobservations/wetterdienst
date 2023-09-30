@@ -25,12 +25,6 @@ if [ "${flavor}" = "testing" ]; then
     --extras=restapi \
     --extras=sql
 
-  # FIXME: Remove this again.
-  # Fix dependency woes about percy: AttributeError: module 'percy' has no attribute 'Runner'.
-  # https://github.com/earthobservations/wetterdienst/pull/1017#issuecomment-1741240635
-  # pytest tests/ui/explorer/test_explorer.py -k test_app_layout
-  poetry run poe fix-percy
-
 elif [ "${flavor}" = "docs" ]; then
   poetry install --verbose --no-interaction --with=docs --extras=interpolation
 
