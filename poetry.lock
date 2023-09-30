@@ -4029,21 +4029,6 @@ files = [
 requests = ">=2.14.0"
 
 [[package]]
-name = "percy-selenium"
-version = "2.0.0"
-description = "Python client for visual testing with Percy"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "percy-selenium-2.0.0.tar.gz", hash = "sha256:369107b106f0404504e12cc713f0d17f04eea886034d4733b489d6d011b4db65"},
-    {file = "percy_selenium-2.0.0-py3-none-any.whl", hash = "sha256:ea4be0ac9feafe250b553422db66c88b218da55f922928a13856ed699dafedf2"},
-]
-
-[package.dependencies]
-requests = "==2.*"
-selenium = ">=3"
-
-[[package]]
 name = "pexpect"
 version = "4.8.0"
 description = "Pexpect allows easy control of interactive console applications."
@@ -7059,4 +7044,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "131308dcc2d3b86db7959e776d9ab97cf443cc6b9e0c70e4578e220ba591b4ed"
+content-hash = "399255673401d8ad1af383afe95534bdb05c218810b9f9448291b010e4ed29a9"
