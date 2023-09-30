@@ -33,6 +33,28 @@ def get_dwd_observation_station_values(station_id):
     return get_dwd_observation_station(station_id).values.all()
 
 
+def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: list[str], x: str, y: str, facet: bool):
+    fig = px.scatter(
+        df.filter(pl.col(variable_column).is_in(variable_filter)),
+        x=x,
+        y=y,
+        color=variable_column,
+        facet_row=variable_column if facet else None,
+    )
+    fig.update_layout(
+        legend={"x": 0, "y": 1.08},
+        height=400 * len(variable_filter),  # plot height times parameters
+    )
+    fig.update_yaxes(matches=None)
+    # Update y-axis titles to use facet labels and remove subplot titles
+    for i, annotation in enumerate(fig.layout.annotations):
+        axis_name = f"yaxis{i + 1}"
+        if axis_name in fig.layout:
+            fig.layout[axis_name].title.text = annotation.text
+        annotation.text = ""
+    return fig
+
+
 def main():
     """Small streamlit app for accessing German climate stations by DWD"""
     title = "Wetterdienst - Data Tool"
@@ -67,7 +89,7 @@ def main():
         Use [duckdb](https://duckdb.org/docs/sql/introduction.html) sql queries to transform the data.
         Important:
           - use **FROM df**
-          - make sure the result has **parameter**, **date** and **value** columns.
+          - use single quotes for strings e.g. 'a_string'
         """
     )
     sql_query = st.text_area(
@@ -83,27 +105,30 @@ def main():
         st.download_button("Download CSV", df.write_csv(), "data.csv", "text/csv")
 
     st.subheader("Plot")
-    parameters = st.multiselect("Select parameters", options=df.get_column("parameter").unique().sort().to_list())
-    if parameters:
-        fig = px.scatter(
-            df.filter(pl.col("parameter").is_in(parameters)),
-            x="date",
-            y="value",
-            color="parameter",
-            facet_row="parameter",
+    plot_enable = not df.is_empty()
+
+    with st.expander("settings", expanded=True):
+        columns = sorted(df.columns)
+        column_x = st.selectbox("Column X", options=columns, index="date" in columns and columns.index("date"))
+        columns = columns.copy()
+        columns.remove(column_x)
+        column_y = st.selectbox("Column Y", options=columns, index="value" in columns and columns.index("value"))
+        columns = columns.copy()
+        columns.remove(column_y)
+        variable_column = st.selectbox(
+            "Column Variable", options=columns, index="parameter" in columns and columns.index("parameter")
         )
-        fig.update_layout(
-            showlegend=False,  # Hide the legend
-            height=400 * len(parameters),  # plot height times parameters
-        )
-        fig.update_yaxes(matches=None)
-        # Update y-axis titles to use facet labels and remove subplot titles
-        for i, annotation in enumerate(fig.layout.annotations):
-            axis_name = f"yaxis{i + 1}"
-            if axis_name in fig.layout:
-                fig.layout[axis_name].title.text = annotation.text
-            annotation.text = ""
+        variable_options = df.get_column(variable_column).unique().sort().to_list()
+        variable_filter = st.multiselect("Variable Filter", options=variable_options)
+        facet = st.toggle("facet")
+
+    if plot_enable and variable_filter:
+        fig = create_plotly_fig(df, variable_column, variable_filter, column_x, column_y, facet)
         st.plotly_chart(fig)
+    elif not plot_enable:
+        st.warning("No plot. Reason: empty DataFrame")
+    elif not variable_filter:
+        st.warning("No plot. Reason: empty variable filter")
 
     st.subheader("Credits")
     st.markdown(

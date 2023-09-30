@@ -8,6 +8,7 @@ Development
 - Add streamlit app for DWD climate stations
 - Add sql query function to streamlit app
 - Fix imgw meteorology station list parsing
+- Improve streamlit app plotting capabilities
 
 0.60.0 (16.09.2023)
 *******************
