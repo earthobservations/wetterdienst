@@ -19,7 +19,6 @@ import logging
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 import xarray as xr
 
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -39,7 +38,7 @@ def plot(ds: xr.Dataset):
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
-    pm = ds.RW.plot(ax=ax, cmap="viridis", shading="auto")
+    ds.RW.plot(ax=ax, cmap="viridis", shading="auto")
     plt.title(f"RW Product\n{ds.time.min().values}")
     plt.grid(color="r")
 
@@ -62,11 +61,11 @@ def radar_rw_example():
         log.info("Parsing radar RW composite data for %s", item.timestamp)
         ds = xr.open_dataset(item.data, engine="radolan")
 
-        # print Dataset
+        # show Dataset
         print(ds)
 
-        # print DataArray
-        print(data["RW"])
+        # show DataArray
+        print(ds["RW"])
 
         # Plot and display data.
         plot(ds)

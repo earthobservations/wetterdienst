@@ -42,8 +42,7 @@ import os
 from typing import Optional
 
 import matplotlib.pyplot as plt
-import numpy as np
-import wradlib as wrl
+import xarray as xr
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
@@ -56,7 +55,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot_radolan(ds: xr.Dataset, clabel: str = None):
+def plot(ds: xr.Dataset, label: str = None):
     """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
@@ -67,7 +66,7 @@ def plot_radolan(ds: xr.Dataset, clabel: str = None):
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
-    pm = ds[label].plot(ax=ax, cmap="viridis", shading="auto")
+    ds[label].plot(ax=ax, cmap="viridis", shading="auto")
     plt.title(f"{label} Product\n{ds.time.min().values}")
     plt.grid(color="r")
 
@@ -105,10 +104,10 @@ def radolan_grid_example():
         # Compute label matching RW/SF product.
         label = label_by_producttype(list(ds.data_vars.keys())[0])
 
-        # print Dataset    
+        # show Dataset
         print(ds)
 
-        # print DataArray    
+        # show DataArray    
         print(ds[label])
 
         # Plot and display data.

@@ -42,7 +42,6 @@ import os
 from typing import Optional
 
 import matplotlib.pyplot as plt
-import numpy as np
 import xarray as xr
 
 from wetterdienst.provider.dwd.radar import (
@@ -65,7 +64,7 @@ def plot(ds: xr.Dataset, label: str = None):
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
-    pm = ds[label].plot(ax=ax, cmap="viridis", shading="auto")
+    ds[label].plot(ax=ax, cmap="viridis", shading="auto")
     plt.title(f"{label} Product\n{ds.time.min().values}")
     plt.grid(color="r")
 
@@ -98,13 +97,13 @@ def radolan_rw_example():
         # Decode data using wradlib.
         log.info("Parsing RADOLAN RW composite data for %s", item.timestamp)
         ds = xr.open_dataset(item.data, engine="radolan")
-        
+
         label = label_by_producttype(list(ds.data_vars.keys())[0])
 
-        # print Dataset    
+        # show Dataset
         print(ds)
 
-        # print DataArray    
+        # show DataArray
         print(ds[label])
 
         # Plot and display data.
