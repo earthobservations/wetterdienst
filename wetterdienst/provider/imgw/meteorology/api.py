@@ -586,5 +586,5 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         return df.with_columns(
             pl.col(Columns.LATITUDE.value).map(convert_dms_string_to_dd),
             pl.col(Columns.LONGITUDE.value).map(convert_dms_string_to_dd),
-            pl.col(Columns.HEIGHT.value).str.replace(" ", "").cast(pl.Float64),
+            pl.col(Columns.HEIGHT.value).str.replace(" ", "").cast(pl.Float64, strict=False),
         )
