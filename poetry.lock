@@ -6766,13 +6766,13 @@ files = [
 
 [[package]]
 name = "wradlib"
-version = "1.19.2"
+version = "2.0.0"
 description = "wradlib - An Open Source Library for Weather Radar Data Processing"
 optional = true
 python-versions = ">=3.9"
 files = [
-    {file = "wradlib-1.19.2-py3-none-any.whl", hash = "sha256:c9280060281211cd62e2b9d350c3aab9c791203e03b9e206a27ee4858407bf2b"},
-    {file = "wradlib-1.19.2.tar.gz", hash = "sha256:7ab9a4073539b1fd0ea6b634b97f5f72a774d085c837d64a87d0368dfc421ab7"},
+    {file = "wradlib-2.0.0-py3-none-any.whl", hash = "sha256:78e1a673b554211adf21bc803f4af09c5b703861c059e568e5954ee98f7350eb"},
+    {file = "wradlib-2.0.0.tar.gz", hash = "sha256:69cc8cafa188db61236fdaf19d2eb1f52c073fc8fc164fe51517e87a6162415a"},
 ]
 
 [package.dependencies]
@@ -6781,12 +6781,12 @@ matplotlib = "*"
 numpy = "*"
 packaging = "*"
 scipy = "*"
-xarray = ">=0.17.0"
-xradar = ">=0.0.13"
+xarray = "*"
+xradar = "*"
 
 [package.extras]
 dev = ["codecov", "coverage", "nbconvert", "nbformat", "pre-commit", "pytest", "pytest-cov", "pytest-doctestplus", "pytest-sugar", "pytest-xdist"]
-opt = ["cartopy", "dask", "gdal (>=3)", "geopandas", "h5netcdf", "h5py", "netCDF4", "requests", "xmltodict"]
+opt = ["cartopy", "cmweather", "dask", "gdal (>=3)", "geopandas", "h5netcdf", "h5py", "netcdf4", "requests", "xmltodict"]
 
 [[package]]
 name = "wsproto"
@@ -7044,4 +7044,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "399255673401d8ad1af383afe95534bdb05c218810b9f9448291b010e4ed29a9"
+content-hash = "d60eccbe4843b770bf8129efbc0e72408b18c59383bb09c85d4e872a27b1027e"
