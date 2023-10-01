@@ -11,8 +11,6 @@ from zoneinfo import ZoneInfo
 from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest, ImgwMeteorologyResolution
 
 
-# FIXME: Deactivated after flaw in data discovered on 2023-09-26
-@pytest.mark.skip(reason="Deactivated after flaw in data discovered on 2023-09-26")
 def test_imgw_meteorology_api_daily():
     request = ImgwMeteorologyRequest(
         parameter="klimat",

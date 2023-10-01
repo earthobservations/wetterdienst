@@ -7,6 +7,7 @@ Development
 - Make parameters TEMPERATURE_AIR_MAX_200 and TEMPERATURE_AIR_MIN_200 summarizable/interpolatable
 - Add streamlit app for DWD climate stations
 - Add sql query function to streamlit app
+- Fix imgw meteorology station list parsing
 
 0.60.0 (16.09.2023)
 *******************
