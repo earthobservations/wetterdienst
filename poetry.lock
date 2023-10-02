@@ -6791,8 +6791,8 @@ description = "wradlib - An Open Source Library for Weather Radar Data Processin
 optional = true
 python-versions = ">=3.9"
 files = [
-    {file = "wradlib-2.0.0-py3-none-any.whl", hash = "sha256:78e1a673b554211adf21bc803f4af09c5b703861c059e568e5954ee98f7350eb"},
-    {file = "wradlib-2.0.0-py3-none-any.whl", hash = "sha256:78e1a673b554211adf21bc803f4af09c5b703861c059e568e5954ee98f7350eb"},
+    {file = "wradlib-2.0.1-py3-none-any.whl", hash = "sha256:4da7eaa6b1f02d7438adf7afe57b1f9c23d6f8c8bdadb234b01c9876e019eeb3"},
+    {file = "wradlib-2.0.0.tar.gz", hash = "sha256:8d64738f5a4d70419218209fe73e79e8881cb0bc4350e799c74167e9979dd617"},
 ]
 
 [package.dependencies]
