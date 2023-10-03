@@ -218,7 +218,15 @@ def test_dwd_observation_data_result_missing_data(default_settings):
             "date": [dt.datetime(2020, 6, 9, 12, 0, 0, tzinfo=dt.timezone.utc)],
             "value": [None],
             "quality": [None],
-        }
+        },
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
     )
     assert_frame_equal(
         given_df,
@@ -291,7 +299,40 @@ def test_dwd_observation_data_result_tabular(
             "qn_tnk": [None, 1.0],
             "tgk": [None, None],
             "qn_tgk": [None, None],
-        }
+        },
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "fx": pl.Float64,
+            "qn_fx": pl.Float64,
+            "fm": pl.Float64,
+            "qn_fm": pl.Float64,
+            "rsk": pl.Float64,
+            "qn_rsk": pl.Float64,
+            "rskf": pl.Float64,
+            "qn_rskf": pl.Float64,
+            "sdk": pl.Float64,
+            "qn_sdk": pl.Float64,
+            "shk_tag": pl.Float64,
+            "qn_shk_tag": pl.Float64,
+            "nm": pl.Float64,
+            "qn_nm": pl.Float64,
+            "vpm": pl.Float64,
+            "qn_vpm": pl.Float64,
+            "pm": pl.Float64,
+            "qn_pm": pl.Float64,
+            "tmk": pl.Float64,
+            "qn_tmk": pl.Float64,
+            "upm": pl.Float64,
+            "qn_upm": pl.Float64,
+            "txk": pl.Float64,
+            "qn_txk": pl.Float64,
+            "tnk": pl.Float64,
+            "qn_tnk": pl.Float64,
+            "tgk": pl.Float64,
+            "qn_tgk": pl.Float64,
+        },
     )
     assert_frame_equal(
         given_df,
@@ -351,7 +392,40 @@ def test_dwd_observation_data_result_tabular_si(
             "qn_tnk": [None, 1.0],
             "tgk": [None, None],
             "qn_tgk": [None, None],
-        }
+        },
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "fx": pl.Float64,
+            "qn_fx": pl.Float64,
+            "fm": pl.Float64,
+            "qn_fm": pl.Float64,
+            "rsk": pl.Float64,
+            "qn_rsk": pl.Float64,
+            "rskf": pl.Float64,
+            "qn_rskf": pl.Float64,
+            "sdk": pl.Float64,
+            "qn_sdk": pl.Float64,
+            "shk_tag": pl.Float64,
+            "qn_shk_tag": pl.Float64,
+            "nm": pl.Float64,
+            "qn_nm": pl.Float64,
+            "vpm": pl.Float64,
+            "qn_vpm": pl.Float64,
+            "pm": pl.Float64,
+            "qn_pm": pl.Float64,
+            "tmk": pl.Float64,
+            "qn_tmk": pl.Float64,
+            "upm": pl.Float64,
+            "qn_upm": pl.Float64,
+            "txk": pl.Float64,
+            "qn_txk": pl.Float64,
+            "tnk": pl.Float64,
+            "qn_tnk": pl.Float64,
+            "tgk": pl.Float64,
+            "qn_tgk": pl.Float64,
+        },
     )
     assert_frame_equal(
         given_df,
@@ -1097,7 +1171,7 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
     )
     df = request.values.all().df
     df = df.drop_nulls("value")
-    df = df.sort("parameter").groupby(["parameter"], maintain_order=True).agg(pl.all().sort_by("date").take(1))
+    df = df.sort("parameter").group_by(["parameter"], maintain_order=True).agg(pl.all().sort_by("date").take(1))
     assert df.to_dicts() == [
         {
             "dataset": "wind_extreme",

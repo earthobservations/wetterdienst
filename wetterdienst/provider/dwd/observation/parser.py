@@ -157,17 +157,13 @@ def _parse_climate_observations_data(
         if period == Period.HISTORICAL:
             df = (
                 df.with_columns(
-                    pl.col("mess_datum_beginn")
-                    .cast(str)
-                    .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt=DatetimeFormat.YMDHM.value),
-                    pl.col("mess_datum_ende")
-                    .cast(str)
-                    .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt=DatetimeFormat.YMDHM.value),
+                    pl.col("mess_datum_beginn").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
+                    pl.col("mess_datum_ende").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
                 )
                 .with_columns(
-                    pl.date_range(pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m").alias(
-                        "mess_datum"
-                    )
+                    pl.datetime_range(
+                        pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m", eager=True
+                    ).alias("mess_datum")
                 )
                 .drop(
                     columns=[
@@ -196,7 +192,7 @@ def _parse_climate_observations_data(
     if resolution == Resolution.HOURLY:
         if dataset == DwdObservationDataset.SOLAR:
             # Fix real date column by cutting of minutes
-            df = df.with_columns(pl.col("mess_datum").apply(lambda date: date[:-3]))
+            df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3]))
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop(columns=[col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns]).rename(
@@ -214,9 +210,9 @@ def _parse_climate_observations_data(
     elif resolution is Resolution.MINUTE_10:
         fmt = "%Y%m%d%H%M"
     elif resolution is Resolution.HOURLY:
-        fmt = "%Y%m%d%H"
+        fmt = "%Y%m%d%H%M"
     elif resolution is Resolution.SUBDAILY:
-        fmt = "%Y%m%d%H"
+        fmt = "%Y%m%d%H%M"
     elif resolution is Resolution.DAILY:
         fmt = "%Y%m%d"
     elif resolution is Resolution.MONTHLY:
@@ -225,8 +221,10 @@ def _parse_climate_observations_data(
         fmt = "%Y%m%d"
 
     if fmt:
+        if resolution in (Resolution.HOURLY, Resolution.SUBDAILY):
+            df = df.with_columns(pl.col("mess_datum") + "00")
         df = df.with_columns(
-            pl.col("mess_datum").str.strptime(pl.Datetime(time_zone="UTC"), fmt),
+            pl.col("mess_datum").str.to_datetime(fmt, time_zone="UTC"),
         )
 
     # Assign meaningful column names (baseline).

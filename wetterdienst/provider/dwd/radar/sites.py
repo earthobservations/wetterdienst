@@ -116,8 +116,8 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         data = data.rename(mapping={"coordinates_wgs84": "latitude"})
         data = data.with_columns(seconds.get_column("coordinates_wgs84").alias("longitude"))
         return data.with_columns(
-            pl.col("latitude").apply(lambda x: x.strip("NE").replace(",", ".")).cast(float),
-            pl.col("longitude").apply(lambda x: x.strip("NE").replace(",", ".")).cast(float),
+            pl.col("latitude").str.strip_chars("NE").str.replace(",", ".").cast(float),
+            pl.col("longitude").map_elements(lambda x: x.strip("NE").replace(",", ".")).cast(float),
             pl.col("wmo_id").cast(int),
             pl.col("altitude").cast(int),
         )

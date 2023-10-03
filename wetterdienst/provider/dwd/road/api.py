@@ -198,9 +198,9 @@ class DwdRoadValues(TimeseriesValues):
         return df.with_columns(
             pl.col(Columns.FILENAME.value)
             .str.split("/")
-            .arr.last()
+            .list.last()
             .str.extract(DATE_REGEX, 1)
-            .str.strptime(datatype=pl.Datetime, fmt="%y%m%d%H%S", utc=True)
+            .str.to_datetime("%y%m%d%H%M", time_zone="UTC")
             .alias("date")
         )
 
@@ -314,7 +314,7 @@ class DwdRoadValues(TimeseriesValues):
                     pl.col("minute").cast(pl.Utf8).str.rjust(2, "0"),
                 ]
             )
-            .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt="%Y%m%d%H%M")
+            .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
             .alias("timestamp"),
             *parameters
         )

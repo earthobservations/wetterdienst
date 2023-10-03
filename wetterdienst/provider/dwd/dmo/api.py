@@ -1093,10 +1093,8 @@ class DwdDmoValues(TimeseriesValues):
             for df in self.read_dmo(self.sr.stations.start_issue):
                 yield df
         else:
-            for date in pl.date_range(
-                self.sr.stations.start_issue,
-                self.sr.stations.end_issue,
-                interval=self.sr.frequency.value,
+            for date in pl.datetime_range(
+                self.sr.stations.start_issue, self.sr.stations.end_issue, interval=self.sr.frequency.value, eager=True
             ):
                 try:
                     for df in self.read_dmo(date):
@@ -1225,7 +1223,13 @@ class DwdDmoValues(TimeseriesValues):
             now = now.replace(month=now.month - 1)
         last_date = (
             df.select(
-                pl.col("url").str.split("/").arr.last().str.split("_").arr.last().apply(lambda s: s[:-4]).alias("date")
+                pl.col("url")
+                .str.split("/")
+                .list.last()
+                .str.split("_")
+                .list.last()
+                .map_elements(lambda s: s[:-4])
+                .alias("date")
             )
             .with_columns(pl.col("date").cast(int).alias("date_int"))
             .filter(pl.col("date_int").eq(pl.col("date_int").max()))
@@ -1236,7 +1240,7 @@ class DwdDmoValues(TimeseriesValues):
         last_date = f"{now.date().isoformat()[:-3]}-{day} {hour}:00"
         last_date = dt.datetime.fromisoformat(last_date)
         dates = [last_date - dt.timedelta(hours=i * 12) for i in range(len(df))]
-        df = df.with_columns(pl.lit(dates[::-1]).alias("date"))
+        df = df.with_columns(pl.Series(dates[::-1]).alias("date"))
         if date == DwdForecastDate.LATEST:
             date = df.get_column("date").max()
         df = df.filter(pl.col("date").eq(date))
@@ -1489,7 +1493,7 @@ class DwdDmoRequest(TimeseriesRequest):
             Columns.LONGITUDE.value,
             Columns.HEIGHT.value,
         ]
-        df = df.filter(pl.col("station_id").is_in(self._station_patches.get_column("station_id")).is_not())
+        df = df.filter(pl.col("station_id").is_in(self._station_patches.get_column("station_id")).not_())
         df = pl.concat([df, self._station_patches])
         df = df.lazy()
         df = df.with_columns(

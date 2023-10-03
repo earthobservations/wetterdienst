@@ -4,7 +4,6 @@
 import datetime as dt
 
 import polars as pl
-import pytest
 from polars.testing import assert_frame_equal
 from zoneinfo import ZoneInfo
 
@@ -128,8 +127,6 @@ def test_imgw_meteorology_api_daily():
     assert_frame_equal(values.df.sort("parameter"), df_expected_values)
 
 
-# FIXME: Deactivated after flaw in data discovered on 2023-09-26
-@pytest.mark.skip(reason="Deactivated after flaw in data discovered on 2023-09-26")
 def test_imgw_meteorology_api_monthly():
     request = ImgwMeteorologyRequest(
         parameter="synop",

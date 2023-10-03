@@ -90,8 +90,8 @@ def convert_dms_string_to_dd(dms: pl.Series) -> pl.Series:
     """
     dms = dms.str.split(" ").to_frame("dms")
     dms = dms.select(
-        pl.col("dms").arr.get(0).cast(pl.Float64).alias("degrees"),
-        pl.col("dms").arr.get(1).cast(pl.Float64).alias("minutes"),
-        pl.col("dms").arr.get(2).cast(pl.Float64).alias("seconds"),
+        pl.col("dms").list.get(0).cast(pl.Float64).alias("degrees"),
+        pl.col("dms").list.get(1).cast(pl.Float64).alias("minutes"),
+        pl.col("dms").list.get(2).cast(pl.Float64).alias("seconds"),
     )
-    return dms.get_column("degrees").rename("") + dms.get_column("minutes") / 60 + dms.get_column("seconds") / 3600
+    return dms.get_column("degrees").rename("") + (dms.get_column("minutes") / 60) + (dms.get_column("seconds") / 3600)

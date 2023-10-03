@@ -248,8 +248,8 @@ class DwdObservationValues(TimeseriesValues):
                 quality_general = df.get_column(DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
                 quality = pl.concat(
                     [
-                        pl.Series(repeat(quality_wind, times=2)).arr.explode(),
-                        pl.Series(repeat(quality_general, times=12)).arr.explode(),
+                        pl.Series(repeat(quality_wind, times=2)).list.explode(),
+                        pl.Series(repeat(quality_general, times=12)).list.explode(),
                     ]
                 )
                 df = df.drop(
@@ -271,13 +271,13 @@ class DwdObservationValues(TimeseriesValues):
                                 quality_general,
                                 times=9,
                             )
-                        ).arr.explode(),
+                        ).list.explode(),
                         pl.Series(
                             repeat(
                                 quality_precipitation,
                                 times=2,
                             )
-                        ).arr.explode(),
+                        ).list.explode(),
                     ]
                 )
                 df = df.drop(
@@ -298,7 +298,7 @@ class DwdObservationValues(TimeseriesValues):
             quality = pl.concat(quality)
         else:
             n = len(df.columns) - 3
-            quality = pl.Series(values=repeat(df.get_column(df.columns[2]), times=n)).arr.explode()
+            quality = pl.Series(values=repeat(df.get_column(df.columns[2]), times=n)).list.explode()
             df = df.drop([df.columns[2]])
 
         possible_id_vars = (
@@ -346,8 +346,8 @@ class DwdObservationValues(TimeseriesValues):
         if from_date_min:
             file_index = file_index.filter(
                 pl.col(Columns.STATION_ID.value).eq(station_id)
-                & pl.col(Columns.FROM_DATE.value).ge(to_date_max).is_not()
-                & pl.col(Columns.TO_DATE.value).le(from_date_min).is_not()
+                & pl.col(Columns.FROM_DATE.value).ge(to_date_max).not_()
+                & pl.col(Columns.TO_DATE.value).le(from_date_min).not_()
             )
 
         return file_index.collect().get_column(Columns.DATE_RANGE.value).to_list()

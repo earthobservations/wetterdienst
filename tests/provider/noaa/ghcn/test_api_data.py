@@ -33,7 +33,15 @@ def test_api_amsterdam(start_date, end_date, default_settings):
             "date": [dt.datetime(2021, 1, 1, 23, tzinfo=dt.timezone.utc)],
             "value": [276.84999999999997],
             "quality": [None],
-        }
+        },
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "value": pl.Float64,
+            "quality": pl.Float64,
+        },
     )
     assert_frame_equal(
         given_df.filter(pl.col("date").eq(dt.datetime(2021, 1, 1, 23, tzinfo=dt.timezone.utc))),

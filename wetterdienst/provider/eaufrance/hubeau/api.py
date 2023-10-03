@@ -141,7 +141,7 @@ class HubeauValues(TimeseriesValues):
                 }
             )
         else:
-            df = df.with_columns(pl.col("date_obs").apply(dt.datetime.fromisoformat))
+            df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat))
             df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
 
         df = df.with_columns(pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value))
@@ -225,11 +225,11 @@ class HubeauRequest(TimeseriesRequest):
         )
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).apply(dt.datetime.fromisoformat),
+            pl.col(Columns.FROM_DATE.value).map_elements(dt.datetime.fromisoformat),
             pl.when(pl.col(Columns.TO_DATE.value).is_null())
             .then(dt.date.today())
             .alias(Columns.TO_DATE.value)
             .cast(pl.Datetime),
         )
 
-        return df.filter(pl.col(Columns.STATION_ID.value).apply(lambda v: v[0].isalpha()))
+        return df.filter(pl.col(Columns.STATION_ID.value).map_elements(lambda v: v[0].isalpha()))

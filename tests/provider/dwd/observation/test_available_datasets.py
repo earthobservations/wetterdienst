@@ -51,12 +51,12 @@ def test_compare_available_dwd_datasets(default_settings):
     base_url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
     files = fs.expand_path(base_url, recursive=True, maxdepth=3)
     df = pl.DataFrame({"files": files})
-    df = df.with_columns(pl.col("files").apply(lambda s: s[len(base_url) : -1]))
+    df = df.with_columns(pl.col("files").map_elements(lambda s: s[len(base_url) : -1]))
     # filter resolution folders
-    df = df.filter(pl.col("files").apply(lambda s: s.count("/")) == 1)
+    df = df.filter(pl.col("files").map_elements(lambda s: s.count("/")) == 1)
     df = df.select(
-        pl.col("files").str.split("/").arr.first().alias("resolution"),
-        pl.col("files").str.split("/").arr.last().alias("dataset"),
+        pl.col("files").str.split("/").list.first().alias("resolution"),
+        pl.col("files").str.split("/").list.last().alias("dataset"),
     )
     for resolution, dataset in df.iter_rows():
         rd_pair = (resolution, dataset)

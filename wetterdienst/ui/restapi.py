@@ -457,7 +457,7 @@ def interpolate(
 
     output = values_.df
 
-    output = output.with_columns(pl.col(Columns.DATE.value).apply(lambda d: d.isoformat()))
+    output = output.with_columns(pl.col(Columns.DATE.value).map_elements(lambda d: d.isoformat()))
 
     output = output.to_dicts()
 
@@ -566,7 +566,7 @@ def summarize(
 
     output = values_.df
 
-    output = output.with_columns(pl.col(Columns.DATE.value).apply(lambda d: d.isoformat()))
+    output = output.with_columns(pl.col(Columns.DATE.value).map_elements(lambda d: d.isoformat()))
 
     output = output.to_dicts()
 

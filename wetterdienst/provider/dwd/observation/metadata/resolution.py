@@ -17,8 +17,8 @@ HIGH_RESOLUTIONS = (
 RESOLUTION_TO_DATETIME_FORMAT_MAPPING: Dict[Resolution, str] = {
     Resolution.MINUTE_1: DatetimeFormat.YMDHM.value,
     Resolution.MINUTE_10: DatetimeFormat.YMDHM.value,
-    Resolution.HOURLY: DatetimeFormat.YMDH.value,
-    Resolution.SUBDAILY: DatetimeFormat.YMDH.value,
+    Resolution.HOURLY: DatetimeFormat.YMDHM.value,
+    Resolution.SUBDAILY: DatetimeFormat.YMDHM.value,
     Resolution.DAILY: DatetimeFormat.YMD.value,
     Resolution.MONTHLY: DatetimeFormat.YMD.value,
     Resolution.ANNUAL: DatetimeFormat.YMD.value,

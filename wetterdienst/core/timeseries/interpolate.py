@@ -102,11 +102,12 @@ def apply_station_values_per_parameter(
         if parameter_name not in param_dict:
             df = pl.DataFrame(
                 {
-                    Columns.DATE.value: pl.date_range(
-                        low=stations_ranked.stations.start_date,
-                        high=stations_ranked.stations.end_date,
+                    Columns.DATE.value: pl.datetime_range(
+                        start=stations_ranked.stations.start_date,
+                        end=stations_ranked.stations.end_date,
                         interval=stations_ranked.frequency_polars.value,
                         time_zone="UTC",
+                        eager=True,
                     ).dt.round(stations_ranked.frequency_polars.value)
                 }
             )

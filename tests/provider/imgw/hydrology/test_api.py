@@ -173,4 +173,4 @@ def test_imgw_hydrology_api_monthly(df_expected_station):
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(values.df, df_expected_values)
+    assert_frame_equal(values.df.sort("parameter"), df_expected_values.sort("parameter"))

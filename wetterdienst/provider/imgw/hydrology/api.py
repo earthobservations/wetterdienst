@@ -205,7 +205,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             null_values=["9999", "99999.999", "99.9"],
         )
         df = df.select(list(schema.keys())).rename(schema)
-        df = df.with_columns(pl.col("station_id").str.strip())
+        df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))
         if df.is_empty():
             return df
@@ -213,21 +213,21 @@ class ImgwHydrologyValues(TimeseriesValues):
         # shift hydrological year to regular year
         df = df.with_columns(
             pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
-            pl.col("month").add(10).apply(lambda m: m - 12 if m > 12 else m),
+            pl.col("month").add(10).map_elements(lambda m: m - 12 if m > 12 else m),
         )
         if self.sr.resolution == Resolution.DAILY:
             df = df.with_columns(pl.col("day").cast(pl.Int64))
             exp1 = pl.all().exclude(["year", "month", "day"])
             exp2 = (
                 pl.struct(["year", "month", "day"])
-                .apply(lambda x: dt.datetime(x["year"], x["month"], x["day"]))
+                .map_elements(lambda x: dt.datetime(x["year"], x["month"], x["day"]))
                 .alias(Columns.DATE.value)
             )
         else:
             exp1 = pl.all().exclude(["year", "month"])
             exp2 = (
                 pl.struct(["year", "month"])
-                .apply(lambda x: dt.datetime(x["year"], x["month"], day=1))
+                .map_elements(lambda x: dt.datetime(x["year"], x["month"], day=1))
                 .alias(Columns.DATE.value)
             )
         df = df.select(exp1, exp2)
@@ -263,25 +263,25 @@ class ImgwHydrologyValues(TimeseriesValues):
         url = self._endpoint.format(resolution=res.value, dataset=dataset.value)
         files = list_remote_files_fsspec(url, self.sr.settings)
         df_files = pl.DataFrame({"url": files})
-        df_files = df_files.with_columns(pl.col("url").str.split("/").arr.last().alias("file"))
+        df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
         if self.sr.start_date:
             interval = pd.Interval(pd.Timestamp(self.sr.start_date), pd.Timestamp(self.sr.end_date), closed="both")
             if self.sr.resolution == Resolution.DAILY:
                 df_files = df_files.with_columns(
-                    pl.col("file").str.rstrip(".zip").str.split("_").arr.slice(1).alias("year_month")
+                    pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month")
                 )
                 df_files = df_files.with_columns(
-                    pl.col("year_month").arr.first().cast(pl.Int64).alias("year"),
-                    pl.col("year_month").arr.last().cast(pl.Int64).alias("month"),
+                    pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
+                    pl.col("year_month").list.last().cast(pl.Int64).alias("month"),
                 )
                 df_files = df_files.with_columns(
                     pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
-                    pl.col("month").add(10).apply(lambda m: m - 12 if m > 12 else m),
+                    pl.col("month").add(10).map_elements(lambda m: m - 12 if m > 12 else m),
                 )
                 df_files = df_files.with_columns(
                     pl.struct(["year", "month"])
-                    .apply(
+                    .map_elements(
                         lambda x: [
                             dt.datetime(x["year"], x["month"], 1),
                             dt.datetime(x["year"], x["month"], 1) + relativedelta(months=1) - relativedelta(days=1),
@@ -292,26 +292,28 @@ class ImgwHydrologyValues(TimeseriesValues):
             else:
                 df_files = df_files.with_columns(
                     pl.col("file")
-                    .str.rstrip(".zip")
+                    .str.strip_chars_end(".zip")
                     .str.split("_")
-                    .arr.last()
-                    .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt="%Y", strict=False)
-                    .apply(
+                    .list.last()
+                    .str.to_datetime("%Y", time_zone="UTC", strict=False)
+                    .map_elements(
                         lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)]
                     )
                     .alias("date_range")
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
-                .apply(lambda x: pd.Interval(pd.Timestamp(x["start_date"]), pd.Timestamp(x["end_date"]), closed="both"))
+                .map_elements(
+                    lambda x: pd.Interval(pd.Timestamp(x["start_date"]), pd.Timestamp(x["end_date"]), closed="both")
+                )
                 .alias("interval")
             )
-            df_files = df_files.filter(pl.col("interval").apply(lambda i: i.overlaps(interval)))
+            df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))
         return df_files.get_column("url")
 
 
@@ -349,7 +351,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self) -> pl.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
 
         :return:
@@ -367,6 +369,6 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         ]
         df = df.lazy()
         return df.with_columns(
-            pl.col(Columns.LATITUDE.value).map(convert_dms_string_to_dd),
-            pl.col(Columns.LONGITUDE.value).map(convert_dms_string_to_dd),
+            pl.col(Columns.LATITUDE.value).map_batches(convert_dms_string_to_dd),
+            pl.col(Columns.LONGITUDE.value).map_batches(convert_dms_string_to_dd),
         )

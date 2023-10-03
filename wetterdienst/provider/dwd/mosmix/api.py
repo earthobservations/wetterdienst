@@ -1084,10 +1084,8 @@ class DwdMosmixValues(TimeseriesValues):
             for df in self.read_mosmix(self.sr.stations.start_issue):
                 yield df
         else:
-            for date in pl.date_range(
-                self.sr.stations.start_issue,
-                self.sr.stations.end_issue,
-                interval=self.sr.frequency.value,
+            for date in pl.datetime_range(
+                self.sr.stations.start_issue, self.sr.stations.end_issue, interval=self.sr.frequency.value, eager=True
             ):
                 try:
                     for df in self.read_mosmix(date):
@@ -1213,11 +1211,15 @@ class DwdMosmixValues(TimeseriesValues):
 
         df = pl.DataFrame({"url": urls})
 
-        df = df.with_columns(pl.col("url").str.split("/").arr.last().str.split("_").arr.take(2).flatten().alias("date"))
+        df = df.with_columns(
+            pl.col("url").str.split("/").list.last().str.split("_").list.take(2).flatten().alias("date")
+        )
 
         df = df.filter(pl.col("date").ne("LATEST"))
 
-        df = df.with_columns(pl.col("date").str.strptime(pl.Datetime, fmt=DatetimeFormat.YMDH.value))
+        df = df.with_columns(
+            pl.col("date").map_elements(lambda d: f"{d}00").str.to_datetime(DatetimeFormat.YMDHM.value)
+        )
 
         df = df.filter(pl.col("date").eq(date))
 
@@ -1427,8 +1429,8 @@ class DwdMosmixRequest(TimeseriesRequest):
         df = df.lazy()
 
         df = df.with_columns(
-            pl.col(Columns.LATITUDE.value).cast(float).map(convert_dm_to_dd),
-            pl.col(Columns.LONGITUDE.value).cast(float).map(convert_dm_to_dd),
+            pl.col(Columns.LATITUDE.value).cast(float).map_batches(convert_dm_to_dd),
+            pl.col(Columns.LONGITUDE.value).cast(float).map_batches(convert_dm_to_dd),
         )
 
         return df.select([pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns])

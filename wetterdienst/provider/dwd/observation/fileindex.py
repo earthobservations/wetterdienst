@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 from typing import Optional
 
 import polars as pl
@@ -84,7 +85,7 @@ def create_file_index_for_climate_observations(
     file_index = file_index.with_columns(
         pl.col("filename")
         .str.split("/")
-        .arr.last()
+        .list.last()
         .str.extract(STATION_ID_REGEX, 1)
         .str.rjust(5, "0")
         .alias("station_id")
@@ -98,16 +99,16 @@ def create_file_index_for_climate_observations(
         file_index = file_index.with_columns(
             pl.col("date_range")
             .str.split("_")
-            .arr.first()
-            .str.strptime(datatype=pl.Datetime, fmt=DatetimeFormat.YMD.value)
+            .list.first()
+            .str.to_datetime(DatetimeFormat.YMD.value)
             .dt.replace_time_zone("Europe/Berlin")
             .alias(Columns.FROM_DATE.value),
             pl.col("date_range")
             .str.split("_")
-            .arr.last()
-            .str.strptime(datatype=pl.Datetime, fmt=DatetimeFormat.YMD.value)
+            .list.last()
+            .str.to_datetime(DatetimeFormat.YMD.value)
             .dt.replace_time_zone("Europe/Berlin")
-            .map(lambda dates: dates + pl.duration(days=1))
+            .map_batches(lambda dates: dates + dt.timedelta(days=1))
             .alias(Columns.TO_DATE.value),
         )
 

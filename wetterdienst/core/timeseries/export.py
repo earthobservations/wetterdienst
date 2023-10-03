@@ -48,7 +48,7 @@ class ExportMixin:
         for column in ("from_date", "to_date", "date"):
             if column in df:
                 df = df.with_columns(
-                    pl.col(column).apply(lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8)
+                    pl.col(column).map_elements(lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8)
                 )
         return df.write_json(row_oriented=True, pretty=pretty)
 
@@ -468,6 +468,6 @@ def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
     for date_column in date_columns:
         if date_column in df:
             df = df.with_columns(
-                pl.col(date_column).apply(lambda v: v.isoformat() if v else None, return_dtype=pl.Utf8)
+                pl.col(date_column).map_elements(lambda v: v.isoformat() if v else None, return_dtype=pl.Utf8)
             )
     return df

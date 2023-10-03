@@ -23,9 +23,9 @@ def create_temperature_ts_plot():
         parameter="temperature_air_mean_200", resolution="daily", period="historical"
     ).filter_by_name("Hohenpeissenberg")
     df = stations.values.all().df
-    df_annual = df.groupby(pl.col("date").dt.year(), maintain_order=True).agg(pl.col("value").mean().alias("value"))
+    df_annual = df.group_by(pl.col("date").dt.year(), maintain_order=True).agg(pl.col("value").mean().alias("value"))
     df_annual = df_annual.with_columns(
-        pl.col("date").cast(str).str.strptime(datatype=pl.Datetime, fmt="%Y"), pl.col("value").mean().alias("mean")
+        pl.col("date").cast(str).str.to_datetime("%Y"), pl.col("value").mean().alias("mean")
     )
     fig, ax = plt.subplots(tight_layout=True)
     df.to_pandas().plot("date", "value", ax=ax, color="blue", label="Tmean,daily", legend=False)
