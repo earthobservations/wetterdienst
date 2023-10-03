@@ -190,6 +190,7 @@ pytest = ">=7.2,<8"
 pytest-cov = ">=4,<5"
 pytest-dictsdiff = ">=0.5,<0.6"
 pytest-notebook = ">=0.8,<0.9"
+pytest-rerunfailures = "<13"
 pytest-xdist = ">=3,<4"
 selenium = ">=4,<5"
 surrogate = "==0.1"
@@ -339,6 +340,10 @@ minversion = "2.0"
 testpaths = ["tests"]
 # Detect tests marked with xfail, which are actually succeeding.
 # xfail_strict = true
+
+# Retry flaky tests, thereby improving the consistency of the test suite results.
+reruns = 2
+reruns_delay = 5
 
 [tool.coverage.run]
 branch = true
