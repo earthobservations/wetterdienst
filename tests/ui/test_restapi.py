@@ -378,6 +378,7 @@ def test_dwd_summarize():
 
 
 @pytest.mark.remote
+@pytest.mark.cflake
 def test_api_values_missing_null():
     response = client.get(
         "/restapi/values",
