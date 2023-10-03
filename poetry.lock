@@ -5533,6 +5533,11 @@ files = [
     {file = "scikit_learn-1.3.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f66eddfda9d45dd6cadcd706b65669ce1df84b8549875691b1f403730bdef217"},
     {file = "scikit_learn-1.3.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c6448c37741145b241eeac617028ba6ec2119e1339b1385c9720dae31367f2be"},
     {file = "scikit_learn-1.3.1-cp311-cp311-win_amd64.whl", hash = "sha256:c413c2c850241998168bbb3bd1bb59ff03b1195a53864f0b80ab092071af6028"},
+    {file = "scikit_learn-1.3.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:ef540e09873e31569bc8b02c8a9f745ee04d8e1263255a15c9969f6f5caa627f"},
+    {file = "scikit_learn-1.3.1-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:9147a3a4df4d401e618713880be023e36109c85d8569b3bf5377e6cd3fecdeac"},
+    {file = "scikit_learn-1.3.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d2cd3634695ad192bf71645702b3df498bd1e246fc2d529effdb45a06ab028b4"},
+    {file = "scikit_learn-1.3.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c275a06c5190c5ce00af0acbb61c06374087949f643ef32d355ece12c4db043"},
+    {file = "scikit_learn-1.3.1-cp312-cp312-win_amd64.whl", hash = "sha256:0e1aa8f206d0de814b81b41d60c1ce31f7f2c7354597af38fae46d9c47c45122"},
     {file = "scikit_learn-1.3.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:52b77cc08bd555969ec5150788ed50276f5ef83abb72e6f469c5b91a0009bbca"},
     {file = "scikit_learn-1.3.1-cp38-cp38-macosx_12_0_arm64.whl", hash = "sha256:a683394bc3f80b7c312c27f9b14ebea7766b1f0a34faf1a2e9158d80e860ec26"},
     {file = "scikit_learn-1.3.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a15d964d9eb181c79c190d3dbc2fff7338786bf017e9039571418a1d53dab236"},
@@ -6781,13 +6786,13 @@ files = [
 
 [[package]]
 name = "wradlib"
-version = "1.19.2"
+version = "2.0.1"
 description = "wradlib - An Open Source Library for Weather Radar Data Processing"
 optional = true
 python-versions = ">=3.9"
 files = [
-    {file = "wradlib-1.19.2-py3-none-any.whl", hash = "sha256:c9280060281211cd62e2b9d350c3aab9c791203e03b9e206a27ee4858407bf2b"},
-    {file = "wradlib-1.19.2.tar.gz", hash = "sha256:7ab9a4073539b1fd0ea6b634b97f5f72a774d085c837d64a87d0368dfc421ab7"},
+    {file = "wradlib-2.0.1-py3-none-any.whl", hash = "sha256:4da7eaa6b1f02d7438adf7afe57b1f9c23d6f8c8bdadb234b01c9876e019eeb3"},
+    {file = "wradlib-2.0.1.tar.gz", hash = "sha256:8d64738f5a4d70419218209fe73e79e8881cb0bc4350e799c74167e9979dd617"},
 ]
 
 [package.dependencies]
@@ -6796,12 +6801,12 @@ matplotlib = "*"
 numpy = "*"
 packaging = "*"
 scipy = "*"
-xarray = ">=0.17.0"
-xradar = ">=0.0.13"
+xarray = "*"
+xradar = "*"
 
 [package.extras]
 dev = ["codecov", "coverage", "nbconvert", "nbformat", "pre-commit", "pytest", "pytest-cov", "pytest-doctestplus", "pytest-sugar", "pytest-xdist"]
-opt = ["cartopy", "dask", "gdal (>=3)", "geopandas", "h5netcdf", "h5py", "netCDF4", "requests", "xmltodict"]
+opt = ["cartopy", "cmweather", "dask", "gdal (>=3)", "geopandas", "h5netcdf", "h5py", "netcdf4", "requests", "xmltodict"]
 
 [[package]]
 name = "wsproto"
@@ -7059,4 +7064,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "6b9d8129b6fb4aee4161245d2444ee522f2929d0279f91a9c7de665dcd3bdfad"
+content-hash = "130bd699b3ca5b928af25ff62fd2f1f7e385d11028dbf08328361123f7452875"
