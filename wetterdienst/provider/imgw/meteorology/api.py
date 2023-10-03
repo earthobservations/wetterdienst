@@ -420,7 +420,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         """
         df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
         df = df.select(list(schema.keys())).rename(schema)
-        df = df.with_columns(pl.col("station_id").str.strip())
+        df = df.with_columns(pl.col("station_id").str.strip_chars())
         df = df.filter(pl.col("station_id").eq(station_id))
         if df.is_empty():
             return df
@@ -428,14 +428,14 @@ class ImgwMeteorologyValues(TimeseriesValues):
             exp1 = pl.all().exclude(["year", "month", "day"])
             exp2 = (
                 pl.struct(["year", "month", "day"])
-                .apply(lambda x: dt.datetime(int(x["year"]), int(x["month"]), int(x["day"])))
+                .map_elements(lambda x: dt.datetime(int(x["year"]), int(x["month"]), int(x["day"])))
                 .alias(Columns.DATE.value)
             )
         else:
             exp1 = pl.all().exclude(["year", "month"])
             exp2 = (
                 pl.struct(["year", "month"])
-                .apply(lambda x: dt.datetime(int(x["year"]), int(x["month"]), day=1))
+                .map_elements(lambda x: dt.datetime(int(x["year"]), int(x["month"]), day=1))
                 .alias(Columns.DATE.value)
             )
         df = df.select(exp1, exp2)
@@ -452,65 +452,57 @@ class ImgwMeteorologyValues(TimeseriesValues):
         url = self._endpoint.format(resolution=res.value, dataset=dataset.value)
         files = list_remote_files_fsspec(url, self.sr.settings)
         df_files = pl.DataFrame({"url": files})
-        df_files = df_files.with_columns(pl.col("url").str.split("/").arr.last().alias("file"))
+        df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
         if self.sr.start_date:
             interval = pd.Interval(pd.Timestamp(self.sr.start_date), pd.Timestamp(self.sr.end_date), closed="both")
             if self.sr.resolution == Resolution.MONTHLY:
                 df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").arr.lengths() == 3)
-                    .then(
-                        pl.col("file")
-                        .str.split("_")
-                        .arr.first()
-                        .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt="%Y", strict=False)
-                        .apply(lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)])
-                    )
-                    .otherwise(
-                        pl.col("file")
-                        .str.split("_")
-                        .arr.slice(0, 2)
-                        .apply(
-                            lambda s: [
-                                dt.datetime(int(s[0]), 1, 1, tzinfo=ZoneInfo("UTC")),
-                                dt.datetime(int(s[1]), 1, 1, tzinfo=ZoneInfo("UTC"))
-                                + relativedelta(years=1)
-                                - relativedelta(days=1),
-                            ]
-                        )
+                    pl.when(pl.col("file").str.split("_").list.lengths() == 3)
+                    .then(pl.col("file").str.split("_").list.first().map_elements(lambda y: [y, y]))
+                    .otherwise(pl.col("file").str.split("_").list.slice(0, 2))
+                    .map_elements(
+                        lambda years: [
+                            dt.datetime(int(years[0]), 1, 1, tzinfo=ZoneInfo("UTC")),
+                            dt.datetime(int(years[1]), 1, 1, tzinfo=ZoneInfo("UTC"))
+                            + relativedelta(years=1)
+                            - relativedelta(days=1),
+                        ]
                     )
                     .alias("date_range")
                 )
             else:
                 df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").arr.lengths() == 2)
+                    pl.when(pl.col("file").str.split("_").list.lengths() == 2)
                     .then(
                         pl.col("file")
                         .str.split("_")
-                        .arr.first()
-                        .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt="%Y", strict=False)
-                        .apply(lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)])
+                        .list.first()
+                        .str.to_datetime("%Y", time_zone="UTC", strict=False)
+                        .map_elements(lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)])
                     )
                     .otherwise(
                         pl.col("file")
                         .str.split("_")
-                        .apply(lambda s: "_".join(s[:2]))
-                        .str.strptime(datatype=pl.Datetime(time_zone="UTC"), fmt="%Y_%m", strict=False)
-                        .apply(lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)])
+                        .map_elements(lambda s: "_".join(s[:2]))
+                        .str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
+                        .map_elements(lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)])
                     )
                     .alias("date_range")
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").list.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
+                pl.col("date_range").list.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
-                .apply(lambda x: pd.Interval(pd.Timestamp(x["start_date"]), pd.Timestamp(x["end_date"]), closed="both"))
+                .map_elements(
+                    lambda x: pd.Interval(pd.Timestamp(x["start_date"]), pd.Timestamp(x["end_date"]), closed="both")
+                )
                 .alias("interval")
             )
-            df_files = df_files.filter(pl.col("interval").apply(lambda i: i.overlaps(interval)))
+            df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))
         return df_files.get_column("url")
 
 
@@ -548,7 +540,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             settings=settings,
         )
 
-    def _all(self) -> pl.DataFrame:
+    def _all(self) -> pl.LazyFrame:
         """
 
         :return:
@@ -584,7 +576,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             .alias(Columns.HEIGHT.value),
         )
         return df.with_columns(
-            pl.col(Columns.LATITUDE.value).map(convert_dms_string_to_dd),
-            pl.col(Columns.LONGITUDE.value).map(convert_dms_string_to_dd),
+            pl.col(Columns.LATITUDE.value).map_batches(convert_dms_string_to_dd),
+            pl.col(Columns.LONGITUDE.value).map_batches(convert_dms_string_to_dd),
             pl.col(Columns.HEIGHT.value).str.replace(" ", "").cast(pl.Float64, strict=False),
         )

@@ -196,8 +196,8 @@ class NwsObservationValues(TimeseriesValues):
         )
         df = df.filter(pl.col("parameter").ne("cloudlayers"))
         return df.with_columns(
-            pl.col("date").apply(dt.datetime.fromisoformat).cast(pl.Datetime(time_zone="UTC")),
-            pl.col("value").apply(lambda value: value["value"]).cast(pl.Float64),
+            pl.col("date").map_elements(dt.datetime.fromisoformat).cast(pl.Datetime(time_zone="UTC")),
+            pl.col("value").map_elements(lambda value: value["value"]).cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 

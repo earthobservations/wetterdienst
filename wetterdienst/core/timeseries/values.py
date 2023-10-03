@@ -228,12 +228,12 @@ class TimeseriesValues(metaclass=ABCMeta):
         conversion_factors = self._create_conversion_factors(dataset)
 
         data = []
-        for (dataset, parameter), group in df.groupby(
+        for (dataset, parameter), group in df.group_by(
             by=[pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)], maintain_order=True
         ):
             op, factor = conversion_factors.get(dataset).get(parameter, (None, None))
             if op:
-                group = group.with_columns(pl.col(Columns.VALUE.value).map(lambda s, o=op, f=factor: o(s, f)))
+                group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda s, o=op, f=factor: o(s, f)))
             data.append(group)
 
         return pl.concat(data)
@@ -338,7 +338,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             return df
         base_df = self._get_base_df(station_id)
         data = []
-        for (station_id, parameter), group in df.groupby(
+        for (station_id, parameter), group in df.group_by(
             [Columns.STATION_ID.value, Columns.PARAMETER.value], maintain_order=True
         ):
             par_df = base_df.join(
@@ -499,7 +499,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)]
         ).unique()
 
-        for parameter, parameter_df in df.groupby(by=pl.col(Columns.PARAMETER.value), maintain_order=True):
+        for parameter, parameter_df in df.group_by(by=pl.col(Columns.PARAMETER.value), maintain_order=True):
             # Build quality column name
             parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
             parameter_df = parameter_df.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]).rename(
@@ -576,7 +576,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             else:
                 dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
                 parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
-        percentage = df.groupby("parameter").agg(
+        percentage = df.group_by("parameter").agg(
             (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc")
         )
         missing = pl.DataFrame(

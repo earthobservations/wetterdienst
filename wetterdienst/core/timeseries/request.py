@@ -686,7 +686,7 @@ class TimeseriesRequest(Core):
         )
 
         if station_match:
-            station_name = pl.Series(station_match).apply(lambda x: x[0])
+            station_name = pl.Series(station_match).map_elements(lambda x: x[0])
             df = df.filter(pl.col(Columns.NAME.value).is_in(station_name))
         else:
             df = pl.DataFrame(schema=df.schema)

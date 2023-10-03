@@ -145,7 +145,7 @@ class WsvPegelValues(TimeseriesValues):
 
         df = pl.read_json(response)
         df = df.rename(mapping={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
-        df = df.with_columns(pl.col(Columns.DATE.value).apply(dt.datetime.fromisoformat))
+        df = df.with_columns(pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat))
         return df.with_columns(
             pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),
             pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value),
@@ -274,23 +274,23 @@ class WsvPegelRequest(TimeseriesRequest):
         df = pd.read_json(response)
         df = pl.from_pandas(df).lazy()
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
-        df = df.with_columns(pl.col("water").apply(lambda value: value["shortname"]))
+        df = df.with_columns(pl.col("water").map_elements(lambda value: value["shortname"]))
         df = df.select(
             pl.all(),
-            pl.col("timeseries").apply(lambda ts_list: {t["shortname"].lower() for t in ts_list}).alias("ts"),
+            pl.col("timeseries").map_elements(lambda ts_list: {t["shortname"].lower() for t in ts_list}).alias("ts"),
         )
         parameters = {par.value.lower() for par, ds in self.parameter}
-        df = df.filter(pl.col("ts").apply(lambda par: bool(par.intersection(parameters))))
-        df = df.with_columns(pl.col("timeseries").apply(_extract_ts))
+        df = df.filter(pl.col("ts").map_elements(lambda par: bool(par.intersection(parameters))))
+        df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts))
         return df.select(
             pl.all().exclude(["timeseries", "ts"]),
-            pl.col("timeseries").arr.get(0).alias("gauge_datum"),
-            pl.col("timeseries").arr.get(1).alias("m_i"),
-            pl.col("timeseries").arr.get(2).alias("m_ii"),
-            pl.col("timeseries").arr.get(3).alias("m_iii"),
-            pl.col("timeseries").arr.get(4).alias("mnw"),
-            pl.col("timeseries").arr.get(5).alias("mw"),
-            pl.col("timeseries").arr.get(6).alias("mhw"),
-            pl.col("timeseries").arr.get(7).alias("hhw"),
-            pl.col("timeseries").arr.get(8).alias("hsw"),
+            pl.col("timeseries").list.get(0).alias("gauge_datum"),
+            pl.col("timeseries").list.get(1).alias("m_i"),
+            pl.col("timeseries").list.get(2).alias("m_ii"),
+            pl.col("timeseries").list.get(3).alias("m_iii"),
+            pl.col("timeseries").list.get(4).alias("mnw"),
+            pl.col("timeseries").list.get(5).alias("mw"),
+            pl.col("timeseries").list.get(6).alias("mhw"),
+            pl.col("timeseries").list.get(7).alias("hhw"),
+            pl.col("timeseries").list.get(8).alias("hsw"),
         )

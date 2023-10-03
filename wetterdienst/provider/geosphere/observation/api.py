@@ -688,7 +688,7 @@ class GeosphereObservationValues(TimeseriesValues):
                 .alias(Columns.VALUE.value)
             )
         return df.with_columns(
-            pl.col(Columns.DATE.value).str.strptime(pl.Datetime, fmt="%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            pl.col(Columns.DATE.value).str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
             pl.col(Columns.PARAMETER.value).str.to_lowercase(),
             pl.lit(station_id).alias(Columns.STATION_ID.value),
             pl.lit(None, pl.Float64).alias(Columns.QUALITY.value),
@@ -760,6 +760,6 @@ class GeosphereObservationRequest(TimeseriesRequest):
             }
         )
         return df.with_columns(
-            pl.col(Columns.FROM_DATE.value).str.strptime(pl.Datetime),
-            pl.col(Columns.TO_DATE.value).str.strptime(pl.Datetime),
+            pl.col(Columns.FROM_DATE.value).str.to_datetime(),
+            pl.col(Columns.TO_DATE.value).str.to_datetime(),
         )

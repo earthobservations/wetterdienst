@@ -115,7 +115,7 @@ def create_fileindex_radar(
     if parse_datetime:
         df_fileindex = df_fileindex.with_columns(
             pl.col("filename")
-            .apply(
+            .map_elements(
                 partial(get_date_from_filename, pattern=RADAR_DT_PATTERN, formats=formats),
             )
             .alias("datetime")
@@ -153,7 +153,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
 
     df_fileindex = df_fileindex.with_columns(
         pl.col("filename")
-        .apply(
+        .map_elements(
             partial(get_date_from_filename, pattern=RADOLAN_DT_PATTERN, formats=formats),
         )
         .alias("datetime")

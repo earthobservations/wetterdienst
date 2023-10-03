@@ -613,7 +613,7 @@ def test_export_duckdb(settings_si_false, tmp_path):
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     filename = tmp_path.joinpath("test.duckdb")
-    df = request.values.all().df
+    df = request.values.all().df.sort(["parameter", "date"])
     ExportMixin(df=df).to_target(f"duckdb:///{filename}?table=testdrive")
     connection = duckdb.connect(str(filename), read_only=True)
     cursor = connection.cursor()
@@ -624,9 +624,9 @@ def test_export_duckdb(settings_si_false, tmp_path):
     assert results[300_000] == (
         "01048",
         "climate_summary",
-        "temperature_air_max_200",
+        "temperature_air_min_200",
         dt.datetime(1939, 7, 26),
-        21.0,
+        10.0,
         1.0,
     )
 

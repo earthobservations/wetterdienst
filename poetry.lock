@@ -171,13 +171,13 @@ doc = ["docutils", "geopandas", "jinja2", "myst-parser", "numpydoc", "pillow (>=
 
 [[package]]
 name = "annotated-types"
-version = "0.5.0"
+version = "0.6.0"
 description = "Reusable constraint types to use with typing.Annotated"
 optional = true
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "annotated_types-0.5.0-py3-none-any.whl", hash = "sha256:58da39888f92c276ad970249761ebea80ba544b77acddaa1a4d6cf78287d45fd"},
-    {file = "annotated_types-0.5.0.tar.gz", hash = "sha256:47cdc3490d9ac1506ce92c7aaa76c579dc3509ff11e098fc867e5130ab7be802"},
+    {file = "annotated_types-0.6.0-py3-none-any.whl", hash = "sha256:0641064de18ba7a25dee8f96403ebc39113d0cb953a01429249d5c7564666a43"},
+    {file = "annotated_types-0.6.0.tar.gz", hash = "sha256:563339e807e53ffd9c267e99fc6d9ea23eb8443c08f112651963e24e22f84a5d"},
 ]
 
 [[package]]
@@ -638,13 +638,13 @@ uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
 name = "bleach"
-version = "6.0.0"
+version = "6.1.0"
 description = "An easy safelist-based HTML-sanitizing tool."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "bleach-6.0.0-py3-none-any.whl", hash = "sha256:33c16e3353dbd13028ab4799a0f89a83f113405c766e9c122df8a06f5b85b3f4"},
-    {file = "bleach-6.0.0.tar.gz", hash = "sha256:1a1a85c1595e07d8db14c5f09f09e6433502c51c595970edc090551f0db99414"},
+    {file = "bleach-6.1.0-py3-none-any.whl", hash = "sha256:3225f354cfc436b9789c66c4ee030194bee0568fbf9cbdad3bc8b5c26c5f12b6"},
+    {file = "bleach-6.1.0.tar.gz", hash = "sha256:0a31f1837963c41d46bbf1331b8778e1308ea0791db03cc4e7357b97cf42a8fe"},
 ]
 
 [package.dependencies]
@@ -652,7 +652,7 @@ six = ">=1.9.0"
 webencodings = "*"
 
 [package.extras]
-css = ["tinycss2 (>=1.1.0,<1.2)"]
+css = ["tinycss2 (>=1.1.0,<1.3)"]
 
 [[package]]
 name = "blinker"
@@ -1186,13 +1186,13 @@ test-randomorder = ["pytest-randomly"]
 
 [[package]]
 name = "cycler"
-version = "0.12.0"
+version = "0.12.1"
 description = "Composable style cycles"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "cycler-0.12.0-py3-none-any.whl", hash = "sha256:7896994252d006771357777d0251f3e34d266f4fa5f2c572247a80ab01440947"},
-    {file = "cycler-0.12.0.tar.gz", hash = "sha256:8cc3a7b4861f91b1095157f9916f748549a617046e67eb7619abed9b34d2c94a"},
+    {file = "cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30"},
+    {file = "cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c"},
 ]
 
 [package.extras]
@@ -1285,13 +1285,13 @@ files = [
 
 [[package]]
 name = "dash-leaflet"
-version = "1.0.10"
+version = "1.0.11"
 description = "Dash Leaflet is a light wrapper around React-Leaflet. The syntax is similar to other Dash components, with naming conventions following the React-Leaflet API."
 optional = true
 python-versions = "*"
 files = [
-    {file = "dash_leaflet-1.0.10-py3-none-any.whl", hash = "sha256:145aad51d527e3de36c053b6d395cbe0f20f0cdb17a3329a8ec0ab81393e1530"},
-    {file = "dash_leaflet-1.0.10.tar.gz", hash = "sha256:3e2352142ac3ef592853d2259b7814736d70149c66f438daf10e2977c5636a7a"},
+    {file = "dash_leaflet-1.0.11-py3-none-any.whl", hash = "sha256:697b58917a91d4666923be3c962d538d74d87d6a5dc318d184e9b95407a23ad3"},
+    {file = "dash_leaflet-1.0.11.tar.gz", hash = "sha256:cbc7cbe8f578f349f3a56fa937877f00902ae3a87b212d046aecf175320e9fed"},
 ]
 
 [package.dependencies]
@@ -1567,17 +1567,6 @@ attrs = "*"
 cffi = "*"
 findlibs = "*"
 numpy = "*"
-
-[[package]]
-name = "entrypoints"
-version = "0.4"
-description = "Discover and load entry points from installed packages."
-optional = true
-python-versions = ">=3.6"
-files = [
-    {file = "entrypoints-0.4-py3-none-any.whl", hash = "sha256:f174b5ff827504fd3cd97cc3f8649f3693f51538c7e4bdf3ef002c8429d42f9f"},
-    {file = "entrypoints-0.4.tar.gz", hash = "sha256:b706eddaa9218a19ebcd67b56818f05bb27589b1ca9e8d797b74affad4ccacd4"},
-]
 
 [[package]]
 name = "environs"
@@ -3770,32 +3759,35 @@ test = ["pytest", "pytest-console-scripts", "pytest-jupyter", "pytest-tornasync"
 
 [[package]]
 name = "numcodecs"
-version = "0.11.0"
-description = "A Python package providing buffer compression and transformation codecs for use"
+version = "0.12.0"
+description = "A Python package providing buffer compression and transformation codecs for use in data storage and communication applications."
 optional = true
 python-versions = ">=3.8"
 files = [
-    {file = "numcodecs-0.11.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:c0bc116752be45b4f9dca4315e5a2b4185e3b46f68c997dbb84aef334ceb5a1d"},
-    {file = "numcodecs-0.11.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c27dfca402f69fbfa01c46fb572086e77f38121192160cc8ed1177dc30702c52"},
-    {file = "numcodecs-0.11.0-cp310-cp310-win_amd64.whl", hash = "sha256:0fabc7dfdf64a9555bf8a34911e05b415793c67a1377207dc79cd96342291fa1"},
-    {file = "numcodecs-0.11.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:7dae3f5678f247336c84e7315a0c59a4fec7c33eb7db72d78ff5c776479a812e"},
-    {file = "numcodecs-0.11.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:32697785b786bb0039d3feeaabdc10f25eda6c149700cde954653aaa47637832"},
-    {file = "numcodecs-0.11.0-cp311-cp311-win_amd64.whl", hash = "sha256:8c2f36b21162c6ebccc05d3fe896f86b91dcf8709946809f730cc23a37f8234d"},
-    {file = "numcodecs-0.11.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:0c240858bf29e0ff254b1db60430e8b2658b8c8328b684f80033289d94807a7c"},
-    {file = "numcodecs-0.11.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ee5bda16e9d26a7a39fc20b6c1cec23b4debc314df5cfae3ed505149c2eeafc4"},
-    {file = "numcodecs-0.11.0-cp38-cp38-win_amd64.whl", hash = "sha256:bd05cdb853c7bcfde2efc809a9df2c5e205b96f70405b810e5788b45d0d81f73"},
-    {file = "numcodecs-0.11.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:694dc2e80b1f169b7deb14bdd0a04b20e5f17ef32cb0f81b71ab690406ec6bd9"},
-    {file = "numcodecs-0.11.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bf3925eeb37aed0e6c04d7fb9614133a3c8426dc77f8bda54c99c601a44b3bd3"},
-    {file = "numcodecs-0.11.0-cp39-cp39-win_amd64.whl", hash = "sha256:11596b71267417425ea8afb407477a67d684f434c8b07b1dd59c25a97d5c3ccb"},
-    {file = "numcodecs-0.11.0.tar.gz", hash = "sha256:6c058b321de84a1729299b0eae4d652b2e48ea1ca7f9df0da65cb13470e635eb"},
+    {file = "numcodecs-0.12.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:e03960dd507e00bc102ff4ca2f14fa40b0cfc2ba7279752d31558d0787431a53"},
+    {file = "numcodecs-0.12.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:68b3a18a93a96cba0a1d367ae76c02a74f29f93790e1c8b0423eacc4ce5d421a"},
+    {file = "numcodecs-0.12.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3a265db9177bd4a19939651b68722b72044bc92bb0b646e2a0d55835c0acb9d5"},
+    {file = "numcodecs-0.12.0-cp310-cp310-win_amd64.whl", hash = "sha256:3b5a0be940093d81eb49b0adba62615d3b973174d8167dbd63cc6d392e157bf6"},
+    {file = "numcodecs-0.12.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:f16787a674d1badd55f827b01bbc62b3ef2adecbed59a7db7139a328f0744e4a"},
+    {file = "numcodecs-0.12.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:98dbc61366e2974a1bdc28e08ed790c74d39c9cb40ce3f487ae6e6a76da843dd"},
+    {file = "numcodecs-0.12.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bd746cd6e7af4925bd2d3e902b5027147d71590cdc8e9e2ad999014fc2405c3b"},
+    {file = "numcodecs-0.12.0-cp311-cp311-win_amd64.whl", hash = "sha256:eae479f65b75af0e75a20049bf83beff154c4662a233695b4f7848d5eee0ef2d"},
+    {file = "numcodecs-0.12.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:0c1f679b148bfdc9341686814485d03ad652ea551a90debadbbf9da3fb4cc003"},
+    {file = "numcodecs-0.12.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:aa78ffc79a94aa78234821639c253219d8a26455f020c760ad1b331144363849"},
+    {file = "numcodecs-0.12.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:01f5457c0c81a556812240a2318c6022ca5c6f66fe2a51f619bdf8b0c855b5f2"},
+    {file = "numcodecs-0.12.0-cp38-cp38-win_amd64.whl", hash = "sha256:e9fc2f2abcb09c301c8e1db16e4d5dc9faf93be8c46d88ac3974e023f0a3533b"},
+    {file = "numcodecs-0.12.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:98c2cedb3d6dd1238b033657da0b710689a9600813bfece28fd7c158328c0d4d"},
+    {file = "numcodecs-0.12.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:182458355f5cad297575f9a16e804fe345c22c7a1b796ee9a0a8bce5a9f66c60"},
+    {file = "numcodecs-0.12.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1fe66c7a2b016e772a60dc8d68479958ae8c9ce306bcc318ee3d2ca883930e94"},
+    {file = "numcodecs-0.12.0-cp39-cp39-win_amd64.whl", hash = "sha256:488ba767d956f8dbf794c4c30df1983a385f048a4f1bc670dd0761b8fe7fd7a3"},
+    {file = "numcodecs-0.12.0.tar.gz", hash = "sha256:6388e5f4e94d18a7165fbd1c9d3637673b74157cff8bc644005f9e2a4c717d6e"},
 ]
 
 [package.dependencies]
-entrypoints = "*"
 numpy = ">=1.7"
 
 [package.extras]
-docs = ["mock", "numpydoc", "sphinx", "sphinx-issues"]
+docs = ["mock", "numpydoc", "sphinx (<7.0.0)", "sphinx-issues"]
 msgpack = ["msgpack"]
 test = ["coverage", "flake8", "pytest", "pytest-cov"]
 zfpy = ["zfpy (>=1.0.0)"]
@@ -4237,31 +4229,35 @@ poetry-plugin = ["poetry (>=1.0,<2.0)"]
 
 [[package]]
 name = "polars"
-version = "0.16.18"
+version = "0.19.7"
 description = "Blazingly fast DataFrame library"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "polars-0.16.18-cp37-abi3-macosx_10_7_x86_64.whl", hash = "sha256:ee471d3f79daf93e7b0a5412a25473fdc27b59caa05d3baeb786e2022f0e16b0"},
-    {file = "polars-0.16.18-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:bee894337be02706056e17248a361d8b2aeb59971ddc04d0a2be2df568977846"},
-    {file = "polars-0.16.18-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:674645118122c0ddd93668735d736a080290f5d2de1ea9a751f3639a331a4784"},
-    {file = "polars-0.16.18-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ed6d2b07a43baf1563a68beb88b9a561f41967815fd57c9682aaac4502ee4499"},
-    {file = "polars-0.16.18-cp37-abi3-win_amd64.whl", hash = "sha256:eaeba3902d6a412eb2986c2477387cc400f1502abd22cf79b2cc32b435d8abe4"},
-    {file = "polars-0.16.18.tar.gz", hash = "sha256:221125b1e1d043d13d889c336ba1f592ed8f150ec06124067e72e40600b3c96a"},
+    {file = "polars-0.19.7-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:c0f0c40abbd6eb5f8356812cfdc40f6c0a4243f61c838bea12ba97a03805c09f"},
+    {file = "polars-0.19.7-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:0b03ff38ff673d0f802e6756873f1b26e21917f6043876e845212e0a50d26a33"},
+    {file = "polars-0.19.7-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c99eba34260e83fa3f7105348e4c442b0c3196510be9c7c7fc6ddc0af7b580f7"},
+    {file = "polars-0.19.7-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b49f6d5dad6fa2ddbe8994481edfb42fec396d59f8a72c2ddfeb6839e21166e6"},
+    {file = "polars-0.19.7-cp38-abi3-win_amd64.whl", hash = "sha256:cf6349c168324362208653fb379b77ac10d565febf45c28c60f4240ecbbece03"},
+    {file = "polars-0.19.7.tar.gz", hash = "sha256:623a348b4a6d118923f3efb906936137744667f32b766891aa67d144912d9f5a"},
 ]
 
-[package.dependencies]
-typing_extensions = {version = ">=4.0.1", markers = "python_version < \"3.11\""}
-
 [package.extras]
-all = ["polars[connectorx,deltalake,fsspec,matplotlib,numpy,pandas,pyarrow,sqlalchemy,timezone,xlsx2csv,xlsxwriter]"]
+adbc = ["adbc_driver_sqlite"]
+all = ["polars[adbc,cloudpickle,connectorx,deltalake,fsspec,gevent,matplotlib,numpy,pandas,pyarrow,pydantic,pyiceberg,sqlalchemy,timezone,xlsx2csv,xlsxwriter]"]
+cloudpickle = ["cloudpickle"]
 connectorx = ["connectorx"]
-deltalake = ["deltalake (>=0.8.0)"]
+deltalake = ["deltalake (>=0.10.0)"]
 fsspec = ["fsspec"]
+gevent = ["gevent"]
 matplotlib = ["matplotlib"]
 numpy = ["numpy (>=1.16.0)"]
-pandas = ["pandas", "pyarrow (>=4.0.0)"]
-pyarrow = ["pyarrow (>=4.0.0)"]
+openpyxl = ["openpyxl (>=3.0.0)"]
+pandas = ["pandas", "pyarrow (>=7.0.0)"]
+pyarrow = ["pyarrow (>=7.0.0)"]
+pydantic = ["pydantic"]
+pyiceberg = ["pyiceberg (>=0.5.0)"]
+pyxlsb = ["pyxlsb (>=1.0)"]
 sqlalchemy = ["pandas", "sqlalchemy"]
 timezone = ["backports.zoneinfo", "tzdata"]
 xlsx2csv = ["xlsx2csv (>=0.8.0)"]
@@ -4974,16 +4970,17 @@ files = [
 
 [[package]]
 name = "pywinpty"
-version = "2.0.11"
+version = "2.0.12"
 description = "Pseudo terminal support for Windows from Python."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pywinpty-2.0.11-cp310-none-win_amd64.whl", hash = "sha256:452f10ac9ff8ab9151aa8cea9e491a9612a12250b1899278c6a56bc184afb47f"},
-    {file = "pywinpty-2.0.11-cp311-none-win_amd64.whl", hash = "sha256:6701867d42aec1239bc0fedf49a336570eb60eb886e81763db77ea2b6c533cc3"},
-    {file = "pywinpty-2.0.11-cp38-none-win_amd64.whl", hash = "sha256:0ffd287751ad871141dc9724de70ea21f7fc2ff1af50861e0d232cf70739d8c4"},
-    {file = "pywinpty-2.0.11-cp39-none-win_amd64.whl", hash = "sha256:e4e7f023c28ca7aa8e1313e53ba80a4d10171fe27857b7e02f99882dfe3e8638"},
-    {file = "pywinpty-2.0.11.tar.gz", hash = "sha256:e244cffe29a894876e2cd251306efd0d8d64abd5ada0a46150a4a71c0b9ad5c5"},
+    {file = "pywinpty-2.0.12-cp310-none-win_amd64.whl", hash = "sha256:21319cd1d7c8844fb2c970fb3a55a3db5543f112ff9cfcd623746b9c47501575"},
+    {file = "pywinpty-2.0.12-cp311-none-win_amd64.whl", hash = "sha256:853985a8f48f4731a716653170cd735da36ffbdc79dcb4c7b7140bce11d8c722"},
+    {file = "pywinpty-2.0.12-cp312-none-win_amd64.whl", hash = "sha256:1617b729999eb6713590e17665052b1a6ae0ad76ee31e60b444147c5b6a35dca"},
+    {file = "pywinpty-2.0.12-cp38-none-win_amd64.whl", hash = "sha256:189380469ca143d06e19e19ff3fba0fcefe8b4a8cc942140a6b863aed7eebb2d"},
+    {file = "pywinpty-2.0.12-cp39-none-win_amd64.whl", hash = "sha256:7520575b6546db23e693cbd865db2764097bd6d4ef5dc18c92555904cd62c3d4"},
+    {file = "pywinpty-2.0.12.tar.gz", hash = "sha256:8197de460ae8ebb7f5d1701dfa1b5df45b157bb832e92acba316305e18ca00dd"},
 ]
 
 [[package]]
@@ -7099,4 +7096,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "e85856b311805fbf6094279541cd424fa46e5692e5bca069c6872d409c864fd7"
+content-hash = "7fd1b93cbd0936753066949e5257bdac6a6b9676ffb413ec547d79172b014f05"

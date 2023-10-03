@@ -5,6 +5,7 @@ Development
 ***********
 
 - Fix multiple issues with DwdObservationRequest API
+- Raise minimum version of polars to 0.19.6 due to breaking changes
 
 0.61.0 (06.10.2023)
 *******************

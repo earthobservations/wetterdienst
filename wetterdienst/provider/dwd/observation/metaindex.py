@@ -97,8 +97,8 @@ def create_meta_index_for_climate_observations(
         )
 
     meta_index = meta_index.with_columns(
-        pl.col(Columns.FROM_DATE.value).str.strptime(pl.Datetime, "%Y%m%d"),
-        pl.col(Columns.TO_DATE.value).str.strptime(pl.Datetime, "%Y%m%d"),
+        pl.col(Columns.FROM_DATE.value).str.to_datetime("%Y%m%d"),
+        pl.col(Columns.TO_DATE.value).str.to_datetime("%Y%m%d"),
         pl.col(Columns.HEIGHT.value).cast(pl.Float64),
         pl.col(Columns.LATITUDE.value).cast(pl.Float64),
         pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
@@ -171,9 +171,9 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
     :param file: metadata file loaded in bytes
     :return: DataFrame with Stations
     """
-    df = pl.read_csv(source=file, skip_rows=2, encoding="latin-1", has_header=False).lazy()
+    df = pl.read_csv(source=file, skip_rows=2, encoding="latin-1", has_header=False, truncate_ragged_lines=True).lazy()
 
-    colspecs = [
+    colspecs = (
         (0, 5),
         (6, 8),
         (15, 9),
@@ -182,11 +182,11 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
         (50, 10),
         (60, 42),
         (102, 98),
-    ]
+    )
 
     df = df.with_columns(
         [
-            pl.col("column_1").str.slice(slice_tuple[0], slice_tuple[1]).str.strip().alias(str(i))
+            pl.col("column_1").str.slice(slice_tuple[0], slice_tuple[1]).str.strip_chars().alias(str(i))
             for i, slice_tuple in enumerate(colspecs)
         ]
     ).drop("column_1")
@@ -253,8 +253,8 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     meta_index_df = pl.concat(list(metadata_dfs))
 
     meta_index_df = meta_index_df.with_columns(
-        pl.when(pl.col(Columns.TO_DATE.value).str.strip() == "")
-        .then((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d"))
+        pl.when(pl.col(Columns.TO_DATE.value).str.strip_chars().eq(""))
+        .then(pl.lit((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")))
         .otherwise(pl.col(Columns.TO_DATE.value))
         .alias(Columns.TO_DATE.value)
     )

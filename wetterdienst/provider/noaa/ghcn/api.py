@@ -77,8 +77,8 @@ class NoaaGhcnValues(TimeseriesValues):
         time_zone = self._get_timezone_from_station(station_id)
         df = df.with_columns(
             pl.col(Columns.DATE.value)
-            .str.strptime(pl.Datetime, fmt="%Y%m%d")
-            .apply(lambda date: date.replace(tzinfo=ZoneInfo(time_zone))),
+            .str.to_datetime("%Y%m%d")
+            .map_elements(lambda date: date.replace(tzinfo=ZoneInfo(time_zone))),
             pl.col(Columns.PARAMETER.value).str.to_lowercase(),
             pl.col(Columns.VALUE.value).cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
@@ -110,7 +110,7 @@ class NoaaGhcnValues(TimeseriesValues):
         :return: DataFrame with applied factors
         """
         data = []
-        for parameter, group in df.groupby(pl.col(Columns.PARAMETER.value)):
+        for parameter, group in df.group_by(pl.col(Columns.PARAMETER.value)):
             factor = self._mp_factors.get(parameter)
             if factor:
                 group = group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
@@ -189,15 +189,15 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = pl.from_pandas(inventory_df)
         inventory_df = inventory_df[:, [0, 4, 5]]
         inventory_df.columns = [Columns.STATION_ID.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
-        inventory_df = inventory_df.groupby(pl.col(Columns.STATION_ID.value)).agg(
+        inventory_df = inventory_df.group_by(pl.col(Columns.STATION_ID.value)).agg(
             pl.col(Columns.FROM_DATE.value).min(), pl.col(Columns.TO_DATE.value).max()
         )
         inventory_df = inventory_df.with_columns(
-            pl.col(Columns.FROM_DATE.value).cast(str).str.strptime(datatype=pl.Datetime, fmt="%Y"),
+            pl.col(Columns.FROM_DATE.value).cast(str).str.to_datetime("%Y"),
             pl.col(Columns.TO_DATE.value)
-            .map(lambda s: s + 1)
+            .map_batches(lambda s: s + 1)
             .cast(str)
-            .str.strptime(datatype=pl.Datetime, fmt="%Y")
-            .map(lambda s: s - dt.timedelta(days=1)),
+            .str.to_datetime("%Y")
+            .map_batches(lambda s: s - dt.timedelta(days=1)),
         )
         return df.join(other=inventory_df, how="left", on=[Columns.STATION_ID.value]).lazy()

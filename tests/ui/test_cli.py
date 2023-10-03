@@ -377,7 +377,7 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
     if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "station_id" in df.columns
-    assert df.get_column("station_id").cast(str).apply(lambda s: any(s in sid for sid in station_id)).any()
+    assert df.get_column("station_id").cast(str).map_elements(lambda s: any(s in sid for sid in station_id)).any()
 
 
 @pytest.mark.parametrize(

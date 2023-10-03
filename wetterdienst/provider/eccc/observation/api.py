@@ -88,8 +88,8 @@ class EcccObservationValues(TimeseriesValues):
             df_parameter = df.select(
                 pl.col(Columns.DATE.value),
                 pl.lit(parameter_column).alias(Columns.PARAMETER.value),
-                pl.col(parameter_column).apply(lambda v: v if v != "" else None).alias(Columns.VALUE.value),
-                pl.col(quality_column).apply(lambda v: v if v != "" else None).alias(Columns.QUALITY.value),
+                pl.col(parameter_column).map_elements(lambda v: v if v != "" else None).alias(Columns.VALUE.value),
+                pl.col(quality_column).map_elements(lambda v: v if v != "" else None).alias(Columns.QUALITY.value),
             )
             data.append(df_parameter)
 
@@ -169,7 +169,7 @@ class EcccObservationValues(TimeseriesValues):
         df = self._tidy_up_df(df)
 
         return df.with_columns(
-            pl.col(Columns.DATE.value).str.strptime(pl.Datetime(time_zone="UTC"), fmt="%Y-%m-%d"),
+            pl.col(Columns.DATE.value).str.to_datetime("%Y-%m-%d", time_zone="UTC"),
             pl.lit(station_id).alias(Columns.STATION_ID.value),
             pl.when(pl.col(Columns.VALUE.value).str.starts_with("<"))
             .then(pl.col(Columns.VALUE.value).str.slice(1))
@@ -195,7 +195,9 @@ class EcccObservationValues(TimeseriesValues):
 
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
-        for date in pl.date_range(dt.datetime(start_year, 1, 1), dt.datetime(end_year + 1, 1, 1), interval=freq):
+        for date in pl.datetime_range(
+            dt.datetime(start_year, 1, 1), dt.datetime(end_year + 1, 1, 1), interval=freq, eager=True
+        ):
             url = self._base_url.format(int(station_id), self._timeframe)
             url += f"&Year={date.year}"
             if resolution == Resolution.HOURLY:
@@ -312,22 +314,22 @@ class EcccObservationRequest(TimeseriesRequest):
         df = df.rename(mapping=self._columns_mapping)
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).apply(lambda v: v or None),
-            pl.col(Columns.TO_DATE.value).apply(lambda v: v or None),
-            pl.col(Columns.HEIGHT.value).apply(lambda v: v or None),
+            pl.when(pl.col(Columns.FROM_DATE.value).ne("")).then(pl.col(Columns.FROM_DATE.value)),
+            pl.when(pl.col(Columns.TO_DATE.value).ne("")).then(pl.col(Columns.TO_DATE.value)),
+            pl.when(pl.col(Columns.HEIGHT.value).ne("")).then(pl.col(Columns.HEIGHT.value)),
         )
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).map(lambda s: s.fill_null(s.cast(int).min())),
-            pl.col(Columns.TO_DATE.value).map(lambda s: s.fill_null(s.cast(int).max())),
+            pl.col(Columns.FROM_DATE.value).fill_null(pl.col(Columns.FROM_DATE.value).cast(int).min()),
+            pl.col(Columns.TO_DATE.value).fill_null(pl.col(Columns.TO_DATE.value).cast(int).max()),
         )
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).str.strptime(datatype=pl.Datetime, fmt="%Y"),
+            pl.col(Columns.FROM_DATE.value).str.to_datetime("%Y"),
             pl.col(Columns.TO_DATE.value)
             .cast(int)
-            .map(lambda s: s + 1)
-            .apply(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1)),
+            .add(1)
+            .map_elements(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1)),
         )
 
         return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))
