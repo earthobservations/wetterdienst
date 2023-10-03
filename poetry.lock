@@ -2268,13 +2268,13 @@ test = ["mock", "nose", "nose-cov", "requests-mock"]
 
 [[package]]
 name = "influxdb-client"
-version = "1.37.0"
+version = "1.38.0"
 description = "InfluxDB 2.0 Python client library"
 optional = true
 python-versions = ">=3.7"
 files = [
-    {file = "influxdb_client-1.37.0-py3-none-any.whl", hash = "sha256:30b03888846fab6fb740936b1a08af24841b791cf1b99773e3894dd1d64edf2f"},
-    {file = "influxdb_client-1.37.0.tar.gz", hash = "sha256:01ac44d6a16a965ae2e0fa3238e2edeb147c11935a89b61439c9a752458001da"},
+    {file = "influxdb_client-1.38.0-py3-none-any.whl", hash = "sha256:7d04c06b833800be3350c6cb8f19f01f3f4ab33a77a24969568a141e4e132358"},
+    {file = "influxdb_client-1.38.0.tar.gz", hash = "sha256:88ee8c1beb6b3b1359f4117d51704d5da5ac70e598b9fe786823e36ac86175a8"},
 ]
 
 [package.dependencies]
