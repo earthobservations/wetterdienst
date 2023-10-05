@@ -1162,12 +1162,24 @@ class DwdDmoValues(TimeseriesValues):
         :param date: datetime
         :return: pandas DataFrame with data
         """
-        dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU)
-        url = urljoin("https://opendata.dwd.de", dmo_path)
-        file_url = self.get_url_for_date(url, date)
-        self.kml.read(file_url)
-        for forecast in self.kml.get_forecasts():
-            yield forecast
+        if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
+            dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU)
+            url = urljoin("https://opendata.dwd.de", dmo_path)
+            file_url = self.get_url_for_date(url, date)
+            self.kml.read(file_url)
+            for forecast in self.kml.get_forecasts():
+                yield forecast
+        else:
+            for station_id in self.sr.station_id:
+                dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU, station_id=station_id)
+                station_url = urljoin("https://opendata.dwd.de", dmo_path)
+                try:
+                    file_url = self.get_url_for_date(station_url, date)
+                except HTTPError:
+                    log.warning(f"Files for {station_id} do not exist on the server")
+                    continue
+                self.kml.read(file_url)
+                yield next(self.kml.get_forecasts())
 
     def read_icon(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
         """
@@ -1215,11 +1227,11 @@ class DwdDmoValues(TimeseriesValues):
             df.select(
                 pl.col("url").str.split("/").arr.last().str.split("_").arr.last().apply(lambda s: s[:-4]).alias("date")
             )
+            .with_columns(pl.col("date").cast(int).alias("date_int"))
+            .filter(pl.col("date_int").eq(pl.col("date_int").max()))
             .get_column("date")
-            .cast(int)
-            .max()
+            .to_list()[0]
         )
-        last_date = str(last_date)
         day, hour = last_date[:2], last_date[2:4]
         last_date = f"{now.date().isoformat()[:-3]}-{day} {hour}:00"
         last_date = dt.datetime.fromisoformat(last_date)

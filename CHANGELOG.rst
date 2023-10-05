@@ -9,6 +9,7 @@ Development
 - Add sql query function to streamlit app
 - Fix imgw meteorology station list parsing
 - Improve streamlit app plotting capabilities
+- Fix DWD DMO api
 
 0.60.0 (16.09.2023)
 *******************
