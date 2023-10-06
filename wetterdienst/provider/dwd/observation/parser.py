@@ -93,12 +93,20 @@ def parse_climate_observations_data(
         pandas.DataFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
-    data = [
-        _parse_climate_observations_data(filename_and_file, dataset, resolution, period)
-        for filename_and_file in filenames_and_files
-    ]
-
-    return pl.concat(data)
+    if resolution is Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
+        data = [
+            _parse_climate_observations_data(filename_and_file, dataset, resolution, period)
+            for filename_and_file in filenames_and_files
+        ]
+        try:
+            df1, df2 = data
+            return df1.join(df2, on=["station_id", "date"], how="outer")
+        except ValueError:
+            return data[0]
+    else:
+        if len(filenames_and_files) > 1:
+            raise ValueError("only one file expected")
+        return _parse_climate_observations_data(filenames_and_files[0], dataset, resolution, period)
 
 
 def _parse_climate_observations_data(
@@ -196,9 +204,8 @@ def _parse_climate_observations_data(
         )
 
     if resolution is Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
-        df = df.with_columns(
-            pl.when("fx_911_3" in df.columns).then(pl.col("qn_8")).alias("qn_8_3"),
-            pl.when("fx_911_6" in df.columns).then(pl.col("qn_8")).alias("qn_8_6"),
+        df = df.select(
+            pl.all().exclude("qn_8"), pl.col("qn_8").alias("qn_8_3" if "fx_911_3" in df.columns else "qn_8_6")
         )
 
     fmt = None

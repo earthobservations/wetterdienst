@@ -577,7 +577,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
                 parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
         percentage = df.groupby("parameter").agg(
-            (pl.col("value").drop_nulls().len() / pl.col("value").len()).alias("perc")
+            (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc")
         )
         missing = pl.DataFrame(
             [{"parameter": par, "perc": 0.0} for par in parameters if par not in percentage.get_column("parameter")],
@@ -590,6 +590,4 @@ class TimeseriesValues(metaclass=ABCMeta):
             return percentage.get_column("perc").mean()
         elif self.sr.settings.ts_skip_criteria == "max":
             return percentage.get_column("perc").max()
-        else:
-            KeyError("'ts_skip_criteria must be one of 'min', 'mean', 'max'")
-            return None
+        return None

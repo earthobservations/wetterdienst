@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix multiple issues with DwdObservationRequest API
+
 0.61.0 (06.10.2023)
 *******************
 
