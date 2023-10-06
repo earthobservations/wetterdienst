@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.61.0 (06.10.2023)
+*******************
+
 - Make parameters TEMPERATURE_AIR_MAX_200 and TEMPERATURE_AIR_MIN_200 summarizable/interpolatable
 - Add streamlit app for DWD climate stations
 - Add sql query function to streamlit app
