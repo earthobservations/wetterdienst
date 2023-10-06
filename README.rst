@@ -41,7 +41,7 @@ Hohenpeissenberg, Germany I got with the help of **wetterdienst**; and I'm not s
 "We are the first generation to feel the effect of climate change and the last generation who can do something about
 it. I used **wetterdienst** to analyze the climate in my area and I can tell it's getting hot in here." - Barack Obama
 
-.. image:: https://github.com/earthobservations/wetterdienst/workflows/Tests/badge.svg
+.. image:: https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
    :alt: CI: Overall outcome
 .. image:: https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg
