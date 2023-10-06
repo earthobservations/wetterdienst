@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -19,8 +19,7 @@ import logging
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
-import wradlib as wrl
+import xarray as xr
 
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
@@ -29,48 +28,19 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: np.ndarray, attributes: dict, label: str = None):
-    """Plot RADOLAN data with prefixed settings."""
-    # Get coordinates.
-    radolan_grid_xy = wrl.georef.get_radolan_grid(900, 900)
-
-    # Mask data.
-    data = np.ma.masked_equal(data, -9999)
-
-    # Plot with matplotlib.
-    plot_radolan(data, attributes, radolan_grid_xy, clabel=label)
-
-
-def plot_radolan(data: np.ndarray, attrs: dict, grid: np.dstack, clabel: str = None):
+def plot(ds: xr.Dataset):
     """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
-    https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html
+    https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html
 
     Thanks!
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
-    x = grid[:, :, 0]
-    y = grid[:, :, 1]
-    pm = ax.pcolormesh(x, y, data, cmap="viridis", shading="auto")
-    cb = fig.colorbar(pm, shrink=0.75)
-    cb.set_label(clabel)
-    plt.xlabel("x [km]")
-    plt.ylabel("y [km]")
-    plt.title("{0} Product\n{1}".format(attrs["producttype"], attrs["datetime"].isoformat()))
-    plt.xlim((x[0, 0], x[-1, -1]))
-    plt.ylim((y[0, 0], y[-1, -1]))
+    ds.RW.plot(ax=ax, cmap="viridis", shading="auto")
+    plt.title(f"RW Product\n{ds.time.min().values}")
     plt.grid(color="r")
-
-
-def radar_info(data: np.ndarray, attributes: dict):
-    """Display metadata from RADOLAN request."""
-    log.info("Data shape: %s", data.shape)
-    log.info("Attributes")
-
-    for key, value in attributes.items():
-        print(f"- {key}: {value}")
 
 
 def radar_rw_example():
@@ -82,14 +52,18 @@ def radar_rw_example():
     )
 
     for item in radolan.query():
-        # Decode data using wradlib.
+        # Decode data using wradlib radolan backend to xarray.
         log.info("Parsing radar RW composite data for %s", item.timestamp)
-        data, attributes = wrl.io.read_radolan_composite(item.data)
+        ds = xr.open_dataset(item.data, engine="radolan")
 
-        radar_info(data, attributes)
+        # show Dataset
+        print(ds)
+
+        # show DataArray
+        print(ds["RW"])
 
         # Plot and display data.
-        plot(data, attributes)
+        plot(ds)
         if "PYTEST_CURRENT_TEST" not in os.environ:
             plt.show()
 

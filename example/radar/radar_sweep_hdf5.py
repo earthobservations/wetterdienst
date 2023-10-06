@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021, earthobservations developers.
+# Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 """
 =====
@@ -9,7 +9,7 @@ About
 Example for DWD radar sites OPERA HDF5 (ODIM_H5) format using wetterdienst and wradlib.
 
 See also:
-- https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#OPERA-HDF5-(ODIM_H5) # noqa
+- https://docs.wradlib.org/en/stable/notebooks/fileio/legacy/read_odim.html # noqa
 
 This program will request the latest RADAR SWEEP_PCP_VELOCITY_H data
 for Boostedt and plot the outcome with matplotlib.
@@ -19,8 +19,8 @@ import logging
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 import wradlib as wrl
+import xarray as xr
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -35,10 +35,10 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: np.ndarray):
+def plot(data: xr.DataArray):
     """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
-    wrl.vis.plot_ppi(data["dataset1/data1/data"], fig=fig, proj="cg")
+    data.wrl.vis.plot(fig=fig, crs="cg")
 
 
 def radar_info(data: dict):
@@ -69,8 +69,14 @@ def radar_hdf5_example():
         # Output debug information.
         radar_info(data)
 
+        swp = data["dataset1/data1/data"]
+        da = wrl.georef.create_xarray_dataarray(swp).wrl.georef.georeference()
+
+        # Show DataArray
+        print(da)
+
         # Plot and display data.
-        plot(data)
+        plot(da)
         if "PYTEST_CURRENT_TEST" not in os.environ:
             plt.show()
 
