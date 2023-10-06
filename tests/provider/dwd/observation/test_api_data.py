@@ -1083,3 +1083,36 @@ def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_si_false
     )
     df = request.values.all().df
     assert df.filter(pl.col("value").eq(-999)).is_empty()
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
+    """Test dwd observation subdaily wind extreme values"""
+    request = DwdObservationRequest(
+        parameter=["wind_extreme"],
+        resolution="subdaily",
+        settings=default_settings,
+    ).filter_by_station_id(
+        station_id=(1048,),
+    )
+    df = request.values.all().df
+    df = df.drop_nulls("value")
+    df = df.sort("parameter").groupby(["parameter"], maintain_order=True).agg(pl.all().sort_by("date").take(1))
+    assert df.to_dicts() == [
+        {
+            "dataset": "wind_extreme",
+            "date": dt.datetime(1991, 11, 2, 9, 0, tzinfo=ZoneInfo("UTC")),
+            "parameter": "wind_gust_max_last_3h",
+            "quality": 1.0,
+            "station_id": "01048",
+            "value": 13.9,
+        },
+        {
+            "dataset": "wind_extreme",
+            "date": dt.datetime(1990, 6, 4, 18, 0, tzinfo=ZoneInfo("UTC")),
+            "parameter": "wind_gust_max_last_6h",
+            "quality": 1.0,
+            "station_id": "01048",
+            "value": 6.2,
+        },
+    ]

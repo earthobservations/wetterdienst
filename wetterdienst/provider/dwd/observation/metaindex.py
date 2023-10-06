@@ -223,7 +223,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     df_fx3 = _read_meta_df(meta_file_fx3)
     df_fx6 = _read_meta_df(meta_file_fx6)
 
-    df_fx6 = df_fx6.join(df_fx3.get_column(Columns.STATION_ID.value), on=[Columns.STATION_ID.value], how="inner")
+    df_fx6 = df_fx6.join(df_fx3.select(Columns.STATION_ID.value), on=[Columns.STATION_ID.value], how="inner")
 
     return pl.concat([df_fx3, df_fx6])
 

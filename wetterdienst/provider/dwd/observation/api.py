@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 import polars as pl
+from polars import ColumnNotFoundError
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -286,8 +287,15 @@ class DwdObservationValues(TimeseriesValues):
                     ]
                 )
         elif resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME:
-            quality = pl.concat([df.get_column("qn_8_3"), df.get_column("qn_8_6")])
-            df = df.drop(["qn_8_3", "qn_8_6"])
+            quality = []
+            for column in ("qn_8_3", "qn_8_6"):
+                try:
+                    quality.append(df.get_column(column))
+                except ColumnNotFoundError:
+                    pass
+                else:
+                    df = df.select(pl.all().exclude(column))
+            quality = pl.concat(quality)
         else:
             n = len(df.columns) - 3
             quality = pl.Series(values=repeat(df.get_column(df.columns[2]), times=n)).arr.explode()
