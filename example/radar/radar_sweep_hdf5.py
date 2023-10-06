@@ -19,7 +19,7 @@ import logging
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
+import xarray as xr
 import wradlib as wrl
 
 from wetterdienst.provider.dwd.radar import (
@@ -35,10 +35,10 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: np.ndarray):
+def plot(data: xr.DataArray):
     """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
-    wrl.vis.plot_ppi(data["dataset1/data1/data"], fig=fig, proj="cg")
+    data.wrl.vis.plot(data, fig=fig, proj="cg")
 
 
 def radar_info(data: dict):
@@ -69,8 +69,14 @@ def radar_hdf5_example():
         # Output debug information.
         radar_info(data)
 
+        swp = data["dataset1/data1/data"]
+        da = wrl.georef.create_xarray_dataarray(swp).wrl.georef.georeference()
+
+        # Show DataArray
+        print(da)
+
         # Plot and display data.
-        plot(data)
+        plot(da)
         if "PYTEST_CURRENT_TEST" not in os.environ:
             plt.show()
 

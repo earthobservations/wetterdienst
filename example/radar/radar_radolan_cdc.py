@@ -55,7 +55,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(ds: xr.Dataset, label: str = None):
+def plot(ds: xr.Dataset, product_type: str):
     """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
@@ -66,23 +66,9 @@ def plot(ds: xr.Dataset, label: str = None):
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
-    ds[label].plot(ax=ax, cmap="viridis", shading="auto")
-    plt.title(f"{label} Product\n{ds.time.min().values}")
+    ds[product_type].plot(ax=ax, cmap="viridis", shading="auto")
+    plt.title(f"{product_type} Product\n{ds.time.min().values}")
     plt.grid(color="r")
-
-
-def label_by_producttype(producttype: str) -> Optional[str]:
-    """Compute label for RW/SF product.
-
-    :param producttype: Either RW or SF.
-    :return: Label for plot.
-    """
-    if producttype == "RW":
-        return "mm * h-1"
-    elif producttype == "SF":
-        return "mm * 24h-1"
-    else:
-        return None
 
 
 def radolan_grid_example():
@@ -101,17 +87,18 @@ def radolan_grid_example():
         log.info("Parsing RADOLAN_CDC composite data for %s", item.timestamp)
         ds = xr.open_dataset(item.data, engine="radolan")
 
-        # Compute label matching RW/SF product.
-        label = label_by_producttype(list(ds.data_vars.keys())[0])
+        # Get the product type
+        # We only have one data variable with name == product_type
+        product_type = list(ds.data_vars.keys())[0]
 
         # show Dataset
         print(ds)
 
         # show DataArray
-        print(ds[label])
+        print(ds[product_type])
 
         # Plot and display data.
-        plot(ds, label)
+        plot(ds, product_type)
         if "PYTEST_CURRENT_TEST" not in os.environ:
             plt.show()
 

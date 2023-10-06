@@ -43,11 +43,6 @@ def plot(ds: xr.Dataset):
     plt.grid(color="r")
 
 
-def radar_info(ds: xr.Dataset):
-    """Display metadata from RADOLAN request."""
-    print(ds)
-
-
 def radar_rw_example():
     """Retrieve radar rw reflectivity data by DWD."""
     log.info("Acquiring radar RW composite data")
