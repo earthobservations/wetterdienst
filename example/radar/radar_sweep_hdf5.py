@@ -38,7 +38,7 @@ log = logging.getLogger()
 def plot(data: xr.DataArray):
     """Plot radar data with prefixed settings."""
     fig = plt.figure(figsize=(10, 8))
-    data.wrl.vis.plot(data, fig=fig, proj="cg")
+    data.wrl.vis.plot(fig=fig, crs="cg")
 
 
 def radar_info(data: dict):
