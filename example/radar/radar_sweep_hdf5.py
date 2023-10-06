@@ -19,8 +19,8 @@ import logging
 import os
 
 import matplotlib.pyplot as plt
-import xarray as xr
 import wradlib as wrl
+import xarray as xr
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,

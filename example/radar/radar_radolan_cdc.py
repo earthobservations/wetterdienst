@@ -39,7 +39,6 @@ real-time for Germany.
 """  # noqa:D205,D400,E501
 import logging
 import os
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import xarray as xr
