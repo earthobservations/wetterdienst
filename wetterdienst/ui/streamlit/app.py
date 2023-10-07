@@ -7,6 +7,7 @@ import polars as pl
 import streamlit
 import streamlit as st
 
+from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 SQL_DEFAULT = """
@@ -15,31 +16,48 @@ FROM df
 WHERE value IS NOT NULL
 """.strip()
 
-request = DwdObservationRequest("climate_summary", "daily")
+
+def get_dwd_observation_request(settings=None):
+    if settings:
+        settings = Settings(**settings)
+    return DwdObservationRequest("climate_summary", "daily", settings=settings)
 
 
 @streamlit.cache_data
-def get_dwd_observation_stations():
-    return request.all().df
+def get_dwd_observation_stations(settings):
+    return get_dwd_observation_request(settings=settings).all().df
 
 
 @streamlit.cache_data
-def get_dwd_observation_station(station_id):
-    return request.filter_by_station_id(station_id)
+def get_dwd_observation_station(station_id, settings):
+    return get_dwd_observation_request(settings=settings).filter_by_station_id(station_id)
 
 
 @streamlit.cache_data
-def get_dwd_observation_station_values(station_id):
-    return get_dwd_observation_station(station_id).values.all()
+def get_dwd_observation_station_values_df(station_id, settings):
+    request = get_dwd_observation_request()
+    units = request.discover("daily", "climate_summary")["daily"]
+    units = {
+        parameter: (unit["si"] if settings["ts_si_units"] else unit["origin"]) for parameter, unit in units.items()
+    }
+    values = get_dwd_observation_station(station_id, settings).values.all().df
+    return values.with_columns(pl.col("parameter").map_dict(units).alias("unit"))
 
 
 def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: list[str], x: str, y: str, facet: bool):
+    df = df.filter(pl.col(variable_column).is_in(variable_filter))
+    if "unit" in df.columns:
+        df = df.with_columns(
+            pl.struct(["parameter", "unit"])
+            .map_elements(lambda s: f"{s['parameter']} ({s['unit']})")
+            .alias("parameter")
+        )
     fig = px.scatter(
-        df.filter(pl.col(variable_column).is_in(variable_filter)),
-        x=x,
-        y=y,
-        color=variable_column,
-        facet_row=variable_column if facet else None,
+        df,
+        x=df.get_column(x),
+        y=df.get_column(y),
+        color=df.get_column(variable_column),
+        facet_row=df.get_column(variable_column) if facet else None,
     )
     fig.update_layout(
         legend={"x": 0, "y": 1.08},
@@ -61,6 +79,14 @@ def main():
     st.set_page_config(page_title=title)
     st.title(title)
 
+    with st.sidebar:
+        st.subheader("Settings")
+
+        ts_humanize = st.checkbox("humanize", value=True)
+        ts_si_units = st.checkbox("si_units", value=True)
+
+        settings = {"ts_humanize": ts_humanize, "ts_si_units": ts_si_units}
+
     st.subheader("Introduction")
     st.markdown(
         """
@@ -72,16 +98,20 @@ def main():
         """
     )
     st.markdown("Here's a map of all stations:")
-    st.map(get_dwd_observation_stations(), latitude="latitude", longitude="longitude")
+    stations = get_dwd_observation_stations(settings)
+    st.map(stations, latitude="latitude", longitude="longitude")
 
     st.subheader("Select")
     station = st.selectbox(
         "Select climate station",
-        options=get_dwd_observation_stations().sort("name").rows(named=True),
+        options=stations.sort("name").rows(named=True),
         format_func=lambda s: f"{s['name']} [{s['station_id']}]",
     )
     if station:
-        st.map(get_dwd_observation_station(station["station_id"]).df)
+        station["from_date"] = station["from_date"].isoformat()
+        station["to_date"] = station["to_date"].isoformat()
+        st.json(station, expanded=False)
+        st.map(get_dwd_observation_station(station["station_id"], settings).df)
 
     st.subheader("DataFrame")
     st.info(
@@ -98,11 +128,12 @@ def main():
     )
     df = pl.DataFrame()
     if station:
-        df = get_dwd_observation_station_values(station["station_id"]).df
+        df = get_dwd_observation_station_values_df(station["station_id"], settings)
         if sql_query:
             df = duckdb.query(sql_query).pl()
         st.dataframe(df, hide_index=True, use_container_width=True)
         st.download_button("Download CSV", df.write_csv(), "data.csv", "text/csv")
+        st.download_button("Download JSON", df.write_json(pretty=True, row_oriented=True), "data.json", "text/json")
 
     st.subheader("Plot")
     plot_enable = not df.is_empty()
