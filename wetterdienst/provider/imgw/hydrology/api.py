@@ -213,23 +213,15 @@ class ImgwHydrologyValues(TimeseriesValues):
         # shift hydrological year to regular year
         df = df.with_columns(
             pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
-            pl.col("month").add(10).map_elements(lambda m: m - 12 if m > 12 else m),
+            pl.when(pl.col("month").add(10).gt(12)).then(pl.col("month").sub(2)).otherwise(pl.col("month").add(10)),
         )
         if self.sr.resolution == Resolution.DAILY:
             df = df.with_columns(pl.col("day").cast(pl.Int64))
             exp1 = pl.all().exclude(["year", "month", "day"])
-            exp2 = (
-                pl.struct(["year", "month", "day"])
-                .map_elements(lambda x: dt.datetime(x["year"], x["month"], x["day"]))
-                .alias(Columns.DATE.value)
-            )
+            exp2 = pl.datetime("year", "month", "day").alias(Columns.DATE.value)
         else:
             exp1 = pl.all().exclude(["year", "month"])
-            exp2 = (
-                pl.struct(["year", "month"])
-                .map_elements(lambda x: dt.datetime(x["year"], x["month"], day=1))
-                .alias(Columns.DATE.value)
-            )
+            exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
         df = df.select(exp1, exp2)
         if self.sr.resolution == Resolution.DAILY:
             id_vars = ["station_id", "date"]
@@ -277,7 +269,10 @@ class ImgwHydrologyValues(TimeseriesValues):
                 )
                 df_files = df_files.with_columns(
                     pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
-                    pl.col("month").add(10).map_elements(lambda m: m - 12 if m > 12 else m),
+                    pl.when(pl.col("month").add(10).gt(12))
+                    .then(pl.col("month").sub(2))
+                    .otherwise(pl.col("month"))
+                    .alias("month"),
                 )
                 df_files = df_files.with_columns(
                     pl.struct(["year", "month"])

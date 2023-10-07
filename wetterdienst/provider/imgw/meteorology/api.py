@@ -426,18 +426,10 @@ class ImgwMeteorologyValues(TimeseriesValues):
             return df
         if self.sr.resolution == Resolution.DAILY:
             exp1 = pl.all().exclude(["year", "month", "day"])
-            exp2 = (
-                pl.struct(["year", "month", "day"])
-                .map_elements(lambda x: dt.datetime(int(x["year"]), int(x["month"]), int(x["day"])))
-                .alias(Columns.DATE.value)
-            )
+            exp2 = pl.datetime("year", "month", "day").alias(Columns.DATE.value)
         else:
             exp1 = pl.all().exclude(["year", "month"])
-            exp2 = (
-                pl.struct(["year", "month"])
-                .map_elements(lambda x: dt.datetime(int(x["year"]), int(x["month"]), day=1))
-                .alias(Columns.DATE.value)
-            )
+            exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
         df = df.select(exp1, exp2)
         df = df.melt(id_vars=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
