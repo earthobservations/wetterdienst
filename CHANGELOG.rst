@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Remove direct tzdata dependency
+
 0.63.0 (08.10.2023)
 *******************
 
