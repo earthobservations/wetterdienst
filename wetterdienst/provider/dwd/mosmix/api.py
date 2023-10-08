@@ -8,8 +8,6 @@ from io import StringIO
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
-import numpy as np
-import pandas as pd
 import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
 from requests import HTTPError
@@ -35,6 +33,7 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
+from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
 MonkeyPatch.patch_fromisoformat()
@@ -1252,7 +1251,6 @@ class DwdMosmixRequest(TimeseriesRequest):
     _unique_dataset = True
     _data_range = DataRange.FIXED
     _values = DwdMosmixValues
-
     _url = "https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/mosmix_stationskatalog.cfg?view=nasPublication"
 
     @property
@@ -1405,24 +1403,13 @@ class DwdMosmixRequest(TimeseriesRequest):
         :return:
         """
         payload = download_file(self._url, self.settings, CacheExpiry.METAINDEX)
-
-        df = pd.read_fwf(
-            StringIO(payload.read().decode(encoding="latin-1")),
-            skiprows=2,
-            skip_blank_lines=True,
-            # When inferring colspecs, make sure to look at the whole file. Otherwise,
-            # > this messes things up quite often and columns where strings get longer
-            # > towards the end of the data may get messed up and truncated.
-            # https://github.com/pandas-dev/pandas/issues/21970#issuecomment-480273621
-            colspecs="infer",
-            infer_nrows=np.Infinity,
-            na_values=["----"],
-            header=None,
-            dtype="str",
-        )
-
-        df = pl.from_pandas(df)
-
+        text = StringIO(payload.read().decode(encoding="latin-1"))
+        lines = text.readlines()
+        header = lines.pop(0)
+        df = pl.DataFrame({"column_0": lines[1:]})
+        df.columns = [header]
+        column_specs = ((0, 5), (6, 9), (11, 30), (32, 38), (39, 46), (48, 56))
+        df = read_fwf_from_df(df, column_specs)
         df.columns = [
             Columns.STATION_ID.value,
             Columns.ICAO_ID.value,
@@ -1431,12 +1418,12 @@ class DwdMosmixRequest(TimeseriesRequest):
             Columns.LONGITUDE.value,
             Columns.HEIGHT.value,
         ]
-
-        df = df.lazy()
-
-        df = df.with_columns(
+        return df.with_columns(
+            pl.col(Columns.ICAO_ID.value).map_dict({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
             pl.col(Columns.LATITUDE.value).cast(float).map_batches(convert_dm_to_dd),
             pl.col(Columns.LONGITUDE.value).cast(float).map_batches(convert_dm_to_dd),
-        )
-
-        return df.select([pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns])
+            pl.col(Columns.HEIGHT.value).cast(int),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.FROM_DATE.value),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.TO_DATE.value),
+            pl.lit(None, pl.Utf8).alias(Columns.STATE.value),
+        ).lazy()
