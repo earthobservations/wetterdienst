@@ -144,7 +144,7 @@ def test_dwd_values_success(dicts_are_same):
     )
     assert response.status_code == 200
     assert dicts_are_same(
-        response.json()["data"][0],
+        response.json()["data"][12],
         {
             "station_id": "01359",
             "dataset": "climate_summary",

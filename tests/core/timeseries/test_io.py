@@ -613,7 +613,7 @@ def test_export_duckdb(settings_si_false, tmp_path):
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     filename = tmp_path.joinpath("test.duckdb")
-    df = request.values.all().df.sort(["parameter", "date"])
+    df = request.values.all().df
     ExportMixin(df=df).to_target(f"duckdb:///{filename}?table=testdrive")
     connection = duckdb.connect(str(filename), read_only=True)
     cursor = connection.cursor()

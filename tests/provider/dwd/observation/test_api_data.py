@@ -459,6 +459,22 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
+                "fm",
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "fm",
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                None,
+                None,
+            ],
+            [
+                "01048",
+                "climate_summary",
                 "fx",
                 dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
@@ -475,7 +491,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
-                "fm",
+                "nm",
                 dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
                 None,
@@ -483,10 +499,26 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
-                "fm",
+                "nm",
                 dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                100,
+                1,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "pm",
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
                 None,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "pm",
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                100860.0,
+                1,
             ],
             [
                 "01048",
@@ -555,7 +587,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
-                "nm",
+                "tgk",
                 dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
                 None,
@@ -563,42 +595,10 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
-                "nm",
+                "tgk",
                 dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                100,
-                1,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "vpm",
-                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
                 None,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "vpm",
-                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                640,
-                1,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "pm",
-                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
-                None,
-                None,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "pm",
-                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                100860.0,
-                1,
             ],
             [
                 "01048",
@@ -614,38 +614,6 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
                 "tmk",
                 dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
                 273.65,
-                1,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "upm",
-                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
-                None,
-                None,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "upm",
-                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                97.00,
-                1,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "txk",
-                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
-                None,
-                None,
-            ],
-            [
-                "01048",
-                "climate_summary",
-                "txk",
-                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                273.84999999999997,
                 1,
             ],
             [
@@ -667,7 +635,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
-                "tgk",
+                "txk",
                 dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
                 None,
@@ -675,10 +643,42 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             [
                 "01048",
                 "climate_summary",
-                "tgk",
+                "txk",
                 dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                273.84999999999997,
+                1,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "upm",
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
                 None,
                 None,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "upm",
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                97.00,
+                1,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "vpm",
+                dt.datetime(1933, 12, 31, tzinfo=dt.timezone.utc),
+                None,
+                None,
+            ],
+            [
+                "01048",
+                "climate_summary",
+                "vpm",
+                dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                640,
+                1,
             ],
         ],
         schema={
@@ -711,9 +711,15 @@ def test_dwd_observations_urban_values(default_settings):
         {
             "station_id": ["00399"] * 2,
             "dataset": ["urban_temperature_air"] * 2,
-            "parameter": ["temperature_air_mean_200", "humidity"],
+            "parameter": [
+                "humidity",
+                "temperature_air_mean_200",
+            ],
             "date": [dt.datetime(2022, 6, 1, tzinfo=dt.timezone.utc)] * 2,
-            "value": [286.54999999999995, 83.0],
+            "value": [
+                83.0,
+                286.54999999999995,
+            ],
             "quality": [3.0, 3.0],
         }
     )
@@ -1171,7 +1177,7 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
     )
     df = request.values.all().df
     df = df.drop_nulls("value")
-    df = df.sort("parameter").group_by(["parameter"], maintain_order=True).agg(pl.all().sort_by("date").take(1))
+    df = df.sort("parameter").group_by(["parameter"], maintain_order=True).agg(pl.all().take(1))
     assert df.to_dicts() == [
         {
             "dataset": "wind_extreme",

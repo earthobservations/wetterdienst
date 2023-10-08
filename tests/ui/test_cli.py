@@ -299,8 +299,8 @@ def test_cli_values_json_multiple_datasets(capsys, caplog):
         fmt="json",
     )
     response = json.loads(result.stdout)
-    first = response[0]
-    assert first == IsDict(
+    item = response[12]
+    assert item == IsDict(
         {
             "station_id": "01048",
             "dataset": "climate_summary",
