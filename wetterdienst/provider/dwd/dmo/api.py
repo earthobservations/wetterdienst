@@ -1077,6 +1077,12 @@ class DwdDmoValues(TimeseriesValues):
             self.stations_counter += 1
             self.stations_collected.append(station_id)
 
+            if self.sr.tidy:
+                sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
+            else:
+                sort_columns = [Columns.DATASET.value, Columns.DATE.value]
+            df = df.sort(sort_columns)
+
             yield ValuesResult(stations=self.sr, values=self, df=df)
 
             if self.stations_counter == self.sr.rank:

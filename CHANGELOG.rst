@@ -8,6 +8,7 @@ Development
 - [Streamlit] Add station information json
 - [Streamlit] Add units to DataFrame view and plots
 - [Streamlit] Add JSON download
+- Return data correctly sorted
 
 0.62.0 (07.10.2023)
 *******************

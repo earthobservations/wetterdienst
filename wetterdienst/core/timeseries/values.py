@@ -452,6 +452,12 @@ class TimeseriesValues(metaclass=ABCMeta):
                 if not self.sr.tidy:
                     station_df = self._tabulate_df(df=station_df)
 
+                if self.sr.tidy:
+                    sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
+                else:
+                    sort_columns = [Columns.DATASET.value, Columns.DATE.value]
+                station_df = station_df.sort(sort_columns)
+
             yield ValuesResult(stations=self.sr, values=self, df=station_df)
 
             self.stations_counter += 1

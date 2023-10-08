@@ -42,22 +42,22 @@ def test_imgw_hydrology_api_daily(df_expected_station):
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, df_expected_station)
     values = request.values.all()
-    df_expected_values = pl.DataFrame(
+    df_expected = pl.DataFrame(
         [
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "stage",
-                "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.64,
-                "quality": None,
-            },
             {
                 "station_id": "150190130",
                 "dataset": "hydrology",
                 "parameter": "discharge",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.62,
+                "quality": None,
+            },
+            {
+                "station_id": "150190130",
+                "dataset": "hydrology",
+                "parameter": "stage",
+                "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.64,
                 "quality": None,
             },
             {
@@ -78,7 +78,7 @@ def test_imgw_hydrology_api_daily(df_expected_station):
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(values.df, df_expected_values)
+    assert_frame_equal(values.df, df_expected)
 
 
 def test_imgw_hydrology_api_monthly(df_expected_station):
@@ -94,33 +94,9 @@ def test_imgw_hydrology_api_monthly(df_expected_station):
             {
                 "station_id": "150190130",
                 "dataset": "hydrology",
-                "parameter": "stage_min",
+                "parameter": "discharge_max",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.49,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "stage_mean",
-                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.99,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "stage_max",
-                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 2.64,
-                "quality": None,
-            },
-            {
-                "station_id": "150190130",
-                "dataset": "hydrology",
-                "parameter": "discharge_min",
-                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 2.75,
+                "value": 18.3,
                 "quality": None,
             },
             {
@@ -134,15 +110,39 @@ def test_imgw_hydrology_api_monthly(df_expected_station):
             {
                 "station_id": "150190130",
                 "dataset": "hydrology",
-                "parameter": "discharge_max",
+                "parameter": "discharge_min",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 18.3,
+                "value": 2.75,
                 "quality": None,
             },
             {
                 "station_id": "150190130",
                 "dataset": "hydrology",
-                "parameter": "temperature_water_min",
+                "parameter": "stage_max",
+                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 2.64,
+                "quality": None,
+            },
+            {
+                "station_id": "150190130",
+                "dataset": "hydrology",
+                "parameter": "stage_mean",
+                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.99,
+                "quality": None,
+            },
+            {
+                "station_id": "150190130",
+                "dataset": "hydrology",
+                "parameter": "stage_min",
+                "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.49,
+                "quality": None,
+            },
+            {
+                "station_id": "150190130",
+                "dataset": "hydrology",
+                "parameter": "temperature_water_max",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
                 "quality": None,
@@ -158,7 +158,7 @@ def test_imgw_hydrology_api_monthly(df_expected_station):
             {
                 "station_id": "150190130",
                 "dataset": "hydrology",
-                "parameter": "temperature_water_max",
+                "parameter": "temperature_water_min",
                 "date": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
                 "quality": None,
@@ -173,4 +173,4 @@ def test_imgw_hydrology_api_monthly(df_expected_station):
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(values.df.sort("parameter"), df_expected_values.sort("parameter"))
+    assert_frame_equal(values.df, df_expected_values)

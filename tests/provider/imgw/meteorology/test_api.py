@@ -124,7 +124,7 @@ def test_imgw_meteorology_api_daily():
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(values.df.sort("parameter"), df_expected_values)
+    assert_frame_equal(values.df, df_expected_values)
 
 
 def test_imgw_meteorology_api_monthly():
@@ -305,4 +305,4 @@ def test_imgw_meteorology_api_monthly():
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(values.df.sort(["parameter"]), df_expected_values)
+    assert_frame_equal(values.df, df_expected_values)

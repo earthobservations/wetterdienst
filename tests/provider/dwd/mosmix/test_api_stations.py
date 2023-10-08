@@ -86,9 +86,7 @@ def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
     given_df = stations.all().df
     assert not given_df.is_empty()
     # Filter dataframe.
-    given_df = given_df.filter(pl.col(Columns.STATION_ID.value).is_in(["01001", "72306", "83891", "94767"])).sort(
-        by="station_id"
-    )
+    given_df = given_df.filter(pl.col(Columns.STATION_ID.value).is_in(["01001", "72306", "83891", "94767"]))
     # Verify content of filtered dataframe.
     expected_df = pl.DataFrame(
         [
