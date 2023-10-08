@@ -24,16 +24,17 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.polars_util import read_fwf_from_df
 
 DWD_COLUMN_NAMES_MAPPING = {
-    "0": Columns.STATION_ID.value,
-    "1": Columns.FROM_DATE.value,
-    "2": Columns.TO_DATE.value,
-    "3": Columns.HEIGHT.value,
-    "4": Columns.LATITUDE.value,
-    "5": Columns.LONGITUDE.value,
-    "6": Columns.NAME.value,
-    "7": Columns.STATE.value,
+    "column_0": Columns.STATION_ID.value,
+    "column_1": Columns.FROM_DATE.value,
+    "column_2": Columns.TO_DATE.value,
+    "column_3": Columns.HEIGHT.value,
+    "column_4": Columns.LATITUDE.value,
+    "column_5": Columns.LONGITUDE.value,
+    "column_6": Columns.NAME.value,
+    "column_7": Columns.STATE.value,
 }
 
 METADATA_COLUMNS = [
@@ -171,27 +172,19 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
     :param file: metadata file loaded in bytes
     :return: DataFrame with Stations
     """
-    df = pl.read_csv(source=file, skip_rows=2, encoding="latin-1", has_header=False, truncate_ragged_lines=True).lazy()
-
-    colspecs = (
+    df = pl.read_csv(source=file, skip_rows=2, encoding="latin-1", has_header=False, truncate_ragged_lines=True)
+    column_specs = (
         (0, 5),
-        (6, 8),
-        (15, 9),
-        (23, 15),
-        (38, 12),
-        (50, 10),
-        (60, 42),
-        (102, 98),
+        (6, 14),
+        (15, 24),
+        (23, 38),
+        (38, 50),
+        (50, 60),
+        (60, 102),
+        (102, 200),
     )
-
-    df = df.with_columns(
-        [
-            pl.col("column_1").str.slice(slice_tuple[0], slice_tuple[1]).str.strip_chars().alias(str(i))
-            for i, slice_tuple in enumerate(colspecs)
-        ]
-    ).drop("column_1")
-
-    return df.rename(mapping={k: v for k, v in DWD_COLUMN_NAMES_MAPPING.items() if k in df.columns})
+    df = read_fwf_from_df(df, column_specs)
+    return df.rename(mapping={k: v for k, v in DWD_COLUMN_NAMES_MAPPING.items() if k in df.columns}).lazy()
 
 
 def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pl.LazyFrame:

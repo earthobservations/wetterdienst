@@ -5,7 +5,6 @@ import datetime as dt
 from enum import Enum
 from typing import List, Optional, Union
 
-import numpy as np
 import pandas as pd
 import polars as pl
 from timezonefinder import TimezoneFinder
@@ -29,6 +28,7 @@ from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
+from wetterdienst.util.polars_util import read_fwf_from_df
 
 
 class NoaaGhcnDataset(Enum):
@@ -158,21 +158,37 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """
-        Method to acquire station listing,
+        Method to acquire station listing
+        # https://github.com/awslabs/open-data-docs/tree/main/docs/noaa/noaa-ghcn
+        station listing
+        | Variable     | Columns | Type      | Example     |
+        |--------------|---------|-----------|-------------|
+        | ID           | 1-11    | Character | EI000003980 |
+        | LATITUDE     | 13-20   | Real      | 55.3717     |
+        | LONGITUDE    | 22-30   | Real      | -7.3400     |
+        | ELEVATION    | 32-37   | Real      | 21.0        |
+        | STATE        | 39-40   | Character |             |
+        | NAME         | 42-71   | Character | MALIN HEAD  |
+        | GSN FLAG     | 73-75   | Character | GSN         |
+        | HCN/CRN FLAG | 77-79   | Character |             |
+        | WMO ID       | 81-85   | Character | 03980       |
+
+        inventory listing
+        | Variable  | Columns | Type      |
+        |-----------|---------|-----------|
+        | ID        | 1-11    | CHARACTER |
+        | LATITUDE  | 13-20   | REAL      |
+        | LONGITUDE | 22-30   | REAL      |
+        | ELEMENT   | 32-35   | CHARACTER |
+        | FIRSTYEAR | 37-40   | INTEGER   |
+        | LASTYEAR  | 42-45   | INTEGER   |
         :return: DataFrame with all stations_result
         """
         listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
         listings_file = download_file(listings_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
-        # https://github.com/awslabs/open-data-docs/tree/main/docs/noaa/noaa-ghcn
-        df = pd.read_fwf(
-            listings_file,
-            dtype=str,
-            header=None,
-            colspecs="infer",
-            infer_nrows=np.inf,
-        )
-        df = pl.from_pandas(df)
-        df = df[:, [0, 1, 2, 3, 4, 5, 8]]
+        df = pl.read_csv(listings_file, has_header=False, truncate_ragged_lines=True)
+        column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
+        df = read_fwf_from_df(df, column_specs)
         df.columns = [
             Columns.STATION_ID.value,
             Columns.LATITUDE.value,
@@ -185,11 +201,14 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(inventory_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
-        inventory_df = pd.read_fwf(inventory_file, header=None, colspecs="infer", infer_nrows=np.inf)
-        inventory_df = pl.from_pandas(inventory_df)
-        inventory_df = inventory_df[:, [0, 4, 5]]
+        inventory_df = pl.read_csv(inventory_file, has_header=False, truncate_ragged_lines=True)
+        column_specs = ((0, 10), (36, 39), (41, 44))
+        inventory_df = read_fwf_from_df(inventory_df, column_specs)
         inventory_df.columns = [Columns.STATION_ID.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
-        inventory_df = inventory_df.group_by(pl.col(Columns.STATION_ID.value)).agg(
+        inventory_df = inventory_df.with_columns(
+            pl.col(Columns.FROM_DATE.value).cast(int), pl.col(Columns.TO_DATE.value).cast(int)
+        )
+        inventory_df = inventory_df.group_by(Columns.STATION_ID.value).agg(
             pl.col(Columns.FROM_DATE.value).min(), pl.col(Columns.TO_DATE.value).max()
         )
         inventory_df = inventory_df.with_columns(
