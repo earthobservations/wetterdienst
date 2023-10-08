@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.63.0 (08.10.2023)
+*******************
+
 - [Streamlit] Add sideboard with settings
 - [Streamlit] Add station information json
 - [Streamlit] Add units to DataFrame view and plots
