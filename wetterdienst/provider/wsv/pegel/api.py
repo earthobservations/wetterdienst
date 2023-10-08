@@ -6,7 +6,6 @@ import json
 from enum import Enum
 from typing import List, Optional, Union
 
-import pandas as pd
 import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -271,8 +270,7 @@ class WsvPegelRequest(TimeseriesRequest):
 
         response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
 
-        df = pd.read_json(response)
-        df = pl.from_pandas(df).lazy()
+        df = pl.read_json(response).lazy()
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
         df = df.with_columns(pl.col("water").map_elements(lambda value: value["shortname"]))
         df = df.select(
