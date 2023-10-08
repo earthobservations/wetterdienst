@@ -1,20 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from typing import Generator, Tuple
+from typing import List, Tuple
 
 import polars as pl
-
-
-def chunker(seq: pl.DataFrame, chunksize: int) -> Generator[pl.DataFrame, None, None]:
-    """
-    Chunks generator function for iterating pandas Dataframes and Series.
-
-    https://stackoverflow.com/a/61798585
-    :return:
-    """
-    for pos in range(0, len(seq), chunksize):
-        yield seq[pos : pos + chunksize]
 
 
 def read_fwf_from_df(df: pl.DataFrame, column_specs: Tuple[Tuple[int, int], ...], header: bool = False) -> pl.DataFrame:
@@ -25,7 +14,7 @@ def read_fwf_from_df(df: pl.DataFrame, column_specs: Tuple[Tuple[int, int], ...]
     :return: polars DataFrame with split columns
     """
 
-    def _get_columns(column: str):
+    def _get_columns(column: str) -> List[str]:
         cols = []
         for col_start, col_end in column_specs:
             col = column[col_start : (col_end + 1)]

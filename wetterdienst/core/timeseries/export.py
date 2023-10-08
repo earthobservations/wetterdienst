@@ -11,7 +11,6 @@ from urllib.parse import urlunparse
 import polars as pl
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.util.polars_util import chunker
 from wetterdienst.util.url import ConnectionString
 
 log = logging.getLogger(__name__)
@@ -131,12 +130,12 @@ class ExportMixin:
         log.info(f"Exporting records to {target}\n{self.df.select(pl.count())}")
 
         connspec = ConnectionString(target)
-        protocol = connspec.url.scheme
-        database = connspec.get_database()
-        tablename = connspec.get_table()
+        protocol = connspec.protocol
+        database = connspec.database
+        tablename = connspec.table
 
         if target.startswith("file://"):
-            filepath = connspec.get_path()
+            filepath = connspec.path
 
             if target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
@@ -298,58 +297,109 @@ class ExportMixin:
             Example queries::
 
                 influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
+
+
+            ==========================
+            InfluxDB 3.x database sink
+            ==========================
+
+            Install Python driver::
+
+                pip install influxdb3_python
+
+            Acquire data::
+
+                INFLUXDB_ORGANIZATION=acme
+                INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+                INFLUXDB_HOST="eu-central-1-1.aws.cloud2.influxdata.com"
+
+                alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                fetch --target="influxdb3://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@${INFLUXDB_HOST}/?database=dwd&table=weather"
+
+            Example queries::
+
+                influx query 'from(bucket:"dwd") |> range(start:-2d) |> limit(n: 10)'
             """  # noqa:E501
 
             if protocol in ["influxdb", "influxdbs", "influxdb1", "influxdb1s"]:
                 version = 1
             elif protocol in ["influxdb2", "influxdb2s"]:
                 version = 2
+            elif protocol in ["influxdb3", "influxdb3s"]:
+                version = 3
             else:
                 raise KeyError(f"Unknown protocol variant '{protocol}' for InfluxDB")
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
-            # Setup the connection.
+            # Set up the connection.
             if version == 1:
                 from influxdb import InfluxDBClient
 
                 client = InfluxDBClient(
-                    host=connspec.url.hostname,
-                    port=connspec.url.port or 8086,
-                    username=connspec.url.username,
-                    password=connspec.url.password,
+                    host=connspec.host,
+                    port=connspec.port or 8086,
+                    username=connspec.username,
+                    password=connspec.password,
                     database=database,
                     ssl=protocol.endswith("s"),
                 )
                 client.create_database(database)
             elif version == 2:
-                from influxdb_client import InfluxDBClient, Point
+                from influxdb_client import InfluxDBClient as InfluxDBClientV2
+                from influxdb_client import Point as PointV2
                 from influxdb_client.client.write_api import SYNCHRONOUS
 
                 ssl = protocol.endswith("s")
                 url = f"http{ssl and 's' or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
-                client = InfluxDBClient(url=url, org=connspec.url.username, token=connspec.url.password)
+                client = InfluxDBClientV2(url=url, org=connspec.username, token=connspec.password)
                 write_api = client.write_api(write_options=SYNCHRONOUS)
+            elif version == 3:
+                from influxdb_client_3 import (
+                    InfluxDBClient3 as InfluxDBClientV3,
+                )
+                from influxdb_client_3 import (
+                    Point as PointV3,
+                )
+                from influxdb_client_3 import (
+                    WriteOptions,
+                    write_client_options,
+                )
+                from influxdb_client_3.write_client.client.write_api import WriteType
+
+                write_options = WriteOptions(write_type=WriteType.synchronous)
+                wco = write_client_options(WriteOptions=write_options)
+                client_v3 = InfluxDBClientV3(
+                    host=connspec.host,
+                    org=connspec.username,
+                    token=connspec.password,
+                    write_client_options=wco,
+                    database=database,
+                )
 
             points = []
-            for items in chunker(self.df, chunksize=50000):
-                for record in items.iter_rows(named=True):
-                    time = record.pop("date").isoformat()
-                    fields = {k: v for k, v in record.items() if v is not None}
-                    if not fields:
-                        continue
-                    if version == 1:
-                        point = {
-                            "measurement": tablename,
-                            "time": time,
-                            "fields": fields,
-                        }
-                    elif version == 2:
-                        point = Point(tablename).time(time)
-                        for field, value in fields.items():
-                            point = point.field(field, value)
+            for record in self.df.iter_rows(named=True):
+                # for record in items.iter_rows(named=True):
+                time = record.pop("date").isoformat()
+                fields = {k: v for k, v in record.items() if v is not None}
+                if not fields:
+                    continue
+                if version == 1:
+                    point = {
+                        "measurement": tablename,
+                        "time": time,
+                        "fields": fields,
+                    }
+                elif version == 2:
+                    point = PointV2(tablename).time(time)
+                    for field, value in fields.items():
+                        point = point.field(field, value)
+                elif version == 3:
+                    point = PointV3(tablename).time(time)
+                    for field, value in fields.items():
+                        point = point.field(field, value)
 
-                    points.append(point)
+                points.append(point)
 
             # Write to InfluxDB.
             if version == 1:
@@ -360,6 +410,8 @@ class ExportMixin:
             elif version == 2:
                 write_api.write(bucket=database, record=points)
                 write_api.close()
+            elif version == 3:
+                client_v3.write(record=points)
 
             log.info("Writing to InfluxDB finished")
 
