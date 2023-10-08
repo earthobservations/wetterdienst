@@ -4,6 +4,7 @@
 import datetime as dt
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
 
@@ -235,7 +236,7 @@ def test_dwd_mosmix_s(settings_humanize_false):
 
 @pytest.mark.remote
 def test_mosmix_date_filter(default_settings):
-    now = dt.datetime.now(tz=dt.timezone.utc)
+    now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
         parameter="small",
         mosmix_type=DwdMosmixType.SMALL,

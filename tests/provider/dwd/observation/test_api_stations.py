@@ -6,6 +6,7 @@ import datetime as dt
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
@@ -20,8 +21,8 @@ def expected_df():
     return pl.DataFrame(
         {
             "station_id": ["00001"],
-            "from_date": [dt.datetime(1937, 1, 1, tzinfo=dt.timezone.utc)],
-            "to_date": [dt.datetime(1986, 6, 30, tzinfo=dt.timezone.utc)],
+            "from_date": [dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "to_date": [dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC"))],
             "height": [478.0],
             "latitude": [47.8413],
             "longitude": [8.8493],
@@ -100,8 +101,8 @@ def test_dwd_observations_stations_minute_1(default_settings):
     expected_df = pl.DataFrame(
         {
             "station_id": "00003",
-            "from_date": dt.datetime(1891, 1, 1, tzinfo=dt.timezone.utc),
-            "to_date": dt.datetime(2012, 4, 6, tzinfo=dt.timezone.utc),
+            "from_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
+            "to_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
             "height": 202.0,
             "latitude": 50.7827,
             "longitude": 6.0941,

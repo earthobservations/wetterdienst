@@ -14,7 +14,7 @@ class Core(metaclass=ABCMeta):
 
     def __init__(self):
         # Time of request.
-        self.now = dt.datetime.now(dt.timezone.utc)
+        self.now = dt.datetime.now(ZoneInfo("UTC"))
 
     @property
     def tz(self) -> ZoneInfo:

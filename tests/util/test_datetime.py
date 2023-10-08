@@ -4,6 +4,7 @@
 import datetime as dt
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from wetterdienst.util.datetime import parse_date, raster_minutes, round_minutes
 
@@ -27,12 +28,12 @@ def test_round_5min():
 
 
 def test_parse_date():
-    assert parse_date("2020") == dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc)
-    assert parse_date("2020-02") == dt.datetime(2020, 2, 1, tzinfo=dt.timezone.utc)
-    assert parse_date("2020-02-02") == dt.datetime(2020, 2, 2, tzinfo=dt.timezone.utc)
-    assert parse_date("2020-02-02 02") == dt.datetime(2020, 2, 2, 2, tzinfo=dt.timezone.utc)
-    assert parse_date("2020-02-02 02:02") == dt.datetime(2020, 2, 2, 2, 2, tzinfo=dt.timezone.utc)
-    assert parse_date("2020-02-02 02:02:02") == dt.datetime(2020, 2, 2, 2, 2, 2, tzinfo=dt.timezone.utc)
+    assert parse_date("2020") == dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
+    assert parse_date("2020-02") == dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC"))
+    assert parse_date("2020-02-02") == dt.datetime(2020, 2, 2, tzinfo=ZoneInfo("UTC"))
+    assert parse_date("2020-02-02 02") == dt.datetime(2020, 2, 2, 2, tzinfo=ZoneInfo("UTC"))
+    assert parse_date("2020-02-02 02:02") == dt.datetime(2020, 2, 2, 2, 2, tzinfo=ZoneInfo("UTC"))
+    assert parse_date("2020-02-02 02:02:02") == dt.datetime(2020, 2, 2, 2, 2, 2, tzinfo=ZoneInfo("UTC"))
     with pytest.raises(ValueError) as exec_info:
         parse_date("02/02/2020")
     assert str(exec_info.value) == "date_string 02/02/2020 could not be parsed"

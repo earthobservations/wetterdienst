@@ -7,6 +7,7 @@ import re
 import pybufrkit
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -372,7 +373,7 @@ def test_radar_request_site_historic_dx_yesterday(default_settings):
         {
             "bytes": IsInt(gt=0),
             "cluttermap": 0,
-            "datetime": IsDatetime(approx=timestamp.replace(tzinfo=dt.timezone.utc), delta=dt.timedelta(minutes=65)),
+            "datetime": IsDatetime(approx=timestamp.replace(tzinfo=ZoneInfo("UTC")), delta=dt.timedelta(minutes=65)),
             "dopplerfilter": 4,
             "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
             "message": "",
@@ -421,7 +422,7 @@ def test_radar_request_site_historic_dx_timerange(default_settings):
         {
             "bytes": IsInt(gt=0),
             "cluttermap": 0,
-            "datetime": IsDatetime(approx=timestamp.replace(tzinfo=dt.timezone.utc), delta=dt.timedelta(minutes=65)),
+            "datetime": IsDatetime(approx=timestamp.replace(tzinfo=ZoneInfo("UTC")), delta=dt.timedelta(minutes=65)),
             "dopplerfilter": 4,
             "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
             "message": "",

@@ -15,6 +15,7 @@ from measurement.measures import Distance
 from measurement.utils import guess
 from polars import NoDataError
 from rapidfuzz import fuzz, process
+from zoneinfo import ZoneInfo
 
 from wetterdienst.core.core import Core
 from wetterdienst.core.timeseries.result import (
@@ -459,13 +460,13 @@ class TimeseriesRequest(Core):
             if isinstance(start_date, str):
                 start_date = dt.datetime.fromisoformat(start_date)
             if not start_date.tzinfo:
-                start_date = start_date.replace(tzinfo=dt.timezone.utc)
+                start_date = start_date.replace(tzinfo=ZoneInfo("UTC"))
 
         if end_date:
             if isinstance(end_date, str):
                 end_date = dt.datetime.fromisoformat(end_date)
             if not end_date.tzinfo:
-                end_date = end_date.replace(tzinfo=dt.timezone.utc)
+                end_date = end_date.replace(tzinfo=ZoneInfo("UTC"))
 
         # If only one date given, set the other one to equal.
         if not start_date:

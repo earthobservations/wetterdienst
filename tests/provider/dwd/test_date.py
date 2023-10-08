@@ -5,6 +5,7 @@ import datetime as dt
 
 import pytest
 from backports.datetime_fromisoformat import MonkeyPatch
+from zoneinfo import ZoneInfo
 
 from wetterdienst import Resolution
 from wetterdienst.util.datetime import mktimerange
@@ -13,14 +14,14 @@ MonkeyPatch.patch_fromisoformat()
 
 
 def test_mktimerange_annual():
-    assert mktimerange(Resolution.ANNUAL, dt.datetime(2019, 1, 1, tzinfo=dt.timezone.utc)) == (
+    assert mktimerange(Resolution.ANNUAL, dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC"))) == (
         dt.datetime.fromisoformat("2019-01-01 00:00:00+00:00"),
         dt.datetime.fromisoformat("2019-12-31 00:00:00+00:00"),
     )
     assert mktimerange(
         Resolution.ANNUAL,
-        dt.datetime(2010, 1, 1, tzinfo=dt.timezone.utc),
-        dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+        dt.datetime(2010, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
     ) == (
         dt.datetime.fromisoformat("2010-01-01 00:00:00Z"),
         dt.datetime.fromisoformat("2020-12-31 00:00:00Z"),
@@ -28,14 +29,14 @@ def test_mktimerange_annual():
 
 
 def test_mktimerange_monthly():
-    assert mktimerange(Resolution.MONTHLY, dt.datetime(2020, 5, 1, tzinfo=dt.timezone.utc)) == (
+    assert mktimerange(Resolution.MONTHLY, dt.datetime(2020, 5, 1, tzinfo=ZoneInfo("UTC"))) == (
         dt.datetime.fromisoformat("2020-05-01 00:00:00+00:00"),
         dt.datetime.fromisoformat("2020-05-31 00:00:00+00:00"),
     )
     assert mktimerange(
         Resolution.MONTHLY,
-        dt.datetime(2017, 1, 1, tzinfo=dt.timezone.utc),
-        dt.datetime(2019, 12, 1, tzinfo=dt.timezone.utc),
+        dt.datetime(2017, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
     ) == (
         dt.datetime.fromisoformat("2017-01-01 00:00:00+00:00"),
         dt.datetime.fromisoformat("2019-12-31 00:00:00+00:00"),
