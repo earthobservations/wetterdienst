@@ -3,6 +3,7 @@ import datetime as dt
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
+from zoneinfo import ZoneInfo
 
 from wetterdienst import Period, Resolution
 from wetterdienst.exceptions import StartDateEndDateError
@@ -21,7 +22,7 @@ def expected_stations_df():
         [
             (
                 "02480",
-                dt.datetime(2004, 9, 1, tzinfo=dt.timezone.utc),
+                dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
                 108.0,
                 50.0643,
                 8.993,
@@ -31,7 +32,7 @@ def expected_stations_df():
             ),
             (
                 "04411",
-                dt.datetime(2002, 1, 24, tzinfo=dt.timezone.utc),
+                dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
                 155.0,
                 49.9195,
                 8.9671,
@@ -41,7 +42,7 @@ def expected_stations_df():
             ),
             (
                 "07341",
-                dt.datetime(2005, 7, 16, tzinfo=dt.timezone.utc),
+                dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
                 119.0,
                 50.0900,
                 8.7862,

@@ -9,6 +9,7 @@ import polars as pl
 import pytest
 import requests
 from polars.testing import assert_frame_equal
+from zoneinfo import ZoneInfo
 
 from wetterdienst import Period, Resolution
 from wetterdienst.provider.dwd.observation import DwdObservationDataset
@@ -36,8 +37,8 @@ def test_parse_dwd_data():
         {
             "station_id": ["1", "1"],
             "date": [
-                dt.datetime(1937, 1, 1, tzinfo=dt.timezone.utc),
-                dt.datetime(1986, 6, 30, tzinfo=dt.timezone.utc),
+                dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC")),
             ],
             "qn_3": pl.Series(values=[None, None], dtype=pl.Utf8),
             "fx": pl.Series(values=[None, None], dtype=pl.Utf8),

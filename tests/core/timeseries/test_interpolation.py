@@ -6,6 +6,7 @@ import datetime as dt
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
+from zoneinfo import ZoneInfo
 
 from wetterdienst.exceptions import StationNotFoundError
 from wetterdienst.metadata.columns import Columns
@@ -48,7 +49,7 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords(default_setting
     given_df = result.filter_by_date("2022-01-02 00:00:00+00:00")
     expected_df = pl.DataFrame(
         {
-            "date": [dt.datetime(2022, 1, 2, tzinfo=dt.timezone.utc)],
+            "date": [dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC"))],
             "parameter": ["temperature_air_mean_200"],
             "value": [277.71],
             "distance_mean": [13.37],
@@ -70,8 +71,8 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id(default_sett
     expected_df = pl.DataFrame(
         {
             "date": [
-                dt.datetime(1986, 10, 31, tzinfo=dt.timezone.utc),
-                dt.datetime(1986, 11, 1, tzinfo=dt.timezone.utc),
+                dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "parameter": ["temperature_air_mean_200", "temperature_air_mean_200"],
             "value": [279.52, 281.85],
@@ -104,7 +105,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings):
     given_df = result.filter_by_date("2021-10-05 00:00:00+00:00")
     expected_df = pl.DataFrame(
         {
-            "date": [dt.datetime(2021, 10, 5, tzinfo=dt.timezone.utc)],
+            "date": [dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC"))],
             "parameter": ["precipitation_height"],
             "value": [0.03],
             "distance_mean": [9.38],

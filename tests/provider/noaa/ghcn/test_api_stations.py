@@ -6,6 +6,7 @@ import datetime as dt
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
@@ -17,7 +18,7 @@ def test_noaa_ghcn_stations(default_settings):
         [
             {
                 "station_id": "ACW00011604",
-                "from_date": dt.datetime(1949, 1, 1, tzinfo=dt.timezone.utc),
+                "from_date": dt.datetime(1949, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 10.1,
                 "latitude": 17.1167,
                 "longitude": -61.7833,
@@ -26,7 +27,7 @@ def test_noaa_ghcn_stations(default_settings):
             },
             {
                 "station_id": "ACW00011647",
-                "from_date": dt.datetime(1957, 1, 1, tzinfo=dt.timezone.utc),
+                "from_date": dt.datetime(1957, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 19.2,
                 "latitude": 17.1333,
                 "longitude": -61.7833,
@@ -35,7 +36,7 @@ def test_noaa_ghcn_stations(default_settings):
             },
             {
                 "station_id": "AE000041196",
-                "from_date": dt.datetime(1944, 1, 1, tzinfo=dt.timezone.utc),
+                "from_date": dt.datetime(1944, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 34.0,
                 "latitude": 25.333,
                 "longitude": 55.517,
@@ -44,7 +45,7 @@ def test_noaa_ghcn_stations(default_settings):
             },
             {
                 "station_id": "AEM00041194",
-                "from_date": dt.datetime(1983, 1, 1, tzinfo=dt.timezone.utc),
+                "from_date": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 10.4,
                 "latitude": 25.255,
                 "longitude": 55.364,
@@ -53,7 +54,7 @@ def test_noaa_ghcn_stations(default_settings):
             },
             {
                 "station_id": "AEM00041217",
-                "from_date": dt.datetime(1983, 1, 1, tzinfo=dt.timezone.utc),
+                "from_date": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "height": 26.8,
                 "latitude": 24.433,
                 "longitude": 54.651,

@@ -13,6 +13,7 @@ import openpyxl
 import polars as pl
 import pytest
 from surrogate import surrogate
+from zoneinfo import ZoneInfo
 
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
@@ -87,7 +88,7 @@ def df_data():
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_200",
-                "date": dt.datetime(2019, 1, 1, tzinfo=dt.timezone.utc),
+                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "quality": None,
             },
@@ -95,7 +96,7 @@ def df_data():
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_200",
-                "date": dt.datetime(2019, 12, 1, tzinfo=dt.timezone.utc),
+                "date": dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -103,7 +104,7 @@ def df_data():
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_200",
-                "date": dt.datetime(2019, 12, 28, tzinfo=dt.timezone.utc),
+                "date": dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "quality": None,
             },
@@ -111,7 +112,7 @@ def df_data():
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_200",
-                "date": dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+                "date": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 2.0,
                 "quality": None,
             },
@@ -119,7 +120,7 @@ def df_data():
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_200",
-                "date": dt.datetime(2021, 1, 1, tzinfo=dt.timezone.utc),
+                "date": dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.0,
                 "quality": None,
             },
@@ -127,7 +128,7 @@ def df_data():
                 "station_id": "01048",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_200",
-                "date": dt.datetime(2022, 1, 1, tzinfo=dt.timezone.utc),
+                "date": dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.0,
                 "quality": None,
             },
@@ -400,9 +401,9 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
-    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
+    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
+    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_005"][-1] == -4.6
     os.unlink(filename)
 
@@ -437,12 +438,12 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     assert columns == set(dwd_climate_summary_tabular_columns)
     # Validate content.
     data = group
-    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9, tz=dt.timezone.utc) == dt.datetime(
-        2019, 1, 1, 0, 0, tzinfo=dt.timezone.utc
+    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
+        2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
     )
     assert data["temperature_air_min_005"][0] == 1.5
-    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9, tz=dt.timezone.utc) == dt.datetime(
-        2020, 1, 1, 0, 0, tzinfo=dt.timezone.utc
+    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
+        2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
     )
     assert data["temperature_air_min_005"][-1] == -4.6
     shutil.rmtree(filename)
@@ -475,9 +476,9 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
-    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
+    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_005"][0] == 1.5
-    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=dt.timezone.utc)
+    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_005"][-1] == -4.6
     os.unlink(filename)
 

@@ -3,6 +3,7 @@ import datetime as dt
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 
@@ -30,7 +31,7 @@ def test_api_amsterdam(start_date, end_date, default_settings):
             "station_id": ["NLM00006260"],
             "dataset": ["daily"],
             "parameter": ["temperature_air_mean_200"],
-            "date": [dt.datetime(2021, 1, 1, 23, tzinfo=dt.timezone.utc)],
+            "date": [dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC"))],
             "value": [276.84999999999997],
             "quality": [None],
         },
@@ -44,6 +45,6 @@ def test_api_amsterdam(start_date, end_date, default_settings):
         },
     )
     assert_frame_equal(
-        given_df.filter(pl.col("date").eq(dt.datetime(2021, 1, 1, 23, tzinfo=dt.timezone.utc))),
+        given_df.filter(pl.col("date").eq(dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")))),
         expected_df,
     )
