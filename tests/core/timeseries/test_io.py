@@ -795,3 +795,79 @@ def test_export_influxdb2_tidy(settings_si_false):
             df = request.values.all().df
             ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
             mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
+
+
+@surrogate("influxdb_client_3.InfluxDBClient3")
+@surrogate("influxdb_client_3.Point")
+@surrogate("influxdb_client_3.WriteOptions")
+@surrogate("influxdb_client_3.write_client_options")
+@surrogate("influxdb_client_3.write_client.client.write_api.WriteType")
+@pytest.mark.remote
+def test_export_influxdb3_tabular(settings_si_false):
+    """Test export of DataFrame to influxdb v3"""
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
+        settings=settings_si_false,
+    ).filter_by_station_id(station_id=[1048])
+    with mock.patch(
+        "influxdb_client_3.InfluxDBClient3",
+    ) as mock_client, mock.patch(
+        "influxdb_client_3.Point",
+    ), mock.patch(
+        "influxdb_client_3.WriteOptions",
+    ) as mock_write_options, mock.patch(
+        "influxdb_client_3.write_client_options",
+    ) as mock_write_client_options, mock.patch(
+        "influxdb_client_3.write_client.client.write_api.WriteType",
+    ) as mock_write_type:
+        df = request.values.all().df
+        ExportMixin(df=df).to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
+        mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
+        mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
+        mock_client.assert_called_once_with(
+            host="localhost",
+            org="orga",
+            database="dwd",
+            token="token",  # noqa: S106
+            write_client_options=mock_write_client_options(),
+        )
+
+
+@surrogate("influxdb_client_3.InfluxDBClient3")
+@surrogate("influxdb_client_3.Point")
+@surrogate("influxdb_client_3.WriteOptions")
+@surrogate("influxdb_client_3.write_client_options")
+@surrogate("influxdb_client_3.write_client.client.write_api.WriteType")
+@pytest.mark.remote
+def test_export_influxdb3_tidy(settings_si_false):
+    """Test export of DataFrame to influxdb v3"""
+    request = DwdObservationRequest(
+        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
+        resolution=DwdObservationResolution.DAILY,
+        period=DwdObservationPeriod.RECENT,
+        settings=settings_si_false,
+    ).filter_by_station_id(station_id=[1048])
+    with mock.patch(
+        "influxdb_client_3.InfluxDBClient3",
+    ) as mock_client, mock.patch(
+        "influxdb_client_3.Point",
+    ), mock.patch(
+        "influxdb_client_3.WriteOptions",
+    ) as mock_write_options, mock.patch(
+        "influxdb_client_3.write_client_options",
+    ) as mock_write_client_options, mock.patch(
+        "influxdb_client_3.write_client.client.write_api.WriteType",
+    ) as mock_write_type:
+        df = request.values.all().df
+        ExportMixin(df=df).to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
+        mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
+        mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
+        mock_client.assert_called_once_with(
+            host="localhost",
+            org="orga",
+            database="dwd",
+            token="token",  # noqa: S106
+            write_client_options=mock_write_client_options(),
+        )

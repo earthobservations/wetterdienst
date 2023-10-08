@@ -13,21 +13,44 @@ class ConnectionString:
         self.url_raw = url
         self.url = urlparse(url)
 
-    def get_database(self):
+    @property
+    def protocol(self):
+        return self.url.scheme
+
+    @property
+    def host(self):
+        return self.url.hostname
+
+    @property
+    def port(self):
+        return self.url.port
+
+    @property
+    def username(self):
+        return self.url.username
+
+    @property
+    def password(self):
+        return self.url.password
+
+    @property
+    def database(self):
         # Try to get database name from query parameter.
-        database = self.get_query_param("database")
+        database = self.get_query_param("database") or self.get_query_param("bucket")
 
         # Try to get database name from URL path.
-        if database is None:
+        if not database:
             if self.url.path.startswith("/"):
                 database = self.url.path[1:]
 
         return database or "dwd"
 
-    def get_table(self):
+    @property
+    def table(self):
         return self.get_query_param("table") or "weather"
 
-    def get_path(self):
+    @property
+    def path(self):
         return self.url.path or self.url.netloc
 
     def get_query_param(self, name):

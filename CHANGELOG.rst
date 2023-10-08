@@ -6,6 +6,7 @@ Development
 
 - Remove direct tzdata dependency
 - Replace pandas read_fwf calls by polars substitutes
+- Export: Add support for InfluxDB 3.x
 
 0.63.0 (08.10.2023)
 *******************
