@@ -130,7 +130,6 @@ stamina = ">=23,<24"
 tabulate = ">=0.8,<0.10"
 timezonefinder = "<7"
 tqdm = ">=4,<5"
-tzdata = "*"
 xlsx2csv = ">=0.8.1,<0.9"
 xlsxwriter = ">=3.0.9,<3.2"
 
