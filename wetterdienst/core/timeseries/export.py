@@ -182,7 +182,14 @@ class ExportMixin:
 
                 # Problem: `TypeError: float() argument must be a string or a number, not 'NAType'`.
                 # Solution: Fill gaps in the data.
-                df = self.df.fill_null(-999).to_pandas()
+                df = self.df.fill_null(-999)
+                df = df.with_columns(
+                    pl.col("date")
+                    .dt.convert_time_zone("UTC")
+                    .dt.replace_time_zone(None)
+                    .map_elements(lambda date: date.isoformat())
+                )
+                df = df.to_pandas()
 
                 # Convert pandas DataFrame to xarray Dataset.
                 dataset = xarray.Dataset.from_dataframe(df)
@@ -196,7 +203,7 @@ class ExportMixin:
                     filepath,
                     mode="w",
                     group=None,
-                    encoding={"date": {"dtype": "datetime64"}},
+                    encoding={"date": {"dtype": "datetime64[ns]"}},
                 )
 
                 # Reporting.
