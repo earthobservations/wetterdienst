@@ -189,6 +189,7 @@ class ExportMixin:
                     .dt.replace_time_zone(None)
                     .map_elements(lambda date: date.isoformat())
                 )
+                group = df.get_column("dataset").take(0).item()
                 df = df.to_pandas()
 
                 # Convert pandas DataFrame to xarray Dataset.
@@ -196,13 +197,11 @@ class ExportMixin:
                 log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
 
                 # Export to Zarr format.
-                # TODO: Add "group" parameter.
-                #       Group path. (a.k.a. `path` in zarr terminology.)
                 # TODO: Also use attributes: `store.set_attribute()`
                 store = dataset.to_zarr(
                     filepath,
                     mode="w",
-                    group=None,
+                    group=group,  # use dataset name as group name
                     encoding={"date": {"dtype": "datetime64[ns]"}},
                 )
 
