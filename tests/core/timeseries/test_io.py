@@ -434,13 +434,9 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     assert columns == set(dwd_climate_summary_tabular_columns)
     # Validate content.
     data = group
-    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
-        2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
-    )
+    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9) == dt.datetime(2019, 1, 1, 0, 0)
     assert data["temperature_air_min_005"][0] == 1.5
-    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
-        2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
-    )
+    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9) == dt.datetime(2020, 1, 1, 0, 0)
     assert data["temperature_air_min_005"][-1] == -4.6
 
 
