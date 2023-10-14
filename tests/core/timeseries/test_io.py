@@ -424,7 +424,8 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     ExportMixin(df=df).to_target(f"file://{filename}")
 
     # Read back Zarr group.
-    group = zarr.open(str(filename), mode="r")
+    root = zarr.open(filename, mode="r")
+    group = root.get("climate_summary")
     # Validate dimensions.
     assert len(group) == 32
     assert len(group.index) == 366
