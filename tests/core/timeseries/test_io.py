@@ -3,8 +3,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import json
-import os
-import shutil
 import sqlite3
 from unittest import mock
 
@@ -371,7 +369,6 @@ def test_export_spreadsheet(tmp_path, settings_si_false_wide_shape):
         (-4.6,),
         (10,),
     ]
-    os.unlink(filename)
 
 
 @pytest.mark.remote
@@ -405,7 +402,6 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     assert data["temperature_air_min_005"][0] == 1.5
     assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_005"][-1] == -4.6
-    os.unlink(filename)
 
 
 @pytest.mark.remote
@@ -446,7 +442,6 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
         2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")
     )
     assert data["temperature_air_min_005"][-1] == -4.6
-    shutil.rmtree(filename)
 
 
 @pytest.mark.remote
@@ -480,7 +475,6 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     assert data["temperature_air_min_005"][0] == 1.5
     assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_005"][-1] == -4.6
-    os.unlink(filename)
 
 
 @pytest.mark.remote
