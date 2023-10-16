@@ -417,12 +417,42 @@ files = [
 
 [[package]]
 name = "backports-datetime-fromisoformat"
-version = "2.0.0"
+version = "2.0.1"
 description = "Backport of Python 3.11's datetime.fromisoformat"
 optional = false
-python-versions = "*"
+python-versions = ">3"
 files = [
-    {file = "backports-datetime-fromisoformat-2.0.0.tar.gz", hash = "sha256:1afaa4d593471a3b9a9875cc9b7edf2df8a4f317679ea658a8f8fa255539ce90"},
+    {file = "backports-datetime-fromisoformat-2.0.1.tar.gz", hash = "sha256:1b6afca7f47019c22df43062cde73c1af65fbdebc66520f352c690d52fd27127"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:b739ccd3f36244f618f1fbc21d89894d9dc9d1d75a68762fcf917d433df38ae3"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:afd072ca32f2ca4e838e0f7b61a56168d98837ee9a182c567a49a834e07c2b98"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:1a136d85f8b1db4747aa9e56a8caa0ba77c5c25b761b18e2169ea7b1b516f012"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5d3a0579958ade7db62c8238163e05d46a4de61c99cebb40031ed7409a44d5f6"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:199df62af8feff5da0f4953fdc4a6994bcd7dbfe1db95901d8b93d05feda2ab5"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:afe32e60a471831058ede14fc226d9f14120e6dc67d66fbbd36e1724826ad70b"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp310-cp310-win_amd64.whl", hash = "sha256:a1ba7e226a9694b20b713867f71b5ed2f662603c39875f14f968608d331fc96a"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:403f155deecbe94d43d0679a74abb5c9ac441422a9ececcfde030fb133865659"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b4d2ee049997d3aa2e714489cb3c34864fb0f25786e7a4ff04ac9d82af58b453"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp37-cp37m-musllinux_1_1_i686.whl", hash = "sha256:20aa422769af9f72ca41d83238d4a3a008d6cd74bcff0a08befb11b0018d6aa5"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:8ea8d85c3c9afa4ad51b6644d26516d43493f44c2131c12a2ba959433f4417f6"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp37-cp37m-win_amd64.whl", hash = "sha256:812b8c34e88a7d9615c604f1a0473a4e6d664aba94086bffb0c55627f9e3fb68"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:df5365930320b7a9d404cd6f7bc13988e28355e812aa42e21aa5c93443dcdd2e"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:fe3e3968c8dce4a44da2da81a6031e992a4ee62d130c2536696d215a4db2ce3c"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:36a4abb678ab0d6a1965d70e21e424bcf7a52086a7afb1c5f13243a3d44fa2dd"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:96b7e806ade09a91d8ce195c197fc799d8fbe6b8ea9cde21f8a01f1090e51e33"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-musllinux_1_1_i686.whl", hash = "sha256:002a77bd4f549ff5e80f1ef4a9b69982746dd6190786b90abe3d9c69c9883ce4"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:7b4ad0013a96b656ebf85079921ffb211623a1e28ff4981b3927690a2ed6df54"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp38-cp38-win_amd64.whl", hash = "sha256:065421723e735ce8f68dbb4486f07562ce8556ed543ceaa012189b9aa209f303"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:a4bf1bec08bc84095ee379202466c948fe12cff1442f58ee1a91fac4c5164c97"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:1836aff09b8317e179cc7288856b61a450515d4b411f0ab723dc9692dfa5362e"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:815f85a581b142bcf34632c3ce26f7e21003f101ce88b5649631330e334bbe35"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6a6986cfd3bc40b41465a6c54c18a30ca8110333d0b71f6062af136db11c8ff0"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-musllinux_1_1_i686.whl", hash = "sha256:82741e732d71f78b44a8c3b95f33b3630e7bfbdb02e3fede3938cdf15d5b6a83"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:4eac27abb51ee84e08d1dd1e908c16cae2078c217ff5b54092e6cb92107b4c6c"},
+    {file = "backports_datetime_fromisoformat-2.0.1-cp39-cp39-win_amd64.whl", hash = "sha256:3b730d72061523be9600bcd281ef353f7f73b1df095adbbdc364aac8f430c44c"},
+    {file = "backports_datetime_fromisoformat-2.0.1-pp310-pypy310_pp73-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f6e8f28f4a68539192473f427ed86794931502d186e2fffa1926250550c1335a"},
+    {file = "backports_datetime_fromisoformat-2.0.1-pp37-pypy37_pp73-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0cef151f1df77e413dc179607edb5bee11949ca5890e81c0bb742d96fec753fe"},
+    {file = "backports_datetime_fromisoformat-2.0.1-pp38-pypy38_pp73-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c28c95d6df2a44fa3540e18e484596c03e8ff7112e2f93b664f482fe3a88720b"},
+    {file = "backports_datetime_fromisoformat-2.0.1-pp39-pypy39_pp73-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:91042b53de903e3725209ad6d69b6994ae4819614c0decd62d05dfea23f35e2b"},
 ]
 
 [[package]]
