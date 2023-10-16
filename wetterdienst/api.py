@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from wetterdienst.exceptions import InvalidEnumeration, ProviderError
+from wetterdienst.exceptions import InvalidEnumerationError, ProviderNotFoundError
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -139,8 +139,8 @@ class RequestRegistry(DatasetTreeCore):
     def resolve(cls, provider: str, network: str):
         try:
             return cls[provider][network.upper()].load()
-        except AttributeError as ex:
-            raise KeyError(ex) from ex
+        except AttributeError as e:
+            raise KeyError(e) from e
 
     @classmethod
     def get_provider_names(cls):
@@ -171,8 +171,8 @@ class Wetterdienst:
             if not api:
                 raise KeyError
 
-        except (InvalidEnumeration, KeyError) as ex:
-            raise ProviderError(f"No API available for provider {provider} and network {network}") from ex
+        except (InvalidEnumerationError, KeyError) as e:
+            raise ProviderNotFoundError(f"No API available for provider {provider} and network {network}") from e
 
         return api
 

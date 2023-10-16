@@ -13,12 +13,10 @@ import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import plotly.graph_objects as go
 import polars as pl
-import requests
 from dash import Input, Output, State, dcc, html
 from geojson import Feature, FeatureCollection, Point
 
 from wetterdienst.api import RequestRegistry
-from wetterdienst.exceptions import InvalidParameterCombination
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
@@ -107,8 +105,8 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
             skip_criteria="min",
             dropna=False,
         )
-    except (requests.exceptions.ConnectionError, InvalidParameterCombination) as ex:
-        log.warning(ex)
+    except Exception as e:
+        log.warning(e)
         log.error("Unable to connect to data source")
         return empty_frame
 

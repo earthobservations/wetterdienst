@@ -15,7 +15,6 @@ import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
 from fsspec.implementations.tar import TarFileSystem
 
-from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -343,10 +342,7 @@ class DwdRadarValues:
                 # Iterate list of files and yield "RadarResult" items.
                 for row in file_index.iter_rows(named=True):
                     url = row["filename"]
-                    try:
-                        yield from self._download_radolan_data(url, self.start_date, self.end_date)
-                    except FailedDownload as e:
-                        log.exception(e)
+                    yield from self._download_radolan_data(url, self.start_date, self.end_date)
 
             else:
                 file_index = create_fileindex_radar(

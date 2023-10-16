@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
-from wetterdienst.exceptions import NoParametersFound
+from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationRequest,
@@ -88,7 +88,7 @@ def test_api_dropna(settings_dropna_true):
 
 
 def test_api_no_valid_parameters(default_settings):
-    with pytest.raises(NoParametersFound):
+    with pytest.raises(NoParametersFoundError):
         DwdObservationRequest(
             parameter=[
                 DwdObservationDataset.TEMPERATURE_AIR,

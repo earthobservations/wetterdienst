@@ -15,7 +15,7 @@ from requests import HTTPError
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.exceptions import InvalidParameter
+from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -1351,7 +1351,7 @@ class DwdMosmixRequest(TimeseriesRequest):
 
         try:
             start_issue = parse_enumeration_from_template(start_issue, DwdForecastDate)
-        except (InvalidParameter, KeyError, ValueError):
+        except InvalidEnumerationError:
             pass
 
         # Parse issue date if not set to fixed "latest" string
