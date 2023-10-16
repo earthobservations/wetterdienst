@@ -171,7 +171,7 @@ black = { version = ">=23.1,<24", extras = ["jupyter"] }
 # TODO: Currently there is a version conflict with jsonschema here
 #cff-from-621 = { version = "==0.0.1", python = ">= 3.10"}
 poethepoet = ">=0.18.1,<0.25"
-ruff = "==0.0.292"
+ruff = "==0.1.0"
 
 [tool.poetry.group.test]
 optional = true
