@@ -32,7 +32,6 @@ class NetworkFilesystemManager:
 
         return ttl_name, ttl_value
 
-    # TODO: Apply dependency injection for `wetterdienst_settings` here.
     @classmethod
     def register(cls, settings, ttl: Union[int, CacheExpiry] = CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)

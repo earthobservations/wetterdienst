@@ -34,7 +34,6 @@ from wetterdienst.util.eccodes import ensure_eccodes
         # Environment and Climate Change Canada
         ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None),  # noqa: E800, ERA001
         # IMGW Hydrology
-        # FIXME: Deactivated after flaw in data discovered on 2023-09-26
         ("imgw", "hydrology", {"parameter": "hydrology", "resolution": "daily"}, None),
         # IMGW Meteorology
         ("imgw", "meteorology", {"parameter": "climate", "resolution": "daily"}, "249200180"),
