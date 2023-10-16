@@ -5,13 +5,13 @@ import logging
 import sys
 from typing import List, Literal, Optional, Tuple, Union
 
-from wetterdienst import Kind, Provider
 from wetterdienst.core.process import create_date_range
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -81,13 +81,15 @@ def _get_stations_request(
     start_date, end_date = None, None
     if date:
         # TODO: use rather network here
-        if api == DwdMosmixRequest:
+        if issubclass(api, DwdMosmixRequest):
             mosmix_type = DwdMosmixType[resolution.upper()]
 
             if mosmix_type == DwdMosmixType.SMALL:
                 res = Resolution.HOURLY
             else:
                 res = Resolution.HOUR_6
+        elif issubclass(api, DwdDmoRequest):
+            res = Resolution.HOURLY
         else:
             res = parse_enumeration_from_template(resolution, api._resolution_base, Resolution)
 
@@ -110,8 +112,11 @@ def _get_stations_request(
         "start_date": start_date,
         "end_date": end_date,
     }
-    if api._provider == Provider.DWD and api._kind == Kind.FORECAST:
+    if issubclass(api, DwdMosmixRequest):
         kwargs["mosmix_type"] = resolution
+        kwargs["start_issue"] = issue
+    elif issubclass(api, DwdDmoRequest):
+        kwargs["dmo_type"] = resolution
         kwargs["start_issue"] = issue
     elif api._resolution_type == ResolutionType.MULTI:
         kwargs["resolution"] = resolution
