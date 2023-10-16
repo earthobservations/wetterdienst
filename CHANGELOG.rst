@@ -5,6 +5,7 @@ Development
 ***********
 
 - Cleanup error handling
+- Make cli work with DwdDmoRequest API
 
 0.64.0 (12.10.2023)
 *******************

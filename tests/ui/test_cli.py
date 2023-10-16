@@ -8,7 +8,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 from click.testing import CliRunner
-from dirty_equals import IsDict
+from dirty_equals import IsDict, IsFloat, IsStr
 
 from tests.conftest import IS_WINDOWS
 from wetterdienst.ui.cli import cli
@@ -19,7 +19,7 @@ SETTINGS_STATIONS = (
         "dwd",
         "observation",
         "--resolution=daily --parameter=kl --period=recent",
-        ("01048",),
+        "01048",
         # expected dict
         {
             "station_id": "01048",
@@ -27,8 +27,10 @@ SETTINGS_STATIONS = (
             "latitude": 51.1278,
             "longitude": 13.7543,
             "from_date": "1934-01-01T00:00:00+00:00",
+            "to_date": IsStr,
             "name": "Dresden-Klotzsche",
             "state": "Sachsen",
+            "distance": IsFloat(ge=0.0),
         },
         # coordinates
         [13.7543, 51.1278, 228.0],
@@ -37,7 +39,7 @@ SETTINGS_STATIONS = (
         "dwd",
         "mosmix",
         "--resolution=large --parameter=large",
-        ("10488",),
+        "10488",
         {
             "station_id": "10488",
             "height": 230.0,
@@ -45,10 +47,31 @@ SETTINGS_STATIONS = (
             "latitude": 51.13,
             "longitude": 13.75,
             "from_date": None,
+            "to_date": None,
             "name": "DRESDEN/FLUGHAFEN",
             "state": None,
+            "distance": IsFloat(ge=0.0),
         },
         [13.75, 51.13, 230.0],
+    ),
+    (
+        "dwd",
+        "dmo",
+        "--resolution=icon --parameter=icon",
+        "10488",
+        {
+            "station_id": "10488",
+            "height": 230.0,
+            "icao_id": "EDDC",
+            "latitude": 51.08,
+            "longitude": 13.45,
+            "from_date": None,
+            "to_date": None,
+            "name": "DRESDEN/FLUGHAFEN",
+            "state": None,
+            "distance": IsFloat(ge=0.0),
+        },
+        [13.45, 51.08, 230.0],
     ),
 )
 
@@ -57,7 +80,7 @@ SETTINGS_VALUES = (
         "dwd",
         "observation",
         "--resolution=daily --parameter=kl --date=2020-06-30",
-        ("01047", "01048"),
+        "01048",
         "Dresden-Klotzsche",
     ),
     (
@@ -65,7 +88,16 @@ SETTINGS_VALUES = (
         "mosmix",
         f"--parameter=large --resolution=large "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
-        ("10488",),
+        "10488",
+        "DRESDEN",
+    ),
+    # TODO: check why only exact date format works here but nothing else
+    (
+        "dwd",
+        "dmo",
+        f"--parameter=icon --resolution=icon "
+        f"--date={datetime.strftime(datetime.today() + timedelta(days=6), '%Y-%m-%d')}",
+        "10488",
         "DRESDEN",
     ),
 )
@@ -119,7 +151,7 @@ def invoke_wetterdienst_stations_static(provider, network, setting, station, fmt
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station={','.join(station)} --format={fmt}",
+        f"stations --provider={provider} --network={network} {setting} --station={station} --format={fmt}",
     )
 
 
@@ -127,7 +159,7 @@ def invoke_wetterdienst_stations_export(provider, network, setting, station, tar
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"stations --provider={provider} --network={network} {setting} --station={','.join(station)} --target={target}",
+        f"stations --provider={provider} --network={network} {setting} --station={station} --target={target}",
     )
 
 
@@ -136,7 +168,7 @@ def invoke_wetterdienst_stations_geo(provider, network, setting, fmt="json"):
     return runner.invoke(
         cli,
         f"stations --provider={provider} --network={network} "
-        f"{setting} --coordinates=51.1280,13.7543 --rank=5 "
+        f"{setting} --coordinates=51.1278,13.7543 --rank=5 "
         f"--format={fmt}",
     )
 
@@ -145,7 +177,7 @@ def invoke_wetterdienst_values_static(provider, network, setting, station, fmt="
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} "
+        f"values --provider={provider} --network={network} {setting} --station={station} "
         f"--shape=wide --format={fmt}",
     )
 
@@ -154,7 +186,7 @@ def invoke_wetterdienst_values_export(provider, network, setting, station, targe
     runner = CliRunner()
     return runner.invoke(
         cli,
-        f"values --provider={provider} --network={network} {setting} --station={','.join(station)} "
+        f"values --provider={provider} --network={network} {setting} --station={station} "
         f"--shape=wide --target={target}",
     )
 
@@ -164,7 +196,7 @@ def invoke_wetterdienst_values_static_tidy(provider, network, setting, station, 
     return runner.invoke(
         cli,
         f"values --provider={provider} --network={network} "
-        f"{setting} --station={','.join(station)} --format={fmt} --shape='long'",
+        f"{setting} --station={station} --format={fmt} --shape='long'",
     )
 
 
@@ -173,7 +205,7 @@ def invoke_wetterdienst_values_geo(provider, network, setting, fmt="json"):
     return runner.invoke(
         cli,
         f"values --provider={provider} --network={network} {setting} "
-        f"--coordinates=51.1280,13.7543 --rank=5 --shape=wide --format={fmt}",
+        f"--coordinates=51.1280,13.7543 --rank=10 --shape=wide --format={fmt}",
     )
 
 
@@ -205,7 +237,8 @@ def test_cli_stations_json(provider, network, setting, station_id, expected_dict
     )
     response = json.loads(result.output)
     first = response[0]
-    first.pop("to_date")
+    expected_dict = expected_dict.copy()
+    expected_dict.pop("distance")
     assert first == expected_dict
 
 
@@ -273,7 +306,7 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
     "setting,expected_columns",
     zip(
         SETTINGS_VALUES,
-        (("precipitation_height", "temperature_air_max_200"), ("wind_direction",)),
+        (("precipitation_height", "temperature_air_max_200"), ("wind_direction",), ("wind_direction",)),
     ),
 )
 def test_cli_values_json(setting, expected_columns):
@@ -283,10 +316,23 @@ def test_cli_values_json(setting, expected_columns):
     )
     response = json.loads(result.stdout)
     station_ids = {reading["station_id"] for reading in response}
-    assert set(station_id).issubset(station_ids)
+    assert station_id in station_ids
     expected_columns = {"station_id", "date"}.union(expected_columns)
     first = response[0]
     assert set(first.keys()).issuperset(expected_columns)
+
+
+def test_cli_values_json_multiple_stations():
+    result = invoke_wetterdienst_values_static(
+        provider="dwd",
+        network="observation",
+        setting="--resolution=daily --parameter=kl --period=historical",
+        station="01047,01048",
+        fmt="json",
+    )
+    response = json.loads(result.stdout)
+    station_ids = {reading["station_id"] for reading in response}
+    assert {"01047", "01048"}.issubset(station_ids)
 
 
 @pytest.mark.remote
@@ -295,7 +341,7 @@ def test_cli_values_json_multiple_datasets(capsys, caplog):
         provider="dwd",
         network="observation",
         setting="--resolution=daily --parameter=kl,more_precip --date=2020-06-30",
-        station=("01048",),
+        station="01048",
         fmt="json",
     )
     response = json.loads(result.stdout)
@@ -319,9 +365,8 @@ def test_cli_values_json_tidy(provider, network, setting, station_id, station_na
         provider=provider, network=network, setting=setting, station=station_id, fmt="json"
     )
     response = json.loads(result.output)
-    station_ids = {reading["station_id"] for reading in response}
-    assert set(station_id).issubset(station_ids)
     first = response[0]
+    assert station_id in first.values()
     assert set(first.keys()).issuperset(
         {
             "station_id",
@@ -353,8 +398,7 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     result = invoke_wetterdienst_values_static(
         provider=provider, network=network, setting=setting, station=station_id, fmt="csv"
     )
-    for s in station_id:
-        assert s in result.output
+    assert station_id in result.output
 
 
 @pytest.mark.remote
@@ -373,11 +417,11 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
         station=station_id,
         target=f"file://{filename}",
     )
-    df = pl.read_excel(filename, sheet_name="Sheet1")
+    df = pl.read_excel(filename, sheet_name="Sheet1", read_csv_options={"infer_schema_length": 0})
     if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "station_id" in df.columns
-    assert df.get_column("station_id").cast(str).map_elements(lambda s: any(s in sid for sid in station_id)).any()
+    assert df.get_column("station_id").item() == station_id
 
 
 @pytest.mark.parametrize(
@@ -399,9 +443,8 @@ def test_cli_values_format_unknown(provider, network, setting, station_id, stati
 def test_cli_stations_geospatial(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_geo(provider=provider, network=network, setting=setting, fmt="json")
     response = json.loads(result.output)
-    first = response[0]
-    first_filtered = {k: first[k] for k in expected_dict.keys()}
-    assert first_filtered == expected_dict
+    station = [item for item in response if item["station_id"] == station_id][0]
+    assert station == expected_dict
 
 
 @pytest.mark.remote
@@ -413,7 +456,7 @@ def test_cli_values_geospatial(provider, network, setting, station_id, station_n
     result = invoke_wetterdienst_values_geo(provider=provider, network=network, setting=setting, fmt="json")
     response = json.loads(result.output)
     station_ids = {reading["station_id"] for reading in response}
-    assert set(station_id).issubset(station_ids)
+    assert station_id in station_ids
 
 
 @pytest.mark.remote
