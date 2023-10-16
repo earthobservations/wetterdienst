@@ -15,7 +15,7 @@ from click_params import StringListParamType
 from cloup.constraints import If, RequireExactly, accept_none
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
-from wetterdienst.exceptions import ProviderError
+from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.core import (
     get_interpolate,
     get_stations,
@@ -63,7 +63,7 @@ def get_api(provider: str, network: str):
     """
     try:
         return Wetterdienst(provider, network)
-    except ProviderError as e:
+    except ProviderNotFoundError as e:
         log.error(str(e))
         sys.exit(1)
 
@@ -796,8 +796,8 @@ def values(
             skip_threshold=skip_threshold,
             dropna=dropna,
         )
-    except ValueError as ex:
-        log.exception(ex)
+    except ValueError as e:
+        log.exception(e)
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -877,8 +877,8 @@ def interpolate(
             humanize=humanize,
             use_nearby_station_distance=use_nearby_station_distance,
         )
-    except ValueError as ex:
-        log.exception(ex)
+    except ValueError as e:
+        log.exception(e)
         sys.exit(1)
     else:
         if values_.df.is_empty():
@@ -955,8 +955,8 @@ def summarize(
             si_units=si_units,
             humanize=humanize,
         )
-    except ValueError as ex:
-        log.exception(ex)
+    except ValueError as e:
+        log.exception(e)
         sys.exit(1)
     else:
         if values_.df.is_empty():

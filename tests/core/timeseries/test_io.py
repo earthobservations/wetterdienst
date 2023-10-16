@@ -240,9 +240,9 @@ def test_export_unknown(default_settings):
         station_id=[1048],
     )
     df = request.values.all().df
-    with pytest.raises(KeyError) as ex:
+    with pytest.raises(KeyError) as exec_info:
         ExportMixin(df=df).to_target("file:///test.foobar")
-    ex.match("Unknown export file type")
+    assert exec_info.match("Unknown export file type")
 
 
 @pytest.mark.remote

@@ -16,7 +16,7 @@ from wetterdienst import Kind, Parameter, Period, Provider, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.exceptions import InvalidParameter
+from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
@@ -1366,7 +1366,7 @@ class DwdDmoRequest(TimeseriesRequest):
 
         try:
             start_issue = parse_enumeration_from_template(start_issue, DwdForecastDate)
-        except (InvalidParameter, KeyError, ValueError):
+        except InvalidEnumerationError:
             pass
 
         if start_issue is not DwdForecastDate.LATEST:

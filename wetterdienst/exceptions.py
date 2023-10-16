@@ -1,35 +1,19 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-class FailedDownload(Exception):
+class InvalidEnumerationError(ValueError):
     pass
 
 
-class InvalidEnumeration(ValueError):
+class NoParametersFoundError(ValueError):
     pass
 
 
-class InvalidParameter(ValueError):
+class MetaFileNotFoundError(FileNotFoundError):
     pass
 
 
-class InvalidParameterSet(ValueError):
-    pass
-
-
-class InvalidParameterCombination(ValueError):
-    pass
-
-
-class NoParametersFound(ValueError):
-    pass
-
-
-class MetaFileNotFound(FileNotFoundError):
-    pass
-
-
-class ProductFileNotFound(FileNotFoundError):
+class ProductFileNotFoundError(FileNotFoundError):
     pass
 
 
@@ -37,15 +21,11 @@ class StartDateEndDateError(Exception):
     pass
 
 
-class DatetimeOutOfRangeError(Exception):
+class InvalidTimeIntervalError(ValueError):
     pass
 
 
-class InvalidTimeInterval(ValueError):
-    pass
-
-
-class ProviderError(Exception):
+class ProviderNotFoundError(Exception):
     pass
 
 

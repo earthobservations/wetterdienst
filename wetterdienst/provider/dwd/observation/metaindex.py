@@ -10,9 +10,8 @@ from typing import List, Tuple
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
-from requests.exceptions import InvalidURL
 
-from wetterdienst.exceptions import MetaFileNotFound
+from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -125,25 +124,16 @@ def _create_meta_index_for_climate_observations(
 
     """
     parameter_path = build_path_to_parameter(dataset, resolution, period)
-
     if dataset in DWD_URBAN_DATASETS:
         dwd_cdc_base = "observations_germany/climate_urban/"
     else:
         dwd_cdc_base = "observations_germany/climate/"
-
     url = f"https://opendata.dwd.de/climate_environment/CDC/{dwd_cdc_base}/{parameter_path}"
-
-    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
-
+    remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # Find the one meta file from the files listed on the server
-    meta_file = _find_meta_file(files_server, url, ["beschreibung", "txt"])
-
-    try:
-        file = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)
-    except InvalidURL as e:
-        raise InvalidURL(f"Error: reading metadata {meta_file} file failed.") from e
-
-    return _read_meta_df(file)
+    meta_file = _find_meta_file(remote_files, url, ["beschreibung", "txt"])
+    payload = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)
+    return _read_meta_df(payload)
 
 
 def _find_meta_file(files: List[str], url: str, strings: List[str]) -> str:
@@ -157,14 +147,14 @@ def _find_meta_file(files: List[str], url: str, strings: List[str]) -> str:
     Returns:
         the matching file
     Raises:
-        MetaFileNotFound - for the case no file was found
+        MetaFileNotFoundError - for the case no file was found
     """
     for file in files:
         file_strings = file.split("/")[-1].lower().replace(".", "_").split("_")
         if set(file_strings).issuperset(strings):
             return file
-
-    raise MetaFileNotFound(f"No meta file was found amongst the files at {url}.")
+    else:
+        raise MetaFileNotFoundError(f"No meta file was found amongst the files at {url}.")
 
 
 def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
@@ -194,30 +184,16 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     :return: pandas.DataFrame with combined information for both 3hourly (fx3) and 6hourly (fx6) wind extremes
     """
     parameter_path = build_path_to_parameter(DwdObservationDataset.WIND_EXTREME, Resolution.SUBDAILY, period)
-
     url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}"
-
-    files_server = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
-
+    remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # Find the one meta file from the files listed on the server
-    meta_file_fx3 = _find_meta_file(files_server, url, ["fx3", "beschreibung", "txt"])
-    meta_file_fx6 = _find_meta_file(files_server, url, ["fx6", "beschreibung", "txt"])
-
-    try:
-        meta_file_fx3 = download_file(meta_file_fx3, settings=settings, ttl=CacheExpiry.METAINDEX)
-    except InvalidURL as e:
-        raise InvalidURL(f"Error: reading metadata {meta_file_fx3} file failed.") from e
-
-    try:
-        meta_file_fx6 = download_file(meta_file_fx6, settings=settings, ttl=CacheExpiry.METAINDEX)
-    except InvalidURL as e:
-        raise InvalidURL(f"Error: reading metadata {meta_file_fx6} file failed.") from e
-
-    df_fx3 = _read_meta_df(meta_file_fx3)
-    df_fx6 = _read_meta_df(meta_file_fx6)
-
+    meta_file_fx3 = _find_meta_file(remote_files, url, ["fx3", "beschreibung", "txt"])
+    meta_file_fx6 = _find_meta_file(remote_files, url, ["fx6", "beschreibung", "txt"])
+    payload_fx3 = download_file(meta_file_fx3, settings=settings, ttl=CacheExpiry.METAINDEX)
+    payload_fx6 = download_file(meta_file_fx6, settings=settings, ttl=CacheExpiry.METAINDEX)
+    df_fx3 = _read_meta_df(payload_fx3)
+    df_fx6 = _read_meta_df(payload_fx6)
     df_fx6 = df_fx6.join(df_fx3.select(Columns.STATION_ID.value), on=[Columns.STATION_ID.value], how="inner")
-
     return pl.concat([df_fx3, df_fx6])
 
 
@@ -238,7 +214,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
 
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
-            partial(_download_metadata_file_for_1minute_precipitation, settings=settings), metadata_file_paths
+            partial(download_file, settings=settings, ttl=CacheExpiry.NO_CACHE), metadata_file_paths
         )
 
     metadata_dfs = [_parse_geo_metadata((file, station_id)) for file, station_id in zip(metadata_files, station_ids)]
@@ -257,26 +233,6 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
 
     # Make station id str
     return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.rjust(5, "0"))
-
-
-def _download_metadata_file_for_1minute_precipitation(metadata_file: str, settings: Settings) -> BytesIO:
-    """A function that simply opens a filepath with help of the urllib library and then
-    writes the content to a BytesIO object and returns this object. For this case as it
-    opens lots of requests (there are approx 1000 different files to open for
-    1minute data), it will do the same at most three times for one file to assure
-    success reading the file.
-
-    Args:
-        metadata_file (str) - the file that shall be downloaded and returned as bytes.
-
-    Return:
-        A BytesIO object to which the opened file was written beforehand.
-
-    """
-    try:
-        return download_file(metadata_file, settings=settings, ttl=CacheExpiry.NO_CACHE)
-    except InvalidURL as e:
-        raise InvalidURL(f"Reading metadata {metadata_file} file failed.") from e
 
 
 def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pl.LazyFrame:

@@ -23,15 +23,13 @@ def test_radar_sites_by_odimcode():
     assert ors.by_odimcode("EMD")["location"] == "Emden"
     assert ors.by_odimcode("UMD")["location"] == "Ummendorf"
 
-    with pytest.raises(ValueError) as ex:
+    with pytest.raises(ValueError) as exec_info:
         ors.by_odimcode("foobar")
-    assert ex.errisinstance(ValueError)
-    assert ex.match("ODIM code must be three or five letters")
+    assert exec_info.match("ODIM code must be three or five letters")
 
-    with pytest.raises(KeyError) as ex:
+    with pytest.raises(KeyError) as exec_info:
         ors.by_odimcode("foo")
-    assert ex.errisinstance(KeyError)
-    assert ex.match("'Radar site not found'")
+    assert exec_info.match("'Radar site not found'")
 
 
 def test_radar_sites_by_wmocode():
@@ -47,7 +45,6 @@ def test_radar_sites_by_countryname():
     sites_uk = ors.by_countryname(name="United Kingdom")
     assert len(sites_uk) == 16
 
-    with pytest.raises(KeyError) as ex:
+    with pytest.raises(KeyError) as exec_info:
         ors.by_countryname(name="foo")
-    assert ex.errisinstance(KeyError)
-    assert ex.match("'No radar sites for this country'")
+    assert exec_info.match("'No radar sites for this country'")

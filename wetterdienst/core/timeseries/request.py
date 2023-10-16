@@ -25,8 +25,8 @@ from wetterdienst.core.timeseries.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.exceptions import (
-    InvalidEnumeration,
-    NoParametersFound,
+    InvalidEnumerationError,
+    NoParametersFoundError,
     StartDateEndDateError,
     StationNotFoundError,
 )
@@ -286,7 +286,7 @@ class TimeseriesRequest(Core):
 
         try:
             dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
-        except InvalidEnumeration:
+        except InvalidEnumerationError:
             pass
 
         if dataset_:
@@ -306,7 +306,7 @@ class TimeseriesRequest(Core):
                     parameter_ = parse_enumeration_from_template(
                         parameter, self._parameter_base[self._dataset_accessor][dataset_.name]
                     )
-                except (InvalidEnumeration, TypeError):
+                except (InvalidEnumerationError, TypeError):
                     pass
 
         return parameter_, dataset_
@@ -374,7 +374,7 @@ class TimeseriesRequest(Core):
         self.parameter = self._parse_parameter(parameter)
 
         if not self.parameter:
-            raise NoParametersFound("no valid parameters could be parsed from given argument")
+            raise NoParametersFoundError("no valid parameters could be parsed from given argument")
 
         self.humanize = settings.ts_humanize
         shape = settings.ts_shape
@@ -925,6 +925,6 @@ class TimeseriesRequest(Core):
                 .transpose()
                 .to_series()
             )
-        except NoDataError as ex:
-            raise StationNotFoundError(f"no station found for {station_id}") from ex
+        except NoDataError as e:
+            raise StationNotFoundError(f"no station found for {station_id}") from e
         return lat, lon

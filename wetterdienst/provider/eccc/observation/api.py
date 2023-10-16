@@ -12,7 +12,6 @@ import polars as pl
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.exceptions import FailedDownload
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
@@ -352,7 +351,8 @@ class EcccObservationRequest(TimeseriesRequest):
         try:
             payload = download_file(gdrive_url, self.settings, CacheExpiry.METAINDEX)
             source = 0
-        except Exception:
+        except Exception as e:
+            log.exception(e)
             log.exception(f"Unable to access Google drive server at {gdrive_url}")
 
             # Fall back to different source.
@@ -361,10 +361,11 @@ class EcccObservationRequest(TimeseriesRequest):
                 with gzip.open(response, mode="rb") as f:
                     payload = BytesIO(f.read())
                 source = 1
-            except Exception:
+            except Exception as e:
+                log.exception(e)
                 log.exception(f"Unable to access HTTP server at {http_url}")
 
-        if payload is None:
-            raise FailedDownload("Unable to acquire ECCC stations list")
+        if not payload:
+            raise FileNotFoundError("Unable to acquire ECCC stations list")
 
         return payload, source

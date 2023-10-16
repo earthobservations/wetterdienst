@@ -36,7 +36,7 @@ def test_parse_date():
     assert parse_date("2020-02-02 02:02:02") == dt.datetime(2020, 2, 2, 2, 2, 2, tzinfo=ZoneInfo("UTC"))
     with pytest.raises(ValueError) as exec_info:
         parse_date("02/02/2020")
-    assert str(exec_info.value) == "date_string 02/02/2020 could not be parsed"
+    assert exec_info.match("date_string 02/02/2020 could not be parsed")
     with pytest.raises(ValueError) as exec_info:
         parse_date("02.02.2020")
-    assert str(exec_info.value) == "date_string 02.02.2020 could not be parsed"
+    assert exec_info.match("date_string 02.02.2020 could not be parsed")

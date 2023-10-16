@@ -9,9 +9,8 @@ from zipfile import BadZipFile
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
-from requests.exceptions import InvalidURL
 
-from wetterdienst.exceptions import FailedDownload, ProductFileNotFound
+from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
@@ -51,12 +50,7 @@ def _download_climate_observations_data(remote_file: str, settings: Settings) ->
 
 
 def __download_climate_observations_data(remote_file: str, settings: Settings) -> bytes:
-    try:
-        file = download_file(remote_file, settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
-    except InvalidURL as e:
-        raise InvalidURL(f"Error: the station data {remote_file} could not be reached.") from e
-    except Exception as ex:
-        raise FailedDownload(f"Download failed for {remote_file}") from ex
+    file = download_file(remote_file, settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
 
     try:
         zfs = ZipFileSystem(file)
@@ -66,6 +60,6 @@ def __download_climate_observations_data(remote_file: str, settings: Settings) -
     product_file = zfs.glob("produkt*")
 
     if len(product_file) != 1:
-        raise ProductFileNotFound(f"The archive of {remote_file} does not hold a 'produkt' file.")
+        raise ProductFileNotFoundError(f"The archive of {remote_file} does not hold a 'produkt' file.")
 
     return zfs.open(product_file[0]).read()

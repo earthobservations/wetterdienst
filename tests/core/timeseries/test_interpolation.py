@@ -183,9 +183,9 @@ def test_interpolation_temperature_air_mean_200_daily_three_floats(default_setti
         end_date=dt.datetime(2022, 1, 20),
         settings=default_settings,
     )
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as exec_info:
         stations.interpolate(latlon=(0, 1, 2))
-    assert str(excinfo.value).startswith("too many values to unpack")
+    assert exec_info.match("too many values to unpack")
 
 
 def test_interpolation_temperature_air_mean_200_daily_one_floats(default_settings):
@@ -196,9 +196,9 @@ def test_interpolation_temperature_air_mean_200_daily_one_floats(default_setting
         end_date=dt.datetime(2022, 1, 20),
         settings=default_settings,
     )
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as exec_info:
         stations.interpolate(latlon=(0,))
-    assert str(excinfo.value).startswith("not enough values to unpack")
+    assert exec_info.match("not enough values to unpack")
 
 
 def test_interpolation_temperature_air_mean_200_daily_no_station_found(default_settings):
@@ -209,6 +209,6 @@ def test_interpolation_temperature_air_mean_200_daily_no_station_found(default_s
         end_date=dt.datetime(2022, 1, 20),
         settings=default_settings,
     )
-    with pytest.raises(StationNotFoundError) as excinfo:
+    with pytest.raises(StationNotFoundError) as exec_info:
         stations.interpolate_by_station_id(station_id="00")
-    assert str(excinfo.value) == "no station found for 00000"
+    assert exec_info.match("no station found for 00000")

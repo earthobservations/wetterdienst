@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Cleanup error handling
+
 0.64.0 (12.10.2023)
 *******************
 

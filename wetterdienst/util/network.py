@@ -75,7 +75,6 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
         listings_cache_location=settings.cache_dir,
         client_kwargs=settings.fsspec_client_kwargs,
     )
-
     return fs.find(url)
 
 

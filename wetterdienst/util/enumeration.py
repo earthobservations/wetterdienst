@@ -4,7 +4,7 @@
 from enum import Enum
 from typing import Optional, Type, Union
 
-from wetterdienst.exceptions import InvalidEnumeration
+from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.util.python import to_list
 
 
@@ -20,7 +20,7 @@ def parse_enumeration_from_template(
     :param base:            base enumeration to which the intermediate one is casted
 
     :return:                Parsed enumeration from template
-    :raises InvalidParameter: if no matching enumeration found
+    :raises InvalidEnumerationError: if no matching enumeration found
     """
     if enum_ is None:
         return None
@@ -54,8 +54,8 @@ def parse_enumeration_from_template(
                     raise ValueError()
             else:
                 enum_parsed = intermediate(enum_)
-        except ValueError as ex:
-            raise InvalidEnumeration(f"{enum_} could not be parsed from {intermediate.__name__}.") from ex
+        except ValueError as e:
+            raise InvalidEnumerationError(f"{enum_} could not be parsed from {intermediate.__name__}.") from e
 
     if base:
         try:
@@ -63,8 +63,8 @@ def parse_enumeration_from_template(
         except (KeyError, AttributeError):
             try:
                 enum_parsed = base(enum_parsed)
-            except ValueError as ex:
-                raise InvalidEnumeration(f"{enum_parsed} could not be parsed from {base.__name__}.") from ex
+            except ValueError as e:
+                raise InvalidEnumerationError(f"{enum_parsed} could not be parsed from {base.__name__}.") from e
 
     return enum_parsed
 

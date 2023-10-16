@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.exceptions import ProviderError
+from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import (
@@ -154,7 +154,7 @@ def stations(
 
     try:
         api = Wetterdienst(provider, network)
-    except ProviderError as e:
+    except ProviderNotFoundError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
@@ -301,12 +301,12 @@ def values(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderError:
-        return HTTPException(
+    except ProviderNotFoundError as e:
+        raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
             f"Choose provider and network from {Wetterdienst.discover()}",
-        )
+        ) from e
 
     parameter = read_list(parameter)
     if period:
@@ -419,12 +419,12 @@ def interpolate(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderError as err:
+    except ProviderNotFoundError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
             f"Choose provider and network from {Wetterdienst.discover()}",
-        ) from err
+        ) from e
 
     parameter = read_list(parameter)
     if period:
@@ -529,12 +529,12 @@ def summarize(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderError as err:
+    except ProviderNotFoundError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
             f"Choose provider and network from {Wetterdienst.discover()}",
-        ) from err
+        ) from e
 
     parameter = read_list(parameter)
     if period:
