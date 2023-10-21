@@ -596,4 +596,5 @@ class TimeseriesValues(metaclass=ABCMeta):
             return percentage.get_column("perc").mean()
         elif self.sr.settings.ts_skip_criteria == "max":
             return percentage.get_column("perc").max()
-        return None
+        else:
+            raise KeyError("ts_skip_criteria must be one of min, mean, max")
