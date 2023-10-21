@@ -2,25 +2,30 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
-from fastapi.testclient import TestClient
-
-from wetterdienst.ui.restapi import app
-
-client = TestClient(app)
+from dirty_equals import IsDict, IsStr
 
 
-def test_index():
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+
+    from wetterdienst.ui.restapi import app
+
+    return TestClient(app)
+
+
+def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "Wetterdienst - Open weather data for humans" in response.text
 
 
-def test_robots():
+def test_robots(client):
     response = client.get("/robots.txt")
     assert response.status_code == 200
 
 
-def test_no_provider():
+def test_no_provider(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -36,7 +41,7 @@ def test_no_provider():
     assert "Choose provider and network from /restapi/coverage" in response.text
 
 
-def test_no_network():
+def test_no_network(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -52,7 +57,7 @@ def test_no_network():
     assert "Choose provider and network from /restapi/coverage" in response.text
 
 
-def test_stations_wrong_format():
+def test_stations_wrong_format(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -70,7 +75,7 @@ def test_stations_wrong_format():
 
 
 @pytest.mark.remote
-def test_dwd_stations_basic():
+def test_dwd_stations_basic(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -83,14 +88,23 @@ def test_dwd_stations_basic():
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"][0]["station_id"] == "00011"
-    assert response.json()["data"][0]["name"] == "Donaueschingen (Landeplatz)"
-    assert response.json()["data"][0]["latitude"] == 47.9736
-    assert response.json()["data"][0]["longitude"] == 8.5205
+    item = response.json()["data"][0]
+    assert item == IsDict(
+        {
+            "station_id": "00011",
+            "from_date": "1980-09-01T00:00:00+00:00",
+            "to_date": IsStr,
+            "latitude": 47.9736,
+            "longitude": 8.5205,
+            "height": 680.0,
+            "name": "Donaueschingen (Landeplatz)",
+            "state": "Baden-Württemberg",
+        }
+    )
 
 
 @pytest.mark.remote
-def test_dwd_stations_geo():
+def test_dwd_stations_geo(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -104,14 +118,24 @@ def test_dwd_stations_geo():
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"][0]["station_id"] == "03730"
-    assert response.json()["data"][0]["name"] == "Oberstdorf"
-    assert response.json()["data"][0]["latitude"] == 47.3984
-    assert response.json()["data"][0]["longitude"] == 10.2759
+    item = response.json()["data"][0]
+    assert item == IsDict(
+        {
+            "station_id": "03730",
+            "from_date": "1910-01-01T00:00:00+00:00",
+            "to_date": IsStr,
+            "latitude": 47.3984,
+            "longitude": 10.2759,
+            "height": 806.0,
+            "name": "Oberstdorf",
+            "state": "Bayern",
+            "distance": 207.0831200352328,
+        }
+    )
 
 
 @pytest.mark.remote
-def test_dwd_stations_sql():
+def test_dwd_stations_sql(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -126,10 +150,23 @@ def test_dwd_stations_sql():
     assert response.status_code == 200
     assert response.json()["data"][0]["station_id"] == "01048"
     assert response.json()["data"][0]["name"] == "Dresden-Klotzsche"
+    item = response.json()["data"][0]
+    assert item == IsDict(
+        {
+            "station_id": "01048",
+            "from_date": "1934-01-01T00:00:00+00:00",
+            "to_date": IsStr,
+            "latitude": 51.1278,
+            "longitude": 13.7543,
+            "height": 228.0,
+            "name": "Dresden-Klotzsche",
+            "state": "Sachsen",
+        }
+    )
 
 
 @pytest.mark.remote
-def test_dwd_values_success(dicts_are_same):
+def test_dwd_values_success(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -143,20 +180,18 @@ def test_dwd_values_success(dicts_are_same):
         },
     )
     assert response.status_code == 200
-    assert dicts_are_same(
-        response.json()["data"][12],
-        {
-            "station_id": "01359",
-            "dataset": "climate_summary",
-            "parameter": "wind_gust_max",
-            "date": "1982-01-01T00:00:00+00:00",
-            "value": 4.2,
-            "quality": 10.0,
-        },
-    )
+    item = response.json()["data"][12]
+    assert item == {
+        "station_id": "01359",
+        "dataset": "climate_summary",
+        "parameter": "wind_gust_max",
+        "date": "1982-01-01T00:00:00+00:00",
+        "value": 4.2,
+        "quality": 10.0,
+    }
 
 
-def test_dwd_values_no_station():
+def test_dwd_values_no_station(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -176,7 +211,7 @@ def test_dwd_values_no_station():
     )
 
 
-def test_dwd_values_no_parameter():
+def test_dwd_values_no_parameter(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -191,7 +226,7 @@ def test_dwd_values_no_parameter():
     assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
 
-def test_dwd_values_no_resolution():
+def test_dwd_values_no_resolution(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -206,7 +241,7 @@ def test_dwd_values_no_resolution():
 
 
 @pytest.mark.skip(reason="currently only json is allowed as format and is set in the function")
-def test_values_wrong_format():
+def test_values_wrong_format(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -226,7 +261,7 @@ def test_values_wrong_format():
 
 @pytest.mark.remote
 @pytest.mark.sql
-def test_dwd_values_sql_tabular(dicts_are_same):
+def test_dwd_values_sql_tabular(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -245,47 +280,45 @@ def test_dwd_values_sql_tabular(dicts_are_same):
     assert response.status_code == 200
     data = response.json()["data"]
     assert len(data) >= 8
-    assert dicts_are_same(
-        data[0],
-        {
-            "cloud_cover_total": 6.9,
-            "qn_cloud_cover_total": 10.0,
-            "dataset": "climate_summary",
-            "date": "2020-01-25T00:00:00+00:00",
-            "humidity": 89.0,
-            "qn_humidity": 10.0,
-            "precipitation_form": 0.0,
-            "qn_precipitation_form": 10.0,
-            "precipitation_height": 0.0,
-            "qn_precipitation_height": 10.0,
-            "pressure_air_site": 993.9,
-            "qn_pressure_air_site": 10.0,
-            "pressure_vapor": 4.6,
-            "qn_pressure_vapor": 10.0,
-            "snow_depth": 0,
-            "qn_snow_depth": 10.0,
-            "station_id": "01048",
-            "sunshine_duration": 0.0,
-            "qn_sunshine_duration": 10.0,
-            "temperature_air_max_200": -0.6,
-            "qn_temperature_air_max_200": 10.0,
-            "temperature_air_mean_200": -2.2,
-            "qn_temperature_air_mean_200": 10.0,
-            "temperature_air_min_005": -6.6,
-            "qn_temperature_air_min_005": 10.0,
-            "temperature_air_min_200": -4.6,
-            "qn_temperature_air_min_200": 10.0,
-            "wind_gust_max": 4.6,
-            "qn_wind_gust_max": 10.0,
-            "wind_speed": 1.9,
-            "qn_wind_speed": 10.0,
-        },
-    )
+    item = data[0]
+    assert item == {
+        "cloud_cover_total": 6.9,
+        "qn_cloud_cover_total": 10.0,
+        "dataset": "climate_summary",
+        "date": "2020-01-25T00:00:00+00:00",
+        "humidity": 89.0,
+        "qn_humidity": 10.0,
+        "precipitation_form": 0.0,
+        "qn_precipitation_form": 10.0,
+        "precipitation_height": 0.0,
+        "qn_precipitation_height": 10.0,
+        "pressure_air_site": 993.9,
+        "qn_pressure_air_site": 10.0,
+        "pressure_vapor": 4.6,
+        "qn_pressure_vapor": 10.0,
+        "snow_depth": 0,
+        "qn_snow_depth": 10.0,
+        "station_id": "01048",
+        "sunshine_duration": 0.0,
+        "qn_sunshine_duration": 10.0,
+        "temperature_air_max_200": -0.6,
+        "qn_temperature_air_max_200": 10.0,
+        "temperature_air_mean_200": -2.2,
+        "qn_temperature_air_mean_200": 10.0,
+        "temperature_air_min_005": -6.6,
+        "qn_temperature_air_min_005": 10.0,
+        "temperature_air_min_200": -4.6,
+        "qn_temperature_air_min_200": 10.0,
+        "wind_gust_max": 4.6,
+        "qn_wind_gust_max": 10.0,
+        "wind_speed": 1.9,
+        "qn_wind_speed": 10.0,
+    }
 
 
 @pytest.mark.remote
 @pytest.mark.sql
-def test_dwd_values_sql_long(dicts_are_same):
+def test_dwd_values_sql_long(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -300,21 +333,19 @@ def test_dwd_values_sql_long(dicts_are_same):
         },
     )
     assert response.status_code == 200
-    assert dicts_are_same(
-        response.json()["data"][0],
-        {
-            "station_id": "01048",
-            "dataset": "climate_summary",
-            "parameter": "temperature_air_max_200",
-            "date": "2019-12-28T00:00:00+00:00",
-            "value": 1.3,
-            "quality": 10.0,
-        },
-    )
+    item = response.json()["data"][0]
+    assert item == {
+        "station_id": "01048",
+        "dataset": "climate_summary",
+        "parameter": "temperature_air_max_200",
+        "date": "2019-12-28T00:00:00+00:00",
+        "value": 1.3,
+        "quality": 10.0,
+    }
 
 
 @pytest.mark.remote
-def test_dwd_interpolate():
+def test_dwd_interpolate(client):
     response = client.get(
         "/restapi/interpolate",
         params={
@@ -346,7 +377,7 @@ def test_dwd_interpolate():
 
 
 @pytest.mark.remote
-def test_dwd_summarize():
+def test_dwd_summarize(client):
     response = client.get(
         "/restapi/summarize",
         params={
@@ -378,8 +409,7 @@ def test_dwd_summarize():
 
 
 @pytest.mark.remote
-@pytest.mark.cflake
-def test_api_values_missing_null():
+def test_api_values_missing_null(client):
     response = client.get(
         "/restapi/values",
         params={
@@ -395,7 +425,7 @@ def test_api_values_missing_null():
 
 
 @pytest.mark.remote
-def test_api_stations_missing_null():
+def test_api_stations_missing_null(client):
     response = client.get(
         "/restapi/stations",
         params={
@@ -408,8 +438,14 @@ def test_api_stations_missing_null():
     )
     assert response.status_code == 200
     first = response.json()["data"][2]
-    assert first["station_id"] == "01025"
-    assert first["icao_id"] is None
-    assert first["from_date"] is None
-    assert first["to_date"] is None
-    assert first["state"] is None
+    assert first == {
+        "station_id": "01025",
+        "icao_id": None,
+        "from_date": None,
+        "to_date": None,
+        "latitude": 69.68,
+        "longitude": 18.92,
+        "height": 10.0,
+        "name": "TROMSOE",
+        "state": None,
+    }

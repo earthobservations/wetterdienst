@@ -8,7 +8,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 from click.testing import CliRunner
-from dirty_equals import IsDict, IsFloat, IsStr
+from dirty_equals import IsFloat, IsStr
 
 from tests.conftest import IS_WINDOWS
 from wetterdienst.ui.cli import cli
@@ -346,16 +346,14 @@ def test_cli_values_json_multiple_datasets(capsys, caplog):
     )
     response = json.loads(result.stdout)
     item = response[12]
-    assert item == IsDict(
-        {
-            "station_id": "01048",
-            "dataset": "climate_summary",
-            "parameter": "wind_gust_max",
-            "date": "2020-06-30T00:00:00+00:00",
-            "value": 15.3,
-            "quality": 10.0,
-        }
-    )
+    assert item == {
+        "station_id": "01048",
+        "dataset": "climate_summary",
+        "parameter": "wind_gust_max",
+        "date": "2020-06-30T00:00:00+00:00",
+        "value": 15.3,
+        "quality": 10.0,
+    }
 
 
 @pytest.mark.remote

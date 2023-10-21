@@ -6,8 +6,6 @@ import json
 import sqlite3
 from unittest import mock
 
-import duckdb
-import openpyxl
 import polars as pl
 import pytest
 from surrogate import surrogate
@@ -248,6 +246,8 @@ def test_export_unknown(default_settings):
 @pytest.mark.remote
 def test_export_spreadsheet(tmp_path, settings_si_false_wide_shape):
     """Test export of DataFrame to spreadsheet"""
+    import openpyxl
+
     # 1. Request data and save to .xlsx file.
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
@@ -598,6 +598,8 @@ def test_export_cratedb(
 @pytest.mark.remote
 def test_export_duckdb(settings_si_false, tmp_path):
     """Test export of DataFrame to duckdb"""
+    import duckdb
+
     request = DwdObservationRequest(
         parameter=DwdObservationDataset.CLIMATE_SUMMARY,
         resolution=DwdObservationResolution.DAILY,
