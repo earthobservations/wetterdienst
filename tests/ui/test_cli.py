@@ -109,8 +109,20 @@ def test_cli_help():
     result = runner.invoke(cli, [])
     assert "Options:\n --help  Show this message and exit."
     assert (
-        "Commands:\n  about\n  explorer\n  info\n  interpolate\n  radar\n  "
-        "restapi\n  stations\n  summarize\n  values\n  version\n" in result.output
+        "Basic:\n"
+        "  info\n"
+        "\n"
+        "Advanced:\n"
+        "  restapi\n"
+        "  explorer\n"
+        "\n"
+        "Data:\n"
+        "  about\n"
+        "  stations\n"
+        "  values\n"
+        "  interpolate\n"
+        "  summarize\n"
+        "  radar\n" in result.output
     )
 
 

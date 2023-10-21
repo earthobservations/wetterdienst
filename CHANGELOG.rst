@@ -6,6 +6,7 @@ Development
 
 - Cleanup error handling
 - Make cli work with DwdDmoRequest API
+- Cleanup cli docs
 
 0.64.0 (12.10.2023)
 *******************
