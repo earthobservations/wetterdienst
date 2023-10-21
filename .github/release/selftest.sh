@@ -9,7 +9,7 @@ set -e
 flavor=$1
 
 echo "Testing wetterdienst"
-wetterdienst version
+wetterdienst --version
 wetterdienst info
 wetterdienst about coverage
 

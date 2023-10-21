@@ -12,6 +12,7 @@ from typing import List, Literal
 import click
 import cloup
 from click_params import StringListParamType
+from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
@@ -25,9 +26,9 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.util.cli import docstring_format_verbatim, setup_logging
 
-COMMA_SEPARATED_LIST = StringListParamType(",")
-
 log = logging.getLogger(__name__)
+
+comma_separated_list = StringListParamType(",")
 
 appname = f"{__appname__} {__version__}"
 
@@ -50,6 +51,11 @@ network_opt = cloup.option_group(
 )
 
 debug_opt = click.option("--debug", is_flag=True)
+
+# Sections for click help
+basic_section = Section("Basic")
+data_section = Section("Data")
+advanced_section = Section("Advanced")
 
 
 def get_api(provider: str, network: str):
@@ -76,9 +82,9 @@ def station_options_core(command):
     :return:
     """
     arguments = [
-        cloup.option("--parameter", type=COMMA_SEPARATED_LIST, required=True),
+        cloup.option("--parameter", type=comma_separated_list, required=True),
         cloup.option("--resolution", type=click.STRING, required=True),
-        cloup.option("--period", type=COMMA_SEPARATED_LIST),
+        cloup.option("--period", type=comma_separated_list),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
@@ -94,7 +100,7 @@ def station_options_extension(command):
         cloup.option_group("All stations", click.option("--all", "all_", is_flag=True)),
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=COMMA_SEPARATED_LIST),
+            cloup.option("--station", type=comma_separated_list),
         ),
         cloup.option_group(
             "Station name filtering",
@@ -137,7 +143,7 @@ def station_options_interpolate_summarize(command):
     arguments = [
         cloup.option_group(
             "Station id filtering",
-            cloup.option("--station", type=COMMA_SEPARATED_LIST),
+            cloup.option("--station", type=comma_separated_list),
         ),
         cloup.option_group(
             "Latitude-Longitude rank/distance filtering",
@@ -151,349 +157,389 @@ def station_options_interpolate_summarize(command):
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
 
 
-def wetterdienst_help():
-    """
-    Usage
-    =====
+# def wetterdienst_help():
+wetterdienst_help = """
+Usage
+=====
 
-        wetterdienst (-h | --help)  Display this page
-        wetterdienst --version      Display the version number
-        wetterdienst info           Display project information
+    wetterdienst (-h | --help)  Display this page
+    wetterdienst --version      Display the version number
+    wetterdienst info           Display project information
 
 
-    Overview
-    ========
+Overview
+========
 
-    This section roughly outlines the different families of command line
-    options. More detailed information is available within subsequent sections
-    of this page.
+This section roughly outlines the different families of command line
+options. More detailed information is available within subsequent sections
+of this page.
 
-    Coverage information:
+Coverage information:
 
-        wetterdienst about coverage --provider=<provider> --network=<network>
-            [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
+    wetterdienst about coverage --provider=<provider> --network=<network>
+        [--parameter=<parameter>] [--resolution=<resolution>] [--period=<period>]
 
-        wetterdienst about fields --provider=<provider> --network=<network>
-            --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
+    wetterdienst about fields --provider=<provider> --network=<network>
+        --parameter=<parameter> --resolution=<resolution> --period=<period> [--language=<language>]
 
-    Data acquisition:
+Data acquisition:
 
-        wetterdienst {stations,values}
+    wetterdienst {stations,values}
 
-            # Selection options
-            --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>]
+        # Selection options
+        --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> [--period=<period>]
 
-            # Filtering options
-            --all
-            --date=<date>
-            --station=<station>
-            --name=<name>
-            --coordinates=<latitude,longitude> --rank=<rank>
-            --coordinates=<latitude,longitude> --distance=<distance>
-            --bbox=<left,lower,right,top>
-            --sql=<sql>
+        # Filtering options
+        --all
+        --date=<date>
+        --station=<station>
+        --name=<name>
+        --coordinates=<latitude,longitude> --rank=<rank>
+        --coordinates=<latitude,longitude> --distance=<distance>
+        --bbox=<left,lower,right,top>
+        --sql=<sql>
 
-            # Output options
-            [--format=<format>] [--pretty]
-            [--shape=<shape>] [--humanize] [--si-units]
-            [--dropna] [--skip_empty] [--skip_threshold=0.95]
+        # Output options
+        [--format=<format>] [--pretty]
+        [--shape=<shape>] [--humanize] [--si-units]
+        [--dropna] [--skip_empty] [--skip_threshold=0.95]
 
-            # Export options
-            [--target=<target>]
+        # Export options
+        [--target=<target>]
 
+Data computation:
 
-    Options
-    =======
+    wetterdienst {interpolate,summarize}
 
-    This section explains all command line options in detail.
+        # Selection options
+        --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> --date=<date> [--period=<period>]
 
-    Selection options:
+        # Filtering options
+        --station=<station>
+        --coordinates=<latitude,longitude>
 
-        --provider                  The data provider / organisation.
-                                    Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere
+        # Output options
+        [--format=<format>] [--pretty]
+        [--shape=<shape>] [--humanize] [--si-units]
+        [--dropna] [--skip_empty] [--skip_threshold=0.95]
 
-        --network                   The network of the data provider
-                                    Examples: observation, mosmix, radar, ghcn, pegel, hydrology
+        # Export options
+        [--target=<target>]
 
-        --parameter                 Data parameter or parameter set
-                                    Examples: kl, precipitation_height
+Options
+=======
 
-        --resolution                Dataset resolution / product
-                                    Examples: annual, monthly, daily, hourly, minute_10, minute_1
-                                    For DWD MOSMIX: small, large
+This section explains all command line options in detail.
 
-        [--period]                  Dataset period
-                                    Examples: "historical", "recent", "now"
+Selection options:
 
-    Filtering options:
+    --provider                  The data provider / organisation.
+                                Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere
 
-        --all                       Flag to process all data
+    --network                   The network of the data provider
+                                Examples: observation, mosmix, radar, ghcn, pegel, hydrology
 
-        --date                      Date for filtering data
-                                    A single date(time) or interval in RFC3339/ISO8601 format.
-                                    See also:
-                                    - https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations
-                                    - https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
+    --parameter                 Data parameter or parameter set
+                                Examples: kl, precipitation_height
 
-        --name                      Name of station
+    --resolution                Dataset resolution / product
+                                Examples: annual, monthly, daily, hourly, minute_10, minute_1
+                                For DWD MOSMIX: small, large
 
-        --station                   Comma-separated list of station identifiers
+    [--period]                  Dataset period
+                                Examples: "historical", "recent", "now"
 
-        --coordinates               Geolocation point for geospatial filtering
-                                    Format: <latitude,longitude>
+Filtering options:
 
-        --rank                      Rank of nearby stations when filtering by geolocation point
-                                    To be used with `--coordinates`.
+    --all                       Flag to process all data
 
-        --distance                  Maximum distance in km when filtering by geolocation point
-                                    To be used with `--coordinates`.
+    --date                      Date for filtering data
+                                A single date(time) or interval in RFC3339/ISO8601 format.
+                                See also:
+                                - https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations
+                                - https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
 
-        --bbox                      Bounding box for geospatial filtering
-                                    Format: <lon1,lat1,lon2,lat2> aka. <left,bottom,right,top>
+    --name                      Name of station
 
-        --sql                       SQL filter statement
+    --station                   Comma-separated list of station identifiers
 
-        --sql-values                SQL filter to apply to values
+    --coordinates               Geolocation point for geospatial filtering
+                                Format: <latitude,longitude>
 
-    Transformation options:
-        --shape                     Shape of DataFrame, "wide" or "long"
-        --humanize                  Humanize parameters
-        --si-units                  Convert to SI units
-        --skip_empty                Skip empty stations according to ts_skip_threshold
-        --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
-        --dropna                    Whether to drop nan values from the result
+    --rank                      Rank of nearby stations when filtering by geolocation point
+                                To be used with `--coordinates`.
 
-    Output options:
-        --format                    Output format. [Default: json]
-        --language                  Output language. [Default: en]
-        --pretty                    Pretty-print JSON
+    --distance                  Maximum distance in km when filtering by geolocation point
+                                To be used with `--coordinates`.
 
-    Export options:
-        --target                    Output target for storing data into different data sinks.
+    --bbox                      Bounding box for geospatial filtering
+                                Format: <lon1,lat1,lon2,lat2> aka. <left,bottom,right,top>
 
-    Other options:
-        -h --help                   Show this screen
-        --debug                     Enable debug messages
-        --listen                    HTTP server listen address.
-        --reload                    Run service and dynamically reload changed files
+    --sql                       SQL filter statement
 
+    --sql-values                SQL filter to apply to values
 
-    Examples
-    ========
+Transformation options:
+    --shape                     Shape of DataFrame, "wide" or "long"
+    --humanize                  Humanize parameters
+    --si-units                  Convert to SI units
+    --skip_empty                Skip empty stations according to ts_skip_threshold
+    --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
+    --dropna                    Whether to drop nan values from the result
 
-    This section includes example invocations to get you started quickly. Most
-    of them can be used verbatim in your terminal. For displaying JSON output
-    more conveniently, you may want to pipe the output of Wetterdienst into the
-    excellent ``jq`` program, which can also be used for subsequent filtering
-    and transforming.
+Output options:
+    --format                    Output format. [Default: json]
+    --language                  Output language. [Default: en]
+    --pretty                    Pretty-print JSON
 
-    Acquire observation stations:
+Export options:
+    --target                    Output target for storing data into different data sinks.
 
-        # Get list of all stations for daily climate summary data in JSON format
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all
+Other options:
+    -h --help                   Show this screen
+    --debug                     Enable debug messages
+    --listen                    HTTP server listen address.
+    --reload                    Run service and dynamically reload changed files
 
-        # Get list of all stations in CSV format
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all --format=csv
 
-        # Get list of specific stations
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411
+Examples
+========
 
-        # Get list of specific stations in GeoJSON format
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411 --format=geojson
+This section includes example invocations to get you started quickly. Most
+of them can be used verbatim in your terminal. For displaying JSON output
+more conveniently, you may want to pipe the output of Wetterdienst into the
+excellent ``jq`` program, which can also be used for subsequent filtering
+and transforming.
 
-    Acquire MOSMIX stations:
+Acquire observation stations:
 
-        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large --all
-        wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large --all --format=csv
+    # Get list of all stations for daily climate summary data in JSON format
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all
 
-    Acquire observation data:
+    # Get list of all stations in CSV format
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all --format=csv
 
-        # Get daily climate summary data for specific stations, selected by name and station id
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --name=Dresden-Hosterwitz
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
+    # Get list of specific stations
+    wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411
 
-        # Get daily climate summary data for specific stations in CSV format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
+    # Get list of specific stations in GeoJSON format
+    wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --station=1,1048,4411 --format=geojson
 
-        # Get daily climate summary data for specific stations in long format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --shape="long"
+Acquire MOSMIX stations:
 
-        # Limit output to specific date
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01 --station=1048,4411
+    wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large --all
+    wetterdienst stations --provider=dwd --network=mosmix --parameter=large --resolution=large --all --format=csv
 
-        # Limit output to specified date range in ISO-8601 time interval format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01/2020-05-05 --station=1048
+Acquire observation data:
 
-        # The real power horse: Acquire data across historical+recent data sets
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=1969-01-01/2020-06-11 --station=1048
+    # Get daily climate summary data for specific stations, selected by name and station id
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --name=Dresden-Hosterwitz
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --station=1048,4411
 
-        # Acquire single data point for month 2020-05
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
-            --date=2020-05 --station=1048
+    # Get daily climate summary data for specific stations in CSV format
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --station=1048,4411
 
-        # Acquire monthly data from 2017 to 2019
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
-            --date=2017/2019 --station=1048,4411
+    # Get daily climate summary data for specific stations in long format
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --station=1048,4411 --shape="long"
 
-        # Acquire annual data for 2019
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
-            --date=2019 --station=1048,4411
+    # Limit output to specific date
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01 \\
+        --station=1048,4411
 
-        # Acquire annual data from 2010 to 2020
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
-            --date=2010/2020 --station=1048
+    # Limit output to specified date range in ISO-8601 time interval format
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily \\
+        --date=2020-05-01/2020-05-05 --station=1048
 
-        # Acquire hourly data for a given time range
-        wetterdienst values --provider=dwd --network=observation --parameter=air_temperature --resolution=hourly \\
-            --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
+    # The real power horse: Acquire data across historical+recent data sets
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily \\
+        --date=1969-01-01/2020-06-11 --station=1048
 
-        # Acquire data for multiple given parameters
-        wetterdienst values --provider=dwd --network=observation \\
-            --parameter=precipitation_height/precipitation_more,temperature_air_mean_200/air_temperature \\
-            --resolution=hourly --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
+    # Acquire single data point for month 2020-05
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
+        --date=2020-05 --station=1048
 
-    Acquire MOSMIX data:
+    # Acquire monthly data from 2017 to 2019
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
+        --date=2017/2019 --station=1048,4411
 
-        wetterdienst values --provider=dwd --network=mosmix --parameter=ttt,ff --resolution=large --station=65510
+    # Acquire annual data for 2019
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
+        --date=2019 --station=1048,4411
 
-    Geospatial filtering:
+    # Acquire annual data from 2010 to 2020
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
+        --date=2010/2020 --station=1048
 
-        # Acquire stations and readings by geolocation, request specific number of nearby stations.
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
-            --coordinates=49.9195,8.9671 --rank=5
+    # Acquire hourly data for a given time range
+    wetterdienst values --provider=dwd --network=observation --parameter=air_temperature --resolution=hourly \\
+        --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
-        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
-            --coordinates=49.9195,8.9671 --rank=5 --date=2020-06-30
+    # Acquire data for multiple given parameters
+    wetterdienst values --provider=dwd --network=observation \\
+        --parameter=precipitation_height/precipitation_more,temperature_air_mean_200/air_temperature \\
+        --resolution=hourly --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
-        # Acquire stations and readings by geolocation, request stations within specific distance.
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
-            --coordinates=49.9195,8.9671 --distance=25
+Acquire MOSMIX data:
 
-        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
-            --coordinates=49.9195,8.9671 --distance=25 --date=2020-06-30
+    wetterdienst values --provider=dwd --network=mosmix --parameter=ttt,ff --resolution=large --station=65510
 
-    SQL filtering:
+Compute data:
 
-        # Find stations by state.
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
-            --sql="SELECT * FROM data WHERE state='Sachsen'"
+    # Compute daily interpolation of precipitation for specific station selected by id
+    wetterdienst interpolate --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+        --date=2020-06-30 --station=01048
 
-        # Find stations by name (LIKE query).
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
-            --sql="SELECT * FROM data WHERE lower(name) LIKE lower('%dresden%')"
+    # Compute daily interpolation of precipitation for specific station selected by coordinates
+    wetterdienst interpolate --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+        --date=2020-06-30 --coordinates=49.9195,8.9671
 
-        # Find stations by name (regexp query).
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
-            --sql="SELECT * FROM data WHERE regexp_matches(lower(name), lower('.*dresden.*'))"
+    # Compute daily summary of precipitation for specific station selected by id
+    wetterdienst summarize --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+        --date=2020-06-30 --station=01048
 
-        # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
-            --station=1048,4411 --sql-values="SELECT * FROM data WHERE wind_gust_max > 20.0;"
+    # Compute daily summary data of precipitation for specific station selected by coordinates
+    wetterdienst summarize --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+        --date=2020-06-30 --coordinates=49.9195,8.9671
 
-        # Filter measurements: Same as above, but use long format.
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
-            --station=1048,4411 \\
-            --shape="long" --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0;"
+Geospatial filtering:
 
-    Inquire metadata:
+    # Acquire stations and readings by geolocation, request specific number of nearby stations.
+    wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
+        --coordinates=49.9195,8.9671 --rank=5
 
-        # Display coverage/correlation between parameters, resolutions and periods.
-        # This can answer questions like ...
-        wetterdienst about coverage --provider=dwd --network=observation
+    wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
+        --coordinates=49.9195,8.9671 --rank=5 --date=2020-06-30
 
-        # Tell me all periods and resolutions available for given dataset labels.
-        wetterdienst about coverage --provider=dwd --network=observation --dataset=climate_summary
-        wetterdienst about coverage --provider=dwd --network=observation --dataset=temperature_air
+    # Acquire stations and readings by geolocation, request stations within specific distance.
+    wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
+        --coordinates=49.9195,8.9671 --distance=25
 
-        # Tell me all parameters available for given resolutions.
-        wetterdienst about coverage --provider=dwd --network=observation --resolution=daily
-        wetterdienst about coverage --provider=dwd --network=observation --resolution=hourly
+    wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
+        --coordinates=49.9195,8.9671 --distance=25 --date=2020-06-30
 
-    Export data to files:
+SQL filtering:
 
-        # Export list of stations into spreadsheet
-        wetterdienst stations \\
-            --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
-            --all --target=file://stations_result.xlsx
+    # Find stations by state.
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --sql="SELECT * FROM data WHERE state='Sachsen'"
 
-        # Shortcut command for fetching readings.
-        # It will be used for the next invocations.
-        alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+    # Find stations by name (LIKE query).
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --sql="SELECT * FROM data WHERE lower(name) LIKE lower('%dresden%')"
 
-        # Export readings into spreadsheet (Excel-compatible)
-        fetch --target="file://observations.xlsx"
+    # Find stations by name (regexp query).
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --sql="SELECT * FROM data WHERE regexp_matches(lower(name), lower('.*dresden.*'))"
 
-        # Export readings into Parquet format and display head of Parquet file
-        fetch --target="file://observations.parquet"
+    # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --station=1048,4411 --sql-values="SELECT * FROM data WHERE wind_gust_max > 20.0;"
 
-        # Check Parquet file
-        parquet-tools schema observations.parquet
-        parquet-tools head observations.parquet
+    # Filter measurements: Same as above, but use long format.
+    wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --station=1048,4411 --shape="long" \\
+        --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0"
 
-        # Export readings into Zarr format
-        fetch --target="file://observations.zarr"
+Inquire metadata:
 
-    Export data to databases:
+    # Display coverage/correlation between parameters, resolutions and periods.
+    # This can answer questions like ...
+    wetterdienst about coverage --provider=dwd --network=observation
 
-        # Shortcut command for fetching readings.
-        # It will be used for the next invocations.
-        alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+    # Tell me all periods and resolutions available for given dataset labels.
+    wetterdienst about coverage --provider=dwd --network=observation --dataset=climate_summary
+    wetterdienst about coverage --provider=dwd --network=observation --dataset=temperature_air
 
-        # Store readings to DuckDB
-        fetch --target="duckdb:///observations.duckdb?table=weather"
+    # Tell me all parameters available for given resolutions.
+    wetterdienst about coverage --provider=dwd --network=observation --resolution=daily
+    wetterdienst about coverage --provider=dwd --network=observation --resolution=hourly
 
-        # Store readings to InfluxDB
-        fetch --target="influxdb://localhost/?database=observations&table=weather"
+Export data to files:
 
-        # Store readings to CrateDB
-        fetch --target="crate://localhost/?database=observations&table=weather"
+    # Export list of stations into spreadsheet
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+        --all --target=file://stations_result.xlsx
 
-    The HTTP REST API service:
+    # Shortcut command for fetching readings.
+    # It will be used for the next invocations.
+    alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
 
-        # Start service on standard port, listening on http://localhost:7890.
-        wetterdienst restapi
+    # Export readings into spreadsheet (Excel-compatible)
+    fetch --target="file://observations.xlsx"
 
-        # Start service on standard port and watch filesystem changes.
-        # This is suitable for development.
-        wetterdienst restapi --reload
+    # Export readings into Parquet format and display head of Parquet file
+    fetch --target="file://observations.parquet"
 
-        # Start service on public interface and specific port.
-        wetterdienst restapi --listen=0.0.0.0:8890
+    # Check Parquet file
+    parquet-tools schema observations.parquet
+    parquet-tools head observations.parquet
 
-    The Wetterdienst Explorer UI service:
+    # Export readings into Zarr format
+    fetch --target="file://observations.zarr"
 
-        # Start service on standard port, listening on http://localhost:7891.
-        wetterdienst explorer
+Export data to databases:
 
-        # Start service on standard port and watch filesystem changes.
-        # This is suitable for development.
-        wetterdienst explorer --reload
+    # Shortcut command for fetching readings.
+    # It will be used for the next invocations.
+    alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
 
-        # Start service on public interface and specific port.
-        wetterdienst explorer --listen=0.0.0.0:8891
+    # Store readings to DuckDB
+    fetch --target="duckdb:///observations.duckdb?table=weather"
 
-    Explore OPERA radar stations:
+    # Store readings to InfluxDB
+    fetch --target="influxdb://localhost/?database=observations&table=weather"
 
-        # Display all radar stations.
-        wetterdienst radar --all
+    # Store readings to CrateDB
+    fetch --target="crate://localhost/?database=observations&table=weather"
 
-        # Display radar stations filtered by country.
-        wetterdienst radar --country-name=france
+The HTTP REST API service:
 
-        # Display OPERA radar stations operated by DWD.
-        wetterdienst radar --dwd
+    # Start service on standard port, listening on http://localhost:7890.
+    wetterdienst restapi
 
-        # Display radar station with specific ODIM- or WMO-code.
-        wetterdienst radar --odim-code=deasb
-        wetterdienst radar --wmo-code=10103
+    # Start service on standard port and watch filesystem changes.
+    # This is suitable for development.
+    wetterdienst restapi --reload
 
-    """  # noqa:E501
-    pass
+    # Start service on public interface and specific port.
+    wetterdienst restapi --listen=0.0.0.0:8890
+
+The Wetterdienst Explorer UI service:
+
+    # Start service on standard port, listening on http://localhost:7891.
+    wetterdienst explorer
+
+    # Start service on standard port and watch filesystem changes.
+    # This is suitable for development.
+    wetterdienst explorer --reload
+
+    # Start service on public interface and specific port.
+    wetterdienst explorer --listen=0.0.0.0:8891
+
+Explore OPERA radar stations:
+
+    # Display all radar stations.
+    wetterdienst radar --all
+
+    # Display radar stations filtered by country.
+    wetterdienst radar --country-name=france
+
+    # Display OPERA radar stations operated by DWD.
+    wetterdienst radar --dwd
+
+    # Display radar station with specific ODIM- or WMO-code.
+    wetterdienst radar --odim-code=deasb
+    wetterdienst radar --wmo-code=10103
+"""  # noqa: E501
 
 
 @cloup.group(
     "wetterdienst",
-    help=docstring_format_verbatim(wetterdienst_help.__doc__),
+    help=docstring_format_verbatim(wetterdienst_help),
     context_settings={"max_content_width": 120},
 )
 @click.version_option(__version__, "-v", "--version", message="%(version)s")
@@ -501,7 +547,7 @@ def cli():
     setup_logging()
 
 
-@cli.command("info")
+@cli.command("info", section=basic_section)
 def info():
     from wetterdienst import info
 
@@ -510,14 +556,9 @@ def info():
     return
 
 
-@cli.command("version")
-def version():
-    print(__version__)  # noqa: T201
-
-
-@cli.command("restapi")
-@cloup.option("--listen", type=click.STRING, default=None)
-@cloup.option("--reload", is_flag=True)
+@cli.command("restapi", section=advanced_section)
+@cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
+@cloup.option("--reload", is_flag=True, help="Dynamically reload changed files")
 @debug_opt
 def restapi(listen: str, reload: bool, debug: bool):
     set_logging_level(debug)
@@ -533,9 +574,9 @@ def restapi(listen: str, reload: bool, debug: bool):
     return
 
 
-@cli.command("explorer")
-@cloup.option("--listen", type=click.STRING, default=None)
-@cloup.option("--reload", is_flag=True)
+@cli.command("explorer", section=advanced_section)
+@cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
+@cloup.option("--reload", is_flag=True, help="Dynamically reload changed files")
 @debug_opt
 def explorer(listen: str, reload: bool, debug: bool):
     set_logging_level(debug)
@@ -548,7 +589,7 @@ def explorer(listen: str, reload: bool, debug: bool):
     return
 
 
-@cli.group()
+@cli.group(section=data_section)
 def about():
     pass
 
@@ -562,13 +603,13 @@ def about():
     ),
 )
 @cloup.option_group(
-    "network",
+    "Network",
     click.option(
         "--network",
         type=click.STRING,
     ),
 )
-@cloup.option("--dataset", type=COMMA_SEPARATED_LIST, default=None)
+@cloup.option("--dataset", type=comma_separated_list, default=None)
 @cloup.option("--resolution", type=click.STRING, default=None)
 @debug_opt
 def coverage(provider, network, dataset, resolution, debug):
@@ -600,9 +641,9 @@ def coverage(provider, network, dataset, resolution, debug):
 @network_opt
 @cloup.option_group(
     "(DWD only) information from PDF documents",
-    click.option("--dataset", type=COMMA_SEPARATED_LIST),
+    click.option("--dataset", type=comma_separated_list),
     click.option("--resolution", type=click.STRING),
-    click.option("--period", type=COMMA_SEPARATED_LIST),
+    click.option("--period", type=comma_separated_list),
     click.option("--language", type=click.Choice(["en", "de"], case_sensitive=False), default="en"),
     constraint=cloup.constraints.require_all,
 )
@@ -627,7 +668,7 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     return
 
 
-@cli.command("stations")
+@cli.command("stations", section=data_section)
 @provider_opt
 @network_opt
 @station_options_core
@@ -710,7 +751,7 @@ def stations(
     return
 
 
-@cli.command("values")
+@cli.command("values", section=data_section)
 @provider_opt
 @network_opt
 @station_options_core
@@ -815,7 +856,7 @@ def values(
     return
 
 
-@cli.command("interpolate")
+@cli.command("interpolate", section=data_section)
 @provider_opt
 @network_opt
 @station_options_core
@@ -896,7 +937,7 @@ def interpolate(
     return
 
 
-@cli.command("summarize")
+@cli.command("summarize", section=data_section)
 @provider_opt
 @network_opt
 @station_options_core
@@ -974,7 +1015,7 @@ def summarize(
     return
 
 
-@cli.command("radar")
+@cli.command("radar", section=data_section)
 @cloup.option("--dwd", is_flag=True)
 @cloup.option("--all", "all_", is_flag=True)
 @cloup.option("--odim-code", type=click.STRING)
