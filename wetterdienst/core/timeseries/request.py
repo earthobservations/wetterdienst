@@ -825,19 +825,18 @@ class TimeseriesRequest(Core):
         import duckdb
 
         df = self.all().df
-
-        df = duckdb.query_df(df.to_pandas(), "data", sql).df()
-
-        df = pl.from_pandas(df)
-
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(time_zone="UTC").alias(Columns.FROM_DATE.value),
-            pl.col(Columns.TO_DATE.value).dt.replace_time_zone(time_zone="UTC").alias(Columns.TO_DATE.value),
+            pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(None),
+            pl.col(Columns.TO_DATE.value).dt.replace_time_zone(None),
         )
-
+        df = duckdb.query_df(df.to_pandas(), "data", sql).df()
+        df = pl.from_pandas(df)
+        df = df.with_columns(
+            pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(time_zone="UTC"),
+            pl.col(Columns.TO_DATE.value).dt.replace_time_zone(time_zone="UTC"),
+        )
         if df.is_empty():
-            log.info(f"No weather stations were found for sql {sql}")
-
+            log.info(f"No stations were found for sql {sql}")
         return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: Tuple[float, float]) -> InterpolatedValuesResult:
