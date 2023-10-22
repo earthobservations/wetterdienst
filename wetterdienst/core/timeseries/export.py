@@ -5,7 +5,7 @@ import json
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import Optional, Union
 from urllib.parse import urlunparse
 
 import polars as pl
@@ -27,41 +27,46 @@ class ExportMixin:
 
     df: pl.DataFrame
 
-    def fill_gaps(self):
-        self.df = self.df.fillna(-999)
-        return self.df
-
     def filter_by_sql(self, sql: str) -> pl.DataFrame:
         self.df = self._filter_by_sql(self.df, sql)
         return self.df
 
-    def to_dict(self) -> List[dict]:
-        # Convert all datetime columns to ISO format.
-        df = convert_datetimes(self.df)
+    @abstractmethod
+    def to_dict(self, *args, **kwargs) -> dict:
+        pass
 
-        # Return dictionary with timeseries types.
-        return df.to_dicts()
+    @abstractmethod
+    def to_json(self, *args, **kwargs) -> str:
+        pass
 
-    def to_json(self, pretty: bool = True):
-        df = self.df.select(pl.all())
-        for column in ("from_date", "to_date", "date"):
-            if column in df:
-                df = df.with_columns(
-                    pl.col(column).map_elements(lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8)
-                )
-        return df.write_json(row_oriented=True, pretty=pretty)
+    @abstractmethod
+    def to_ogc_feature_collection(self, *args, **kwargs) -> dict:
+        pass
+
+    def to_geojson(self, with_metadata: bool = False, indent: Optional[Union[int, bool]] = 4, **_kwargs) -> str:
+        """
+        Convert station information into GeoJSON format
+        :param with_metadata: Include metadata in GeoJSON output
+        :param indent: Indentation for JSON output
+        :param _kwargs: Additional arguments passed to `to_ogc_feature_collection`
+        :return: JSON string in GeoJSON FeatureCollection format
+        """
+        if indent is True:
+            indent = 4
+        elif indent is False:
+            indent = None
+        json_kwargs = {"indent": indent, "ensure_ascii": False}
+        return json.dumps(self.to_ogc_feature_collection(with_metadata=with_metadata), **json_kwargs)
 
     def to_csv(self):
-        return self.df.write_csv(datetime_format="%Y-%m-%dT%H-%M-%S")
-
-    def to_geojson(self, indent: int = 4) -> str:
-        """
-        Convert station information into GeoJSON format.
-
-        Return:
-             JSON string in GeoJSON FeatureCollection format.
-        """
-        return json.dumps(self.to_ogc_feature_collection(), indent=indent, ensure_ascii=False)
+        df = self.df
+        date_columns = (Columns.FROM_DATE.value, Columns.TO_DATE.value, Columns.DATE.value)
+        df = df.with_columns(
+            pl.col(column).map_elements(lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8)
+            for column in date_columns
+            if column in df.columns
+        )
+        return df.write_csv()
 
     def to_format(self, fmt: str, **kwargs) -> str:
         """
@@ -73,11 +78,11 @@ class ExportMixin:
         fmt = fmt.lower()
 
         if fmt == "json":
-            return self.to_json(pretty=kwargs.get("pretty"))
+            return self.to_json(**kwargs)
         elif fmt == "csv":
             return self.to_csv()
         elif fmt == "geojson":
-            return self.to_geojson(indent=kwargs.get("indent"))
+            return self.to_geojson(**kwargs)
         else:
             raise KeyError("Unknown output format")
 
@@ -101,10 +106,6 @@ class ExportMixin:
         df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None)).to_pandas()
         df = duckdb.query_df(df, "data", sql).pl()
         return df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
-
-    @abstractmethod
-    def to_ogc_feature_collection(self):
-        pass
 
     def to_target(self, target: str):
         """

@@ -697,7 +697,8 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
     If("coordinates", then=RequireExactly(1), else_=accept_none),
     ["rank", "distance"],
 )
-@cloup.option("--pretty", is_flag=True)
+@cloup.option("--pretty", type=click.BOOL, default=False)
+@cloup.option("--with-metadata", type=click.BOOL, default=False)
 @debug_opt
 def stations(
     provider: str,
@@ -716,6 +717,7 @@ def stations(
     fmt: str,
     target: str,
     pretty: bool,
+    with_metadata: bool,
     debug: bool,
 ):
     set_logging_level(debug)
@@ -755,7 +757,7 @@ def stations(
         stations_.to_target(target)
         return
 
-    output = stations_.to_format(fmt, pretty=pretty)
+    output = stations_.to_format(fmt, indent=pretty, with_metadata=with_metadata)
 
     print(output)  # noqa: T201
 
@@ -775,7 +777,7 @@ def stations(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -785,11 +787,13 @@ def stations(
 @cloup.option("--shape", type=click.Choice(["long", "wide"]), default="long")
 @cloup.option("--si-units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
-@cloup.option("--pretty", is_flag=True)
+@cloup.option("--pretty", type=click.BOOL, default=False)
 @cloup.option("--skip_empty", type=click.BOOL, default=False)
 @cloup.option("--skip_criteria", type=click.Choice(["min", "mean", "max"]), default="min")
 @cloup.option("--skip_threshold", type=click.FloatRange(min=0, min_open=True, max=1), default=0.95)
 @cloup.option("--dropna", type=click.BOOL, default=False)
+@cloup.option("--with-metadata", type=click.BOOL, default=False)
+@cloup.option("--with-stations", type=click.BOOL, default=False)
 @debug_opt
 def values(
     provider: str,
@@ -819,6 +823,8 @@ def values(
     skip_threshold: float,
     dropna: bool,
     pretty: bool,
+    with_metadata: bool,
+    with_stations: bool,
     debug: bool,
 ):
     set_logging_level(debug)
@@ -863,7 +869,7 @@ def values(
         values_.to_target(target)
         return
 
-    output = values_.to_format(fmt, pretty=pretty)
+    output = values_.to_format(fmt, indent=pretty, with_metadata=with_metadata, with_stations=with_stations)
 
     print(output)  # noqa: T201
 
@@ -884,7 +890,7 @@ def values(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -894,6 +900,8 @@ def values(
 @cloup.option("--si-units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
+@cloup.option("--with-metadata", type=click.BOOL, default=False)
+@cloup.option("--with-stations", type=click.BOOL, default=False)
 @debug_opt
 def interpolate(
     provider: str,
@@ -913,6 +921,8 @@ def interpolate(
     si_units: bool,
     humanize: bool,
     pretty: bool,
+    with_metadata: bool,
+    with_stations: bool,
     debug: bool,
 ):
     set_logging_level(debug)
@@ -947,7 +957,7 @@ def interpolate(
         values_.to_target(target)
         return
 
-    output = values_.to_format(fmt, pretty=pretty)
+    output = values_.to_format(fmt, indent=pretty, with_metadata=with_metadata, with_stations=with_stations)
 
     print(output)  # noqa: T201
 
@@ -967,7 +977,7 @@ def interpolate(
     cloup.option(
         "--format",
         "fmt",
-        type=click.Choice(["json", "csv"], case_sensitive=False),
+        type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
         default="json",
     ),
     cloup.option("--target", type=click.STRING),
@@ -977,6 +987,8 @@ def interpolate(
 @cloup.option("--si-units", type=click.BOOL, default=True)
 @cloup.option("--humanize", type=click.BOOL, default=True)
 @cloup.option("--pretty", is_flag=True)
+@cloup.option("--with-metadata", type=click.BOOL, default=False)
+@cloup.option("--with-stations", type=click.BOOL, default=False)
 @debug_opt
 def summarize(
     provider: str,
@@ -995,6 +1007,8 @@ def summarize(
     si_units: bool,
     humanize: bool,
     pretty: bool,
+    with_metadata: bool,
+    with_stations: bool,
     debug: bool,
 ):
     set_logging_level(debug)
@@ -1028,7 +1042,7 @@ def summarize(
         values_.to_target(target)
         return
 
-    output = values_.to_format(fmt, pretty=pretty)
+    output = values_.to_format(fmt, indent=pretty, with_metadata=with_metadata, with_stations=with_stations)
 
     print(output)  # noqa: T201
 

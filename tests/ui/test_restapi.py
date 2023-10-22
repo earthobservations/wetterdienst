@@ -2,7 +2,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
-from dirty_equals import IsDict, IsNumber, IsStr
+from dirty_equals import IsNumber, IsStr
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def test_stations_wrong_format(client):
         },
     )
     assert response.status_code == 400
-    assert "'format' argument must be one of 'json', 'geojson'" in response.text
+    assert "Query argument 'format' must be one of 'json', 'geojson' or 'csv'" in response.text
 
 
 @pytest.mark.remote
@@ -88,19 +88,17 @@ def test_dwd_stations_basic(client):
         },
     )
     assert response.status_code == 200
-    item = response.json()["data"][0]
-    assert item == IsDict(
-        {
-            "station_id": "00011",
-            "from_date": "1980-09-01T00:00:00+00:00",
-            "to_date": IsStr,
-            "latitude": 47.9736,
-            "longitude": 8.5205,
-            "height": 680.0,
-            "name": "Donaueschingen (Landeplatz)",
-            "state": "Baden-Württemberg",
-        }
-    )
+    item = response.json()["stations"][0]
+    assert item == {
+        "station_id": "00011",
+        "from_date": "1980-09-01T00:00:00+00:00",
+        "to_date": IsStr,
+        "latitude": 47.9736,
+        "longitude": 8.5205,
+        "height": 680.0,
+        "name": "Donaueschingen (Landeplatz)",
+        "state": "Baden-Württemberg",
+    }
 
 
 @pytest.mark.remote
@@ -118,20 +116,18 @@ def test_dwd_stations_geo(client):
         },
     )
     assert response.status_code == 200
-    item = response.json()["data"][0]
-    assert item == IsDict(
-        {
-            "station_id": "03730",
-            "from_date": "1910-01-01T00:00:00+00:00",
-            "to_date": IsStr,
-            "latitude": 47.3984,
-            "longitude": 10.2759,
-            "height": 806.0,
-            "name": "Oberstdorf",
-            "state": "Bayern",
-            "distance": 207.0831200352328,
-        }
-    )
+    item = response.json()["stations"][0]
+    assert item == {
+        "station_id": "03730",
+        "from_date": "1910-01-01T00:00:00+00:00",
+        "to_date": IsStr,
+        "latitude": 47.3984,
+        "longitude": 10.2759,
+        "height": 806.0,
+        "name": "Oberstdorf",
+        "state": "Bayern",
+        "distance": 207.0831200352328,
+    }
 
 
 @pytest.mark.remote
@@ -148,21 +144,17 @@ def test_dwd_stations_sql(client):
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"][0]["station_id"] == "01048"
-    assert response.json()["data"][0]["name"] == "Dresden-Klotzsche"
-    item = response.json()["data"][0]
-    assert item == IsDict(
-        {
-            "station_id": "01048",
-            "from_date": "1934-01-01T00:00:00+00:00",
-            "to_date": IsStr,
-            "latitude": 51.1278,
-            "longitude": 13.7543,
-            "height": 228.0,
-            "name": "Dresden-Klotzsche",
-            "state": "Sachsen",
-        }
-    )
+    item = response.json()["stations"][0]
+    assert item == {
+        "station_id": "01048",
+        "from_date": "1934-01-01T00:00:00+00:00",
+        "to_date": IsStr,
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "height": 228.0,
+        "name": "Dresden-Klotzsche",
+        "state": "Sachsen",
+    }
 
 
 @pytest.mark.remote
@@ -180,7 +172,7 @@ def test_dwd_values_success(client):
         },
     )
     assert response.status_code == 200
-    item = response.json()["data"][12]
+    item = response.json()["values"][12]
     assert item == {
         "station_id": "01359",
         "dataset": "climate_summary",
@@ -240,25 +232,6 @@ def test_dwd_values_no_resolution(client):
     assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
 
 
-@pytest.mark.skip(reason="currently only json is allowed as format and is set in the function")
-def test_values_wrong_format(client):
-    response = client.get(
-        "/restapi/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "station": "01359",
-            "parameter": "kl",
-            "resolution": "daily",
-            "period": "historical",
-            "date": "1982-01-01",
-            "format": "abc",
-        },
-    )
-    assert response.status_code == 400
-    assert "'format' argument must be one of 'json', 'geojson'" in response.text
-
-
 @pytest.mark.remote
 @pytest.mark.sql
 def test_dwd_values_sql_tabular(client):
@@ -278,7 +251,7 @@ def test_dwd_values_sql_tabular(client):
         },
     )
     assert response.status_code == 200
-    data = response.json()["data"]
+    data = response.json()["values"]
     assert len(data) >= 8
     item = data[0]
     assert item == {
@@ -333,7 +306,7 @@ def test_dwd_values_sql_long(client):
         },
     )
     assert response.status_code == 200
-    item = response.json()["data"][0]
+    item = response.json()["values"][0]
     assert item == {
         "station_id": "01048",
         "dataset": "climate_summary",
@@ -358,7 +331,7 @@ def test_dwd_interpolate(client):
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"] == [
+    assert response.json()["values"] == [
         {
             "date": "1986-10-31T00:00:00+00:00",
             "parameter": "temperature_air_mean_200",
@@ -390,7 +363,7 @@ def test_dwd_summarize(client):
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"] == [
+    assert response.json()["values"] == [
         {
             "date": "1986-10-31T00:00:00+00:00",
             "parameter": "temperature_air_mean_200",
@@ -421,7 +394,7 @@ def test_api_values_missing_null(client):
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"][0]["quality"] is None
+    assert response.json()["values"][0]["quality"] is None
 
 
 @pytest.mark.remote
@@ -437,8 +410,8 @@ def test_api_stations_missing_null(client):
         },
     )
     assert response.status_code == 200
-    first = response.json()["data"][2]
-    assert first == {
+    item = response.json()["stations"][2]
+    assert item == {
         "station_id": "01025",
         "icao_id": None,
         "from_date": None,
@@ -464,7 +437,7 @@ def test_dwd_mosmix(client):
         },
     )
     assert response.status_code == 200
-    first = response.json()["data"][0]
+    first = response.json()["values"][0]
     assert first == {
         "station_id": "01025",
         "dataset": "small",
@@ -489,7 +462,7 @@ def test_dwd_dmo_lead_time_long(client):
         },
     )
     assert response.status_code == 200
-    first = response.json()["data"][0]
+    first = response.json()["values"][0]
     assert first == {
         "station_id": "01025",
         "dataset": "icon",
