@@ -67,6 +67,7 @@ def test_dwd_observations_stations_filter_name(default_settings, expected_df):
     assert_frame_equal(given_df, expected_df)
 
 
+# TODO: move this test to test_io.py
 @pytest.mark.remote
 def test_dwd_observations_stations_geojson(default_settings):
     # Existing combination of parameters
@@ -78,10 +79,16 @@ def test_dwd_observations_stations_geojson(default_settings):
     ).filter_by_station_id(station_id=("00001",))
     assert not request.df.is_empty()
     geojson = request.to_ogc_feature_collection()
-    properties = geojson["features"][0]["properties"]
-    geometry = geojson["features"][0]["geometry"]
-    assert properties["name"] == "Aach"
-    assert properties["state"] == "Baden-Württemberg"
+    assert geojson.keys() == {"data"}
+    properties = geojson["data"]["features"][0]["properties"]
+    geometry = geojson["data"]["features"][0]["geometry"]
+    assert properties == {
+        "id": "00001",
+        "from_date": "1937-01-01T00:00:00+00:00",
+        "to_date": "1986-06-30T00:00:00+00:00",
+        "name": "Aach",
+        "state": "Baden-Württemberg",
+    }
     assert geometry == {
         "type": "Point",
         "coordinates": [8.8493, 47.8413, 478.0],

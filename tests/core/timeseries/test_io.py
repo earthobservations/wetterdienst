@@ -11,9 +11,16 @@ import pytest
 from surrogate import surrogate
 from zoneinfo import ZoneInfo
 
+from wetterdienst import Provider
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
-from wetterdienst.core.timeseries.result import StationsFilter, StationsResult
+from wetterdienst.core.timeseries.result import (
+    InterpolatedValuesResult,
+    StationsFilter,
+    StationsResult,
+    SummarizedValuesResult,
+    ValuesResult,
+)
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationPeriod,
@@ -60,24 +67,59 @@ def dwd_climate_summary_tabular_columns():
 
 
 @pytest.fixture
-def df_station():
+def dwd_metadata():
+    return {
+        "producer": {
+            "doi": "10.5281/zenodo.3960624",
+            "name": "Wetterdienst",
+            "url": "https://github.com/earthobservations/wetterdienst",
+        },
+        "provider": {
+            "copyright": "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)",
+            "country": "Germany",
+            "name_english": "German Weather Service",
+            "name_local": "Deutscher Wetterdienst",
+            "url": "https://opendata.dwd.de/climate_environment/CDC/",
+        },
+    }
+
+
+@pytest.fixture
+def df_stations():
     return pl.DataFrame(
         {
-            "station_id": ["19087"],
-            "from_date": [dt.datetime(1957, 5, 1)],
-            "to_date": [dt.datetime(1995, 11, 30)],
+            "station_id": ["01048"],
+            "from_date": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))],
+            "to_date": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC"))],
             "height": [645.0],
             "latitude": [48.8049],
             "longitude": [13.5528],
             "name": ["Freyung vorm Wald"],
             "state": ["Bayern"],
-            "has_file": [False],
         }
     )
 
 
 @pytest.fixture
-def df_data():
+def stations_mock():
+    class StationsMock:
+        _provider = Provider.DWD
+
+    return StationsMock
+
+
+@pytest.fixture
+def stations_result_mock(df_stations, stations_mock):
+    return StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=stations_mock,
+    )
+
+
+@pytest.fixture
+def df_values():
     return pl.DataFrame(
         [
             {
@@ -140,10 +182,166 @@ def df_data():
     )
 
 
-def test_to_dict(df_data):
-    """Test export of DataFrame to dictioanry"""
-    data = ExportMixin(df=df_data[0, :]).to_dict()
-    assert data == [
+@pytest.fixture
+def df_interpolated_values():
+    return pl.DataFrame(
+        [
+            {
+                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "parameter": "temperature_air_max_200",
+                "value": 1.3,
+                "distance_mean": 0.0,
+                "station_ids": ["01048"],
+            },
+        ],
+        schema={
+            "date": pl.Datetime(time_zone="UTC"),
+            "parameter": pl.Utf8,
+            "value": pl.Float64,
+            "distance_mean": pl.Float64,
+            "station_ids": pl.List(pl.Utf8),
+        },
+    )
+
+
+@pytest.fixture
+def df_summarized_values():
+    return pl.DataFrame(
+        [
+            {
+                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "parameter": "temperature_air_max_200",
+                "value": 1.3,
+                "distance": 0.0,
+                "station_id": "01048",
+            },
+        ],
+        schema={
+            "date": pl.Datetime(time_zone="UTC"),
+            "parameter": pl.Utf8,
+            "value": pl.Float64,
+            "distance": pl.Float64,
+            "station_id": pl.Utf8,
+        },
+    )
+
+
+def test_stations_to_dict(df_stations):
+    data = StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=None,
+    ).to_dict()
+    assert data.keys() == {"stations"}
+    assert data["stations"] == [
+        {
+            "station_id": "01048",
+            "from_date": "1957-05-01T00:00:00+00:00",
+            "to_date": "1995-11-30T00:00:00+00:00",
+            "height": 645.0,
+            "latitude": 48.8049,
+            "longitude": 13.5528,
+            "name": "Freyung vorm Wald",
+            "state": "Bayern",
+        },
+    ]
+
+
+def test_stations_to_dict_with_metadata(df_stations, stations_mock, dwd_metadata):
+    data = StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=stations_mock,
+    ).to_dict(with_metadata=True)
+    assert data.keys() == {"stations", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_stations_to_ogc_feature_collection(df_stations):
+    data = StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=None,
+    ).to_ogc_feature_collection()
+    assert data.keys() == {"data"}
+    assert data["data"]["features"][0] == {
+        "geometry": {"coordinates": [13.5528, 48.8049, 645.0], "type": "Point"},
+        "properties": {
+            "from_date": "1957-05-01T00:00:00+00:00",
+            "id": "01048",
+            "name": "Freyung vorm Wald",
+            "state": "Bayern",
+            "to_date": "1995-11-30T00:00:00+00:00",
+        },
+        "type": "Feature",
+    }
+
+
+def test_stations_to_ogc_feature_collection_with_metadata(df_stations, stations_mock, dwd_metadata):
+    data = StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=stations_mock,
+    ).to_ogc_feature_collection(with_metadata=True)
+    assert data.keys() == {"data", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_stations_format_json(df_stations):
+    """Test export of DataFrame to json"""
+    output = StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=None,
+    ).to_json()
+    response = json.loads(output)
+    assert response.keys() == {"stations"}
+    station_ids = {station["station_id"] for station in response["stations"]}
+    assert "01048" in station_ids
+
+
+def test_stations_format_geojson(df_stations, stations_mock):
+    """Test export of DataFrame to geojson"""
+    output = StationsResult(
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.ALL,
+        stations=stations_mock,
+    ).to_geojson()
+    response = json.loads(output)
+    assert response.keys() == {"data"}
+    station_names = {station["properties"]["name"] for station in response["data"]["features"]}
+    assert "Freyung vorm Wald" in station_names
+
+
+def test_stations_format_csv(df_stations):
+    """Test export of DataFrame to csv"""
+    output = (
+        StationsResult(
+            df=df_stations,
+            df_all=df_stations,
+            stations_filter=StationsFilter.ALL,
+            stations=None,
+        )
+        .to_csv()
+        .strip()
+    )
+    assert "station_id,from_date,to_date,height,latitude,longitude,name,state" in output
+    assert (
+        "01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
+        in output
+    )
+
+
+def test_values_to_dict(df_values):
+    data = ValuesResult(stations=None, values=None, df=df_values[0, :]).to_dict()
+    assert data.keys() == {"values"}
+    assert data["values"] == [
         {
             "dataset": "climate_summary",
             "date": "2019-01-01T00:00:00+00:00",
@@ -155,19 +353,219 @@ def test_to_dict(df_data):
     ]
 
 
-def test_filter_by_date(df_data):
+def test_values_to_dict_with_metadata(df_values, stations_result_mock, dwd_metadata):
+    data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_dict(with_metadata=True)
+    assert data.keys() == {"values", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
+    data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection()
+    assert data.keys() == {"data"}
+    assert data["data"]["features"][0] == {
+        "geometry": {"coordinates": [13.5528, 48.8049, 645.0], "type": "Point"},
+        "properties": {
+            "id": "01048",
+            "name": "Freyung vorm Wald",
+            "from_date": "1957-05-01T00:00:00+00:00",
+            "to_date": "1995-11-30T00:00:00+00:00",
+            "state": "Bayern",
+        },
+        "type": "Feature",
+        "values": [
+            {
+                "dataset": "climate_summary",
+                "date": "2019-01-01T00:00:00+00:00",
+                "parameter": "temperature_air_max_200",
+                "quality": None,
+                "value": 1.3,
+            }
+        ],
+    }
+
+
+def test_values_to_ogc_feature_collection_with_metadata(df_values, stations_result_mock, dwd_metadata):
+    data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
+        with_metadata=True
+    )
+    assert data.keys() == {"data", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_values_format_json(df_values):
+    """Test export of DataFrame to json"""
+    output = ValuesResult(stations=None, values=None, df=df_values).to_json()
+    response = json.loads(output)
+    assert response.keys() == {"values"}
+    station_ids = {reading["station_id"] for reading in response["values"]}
+    assert "01048" in station_ids
+
+
+def test_values_format_geojson(df_values, stations_result_mock):
+    """Test export of DataFrame to geojson"""
+    output = ValuesResult(df=df_values, stations=stations_result_mock, values=None).to_geojson()
+    response = json.loads(output)
+    assert response.keys() == {"data"}
+    item = response["data"]["features"][0]["values"][0]
+    assert item == {
+        "dataset": "climate_summary",
+        "parameter": "temperature_air_max_200",
+        "date": "2019-01-01T00:00:00+00:00",
+        "value": 1.3,
+        "quality": None,
+    }
+
+
+def test_values_format_csv(df_values):
+    """Test export of DataFrame to csv"""
+    output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
+    assert "station_id,dataset,parameter,date,value,quality" in output
+    assert "01048,climate_summary,temperature_air_max_200,2019-12-28T00:00:00+00:00,1.3," in output
+
+
+def test_interpolated_values_to_dict(df_interpolated_values):
+    data = InterpolatedValuesResult(stations=None, df=df_interpolated_values, latlon=(1, 2)).to_dict()
+    assert data.keys() == {"values"}
+    assert data["values"] == [
+        {
+            "date": "2019-01-01T00:00:00+00:00",
+            "parameter": "temperature_air_max_200",
+            "value": 1.3,
+            "distance_mean": 0.0,
+            "station_ids": ["01048"],
+        }
+    ]
+
+
+def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stations_result_mock, dwd_metadata):
+    data = InterpolatedValuesResult(stations=stations_result_mock, df=df_interpolated_values, latlon=(1, 2)).to_dict(
+        with_metadata=True
+    )
+    assert data.keys() == {"values", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, stations_result_mock):
+    data = InterpolatedValuesResult(
+        stations=stations_result_mock, df=df_interpolated_values, latlon=(1.2345, 2.3456)
+    ).to_ogc_feature_collection()
+    assert data.keys() == {"data"}
+    assert data["data"]["features"][0] == {
+        "geometry": {"coordinates": [2.3456, 1.2345], "type": "Point"},
+        "properties": {"name": "interpolation(lat=1.2345,lon=2.3456)"},
+        "stations": [
+            {
+                "station_id": "01048",
+                "latitude": 48.8049,
+                "longitude": 13.5528,
+                "height": 645.0,
+                "from_date": "1957-05-01T00:00:00+00:00",
+                "to_date": "1995-11-30T00:00:00+00:00",
+                "name": "Freyung vorm Wald",
+                "state": "Bayern",
+            }
+        ],
+        "type": "Feature",
+        "values": [
+            {
+                "date": "2019-01-01T00:00:00+00:00",
+                "parameter": "temperature_air_max_200",
+                "value": 1.3,
+                "distance_mean": 0.0,
+                "station_ids": ["01048"],
+            }
+        ],
+    }
+
+
+def test_interpolated_values_to_ogc_feature_collection_with_metadata(
+    df_interpolated_values, stations_result_mock, dwd_metadata
+):
+    data = InterpolatedValuesResult(
+        stations=stations_result_mock, df=df_interpolated_values, latlon=(1.2345, 2.3456)
+    ).to_ogc_feature_collection(with_metadata=True)
+    assert data.keys() == {"data", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_summarized_values_to_dict(df_summarized_values):
+    data = SummarizedValuesResult(stations=None, df=df_summarized_values, latlon=(1.2345, 2.3456)).to_dict()
+    assert data.keys() == {"values"}
+    assert data["values"] == [
+        {
+            "date": "2019-01-01T00:00:00+00:00",
+            "parameter": "temperature_air_max_200",
+            "value": 1.3,
+            "distance": 0.0,
+            "station_id": "01048",
+        }
+    ]
+
+
+def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_result_mock, dwd_metadata):
+    data = SummarizedValuesResult(
+        stations=stations_result_mock, df=df_summarized_values, latlon=(1.2345, 2.3456)
+    ).to_dict(with_metadata=True)
+    assert data.keys() == {"values", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stations_result_mock):
+    data = SummarizedValuesResult(
+        stations=stations_result_mock, df=df_summarized_values, latlon=(1.2345, 2.3456)
+    ).to_ogc_feature_collection()
+    assert data.keys() == {"data"}
+    assert data["data"]["features"][0] == {
+        "geometry": {"coordinates": [2.3456, 1.2345], "type": "Point"},
+        "properties": {"name": "summary(lat=1.2345,lon=2.3456)"},
+        "stations": [
+            {
+                "station_id": "01048",
+                "latitude": 48.8049,
+                "longitude": 13.5528,
+                "height": 645.0,
+                "from_date": "1957-05-01T00:00:00+00:00",
+                "to_date": "1995-11-30T00:00:00+00:00",
+                "name": "Freyung vorm Wald",
+                "state": "Bayern",
+            }
+        ],
+        "type": "Feature",
+        "values": [
+            {
+                "date": "2019-01-01T00:00:00+00:00",
+                "parameter": "temperature_air_max_200",
+                "value": 1.3,
+                "distance": 0.0,
+                "station_id": "01048",
+            }
+        ],
+    }
+
+
+def test_summarized_values_to_ogc_feature_collection_with_metadata(
+    df_summarized_values, stations_result_mock, dwd_metadata
+):
+    data = SummarizedValuesResult(
+        stations=stations_result_mock, df=df_summarized_values, latlon=(1.2345, 2.3456)
+    ).to_ogc_feature_collection(with_metadata=True)
+    assert data.keys() == {"data", "metadata"}
+    assert data["metadata"] == dwd_metadata
+
+
+def test_filter_by_date(df_values):
     """Test filter by date"""
-    df = filter_by_date(df_data, "2019-12-28")
+    df = filter_by_date(df_values, "2019-12-28")
     assert not df.is_empty()
-    df = filter_by_date(df_data, "2019-12-27")
+    df = filter_by_date(df_values, "2019-12-27")
     assert df.is_empty()
 
 
-def test_filter_by_date_interval(df_data):
+def test_filter_by_date_interval(df_values):
     """Test filter by date interval"""
-    df = filter_by_date(df_data, "2019-12-27/2019-12-29")
+    df = filter_by_date(df_values, "2019-12-27/2019-12-29")
     assert not df.is_empty()
-    df = filter_by_date(df_data, "2019-12/2020-01")
+    df = filter_by_date(df_values, "2019-12/2020-01")
     assert df.get_column("value").to_list() == [1.0, 1.3, 2.0]
     df = filter_by_date(df, date="2020/2022")
     assert not df.is_empty()
@@ -176,41 +574,16 @@ def test_filter_by_date_interval(df_data):
 
 
 @pytest.mark.sql
-def test_filter_by_sql(df_data):
+def test_filter_by_sql(df_values):
     """Test filter by sql statement"""
-    df = ExportMixin(df=df_data).filter_by_sql(
+    df = ExportMixin(df=df_values).filter_by_sql(
         sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
     )
     assert not df.is_empty()
-    df = ExportMixin(df=df_data).filter_by_sql(
+    df = ExportMixin(df=df_values).filter_by_sql(
         sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 4"
     )
     assert df.is_empty()
-
-
-def test_format_json(df_data):
-    """Test export of DataFrame to json"""
-    output = ExportMixin(df=df_data).to_json()
-    response = json.loads(output)
-    station_ids = {reading["station_id"] for reading in response}
-    assert "01048" in station_ids
-
-
-def test_format_geojson(df_station):
-    """Test export of DataFrame to geojson"""
-    output = StationsResult(
-        df=df_station, df_all=df_station, stations_filter=StationsFilter.ALL, stations=None
-    ).to_geojson()
-    response = json.loads(output)
-    station_names = {station["properties"]["name"] for station in response["features"]}
-    assert "Freyung vorm Wald" in station_names
-
-
-def test_format_csv(df_data):
-    """Test export of DataFrame to csv"""
-    output = ExportMixin(df=df_data).to_csv().strip()
-    assert "station_id,dataset,parameter,date,value,quality" in output
-    assert "01048,climate_summary,temperature_air_max_200,2019-12-28T00-00-00,1.3," in output
 
 
 @pytest.mark.remote

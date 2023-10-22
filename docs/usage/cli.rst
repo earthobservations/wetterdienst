@@ -57,6 +57,24 @@ Command Line Interface
             # Export options
             [--target=<target>]
 
+    Data computation:
+
+        wetterdienst {interpolate,summarize}
+
+            # Selection options
+            --provider=<provider> --network=<network> --parameter=<parameter> --resolution=<resolution> --date=<date> [--period=<period>]
+
+            # Filtering options
+            --station=<station>
+            --coordinates=<latitude,longitude>
+
+            # Output options
+            [--format=<format>] [--pretty]
+            [--shape=<shape>] [--humanize] [--si-units]
+            [--dropna] [--skip_empty] [--skip_threshold=0.95]
+
+            # Export options
+            [--target=<target>]
 
     Options
     =======
@@ -112,13 +130,11 @@ Command Line Interface
         --sql-values                SQL filter to apply to values
 
     Transformation options:
-        --shape                     Shape of DataFrame, "long" or "wide"
+        --shape                     Shape of DataFrame, "wide" or "long"
         --humanize                  Humanize parameters
         --si-units                  Convert to SI units
-        --skip_empty                Skip empty stations according to skip_threshold
-        --skip_criteria             Skip criteria ("min", mean", max") that decides how the percentage of actual values
-                                    is determined
-        --skip_threshold            Skip threshold for a station to be empty (0 < skip_threshold <= 1) [Default: 0.95]
+        --skip_empty                Skip empty stations according to ts_skip_threshold
+        --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
         --dropna                    Whether to drop nan values from the result
 
     Output options:
@@ -167,91 +183,126 @@ Command Line Interface
     Acquire observation data:
 
         # Get daily climate summary data for specific stations, selected by name and station id
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --name=Dresden-Hosterwitz
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+            --name=Dresden-Hosterwitz
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+            --station=1048,4411
 
         # Get daily climate summary data for specific stations in CSV format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+            --station=1048,4411
 
         # Get daily climate summary data for specific stations in long format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411 --shape="long"
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+            --station=1048,4411 --shape="long"
 
         # Limit output to specific date
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --date=2020-05-01 --station=1048,4411
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01 \\
+            --station=1048,4411
 
         # Limit output to specified date range in ISO-8601 time interval format
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=2020-05-01/2020-05-05 --station=1048
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily \\
+            --date=2020-05-01/2020-05-05 --station=1048
 
         # The real power horse: Acquire data across historical+recent data sets
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --date=1969-01-01/2020-06-11 --station=1048
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily \\
+            --date=1969-01-01/2020-06-11 --station=1048
 
         # Acquire single data point for month 2020-05
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
             --date=2020-05 --station=1048
 
         # Acquire monthly data from 2017 to 2019
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=monthly --tidy \\
             --date=2017/2019 --station=1048,4411
 
         # Acquire annual data for 2019
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
             --date=2019 --station=1048,4411
 
         # Acquire annual data from 2010 to 2020
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=annual --tidy \\
             --date=2010/2020 --station=1048
 
         # Acquire hourly data for a given time range
-        wetterdienst values --provider=dwd --network=observation --parameter=air_temperature --resolution=hourly \
+        wetterdienst values --provider=dwd --network=observation --parameter=air_temperature --resolution=hourly \\
             --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
         # Acquire data for multiple given parameters
-        wetterdienst values --provider=dwd --network=observation \
-            --parameter=precipitation_height/precipitation_more,temperature_air_mean_200/air_temperature \
+        wetterdienst values --provider=dwd --network=observation \\
+            --parameter=precipitation_height/precipitation_more,temperature_air_mean_200/air_temperature \\
             --resolution=hourly --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
     Acquire MOSMIX data:
 
         wetterdienst values --provider=dwd --network=mosmix --parameter=ttt,ff --resolution=large --station=65510
 
+    Acquire DMO data:
+
+        wetterdienst values --provider=dwd --network=dmo --parameter=ttt --resolution=icon_eu --station=65510
+
+        # short lead time
+        wetterdienst values --provider=dwd --network=dmo --parameter=ttt --resolution=icon --station=65510 --lead-time=short
+
+        # long lead time
+        wetterdienst values --provider=dwd --network=dmo --parameter=ttt --resolution=icon --station=65510 --lead-time=long
+
+    Compute data:
+
+        # Compute daily interpolation of precipitation for specific station selected by id
+        wetterdienst interpolate --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+            --date=2020-06-30 --station=01048
+
+        # Compute daily interpolation of precipitation for specific station selected by coordinates
+        wetterdienst interpolate --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+            --date=2020-06-30 --coordinates=49.9195,8.9671
+
+        # Compute daily summary of precipitation for specific station selected by id
+        wetterdienst summarize --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+            --date=2020-06-30 --station=01048
+
+        # Compute daily summary data of precipitation for specific station selected by coordinates
+        wetterdienst summarize --provider=dwd --network=observation --parameter=precipitation_height --resolution=daily \\
+            --date=2020-06-30 --coordinates=49.9195,8.9671
+
     Geospatial filtering:
 
         # Acquire stations and readings by geolocation, request specific number of nearby stations.
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \
+        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
             --coordinates=49.9195,8.9671 --rank=5
 
-        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \
+        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
             --coordinates=49.9195,8.9671 --rank=5 --date=2020-06-30
 
         # Acquire stations and readings by geolocation, request stations within specific distance.
-        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \
+        wetterdienst stations --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
             --coordinates=49.9195,8.9671 --distance=25
 
-        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \
+        wetterdienst values --provider=dwd --network=observation --resolution=daily --parameter=kl --period=recent \\
             --coordinates=49.9195,8.9671 --distance=25 --date=2020-06-30
 
     SQL filtering:
 
         # Find stations by state.
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --sql="SELECT * FROM data WHERE state='Sachsen'"
 
         # Find stations by name (LIKE query).
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --sql="SELECT * FROM data WHERE lower(name) LIKE lower('%dresden%')"
 
         # Find stations by name (regexp query).
-        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --sql="SELECT * FROM data WHERE regexp_matches(lower(name), lower('.*dresden.*'))"
 
         # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --station=1048,4411 --sql-values="SELECT * FROM data WHERE wind_gust_max > 20.0;"
 
         # Filter measurements: Same as above, but use long format.
-        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
-            --station=1048,4411 \
-            --shape="long" --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0;"
+        wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
+            --station=1048,4411 --shape="long" \\
+            --sql-values="SELECT * FROM data WHERE parameter='wind_gust_max' AND value > 20.0"
 
     Inquire metadata:
 
@@ -270,8 +321,7 @@ Command Line Interface
     Export data to files:
 
         # Export list of stations into spreadsheet
-        wetterdienst stations \
-            --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \
+        wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent \\
             --all --target=file://stations_result.xlsx
 
         # Shortcut command for fetching readings.
@@ -344,4 +394,3 @@ Command Line Interface
         # Display radar station with specific ODIM- or WMO-code.
         wetterdienst radar --odim-code=deasb
         wetterdienst radar --wmo-code=10103
-

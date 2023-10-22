@@ -3,17 +3,25 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
-from typing import Literal, Optional
+from typing import Any, Literal, Optional, Union
 
-import polars as pl
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.result import (
+    _InterpolatedValuesDict,
+    _InterpolatedValuesOgcFeatureCollection,
+    _StationsDict,
+    _StationsOgcFeatureCollection,
+    _SummarizedValuesDict,
+    _SummarizedValuesOgcFeatureCollection,
+    _ValuesDict,
+    _ValuesOgcFeatureCollection,
+)
 from wetterdienst.exceptions import ProviderNotFoundError
-from wetterdienst.metadata.columns import Columns
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import (
     get_interpolate,
@@ -37,15 +45,12 @@ CommaSeparator = StringListParamType(",")
 @app.get("/", response_class=HTMLResponse)
 def index():
     appname = f"{__appname__} {__version__}"
-
     about = "Wetterdienst - Open weather data for humans."
-
     sources = ""
     for provider in Provider:
         shortname = provider.name
         _, name, country, copyright_, url = provider.value
         sources += f"<li><a href={url}>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
-
     return f"""
     <html>
         <head>
@@ -113,7 +118,11 @@ def coverage(
     return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
 
-@app.get("/restapi/stations")
+# response models for the different formats are
+# - _StationsDict for json
+# - _StationsOgcFeatureCollection for geojson
+# - str for csv
+@app.get("/restapi/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
 def stations(
     provider: str = Query(default=None),
     network: str = Query(default=None),
@@ -129,25 +138,23 @@ def stations(
     bbox: str = Query(default=None),
     sql: str = Query(default=None),
     fmt: str = Query(alias="format", default="json"),
-    debug: bool = Query(default=False),
     pretty: bool = Query(default=False),
-):
+    debug: bool = Query(default=False),
+) -> Any:
     if provider is None or network is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'parameter', 'resolution' and 'period' are required",
         )
-
-    if fmt not in ("json", "geojson"):
+    if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
             status_code=400,
-            detail="'format' argument must be one of 'json', 'geojson'",
+            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
         )
 
     set_logging_level(debug)
@@ -201,24 +208,21 @@ def stations(
             f"parameter(s) {parameter} and resolution {resolution}.",
         )
 
-    indent = None
-    if pretty:
-        indent = 4
+    content = stations_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
 
-    output = None
-    if fmt == "json":
-        output = stations_.to_dict()
-    elif fmt == "geojson":
-        output = stations_.to_ogc_feature_collection()
+    if fmt == "csv":
+        media_type = "text/csv"
+    else:
+        media_type = "application/json"
 
-    output = make_json_response(output, api._provider)
-
-    output = json.dumps(output, indent=indent, ensure_ascii=False)
-
-    return Response(content=output, media_type="application/json")
+    return Response(content=content, media_type=media_type)
 
 
-@app.get("/restapi/values")
+# response models for the different formats are
+# - _ValuesDict for json
+# - _ValuesOgcFeatureCollection for geojson
+# - str for csv
+@app.get("/restapi/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
 def values(
     provider: str = Query(default=None),
     network: str = Query(default=None),
@@ -244,59 +248,24 @@ def values(
     skip_threshold: float = Query(alias="skip-threshold", default=0.95, gt=0, le=1),
     skip_criteria: Literal["min", "mean", "max"] = Query(alias="skip-criteria", default="min"),
     dropna: bool = Query(alias="dropna", default=False),
+    fmt: str = Query(alias="format", default="json"),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
-):
-    """
-    Acquire data from DWD.
-
-    :param provider:
-    :param network:        string for network of provider
-    :param parameter:   Observation measure
-    :param resolution:  Frequency/granularity of measurement interval
-    :param period:      Recent or historical files
-    :param date:        Date or date range
-    :param issue:
-    :param all_:
-    :param station:
-    :param name:
-    :param coordinates:
-    :param rank:
-    :param distance:
-    :param bbox:
-    :param sql:         SQL expression
-    :param sql_values:
-    :param fmt:
-    :param humanize:
-    :param shape:        Whether to return data in "long" or "wide" format. Default: "long".
-    :param si_units:
-    :param skip_empty:
-    :param skip_criteria:
-    :param skip_threshold:
-    :param dropna:
-    :param pretty:
-    :param debug:
-    :return:
-    """
-    # TODO: Add geojson support
-    fmt = "json"
-
+) -> Any:
     if provider is None or network is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'parameter', 'resolution' and 'date' are required",
         )
-
-    if fmt not in ("json", "geojson"):
+    if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
             status_code=400,
-            detail="'format' argument must be one of 'json', 'geojson'",
+            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
         )
 
     set_logging_level(debug)
@@ -346,20 +315,23 @@ def values(
         log.exception(e)
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    indent = None
-    if pretty:
-        indent = 4
+    content = values_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
 
-    output = values_.to_dict()
+    if fmt == "csv":
+        media_type = "text/csv"
+    else:
+        media_type = "application/json"
 
-    output = make_json_response(output, api._provider)
-
-    output = json.dumps(output, indent=indent, ensure_ascii=False)
-
-    return Response(content=output, media_type="application/json")
+    return Response(content=content, media_type=media_type)
 
 
-@app.get("/restapi/interpolate")
+# response models for the different formats are
+# - _InterpolatedValuesDict for json
+# - _InterpolatedValuesOgcFeatureCollection for geojson
+# - str for csv
+@app.get(
+    "/restapi/interpolate", response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str]
+)
 def interpolate(
     provider: str = Query(default=None),
     network: str = Query(default=None),
@@ -375,48 +347,25 @@ def interpolate(
     humanize: bool = Query(default=True),
     si_units: bool = Query(alias="si-units", default=True),
     use_nearby_station_distance: float = Query(default=1.0),
+    fmt: str = Query(alias="format", default="json"),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
-):
-    """
-    Wrapper around get_interpolate to provide results via restapi
-
-    :param provider:
-    :param network:        string for network of provider
-    :param parameter:   Observation measure
-    :param resolution:  Frequency/granularity of measurement interval
-    :param period:      Recent or historical files
-    :param date:        Date or date range
-    :param issue:
-    :param station:
-    :param coordinates:
-    :param sql_values:
-    :param humanize:
-    :param si_units:
-    :param use_nearby_station_distance:
-    :param pretty:
-    :param debug:
-    :return:
-    """
-    # TODO: Add geojson support
-    fmt = "json"
-
+) -> Any:
+    """Wrapper around get_interpolate to provide results via restapi"""
     if provider is None or network is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'parameter', 'resolution' and 'date' are required",
         )
-
-    if fmt not in ("json", "geojson"):
+    if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
             status_code=400,
-            detail="format argument must be one of json, geojson",
+            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
         )
 
     set_logging_level(debug)
@@ -452,28 +401,25 @@ def interpolate(
             humanize=humanize,
             use_nearby_station_distance=use_nearby_station_distance,
         )
-    except Exception as err:
-        log.exception(err)
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
-    indent = None
-    if pretty:
-        indent = 4
+    content = values_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
 
-    output = values_.df
+    if fmt == "csv":
+        media_type = "text/csv"
+    else:
+        media_type = "application/json"
 
-    output = output.with_columns(pl.col(Columns.DATE.value).map_elements(lambda d: d.isoformat()))
-
-    output = output.to_dicts()
-
-    output = make_json_response(output, api._provider)
-
-    output = json.dumps(output, indent=indent, ensure_ascii=False)
-
-    return Response(content=output, media_type="application/json")
+    return Response(content=content, media_type=media_type)
 
 
-@app.get("/restapi/summarize")
+# response models for the different formats are
+# - _SummarizedValuesDict for json
+# - _SummarizedValuesOgcFeatureCollection for geojson
+# - str for csv
+@app.get("/restapi/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
     provider: str = Query(default=None),
     network: str = Query(default=None),
@@ -488,47 +434,25 @@ def summarize(
     sql_values: str = Query(alias="sql-values", default=None),
     humanize: bool = Query(default=True),
     si_units: bool = Query(alias="si-units", default=True),
+    fmt: str = Query(alias="format", default="json"),
     pretty: bool = Query(default=False),
     debug: bool = Query(default=False),
-):
-    """
-    Wrapper around get_summarize to provide results via restapi
-
-    :param provider:
-    :param network:        string for network of provider
-    :param parameter:   Observation measure
-    :param resolution:  Frequency/granularity of measurement interval
-    :param period:      Recent or historical files
-    :param date:        Date or date range
-    :param issue:
-    :param station:
-    :param coordinates:
-    :param sql_values:
-    :param humanize:
-    :param si_units:
-    :param pretty:
-    :param debug:
-    :return:
-    """
-    # TODO: Add geojson support
-    fmt = "json"
-
+) -> Any:
+    """Wrapper around get_summarize to provide results via restapi"""
     if provider is None or network is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-
     if parameter is None or resolution is None:
         raise HTTPException(
             status_code=400,
             detail="Query arguments 'parameter', 'resolution' " "and 'date' are required",
         )
-
-    if fmt not in ("json", "geojson"):
+    if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
             status_code=400,
-            detail="format argument must be one of json, geojson",
+            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
         )
 
     set_logging_level(debug)
@@ -563,55 +487,18 @@ def summarize(
             si_units=si_units,
             humanize=humanize,
         )
-    except Exception as err:
-        log.exception(err)
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
-    indent = None
-    if pretty:
-        indent = 4
+    content = values_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
 
-    output = values_.df
+    if fmt == "csv":
+        media_type = "text/csv"
+    else:
+        media_type = "application/json"
 
-    output = output.with_columns(pl.col(Columns.DATE.value).map_elements(lambda d: d.isoformat()))
-
-    output = output.to_dicts()
-
-    output = make_json_response(output, api._provider)
-
-    output = json.dumps(output, indent=indent, ensure_ascii=False)
-
-    return Response(content=output, media_type="application/json")
-
-
-def make_json_response(data, provider):
-    """
-    Function to add wetterdienst metadata information, citation, etc as well as
-    information about the data provider
-
-    :param data:
-    :param provider:
-    :return:
-    """
-    name_local, name_english, country, copyright_, url = provider.value
-
-    return {
-        "meta": {
-            "provider": {
-                "name_local": name_local,
-                "name_english": name_english,
-                "country": country,
-                "copyright": copyright_,
-                "url": url,
-            },
-            "producer": {
-                "name": PRODUCER_NAME,
-                "url": PRODUCER_LINK,
-                "doi": "10.5281/zenodo.3960624",
-            },
-        },
-        "data": data,
-    }
+    return Response(content=content, media_type=media_type)
 
 
 def start_service(listen_address: Optional[str] = None, reload: Optional[bool] = False):  # pragma: no cover

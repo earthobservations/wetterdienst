@@ -859,11 +859,24 @@ class TimeseriesRequest(Core):
 
         if not isinstance(self, DwdObservationRequest):
             log.error("Interpolation currently only works for DwdObservationRequest")
-            return InterpolatedValuesResult(df=pl.DataFrame(), stations=self)
+            return InterpolatedValuesResult(df=pl.DataFrame(), stations=self.all(), latlon=None)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        interpolated_values = get_interpolated_df(self, lat, lon)
-        return InterpolatedValuesResult(df=interpolated_values, stations=self)
+        df_interpolated = get_interpolated_df(self, lat, lon)
+        df_stations_all = self.all().df
+        df_stations = df_stations_all.join(
+            other=df_interpolated.select(pl.col(Columns.STATION_IDS.value).alias(Columns.STATION_ID.value))
+            .explode(pl.col(Columns.STATION_ID.value))
+            .unique(),
+            on=Columns.STATION_ID.value,
+        )
+        stations_result = StationsResult(
+            stations=self,
+            df=df_stations,
+            df_all=self.all().df,
+            stations_filter=StationsFilter.BY_STATION_ID,
+        )
+        return InterpolatedValuesResult(df=df_interpolated, stations=stations_result, latlon=latlon)
 
     def interpolate_by_station_id(self, station_id: str) -> InterpolatedValuesResult:
         """
@@ -893,11 +906,28 @@ class TimeseriesRequest(Core):
 
         if not isinstance(self, DwdObservationRequest):
             log.error("Summary currently only works for DwdObservationRequest")
-            return SummarizedValuesResult(df=pl.DataFrame(), stations=self)
+            stations_result = StationsResult(
+                stations=self,
+                df=pl.DataFrame(),
+                df_all=self.all().df,
+                stations_filter=StationsFilter.BY_STATION_ID,
+            )
+            return SummarizedValuesResult(df=pl.DataFrame(), stations=stations_result, latlon=latlon)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         summarized_values = get_summarized_df(self, lat, lon)
-        return SummarizedValuesResult(df=summarized_values, stations=self)
+        df_stations_all = self.all().df
+        df_stations = df_stations_all.join(
+            other=summarized_values.select(pl.col(Columns.STATION_ID.value)).unique(),
+            on=Columns.STATION_ID.value,
+        )
+        stations_result = StationsResult(
+            stations=self,
+            df=df_stations,
+            df_all=self.all().df,
+            stations_filter=StationsFilter.BY_STATION_ID,
+        )
+        return SummarizedValuesResult(df=summarized_values, stations=stations_result, latlon=latlon)
 
     def summarize_by_station_id(self, station_id: str) -> SummarizedValuesResult:
         """

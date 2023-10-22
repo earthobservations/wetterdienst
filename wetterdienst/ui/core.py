@@ -152,33 +152,7 @@ def get_stations(
     skip_criteria: Literal["min", "mean", "max"],
     dropna: bool,
 ) -> StationsResult:
-    """
-    Core function for querying stations via cli and restapi
-
-    :param api:
-    :param parameter:
-    :param resolution:
-    :param period:
-    :param date:
-    :param issue:
-    :param all_:
-    :param station_id:
-    :param name:#
-    :param coordinates:
-    :param rank:
-    :param distance:
-    :param bbox:
-    :param sql:
-    :param date:
-    :param si_units:
-    :param shape:
-    :param humanize:
-    :param skip_empty:
-    :param skip_criteria:
-    :param skip_threshold:
-    :param dropna:
-    :return:
-    """
+    """Core function for querying stations via cli and restapi"""
     r = _get_stations_request(
         api=api,
         parameter=parameter,
@@ -362,23 +336,7 @@ def get_interpolate(
     humanize: bool,
     use_nearby_station_distance: float,
 ) -> ValuesResult:
-    """
-    Core function for querying values via cli and restapi
-
-    :param api:
-    :param parameter:
-    :param resolution:
-    :param date:
-    :param issue:
-    :param period:
-    :param station_id:
-    :param coordinates:
-    :param sql_values:
-    :param si_units:
-    :param humanize:
-    :param use_nearby_station_distance:
-    :return:
-    """
+    """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
         parameter=parameter,
