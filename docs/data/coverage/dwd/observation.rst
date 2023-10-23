@@ -35,12 +35,12 @@ database you probably won't need to stream all the historical data every day. On
 other hand this will also save you a lot of time as the size relates to the processing
 time your machine will require.
 
-The table below lists every (useful) parameter on the file server with its combinations
-of available time resolutions. In general only 1-minute and 10-minute data is offered
+The table below lists every (useful) dataset on the file server with its combinations
+of available resolutions. In general only 1-minute and 10-minute data is offered
 in the "now" period, although this may change in the future.
 
-The two parameter strings reflect on how we call a parameter e.g. "PRECIPITATION" and
-how the DWD calls the parameter e.g. "precipitation".
+The two dataset strings reflect on how we call a dataset e.g. "PRECIPITATION" and
+how the DWD calls the dataset e.g. "precipitation".
 
 +-----------------------------------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
 | Dataset \ Granularity                                 | 1_minute              | 5_minutes             | 10_minutes            | hourly                | subdaily              | daily                 | monthly               | annual                |
@@ -107,6 +107,17 @@ parameters can be queried.
 
 Parameter details
 *****************
+
+Precipitation (5 minutes)
+=========================
+
+The precipitation dataset contains the following parameters:
+- rs_05
+- rth_05
+- rwh_05
+- rs_ind_05
+
+of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` period.
 
 Cloud types
 ===========

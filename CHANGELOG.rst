@@ -7,6 +7,7 @@ Development
 - Cleanup error handling
 - Make cli work with DwdDmoRequest API
 - Cleanup cli docs
+- Fix DWD Observation API for 5 minute data
 
 0.64.0 (12.10.2023)
 *******************

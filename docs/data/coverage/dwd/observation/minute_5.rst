@@ -84,7 +84,7 @@ precipitation_height_droplet
    * - description file
      - missing, taken from `DWD parameter listing`_
    * - description
-     - precipitation height of last 5min measured with droplet
+     - precipitation height of last 5min measured with droplet, not available in recent/now period
    * - origin unit
      - :math:`mm`
    * - SI unit
@@ -104,7 +104,7 @@ precipitation_height_rocker
    * - description file
      - missing, taken from `DWD parameter listing`_
    * - description
-     - precipitation height of last 5min measured with rocker
+     - precipitation height of last 5min measured with rocker, not available in recent/now period
    * - origin unit
      - :math:`mm`
    * - SI unit

@@ -186,7 +186,9 @@ def _parse_climate_observations_data(
         for parameter in DwdObservationParameter[resolution.name][dataset.name]:
             columns.append(parameter.value)
 
-        df = df.with_columns(columns)
+        df = df.select(
+            pl.lit(None, dtype=pl.Float64).alias(col) if col not in df.columns else pl.col(col) for col in columns
+        )
 
     # Special handling for hourly solar data, as it has more date columns
     if resolution == Resolution.HOURLY:
