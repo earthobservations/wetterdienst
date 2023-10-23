@@ -6945,17 +6945,17 @@ h11 = ">=0.9.0,<1"
 
 [[package]]
 name = "xarray"
-version = "2023.9.0"
+version = "2023.10.1"
 description = "N-D labeled arrays and datasets in Python"
 optional = true
 python-versions = ">=3.9"
 files = [
-    {file = "xarray-2023.9.0-py3-none-any.whl", hash = "sha256:3fc4a558bd70968040a4e1cefc6ddb3f9a7a86ef6a48e67857156ffe655d3a66"},
-    {file = "xarray-2023.9.0.tar.gz", hash = "sha256:271955c05dc626dad37791a7807d920aaf9c64cac71d03b45ec7e402cc646603"},
+    {file = "xarray-2023.10.1-py3-none-any.whl", hash = "sha256:71ea549e9be6dfeab19c2736acf659967b861aad2397691a80e5fad0c61db2ad"},
+    {file = "xarray-2023.10.1.tar.gz", hash = "sha256:9eeee170c3fc2f3321eb6ba40c17ffe4d8c98d49d55e4a3fba66a75bdc7dd9e5"},
 ]
 
 [package.dependencies]
-numpy = ">=1.21"
+numpy = ">=1.22"
 packaging = ">=21.3"
 pandas = ">=1.4"
 
@@ -7185,4 +7185,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "a5bed3d035455e70f582c57ca4eda3f754f74d43f011d2e7fd55aebff5881a86"
+content-hash = "884c1d1679451bc090128c8e3876873bb01781aaf576b6e64469b11cf9b1f57e"
