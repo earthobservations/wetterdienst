@@ -15,6 +15,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
+    DwdObservationPeriod,
     DwdObservationResolution,
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
@@ -1196,3 +1197,32 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
             "value": 6.2,
         },
     ]
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_5minute_precipitation_data_tidy(default_settings):
+    request = DwdObservationRequest(
+        parameter="precipitation_height",
+        resolution=DwdObservationResolution.MINUTE_5,
+        start_date="2023-08-25 00:00",
+        end_date="2023-08-27 00:00",
+    ).filter_by_rank(
+        latlon=(49.853706, 8.66311),
+        rank=1,
+    )
+    values = request.values.all().df
+    assert values.get_column("value").sum() == 23.82
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings):
+    request = DwdObservationRequest(
+        parameter=["precipitation_height_rocker", "precipitation_height_droplet"],
+        resolution=DwdObservationResolution.MINUTE_5,
+        period=[DwdObservationPeriod.RECENT, DwdObservationPeriod.NOW],
+    ).filter_by_rank(
+        latlon=(49.853706, 8.66311),
+        rank=1,
+    )
+    values = request.values.all().df
+    assert values.get_column("value").is_not_null().sum() == 0
