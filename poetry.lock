@@ -4295,17 +4295,17 @@ poetry-plugin = ["poetry (>=1.0,<2.0)"]
 
 [[package]]
 name = "polars"
-version = "0.19.8"
+version = "0.19.11"
 description = "Blazingly fast DataFrame library"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "polars-0.19.8-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:bd35b6f5aaa85db3bacb0d4b0c556c08da007291d41e837c62e831cf2905c520"},
-    {file = "polars-0.19.8-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:89418a059df1a387e661973aba7c60ec64ed6efe5d6421f06949ea582fd2a8a7"},
-    {file = "polars-0.19.8-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bddf392b5a8766f7b6fa991d913d864ea53d7407280f109223174ded84bdb7b1"},
-    {file = "polars-0.19.8-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a43bd78d6f6bc8a943620324611baa143c07907265fd2680a1b923cc6d2e19c3"},
-    {file = "polars-0.19.8-cp38-abi3-win_amd64.whl", hash = "sha256:6b79691fe68362b79942182d8e78d064b4b3b7191fa8c2899dece93a5b036aa3"},
-    {file = "polars-0.19.8.tar.gz", hash = "sha256:7ba32d104832fed1ac75b8f264f11953751edf062b2ab9d4e69b19ab5a224a0c"},
+    {file = "polars-0.19.11-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:de8158e5f09346ec4622057b7afa7e5339eed61c3c3e874b469c9cb27339df51"},
+    {file = "polars-0.19.11-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:c76c2107260a1ca8a57f02d77ea12dc4db2090d7404b814570474db0392ecf6b"},
+    {file = "polars-0.19.11-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a5c6cf2aa2d301230a80277f8711646453b89eadd6058baf30b7104f420daad2"},
+    {file = "polars-0.19.11-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2ac2890c96736dee83335b1f0b403233aba18b86760505e81eb9f96112afc55d"},
+    {file = "polars-0.19.11-cp38-abi3-win_amd64.whl", hash = "sha256:95be83cb0bbd2d608849e24a973ea3135bd25ae6ce7168e31ad25a02e7773122"},
+    {file = "polars-0.19.11.tar.gz", hash = "sha256:156eab31d9f9bac218bbd391559c667848372a5c584472784695e4fac087fd5b"},
 ]
 
 [package.extras]
