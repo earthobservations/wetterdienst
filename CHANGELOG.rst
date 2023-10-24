@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.65.0 (24.10.2023)
+*******************
+
 - Cleanup error handling
 - Make cli work with DwdDmoRequest API
 - Cleanup cli docs
