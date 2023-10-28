@@ -400,10 +400,10 @@ Client
 .. code-block:: bash
 
     # Get list of all stations for daily climate summary data in JSON format
-    wetterdienst stations --provider=dwd --network=observations --parameter=kl --resolution=daily
+    wetterdienst stations --provider=dwd --network=observation --parameter=kl --resolution=daily --all
 
     # Get daily climate summary data for specific stations
-    wetterdienst values --provider=dwd --network=observations --station=1048,4411 --parameter=kl --resolution=daily
+    wetterdienst values --provider=dwd --network=observation --station=1048,4411 --parameter=kl --resolution=daily
 
 Further examples (code samples) can be found in the examples_ folder.
 
