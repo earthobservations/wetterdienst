@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix DWD DMO again
+
 0.65.0 (24.10.2023)
 *******************
 

@@ -978,6 +978,53 @@ class DwdDmoStationGroup(Enum):
     ALL_STATIONS = "all_stations"
 
 
+class DwdDmoLeadTime(Enum):
+    SHORT = 78
+    LONG = 168
+
+
+def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.DataFrame:
+    """
+    Add date column to dataframe based on filename
+    :param df: Dataframe with url column
+    :param current_date: Current date without timezone
+    :return: Dataframe with date column
+    """
+    if len(df) < 2:
+        raise ValueError("Dataframe must have at least 2 dates")
+    # get month and year from current date
+    year = current_date.year
+    month = current_date.month
+    # if current date is in the first 3 hours of the month, use previous month
+    hours_since_month_start = (current_date - current_date.replace(day=1, hour=1, minute=1, second=1)).seconds / 60 / 60
+    if hours_since_month_start < 3:
+        month = month - 1
+        # if month is 0, set to 12 and decrease year
+        if month == 0:
+            month = 12
+            year = year - 1
+    df = df.with_columns(
+        [
+            pl.lit(year).alias("year"),
+            pl.col("date_str").map_elements(lambda s: s[:2]).cast(int).alias("day"),
+            pl.col("date_str").map_elements(lambda s: s[2:4]).cast(int).alias("hour"),
+        ]
+    )
+    days_difference = df.get_column("day").max() - df.get_column("day").min()
+    if days_difference > 20:
+        df = df.with_columns(pl.when(pl.col("day") > 25).then(month - 1).otherwise(month).alias("month"))
+    else:
+        df = df.with_columns(pl.lit(month).alias("month"))
+    return df.select(
+        [
+            pl.all().exclude(["year", "month", "day", "hour"]),
+            pl.struct(["year", "month", "day", "hour"])
+            .map_elements(lambda s: dt.datetime(s["year"], s["month"], s["day"], s["hour"]))
+            .alias("date"),
+        ]
+    )
+
+
 class DwdDmoValues(TimeseriesValues):
     """
     Fetch DWD DMO data.
@@ -1222,30 +1269,17 @@ class DwdDmoValues(TimeseriesValues):
         """
         urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
         df = pl.DataFrame({"url": urls})
-        now = dt.datetime.utcnow()
-        hours_since_month_start = (now - now.replace(day=1, hour=1, minute=1, second=1)).seconds / 60 / 60
-        if hours_since_month_start < 3:
-            now = now.replace(month=now.month - 1)
-        last_date = (
-            df.select(
-                pl.col("url")
-                .str.split("/")
-                .list.last()
-                .str.split("_")
-                .list.last()
-                .map_elements(lambda s: s[:-4])
-                .alias("date")
-            )
-            .with_columns(pl.col("date").cast(int).alias("date_int"))
-            .filter(pl.col("date_int").eq(pl.col("date_int").max()))
-            .get_column("date")
-            .to_list()[0]
+        df = df.filter(pl.col("url").str.contains(str(self.sr.stations.lead_time.value)))
+        df = df.with_columns(
+            pl.col("url")
+            .str.split("/")
+            .list.last()
+            .str.split("_")
+            .list.last()
+            .map_elements(lambda s: s[:-4])
+            .alias("date_str")
         )
-        day, hour = last_date[:2], last_date[2:4]
-        last_date = f"{now.date().isoformat()[:-3]}-{day} {hour}:00"
-        last_date = dt.datetime.fromisoformat(last_date)
-        dates = [last_date - dt.timedelta(hours=i * 12) for i in range(len(df))]
-        df = df.with_columns(pl.Series(dates[::-1]).alias("date"))
+        df = add_date_from_filename(df, dt.datetime.utcnow())
         if date == DwdForecastDate.LATEST:
             date = df.get_column("date").max()
         df = df.filter(pl.col("date").eq(date))
@@ -1335,7 +1369,8 @@ class DwdDmoRequest(TimeseriesRequest):
         end_issue: Optional[Union[str, dt.datetime]] = None,
         start_date: Optional[Union[str, dt.datetime]] = None,
         end_date: Optional[Union[str, dt.datetime]] = None,
-        station_group: Optional[Union[str, DwdDmoStationGroup]] = None,
+        station_group: Optional[Union[str, DwdDmoStationGroup]] = DwdDmoStationGroup.SINGLE_STATIONS,
+        lead_time: Optional[Union[str, DwdDmoLeadTime]] = DwdDmoLeadTime.SHORT,
         settings: Optional[Settings] = None,
     ) -> None:
         """
@@ -1348,9 +1383,11 @@ class DwdDmoRequest(TimeseriesRequest):
         :param end_date: end date
         """
         self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType)
-        self.station_group = (
-            parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
-        )
+        self.station_group = parse_enumeration_from_template(station_group, DwdDmoStationGroup)
+        if self.dmo_type == DwdDmoType.ICON_EU:
+            self.lead_time = DwdDmoLeadTime.SHORT
+        else:
+            self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime)
 
         super().__init__(
             parameter=parameter,
