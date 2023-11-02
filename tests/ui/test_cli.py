@@ -96,7 +96,7 @@ SETTINGS_VALUES = (
         "dwd",
         "dmo",
         f"--parameter=icon --resolution=icon "
-        f"--date={datetime.strftime(datetime.today() + timedelta(days=6), '%Y-%m-%d')}",
+        f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
     ),

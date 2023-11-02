@@ -80,9 +80,8 @@ def _get_stations_request(
     # TODO: move this into Request core
     start_date, end_date = None, None
     if date:
-        # TODO: use rather network here
         if issubclass(api, DwdMosmixRequest):
-            mosmix_type = DwdMosmixType[resolution.upper()]
+            mosmix_type = parse_enumeration_from_template(resolution, DwdMosmixType)
 
             if mosmix_type == DwdMosmixType.SMALL:
                 res = Resolution.HOURLY
