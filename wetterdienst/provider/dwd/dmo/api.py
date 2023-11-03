@@ -1369,8 +1369,8 @@ class DwdDmoRequest(TimeseriesRequest):
         end_issue: Optional[Union[str, dt.datetime]] = None,
         start_date: Optional[Union[str, dt.datetime]] = None,
         end_date: Optional[Union[str, dt.datetime]] = None,
-        station_group: Optional[Union[str, DwdDmoStationGroup]] = DwdDmoStationGroup.SINGLE_STATIONS,
-        lead_time: Optional[Union[str, DwdDmoLeadTime]] = DwdDmoLeadTime.SHORT,
+        station_group: Optional[Union[str, DwdDmoStationGroup]] = None,
+        lead_time: Optional[Union[str, DwdDmoLeadTime]] = None,
         settings: Optional[Settings] = None,
     ) -> None:
         """
@@ -1382,12 +1382,23 @@ class DwdDmoRequest(TimeseriesRequest):
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
         """
-        self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType)
-        self.station_group = parse_enumeration_from_template(station_group, DwdDmoStationGroup)
+        try:
+            self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType) or DwdDmoLeadTime.SHORT
+        except InvalidEnumerationError:
+            self.dmo_type = DwdDmoLeadTime.SHORT
+        try:
+            self.station_group = (
+                parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
+            )
+        except InvalidEnumerationError:
+            self.station_group = DwdDmoStationGroup.SINGLE_STATIONS
         if self.dmo_type == DwdDmoType.ICON_EU:
             self.lead_time = DwdDmoLeadTime.SHORT
         else:
-            self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime)
+            try:
+                self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
+            except InvalidEnumerationError:
+                self.lead_time = DwdDmoLeadTime.SHORT
 
         super().__init__(
             parameter=parameter,

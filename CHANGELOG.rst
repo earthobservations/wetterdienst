@@ -4,7 +4,8 @@ Changelog
 Development
 ***********
 
-- Fix DWD DMO again
+- Fix DWD DMO access again
+- Add lead time argument - one of short, long - for DWD DMO to address two versions of icon
 
 0.65.0 (24.10.2023)
 *******************

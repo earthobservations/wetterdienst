@@ -100,6 +100,14 @@ SETTINGS_VALUES = (
         "10488",
         "DRESDEN",
     ),
+    (
+        "dwd",
+        "dmo",
+        f"--parameter=icon --resolution=icon --lead-time=long "
+        f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
+        "10488",
+        "DRESDEN",
+    ),
 )
 
 
@@ -318,7 +326,12 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
     "setting,expected_columns",
     zip(
         SETTINGS_VALUES,
-        (("precipitation_height", "temperature_air_max_200"), ("wind_direction",), ("wind_direction",)),
+        (
+            ("precipitation_height", "temperature_air_max_200"),
+            ("wind_direction",),
+            ("wind_direction",),
+            ("wind_direction",),
+        ),
     ),
 )
 def test_cli_values_json(setting, expected_columns):
