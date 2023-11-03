@@ -387,6 +387,16 @@ Acquire MOSMIX data:
 
     wetterdienst values --provider=dwd --network=mosmix --parameter=ttt,ff --resolution=large --station=65510
 
+Acquire DMO data:
+
+    wetterdienst values --provider=dwd --network=dmo --parameter=ttt --resolution=icon_eu --station=65510
+
+    # short lead time
+    wetterdienst values --provider=dwd --network=dmo --parameter=ttt --resolution=icon --station=65510 --lead-time=short
+
+    # long lead time
+    wetterdienst values --provider=dwd --network=dmo --parameter=ttt --resolution=icon --station=65510 --lead-time=long
+
 Compute data:
 
     # Compute daily interpolation of precipitation for specific station selected by id
@@ -717,6 +727,7 @@ def stations(
         parameter=parameter,
         resolution=resolution,
         period=period,
+        lead_time="short",
         date=None,
         issue=None,
         all_=all_,
@@ -755,6 +766,7 @@ def stations(
 @provider_opt
 @network_opt
 @station_options_core
+@cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_extension
 @cloup.option("--date", type=click.STRING)
 @cloup.option("--sql-values", type=click.STRING)
@@ -785,6 +797,7 @@ def values(
     parameter: List[str],
     resolution: str,
     period: List[str],
+    lead_time: str,
     date: str,
     issue: str,
     all_: bool,
@@ -818,6 +831,7 @@ def values(
             parameter=parameter,
             resolution=resolution,
             period=period,
+            lead_time=lead_time,
             date=date,
             issue=issue,
             all_=all_,
@@ -860,6 +874,7 @@ def values(
 @provider_opt
 @network_opt
 @station_options_core
+@cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize
 @cloup.option("--use_nearby_station_distance", type=click.FLOAT, default=1)
 @cloup.option("--date", type=click.STRING, required=True)
@@ -886,6 +901,7 @@ def interpolate(
     parameter: List[str],
     resolution: str,
     period: List[str],
+    lead_time: str,
     use_nearby_station_distance: float,
     date: str,
     issue: str,
@@ -909,6 +925,7 @@ def interpolate(
             parameter=parameter,
             resolution=resolution,
             period=period,
+            lead_time=lead_time,
             date=date,
             issue=issue,
             station_id=station,
@@ -941,6 +958,7 @@ def interpolate(
 @provider_opt
 @network_opt
 @station_options_core
+@cloup.option("--lead-time", type=click.Choice(["short", "long"]), default="short", help="used only for DWD DMO")
 @station_options_interpolate_summarize
 @cloup.option("--date", type=click.STRING, required=True)
 @cloup.option("--sql-values", type=click.STRING)
@@ -966,6 +984,7 @@ def summarize(
     parameter: List[str],
     resolution: str,
     period: List[str],
+    lead_time: str,
     date: str,
     issue: str,
     station: str,
@@ -988,6 +1007,7 @@ def summarize(
             parameter=parameter,
             resolution=resolution,
             period=period,
+            lead_time=lead_time,
             date=date,
             issue=issue,
             station_id=station,

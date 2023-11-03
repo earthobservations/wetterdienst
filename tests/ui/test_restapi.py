@@ -2,7 +2,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
-from dirty_equals import IsDict, IsStr
+from dirty_equals import IsDict, IsNumber, IsStr
 
 
 @pytest.fixture
@@ -448,4 +448,53 @@ def test_api_stations_missing_null(client):
         "height": 10.0,
         "name": "TROMSOE",
         "state": None,
+    }
+
+
+@pytest.mark.remote
+def test_dwd_mosmix(client):
+    response = client.get(
+        "/restapi/values",
+        params={
+            "provider": "dwd",
+            "network": "mosmix",
+            "parameter": "ttt",
+            "resolution": "small",
+            "station": "01025",
+        },
+    )
+    assert response.status_code == 200
+    first = response.json()["data"][0]
+    assert first == {
+        "station_id": "01025",
+        "dataset": "small",
+        "parameter": "temperature_air_mean_200",
+        "date": IsStr,
+        "value": IsNumber,
+        "quality": None,
+    }
+
+
+@pytest.mark.remote
+def test_dwd_dmo_lead_time_long(client):
+    response = client.get(
+        "/restapi/values",
+        params={
+            "provider": "dwd",
+            "network": "dmo",
+            "parameter": "ttt",
+            "resolution": "icon",
+            "station": "01025",
+            "lead-time": "long",
+        },
+    )
+    assert response.status_code == 200
+    first = response.json()["data"][0]
+    assert first == {
+        "station_id": "01025",
+        "dataset": "icon",
+        "parameter": "temperature_air_mean_200",
+        "date": IsStr,
+        "value": IsNumber,
+        "quality": None,
     }

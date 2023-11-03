@@ -53,6 +53,7 @@ def _get_stations_request(
     parameter: List[str],
     resolution: str,
     period: List[str],
+    lead_time: str,
     date: Optional[str],
     issue: str,
     si_units: bool,
@@ -117,6 +118,7 @@ def _get_stations_request(
     elif issubclass(api, DwdDmoRequest):
         kwargs["dmo_type"] = resolution
         kwargs["start_issue"] = issue
+        kwargs["lead_time"] = lead_time
     elif api._resolution_type == ResolutionType.MULTI:
         kwargs["resolution"] = resolution
 
@@ -131,6 +133,7 @@ def get_stations(
     parameter: List[str],
     resolution: str,
     period: List[str],
+    lead_time: str,
     date: Optional[str],
     issue: Optional[str],
     all_: bool,
@@ -181,6 +184,7 @@ def get_stations(
         parameter=parameter,
         resolution=resolution,
         period=period,
+        lead_time=lead_time,
         date=date,
         issue=issue,
         si_units=si_units,
@@ -251,6 +255,7 @@ def get_values(
     api: TimeseriesRequest,
     parameter: List[str],
     resolution: str,
+    lead_time: str,
     date: str,
     issue: str,
     period: List[str],
@@ -303,6 +308,7 @@ def get_values(
         parameter=parameter,
         resolution=resolution,
         period=period,
+        lead_time=lead_time,
         date=date,
         issue=issue,
         all_=all_,
@@ -345,9 +351,10 @@ def get_interpolate(
     api: TimeseriesRequest,
     parameter: List[str],
     resolution: str,
+    period: List[str],
+    lead_time: str,
     date: str,
     issue: str,
-    period: List[str],
     coordinates: str,
     station_id: str,
     sql_values: str,
@@ -377,6 +384,7 @@ def get_interpolate(
         parameter=parameter,
         resolution=resolution,
         period=period,
+        lead_time=lead_time,
         date=date,
         issue=issue,
         si_units=si_units,
@@ -414,9 +422,10 @@ def get_summarize(
     api: TimeseriesRequest,
     parameter: List[str],
     resolution: str,
+    period: List[str],
+    lead_time: str,
     date: str,
     issue: str,
-    period: List[str],
     coordinates: str,
     station_id: str,
     sql_values: str,
@@ -444,6 +453,7 @@ def get_summarize(
         parameter=parameter,
         resolution=resolution,
         period=period,
+        lead_time=lead_time,
         date=date,
         issue=issue,
         si_units=si_units,

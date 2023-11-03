@@ -87,6 +87,7 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
             parameter=parameter,
             resolution=resolution,
             period=period,
+            lead_time="short",
             date=None,
             issue="latest",
             all_=True,
