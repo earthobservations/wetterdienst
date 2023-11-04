@@ -547,4 +547,4 @@ class DwdRadarSites(OperaRadarSites):
         super().__init__()
 
         # Restrict available sites to the list of OPERA radar sites in Germany.
-        self.sites = self.by_countryname(name="Germany")
+        self.sites = self.by_country_name(country_name="Germany")
