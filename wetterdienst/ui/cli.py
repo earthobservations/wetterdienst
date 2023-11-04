@@ -801,7 +801,7 @@ def values(
     parameter: List[str],
     resolution: str,
     period: List[str],
-    lead_time: str,
+    lead_time: Literal["short", "long"],
     date: str,
     issue: str,
     all_: bool,
@@ -909,7 +909,7 @@ def interpolate(
     parameter: List[str],
     resolution: str,
     period: List[str],
-    lead_time: str,
+    lead_time: Literal["short", "long"],
     use_nearby_station_distance: float,
     date: str,
     issue: str,
@@ -996,7 +996,7 @@ def summarize(
     parameter: List[str],
     resolution: str,
     period: List[str],
-    lead_time: str,
+    lead_time: Literal["short", "long"],
     date: str,
     issue: str,
     station: str,
@@ -1059,12 +1059,14 @@ def summarize(
     RequireExactly(1),
     ["dwd", "all_", "odim_code", "wmo_code", "country_name"],
 )
+@cloup.option("--indent", type=click.INT, default=4)
 def radar(
     dwd: bool,
     all_: bool,
     odim_code: str,
-    wmo_code: str,
+    wmo_code: int,
     country_name: str,
+    indent: int,
 ):
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
     from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
@@ -1075,13 +1077,15 @@ def radar(
         if all_:
             data = OperaRadarSites().all()
         elif odim_code:
-            data = OperaRadarSites().by_odimcode(odim_code)
+            data = OperaRadarSites().by_odim_code(odim_code)
         elif wmo_code:
-            data = OperaRadarSites().by_wmocode(wmo_code)
+            data = OperaRadarSites().by_wmo_code(wmo_code)
         elif country_name:
-            data = OperaRadarSites().by_countryname(country_name)
+            data = OperaRadarSites().by_country_name(country_name)
+        else:
+            raise KeyError("No valid option provided")
 
-    output = json.dumps(data, indent=2)
+    output = json.dumps(data, indent=indent)
 
     print(output)  # noqa: T201
 

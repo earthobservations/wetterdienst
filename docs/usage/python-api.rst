@@ -791,7 +791,7 @@ Retrieve information about all OPERA radar sites.
     print(f"Number of OPERA radar sites: {len(sites)}")
 
     # Acquire information for a specific OPERA site.
-    site_ukdea = OperaRadarSites().by_odimcode("ukdea")
+    site_ukdea = OperaRadarSites().by_odim_code("ukdea")
     print(site_ukdea)
 
 Retrieve information about the DWD radar sites.
@@ -802,7 +802,7 @@ Retrieve information about the DWD radar sites.
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
 
     # Acquire information for a specific site.
-    site_asb = DwdRadarSites().by_odimcode("ASB")
+    site_asb = DwdRadarSites().by_odim_code("ASB")
     print(site_asb)
 
 

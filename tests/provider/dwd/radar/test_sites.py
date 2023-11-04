@@ -18,6 +18,6 @@ def test_radar_sites_data_all():
 
 
 def test_radar_sites_data_single():
-    site_asb = DwdRadarSites().by_odimcode("ASB")
+    site_asb = DwdRadarSites().by_odim_code("ASB")
 
     assert site_asb["location"] == "Isle of Borkum"
