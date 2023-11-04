@@ -15,13 +15,15 @@ Wetterdienst - Open weather data for humans
 
 |pic1| |pic2| |pic3|
 
-**Warning**
+    **WARNING**
 
-This library is a work in progress!
+    This library is a work in progress!
 
-Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
+    Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
 
-.. note::
+..
+
+    **NOTE**
 
     Wetterdienst 0.57.0 switched from pandas to Polars, which may cause breaking changes
     for certain user-space code heavily using pandas idioms, because Wetterdienst now
@@ -30,16 +32,22 @@ Breaking changes should be expected until a 1.0 release, so version pinning is r
 
 **What our customers say:**
 
-"Our house is on fire. I am here to say, our house is on fire. I saw it with my own eyes using **wetterdienst**
-to get the data." - Greta Thunberg
+    "Our house is on fire. I am here to say, our house is on fire. I saw it with my own eyes using **wetterdienst**
+    to get the data." - Greta Thunberg
 
-“You must be the change you wish to see in the world. And when it comes to climate I use **wetterdienst**.” - Mahatma Gandhi
+..
 
-"Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
-Hohenpeissenberg, Germany I got with the help of **wetterdienst**; and I'm not sure about the universe." - Albert Einstein
+    “You must be the change you wish to see in the world. And when it comes to climate I use **wetterdienst**.” - Mahatma Gandhi
 
-"We are the first generation to feel the effect of climate change and the last generation who can do something about
-it. I used **wetterdienst** to analyze the climate in my area and I can tell it's getting hot in here." - Barack Obama
+..
+
+    "Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
+    Hohenpeissenberg, Germany I got with the help of **wetterdienst**; and I'm not sure about the universe." - Albert Einstein
+
+..
+
+    "We are the first generation to feel the effect of climate change and the last generation who can do something about
+    it. I used **wetterdienst** to analyze the climate in my area and I can tell it's getting hot in here." - Barack Obama
 
 .. image:: https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
