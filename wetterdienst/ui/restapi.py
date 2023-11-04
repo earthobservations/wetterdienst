@@ -46,40 +46,107 @@ CommaSeparator = StringListParamType(",")
 def index():
     appname = f"{__appname__} {__version__}"
     about = "Wetterdienst - Open weather data for humans."
-    sources = ""
+    sources = []
     for provider in Provider:
         shortname = provider.name
         _, name, country, copyright_, url = provider.value
-        sources += f"<li><a href={url}>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
+        sources.append(
+            f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
+        )
+    sources = "\n".join(sources)
     return f"""
     <html>
         <head>
             <title>{appname}</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f0f0f0;
+                }}
+
+                header {{
+                    background-color: #0074d9;
+                    text-align: center;
+                    padding: 20px;
+                }}
+
+                h1, h2 {{
+                    color: #333;
+                }}
+
+                h2 {{
+                    border-top: 1px solid #ccc;
+                    padding-top: 20px;
+                }}
+
+                li {{
+                    margin-bottom: 10px;
+                }}
+
+                a {{
+                    text-decoration: none;
+                    color: #0074d9;
+                }}
+
+                a:hover {{
+                    text-decoration: underline;
+                }}
+
+                .container {{
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    border-radius: 5px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }}
+
+                .box {{
+                    margin-left: 20px;
+                }}
+
+                .list {{
+                    display: flex;
+                    flex-wrap: wrap;
+                    list-style: none;
+                    flex-direction: column;
+                }}
+
+                .list li {{
+                    margin-left: 20px;
+                    text-align: left;
+                }}
+
+            </style>
         </head>
         <body>
-            <h3>About</h3>
-            <h3>{about}</h3>
-            <h4>Providers</h4>
-            <ul>
-                {sources}
-            </ul>
-            <h4>Providers</h4>
-            <ul>
-                <li><a href=restapi/coverage>coverage</a></li>
-                <li><a href=restapi/stations>stations</a></li>
-                <li><a href=restapi/values>values</a></li>
-                <li><a href=restapi/interpolate>interpolation</a></li>
-                <li><a href=restapi/summarize>summary</a></li>
-            </ul>
-            <h4>Producer</h4>
-            {PRODUCER_NAME} - <a href="{PRODUCER_LINK}">{PRODUCER_LINK}</a></li>
-            <h4>Examples</h4>
-            <ul>
-            <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true">DWD observation stations</a></li>
-            <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011">DWD observation values</a></li>
-            <li><a href="restapi/interpolate?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01">DWD observation interpolation</a></li>
-            <li><a href="restapi/summarize?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01">DWD observation summary</a></li>
-            </ul>
+            <div class="container">
+                <h1>{about}</h1>
+                <h2>Producer</h2>
+                <div class="box">
+                    {PRODUCER_NAME} - <a href="{PRODUCER_LINK}" target="_blank" rel="noopener">{PRODUCER_LINK}</a></li>
+                </div>
+                <h2>Providers</h2>
+                <div class="list">
+                    {sources}
+                </div>
+                <h2>Endpoints</h2>
+                <div class="list">
+                    <li><a href="restapi/coverage" target="_blank" rel="noopener">coverage</a></li>
+                    <li><a href="restapi/stations" target="_blank" rel="noopener">stations</a></li>
+                    <li><a href="restapi/values" target="_blank" rel="noopener">values</a></li>
+                    <li><a href="restapi/interpolate" target="_blank" rel="noopener">interpolation</a></li>
+                    <li><a href="restapi/summarize" target="_blank" rel="noopener">summary</a></li>
+                </div>
+                <h2>Examples</h2>
+                <div class="list">
+                    <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Observation Stations</a></li>
+                    <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Observation Values</a></li>
+                    <li><a href="restapi/interpolate?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Interpolation</a></li>
+                    <li><a href="restapi/summarize?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Summary</a></li>
+                </div>
+            </div>
         </body>
     </html>
     """  # noqa:B950,E501
