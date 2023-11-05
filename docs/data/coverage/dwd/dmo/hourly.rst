@@ -1,8 +1,6 @@
 Hourly
 ######
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://www.dwd.de/DE/leistungen/met_verfahren_ptp_dmo/met_verfahren_ptp_dmo.html>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Small
 =====
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _dmo dataset description: https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_base_convective
 ^^^^^^^^^^^^^^^^^^^^^
@@ -892,12 +880,8 @@ wind_speed
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Large
 =====
-
-----
 
 Metadata
 --------
@@ -915,12 +899,8 @@ Metadata
    * - description
      - Local forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_above_7_km
 ^^^^^^^^^^^^^^^^^^^^^^

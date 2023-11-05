@@ -1,8 +1,6 @@
 Daily
 #####
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _daily dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/
 
-----
-
 Datasets
 ********
 
-----
-
 Climate
 =======
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _daily climate dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/klimat/
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^
@@ -237,8 +225,6 @@ wind_speed
 Precipitation
 =============
 
-----
-
 Metadata
 --------
 
@@ -257,12 +243,8 @@ Metadata
 
 .. _daily precipitation dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/opad/
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_height
 ^^^^^^^^^^^^^^^^^^^^
@@ -327,8 +309,6 @@ snow_depth_new
 Synop
 =====
 
-----
-
 Metadata
 --------
 
@@ -347,12 +327,8 @@ Metadata
 
 .. _daily synop dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/synop/
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^

@@ -1,8 +1,6 @@
 Dynamic
 #######
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://www.pegelonline.wsv.de/webservice/ueberblick>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Dynamic
 =======
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _WSV parameter listing: https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true
 
-----
-
 Parameters
 ----------
-
-----
 
 chlorid_concentration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -471,5 +459,3 @@ wind_speed
      - :math:`m / s`
    * - constraints
      - none
-
-----

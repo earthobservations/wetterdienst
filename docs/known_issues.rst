@@ -14,9 +14,9 @@ cache entirely.
 
 Running this
 
-```python
+.. code-block:: python
+
     import wetterdienst
     wetterdienst.info()
-```
 
 will guide you the path to your caching folder.

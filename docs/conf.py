@@ -68,79 +68,21 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-
 # -- Options for HTML output -------------------------------------------------
+html_show_sourcelink = True
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-# html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
+# theme options
+html_theme_options = {
+    "navigation_with_keys": True,
+}
 
 # -- Custom options -------------------------------------------------
 
 todo_include_todos = True
 
-
-# -- Autodoc options -------------------------------------------------
-
-# This value contains a list of modules to be mocked up. This is useful when
-# some external dependencies are not met at build time and break the building process.
-# https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#confval-autodoc_mock_imports
-# autodoc_mock_imports = [
-#     "pandas",
-#     "numpy",
-#     "scipy",
-#     "dateutil",
-#     "dateparser",
-# ]
-
 # Use docstring from both class-level and __init__ when documenting a class.
 autoclass_content = "both"
-
-
-# -- Material options -------------------------------------------
-
-html_show_sourcelink = True
-# html_sidebars = {
-#     "**": ["logo-text.html", "globaltoc.html", "localtoc.html", "searchbox.html"]
-# }
-
-html_theme = "furo"
-
-# Material theme options (see theme.conf for more information)
-html_theme_options = {
-    # Set the name of the project to appear in the navigation.
-    "nav_title": "Wetterdienst",
-    # Set you GA account ID to enable tracking
-    #'google_analytics_account': 'UA-XXXXX',
-    # Specify a base_url used to generate sitemap.xml. If not
-    # specified, then no sitemap will be built.
-    "base_url": "https://wetterdienst.readthedocs.io/",
-    # Set the color and the accent color
-    #'color_primary': 'blue',
-    #'color_primary': 'blue-grey',
-    #'color_primary': 'indigo',
-    # "color_primary": "light-blue",
-    # 'color_accent': 'light-green',
-    # Set the repo location to get a badge with stats
-    "repo_url": "https://github.com/earthobservations/wetterdienst",
-    "repo_name": "wetterdienst",
-    # Visible levels of the global TOC; -1 means unlimited
-    "globaltoc_depth": 2,
-    # If False, expand all TOC entries
-    #'globaltoc_collapse': False,
-    # If True, show hidden TOC entries
-    #'globaltoc_includehidden': False,
-    "master_doc": False,
-    "nav_links": [],
-    "heroes": {
-        "index": "Open weather data for humans.",
-        "pages/cli": "On your fingertips.",
-    },
-}

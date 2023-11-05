@@ -1,13 +1,14 @@
 Introduction
 ############
 
-This chapter gives an outline on what data can be accessed through `wetterdienst` and under
-which conditions. `wetterdienst` enables the user to access data from multiple agencies such
-as the German Weather Service (DWD). Although the data is provided as open data, the user has
-to give reference to the provider the data is coming from. We are providing links to the
-several agencies and their policies with licensing. Check out those to make sure to give
-correct reference!
+This chapter provides an informative overview of the data accessible via the `wetterdienst` service and the associated
+usage conditions. `wetterdienst` facilitates user access to data from various agencies, including the German Weather
+Service (DWD). While this data is available as open data, users are kindly requested to acknowledge the data source by
+providing appropriate attribution. We have included links to the respective agencies and their licensing policies for
+your convenience. Please take a moment to review these resources to ensure that you provide accurate references.
 
-.. include:: ../README.rst
+Here's a quick overview of the data sources currently supported by `wetterdienst`:
+
+.. include:: ../../README.rst
     :start-after: .. coverage_start_marker
     :end-before: .. coverage_end_marker

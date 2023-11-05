@@ -1,5 +1,6 @@
 Usage
 #####
+
 .. toctree::
    :maxdepth: 1
 
@@ -9,3 +10,4 @@ Usage
    restapi
    explorer
    docker
+   streamlit

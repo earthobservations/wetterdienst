@@ -1,8 +1,6 @@
 Daily
 #####
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Climate_summary
 ===============
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _kl dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/historical/DESCRIPTION_obsgermany_climate_daily_kl_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_gust_max
 ^^^^^^^^^^^^^
@@ -354,12 +342,8 @@ temperature_air_min_005
    * - constraints
      - none
 
-----
-
 Precipitation_more
 ==================
-
-----
 
 Metadata
 --------
@@ -379,12 +363,8 @@ Metadata
 
 .. _more_precip dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_precip/historical/DESCRIPTION_obsgermany_climate_daily_more_precip_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_height
 ^^^^^^^^^^^^^^^^^^^^
@@ -488,12 +468,8 @@ snow_depth_new
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Solar
 =====
-
-----
 
 Metadata
 --------
@@ -513,12 +489,8 @@ Metadata
 
 .. _solar dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/solar/DESCRIPTION_obsgermany_climate_daily_solar_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 radiation_sky_long_wave
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -600,12 +572,8 @@ sunshine_duration
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Temperature_soil
 ================
-
-----
 
 Metadata
 --------
@@ -625,12 +593,8 @@ Metadata
 
 .. _soil_temperature dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/soil_temperature/historical/DESCRIPTION_obsgermany_climate_daily_soil_temperature_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_soil_mean_002
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -752,12 +716,8 @@ temperature_soil_mean_100
    * - constraints
      - none
 
-----
-
 Water_equivalent
 ================
-
-----
 
 Metadata
 --------
@@ -777,12 +737,8 @@ Metadata
 
 .. _water_equiv dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/water_equiv/historical/DESCRIPTION_obsgermany_climate_daily_water_equiv_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 snow_depth_excelled
 ^^^^^^^^^^^^^^^^^^^
@@ -864,12 +820,8 @@ water_equivalent_snow_depth_excelled
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Weather_phenomena
 =================
-
-----
 
 Metadata
 --------
@@ -1077,12 +1029,8 @@ count_weather_type_hail
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Weather_phenomena_more
 ======================
-
-----
 
 Metadata
 --------
@@ -1102,12 +1050,8 @@ Metadata
 
 .. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
 
-----
-
 Parameters
 ----------
-
-----
 
 count_weather_type_sleet
 ^^^^^^^^^^^^^^^^^^^^^^^^

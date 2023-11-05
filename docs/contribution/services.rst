@@ -59,6 +59,7 @@ The parameter enumeration could look like this:
     the requested resolution.
 
 As the DWD observations are offered in datasets, `DwdObservationParameter` has two layers of parameters:
+
 - flat layer of all available parameters for a given resolution with favorites for parameters if two of the same name
   exist in different datasets
 - deep layer of a dataset and its own parameters
@@ -237,6 +238,7 @@ Attributes:
 
 `TimeseriesRequest` has one abstract method that has to be implemented: the `_all` which manages to get a listing of
 stations for the requested datasets/parameters. The listing includes:
+
 - station_id
 - from_date
 - to_date

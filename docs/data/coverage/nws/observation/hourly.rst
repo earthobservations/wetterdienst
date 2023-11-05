@@ -1,8 +1,6 @@
 Hourly
 ######
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _NOAA NWS Observation Data: https://www.weather.gov/documentation/services-web-api
 
-----
-
 Datasets
 ********
 
-----
-
 Hourly
 ======
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
    * - description
      - Historical hourly station observations (temperature, pressure, precipitation, etc.) for the US
 
-----
-
 Parameters
 ----------
-
-----
 
 humidity
 ^^^^^^^^

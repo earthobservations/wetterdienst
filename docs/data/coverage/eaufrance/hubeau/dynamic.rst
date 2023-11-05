@@ -1,8 +1,6 @@
 Dynamic
 #######
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://hubeau.eaufrance.fr/page/api-hydrometrie>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Dynamic
 =======
-
-----
 
 Metadata
 --------
@@ -43,12 +35,8 @@ Metadata
    * - description
      - Flow and stage for France
 
-----
-
 Parameters
 ----------
-
-----
 
 flow
 ^^^^

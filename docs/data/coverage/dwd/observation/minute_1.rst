@@ -1,8 +1,6 @@
 Minute_1
 ########
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Precipitation
 =============
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_height
 ^^^^^^^^^^^^^^^^^^^^
@@ -145,5 +133,3 @@ precipitation_form
      - :math:`-`
    * - constraints
      - :math:`\in [0, 1, 3]`
-
-----

@@ -1,5 +1,5 @@
 wetterdienst
-************
+############
 
 .. include:: ../../LICENSE
    :literal:

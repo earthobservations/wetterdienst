@@ -1,8 +1,6 @@
 Subdaily
 ########
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
    * - resolution
      - measurements at 7am, 2pm, 9pm
 
-----
-
 Datasets
 ********
 
-----
-
 Temperature_air
 ===============
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_air_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,12 +82,8 @@ humidity
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-----
-
 Cloudiness
 ==========
-
-----
 
 Metadata
 --------
@@ -117,12 +101,8 @@ Metadata
    * - description
      - Recent subdaily cloud cover and cloud density of stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^
@@ -164,12 +144,8 @@ cloud_density
    * - constraints
      - none
 
-----
-
 Wind_extreme
 ============
-
-----
 
 Metadata
 --------
@@ -187,12 +163,8 @@ Metadata
    * - description
      - Recent subdaily extreme wind of stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_gust_max_last_3h
 ^^^^^^^^^^^^^^^^^^^^^
@@ -234,12 +206,8 @@ wind_gust_max_last_6h
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Moisture
 ========
-
-----
 
 Metadata
 --------
@@ -258,12 +226,8 @@ Metadata
      - Recent subdaily vapor pressure, mean temperature in 2m height, mean temperature in 5cm height and humidity of
        stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 pressure_vapor
 ^^^^^^^^^^^^^^
@@ -345,12 +309,8 @@ humidity
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-----
-
 Pressure
 ========
-
-----
 
 Metadata
 --------
@@ -369,12 +329,8 @@ Metadata
      - Recent air pressure at site of stations in Germany
        stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 pressure_air_site
 ^^^^^^^^^^^^^^^^^
@@ -396,12 +352,8 @@ pressure_air_site
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Soil
 ====
-
-----
 
 Metadata
 --------
@@ -419,12 +371,8 @@ Metadata
    * - description
      - Recent soil temperature in 5cm depth of stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_soil_mean_005
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -446,12 +394,8 @@ temperature_soil_mean_005
    * - constraints
      - none
 
-----
-
 Soil
 ====
-
-----
 
 Metadata
 --------
@@ -469,12 +413,8 @@ Metadata
    * - description
      - Recent soil temperature in 5cm depth of stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_soil_mean_005
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -495,13 +435,9 @@ temperature_soil_mean_005
      - :math:`K`
    * - constraints
      - none
-
-----
 
 Visibility
 ==========
-
-----
 
 Metadata
 --------
@@ -519,12 +455,8 @@ Metadata
    * - description
      - Recent visibility range of stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 visibility_range
 ^^^^^^^^^^^^^^^^
@@ -546,12 +478,8 @@ visibility_range
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Wind
 ====
-
-----
 
 Metadata
 --------
@@ -569,12 +497,8 @@ Metadata
    * - description
      - Recent wind direction and wind force (beaufort) of stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_direction
 ^^^^^^^^^^^^^^

@@ -1,8 +1,6 @@
 Daily
 #####
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _NOAA GHCN Data: https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/
 
-----
-
 Datasets
 ********
 
-----
-
 Daily
 =====
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _NOAA GHCN dataset description: https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/GHCND_documentation.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total_midnight_to_midnight
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
