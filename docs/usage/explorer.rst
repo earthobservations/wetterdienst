@@ -1,13 +1,11 @@
 .. _explorer-ui:
 
-#####################
 Wetterdienst Explorer
 #####################
 
 Navigator for wetterdienst provided open data.
 
 
-************
 Introduction
 ************
 
@@ -19,7 +17,6 @@ The implementation is still in its infancy, so we are happy about further
 contributions.
 
 
-**********
 Screenshot
 **********
 
@@ -28,7 +25,6 @@ Screenshot
     :target: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/wetterdienst_explorer.png
 
 
-********
 Features
 ********
 
@@ -40,7 +36,6 @@ Wetterdienst Explorer currently covers access to:
 - Weather observation data from all providers that are implemented. Historical, recent and near real time.
 
 
-*****
 Usage
 *****
 

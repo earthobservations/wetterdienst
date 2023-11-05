@@ -16,3 +16,7 @@ Wetterdienst - Open weather data for humans
    contribution/index
    known_issues
    changelog
+
+Important links
+
+`Repository <https://github.com/earthobservations/wetterdienst>`_

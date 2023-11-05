@@ -1,8 +1,6 @@
 Monthly
 #######
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _monthly dataset description: https://data.hub.zamg.ac.at/dataset/klima-v1-1m
 
-----
-
 Datasets
 ********
 
-----
-
 Monthly
 =======
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
    * - description
      - historical monthly data
 
-----
-
 Parameters
 ----------
-
-----
 
 humidity
 ^^^^^^^^

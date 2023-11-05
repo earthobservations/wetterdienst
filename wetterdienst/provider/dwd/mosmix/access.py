@@ -26,6 +26,8 @@ log = logging.getLogger(__name__)
 
 
 class KMLReader:
+    """Read DWD XML Weather Forecast File of Type KML."""
+
     def __init__(self, station_ids: List[str], parameters: List[str], settings: Settings) -> None:
         self.station_ids = station_ids
         self.parameters = parameters
@@ -45,7 +47,7 @@ class KMLReader:
                     zero, will return a streaming Requests file-like instance.
 
         :param url: url string to kml file
-        :return: kml file as bytes
+        :return: content as bytes
         """
 
         response = self.dwdfs.open(url, block_size=0)
@@ -143,9 +145,11 @@ class KMLReader:
                     element.clear()
 
     def get_metadata(self):
+        """Get metadata as DataFrame."""
         return pl.DataFrame([self.metadata])
 
     def get_forecasts(self) -> Iterator[pl.DataFrame]:
+        """Get forecasts as DataFrame."""
         for station_forecast in self.iter_items():
             station_ids = station_forecast.find("kml:name", self.nsmap).text
 

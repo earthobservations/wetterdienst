@@ -1,8 +1,6 @@
 Monthly
 #######
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _monthly hydrology dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/miesieczne/
 
-----
-
 Datasets
 ********
 
-----
-
 Hydrology
 =========
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
    * - description
      - historical daily climate data
 
-----
-
 Parameters
 ----------
-
-----
 
 discharge_max
 ^^^^^^^^^^^^^

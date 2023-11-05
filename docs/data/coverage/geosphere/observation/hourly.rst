@@ -1,8 +1,6 @@
 Hourly
 ######
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _hourly dataset description: https://data.hub.zamg.ac.at/dataset/klima-v1-1h
 
-----
-
 Datasets
 ********
 
-----
-
 Hourly
 ======
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _hourly dataset description:
 
-----
-
 Parameters
 ----------
-
-----
 
 humidity
 ^^^^^^^^

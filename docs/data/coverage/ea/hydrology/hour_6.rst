@@ -1,8 +1,6 @@
 Hour_6
 ######
 
-----
-
 Metadata
 ********
 
@@ -19,17 +17,11 @@ Metadata
 
 .. _EA Hydrology Reference: https://environment.data.gov.uk/hydrology/doc/reference
 
-----
-
 Datasets
 ********
 
-----
-
 Hour_6
 ======
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
    * - description
      - Historical 15 minute station observations of flow and groundwater level for the UK
 
-----
-
 Parameters
 ----------
-
-----
 
 flow
 ^^^^

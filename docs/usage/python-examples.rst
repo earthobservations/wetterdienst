@@ -1,13 +1,6 @@
-###############
 Python examples
 ###############
 
-.. contents::
-    :local:
-    :depth: 1
-
-
-************************************
 DWD: Historical weather observations
 ************************************
 
@@ -97,7 +90,6 @@ Get data for a parameter from another dataset:
 
     print(next(stations.all().values.query()))
 
-*********************
 DWD: MOSMIX forecasts
 *********************
 

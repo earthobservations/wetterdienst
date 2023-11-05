@@ -1,8 +1,6 @@
 Daily
 #####
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _ECCC Daily Data Documentation: https://www.canada.ca/en/environment-climate-change/services/climate-change/canadian-centre-climate-services/display-download/technical-documentation-daily-data.html#toc0
 
-----
-
 Datasets
 ********
 
-----
-
 Daily
 =====
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
    * - description
      - Historical daily station observations for Canada
 
-----
-
 Parameters
 ----------
-
-----
 
 count_days_cooling_degree
 ^^^^^^^^^^^^^^^^^^^^^^^^^

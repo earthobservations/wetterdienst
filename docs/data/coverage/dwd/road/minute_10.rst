@@ -1,8 +1,6 @@
 Minute_10
 #########
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/weather/weather_reports/road_weather_stations/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Minute_10
 =========
-
-----
 
 Metadata
 --------
@@ -43,12 +35,8 @@ Metadata
    * - description
      - 10 minute road weather data from DWD
 
-----
-
 Parameters
 ----------
-
-----
 
 humidity
 ^^^^^^^^

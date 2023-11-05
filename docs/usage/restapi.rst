@@ -1,17 +1,17 @@
-HTTP API
-********
+REST API
+########
 
-Wetterdienst has an integrated HTTP API which can be started by invoking::
+Wetterdienst has an integrated REST API which can be started by invoking::
 
     wetterdienst restapi
 
 
 Examples
-========
+********
 
 
 Station list
-------------
+============
 ::
 
     # Acquire list of stations.
@@ -22,7 +22,7 @@ Station list
 
 
 Observations
-------------
+============
 ::
 
     # Acquire observations.

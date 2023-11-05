@@ -1,8 +1,6 @@
 Minute_10
 #########
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _minute_10 dataset description: https://data.hub.zamg.ac.at/dataset/klima-v1-10min
 
-----
-
 Datasets
 ********
 
-----
-
 Minute_10
 =========
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _minute_10 dataset description:
 
-----
-
 Parameters
 ----------
-
-----
 
 humidity
 ^^^^^^^^

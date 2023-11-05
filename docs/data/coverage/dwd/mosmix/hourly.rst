@@ -1,8 +1,6 @@
 Hourly
 ######
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/weather/local_forecasts/mos/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Small
 =====
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _mosmix dataset description: https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_base_convective
 ^^^^^^^^^^^^^^^^^^^^^
@@ -892,12 +880,8 @@ wind_speed
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Large
 =====
-
-----
 
 Metadata
 --------
@@ -917,12 +901,8 @@ Metadata
 
 .. _mosmix dataset description: https://opendata.dwd.de/weather/lib/MetElementDefinition.xml
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_above_7_km
 ^^^^^^^^^^^^^^^^^^^^^^

@@ -160,7 +160,7 @@ which contain strings. Those parameters are:
 - visibility indicator in **hourly visibility** dataset
 
 Quality
-_______
+-------
 
 The DWD designates its data points with specific quality levels expressed as "quality bytes".
 

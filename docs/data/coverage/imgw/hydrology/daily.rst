@@ -1,8 +1,6 @@
 Daily
 #####
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _daily dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/dobowe/
 
-----
-
 Datasets
 ********
 
-----
-
 Hydrology
 =========
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _daily climate dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/dobowe/
 
-----
-
 Parameters
 ----------
-
-----
 
 discharge
 ^^^^^^^^^

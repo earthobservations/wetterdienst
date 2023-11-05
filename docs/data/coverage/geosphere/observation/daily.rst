@@ -1,8 +1,6 @@
 Daily
 #####
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _daily dataset description: https://data.hub.zamg.ac.at/dataset/klima-v1-1d
 
-----
-
 Datasets
 ********
 
-----
-
 Daily
 =====
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
    * - description
      - historical daily data
 
-----
-
 Parameters
 ----------
-
-----
 
 humidity
 ^^^^^^^^

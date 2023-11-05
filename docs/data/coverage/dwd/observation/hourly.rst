@@ -1,8 +1,6 @@
 Hourly
 ######
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Temperature_air
 ===============
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _air_temperature dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/historical/DESCRIPTION_obsgermany_climate_hourly_tu_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_air_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -92,12 +80,8 @@ humidity
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-----
-
 Cloud_type
 ==========
-
-----
 
 Metadata
 --------
@@ -117,12 +101,8 @@ Metadata
 
 .. _cloud_type dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloud_type/historical/DESCRIPTION_obsgermany_climate_hourly_cloud_type_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^
@@ -504,12 +484,8 @@ cloud_cover_layer4
    * - constraints
      - :math:`\geq{0}, \leq{8}`
 
-----
-
 Cloudiness
 ==========
-
-----
 
 Metadata
 --------
@@ -529,12 +505,8 @@ Metadata
 
 .. _cloudiness dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/historical/DESCRIPTION_obsgermany_climate_hourly_cloudiness_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total_indicator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -588,12 +560,8 @@ cloud_cover_total
    * - constraints
      - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, -1]`, -1: not determined
 
-----
-
 Dew_point
 =========
-
-----
 
 Metadata
 --------
@@ -613,12 +581,8 @@ Metadata
 
 .. _dew_point dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/dew_point/historical/DESCRIPTION_obsgermany_climate_hourly_dew_point_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_air_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^

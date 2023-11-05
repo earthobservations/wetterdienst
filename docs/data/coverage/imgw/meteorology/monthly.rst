@@ -1,8 +1,6 @@
 Monthly
 #######
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _monthly dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/
 
-----
-
 Datasets
 ********
 
-----
-
 Climate
 =======
-
-----
 
 Metadata
 --------
@@ -47,12 +39,8 @@ Metadata
 
 .. _monthly climate dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/klimat/
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^
@@ -297,8 +285,6 @@ wind_speed
 Precipitation
 =============
 
-----
-
 Metadata
 --------
 
@@ -317,12 +303,8 @@ Metadata
 
 .. _monthly precipitation dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/opad/
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_height
 ^^^^^^^^^^^^^^^^^^^^
@@ -367,8 +349,6 @@ precipitation_height_max
 Synop
 =====
 
-----
-
 Metadata
 --------
 
@@ -387,12 +367,8 @@ Metadata
 
 .. _monthly synop dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/synop/
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^

@@ -1,4 +1,3 @@
-######
 Docker
 ######
 
@@ -8,7 +7,6 @@ including all dependency packages from the ``export,influxdb,cratedb,postgresql,
 radar,bufr,restapi,explorer,radar,radarplus`` extras.
 
 
-*************
 Acquire image
 *************
 
@@ -25,7 +23,6 @@ Get ``wetterdienst-full``:
     docker pull ghcr.io/earthobservations/wetterdienst-full
 
 
-******
 Invoke
 ******
 

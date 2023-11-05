@@ -1,8 +1,6 @@
 Hourly
 ######
 
-----
-
 Metadata
 ********
 
@@ -17,17 +15,11 @@ Metadata
 
 .. _ECCC Hourly Data Documentation: https://www.canada.ca/en/environment-climate-change/services/climate-change/canadian-centre-climate-services/display-download/technical-documentation-daily-data.html#toc0
 
-----
-
 Datasets
 ********
 
-----
-
 Hourly
 ======
-
-----
 
 Metadata
 --------
@@ -46,12 +38,8 @@ Metadata
      - Historical hourly station observations of 2m air temperature, humidity, wind direction, wind speed, visibility
        range, air pressure, humidex, wind gust and weather for Canada
 
-----
-
 Parameters
 ----------
-
-----
 
 humidex
 ^^^^^^^

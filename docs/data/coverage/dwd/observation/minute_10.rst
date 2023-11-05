@@ -1,8 +1,6 @@
 Minute_10
 #########
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Temperature_air
 ===============
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _air_temperature dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/historical/DESCRIPTION_obsgermany_climate_10min_tu_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 pressure_air_site
 ^^^^^^^^^^^^^^^^^
@@ -152,12 +140,8 @@ temperature_dew_point_mean_200
    * - constraints
      - :math:`None`
 
-----
-
 Temperature_extreme
 ===================
-
-----
 
 Metadata
 --------
@@ -177,12 +161,8 @@ Metadata
 
 .. _extreme_temperature dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_temperature/historical/DESCRIPTION_obsgermany_climate_10min_tx_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_air_max_200
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -264,12 +244,8 @@ temperature_air_min_005
    * - constraints
      - :math:`None`
 
-----
-
 Wind_extreme
 ============
-
-----
 
 Metadata
 --------
@@ -289,12 +265,8 @@ Metadata
 
 .. _extreme_wind dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/historical/DESCRIPTION_obsgermany_climate_10min_fx_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_gust_max
 ^^^^^^^^^^^^^
@@ -378,12 +350,8 @@ wind_direction_gust_max
    * - constraints
      - :math:`\geq{0}, \leq{360}`
 
-----
-
 Precipitation
 =============
-
-----
 
 Metadata
 --------
@@ -403,12 +371,8 @@ Metadata
 
 .. _precipitation dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/historical/DESCRIPTION_obsgermany_climate_10min_precipitation_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_duration
 ^^^^^^^^^^^^^^^^^^^^^^

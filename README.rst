@@ -121,16 +121,16 @@ source.
 Data
 ****
 
+.. _data: https://wetterdienst.readthedocs.io/en/latest/data/index.html
+.. _coverage: https://wetterdienst.readthedocs.io/en/improve-documentation/data/coverage.html
+.. _map: https://bookdown.org/brry/rdwd/interactive-map.html
+.. _table: https://bookdown.org/brry/rdwd/available-datasets.html
+
 For an overview of the data we have currently made available and under which
 license it is published take a look at the data_ section. Detailed information
 on datasets and parameters is given at the coverage_ subsection. Licenses and
 usage requirements may differ for each provider so check this out before including
 the data in your project to be sure that you fulfill copyright requirements!
-
-.. _data: https://wetterdienst.readthedocs.io/en/latest/data/index.html
-.. _coverage: https://wetterdienst.readthedocs.io/en/improve-documentation/data/coverage.html
-.. _map: https://bookdown.org/brry/rdwd/interactive-map.html
-.. _table: https://bookdown.org/brry/rdwd/available-datasets.html
 
 Here is a short glimpse on the data that is included:
 
@@ -203,10 +203,10 @@ IMGW (Institute of Meteorology and Water Management)
         - hydrological data of polish river stations
         - daily and monthly summaries
 
+.. coverage_end_marker
+
 To get better insight on which data we have currently made available and under which
 license those are published take a look at the data_ section.
-
-.. coverage_end_marker
 
 Features
 ********

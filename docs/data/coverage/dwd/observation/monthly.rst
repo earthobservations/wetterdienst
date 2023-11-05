@@ -1,8 +1,6 @@
 Monthly
 #######
 
-----
-
 Metadata
 ********
 
@@ -15,17 +13,11 @@ Metadata
    * - url
      - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/>`_
 
-----
-
 Datasets
 ********
 
-----
-
 Climate_summary
 ===============
-
-----
 
 Metadata
 --------
@@ -45,12 +37,8 @@ Metadata
 
 .. _kl dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/kl/historical/DESCRIPTION_obsgermany_climate_monthly_kl_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 cloud_cover_total
 ^^^^^^^^^^^^^^^^^
@@ -272,12 +260,8 @@ precipitation_height_max
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Precipitation_more
 ==================
-
-----
 
 Metadata
 --------
@@ -297,12 +281,8 @@ Metadata
 
 .. _more_precip dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/more_precip/historical/DESCRIPTION_obsgermany_climate_monthly_more_precip_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 snow_depth_new
 ^^^^^^^^^^^^^^
@@ -385,12 +365,8 @@ precipitation_height_max
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Weather_phenomena
 =================
-
-----
 
 Metadata
 --------
@@ -411,12 +387,8 @@ Metadata
 
 .. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
 
-----
-
 Parameters
 ----------
-
-----
 
 count_weather_type_fog
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -577,5 +549,3 @@ count_weather_type_hail
      - :math:`-`
    * - constraints
      - :math:`\geq{0}`
-
-----
