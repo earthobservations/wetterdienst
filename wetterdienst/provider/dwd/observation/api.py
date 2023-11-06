@@ -173,7 +173,6 @@ class DwdObservationValues(TimeseriesValues):
 
         parameter_df = parameter_df.collect()
 
-        # if not parameter_df.empty:
         if self.sr.resolution in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
             parameter_df = self._fix_timestamps(parameter_df)
 
