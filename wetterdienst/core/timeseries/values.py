@@ -12,8 +12,8 @@ import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
 from dateutil.relativedelta import relativedelta
 from pint import Quantity
-from timezonefinder import timezonefinder
 from tqdm import tqdm
+from tzfpy import get_tz
 from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
@@ -30,10 +30,6 @@ log = logging.getLogger(__name__)
 
 class TimeseriesValues(metaclass=ABCMeta):
     """Core for sources of point data where data is related to a station"""
-
-    @property
-    def _tf(self):
-        return timezonefinder.TimezoneFinder()
 
     def __init__(self, stations_result: StationsResult) -> None:
         self.sr = stations_result
@@ -203,7 +199,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             .to_series()
             .to_list()
         )
-        return self._tf.timezone_at(lng=longitude, lat=latitude)
+        return get_tz(longitude, latitude)
 
     def _get_base_df(self, station_id: str) -> pl.DataFrame:
         """

@@ -7,7 +7,6 @@ from typing import List, Optional, Union
 
 import pandas as pd
 import polars as pl
-from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -47,7 +46,6 @@ class NoaaGhcnValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
     _base_url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
     # use to get timezones from stations_result
-    _tf = TimezoneFinder()
     # multiplication factors
     _mp_factors = PARAMETER_MULTIPLICATION_FACTORS
 
