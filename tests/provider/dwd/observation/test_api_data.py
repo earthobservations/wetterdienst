@@ -1178,19 +1178,19 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings):
     )
     df = request.values.all().df
     df = df.drop_nulls("value")
-    df = df.sort("parameter").group_by(["parameter"], maintain_order=True).agg(pl.all().take(1))
+    df = df.sort("parameter").group_by(["parameter"], maintain_order=True).head(1)
     assert df.to_dicts() == [
         {
             "dataset": "wind_extreme",
-            "date": dt.datetime(1991, 11, 2, 9, 0, tzinfo=ZoneInfo("UTC")),
+            "date": dt.datetime(1991, 11, 1, 21, 0, tzinfo=ZoneInfo("UTC")),
             "parameter": "wind_gust_max_last_3h",
             "quality": 1.0,
             "station_id": "01048",
-            "value": 13.9,
+            "value": 14.4,
         },
         {
             "dataset": "wind_extreme",
-            "date": dt.datetime(1990, 6, 4, 18, 0, tzinfo=ZoneInfo("UTC")),
+            "date": dt.datetime(1990, 6, 2, 18, 0, tzinfo=ZoneInfo("UTC")),
             "parameter": "wind_gust_max_last_6h",
             "quality": 1.0,
             "station_id": "01048",
