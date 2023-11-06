@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.66.0 (07.11.2023)
+*******************
+
 - Fix DWD DMO access again
 - Add lead time argument - one of short, long - for DWD DMO to address two versions of icon
 - Rework dict-like export formats and tests with extensive support for typing
