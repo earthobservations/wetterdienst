@@ -2,7 +2,6 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime
-import re
 from io import BytesIO
 
 import pytest
@@ -66,4 +65,4 @@ def test_radar_verify_hdf5_invalid():
         buffer = BytesIO()
         verify_hdf5(buffer)
 
-    assert exec_info.match(re.escape("Unable to open file (file signature not found)"))
+    assert exec_info.match(r"Unable to (synchronously )?open file \(file signature not found\)")
