@@ -162,7 +162,13 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
     :param file: metadata file loaded in bytes
     :return: DataFrame with Stations
     """
-    df = pl.read_csv(source=file, skip_rows=2, encoding="latin-1", has_header=False, truncate_ragged_lines=True)
+    lines = file.readlines()[2:]
+    first = lines[0].decode("latin-1").strip()
+    if first.startswith("SP"):
+        # Skip first line if it contains a header
+        lines = lines[1:]
+    content = BytesIO(b"\n".join(lines))
+    df = pl.read_csv(source=content, encoding="latin-1", has_header=False, truncate_ragged_lines=True)
     column_specs = (
         (0, 5),
         (6, 14),
