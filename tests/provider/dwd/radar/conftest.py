@@ -35,11 +35,9 @@ def prefixed_radar_locations(radar_locations):
 
 @pytest.fixture(scope="function")
 def station_reference_pattern_sorted(radar_locations):
-    last = radar_locations.pop(-1)
-    return "".join([f"({location},)?" for location in radar_locations]) + f"({last})?"
+    return "".join([f"({location})?(,)?" for location in radar_locations])
 
 
 @pytest.fixture(scope="function")
 def station_reference_pattern_sorted_prefixed(prefixed_radar_locations):
-    last = prefixed_radar_locations.pop(-1)
-    return "".join([f"({location},)?" for location in prefixed_radar_locations]) + f"({last})?"
+    return "".join([f"({location})?(,)?" for location in prefixed_radar_locations])
