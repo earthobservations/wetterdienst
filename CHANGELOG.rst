@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.66.1 (08.11.2023)
+*******************
+
 - Add workaround for issue with DWD Observation station lists
 
 0.66.0 (07.11.2023)
