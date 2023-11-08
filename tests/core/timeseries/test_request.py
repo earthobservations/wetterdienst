@@ -35,10 +35,10 @@ def expected_stations_df():
                 dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
                 155.0,
                 49.9195,
-                8.9671,
+                8.9672,
                 "Schaafheim-Schlierbach",
                 "Hessen",
-                10.156943448624304,
+                10.160326,
             ),
             (
                 "07341",
