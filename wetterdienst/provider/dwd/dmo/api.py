@@ -1339,9 +1339,9 @@ class DwdDmoRequest(TimeseriesRequest):
         Columns.ICAO_ID.value,
         Columns.START_DATE.value,
         Columns.END_DATE.value,
-        Columns.HEIGHT.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
+        Columns.HEIGHT.value,
         Columns.NAME.value,
         Columns.STATE.value,
     ]

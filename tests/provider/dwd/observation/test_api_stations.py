@@ -23,9 +23,9 @@ def expected_df():
             "station_id": ["00001"],
             "start_date": [dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC"))],
             "end_date": [dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC"))],
-            "height": [478.0],
             "latitude": [47.8413],
             "longitude": [8.8493],
+            "height": [478.0],
             "name": ["Aach"],
             "state": ["Baden-Württemberg"],
         }
@@ -110,9 +110,9 @@ def test_dwd_observations_stations_minute_1(default_settings):
             "station_id": "00003",
             "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
             "end_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
-            "height": 202.0,
             "latitude": 50.7827,
             "longitude": 6.0941,
+            "height": 202.0,
             "name": "Aachen",
             "state": "Nordrhein-Westfalen",
         }

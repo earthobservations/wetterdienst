@@ -23,9 +23,9 @@ def expected_stations_df():
             (
                 "02480",
                 dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
-                108.0,
                 50.0643,
                 8.993,
+                108.0,
                 "Kahl/Main",
                 "Bayern",
                 9.759384982994229,
@@ -33,9 +33,9 @@ def expected_stations_df():
             (
                 "04411",
                 dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
-                155.0,
                 49.9195,
                 8.9672,
+                155.0,
                 "Schaafheim-Schlierbach",
                 "Hessen",
                 10.160326,
@@ -43,9 +43,9 @@ def expected_stations_df():
             (
                 "07341",
                 dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
-                119.0,
                 50.0900,
                 8.7862,
+                119.0,
                 "Offenbach-Wetterpark",
                 "Hessen",
                 12.891318342515483,
@@ -54,9 +54,9 @@ def expected_stations_df():
         schema={
             "station_id": pl.Utf8,
             "start_date": pl.Datetime(time_zone="UTC"),
-            "height": pl.Float64,
             "latitude": pl.Float64,
             "longitude": pl.Float64,
+            "height": pl.Float64,
             "name": pl.Utf8,
             "state": pl.Utf8,
             "distance": pl.Float64,
@@ -296,7 +296,7 @@ def test_dwd_observation_stations_filter_by_rank_single(default_request, expecte
     given_df = request.df.drop(columns="end_date")
     assert_frame_equal(given_df[0, :], expected_stations_df[0, :])
     values = request.values.all()
-    assert_frame_equal(values.df_stations[0, :].drop(columns="end_date"), expected_stations_df[0, :])
+    assert_frame_equal(values.df_stations.head(1).drop(columns="end_date"), expected_stations_df.head(1))
 
 
 @pytest.mark.remote
