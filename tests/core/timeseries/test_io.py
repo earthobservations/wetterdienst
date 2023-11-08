@@ -89,8 +89,8 @@ def df_stations():
     return pl.DataFrame(
         {
             "station_id": ["01048"],
-            "from_date": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))],
-            "to_date": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC"))],
+            "start_date": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))],
+            "end_date": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC"))],
             "height": [645.0],
             "latitude": [48.8049],
             "longitude": [13.5528],
@@ -237,8 +237,8 @@ def test_stations_to_dict(df_stations):
     assert data["stations"] == [
         {
             "station_id": "01048",
-            "from_date": "1957-05-01T00:00:00+00:00",
-            "to_date": "1995-11-30T00:00:00+00:00",
+            "start_date": "1957-05-01T00:00:00+00:00",
+            "end_date": "1995-11-30T00:00:00+00:00",
             "height": 645.0,
             "latitude": 48.8049,
             "longitude": 13.5528,
@@ -270,11 +270,11 @@ def test_stations_to_ogc_feature_collection(df_stations):
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [13.5528, 48.8049, 645.0], "type": "Point"},
         "properties": {
-            "from_date": "1957-05-01T00:00:00+00:00",
             "id": "01048",
+            "start_date": "1957-05-01T00:00:00+00:00",
+            "end_date": "1995-11-30T00:00:00+00:00",
             "name": "Freyung vorm Wald",
             "state": "Bayern",
-            "to_date": "1995-11-30T00:00:00+00:00",
         },
         "type": "Feature",
     }
@@ -331,7 +331,7 @@ def test_stations_format_csv(df_stations):
         .to_csv()
         .strip()
     )
-    assert "station_id,from_date,to_date,height,latitude,longitude,name,state" in output
+    assert "station_id,start_date,end_date,height,latitude,longitude,name,state" in output
     assert (
         "01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
         in output
@@ -367,9 +367,9 @@ def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
         "properties": {
             "id": "01048",
             "name": "Freyung vorm Wald",
-            "from_date": "1957-05-01T00:00:00+00:00",
-            "to_date": "1995-11-30T00:00:00+00:00",
             "state": "Bayern",
+            "start_date": "1957-05-01T00:00:00+00:00",
+            "end_date": "1995-11-30T00:00:00+00:00",
         },
         "type": "Feature",
         "values": [
@@ -456,11 +456,11 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
         "stations": [
             {
                 "station_id": "01048",
+                "start_date": "1957-05-01T00:00:00+00:00",
+                "end_date": "1995-11-30T00:00:00+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "height": 645.0,
-                "from_date": "1957-05-01T00:00:00+00:00",
-                "to_date": "1995-11-30T00:00:00+00:00",
                 "name": "Freyung vorm Wald",
                 "state": "Bayern",
             }
@@ -521,11 +521,11 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
         "stations": [
             {
                 "station_id": "01048",
+                "start_date": "1957-05-01T00:00:00+00:00",
+                "end_date": "1995-11-30T00:00:00+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "height": 645.0,
-                "from_date": "1957-05-01T00:00:00+00:00",
-                "to_date": "1995-11-30T00:00:00+00:00",
                 "name": "Freyung vorm Wald",
                 "state": "Bayern",
             }

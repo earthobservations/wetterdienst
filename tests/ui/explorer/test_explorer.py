@@ -79,11 +79,11 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
     # Verify data.
     assert data["columns"] == [
         "station_id",
-        "from_date",
-        "to_date",
-        "height",
+        "start_date",
+        "end_date",
         "latitude",
         "longitude",
+        "height",
         "name",
         "state",
     ]

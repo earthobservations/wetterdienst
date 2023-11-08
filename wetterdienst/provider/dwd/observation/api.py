@@ -303,8 +303,8 @@ class DwdObservationValues(TimeseriesValues):
         possible_id_vars = (
             Columns.STATION_ID.value,
             Columns.DATE.value,
-            Columns.FROM_DATE.value,
-            Columns.TO_DATE.value,
+            Columns.START_DATE.value,
+            Columns.END_DATE.value,
         )
 
         id_vars = list(set(df.columns).intersection(possible_id_vars))
@@ -340,13 +340,13 @@ class DwdObservationValues(TimeseriesValues):
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
         interval = self.sr.stations._interval
-        from_date_min, to_date_max = interval and (interval.left, interval.right) or (None, None)
+        start_date_min, end_date_max = interval and (interval.left, interval.right) or (None, None)
 
-        if from_date_min:
+        if start_date_min:
             file_index = file_index.filter(
                 pl.col(Columns.STATION_ID.value).eq(station_id)
-                & pl.col(Columns.FROM_DATE.value).ge(to_date_max).not_()
-                & pl.col(Columns.TO_DATE.value).le(from_date_min).not_()
+                & pl.col(Columns.START_DATE.value).ge(end_date_max).not_()
+                & pl.col(Columns.END_DATE.value).le(start_date_min).not_()
             )
 
         return file_index.collect().get_column(Columns.DATE_RANGE.value).to_list()

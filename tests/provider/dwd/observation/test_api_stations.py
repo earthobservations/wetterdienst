@@ -21,8 +21,8 @@ def expected_df():
     return pl.DataFrame(
         {
             "station_id": ["00001"],
-            "from_date": [dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC"))],
-            "to_date": [dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC"))],
+            "start_date": [dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "end_date": [dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC"))],
             "height": [478.0],
             "latitude": [47.8413],
             "longitude": [8.8493],
@@ -84,8 +84,8 @@ def test_dwd_observations_stations_geojson(default_settings):
     geometry = geojson["data"]["features"][0]["geometry"]
     assert properties == {
         "id": "00001",
-        "from_date": "1937-01-01T00:00:00+00:00",
-        "to_date": "1986-06-30T00:00:00+00:00",
+        "start_date": "1937-01-01T00:00:00+00:00",
+        "end_date": "1986-06-30T00:00:00+00:00",
         "name": "Aach",
         "state": "Baden-Württemberg",
     }
@@ -108,8 +108,8 @@ def test_dwd_observations_stations_minute_1(default_settings):
     expected_df = pl.DataFrame(
         {
             "station_id": "00003",
-            "from_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
-            "to_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
+            "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
+            "end_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
             "height": 202.0,
             "latitude": 50.7827,
             "longitude": 6.0941,

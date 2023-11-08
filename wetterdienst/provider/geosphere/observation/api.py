@@ -754,12 +754,12 @@ class GeosphereObservationRequest(TimeseriesRequest):
                 "Länge [°E]": Columns.LONGITUDE.value,
                 "Breite [°N]": Columns.LATITUDE.value,
                 "Höhe [m]": Columns.HEIGHT.value,
-                "Startdatum": Columns.FROM_DATE.value,
-                "Enddatum": Columns.TO_DATE.value,
+                "Startdatum": Columns.START_DATE.value,
+                "Enddatum": Columns.END_DATE.value,
                 "Bundesland": Columns.STATE.value,
             }
         )
         return df.with_columns(
-            pl.col(Columns.FROM_DATE.value).str.to_datetime(),
-            pl.col(Columns.TO_DATE.value).str.to_datetime(),
+            pl.col(Columns.START_DATE.value).str.to_datetime(),
+            pl.col(Columns.END_DATE.value).str.to_datetime(),
         )

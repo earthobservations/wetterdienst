@@ -240,8 +240,8 @@ Attributes:
 stations for the requested datasets/parameters. The listing includes:
 
 - station_id
-- from_date
-- to_date
+- start_date
+- end_date
 - height
 - name
 - state

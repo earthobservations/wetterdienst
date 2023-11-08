@@ -170,24 +170,24 @@ def test_cli_values_json_with_metadata_with_stations(metadata):
     assert response["metadata"] == metadata
     assert response["stations"] == [
         {
-            "from_date": "1828-01-01T00:00:00+00:00",
-            "height": 112.0,
+            "station_id": "01047",
+            "start_date": "1828-01-01T00:00:00+00:00",
+            "end_date": "1915-12-31T00:00:00+00:00",
             "latitude": 51.0557,
             "longitude": 13.7274,
+            "height": 112.0,
             "name": "Dresden (Mitte)",
             "state": "Sachsen",
-            "station_id": "01047",
-            "to_date": "1915-12-31T00:00:00+00:00",
         },
         {
-            "from_date": "1934-01-01T00:00:00+00:00",
-            "height": 228.0,
+            "station_id": "01048",
+            "start_date": "1934-01-01T00:00:00+00:00",
+            "end_date": IsStr,
             "latitude": 51.1278,
             "longitude": 13.7543,
+            "height": 228.0,
             "name": "Dresden-Klotzsche",
             "state": "Sachsen",
-            "station_id": "01048",
-            "to_date": IsStr,
         },
     ]
 
@@ -241,8 +241,8 @@ def test_cli_values_geojson():
                     "id": "01048",
                     "name": "Dresden-Klotzsche",
                     "state": "Sachsen",
-                    "from_date": "1934-01-01T00:00:00+00:00",
-                    "to_date": IsStr,
+                    "start_date": "1934-01-01T00:00:00+00:00",
+                    "end_date": IsStr,
                 },
                 "geometry": {"type": "Point", "coordinates": [13.7543, 51.1278, 228.0]},
                 "values": IsInstance(list),

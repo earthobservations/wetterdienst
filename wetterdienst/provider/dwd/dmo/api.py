@@ -1337,8 +1337,8 @@ class DwdDmoRequest(TimeseriesRequest):
     _base_columns = [
         Columns.STATION_ID.value,
         Columns.ICAO_ID.value,
-        Columns.FROM_DATE.value,
-        Columns.TO_DATE.value,
+        Columns.START_DATE.value,
+        Columns.END_DATE.value,
         Columns.HEIGHT.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
@@ -1545,7 +1545,7 @@ class DwdDmoRequest(TimeseriesRequest):
             pl.col(Columns.ICAO_ID.value).map_dict({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
             pl.col(Columns.LATITUDE.value).str.replace(" ", "").cast(float),
             pl.col(Columns.LONGITUDE.value).str.replace(" ", "").cast(float),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.FROM_DATE.value),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.TO_DATE.value),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
             pl.lit(None, pl.Utf8).alias(Columns.STATE.value),
         )

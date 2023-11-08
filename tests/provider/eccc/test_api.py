@@ -24,11 +24,11 @@ def test_eccc_api_stations(settings_si_false):
     expected_df = pl.DataFrame(
         {
             "station_id": ["14"],
-            "from_date": [dt.datetime(1984, 1, 1, tzinfo=ZoneInfo("UTC"))],
-            "to_date": [dt.datetime(1996, 12, 31, tzinfo=ZoneInfo("UTC"))],
-            "height": [4.0],
+            "start_date": [dt.datetime(1984, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "end_date": [dt.datetime(1996, 12, 31, tzinfo=ZoneInfo("UTC"))],
             "latitude": [48.87],
             "longitude": [-123.28],
+            "height": [4.0],
             "name": ["ACTIVE PASS"],
             "state": ["BRITISH COLUMBIA"],
         }

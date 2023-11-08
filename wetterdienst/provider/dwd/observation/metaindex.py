@@ -27,8 +27,8 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 DWD_COLUMN_NAMES_MAPPING = {
     "column_0": Columns.STATION_ID.value,
-    "column_1": Columns.FROM_DATE.value,
-    "column_2": Columns.TO_DATE.value,
+    "column_1": Columns.START_DATE.value,
+    "column_2": Columns.END_DATE.value,
     "column_3": Columns.HEIGHT.value,
     "column_4": Columns.LATITUDE.value,
     "column_5": Columns.LONGITUDE.value,
@@ -38,8 +38,8 @@ DWD_COLUMN_NAMES_MAPPING = {
 
 METADATA_COLUMNS = [
     Columns.STATION_ID.value,
-    Columns.FROM_DATE.value,
-    Columns.TO_DATE.value,
+    Columns.START_DATE.value,
+    Columns.END_DATE.value,
     Columns.HEIGHT.value,
     Columns.LATITUDE.value,
     Columns.LONGITUDE.value,
@@ -97,8 +97,8 @@ def create_meta_index_for_climate_observations(
         )
 
     meta_index = meta_index.with_columns(
-        pl.col(Columns.FROM_DATE.value).str.to_datetime("%Y%m%d"),
-        pl.col(Columns.TO_DATE.value).str.to_datetime("%Y%m%d"),
+        pl.col(Columns.START_DATE.value).str.to_datetime("%Y%m%d"),
+        pl.col(Columns.END_DATE.value).str.to_datetime("%Y%m%d"),
         pl.col(Columns.HEIGHT.value).cast(pl.Float64),
         pl.col(Columns.LATITUDE.value).cast(pl.Float64),
         pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
@@ -228,10 +228,10 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     meta_index_df = pl.concat(list(metadata_dfs))
 
     meta_index_df = meta_index_df.with_columns(
-        pl.when(pl.col(Columns.TO_DATE.value).str.strip_chars().eq(""))
+        pl.when(pl.col(Columns.END_DATE.value).str.strip_chars().eq(""))
         .then(pl.lit((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")))
-        .otherwise(pl.col(Columns.TO_DATE.value))
-        .alias(Columns.TO_DATE.value)
+        .otherwise(pl.col(Columns.END_DATE.value))
+        .alias(Columns.END_DATE.value)
     )
 
     # Drop empty state column again as it will be merged later on
@@ -269,13 +269,13 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pl
             "Stationshoehe": Columns.HEIGHT.value,
             "Geogr.Breite": Columns.LATITUDE.value,
             "Geogr.Laenge": Columns.LONGITUDE.value,
-            "von_datum": Columns.FROM_DATE.value,
-            "bis_datum": Columns.TO_DATE.value,
+            "von_datum": Columns.START_DATE.value,
+            "bis_datum": Columns.END_DATE.value,
             "Stationsname": Columns.NAME.value,
         }
     )
 
-    df = df.with_columns(pl.col(Columns.FROM_DATE.value).first().cast(str), pl.col(Columns.TO_DATE.value).cast(str))
+    df = df.with_columns(pl.col(Columns.START_DATE.value).first().cast(str), pl.col(Columns.END_DATE.value).cast(str))
 
     df = df.last()
 

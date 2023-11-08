@@ -101,7 +101,7 @@ def create_hohenpeissenberg_warming_stripes():
     anomaly = values_df.loc[:, "value"]
 
     reference = anomaly.loc[
-        ((values_df.from_date.dt.year >= first_ref) & (values_df.from_date.dt.year <= last_ref))
+        ((values_df.start_date.dt.year >= first_ref) & (values_df.start_date.dt.year <= last_ref))
     ].mean()
 
     fig, ax = plt.subplots()

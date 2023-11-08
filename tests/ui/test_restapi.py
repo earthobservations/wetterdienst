@@ -91,8 +91,8 @@ def test_dwd_stations_basic(client):
     item = response.json()["stations"][0]
     assert item == {
         "station_id": "00011",
-        "from_date": "1980-09-01T00:00:00+00:00",
-        "to_date": IsStr,
+        "start_date": "1980-09-01T00:00:00+00:00",
+        "end_date": IsStr,
         "latitude": 47.9736,
         "longitude": 8.5205,
         "height": 680.0,
@@ -119,8 +119,8 @@ def test_dwd_stations_geo(client):
     item = response.json()["stations"][0]
     assert item == {
         "station_id": "03730",
-        "from_date": "1910-01-01T00:00:00+00:00",
-        "to_date": IsStr,
+        "start_date": "1910-01-01T00:00:00+00:00",
+        "end_date": IsStr,
         "latitude": 47.3984,
         "longitude": 10.2759,
         "height": 806.0,
@@ -147,8 +147,8 @@ def test_dwd_stations_sql(client):
     item = response.json()["stations"][0]
     assert item == {
         "station_id": "01048",
-        "from_date": "1934-01-01T00:00:00+00:00",
-        "to_date": IsStr,
+        "start_date": "1934-01-01T00:00:00+00:00",
+        "end_date": IsStr,
         "latitude": 51.1278,
         "longitude": 13.7543,
         "height": 228.0,
@@ -414,8 +414,8 @@ def test_api_stations_missing_null(client):
     assert item == {
         "station_id": "01025",
         "icao_id": None,
-        "from_date": None,
-        "to_date": None,
+        "start_date": None,
+        "end_date": None,
         "latitude": 69.68,
         "longitude": 18.92,
         "height": 10.0,

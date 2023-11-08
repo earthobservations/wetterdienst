@@ -68,21 +68,21 @@ def test_api(provider, network, kwargs, si_units, station_id):
     else:
         request = api(**kwargs, settings=settings).all()
     stations = request.df
-    first_from_date = stations.get_column("from_date").to_list()[0]
-    if first_from_date:
-        assert first_from_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    first_to_date = stations.get_column("to_date").to_list()[0]
-    if first_to_date:
-        assert first_to_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    first_start_date = stations.get_column("start_date").to_list()[0]
+    if first_start_date:
+        assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
+    first_end_date = stations.get_column("end_date").to_list()[0]
+    if first_end_date:
+        assert first_end_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     # Check stations_result DataFrame columns
     assert set(stations.columns).issuperset(
         {
             "station_id",
-            "from_date",
-            "to_date",
-            "height",
+            "start_date",
+            "end_date",
             "latitude",
             "longitude",
+            "height",
             "name",
             "state",
         }

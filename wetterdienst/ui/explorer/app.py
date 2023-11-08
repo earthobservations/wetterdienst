@@ -114,10 +114,10 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
     df = stations.df
 
     df = df.with_columns(
-        pl.col(Columns.FROM_DATE.value).map_elements(
+        pl.col(Columns.START_DATE.value).map_elements(
             lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8
         ),
-        pl.col(Columns.TO_DATE.value).map_elements(
+        pl.col(Columns.END_DATE.value).map_elements(
             lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8
         ),
     )

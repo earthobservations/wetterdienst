@@ -374,7 +374,7 @@ Library
     >>> stations = request.df
     >>> stations.head()
     ┌────────────┬──────────────┬──────────────┬────────┬──────────┬───────────┬─────────────┬─────────┐
-    │ station_id ┆ from_date    ┆ to_date      ┆ height ┆ latitude ┆ longitude ┆ name        ┆ state   │
+    │ station_id ┆ start_date    ┆ end_date      ┆ height ┆ latitude ┆ longitude ┆ name        ┆ state   │
     │ ---        ┆ ---          ┆ ---          ┆ ---    ┆ ---      ┆ ---       ┆ ---         ┆ ---     │
     │ str        ┆ datetime[μs, ┆ datetime[μs, ┆ f64    ┆ f64      ┆ f64       ┆ str         ┆ str     │
     │            ┆ UTC]         ┆ UTC]         ┆        ┆          ┆           ┆             ┆         │

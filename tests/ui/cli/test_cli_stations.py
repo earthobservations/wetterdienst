@@ -19,11 +19,11 @@ SETTINGS_STATIONS = (
         # expected dict
         {
             "station_id": "01048",
-            "height": 228.0,
+            "start_date": "1934-01-01T00:00:00+00:00",
+            "end_date": IsStr,
             "latitude": 51.1278,
             "longitude": 13.7543,
-            "from_date": "1934-01-01T00:00:00+00:00",
-            "to_date": IsStr,
+            "height": 228.0,
             "name": "Dresden-Klotzsche",
             "state": "Sachsen",
             "distance": IsFloat(ge=0.0),
@@ -38,12 +38,12 @@ SETTINGS_STATIONS = (
         "10488",
         {
             "station_id": "10488",
-            "height": 230.0,
             "icao_id": "EDDC",
+            "start_date": None,
+            "end_date": None,
             "latitude": 51.13,
             "longitude": 13.75,
-            "from_date": None,
-            "to_date": None,
+            "height": 230.0,
             "name": "DRESDEN/FLUGHAFEN",
             "state": None,
             "distance": IsFloat(ge=0.0),
@@ -57,12 +57,12 @@ SETTINGS_STATIONS = (
         "10488",
         {
             "station_id": "10488",
-            "height": 230.0,
             "icao_id": "EDDC",
+            "start_date": None,
+            "end_date": None,
             "latitude": 51.08,
             "longitude": 13.45,
-            "from_date": None,
-            "to_date": None,
+            "height": 230.0,
             "name": "DRESDEN/FLUGHAFEN",
             "state": None,
             "distance": IsFloat(ge=0.0),
@@ -157,7 +157,7 @@ def test_cli_stations_geojson(provider, network, setting, station_id, expected_d
     assert response.keys() == {"data"}
     first = response["data"]["features"][0]
     first_prop = first["properties"]
-    first_prop.pop("to_date")
+    first_prop.pop("end_date")
     expected_dict_geo = expected_dict.copy()
     expected_dict_geo["id"] = expected_dict_geo.pop("station_id")
     assert first_prop.items() <= expected_dict_geo.items()
