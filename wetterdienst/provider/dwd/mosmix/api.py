@@ -1279,11 +1279,11 @@ class DwdMosmixRequest(TimeseriesRequest):
     _base_columns = [
         Columns.STATION_ID.value,
         Columns.ICAO_ID.value,
-        Columns.FROM_DATE.value,
-        Columns.TO_DATE.value,
-        Columns.HEIGHT.value,
+        Columns.START_DATE.value,
+        Columns.END_DATE.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
+        Columns.HEIGHT.value,
         Columns.NAME.value,
         Columns.STATE.value,
     ]
@@ -1418,12 +1418,15 @@ class DwdMosmixRequest(TimeseriesRequest):
             Columns.LONGITUDE.value,
             Columns.HEIGHT.value,
         ]
-        return df.with_columns(
+        df = df.select(
+            pl.col(Columns.STATION_ID.value),
             pl.col(Columns.ICAO_ID.value).map_dict({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
             pl.col(Columns.LATITUDE.value).cast(float).map_batches(convert_dm_to_dd),
             pl.col(Columns.LONGITUDE.value).cast(float).map_batches(convert_dm_to_dd),
             pl.col(Columns.HEIGHT.value).cast(int),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.FROM_DATE.value),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.TO_DATE.value),
+            pl.col(Columns.NAME.value),
             pl.lit(None, pl.Utf8).alias(Columns.STATE.value),
-        ).lazy()
+        )
+        return df.lazy()

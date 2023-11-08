@@ -219,16 +219,16 @@ class HubeauRequest(TimeseriesRequest):
                 "latitude_station": Columns.LATITUDE.value,
                 "altitude_ref_alti_station": Columns.HEIGHT.value,
                 "libelle_departement": Columns.STATE.value,
-                "date_ouverture_station": Columns.FROM_DATE.value,
-                "date_fermeture_station": Columns.TO_DATE.value,
+                "date_ouverture_station": Columns.START_DATE.value,
+                "date_fermeture_station": Columns.END_DATE.value,
             }
         )
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).map_elements(dt.datetime.fromisoformat),
-            pl.when(pl.col(Columns.TO_DATE.value).is_null())
+            pl.col(Columns.START_DATE.value).map_elements(dt.datetime.fromisoformat),
+            pl.when(pl.col(Columns.END_DATE.value).is_null())
             .then(dt.date.today())
-            .alias(Columns.TO_DATE.value)
+            .alias(Columns.END_DATE.value)
             .cast(pl.Datetime),
         )
 

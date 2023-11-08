@@ -108,8 +108,8 @@ def main():
         format_func=lambda s: f"{s['name']} [{s['station_id']}]",
     )
     if station:
-        station["from_date"] = station["from_date"].isoformat()
-        station["to_date"] = station["to_date"].isoformat()
+        station["start_date"] = station["start_date"].isoformat()
+        station["end_date"] = station["end_date"].isoformat()
         st.json(station, expanded=False)
         st.map(get_dwd_observation_station(station["station_id"], settings).df)
 

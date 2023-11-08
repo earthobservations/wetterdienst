@@ -9,8 +9,8 @@ class Columns(Enum):
 
     STATION_ID = "station_id"  # change to local id later
     DATE = "date"
-    FROM_DATE = "from_date"
-    TO_DATE = "to_date"
+    START_DATE = "start_date"
+    END_DATE = "end_date"
     HEIGHT = "height"
     LATITUDE = "latitude"
     LONGITUDE = "longitude"

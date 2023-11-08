@@ -88,7 +88,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             }
 
     # Fields for date coercion
-    _date_fields = [Columns.DATE.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
+    _date_fields = [Columns.DATE.value, Columns.START_DATE.value, Columns.END_DATE.value]
 
     # TODO: add data type (mosmix, observation, ...)
 

@@ -18,7 +18,7 @@ pl.Config.set_tbl_width_chars(400)
 """
 example:
 
-  station_id                 from_date                   to_date  height  latitude  longitude                    name   state   distance
+  station_id                 start_date                   end_date  height  latitude  longitude                    name   state   distance
 0      02480 2004-09-01 00:00:00+00:00 2022-02-11 00:00:00+00:00   108.0   50.0643     8.9930               Kahl/Main  Bayern   9.759385
 1      04411 2002-01-24 00:00:00+00:00 2022-02-11 00:00:00+00:00   155.0   49.9195     8.9671  Schaafheim-Schlierbach  Hessen  10.156943
 2      07341 2005-07-16 00:00:00+00:00 2022-02-11 00:00:00+00:00   119.0   50.0899     8.7862    Offenbach-Wetterpark  Hessen  12.882694

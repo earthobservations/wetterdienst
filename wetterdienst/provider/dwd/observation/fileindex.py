@@ -102,23 +102,23 @@ def create_file_index_for_climate_observations(
             .list.first()
             .str.to_datetime(DatetimeFormat.YMD.value)
             .dt.replace_time_zone("Europe/Berlin")
-            .alias(Columns.FROM_DATE.value),
+            .alias(Columns.START_DATE.value),
             pl.col("date_range")
             .str.split("_")
             .list.last()
             .str.to_datetime(DatetimeFormat.YMD.value)
             .dt.replace_time_zone("Europe/Berlin")
             .map_batches(lambda dates: dates + dt.timedelta(days=1))
-            .alias(Columns.TO_DATE.value),
+            .alias(Columns.END_DATE.value),
         )
 
         file_index = file_index.with_columns(
-            pl.when(pl.col(Columns.FROM_DATE.value) > pl.col(Columns.TO_DATE.value))
-            .then(pl.col(Columns.FROM_DATE.value).min())
-            .otherwise(pl.col(Columns.FROM_DATE.value)),
-            pl.when(pl.col(Columns.FROM_DATE.value) > pl.col(Columns.TO_DATE.value))
-            .then(pl.col(Columns.TO_DATE.value).min())
-            .otherwise(pl.col(Columns.TO_DATE.value)),
+            pl.when(pl.col(Columns.START_DATE.value) > pl.col(Columns.END_DATE.value))
+            .then(pl.col(Columns.START_DATE.value).min())
+            .otherwise(pl.col(Columns.START_DATE.value)),
+            pl.when(pl.col(Columns.START_DATE.value) > pl.col(Columns.END_DATE.value))
+            .then(pl.col(Columns.END_DATE.value).min())
+            .otherwise(pl.col(Columns.END_DATE.value)),
         )
 
     return file_index.sort(by=[pl.col("station_id"), pl.col("filename")])

@@ -52,17 +52,17 @@ DROPPABLE_PARAMETERS = {
 
 DATE_FIELDS_REGULAR = {
     Columns.DATE.value,
-    Columns.FROM_DATE.value,
-    Columns.TO_DATE.value,
+    Columns.START_DATE.value,
+    Columns.END_DATE.value,
 }
 
 DWD_TO_ENGLISH_COLUMNS_MAPPING = {
     "stations_id": Columns.STATION_ID.value,
     "mess_datum": Columns.DATE.value,
-    "von_datum": Columns.FROM_DATE.value,
-    "bis_datum": Columns.TO_DATE.value,
-    "mess_datum_beginn": Columns.FROM_DATE.value,
-    "mess_datum_ende": Columns.TO_DATE.value,
+    "von_datum": Columns.START_DATE.value,
+    "bis_datum": Columns.END_DATE.value,
+    "mess_datum_beginn": Columns.START_DATE.value,
+    "mess_datum_ende": Columns.END_DATE.value,
     "stationshoehe": Columns.HEIGHT.value,
     "geobreite": Columns.LATITUDE.value,
     "geogr.breite": Columns.LATITUDE.value,

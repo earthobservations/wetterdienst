@@ -202,16 +202,16 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = pl.read_csv(inventory_file, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))
         inventory_df = read_fwf_from_df(inventory_df, column_specs)
-        inventory_df.columns = [Columns.STATION_ID.value, Columns.FROM_DATE.value, Columns.TO_DATE.value]
+        inventory_df.columns = [Columns.STATION_ID.value, Columns.START_DATE.value, Columns.END_DATE.value]
         inventory_df = inventory_df.with_columns(
-            pl.col(Columns.FROM_DATE.value).cast(int), pl.col(Columns.TO_DATE.value).cast(int)
+            pl.col(Columns.START_DATE.value).cast(int), pl.col(Columns.END_DATE.value).cast(int)
         )
         inventory_df = inventory_df.group_by(Columns.STATION_ID.value).agg(
-            pl.col(Columns.FROM_DATE.value).min(), pl.col(Columns.TO_DATE.value).max()
+            pl.col(Columns.START_DATE.value).min(), pl.col(Columns.END_DATE.value).max()
         )
         inventory_df = inventory_df.with_columns(
-            pl.col(Columns.FROM_DATE.value).cast(str).str.to_datetime("%Y"),
-            pl.col(Columns.TO_DATE.value)
+            pl.col(Columns.START_DATE.value).cast(str).str.to_datetime("%Y"),
+            pl.col(Columns.END_DATE.value)
             .map_batches(lambda s: s + 1)
             .cast(str)
             .str.to_datetime("%Y")

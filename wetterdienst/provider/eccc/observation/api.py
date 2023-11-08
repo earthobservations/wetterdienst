@@ -112,8 +112,8 @@ class EcccObservationValues(TimeseriesValues):
         start_year, end_year = (
             meta.select(
                 [
-                    pl.col(Columns.FROM_DATE.value).dt.year(),
-                    pl.col(Columns.TO_DATE.value).dt.year(),
+                    pl.col(Columns.START_DATE.value).dt.year(),
+                    pl.col(Columns.END_DATE.value).dt.year(),
                 ]
             )
             .transpose()
@@ -242,20 +242,20 @@ class EcccObservationRequest(TimeseriesRequest):
     def _dates_columns_mapping(self) -> dict:
         dcm = {}
 
-        from_date, to_date = None, None
+        start_date, end_date = None, None
         if self.resolution == Resolution.HOURLY:
-            from_date, to_date = "hly first year", "hly last year"
+            start_date, end_date = "hly first year", "hly last year"
         elif self.resolution == Resolution.DAILY:
-            from_date, to_date = "dly first year", "dly last year"
+            start_date, end_date = "dly first year", "dly last year"
         elif self.resolution == Resolution.MONTHLY:
-            from_date, to_date = "mly first year", "mly last year"
+            start_date, end_date = "mly first year", "mly last year"
         elif self.resolution == Resolution.ANNUAL:
-            from_date, to_date = "first year", "last year"
+            start_date, end_date = "first year", "last year"
 
         dcm.update(
             {
-                from_date: Columns.FROM_DATE.value,
-                to_date: Columns.TO_DATE.value,
+                start_date: Columns.START_DATE.value,
+                end_date: Columns.END_DATE.value,
             }
         )
 
@@ -313,19 +313,19 @@ class EcccObservationRequest(TimeseriesRequest):
         df = df.rename(mapping=self._columns_mapping)
 
         df = df.with_columns(
-            pl.when(pl.col(Columns.FROM_DATE.value).ne("")).then(pl.col(Columns.FROM_DATE.value)),
-            pl.when(pl.col(Columns.TO_DATE.value).ne("")).then(pl.col(Columns.TO_DATE.value)),
+            pl.when(pl.col(Columns.START_DATE.value).ne("")).then(pl.col(Columns.START_DATE.value)),
+            pl.when(pl.col(Columns.END_DATE.value).ne("")).then(pl.col(Columns.END_DATE.value)),
             pl.when(pl.col(Columns.HEIGHT.value).ne("")).then(pl.col(Columns.HEIGHT.value)),
         )
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).fill_null(pl.col(Columns.FROM_DATE.value).cast(int).min()),
-            pl.col(Columns.TO_DATE.value).fill_null(pl.col(Columns.TO_DATE.value).cast(int).max()),
+            pl.col(Columns.START_DATE.value).fill_null(pl.col(Columns.START_DATE.value).cast(int).min()),
+            pl.col(Columns.END_DATE.value).fill_null(pl.col(Columns.END_DATE.value).cast(int).max()),
         )
 
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).str.to_datetime("%Y"),
-            pl.col(Columns.TO_DATE.value)
+            pl.col(Columns.START_DATE.value).str.to_datetime("%Y"),
+            pl.col(Columns.END_DATE.value)
             .cast(int)
             .add(1)
             .map_elements(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1)),

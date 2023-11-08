@@ -60,7 +60,7 @@ class ExportMixin:
 
     def to_csv(self):
         df = self.df
-        date_columns = (Columns.FROM_DATE.value, Columns.TO_DATE.value, Columns.DATE.value)
+        date_columns = (Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value)
         df = df.with_columns(
             pl.col(column).map_elements(lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8)
             for column in date_columns
@@ -518,11 +518,11 @@ def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
     """
     Convert all datetime columns to ISO format.
 
-    :param df:        df[Columns.FROM_DATE] = df[Columns.FROM_DATE].dt.tz_localize(self.tz)
+    :param df:        df[Columns.START_DATE] = df[Columns.START_DATE].dt.tz_localize(self.tz)
     :return:
     """
     date_columns = list(df.select(pl.col(pl.Datetime)).columns)
-    date_columns.extend([Columns.FROM_DATE.value, Columns.TO_DATE.value, Columns.DATE.value])
+    date_columns.extend([Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value])
     date_columns = set(date_columns)
     for date_column in date_columns:
         if date_column in df:

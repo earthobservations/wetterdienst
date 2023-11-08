@@ -59,8 +59,8 @@ class _Metadata(TypedDict):
 
 class _Station(TypedDict):
     station_id: str
-    from_date: Optional[str]
-    to_date: Optional[str]
+    start_date: Optional[str]
+    end_date: Optional[str]
     latitude: float
     longitude: float
     height: float
@@ -77,8 +77,8 @@ class _OgcFeatureProperties(TypedDict):
     id: str
     name: str
     state: str
-    from_date: Optional[str]
-    to_date: Optional[str]
+    start_date: Optional[str]
+    end_date: Optional[str]
 
 
 class _OgcFeatureGeometry(TypedDict):
@@ -255,8 +255,10 @@ class StationsResult(ExportMixin):
             data["metadata"] = self.get_metadata()
         data["stations"] = self.df.with_columns(
             [
-                pl.col("from_date").map_elements(lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8),
-                pl.col("to_date").map_elements(lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8),
+                pl.col("start_date").map_elements(
+                    lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8
+                ),
+                pl.col("end_date").map_elements(lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8),
             ]
         ).to_dicts()
         return data
@@ -294,8 +296,8 @@ class StationsResult(ExportMixin):
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],
-                        "from_date": station["from_date"].isoformat() if station["from_date"] else None,
-                        "to_date": station["to_date"].isoformat() if station["to_date"] else None,
+                        "start_date": station["start_date"].isoformat() if station["start_date"] else None,
+                        "end_date": station["end_date"].isoformat() if station["end_date"] else None,
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees
@@ -436,8 +438,8 @@ class ValuesResult(_ValuesResult):
                         "id": station["station_id"],
                         "name": station["name"],
                         "state": station["state"],
-                        "from_date": station["from_date"].isoformat() if station["from_date"] else None,
-                        "to_date": station["to_date"].isoformat() if station["to_date"] else None,
+                        "start_date": station["start_date"].isoformat() if station["start_date"] else None,
+                        "end_date": station["end_date"].isoformat() if station["end_date"] else None,
                     },
                     "geometry": {
                         # WGS84 is implied and coordinates represent decimal degrees

@@ -181,11 +181,11 @@ class TimeseriesRequest(Core):
     # Columns that should be contained within any stations_result information
     _base_columns = (
         Columns.STATION_ID.value,
-        Columns.FROM_DATE.value,
-        Columns.TO_DATE.value,
-        Columns.HEIGHT.value,
+        Columns.START_DATE.value,
+        Columns.END_DATE.value,
         Columns.LATITUDE.value,
         Columns.LONGITUDE.value,
+        Columns.HEIGHT.value,
         Columns.NAME.value,
         Columns.STATE.value,
     )
@@ -603,8 +603,8 @@ class TimeseriesRequest(Core):
             pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
             pl.col(Columns.NAME.value).cast(pl.Utf8),
             pl.col(Columns.STATE.value).cast(pl.Utf8),
-            pl.col(Columns.FROM_DATE.value).cast(pl.Datetime(time_zone="UTC")),
-            pl.col(Columns.TO_DATE.value).cast(pl.Datetime(time_zone="UTC")),
+            pl.col(Columns.START_DATE.value).cast(pl.Datetime(time_zone="UTC")),
+            pl.col(Columns.END_DATE.value).cast(pl.Datetime(time_zone="UTC")),
         )
 
     @abstractmethod
@@ -826,14 +826,14 @@ class TimeseriesRequest(Core):
 
         df = self.all().df
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(None),
-            pl.col(Columns.TO_DATE.value).dt.replace_time_zone(None),
+            pl.col(Columns.START_DATE.value).dt.replace_time_zone(None),
+            pl.col(Columns.END_DATE.value).dt.replace_time_zone(None),
         )
         df = duckdb.query_df(df.to_pandas(), "data", sql).df()
         df = pl.from_pandas(df)
         df = df.with_columns(
-            pl.col(Columns.FROM_DATE.value).dt.replace_time_zone(time_zone="UTC"),
-            pl.col(Columns.TO_DATE.value).dt.replace_time_zone(time_zone="UTC"),
+            pl.col(Columns.START_DATE.value).dt.replace_time_zone(time_zone="UTC"),
+            pl.col(Columns.END_DATE.value).dt.replace_time_zone(time_zone="UTC"),
         )
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
