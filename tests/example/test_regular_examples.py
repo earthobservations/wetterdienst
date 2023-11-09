@@ -35,10 +35,10 @@ def test_pdbufr_examples():
 
 @pytest.mark.skipif(IS_CI and IS_LINUX, reason="stalls on Mac/Windows in CI")
 @pytest.mark.cflake
-def test_gaussian_example():
+def test_gaussian_example(tmp_path):
     from example import observations_station_gaussian_model
 
-    assert observations_station_gaussian_model.main() is None
+    assert observations_station_gaussian_model.main(tmp_path) is None
 
 
 # @pytest.mark.skipif(IS_CI, reason="radar examples not working in CI")
