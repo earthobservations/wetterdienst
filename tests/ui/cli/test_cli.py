@@ -92,18 +92,20 @@ def test_cli_interpolate():
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "date": "1986-10-31T00:00:00+00:00",
+            "station_id": "6754d04d",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-10-31T00:00:00+00:00",
             "value": 279.52,
             "distance_mean": 16.99,
-            "station_ids": ["00072", "02074", "02638", "04703"],
+            "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "date": "1986-11-01T00:00:00+00:00",
+            "station_id": "6754d04d",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance_mean": 0.0,
-            "station_ids": ["00071"],
+            "taken_station_ids": ["00071"],
         },
     ]
 
@@ -194,7 +196,7 @@ def test_cli_interpolate_geojson():
         "features": [
             {
                 "type": "Feature",
-                "properties": {"name": "interpolation(lat=48.2156,lon=8.9784)"},
+                "properties": {"id": "6754d04d", "name": "interpolation(48.2156,8.9784)"},
                 "geometry": {"type": "Point", "coordinates": [8.9784, 48.2156]},
                 "stations": [
                     {
@@ -250,18 +252,20 @@ def test_cli_interpolate_geojson():
                 ],
                 "values": [
                     {
-                        "date": "1986-10-31T00:00:00+00:00",
+                        "station_id": "6754d04d",
                         "parameter": "temperature_air_mean_200",
+                        "date": "1986-10-31T00:00:00+00:00",
                         "value": 279.52,
                         "distance_mean": 16.99,
-                        "station_ids": ["00072", "02074", "02638", "04703"],
+                        "taken_station_ids": ["00072", "02074", "02638", "04703"],
                     },
                     {
+                        "station_id": "6754d04d",
                         "date": "1986-11-01T00:00:00+00:00",
                         "parameter": "temperature_air_mean_200",
                         "value": 281.85,
                         "distance_mean": 0.0,
-                        "station_ids": ["00071"],
+                        "taken_station_ids": ["00071"],
                     },
                 ],
             }
@@ -284,18 +288,20 @@ def test_cli_summarize():
     assert response.keys() == {"values"}
     assert response["values"] == [
         {
-            "date": "1986-10-31T00:00:00+00:00",
+            "station_id": "a87291a8",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-10-31T00:00:00+00:00",
             "value": 279.75,
             "distance": 6.97,
-            "station_id": "00072",
+            "taken_station_id": "00072",
         },
         {
-            "date": "1986-11-01T00:00:00+00:00",
+            "station_id": "a87291a8",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance": 0.0,
-            "station_id": "00071",
+            "taken_station_id": "00071",
         },
     ]
 
@@ -318,7 +324,7 @@ def test_cli_summarize_geojson():
         "features": [
             {
                 "type": "Feature",
-                "properties": {"name": "summary(lat=48.2156,lon=8.9784)"},
+                "properties": {"id": "a87291a8", "name": "summary(48.2156,8.9784)"},
                 "geometry": {"type": "Point", "coordinates": [8.9784, 48.2156]},
                 "stations": [
                     {
@@ -344,18 +350,20 @@ def test_cli_summarize_geojson():
                 ],
                 "values": [
                     {
-                        "date": "1986-10-31T00:00:00+00:00",
+                        "station_id": "a87291a8",
                         "parameter": "temperature_air_mean_200",
+                        "date": "1986-10-31T00:00:00+00:00",
                         "value": 279.75,
                         "distance": 6.97,
-                        "station_id": "00072",
+                        "taken_station_id": "00072",
                     },
                     {
-                        "date": "1986-11-01T00:00:00+00:00",
+                        "station_id": "a87291a8",
                         "parameter": "temperature_air_mean_200",
+                        "date": "1986-11-01T00:00:00+00:00",
                         "value": 281.85,
                         "distance": 0.0,
-                        "station_id": "00071",
+                        "taken_station_id": "00071",
                     },
                 ],
             }

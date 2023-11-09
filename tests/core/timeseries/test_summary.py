@@ -1,7 +1,6 @@
 import datetime as dt
 
 import polars as pl
-import pytest
 from polars.testing import assert_frame_equal
 from zoneinfo import ZoneInfo
 
@@ -15,7 +14,6 @@ from wetterdienst.provider.dwd.observation import (
 from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 
 
-@pytest.mark.xfail
 def test_summary_temperature_air_mean_200_daily(default_settings):
     request = DwdObservationRequest(
         parameter="temperature_air_mean_200",
@@ -31,16 +29,17 @@ def test_summary_temperature_air_mean_200_daily(default_settings):
     ]
     expected_df = pl.DataFrame(
         {
-            "date": selected_dates,
+            "station_id": ["7ac6c582", "7ac6c582", "7ac6c582"],
             "parameter": ["temperature_air_mean_200", "temperature_air_mean_200", "temperature_air_mean_200"],
+            "date": selected_dates,
             "value": [273.65, 267.65, 270.45],
-            "distance": [13.41953430920589, 5.038443044950475, 0.0],
-            "station_id": ["01048", "01051", "01050"],
+            "distance": [13.42, 5.05, 0.0],
+            "taken_station_id": ["01048", "01051", "01050"],
         }
     )
     for result in (request.summarize(latlon=(51.0221, 13.8470)), request.summarize_by_station_id(station_id="1050")):
         given_df = result.df
-        given_df = given_df.loc[given_df.date.isin(selected_dates)].reset_index(drop=True)
+        given_df = given_df.filter(pl.col("date").is_in(selected_dates))
         assert_frame_equal(given_df, expected_df)
 
 
@@ -58,11 +57,12 @@ def test_not_summarizable_dataset(default_settings):
     assert given_df.drop_nulls().shape[0] == 0
     expected_df = pl.DataFrame(
         schema={
-            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
+            Columns.STATION_ID.value: pl.Utf8,
             Columns.PARAMETER.value: pl.Utf8,
+            Columns.DATE.value: pl.Datetime(time_zone="UTC"),
             Columns.VALUE.value: pl.Float64,
             Columns.DISTANCE.value: pl.Float64,
-            Columns.STATION_ID.value: pl.Utf8,
+            Columns.TAKEN_STATION_ID.value: pl.Utf8,
         },
     )
     assert_frame_equal(

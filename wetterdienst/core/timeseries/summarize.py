@@ -113,7 +113,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
                 Columns.PARAMETER.value: pl.Utf8,
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE.value: pl.Float64,
-                Columns.STATION_ID.value: pl.Utf8,
+                Columns.TAKEN_STATION_ID.value: pl.Utf8,
             }
         )
     ]
@@ -129,7 +129,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
                 Columns.PARAMETER.value: pl.Utf8,
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE.value: pl.Float64,
-                Columns.STATION_ID.value: pl.Utf8,
+                Columns.TAKEN_STATION_ID.value: pl.Utf8,
             },
         )
         param_df = pl.concat([param_df, results], how="horizontal")

@@ -40,9 +40,10 @@ class Columns(Enum):
     ICAO_ID = "icao_id"
     # Special columns
     QUALITY_PREFIX = "qn"
-    # Columns used for interpolation
+    # Columns used for interpolation/summary
     DISTANCE_MEAN = "distance_mean"
-    STATION_IDS = "station_ids"
+    TAKEN_STATION_IDS = "taken_station_ids"
+    TAKEN_STATION_ID = "taken_station_id"
     # for road weather
     ROAD_NAME = "road_name"
     ROAD_TYPE = "road_type"
