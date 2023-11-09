@@ -6,6 +6,7 @@ import logging
 from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
+from hashlib import sha256
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -863,9 +864,18 @@ class TimeseriesRequest(Core):
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         df_interpolated = get_interpolated_df(self, lat, lon)
+        station_id = self._create_station_id_from_string(f"interpolation({lat:.4f},{lon:.4f})")
+        df_interpolated = df_interpolated.select(
+            pl.lit(station_id).alias(Columns.STATION_ID.value),
+            pl.col(Columns.PARAMETER.value),
+            pl.col(Columns.DATE.value),
+            pl.col(Columns.VALUE.value),
+            pl.col(Columns.DISTANCE_MEAN.value),
+            pl.col(Columns.TAKEN_STATION_IDS.value),
+        )
         df_stations_all = self.all().df
         df_stations = df_stations_all.join(
-            other=df_interpolated.select(pl.col(Columns.STATION_IDS.value).alias(Columns.STATION_ID.value))
+            other=df_interpolated.select(pl.col(Columns.TAKEN_STATION_IDS.value).alias(Columns.STATION_ID.value))
             .explode(pl.col(Columns.STATION_ID.value))
             .unique(),
             on=Columns.STATION_ID.value,
@@ -916,10 +926,20 @@ class TimeseriesRequest(Core):
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         summarized_values = get_summarized_df(self, lat, lon)
+        station_id = self._create_station_id_from_string(f"summary({lat:.4f},{lon:.4f})")
+        summarized_values = summarized_values.select(
+            pl.lit(station_id).alias(Columns.STATION_ID.value),
+            pl.col(Columns.PARAMETER.value),
+            pl.col(Columns.DATE.value),
+            pl.col(Columns.VALUE.value),
+            pl.col(Columns.DISTANCE.value),
+            pl.col(Columns.TAKEN_STATION_ID.value),
+        )
         df_stations_all = self.all().df
         df_stations = df_stations_all.join(
-            other=summarized_values.select(pl.col(Columns.STATION_ID.value)).unique(),
-            on=Columns.STATION_ID.value,
+            other=summarized_values.select(pl.col(Columns.TAKEN_STATION_ID.value)).unique(),
+            left_on=Columns.STATION_ID.value,
+            right_on=Columns.TAKEN_STATION_ID.value,
         )
         stations_result = StationsResult(
             stations=self,
@@ -957,3 +977,12 @@ class TimeseriesRequest(Core):
         except NoDataError as e:
             raise StationNotFoundError(f"no station found for {station_id}") from e
         return lat, lon
+
+    @staticmethod
+    def _create_station_id_from_string(string: str) -> str:
+        """
+        Method to create station id from string, used for interpolation and summarization data
+        :param string: string to create station id from
+        :return: station id
+        """
+        return sha256(string.encode("utf-8")).hexdigest()[:8]

@@ -464,15 +464,17 @@ class ValuesResult(_ValuesResult):
 
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):
+    id: str
     name: str
 
 
 class _InterpolatedValuesItemDict(TypedDict):
-    date: str
+    station_id: str
     parameter: str
+    date: str
     value: float
     distance_mean: float
-    station_ids: List[str]
+    taken_station_ids: List[str]
 
 
 class _InterpolatedValuesDict(TypedDict):
@@ -526,10 +528,11 @@ class InterpolatedValuesResult(_ValuesResult):
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
         latitude, longitude = self.latlon
-        name = f"interpolation(lat={latitude:.4f},lon={longitude:.4f})"
+        name = f"interpolation({latitude:.4f},{longitude:.4f})"
         feature = {
             "type": "Feature",
             "properties": {
+                "id": self.df.get_column(Columns.STATION_ID.value).take(0).item(),
                 "name": name,
             },
             "geometry": {
@@ -554,11 +557,12 @@ class InterpolatedValuesResult(_ValuesResult):
 
 
 class _SummarizedValuesItemDict(TypedDict):
-    date: str
+    station_id: str
     parameter: str
+    date: str
     value: float
     distance: float
-    station_id: str
+    taken_station_id: str
 
 
 class _SummarizedValuesDict(TypedDict):
@@ -612,10 +616,11 @@ class SummarizedValuesResult(_ValuesResult):
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
         latitude, longitude = self.latlon
-        name = f"summary(lat={latitude:.4f},lon={longitude:.4f})"
+        name = f"summary({latitude:.4f},{longitude:.4f})"
         feature = {
             "type": "Feature",
             "properties": {
+                "id": self.df.get_column(Columns.STATION_ID.value).take(0).item(),
                 "name": name,
             },
             "geometry": {

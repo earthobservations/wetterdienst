@@ -333,18 +333,20 @@ def test_dwd_interpolate(client):
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "date": "1986-10-31T00:00:00+00:00",
+            "station_id": "6754d04d",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-10-31T00:00:00+00:00",
             "value": 279.52,
             "distance_mean": 16.99,
-            "station_ids": ["00072", "02074", "02638", "04703"],
+            "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
         {
-            "date": "1986-11-01T00:00:00+00:00",
+            "station_id": "6754d04d",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance_mean": 0.0,
-            "station_ids": ["00071"],
+            "taken_station_ids": ["00071"],
         },
     ]
 
@@ -365,18 +367,20 @@ def test_dwd_summarize(client):
     assert response.status_code == 200
     assert response.json()["values"] == [
         {
-            "date": "1986-10-31T00:00:00+00:00",
+            "station_id": "a87291a8",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-10-31T00:00:00+00:00",
             "value": 279.75,
             "distance": 6.97,
-            "station_id": "00072",
+            "taken_station_id": "00072",
         },
         {
-            "date": "1986-11-01T00:00:00+00:00",
+            "station_id": "a87291a8",
             "parameter": "temperature_air_mean_200",
+            "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance": 0.0,
-            "station_id": "00071",
+            "taken_station_id": "00071",
         },
     ]
 

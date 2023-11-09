@@ -5,6 +5,8 @@ Development
 ***********
 
 - [Breaking] Use start_date and end_date instead of from_date and to_date
+- Use artificial station id for interpolation and summarization
+- Rename taken station ids columns for interpolation and summarization
 
 0.66.1 (08.11.2023)
 *******************

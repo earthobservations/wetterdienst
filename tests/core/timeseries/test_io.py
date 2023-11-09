@@ -187,19 +187,21 @@ def df_interpolated_values():
     return pl.DataFrame(
         [
             {
-                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "station_id": "abc",
                 "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "distance_mean": 0.0,
-                "station_ids": ["01048"],
+                "taken_station_ids": ["01048"],
             },
         ],
         schema={
-            "date": pl.Datetime(time_zone="UTC"),
+            "station_id": pl.Utf8,
             "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance_mean": pl.Float64,
-            "station_ids": pl.List(pl.Utf8),
+            "taken_station_ids": pl.List(pl.Utf8),
         },
     )
 
@@ -209,19 +211,21 @@ def df_summarized_values():
     return pl.DataFrame(
         [
             {
-                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "station_id": "abc",
                 "parameter": "temperature_air_max_200",
+                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "distance": 0.0,
-                "station_id": "01048",
+                "taken_station_id": "01048",
             },
         ],
         schema={
-            "date": pl.Datetime(time_zone="UTC"),
+            "station_id": pl.Utf8,
             "parameter": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance": pl.Float64,
-            "station_id": pl.Utf8,
+            "taken_station_id": pl.Utf8,
         },
     )
 
@@ -428,11 +432,12 @@ def test_interpolated_values_to_dict(df_interpolated_values):
     assert data.keys() == {"values"}
     assert data["values"] == [
         {
-            "date": "2019-01-01T00:00:00+00:00",
+            "station_id": "abc",
             "parameter": "temperature_air_max_200",
+            "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
             "distance_mean": 0.0,
-            "station_ids": ["01048"],
+            "taken_station_ids": ["01048"],
         }
     ]
 
@@ -452,7 +457,7 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [2.3456, 1.2345], "type": "Point"},
-        "properties": {"name": "interpolation(lat=1.2345,lon=2.3456)"},
+        "properties": {"id": "abc", "name": "interpolation(1.2345,2.3456)"},
         "stations": [
             {
                 "station_id": "01048",
@@ -468,11 +473,12 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
         "type": "Feature",
         "values": [
             {
-                "date": "2019-01-01T00:00:00+00:00",
+                "station_id": "abc",
                 "parameter": "temperature_air_max_200",
+                "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
                 "distance_mean": 0.0,
-                "station_ids": ["01048"],
+                "taken_station_ids": ["01048"],
             }
         ],
     }
@@ -493,11 +499,12 @@ def test_summarized_values_to_dict(df_summarized_values):
     assert data.keys() == {"values"}
     assert data["values"] == [
         {
-            "date": "2019-01-01T00:00:00+00:00",
+            "station_id": "abc",
             "parameter": "temperature_air_max_200",
+            "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
             "distance": 0.0,
-            "station_id": "01048",
+            "taken_station_id": "01048",
         }
     ]
 
@@ -517,7 +524,7 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [2.3456, 1.2345], "type": "Point"},
-        "properties": {"name": "summary(lat=1.2345,lon=2.3456)"},
+        "properties": {"id": "abc", "name": "summary(1.2345,2.3456)"},
         "stations": [
             {
                 "station_id": "01048",
@@ -533,11 +540,12 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
         "type": "Feature",
         "values": [
             {
-                "date": "2019-01-01T00:00:00+00:00",
+                "station_id": "abc",
                 "parameter": "temperature_air_max_200",
+                "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
                 "distance": 0.0,
-                "station_id": "01048",
+                "taken_station_id": "01048",
             }
         ],
     }
