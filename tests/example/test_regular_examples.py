@@ -13,7 +13,7 @@ EXAMPLES_DIR = HERE.parent.parent / "example"
 
 @pytest.mark.cflake
 def test_regular_examples():
-    from example import (
+    from examples import (
         dwd_describe_fields,
         mosmix_forecasts,
         observations_sql,
@@ -28,7 +28,7 @@ def test_regular_examples():
 
 @pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
 def test_pdbufr_examples():
-    from example import dwd_road_weather
+    from examples import dwd_road_weather
 
     assert dwd_road_weather.main() is None
 
@@ -36,7 +36,7 @@ def test_pdbufr_examples():
 @pytest.mark.skipif(IS_CI and IS_LINUX, reason="stalls on Mac/Windows in CI")
 @pytest.mark.cflake
 def test_gaussian_example(tmp_path):
-    from example import observations_station_gaussian_model
+    from examples import observations_station_gaussian_model
 
     assert observations_station_gaussian_model.main(tmp_path) is None
 
@@ -45,7 +45,7 @@ def test_gaussian_example(tmp_path):
 @pytest.mark.cflake
 def test_radar_examples():
     pytest.importorskip("wradlib")
-    from example.radar import (
+    from examples.radar import (
         radar_composite_rw,
         radar_radolan_cdc,
         radar_radolan_rw,
@@ -64,7 +64,7 @@ def test_radar_examples():
 @pytest.mark.cflake
 def test_radar_examples_failing():
     pytest.importorskip("wradlib")
-    from example.radar import radar_scan_precip, radar_scan_volume
+    from examples.radar import radar_scan_precip, radar_scan_volume
 
     assert radar_scan_precip.main() is None
     assert radar_scan_volume.main() is None

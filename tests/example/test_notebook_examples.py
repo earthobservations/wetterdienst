@@ -7,7 +7,7 @@ import pytest
 from pytest_notebook.nb_regression import NBRegressionError, NBRegressionFixture
 from pytest_notebook.notebook import NBConfigValidationError
 
-EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
+EXAMPLE_DIR = Path(__file__).parent.parent.parent / "examples"
 
 
 @pytest.mark.slow
