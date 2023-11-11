@@ -624,12 +624,8 @@ temperature_dew_point_mean_200
    * - constraints
      - none
 
-----
-
 Wind_extreme
 ============
-
-----
 
 Metadata
 --------
@@ -647,14 +643,8 @@ Metadata
    * - description
      - Historical hourly station observations of maximum wind speed in 10m height for Germany
 
-.. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
-
-----
-
 Parameters
 ----------
-
-----
 
 wind_gust_max
 ^^^^^^^^^^^^^
@@ -676,12 +666,8 @@ wind_gust_max
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Moisture
 ========
-
-----
 
 Metadata
 --------
@@ -700,14 +686,9 @@ Metadata
      - Historical hourly station observations of humidity, absolute humidity, vapor pressure, air pressure,
        wet temperature, air temperature and dew point temperature for Germany
 
-.. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
-
-----
 
 Parameters
 ----------
-
-----
 
 humidity_absolute
 ^^^^^^^^^^^^^^^^^
@@ -849,12 +830,8 @@ temperature_dew_point_mean_200
    * - constraints
      - none
 
-----
-
 Precipitation
 =============
-
-----
 
 Metadata
 --------
@@ -874,12 +851,8 @@ Metadata
 
 .. _precipitation dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/precipitation/historical/DESCRIPTION_obsgermany_climate_hourly_precipitation_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_height
 ^^^^^^^^^^^^^^^^^^^^
@@ -982,12 +955,8 @@ precipitation_form
    * - constraints
      - :math:`\in [0, 1, 2, 3, 6, 7, 8, 9]`
 
-----
-
 Pressure
 ========
-
-----
 
 Metadata
 --------
@@ -1007,12 +976,8 @@ Metadata
 
 .. _pressure dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/pressure/historical/DESCRIPTION_obsgermany_climate_hourly_pressure_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 pressure_air_sea_level
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -1054,12 +1019,8 @@ pressure_air_site
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Temperature_soil
 ================
-
-----
 
 Metadata
 --------
@@ -1079,12 +1040,8 @@ Metadata
 
 .. _soil_temperature dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/soil_temperature/historical/DESCRIPTION_obsgermany_climate_hourly_soil_temperature_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_soil_mean_002
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1206,12 +1163,8 @@ temperature_soil_mean_100
    * - constraints
      - none
 
-----
-
 Solar
 =====
-
-----
 
 Metadata
 --------
@@ -1231,12 +1184,8 @@ Metadata
 
 .. _solar dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/solar/DESCRIPTION_obsgermany_climate_hourly_solar_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 radiation_sky_long_wave
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -1341,8 +1290,6 @@ sun_zenith_angle
 Sun
 ====
 
-----
-
 Metadata
 --------
 
@@ -1361,12 +1308,8 @@ Metadata
 
 .. _sun dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/sun/historical/DESCRIPTION_obsgermany_climate_hourly_sun_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 sunshine_duration
 ^^^^^^^^^^^^^^^^^
@@ -1388,12 +1331,8 @@ sunshine_duration
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Visibility
 ==========
-
-----
 
 Metadata
 --------
@@ -1413,12 +1352,8 @@ Metadata
 
 .. _visibility dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/visibility/historical/DESCRIPTION_obsgermany_climate_hourly_visibility_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 visibility_range_indicator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1472,12 +1407,8 @@ visibility_range
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Weather_phenomena
 =================
-
-----
 
 Metadata
 --------
@@ -1495,12 +1426,8 @@ Metadata
    * - description
      - Historical hourly weather phenomena at stations in Germany
 
-----
-
 Parameters
 ----------
-
-----
 
 weather
 ^^^^^^^
@@ -1544,12 +1471,8 @@ weather_text
    * - constraints
      - none
 
-----
-
 Wind
 ====
-
-----
 
 Metadata
 --------
@@ -1569,12 +1492,8 @@ Metadata
 
 .. _wind dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/wind/historical/DESCRIPTION_obsgermany_climate_hourly_wind_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_speed
 ^^^^^^^^^^
@@ -1616,12 +1535,8 @@ wind_direction
    * - constraints
      - :math:`\geq{0}, \leq{360}`
 
-----
-
 Wind_synoptic
 =============
-
-----
 
 Metadata
 --------
@@ -1641,12 +1556,8 @@ Metadata
 
 .. _wind_synoptic dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/wind_synop/historical/DESCRIPTION_obsgermany_climate_hourly_wind_synop_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_speed
 ^^^^^^^^^^
@@ -1688,19 +1599,13 @@ wind_direction
    * - constraints
      - :math:`\geq{0}, \leq{360}`
 
-----
-
 .. note::
 
     The following **urban datasets** are located at the **climate_urban** directory instead of the **climate**
     directory.
 
-----
-
 Urban_temperature_air
 =====================
-
-----
 
 Metadata
 --------
@@ -1720,12 +1625,8 @@ Metadata
 
 .. _urban_temperature_air dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/air_temperature/recent/DESCRIPTION_obsgermany_climate_urban_hourly_tu_recent_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_air_mean_200
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1767,12 +1668,8 @@ humidity
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-----
-
 Urban_precipitation
 ===================
-
-----
 
 Metadata
 --------
@@ -1792,12 +1689,8 @@ Metadata
 
 .. _urban_precipitation dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/precipitation/recent/DESCRIPTION_obsgermany_climate_urban_hourly_precipitation_recent_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 precipitation_height
 ^^^^^^^^^^^^^^^^^^^^
@@ -1819,12 +1712,8 @@ precipitation_height
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Urban_pressure
 ==============
-
-----
 
 Metadata
 --------
@@ -1844,12 +1733,8 @@ Metadata
 
 .. _urban_pressure dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/pressure/recent/DESCRIPTION_obsgermany_climate_urban_hourly_pressure_recent_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 pressure_air_site
 ^^^^^^^^^^^^^^^^^
@@ -1871,12 +1756,8 @@ pressure_air_site
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Urban_temperature_soil
 ======================
-
-----
 
 Metadata
 --------
@@ -1896,12 +1777,8 @@ Metadata
 
 .. _urban_temperature_soil dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/soil_temperature/recent/DESCRIPTION_obsgermany_climate_urban_hourly_soil_temperature_recent_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 temperature_soil_mean_005
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2003,12 +1880,8 @@ temperature_soil_mean_100
    * - constraints
      - none
 
-----
-
 Urban_sun
 =========
-
-----
 
 Metadata
 --------
@@ -2028,12 +1901,8 @@ Metadata
 
 .. _urban_sun dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/sun/recent/DESCRIPTION_obsgermany_climate_urban_hourly_sun_recent_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 sunshine_duration
 ^^^^^^^^^^^^^^^^^
@@ -2055,12 +1924,8 @@ sunshine_duration
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Urban_wind
 ==========
-
-----
 
 Metadata
 --------
@@ -2080,12 +1945,8 @@ Metadata
 
 .. _urban_wind dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/wind/recent/DESCRIPTION_obsgermany_climate_urban_hourly_wind_recent_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_speed
 ^^^^^^^^^^
@@ -2127,4 +1988,4 @@ wind_direction
    * - constraints
      - :math:`\geq{0}, \leq{360}`
 
-----
+.. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx

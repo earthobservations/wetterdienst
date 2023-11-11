@@ -448,12 +448,8 @@ precipitation_indicator_wr
    * - constraints
      - :math:`\in [0, 1, 3]`
 
-----
-
 Solar
 =====
-
-----
 
 Metadata
 --------
@@ -474,12 +470,8 @@ Metadata
 
 .. _solar dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 radiation_sky_short_wave_diffuse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -561,12 +553,8 @@ radiation_sky_long_wave
    * - constraints
      - :math:`\geq{0}`
 
-----
-
 Wind
 ====
-
-----
 
 Metadata
 --------
@@ -587,12 +575,8 @@ Metadata
 
 .. _wind dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf
 
-----
-
 Parameters
 ----------
-
-----
 
 wind_speed
 ^^^^^^^^^^
@@ -633,5 +617,3 @@ wind_direction
      - :math:`°`
    * - constraints
      - :math:`\geq{0}, \leq{360}`
-
-----

@@ -1,4 +1,4 @@
-.. _cli:
+.. cli:
 
 .. highlight:: sh
 

@@ -1,7 +1,7 @@
 .. _explorer-ui:
 
-Wetterdienst Explorer
-#####################
+Explorer
+########
 
 Navigator for wetterdienst provided open data.
 
