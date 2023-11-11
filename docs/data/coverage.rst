@@ -1,4 +1,4 @@
-.. _coverage:
+.. coverage:
 
 Coverage
 ########
