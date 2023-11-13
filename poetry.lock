@@ -4822,17 +4822,18 @@ dictdiffer = "*"
 
 [[package]]
 name = "pytest-notebook"
-version = "0.8.1"
+version = "0.9.0"
 description = "A pytest plugin for testing Jupyter Notebooks."
 optional = false
-python-versions = "~=3.7"
+python-versions = "~=3.8"
 files = [
-    {file = "pytest_notebook-0.8.1-py3-none-any.whl", hash = "sha256:b46b21ab164753d9d6ea52d27d2018b4a7b864214e67b14d63554370918cab91"},
-    {file = "pytest_notebook-0.8.1.tar.gz", hash = "sha256:f7bf003049e01f8dfa95a46841d1e40f6f4c78836f1f4119c6a68d96f7c628fe"},
+    {file = "pytest_notebook-0.9.0-py3-none-any.whl", hash = "sha256:f3f1de675ad7f13cb24f3ecd027dc34592bfa301614820c8f0a82fd39e4436d7"},
+    {file = "pytest_notebook-0.9.0.tar.gz", hash = "sha256:eea3e8ba7b0232e84a0c8ce72e02a7c28bc5a340ea41e61d97c6f05b8813d665"},
 ]
 
 [package.dependencies]
 attrs = ">=19,<23"
+importlib-metadata = {version = ">=6.0,<7.0", markers = "python_version < \"3.10\""}
 jsonschema = "*"
 nbclient = ">=0.5.10,<0.6.0"
 nbdime = "*"
@@ -4840,9 +4841,9 @@ nbformat = "*"
 pytest = ">=3.5.0"
 
 [package.extras]
-code-style = ["doc8 (>=0.8.0,<0.9.0)", "pre-commit (>=2.7.0,<2.8.0)"]
-docs = ["coverage (>=5.0,<6.0)", "myst-nb (>=0.13.1,<0.14.0)", "pytest-cov", "pyyaml", "sphinx (>=3)", "sphinx-book-theme (>=0.1.0,<0.2.0)"]
-testing = ["beautifulsoup4 (==4.8.0)", "black (==19.3b0)", "coverage (>=5.0,<6.0)", "ipykernel", "pytest-cov", "pytest-regressions"]
+code-style = ["doc8 (>=0.8.0,<0.9.0)", "pre-commit (>=3.5.0,<3.6.0)"]
+docs = ["black", "coverage (>=5.0,<6.0)", "myst-nb (>=1.0,<2.0)", "pytest-cov", "pyyaml", "sphinx (>=3)", "sphinx-book-theme (>=1.0.1,<1.1.0)"]
+testing = ["beautifulsoup4 (==4.12.2)", "black (==23.11.0)", "coverage (>=5.0,<6.0)", "ipykernel", "pytest-cov", "pytest-regressions"]
 
 [[package]]
 name = "pytest-rerunfailures"
@@ -7108,4 +7109,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "c1e64a27e0e9750fedf4cb9de0cbbb23651bc88325694c25214ca434991a2087"
+content-hash = "b30bfd159d68fa16917be9e5028af342c456bdb0e8d35d30304dff855b3ed635"
