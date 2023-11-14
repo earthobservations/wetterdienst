@@ -19,6 +19,7 @@ def test_cli_help():
     assert "Options:\n --help  Show this message and exit."
     assert (
         "Basic:\n"
+        "  cache\n"
         "  info\n"
         "\n"
         "Advanced:\n"

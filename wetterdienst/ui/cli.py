@@ -164,6 +164,7 @@ Usage
 
     wetterdienst (-h | --help)  Display this page
     wetterdienst --version      Display the version number
+    wetterdienst cache          Display cache location
     wetterdienst info           Display project information
 
 
@@ -557,12 +558,20 @@ def cli():
     setup_logging()
 
 
+@cli.command("cache", section=basic_section)
+def cache():
+    from wetterdienst import Settings
+
+    print(Settings().cache_dir)  # noqa: T201
+    return
+
+
 @cli.command("info", section=basic_section)
 def info():
-    from wetterdienst import info
+    from wetterdienst import get_info_text
 
-    info()
-
+    info_text = get_info_text()
+    print(info_text)  # noqa: T201
     return
 
 
