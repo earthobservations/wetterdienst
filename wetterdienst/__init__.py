@@ -7,7 +7,7 @@ from wetterdienst import boot
 boot.monkeypatch()
 
 from wetterdienst.api import Wetterdienst
-from wetterdienst.boot import info
+from wetterdienst.boot import get_info_text
 from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period
@@ -22,7 +22,7 @@ __version__ = boot.get_version(__appname__)
 __all__ = [
     "__appname__",
     "__version__",
-    "info",
+    "get_info_text",
     "Kind",
     "Parameter",
     "Period",

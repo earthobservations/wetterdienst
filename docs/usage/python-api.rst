@@ -658,7 +658,7 @@ Or similarly with the cli:
 
 .. code-block:: bash
 
-    wetterdienst info
+    wetterdienst cache
 
 FSSPEC
 ******
