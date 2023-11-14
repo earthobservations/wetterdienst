@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add example for comparing Mosmix forecast and Observation data
+
 0.67.0 (17.11.2023)
 *******************
 
