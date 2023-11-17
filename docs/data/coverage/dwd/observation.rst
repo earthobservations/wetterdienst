@@ -182,7 +182,7 @@ For example, use commands like these for accessing this information::
     # German language.
     wetterdienst dwd about fields --parameter=air_temperature --resolution=10_minutes --period=historical --language=de
 
-or have a look at the example program `dwd_describe_fields.py <https://github.com/earthobservations/wetterdienst/blob/main/example/dwd_describe_fields.py>`_.
+or have a look at the example program `dwd_describe_fields.py <https://github.com/earthobservations/wetterdienst/blob/main/examples/dwd_describe_fields.py>`_.
 
 Details
 =======

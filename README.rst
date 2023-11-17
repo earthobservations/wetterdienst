@@ -415,7 +415,7 @@ Client
 
 Further examples (code samples) can be found in the examples_ folder.
 
-.. _examples: https://github.com/earthobservations/wetterdienst/tree/main/example
+.. _examples: https://github.com/earthobservations/wetterdienst/tree/main/examples
 
 .. overview_end_marker
 
@@ -442,7 +442,7 @@ Important Links
 - Contribution: https://wetterdienst.readthedocs.io/en/latest/contribution/
 - Known Issues: https://wetterdienst.readthedocs.io/en/latest/known_issues/
 - Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
-- Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/example
+- Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/examples
 - Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks
 
 
