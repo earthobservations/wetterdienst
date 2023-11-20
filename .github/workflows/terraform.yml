@@ -1,0 +1,54 @@
+name: Terraform
+
+permissions:
+  contents: read
+  id-token: write
+
+on:
+  push:
+
+  # Allow job to be triggered manually.
+  workflow_dispatch:
+
+# Cancel in-progress jobs when pushing to the same branch.
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
+        env:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+        with:
+          workload_identity_provider: ${{ env.workload_identity_provider }}
+          service_account: cicd-dev@wetterdienst.iam.gserviceaccount.com
+
+      - name: Export Github PAT
+        run: echo "TF_VAR_gh_pat=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Terraform init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: ./terraform
+        env:
+          TV_VAR_gh_pat: ${{ env.TV_VAR_gh_pat }}
+        run: terraform plan
+
+      - name: Terraform apply
+        if: github.ref == 'refs/heads/main'
+        working-directory: ./terraform
+        env:
+          TV_VAR_gh_pat: ${{ env.TV_VAR_gh_pat }}
+        run: terraform apply -auto-approve
