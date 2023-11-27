@@ -929,13 +929,13 @@ files = [
 
 [[package]]
 name = "cloup"
-version = "3.0.2"
+version = "3.0.3"
 description = "Adds features to Click: option groups, constraints, subcommand sections and help themes."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "cloup-3.0.2-py2.py3-none-any.whl", hash = "sha256:cec42edb289bfc00d67fd712dfe68de9ebb7ddbe954f3db5af76abd7a9f3d711"},
-    {file = "cloup-3.0.2.tar.gz", hash = "sha256:cc1059610d81daa08cc607e56c7ae819fab010f19d19f3c875ceeb675183acf6"},
+    {file = "cloup-3.0.3-py2.py3-none-any.whl", hash = "sha256:4076e2d1b4e6e54e8e0b990b79aacca3d672910b9c8b409fbd553e238b489455"},
+    {file = "cloup-3.0.3.tar.gz", hash = "sha256:e5bd7789d17c0de97139ac5eb8af8c2f8d96a2d8363e8411224df625a6858d21"},
 ]
 
 [package.dependencies]
