@@ -102,7 +102,7 @@ classifiers = [
 python = "^3.9,!=3.9.7,<3.12"
 
 aenum = ">=3,<3.2"
-aiohttp = ">=3.8,<3.9"
+aiohttp = ">=3.8,<3.10"
 backports-datetime-fromisoformat = ">=2,<3"
 beautifulsoup4 = ">=4.9,<5"
 cachetools = ">=5.2,<6"
