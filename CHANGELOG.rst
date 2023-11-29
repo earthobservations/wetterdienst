@@ -5,6 +5,7 @@ Development
 ***********
 
 - Add example for comparing Mosmix forecast and Observation data
+- Fix parsing of DWD Observation 1 minute precipitation data
 
 0.67.0 (17.11.2023)
 *******************
