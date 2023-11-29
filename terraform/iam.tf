@@ -3,3 +3,5 @@ resource "google_storage_bucket_iam_member" "state" {
   role   = "roles/storage.admin"
   member = "serviceAccount:cicd-dev@wetterdienst.iam.gserviceaccount.com"
 }
+
+resource "google_iammember"
