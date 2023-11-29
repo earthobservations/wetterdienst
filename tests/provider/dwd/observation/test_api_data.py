@@ -1226,3 +1226,15 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
     )
     values = request.values.all().df
     assert values.get_column("value").is_not_null().sum() == 0
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings):
+    request = DwdObservationRequest(
+        parameter="precipitation_height_droplet",
+        resolution=DwdObservationResolution.MINUTE_1,
+        start_date="1990-01-01 00:00",
+        end_date="1995-01-01 00:10",
+    ).filter_by_station_id(1048)
+    values = request.values.all().df
+    assert values.get_column("value").sum() == 2681.8

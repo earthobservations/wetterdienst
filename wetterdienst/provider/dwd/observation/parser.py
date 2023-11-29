@@ -151,33 +151,35 @@ def _parse_climate_observations_data(
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(columns=[col for col in DROPPABLE_PARAMETERS if col in df.columns])
 
-    if resolution == Resolution.MINUTE_1 and dataset == DwdObservationDataset.PRECIPITATION:
-        # Need to unfold historical data, as it is encoded in its run length e.g.
-        # from time X to time Y precipitation is 0
-        if period == Period.HISTORICAL:
-            df = (
-                df.with_columns(
+    if resolution == Resolution.MINUTE_1:
+        if dataset == DwdObservationDataset.PRECIPITATION:
+            # Need to unfold historical data, as it is encoded in its run length e.g.
+            # from time X to time Y precipitation is 0
+            if period == Period.HISTORICAL:
+                df = df.with_columns(
                     pl.col("mess_datum_beginn").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
                     pl.col("mess_datum_ende").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
                 )
-                .with_columns(
-                    pl.datetime_range(
-                        pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m", eager=True
-                    ).alias("mess_datum")
+                df = df.with_columns(
+                    pl.datetime_ranges(pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m").alias(
+                        "mess_datum"
+                    )
                 )
-                .drop(
+                df = df.drop(
                     columns=[
                         "mess_datum_beginn",
                         "mess_datum_ende",
                     ]
                 )
-            )
-
-            # Expand dataframe over calculated date ranges -> one datetime per row
-            df = df.explode("mess_datum")
-        else:
-            df = df.with_columns(pl.all(), PRECIPITATION_PARAMETERS)
-
+                # Expand dataframe over calculated date ranges -> one datetime per row
+                df = df.explode("mess_datum")
+            else:
+                df = df.with_columns(
+                    [pl.all(), *[pl.lit(None, pl.Float64).alias(par) for par in PRECIPITATION_PARAMETERS]]
+                )
+                df = df.with_columns(
+                    pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC")
+                )
     if resolution == Resolution.MINUTE_5 and dataset == DwdObservationDataset.PRECIPITATION:
         # apparently historical datasets differ from recent and now having all columns as described in the
         # parameter enumeration when recent and now datasets only have precipitation form and
@@ -201,25 +203,25 @@ def _parse_climate_observations_data(
             mapping={"mess_datum_beginn": "mess_datum"}
         )
 
-    if resolution is Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
+    if resolution == Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
         df = df.select(
             pl.all().exclude("qn_8"), pl.col("qn_8").alias("qn_8_3" if "fx_911_3" in df.columns else "qn_8_6")
         )
 
     fmt = None
-    if resolution is Resolution.MINUTE_5:
+    if resolution == Resolution.MINUTE_5:
         fmt = "%Y%m%d%H%M"
-    elif resolution is Resolution.MINUTE_10:
+    elif resolution == Resolution.MINUTE_10:
         fmt = "%Y%m%d%H%M"
-    elif resolution is Resolution.HOURLY:
+    elif resolution == Resolution.HOURLY:
         fmt = "%Y%m%d%H%M"
-    elif resolution is Resolution.SUBDAILY:
+    elif resolution == Resolution.SUBDAILY:
         fmt = "%Y%m%d%H%M"
-    elif resolution is Resolution.DAILY:
+    elif resolution == Resolution.DAILY:
         fmt = "%Y%m%d"
-    elif resolution is Resolution.MONTHLY:
+    elif resolution == Resolution.MONTHLY:
         fmt = "%Y%m%d"
-    elif resolution is Resolution.ANNUAL:
+    elif resolution == Resolution.ANNUAL:
         fmt = "%Y%m%d"
 
     if fmt:
