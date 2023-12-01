@@ -158,7 +158,7 @@ jobs:
           git status
 
   docker-sync:
-    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) && github.branch == 'main' }}
+    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
     needs: [ docker]
     runs-on: ubuntu-latest
     steps:
@@ -185,7 +185,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Docker pull
         run: docker pull ghcr.io/${{ github.repository }}-standard:latest
