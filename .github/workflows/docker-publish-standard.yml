@@ -182,7 +182,7 @@ jobs:
           gcloud auth configure-docker europe-north1-docker.pkg.dev
 
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
