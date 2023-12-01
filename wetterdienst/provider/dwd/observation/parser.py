@@ -175,7 +175,7 @@ def _parse_climate_observations_data(
                 df = df.explode("mess_datum")
             else:
                 df = df.with_columns(
-                    [pl.all(), *[pl.lit(None, pl.Float64).alias(par) for par in PRECIPITATION_PARAMETERS]]
+                    [pl.all(), *[pl.lit(None, pl.Utf8).alias(par) for par in PRECIPITATION_PARAMETERS]]
                 )
                 df = df.with_columns(
                     pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC")
@@ -189,7 +189,7 @@ def _parse_climate_observations_data(
             columns.append(parameter.value)
 
         df = df.select(
-            pl.lit(None, dtype=pl.Float64).alias(col) if col not in df.columns else pl.col(col) for col in columns
+            pl.lit(None, dtype=pl.Utf8).alias(col) if col not in df.columns else pl.col(col) for col in columns
         )
 
     # Special handling for hourly solar data, as it has more date columns

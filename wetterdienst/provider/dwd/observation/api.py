@@ -164,7 +164,7 @@ class DwdObservationValues(TimeseriesValues):
             parameter_data.append(period_df)
 
         try:
-            parameter_df = pl.concat(parameter_data)
+            parameter_df = pl.concat(parameter_data, how="align")
         except ValueError:
             return pl.DataFrame()
 
