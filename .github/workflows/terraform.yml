@@ -36,7 +36,7 @@ jobs:
           service_account: cicd-dev@wetterdienst.iam.gserviceaccount.com
 
       - name: Export Github PAT
-        run: echo "TF_VAR_gh_pat=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+        run: echo "TF_VAR_gh_pat=${{ github.token }}" >> $GITHUB_ENV
 
       - name: Terraform init
         working-directory: ./terraform
@@ -45,7 +45,7 @@ jobs:
       - name: Terraform plan
         working-directory: ./terraform
         env:
-          TV_VAR_gh_pat: ${{ env.TV_VAR_gh_pat }}
+          TF_VAR_gh_pat: ${{ env.TF_VAR_gh_pat }}
         run: terraform plan
 
       - name: Terraform apply
