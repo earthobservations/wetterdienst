@@ -96,8 +96,9 @@ jobs:
           tags: |
             type=schedule,pattern=nightly
             type=ref,event=pr
-            type=semver,pattern={{version}},value=latest
-            type=semver,pattern={{major}}.{{minor}},value=latest
+            type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
+            type=sha
 
       - name: Inspect meta
         run: |
