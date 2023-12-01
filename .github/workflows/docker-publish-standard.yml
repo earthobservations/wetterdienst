@@ -96,8 +96,8 @@ jobs:
           tags: |
             type=schedule,pattern=nightly
             type=ref,event=pr
-            type=semver,pattern={{version}},enable=${{ github.event == 'release' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event == 'release' }}
+            type=semver,pattern={{version}},value=latest
+            type=semver,pattern={{major}}.{{minor}},value=latest
 
       - name: Inspect meta
         run: |
@@ -158,7 +158,7 @@ jobs:
           git status
 
   docker-sync:
-    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork ) }}
+    if: ${{ ! (startsWith(github.actor, 'dependabot') || github.event.pull_request.head.repo.fork) }}
     needs: [ docker]
     runs-on: ubuntu-latest
     steps:
