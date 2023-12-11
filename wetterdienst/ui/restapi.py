@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import json
 import logging
-from typing import Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
@@ -162,11 +162,11 @@ Disallow: /api/
 
 @app.get("/restapi/coverage")
 def coverage(
-    provider: str = Query(default=None),
-    network: str = Query(default=None),
-    debug: bool = Query(default=False),
-    dataset=Query(alias="dataset", default=None),
-    resolution=Query(alias="resolution", default=None),
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    debug: Annotated[bool, Query()] = False,
+    dataset: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
 ):
     set_logging_level(debug)
 
@@ -191,22 +191,22 @@ def coverage(
 # - str for csv
 @app.get("/restapi/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
 def stations(
-    provider: str = Query(default=None),
-    network: str = Query(default=None),
-    parameter: str = Query(default=None),
-    resolution: str = Query(default=None),
-    period: str = Query(default=None),
-    all_: bool = Query(alias="all", default=False),
-    station_id: str = Query(default=None),
-    name: str = Query(default=None),
-    coordinates: str = Query(default=None),
-    rank: int = Query(default=None),
-    distance: float = Query(default=None),
-    bbox: str = Query(default=None),
-    sql: str = Query(default=None),
-    fmt: str = Query(alias="format", default="json"),
-    pretty: bool = Query(default=False),
-    debug: bool = Query(default=False),
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
+    all_: Annotated[Optional[bool], Query(alias="all")] = None,
+    station: Annotated[Optional[str], Query()] = None,
+    name: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    rank: Annotated[Optional[int], Query()] = None,
+    distance: Annotated[Optional[float], Query()] = None,
+    bbox: Annotated[Optional[str], Query()] = None,
+    sql: Annotated[Optional[str], Query()] = None,
+    fmt: Annotated[str, Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = None,
+    debug: Annotated[bool, Query()] = None,
 ) -> Any:
     if provider is None or network is None:
         raise HTTPException(
@@ -237,8 +237,8 @@ def stations(
     parameter = read_list(parameter)
     if period:
         period = read_list(period)
-    if station_id:
-        station_id = read_list(station_id)
+    if station:
+        station = read_list(station)
 
     try:
         stations_ = get_stations(
@@ -250,7 +250,7 @@ def stations(
             date=None,
             issue=None,
             all_=all_,
-            station_id=station_id,
+            station_id=station,
             name=name,
             coordinates=coordinates,
             rank=rank,
@@ -291,33 +291,33 @@ def stations(
 # - str for csv
 @app.get("/restapi/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
 def values(
-    provider: str = Query(default=None),
-    network: str = Query(default=None),
-    parameter: str = Query(default=None),
-    resolution: str = Query(default=None),
-    period: str = Query(default=None),
-    lead_time: Literal["short", "long"] = Query(default=None),
-    date: str = Query(default=None),
-    issue: str = Query(default="latest"),
-    all_: str = Query(alias="all", default=False),
-    station: str = Query(default=None),
-    name: str = Query(default=None),
-    coordinates: str = Query(default=None),
-    rank: int = Query(default=None),
-    distance: float = Query(default=None),
-    bbox: str = Query(default=None),
-    sql: str = Query(default=None),
-    sql_values: str = Query(alias="sql-values", default=None),
-    humanize: bool = Query(default=True),
-    shape: Literal["long", "wide"] = Query(default="long"),
-    si_units: bool = Query(alias="si-units", default=True),
-    skip_empty: bool = Query(alias="skip-empty", default=False),
-    skip_threshold: float = Query(alias="skip-threshold", default=0.95, gt=0, le=1),
-    skip_criteria: Literal["min", "mean", "max"] = Query(alias="skip-criteria", default="min"),
-    dropna: bool = Query(alias="dropna", default=False),
-    fmt: str = Query(alias="format", default="json"),
-    pretty: bool = Query(default=False),
-    debug: bool = Query(default=False),
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
+    lead_time: Annotated[Optional[Literal["short", "long"]], Query()] = None,
+    date: Annotated[Optional[str], Query()] = None,
+    issue: Annotated[Optional[str], Query()] = None,
+    all_: Annotated[Optional[bool], Query(alias="all")] = None,
+    station: Annotated[Optional[str], Query()] = None,
+    name: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    rank: Annotated[Optional[int], Query()] = None,
+    distance: Annotated[Optional[float], Query()] = None,
+    bbox: Annotated[Optional[str], Query()] = None,
+    sql: Annotated[Optional[str], Query()] = None,
+    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
+    humanize: Annotated[bool, Query()] = True,
+    shape: Annotated[str, Query()] = "long",
+    si_units: Annotated[bool, Query(alias="si-units")] = True,
+    skip_empty: Annotated[bool, Query(alias="skip-empty")] = False,
+    skip_threshold: Annotated[float, Query(alias="skip-threshold", gt=0, le=1)] = 0.95,
+    skip_criteria: Annotated[str, Query(alias="skip-criteria")] = "min",
+    dropna: Annotated[bool, Query(alias="dropna")] = False,
+    fmt: Annotated[str, Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,
+    debug: Annotated[bool, Query()] = False,
 ) -> Any:
     if provider is None or network is None:
         raise HTTPException(
@@ -400,23 +400,23 @@ def values(
     "/restapi/interpolate", response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str]
 )
 def interpolate(
-    provider: str = Query(default=None),
-    network: str = Query(default=None),
-    parameter: str = Query(default=None),
-    resolution: str = Query(default=None),
-    period: str = Query(default=None),
-    lead_time: Literal["short", "long"] = Query(default=None),
-    date: str = Query(default=None),
-    issue: str = Query(default="latest"),
-    station: str = Query(default=None),
-    coordinates: str = Query(default=None),
-    sql_values: str = Query(alias="sql-values", default=None),
-    humanize: bool = Query(default=True),
-    si_units: bool = Query(alias="si-units", default=True),
-    use_nearby_station_distance: float = Query(default=1.0),
-    fmt: str = Query(alias="format", default="json"),
-    pretty: bool = Query(default=False),
-    debug: bool = Query(default=False),
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
+    lead_time: Annotated[Optional[Literal["short", "long"]], Query()] = None,
+    date: Annotated[Optional[str], Query()] = None,
+    issue: Annotated[Optional[str], Query()] = None,
+    station: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
+    humanize: Annotated[bool, Query()] = True,
+    si_units: Annotated[bool, Query(alias="si-units")] = True,
+    use_nearby_station_distance: Annotated[float, Query()] = 1.0,
+    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,
+    debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_interpolate to provide results via restapi"""
     if provider is None or network is None:
@@ -488,22 +488,22 @@ def interpolate(
 # - str for csv
 @app.get("/restapi/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
-    provider: str = Query(default=None),
-    network: str = Query(default=None),
-    parameter: str = Query(default=None),
-    resolution: str = Query(default=None),
-    period: str = Query(default=None),
-    lead_time: Literal["short", "long"] = Query(default=None),
-    date: str = Query(default=None),
-    issue: str = Query(default="latest"),
-    station: str = Query(default=None),
-    coordinates: str = Query(default=None),
-    sql_values: str = Query(alias="sql-values", default=None),
-    humanize: bool = Query(default=True),
-    si_units: bool = Query(alias="si-units", default=True),
-    fmt: str = Query(alias="format", default="json"),
-    pretty: bool = Query(default=False),
-    debug: bool = Query(default=False),
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
+    lead_time: Annotated[Optional[Literal["short", "long"]], Query()] = None,
+    date: Annotated[Optional[str], Query()] = None,
+    issue: Annotated[Optional[str], Query()] = "latest",
+    station: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
+    humanize: Annotated[bool, Query()] = True,
+    si_units: Annotated[bool, Query(alias="si-units")] = True,
+    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,
+    debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_summarize to provide results via restapi"""
     if provider is None or network is None:

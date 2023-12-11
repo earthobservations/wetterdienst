@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Restapi: Unify station parameter and add alias
+
 0.68.0 (01.12.2023)
 *******************
 
