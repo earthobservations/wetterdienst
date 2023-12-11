@@ -250,33 +250,7 @@ def get_values(
     skip_criteria: Literal["min", "mean", "max"],
     dropna: bool,
 ) -> ValuesResult:
-    """
-    Core function for querying values via cli and restapi
-
-    :param api:
-    :param parameter:
-    :param resolution:
-    :param date:
-    :param issue:
-    :param period:
-    :param all_:
-    :param station_id:
-    :param name:
-    :param coordinates:
-    :param rank:
-    :param distance:
-    :param bbox:
-    :param sql:
-    :param sql_values:
-    :param si_units:
-    :param shape:
-    :param humanize:
-    :param skip_empty:
-    :param skip_criteria:
-    :param skip_threshold:
-    :param dropna:
-    :return:
-    """
+    """Core function for querying values via cli and restapi"""
     stations_ = get_stations(
         api=api,
         parameter=parameter,
@@ -390,22 +364,7 @@ def get_summarize(
     si_units: bool,
     humanize: bool,
 ) -> ValuesResult:
-    """
-    Core function for querying values via cli and restapi
-
-    :param api:
-    :param parameter:
-    :param resolution:
-    :param date:
-    :param issue:
-    :param period:
-    :param station_id:
-    :param coordinates:
-    :param sql_values:
-    :param si_units:
-    :param humanize:
-    :return:
-    """
+    """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
         parameter=parameter,
