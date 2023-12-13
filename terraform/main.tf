@@ -24,9 +24,7 @@ terraform {
 provider "docker" {
 #  host = "unix:///var/run/docker.sock"
   registry_auth {
-    address = "ghcr.io"
-    username = var.gh_username
-    password = var.gh_pat
+    address = "europe-north1-docker.pkg.dev"
   }
 }
 

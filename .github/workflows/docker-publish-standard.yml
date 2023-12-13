@@ -181,6 +181,18 @@ jobs:
         run: |
           gcloud auth configure-docker europe-north1-docker.pkg.dev
 
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
+        env:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+        with:
+          workload_identity_provider: ${{ env.workload_identity_provider }}
+          service_account: cicd-dev@wetterdienst.iam.gserviceaccount.com
+
+      - name: Configure docker
+        run: |
+          gcloud auth configure-docker europe-north1-docker.pkg.dev
+
       - name: Docker login
         uses: docker/login-action@v3
         with:

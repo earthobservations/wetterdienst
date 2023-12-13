@@ -1,3 +1,15 @@
+locals {
+  image_name        = "wetterdienst-standard"
+  registry_hostname = "${var.region}-docker.pkg.dev"
+  image_registry    = "${local.registry_hostname}/${var.project}/${google_artifact_registry_repository.docker-wetterdienst.name}"
+  image_sha         = "${data.docker_registry_image.wetterdienst-standard.name}@${data.docker_registry_image.wetterdienst-standard.sha256_digest}"
+  image_tagged      = data.docker_registry_image.wetterdienst-standard.name
+}
+
+data "docker_registry_image" "wetterdienst-standard" {
+  name = "${local.image_registry}/${local.image_name}"
+}
+
 resource "google_cloud_run_v2_service" "wetterdienst-restapi" {
   name     = "wetterdienst-restapi"
   project = var.project
@@ -6,12 +18,12 @@ resource "google_cloud_run_v2_service" "wetterdienst-restapi" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project}/${google_artifact_registry_repository.docker-wetterdienst.name}/wetterdienst-standard:latest"
+      image = local.image_sha
       command = ["wetterdienst", "restapi", "--listen=0.0.0.0:8080"]
       resources {
         limits = {
           cpu    = "1000m"
-          memory = "512Mi"
+          memory = "1000Mi"
         }
       }
     }
