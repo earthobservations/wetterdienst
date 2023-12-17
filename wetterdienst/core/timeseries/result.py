@@ -253,14 +253,20 @@ class StationsResult(ExportMixin):
         data = {}
         if with_metadata:
             data["metadata"] = self.get_metadata()
-        data["stations"] = self.df.with_columns(
-            [
-                pl.col("start_date").map_elements(
-                    lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8
-                ),
-                pl.col("end_date").map_elements(lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8),
-            ]
-        ).to_dicts()
+
+        df = self.df
+        if not df.is_empty():
+            df = df.with_columns(
+                [
+                    pl.col("start_date").map_elements(
+                        lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8
+                    ),
+                    pl.col("end_date").map_elements(
+                        lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8
+                    ),
+                ]
+            )
+        data["stations"] = df.to_dicts()
         return data
 
     def to_json(self, with_metadata: bool = False, indent: Optional[Union[int, bool]] = 4) -> str:
@@ -349,9 +355,11 @@ class _ValuesResult(ExportMixin):
         :param df: DataFrame with values
         :return: Dictionary with values.
         """
-        return df.with_columns(
-            pl.col("date").map_elements(lambda date: date.isoformat()),
-        ).to_dicts()
+        if not df.is_empty():
+            df = df.with_columns(
+                pl.col("date").map_elements(lambda date: date.isoformat()),
+            )
+        return df.to_dicts()
 
     def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _ValuesDict:
         """
