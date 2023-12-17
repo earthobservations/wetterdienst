@@ -76,6 +76,10 @@ The following settings are available:
    * - ts_dropna
      - drop all empty entries thus reducing the workload, requires setting `ts_shape="long"`
      - True
+   * - ts_interpolation_station_distance
+     - maximum distance to the farthest station which is used for interpolation, if the distance is exceeded, the
+       station is skipped
+     - 40.0
    * - ts_interpolation_use\_
        nearby_station_until_km
      - distance to the nearest station which decides whether the data is used directly from this station or if

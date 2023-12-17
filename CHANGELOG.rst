@@ -5,6 +5,7 @@ Development
 ***********
 
 - Restapi: Unify station parameter and add alias
+- Interpolation: Make maximum station distance per parameter configurable via settings
 
 0.68.0 (01.12.2023)
 *******************

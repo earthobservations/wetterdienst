@@ -360,7 +360,9 @@ from nearby stations to your exact coordinates. The function leverages the four 
 latitude and longitude and employs the bilinear interpolation method provided by the scipy package (interp2d) to
 interpolate the given parameter values. Currently, this interpolation feature is exclusive to
 `DWDObservationRequest` and parameters ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
-As it is in its early stages, we welcome feedback to enhance and refine its functionality.
+As it is in its early stages, we welcome feedback to enhance and refine its functionality. Interpolation by nearby
+stations is limited to a distance of 40 km by default (20.0 km for precipitation). You can
+change this by setting the ``ts_interpolation_station_distance`` setting. An example is shown below.
 
 The graphic below shows values of the parameter ``temperature_air_mean_200`` from multiple stations measured at the same time.
 The blue points represent the position of a station and includes the measured value.
@@ -442,6 +444,27 @@ getting a more complete dataset:
         end_date=dt.datetime(2022, 1, 20),
     )
     values = request.interpolate_by_station_id(station_id="02480")
+    df = values.df
+    print(df.head())
+
+Increase maximum distance for interpolation:
+
+.. ipython:: python
+    :okwarning:
+
+    import datetime as dt
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+    from wetterdienst import Parameter, Resolution, Settings
+
+    settings = Settings(ts_interpolation_station_distance={"precipitation_height": 25.0})
+    request = DwdObservationRequest(
+        parameter=Parameter.PRECIPITATION_HEIGHT,
+        resolution=Resolution.HOURLY,
+        start_date=dt.datetime(2022, 1, 1),
+        end_date=dt.datetime(2022, 1, 20),
+        settings=settings
+    )
+    values = request.interpolate(latlon=(52.8, 12.9))
     df = values.df
     print(df.head())
 
