@@ -8,6 +8,7 @@ import pytest
 from polars.testing import assert_frame_equal
 from zoneinfo import ZoneInfo
 
+from wetterdienst import Settings
 from wetterdienst.exceptions import StationNotFoundError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
@@ -216,3 +217,16 @@ def test_interpolation_temperature_air_mean_200_daily_no_station_found(default_s
     with pytest.raises(StationNotFoundError) as exec_info:
         stations.interpolate_by_station_id(station_id="00")
     assert exec_info.match("no station found for 00000")
+
+
+def test_interpolation_increased_station_distance():
+    settings = Settings(ts_interpolation_station_distance={"precipitation_height": 25})
+    request = DwdObservationRequest(
+        parameter="precipitation_height",
+        resolution="hourly",
+        start_date=dt.datetime(2022, 1, 1),
+        end_date=dt.datetime(2022, 1, 20),
+        settings=settings,
+    )
+    values = request.interpolate(latlon=(52.8, 12.9))
+    assert values.df.get_column("value").sum() == 21.07

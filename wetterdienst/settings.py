@@ -6,11 +6,13 @@ import logging
 import pathlib
 from copy import deepcopy
 from functools import partial
-from typing import Literal, Optional, Union
+from typing import Dict, Literal, Optional, Union
 
 import platformdirs
 from environs import Env
 from marshmallow.validate import OneOf
+
+from wetterdienst import Parameter
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +40,10 @@ class Settings:
         "ts_skip_threshold": 0.95,
         "ts_skip_criteria": "min",
         "ts_dropna": False,
+        "ts_interpolation_station_distance": {
+            "default": 40.0,
+            Parameter.PRECIPITATION_HEIGHT.name.lower(): 20.0,
+        },
         "ts_interpolation_use_nearby_station_distance": 1,
     }
 
@@ -54,6 +60,7 @@ class Settings:
         ts_skip_criteria: Optional[Literal["min", "mean", "max"]] = None,
         ts_dropna: Optional[bool] = None,
         ts_interpolation_use_nearby_station_distance: Optional[Union[float, int]] = None,
+        ts_interpolation_station_distance: Optional[Dict[str, float]] = None,
         ignore_env: bool = False,
     ) -> None:
         _defaults = deepcopy(self._defaults)  # make sure mutable objects are not changed
@@ -91,6 +98,13 @@ class Settings:
                 self.ts_dropna: bool = _da(ts_dropna, env.bool("DROPNA", ts_dropna), _defaults["ts_dropna"])
 
                 with env.prefixed("INTERPOLATION_"):
+                    _ts_interpolation_station_distance = _defaults["ts_interpolation_station_distance"]
+                    _ts_interpolation_station_distance.update(
+                        {k: float(v) for k, v in env.dict("STATION_DISTANCE", {}).items()} if not ignore_env else {}
+                    )
+                    _ts_interpolation_station_distance.update(ts_interpolation_station_distance or {})
+                    self.ts_interpolation_station_distance = _ts_interpolation_station_distance
+
                     self.ts_interpolation_use_nearby_station_distance: float = _da(
                         ts_interpolation_use_nearby_station_distance,
                         env.float("USE_NEARBY_STATION_DISTANCE", None),
@@ -125,6 +139,7 @@ class Settings:
             "ts_skip_threshold": self.ts_skip_threshold,
             "ts_skip_criteria": self.ts_skip_criteria,
             "ts_dropna": self.ts_dropna,
+            "ts_interpolation_station_distance": self.ts_interpolation_station_distance,
             "ts_interpolation_use_nearby_station_distance": self.ts_interpolation_use_nearby_station_distance,
         }
 

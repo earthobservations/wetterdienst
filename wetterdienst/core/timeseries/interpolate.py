@@ -2,7 +2,6 @@
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
-from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from functools import lru_cache
@@ -25,17 +24,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-INTERPOLATION_STATION_KM_LIMIT = defaultdict(
-    lambda: 40,
-    {
-        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
-        Parameter.TEMPERATURE_AIR_MAX_200.name: 40,
-        Parameter.TEMPERATURE_AIR_MIN_200.name: 40,
-        Parameter.WIND_SPEED.name: 40,
-        Parameter.PRECIPITATION_HEIGHT.name: 20,
-    },
-)
-
 
 def get_interpolated_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pl.DataFrame:
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
@@ -52,7 +40,7 @@ def request_stations(
     stations_ranked_df = stations_ranked.df.drop_nulls()
 
     for station, result in zip(stations_ranked_df.iter_rows(named=True), stations_ranked.values.query()):
-        if station[Columns.DISTANCE.value] > max(INTERPOLATION_STATION_KM_LIMIT.values()):
+        if station[Columns.DISTANCE.value] > max(request.settings.ts_interpolation_station_distance.values()):
             break
 
         valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
@@ -86,7 +74,10 @@ def apply_station_values_per_parameter(
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
 
-        if station["distance"] > INTERPOLATION_STATION_KM_LIMIT[parameter.name]:
+        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interpolation_station_distance
+        if station["distance"] > ts_interpolation_station_distance.get(
+            parameter.name.lower(), ts_interpolation_station_distance["default"]
+        ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
 
