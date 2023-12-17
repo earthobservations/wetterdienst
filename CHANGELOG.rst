@@ -7,6 +7,7 @@ Development
 - Restapi: Unify station parameter and add alias
 - Interpolation: Make maximum station distance per parameter configurable via settings
 - Result: Convert date to string only if dataframe is not empty
+- Restapi: Move restapi from /restapi to /api
 
 0.68.0 (01.12.2023)
 *******************

@@ -133,18 +133,18 @@ def index():
                 </div>
                 <h2>Endpoints</h2>
                 <div class="list">
-                    <li><a href="restapi/coverage" target="_blank" rel="noopener">coverage</a></li>
-                    <li><a href="restapi/stations" target="_blank" rel="noopener">stations</a></li>
-                    <li><a href="restapi/values" target="_blank" rel="noopener">values</a></li>
-                    <li><a href="restapi/interpolate" target="_blank" rel="noopener">interpolation</a></li>
-                    <li><a href="restapi/summarize" target="_blank" rel="noopener">summary</a></li>
+                    <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
+                    <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
+                    <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
+                    <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
+                    <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
                 </div>
                 <h2>Examples</h2>
                 <div class="list">
-                    <li><a href="restapi/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Observation Stations</a></li>
-                    <li><a href="restapi/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Observation Values</a></li>
-                    <li><a href="restapi/interpolate?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Interpolation</a></li>
-                    <li><a href="restapi/summarize?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Summary</a></li>
+                    <li><a href="api/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Observation Stations</a></li>
+                    <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Observation Values</a></li>
+                    <li><a href="api/interpolate?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Interpolation</a></li>
+                    <li><a href="api/summarize?provider=dwd&network=observation&parameter=kl&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Summary</a></li>
                 </div>
             </div>
         </body>
@@ -160,7 +160,7 @@ Disallow: /api/
     """.strip()
 
 
-@app.get("/restapi/coverage")
+@app.get("/api/coverage")
 def coverage(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
@@ -189,7 +189,7 @@ def coverage(
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/restapi/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
+@app.get("/api/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
 def stations(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
@@ -289,7 +289,7 @@ def stations(
 # - _ValuesDict for json
 # - _ValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/restapi/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
+@app.get("/api/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
 def values(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
@@ -397,7 +397,7 @@ def values(
 # - _InterpolatedValuesOgcFeatureCollection for geojson
 # - str for csv
 @app.get(
-    "/restapi/interpolate", response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str]
+    "/api/interpolate", response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str]
 )
 def interpolate(
     provider: Annotated[Optional[str], Query()] = None,
@@ -486,7 +486,7 @@ def interpolate(
 # - _SummarizedValuesDict for json
 # - _SummarizedValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/restapi/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
+@app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,

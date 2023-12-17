@@ -27,7 +27,7 @@ def test_robots(client):
 
 def test_no_provider(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "abc",
             "network": "abc",
@@ -38,12 +38,12 @@ def test_no_provider(client):
         },
     )
     assert response.status_code == 404
-    assert "Choose provider and network from /restapi/coverage" in response.text
+    assert "Choose provider and network from /api/coverage" in response.text
 
 
 def test_no_network(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "dwd",
             "network": "abc",
@@ -54,12 +54,12 @@ def test_no_network(client):
         },
     )
     assert response.status_code == 404
-    assert "Choose provider and network from /restapi/coverage" in response.text
+    assert "Choose provider and network from /api/coverage" in response.text
 
 
 def test_stations_wrong_format(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -77,7 +77,7 @@ def test_stations_wrong_format(client):
 @pytest.mark.remote
 def test_dwd_stations_basic(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -104,7 +104,7 @@ def test_dwd_stations_basic(client):
 @pytest.mark.remote
 def test_dwd_stations_geo(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -133,7 +133,7 @@ def test_dwd_stations_geo(client):
 @pytest.mark.remote
 def test_dwd_stations_sql(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -160,7 +160,7 @@ def test_dwd_stations_sql(client):
 @pytest.mark.remote
 def test_dwd_values_success(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -185,7 +185,7 @@ def test_dwd_values_success(client):
 
 def test_dwd_values_no_station(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -205,7 +205,7 @@ def test_dwd_values_no_station(client):
 
 def test_dwd_values_no_parameter(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -220,7 +220,7 @@ def test_dwd_values_no_parameter(client):
 
 def test_dwd_values_no_resolution(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -236,7 +236,7 @@ def test_dwd_values_no_resolution(client):
 @pytest.mark.sql
 def test_dwd_values_sql_tabular(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -293,7 +293,7 @@ def test_dwd_values_sql_tabular(client):
 @pytest.mark.sql
 def test_dwd_values_sql_long(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -320,7 +320,7 @@ def test_dwd_values_sql_long(client):
 @pytest.mark.remote
 def test_dwd_interpolate(client):
     response = client.get(
-        "/restapi/interpolate",
+        "/api/interpolate",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -354,7 +354,7 @@ def test_dwd_interpolate(client):
 @pytest.mark.remote
 def test_dwd_summarize(client):
     response = client.get(
-        "/restapi/summarize",
+        "/api/summarize",
         params={
             "provider": "dwd",
             "network": "observation",
@@ -388,7 +388,7 @@ def test_dwd_summarize(client):
 @pytest.mark.remote
 def test_api_values_missing_null(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "mosmix",
@@ -404,7 +404,7 @@ def test_api_values_missing_null(client):
 @pytest.mark.remote
 def test_api_stations_missing_null(client):
     response = client.get(
-        "/restapi/stations",
+        "/api/stations",
         params={
             "provider": "dwd",
             "network": "mosmix",
@@ -431,7 +431,7 @@ def test_api_stations_missing_null(client):
 @pytest.mark.remote
 def test_dwd_mosmix(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "mosmix",
@@ -455,7 +455,7 @@ def test_dwd_mosmix(client):
 @pytest.mark.remote
 def test_dwd_dmo_lead_time_long(client):
     response = client.get(
-        "/restapi/values",
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "dmo",
