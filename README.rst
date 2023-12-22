@@ -15,6 +15,10 @@ Wetterdienst - Open weather data for humans
 
 |pic1| |pic2| |pic3|
 
+    **"What do we want? Climate Justice! When do we want it? Now!" - FFF**
+
+..
+
     **WARNING**
 
     This library is a work in progress!
@@ -29,25 +33,6 @@ Wetterdienst - Open weather data for humans
     for certain user-space code heavily using pandas idioms, because Wetterdienst now
     returns a `Polars DataFrame`_. If you absolutely must use a pandas DataFrame, you can
     cast the Polars DataFrame to pandas by using the ``.to_pandas()`` method.
-
-**What our customers say:**
-
-    "Our house is on fire. I am here to say, our house is on fire. I saw it with my own eyes using **wetterdienst**
-    to get the data." - Greta Thunberg
-
-..
-
-    “You must be the change you wish to see in the world. And when it comes to climate I use **wetterdienst**.” - Mahatma Gandhi
-
-..
-
-    "Three things are (almost) infinite: the universe, human stupidity and the temperature time series of
-    Hohenpeissenberg, Germany I got with the help of **wetterdienst**; and I'm not sure about the universe." - Albert Einstein
-
-..
-
-    "We are the first generation to feel the effect of climate change and the last generation who can do something about
-    it. I used **wetterdienst** to analyze the climate in my area and I can tell it's getting hot in here." - Barack Obama
 
 .. image:: https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main
    :target: https://github.com/earthobservations/wetterdienst/actions?workflow=Tests
