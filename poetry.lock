@@ -2266,13 +2266,13 @@ test = ["aioresponses (>=0.7.3)", "coverage (>=4.0.3)", "flake8 (>=5.0.3)", "htt
 
 [[package]]
 name = "influxdb3-python"
-version = "0.3.1"
+version = "0.3.4"
 description = "Community Python client for InfluxDB 3.0"
 optional = true
 python-versions = "*"
 files = [
-    {file = "influxdb3-python-0.3.1.tar.gz", hash = "sha256:f16452fae3bcadf2b199308b0a2a99d6107248f1ca218832f6da6fb51b0ae0c1"},
-    {file = "influxdb3_python-0.3.1-py3-none-any.whl", hash = "sha256:b87137a3391bf91c434a1af85e67d267160fa351f20d37104c0abeff886d96db"},
+    {file = "influxdb3-python-0.3.4.tar.gz", hash = "sha256:c0b46ea7aab73fb101141821e2eea975d39488da1fee6dc2763086f15318357a"},
+    {file = "influxdb3_python-0.3.4-py3-none-any.whl", hash = "sha256:f90d8a989aee7e3e0ca14f55870208fc3d7d4e66b5fb4a4dd569884db224d2d1"},
 ]
 
 [package.dependencies]
