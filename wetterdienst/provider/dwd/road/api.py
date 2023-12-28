@@ -316,7 +316,7 @@ class DwdRoadValues(TimeseriesValues):
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
             .alias("timestamp"),
-            *parameters
+            *parameters,
         )
         df = df.rename({col: col.lower() for col in df.columns})
         df = df.melt(

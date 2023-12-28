@@ -283,6 +283,9 @@ extend-ignore = [
 "wetterdienst/__init__.py" = ["E402"]
 "wetterdienst/ui/restapi.py" = ["B008"]
 
+[tool.ruff.lint]
+unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
+
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"
 #log_cli = true
@@ -320,21 +323,20 @@ omit = [
 
 [tool.poe.tasks]
 install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
-
 # Linting and formatting.
-
 format = [
   # Fix all things with ruff, but skip a few:
   # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
-  { cmd = "ruff check --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 --fix" },
+  { cmd = "ruff format wetterdienst tests benchmarks examples"},
+  { cmd = "ruff check --fix wetterdienst tests benchmarks examples" },
   { cmd = "pyproject-fmt ."}
 ]
 
 lint = [
-  { cmd = "ruff check" },
-  { cmd = "pyproject-fmt . --check"}
+  { cmd = "ruff format --check wetterdienst tests benchmarks examples" },
+  { cmd = "ruff check wetterdienst tests benchmarks examples" },
+  { cmd = "pyproject-fmt --check ."}
 ]
-
 docs = { shell = "cd docs && poetry run make html" }
 test-cflakes = "pytest -m cflake"
 test-parallel = "pytest --numprocesses=auto -m 'not (explorer or cflake)'"
@@ -345,7 +347,6 @@ coverage = "pytest --cov=wetterdienst"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
 update = "poetry update"
 citation = "python -m tools.citation"
-
 streamlit = "streamlit run ./wetterdienst/ui/streamlit/app.py"
 
 [build-system]
