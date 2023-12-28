@@ -167,7 +167,6 @@ zarr                            = { version = ">=2.13,<3", optional = true }  # 
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-black = { version = ">=23.1,<24", extras = ["jupyter"] }
 # TODO: Currently there is a version conflict with jsonschema here
 #cff-from-621 = { version = "==0.0.1", python = ">= 3.10"}
 poethepoet = ">=0.18.1,<0.25"
@@ -235,13 +234,6 @@ streamlit           = ["streamlit"]
 wetterdienst = 'wetterdienst.ui.cli:cli'
 wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
 
-[tool.dephell.main]
-from = {format = "poetry", path = "pyproject.toml"}
-to = {format = "pip", path = "requirements.txt"}
-
-[tool.black]
-line-length = 120
-
 [tool.ruff]
 line-length = 120
 
@@ -271,13 +263,14 @@ select = [
     "RET",
 ]
 
+extend-include = ["*.ipynb"]
+
 extend-ignore = [
     # zip() without an explicit strict= parameter.
     "B905",
     # Unnecessary `elif` after `return` statement
     "RET505",
 ]
-
 
 [tool.ruff.per-file-ignores]
 "**/__init__.py" = ["F401"]
@@ -295,18 +288,13 @@ install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E e
 # Linting and formatting.
 
 format = [
-  { cmd = "black ." },
   # Fix all things with ruff, but skip a few:
   # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
-  { cmd = "ruff --fix --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 ." },
-  # { cmd = "pyproject-fmt pyproject.toml" },
+  { cmd = "ruff check --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 --fix" },
 ]
 
 lint = [
-  { cmd = "ruff ." },
-  { cmd = "black --check ." },
-  # { cmd = "validate-pyproject pyproject.toml" },
-  # { cmd = "mypy" },
+  { cmd = "ruff check" },
 ]
 
 docs = { shell = "cd docs && poetry run make html" }
