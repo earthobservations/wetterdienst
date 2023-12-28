@@ -129,8 +129,6 @@ def _parse_climate_observations_data(
     """
     filename, file = filename_and_file
 
-    file = BytesIO(file.read().replace(b" ", b""))
-
     try:
         df = pl.read_csv(
             source=StringIO(file.read().decode("latin1").replace(" ", "")),
