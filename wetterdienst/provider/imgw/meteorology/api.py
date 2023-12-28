@@ -549,24 +549,6 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             Columns.HEIGHT.value,
         ]
         df = df.lazy()
-        df = df.with_columns(
-            pl.when(pl.col(Columns.HEIGHT.value).is_null())
-            .then(None)
-            .otherwise(pl.col(Columns.STATE.value))
-            .alias(Columns.STATE.value),
-            pl.when(pl.col(Columns.HEIGHT.value).is_null())
-            .then(pl.col(Columns.STATE.value))
-            .otherwise(pl.col(Columns.LATITUDE.value))
-            .alias(Columns.LATITUDE.value),
-            pl.when(pl.col(Columns.HEIGHT.value).is_null())
-            .then(pl.col(Columns.LATITUDE.value))
-            .otherwise(pl.col(Columns.LONGITUDE.value))
-            .alias(Columns.LONGITUDE.value),
-            pl.when(pl.col(Columns.HEIGHT.value).is_null())
-            .then(pl.col(Columns.LONGITUDE.value))
-            .otherwise(pl.col(Columns.HEIGHT.value))
-            .alias(Columns.HEIGHT.value),
-        )
         return df.with_columns(
             pl.col(Columns.LATITUDE.value).map_batches(convert_dms_string_to_dd),
             pl.col(Columns.LONGITUDE.value).map_batches(convert_dms_string_to_dd),
