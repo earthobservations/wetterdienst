@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Docker: Enable interpolation in wetterdienst standard image
+
 0.69.0 (18.12.2023)
 *******************
 

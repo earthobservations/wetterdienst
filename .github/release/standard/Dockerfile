@@ -22,7 +22,7 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     true \
     && pip install --prefer-binary versioningit \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
-    && pip install --use-pep517 --prefer-binary ${WHEEL}[export,restapi]
+    && pip install --use-pep517 --prefer-binary ${WHEEL}[export,restapi,interpolation]
 
 # Uninstall build prerequisites again.
 RUN true \
