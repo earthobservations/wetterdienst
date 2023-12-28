@@ -3496,6 +3496,21 @@ files = [
 ]
 
 [[package]]
+name = "natsort"
+version = "8.4.0"
+description = "Simple yet flexible natural sorting in Python."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "natsort-8.4.0-py3-none-any.whl", hash = "sha256:4732914fb471f56b5cce04d7bae6f164a592c7712e1c85f9ef585e197299521c"},
+    {file = "natsort-8.4.0.tar.gz", hash = "sha256:45312c4a0e5507593da193dedd04abb1469253b601ecaf63445ad80f0a1ea581"},
+]
+
+[package.extras]
+fast = ["fastnumbers (>=2.0.0)"]
+icu = ["PyICU (>=1.0.0)"]
+
+[[package]]
 name = "nbclient"
 version = "0.5.13"
 description = "A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor."
@@ -4702,6 +4717,26 @@ files = [
 
 [package.dependencies]
 certifi = "*"
+
+[[package]]
+name = "pyproject-fmt"
+version = "1.5.3"
+description = "Format your pyproject.toml file"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "pyproject_fmt-1.5.3-py3-none-any.whl", hash = "sha256:4f03bf7f8dd9adced96d4dd24e15768d4fd37b1c334d8cef7183f4df705f28a2"},
+    {file = "pyproject_fmt-1.5.3.tar.gz", hash = "sha256:42301ec67af4e72ac718ef4ec388d2ccf413aeb6f0c1040b08f10a33dcf774de"},
+]
+
+[package.dependencies]
+natsort = ">=8.4"
+packaging = ">=23.2"
+tomlkit = ">=0.12.1"
+
+[package.extras]
+docs = ["furo (>=2023.9.10)", "sphinx (>=7.2.6)", "sphinx-argparse-cli (>=1.11.1)", "sphinx-autodoc-typehints (>=1.24)", "sphinx-copybutton (>=0.5.2)"]
+test = ["covdefaults (>=2.3)", "pytest (>=7.4.2)", "pytest-cov (>=4.1)", "pytest-mock (>=3.11.1)"]
 
 [[package]]
 name = "pysocks"
@@ -7138,4 +7173,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "73de2662b66dde44a9bb2d6c1965caa81349200549ddf6b64be5994a30a5b0f6"
+content-hash = "fb0913296b665e6ee9623ee0b261f9f2ac00992b71c391496373894220e39a2f"

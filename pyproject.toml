@@ -141,11 +141,11 @@ duckdb                          = { version = ">=0.9,<0.10", optional = true }  
 eccodes                         = { version = ">=1.5.2,<1.7", optional = true }
 fastapi                         = { version = ">=0.95.1,<0.104", optional = true }  # HTTP REST API feature.
 geojson                         = { version = ">=3,<4", optional = true }  # Explorer UI feature.
-httpx                           = {version = ">=0.24,<0.27", optional = true}
+httpx                           = { version = ">=0.24,<0.27", optional = true}
 h5py                            = { version = ">=3.1,<4", optional = true }  # Radar feature.
 influxdb                        = { version = ">=5.3,<6", optional = true }  # Export feature.
 influxdb-client                 = { version = ">=1.18,<2", optional = true }  # Export feature.
-influxdb3-python                = {version = ">=0.3.0,<1", optional = true}  # Export feature
+influxdb3-python                = { version = ">=0.3.0,<1", optional = true}  # Export feature
 matplotlib                      = { version = ">=3.3,<3.9", optional = true }
 mysqlclient                     = { version = ">=2,<3", optional = true }  # Export feature.
 openpyxl                        = { version = ">=3,<4", optional = true }
@@ -170,6 +170,7 @@ optional = true
 # TODO: Currently there is a version conflict with jsonschema here
 #cff-from-621 = { version = "==0.0.1", python = ">= 3.10"}
 poethepoet = ">=0.18.1,<0.25"
+pyproject-fmt = "^1.5.3"
 ruff = "==0.1.7"
 
 [tool.poetry.group.test]
@@ -282,34 +283,6 @@ extend-ignore = [
 "wetterdienst/__init__.py" = ["E402"]
 "wetterdienst/ui/restapi.py" = ["B008"]
 
-[tool.poe.tasks]
-install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
-
-# Linting and formatting.
-
-format = [
-  # Fix all things with ruff, but skip a few:
-  # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
-  { cmd = "ruff check --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 --fix" },
-]
-
-lint = [
-  { cmd = "ruff check" },
-]
-
-docs = { shell = "cd docs && poetry run make html" }
-test-cflakes = "pytest -m cflake"
-test-parallel = "pytest --numprocesses=auto -m 'not (explorer or cflake)'"
-test = ["test-parallel", "test-cflakes"]
-# For Windows CI
-test-slow = "pytest"
-coverage = "pytest --cov=wetterdienst"
-coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
-update = "poetry update"
-citation = "python -m tools.citation"
-
-streamlit = "streamlit run ./wetterdienst/ui/streamlit/app.py"
-
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"
 #log_cli = true
@@ -345,6 +318,38 @@ omit = [
     "wetterdienst/provider/dwd/radar/cli.py",
 ]
 
+[tool.poe.tasks]
+install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
+
+# Linting and formatting.
+
+format = [
+  # Fix all things with ruff, but skip a few:
+  # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
+  { cmd = "ruff check --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 --fix" },
+  { cmd = "pyproject-fmt ."}
+]
+
+lint = [
+  { cmd = "ruff check" },
+  { cmd = "pyproject-fmt . --check"}
+]
+
+docs = { shell = "cd docs && poetry run make html" }
+test-cflakes = "pytest -m cflake"
+test-parallel = "pytest --numprocesses=auto -m 'not (explorer or cflake)'"
+test = ["test-parallel", "test-cflakes"]
+# For Windows CI
+test-slow = "pytest"
+coverage = "pytest --cov=wetterdienst"
+coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
+update = "poetry update"
+citation = "python -m tools.citation"
+
+streamlit = "streamlit run ./wetterdienst/ui/streamlit/app.py"
+
 [build-system]
-requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+requires = [
+  "poetry-core",
+]
