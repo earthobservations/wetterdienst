@@ -6,6 +6,7 @@ Development
 
 - Docker: Enable interpolation in wetterdienst standard image
 - IMGW Meteorology: Drop workaround for mixed up station list to fix issue
+- WSV Hydrology: Fix issue with station list characteristic values
 
 0.69.0 (18.12.2023)
 *******************
