@@ -252,7 +252,11 @@ class WsvPegelRequest(TimeseriesRequest):
 
             gauge_datum = ts_water.get("gaugeZero", {}).get("value", None)
 
-            characteristic_values = ts_water.get("characteristicValues") or {}  # could be empty list so ensure dict
+            # can be empty list or list with Nones -> ensure dict
+            characteristic_values = ts_water.get("characteristicValues")
+            characteristic_values = (
+                characteristic_values if issubclass(type(characteristic_values), (dict,)) == dict else {}
+            )
 
             if characteristic_values:
                 characteristic_values = pl.DataFrame(characteristic_values).select(["shortname", "value"]).to_dict()
