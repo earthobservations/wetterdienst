@@ -91,7 +91,7 @@ class EaHydrologyValues(TimeseriesValues):
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         endpoint = self._base_url.format(station_id=station_id)
         payload = download_file(endpoint, self.sr.stations.settings, CacheExpiry.NO_CACHE)
-        measures_list = json.loads(payload.read())["items"][0]["measures"]
+        measures_list = json.load(payload)["items"][0]["measures"]
         measures_list = pl.Series(name="measure", values=measures_list).to_frame()
         measures_list = measures_list.filter(
             pl.col("measure")
@@ -159,7 +159,7 @@ class EaHydrologyRequest(TimeseriesRequest):
         """
         log.info(f"Acquiring station listing from {self.endpoint}")
         response = download_file(self.endpoint, self.settings, CacheExpiry.FIVE_MINUTES)
-        payload = json.loads(response.read())["items"]
+        payload = json.load(response)["items"]
         df = pl.DataFrame(payload).lazy()
         # filter for stations that have wanted resolution and parameter combinations
         df_measures = (
