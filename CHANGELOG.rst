@@ -11,6 +11,7 @@ Development
 - NWS Observation: Read json data from bytes
 - EA Hydrology: Read json data from bytes
 - Replace partial with lambda in most places
+- IMGW: Use ttl of 5 minutes for caching
 
 0.69.0 (18.12.2023)
 *******************
