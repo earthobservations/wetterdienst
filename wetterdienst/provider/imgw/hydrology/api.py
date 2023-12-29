@@ -142,7 +142,9 @@ class ImgwHydrologyValues(TimeseriesValues):
         """
         urls = self._get_urls(dataset)
         with ThreadPoolExecutor() as p:
-            files_in_bytes = p.map(lambda file: download_file(url=file, settings=self.sr.settings), urls)
+            files_in_bytes = p.map(
+                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES), urls
+            )
         data = []
         file_schema = self._file_schema[self.sr.resolution.name.lower()][dataset.name.lower()]
         for file_in_bytes in files_in_bytes:
