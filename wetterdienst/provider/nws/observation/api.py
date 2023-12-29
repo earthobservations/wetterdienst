@@ -104,7 +104,7 @@ class NwsObservationValues(TimeseriesValues):
         log.info(f"acquiring data from {url}")
         response = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
 
-        data = json.loads(response.read())
+        data = json.load(response)
 
         try:
             data = [feature["properties"] for feature in data["features"]]
