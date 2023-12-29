@@ -23,6 +23,7 @@ Development
 - EA Hydrology: Read json data from bytes
 - Replace partial with lambda in most places
 - IMGW: Use ttl of 5 minutes for caching
+- IMGW Hydrology: Improve speed of downloading data
 
 0.69.0 (18.12.2023)
 *******************

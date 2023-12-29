@@ -22,6 +22,7 @@ from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
+from wetterdienst.provider.imgw.util import _try_download_file
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
@@ -362,14 +363,16 @@ class ImgwMeteorologyValues(TimeseriesValues):
         :param dataset:
         :return:
         """
-        urls = self._get_urls(dataset)
+        urls = self._generate_urls(dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES), urls
+                lambda file: _try_download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES), urls
             )
         data = []
         file_schema = self._file_schema[self.sr.resolution.name.lower()][dataset.name.lower()]
         for file_in_bytes in files_in_bytes:
+            if not file_in_bytes:
+                continue
             df = self._parse_file(file_in_bytes, station_id, file_schema)
             if not df.is_empty():
                 data.append(df)
@@ -435,7 +438,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df = df.melt(id_vars=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
-    def _get_urls(self, dataset: Enum) -> pl.Series:
+    def _generate_urls(self, dataset: Enum) -> pl.Series:
         """Get file urls from server
 
         :param dataset: dataset for which the filelist is retrieved
