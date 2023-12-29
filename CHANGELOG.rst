@@ -10,6 +10,7 @@ Development
 - DWD Observation: Remove redundant replace empty string in parser
 - NWS Observation: Read json data from bytes
 - EA Hydrology: Read json data from bytes
+- Replace partial with lambda in most places
 
 0.69.0 (18.12.2023)
 *******************

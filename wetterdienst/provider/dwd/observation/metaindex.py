@@ -4,7 +4,6 @@
 import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from io import BytesIO, StringIO
 from typing import List, Tuple
 
@@ -220,7 +219,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
 
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
-            partial(download_file, settings=settings, ttl=CacheExpiry.NO_CACHE), metadata_file_paths
+            lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.NO_CACHE), metadata_file_paths
         )
 
     metadata_dfs = [_parse_geo_metadata((file, station_id)) for file, station_id in zip(metadata_files, station_ids)]

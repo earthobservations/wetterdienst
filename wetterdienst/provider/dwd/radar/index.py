@@ -2,7 +2,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import os
-from functools import partial
 from typing import Optional
 
 import polars as pl
@@ -116,7 +115,7 @@ def create_fileindex_radar(
         df_fileindex = df_fileindex.with_columns(
             pl.col("filename")
             .map_elements(
-                partial(get_date_from_filename, pattern=RADAR_DT_PATTERN, formats=formats),
+                lambda fn: get_date_from_filename(filename=fn, pattern=RADAR_DT_PATTERN, formats=formats),
             )
             .alias("datetime")
         )
@@ -154,7 +153,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
     df_fileindex = df_fileindex.with_columns(
         pl.col("filename")
         .map_elements(
-            partial(get_date_from_filename, pattern=RADOLAN_DT_PATTERN, formats=formats),
+            lambda fn: get_date_from_filename(filename=fn, pattern=RADOLAN_DT_PATTERN, formats=formats),
         )
         .alias("datetime")
     )

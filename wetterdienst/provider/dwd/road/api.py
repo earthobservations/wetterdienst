@@ -5,7 +5,7 @@ import datetime as dt
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from functools import partial, reduce
+from functools import reduce
 from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
@@ -235,7 +235,7 @@ class DwdRoadValues(TimeseriesValues):
         """
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
-                partial(download_file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS), remote_files
+                lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS), remote_files
             )
 
         return list(zip(remote_files, files_in_bytes))
