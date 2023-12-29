@@ -9,6 +9,7 @@ Development
 - WSV Hydrology: Fix issue with station list characteristic values
 - DWD Observation: Remove redundant replace empty string in parser
 - NWS Observation: Read json data from bytes
+- EA Hydrology: Read json data from bytes
 
 0.69.0 (18.12.2023)
 *******************
