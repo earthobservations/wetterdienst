@@ -2,7 +2,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from io import BytesIO
 from typing import List, Tuple
 from zipfile import BadZipFile
@@ -26,7 +25,9 @@ def download_climate_observations_data_parallel(
     :return:                List of downloaded files
     """
     with ThreadPoolExecutor() as p:
-        files_in_bytes = p.map(partial(_download_climate_observations_data, settings=settings), remote_files)
+        files_in_bytes = p.map(
+            lambda file: _download_climate_observations_data(remote_file=file, settings=settings), remote_files
+        )
 
     return list(zip(remote_files, files_in_bytes))
 

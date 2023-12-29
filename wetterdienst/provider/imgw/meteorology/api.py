@@ -5,7 +5,6 @@ import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from functools import partial
 from typing import Optional, Union
 
 import pandas as pd
@@ -365,7 +364,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         """
         urls = self._get_urls(dataset)
         with ThreadPoolExecutor() as p:
-            files_in_bytes = p.map(partial(download_file, settings=self.sr.settings), urls)
+            files_in_bytes = p.map(lambda file: download_file(url=file, settings=self.sr.settings), urls)
         data = []
         file_schema = self._file_schema[self.sr.resolution.name.lower()][dataset.name.lower()]
         for file_in_bytes in files_in_bytes:
