@@ -6,13 +6,6 @@ variable "project" {
     default = "wetterdienst"
 }
 
-variable "gh_username" {
-  default = "gutzbenj"
-}
-
-variable "gh_pat" {
-}
-
 variable "default_rules" {
     default = {
         def_rule = {
