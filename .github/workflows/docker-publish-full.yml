@@ -47,7 +47,7 @@ jobs:
         run: poetry build --format=wheel
 
       - name: Upload wheel package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-wheel-${{ github.sha }}
           path: dist/wetterdienst-*.whl
