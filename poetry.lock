@@ -1540,13 +1540,13 @@ numpy = "*"
 
 [[package]]
 name = "environs"
-version = "9.5.0"
+version = "10.0.0"
 description = "simplified environment variable parsing"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 files = [
-    {file = "environs-9.5.0-py2.py3-none-any.whl", hash = "sha256:1e549569a3de49c05f856f40bce86979e7d5ffbbc4398e7f338574c220189124"},
-    {file = "environs-9.5.0.tar.gz", hash = "sha256:a76307b36fbe856bdca7ee9161e6c466fd7fcffc297109a118c59b54e27e30c9"},
+    {file = "environs-10.0.0-py3-none-any.whl", hash = "sha256:41aa9d9fdb52953d3083638dca76b157e32714ffc67251d855ade241dee8a3f8"},
+    {file = "environs-10.0.0.tar.gz", hash = "sha256:a8968e7d5b2b656cc17f6273d4b312654397ffa7ab0875c33c36699e1106a374"},
 ]
 
 [package.dependencies]
@@ -1554,10 +1554,10 @@ marshmallow = ">=3.0.0"
 python-dotenv = "*"
 
 [package.extras]
-dev = ["dj-database-url", "dj-email-url", "django-cache-url", "flake8 (==4.0.1)", "flake8-bugbear (==21.9.2)", "mypy (==0.910)", "pre-commit (>=2.4,<3.0)", "pytest", "tox"]
+dev = ["environs[lint,tests]", "tox"]
 django = ["dj-database-url", "dj-email-url", "django-cache-url"]
-lint = ["flake8 (==4.0.1)", "flake8-bugbear (==21.9.2)", "mypy (==0.910)", "pre-commit (>=2.4,<3.0)"]
-tests = ["dj-database-url", "dj-email-url", "django-cache-url", "pytest"]
+lint = ["flake8 (==6.1.0)", "flake8-bugbear (==23.11.28)", "mypy (==0.910)", "pre-commit (>=3.6,<4.0)"]
+tests = ["environs[django]", "pytest"]
 
 [[package]]
 name = "et-xmlfile"
@@ -7197,4 +7197,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,!=3.9.7,<3.12"
-content-hash = "47a4c9e51ede79fda60bec729a64c4d59d47967ec3b92d07c7a29e709267e621"
+content-hash = "7c48d8a06e0839ac1cd9efe480e03297cd11083387d1befb3a9ee4de843f8d09"
