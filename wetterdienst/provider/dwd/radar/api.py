@@ -24,7 +24,6 @@ from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radolan_cdc,
 )
 from wetterdienst.provider.dwd.radar.metadata import (
-    RADAR_PARAMETERS_RADOLAN,
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarPeriod,
@@ -231,6 +230,9 @@ class DwdRadarValues:
         - RADOLAN_CDC is always published at HH:50.
           https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/recent/bin/
 
+        - RW_REFLECTIVITY is published each 10 minutes.
+          https://opendata.dwd.de/weather/radar/radolan/rw/
+
         - RQ_REFLECTIVITY is published each 15 minutes.
           https://opendata.dwd.de/weather/radar/radvor/rq/
 
@@ -240,7 +242,7 @@ class DwdRadarValues:
 
         """
 
-        if self.parameter == DwdRadarParameter.RADOLAN_CDC or self.parameter in RADAR_PARAMETERS_RADOLAN:
+        if self.parameter == DwdRadarParameter.RADOLAN_CDC or self.parameter == DwdRadarParameter.SF_REFLECTIVITY:
             # Align "start_date" to the most recent 50 minute mark available.
             self.start_date = raster_minutes(self.start_date, 50)
 
@@ -261,10 +263,21 @@ class DwdRadarValues:
             if isinstance(self.end_date, dt.timedelta):
                 self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
 
-            # Expand "end_date" to the end of the 5 minute mark.
+            # Expand "end_date" to the end of the 15 minute mark.
             if self.end_date is None:
                 self.end_date = self.start_date + dt.timedelta(minutes=15) - dt.timedelta(seconds=1)
 
+        elif self.parameter == DwdRadarParameter.RW_REFLECTIVITY:
+            # Align "start_date" to the 5 minute mark before tm.
+            self.start_date = round_minutes(self.start_date, 10)
+
+            # When "end_date" is given as timedelta, resolve it.
+            if isinstance(self.end_date, dt.timedelta):
+                self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
+
+            # Expand "end_date" to the end of the 10 minute mark.
+            if self.end_date is None:
+                self.end_date = self.start_date + dt.timedelta(minutes=10) - dt.timedelta(seconds=1)
         else:
             # Align "start_date" to the 5 minute mark before tm.
             self.start_date = round_minutes(self.start_date, 5)
