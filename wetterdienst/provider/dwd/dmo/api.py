@@ -996,7 +996,9 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     year = current_date.year
     month = current_date.month
     # if current date is in the first 3 hours of the month, use previous month
-    hours_since_month_start = (current_date - current_date.replace(day=1, hour=1, minute=1, second=1)).seconds / 60 / 60
+    hours_since_month_start = (
+        (current_date - current_date.replace(day=1, hour=1, minute=1, second=1)).total_seconds() / 60 / 60
+    )
     if hours_since_month_start < 3:
         month = month - 1
         # if month is 0, set to 12 and decrease year
@@ -1012,9 +1014,16 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     )
     days_difference = df.get_column("day").max() - df.get_column("day").min()
     if days_difference > 20:
-        df = df.with_columns(pl.when(pl.col("day") > 25).then(month - 1).otherwise(month).alias("month"))
+        df = df.with_columns(
+            pl.when(pl.col("day") > 25).then(month - 1 if month > 1 else 12).otherwise(month).alias("month")
+        )
     else:
         df = df.with_columns(pl.lit(month).alias("month"))
+    months_difference = df.get_column("month").max() - df.get_column("month").min()
+    if months_difference > 6:
+        df = df.with_columns(pl.when(pl.col("month") > 6).then(year - 1).otherwise(year).alias("year"))
+    else:
+        df = df.with_columns(pl.lit(year).alias("year"))
     return df.select(
         [
             pl.all().exclude(["year", "month", "day", "hour"]),

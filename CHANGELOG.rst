@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix issue with DWD DMO api
+
 0.70.0 (30.12.2023)
 *******************
 
