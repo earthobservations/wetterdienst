@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.71.0 (03.01.2024)
+*******************
+
 - Fix issue with DWD DMO api
 - CI: Add support for Python 3.12
 
