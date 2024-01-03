@@ -5,6 +5,7 @@ Development
 ***********
 
 - Fix issue with DWD DMO api
+- CI: Add support for Python 3.12
 
 0.70.0 (30.12.2023)
 *******************
