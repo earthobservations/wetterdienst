@@ -19,6 +19,9 @@ def test_regular_examples():
         mosmix_forecasts,
         observations_sql,
         observations_stations,
+        plot_german_weather_stations,
+        plot_hohenpeissenberg_warming_stripes,
+        plot_temperature_timeseries,
     )
 
     assert dwd_describe_fields.main() is None
@@ -26,6 +29,9 @@ def test_regular_examples():
     if sys.version_info < (3, 12):
         assert observations_sql.main() is None
     assert observations_stations.main() is None
+    assert plot_german_weather_stations.main() is None
+    assert plot_hohenpeissenberg_warming_stripes.main() is None
+    assert plot_temperature_timeseries.main() is None
 
 
 @pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
