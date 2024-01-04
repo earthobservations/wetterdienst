@@ -3,6 +3,7 @@
 # Copyright (c) 2018-2020 Andreas Motl <andreas.motl@panodata.org>
 # Copyright (c) 2018-2020 Benjamin Gutzmann <gutzemann@gmail.com>
 
+import numpy as np
 import matplotlib.pyplot as plt
 import polars as pl
 from matplotlib import colors
@@ -41,44 +42,33 @@ def create_temperature_ts_plot():
 
 
 def create_weather_stations_map():
-    """Create map of DWD weather stations_result in Germany"""
+    """Create map of DWD weather stations in Germany"""
     stations = DwdObservationRequest("climate_summary", "daily", "historical")
     stations_df = stations.all().df
     fig, ax = plt.subplots()
-    # Rainbow colormap
-    cmap = colors.LinearSegmentedColormap.from_list(
-        "",
-        [
-            "#86007D",
-            "#0000F9",
-            "#008018",
-            "#FFFF41",
-            "#FFA52C",
-            "#FF0018",
-        ],
-    )
-    bounds = (
-        stations_df.select(pl.col("height"))
-        .to_series()
-        .quantile([0, 0.16666667, 0.33333333, 0.5, 0.66666667, 0.83333333, 1])
-        .values
-    )
 
+    quantiles = [0.0, 0.16666667, 0.33333333, 0.5, 0.66666667, 0.83333333, 1.0]
+    bounds = [
+        stations_df["height"].quantile(q)
+        for q in quantiles
+    ]
+    inferno = plt.get_cmap("inferno")
+    cmap = ListedColormap([inferno(q) for q in quantiles])
     norm = colors.BoundaryNorm(bounds, cmap.N)
+    plot = ax.scatter(data=stations_df, x="longitude", y="latitude", c="height", s=10, cmap=cmap, norm=norm)
+    fig.colorbar(plot, ax=ax, label="Height / m")
 
-    stations_df = stations_df.rename(columns={"height": "Height [m]"})
+    ax.set_xlabel("Longitude / deg")
+    ax.set_ylabel("Latitude / deg")
+    ax.set_title("German weather stations")
+    # make Germany look like Germany by using the proper scaling between y-axis and x-axis
+    # 51 is approximately the mean latitude of Germany
+    ax.set_aspect(1 / np.cos(np.deg2rad(51)))
 
-    stations_df.plot.scatter(x="longitude", y="latitude", c="Height [m]", cmap=cmap, norm=norm, ax=ax)
+    ax.text(0.5, 0.01, "Source: Deutscher Wetterdienst", ha="center", va="bottom", transform=ax.transAxes)
 
-    ax.set_xlabel("Longitude [°]")
-    ax.set_ylabel("Latitude [°]")
-    ax.set_title("German weather stations_result")
-
-    ax.text(0.3, 0.05, "Source: Deutscher Wetterdienst", ha="center", va="center", transform=ax.transAxes)
-
-    plt.savefig("german_weather_stations.png")
-
-    return
+    fig.tight_layout()
+    fig.savefig("german_weather_stations.png")
 
 
 def create_hohenpeissenberg_warming_stripes():
