@@ -13,7 +13,7 @@ EXAMPLES_DIR = HERE.parent.parent / "example"
 
 
 @pytest.mark.cflake
-def test_regular_examples():
+def test_examples():
     from examples import (
         dwd_describe_fields,
         mosmix_forecasts,
