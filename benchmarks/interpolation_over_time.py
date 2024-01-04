@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018-2023, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+import os
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -12,7 +16,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-plt.style.use("seaborn")
+plt.style.use("ggplot")
 
 
 def get_interpolated_df(parameter: str, start_date: datetime, end_date: datetime) -> pl.DataFrame:
@@ -64,12 +68,13 @@ def visualize(parameter: str, unit: str, regular_df: pl.DataFrame, interpolated_
     plt.ylabel(ylabel)
     title = (
         f"rmse: {np.round(rmse, 2)}, corr: {np.round(corr, 2)}\n"
-        f"station_ids: {interpolated_df.get_column('station_ids').to_list()[0]}"
+        f"station_ids: {interpolated_df.get_column('taken_station_ids').to_list()[0]}"
     )
     plt.title(title)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        plt.show()
 
 
 def main():
@@ -78,7 +83,7 @@ def main():
     start_date = datetime(2022, 3, 1)
     end_date = datetime(2022, 3, 31)
     interpolated_df = get_interpolated_df(parameter, start_date, end_date)
-    exclude_stations = interpolated_df.get_column("station_ids")[0]
+    exclude_stations = interpolated_df.get_column("taken_station_ids")[0]
     regular_df = get_regular_df(parameter, start_date, end_date, exclude_stations)
     visualize(parameter, unit, regular_df, interpolated_df)
 

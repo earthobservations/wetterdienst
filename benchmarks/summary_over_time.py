@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018-2023, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+import os
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -9,7 +13,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-plt.style.use("seaborn")
+plt.style.use("ggplot")
 
 
 def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pl.DataFrame:
@@ -40,8 +44,9 @@ def main():
     lon = 13.8470
 
     summarized_df = get_summarized_df(start_date, end_date, lat, lon)
+    print(summarized_df)
     summarized_df = summarized_df.with_columns(
-        pl.col("station_id")
+        pl.col("taken_station_id")
         .map_dict({"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"})
         .alias("color")
     )
@@ -65,7 +70,8 @@ def main():
     plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        plt.show()
 
 
 if __name__ == "__main__":

@@ -1,16 +1,18 @@
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018-2023, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
+import os
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import polars as pl
 import utm
 from scipy import interpolate
+from zoneinfo import ZoneInfo
 
-from wetterdienst import Parameter
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationPeriod,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 pl.Config.set_tbl_width_chars(400)
@@ -46,12 +48,11 @@ class Data:
 
 
 def request_weather_data(
-    parameter: str, lat: float, lon: float, distance: float, start_date: datetime, end_date: datetime
+    parameter: str, lat: float, lon: float, distance: float, start_date: dt.datetime, end_date: dt.datetime
 ):
     stations = DwdObservationRequest(
         parameter=parameter,
-        resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
+        resolution="hourly",
         start_date=start_date,
         end_date=end_date,
     )
@@ -71,10 +72,10 @@ def request_weather_data(
         utm_y.append(y)
 
     # request parameter from weather stations
-    df = request.values.all().df.drop_nulls()
-
+    df = request.values.all().df.drop_nulls(subset=["value"])
+    print(df)
     # filters by one exact time and saves the given parameter per station at this time
-    day_time = start_date + timedelta(days=1)
+    day_time = start_date + dt.timedelta(days=1)
     filtered_df = df.filter(pl.col("date").eq(day_time))
     print(filtered_df)
     values = filtered_df.get_column("value").to_list()
@@ -114,17 +115,17 @@ def visualize_points(data: Data):
             horizontalalignment="center",
             verticalalignment="bottom",
         )
-
-    plt.show()
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        plt.show()
 
 
 def main():
-    parameter = Parameter.TEMPERATURE_AIR_MEAN_200
+    parameter = [("temperature_air_mean_200", "temperature_air")]
     latitude = 50.0
     longitude = 8.9
     distance = 21.0
-    start_date = datetime(2022, 1, 1)
-    end_date = datetime(2022, 1, 20)
+    start_date = dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC"))
 
     data = request_weather_data(parameter, latitude, longitude, distance, start_date, end_date)
     interpolate_data(latitude, longitude, data)
