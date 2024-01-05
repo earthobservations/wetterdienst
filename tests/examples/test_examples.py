@@ -15,6 +15,7 @@ EXAMPLES_DIR = HERE.parent.parent / "example"
 @pytest.mark.cflake
 def test_examples():
     from examples import (
+        dwd_climate_summary_xarray_dump,
         dwd_describe_fields,
         mosmix_forecasts,
         observations_sql,
@@ -29,6 +30,7 @@ def test_examples():
     if sys.version_info < (3, 12):
         assert observations_sql.main() is None
     assert observations_stations.main() is None
+    assert dwd_climate_summary_xarray_dump.main() is None
     assert plot_german_weather_stations.main() is None
     assert plot_hohenpeissenberg_warming_stripes.main() is None
     assert plot_temperature_timeseries.main() is None
