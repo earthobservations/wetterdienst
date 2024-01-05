@@ -1,13 +1,13 @@
 API
 ###
 
-DWD (German Weather Service)
-****************************
+DWD
+****
 
-Observation
-===========
+DMO
+====
 
-.. autoclass:: wetterdienst.provider.dwd.observation.api.DwdObservationRequest
+.. autoclass:: wetterdienst.provider.dwd.dmo.api.DwdDmoRequest
     :members:
 
 Mosmix
@@ -16,16 +16,22 @@ Mosmix
 .. autoclass:: wetterdienst.provider.dwd.mosmix.api.DwdMosmixRequest
     :members:
 
-DMO
-====
+Observation
+===========
 
-.. autoclass:: wetterdienst.provider.dwd.dmo.api.DwdDmoRequest
+.. autoclass:: wetterdienst.provider.dwd.observation.api.DwdObservationRequest
     :members:
 
 Radar
 =====
 
 .. autoclass:: wetterdienst.provider.dwd.radar.api.DwdRadarValues
+    :members:
+
+Road
+====
+
+.. autoclass:: wetterdienst.provider.dwd.road.api.DwdRoadRequest
     :members:
 
 EA
@@ -46,8 +52,8 @@ Hubeau
 .. autoclass:: wetterdienst.provider.eaufrance.hubeau.api.HubeauRequest
     :members:
 
-ECCC (Environment and Climate Change Canada)
-*********************************************
+ECCC
+****
 
 Observation
 ===========
