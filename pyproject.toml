@@ -19,46 +19,38 @@ repository = "https://github.com/earthobservations/wetterdienst"
 keywords = [
     "open-source",
     "open-data",
-    "weather",
+    "time-series",
+    "observation",
+    "forecast",
+    "radar",
+    "historical",
+    "recent",
+    "near-real-time",
     "weather-data",
     "weather-api",
     "weather-station",
-    "time-series",
-    "observations",
-    "historical-data",
-    "recent-data",
-    "forecast",
-    "radar",
     # DWD
-    "dwd",
     "deutscher-wetterdienst",
-    "german-weather-service",
     "mosmix",
+    "dmo",
     "radolan",
-    # ECCC
-    "eccc",
-    "environment-and-climate-change-canada",
-    "environnement-et-changement-climatique-canada",
-    # NOAA
-    "noaa",
-    "national-oceanic-and-atmospheric-administration",
-    "ghcn",
-    "global-historical-climatology-network",
-    # WSV
-    "wsv",
-    "Wasserstraßen-und-Schifffahrtsverwaltung-des-Bundes",
-    "Federal-Waterways-and-Shipping-Administration",
-    # EA
-    "ea",
-    "environmental-agency-uk",
-    # NWS
-    "noaa-nws",
-    "national-weather-service",
     # Eaufrance Hubeau
     "eaufrance-hubeau",
+    # EA
+    "environmental-agency-uk",
+    # ECCC
+    "environment-and-climate-change-canada",
     # Geosphere Austria
-    "geosphere",
-    "geosphere-austria"
+    "geosphere-austria",
+    # IMGW
+    "institute-of-meteorology-and-water-management-poland",
+    # NOAA
+    "national-oceanic-and-atmospheric-administration",
+    "ghcn",
+    # NWS
+    "national-weather-service",
+    # WSV
+    "federal-waterways-and-shipping-administration-germany",
 ]
 classifiers = [
     "Programming Language :: Python",
