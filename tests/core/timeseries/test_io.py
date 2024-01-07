@@ -428,6 +428,13 @@ def test_values_format_csv(df_values):
     assert "01048,climate_summary,temperature_air_max_200,2019-12-28T00:00:00+00:00,1.3," in output
 
 
+def test_values_format_csv_kwargs(df_values):
+    """Test export of DataFrame to csv"""
+    output = ValuesResult(stations=None, values=None, df=df_values).to_csv(include_header=False).strip()
+    lines = output.split("\n")
+    assert lines[0] == "01048,climate_summary,temperature_air_max_200,2019-01-01T00:00:00+00:00,1.3,"
+
+
 def test_interpolated_values_to_dict(df_interpolated_values):
     data = InterpolatedValuesResult(stations=None, df=df_interpolated_values, latlon=(1, 2)).to_dict()
     assert data.keys() == {"values"}

@@ -58,7 +58,11 @@ class ExportMixin:
         json_kwargs = {"indent": indent, "ensure_ascii": False}
         return json.dumps(self.to_ogc_feature_collection(with_metadata=with_metadata), **json_kwargs)
 
-    def to_csv(self):
+    def to_csv(self, **kwargs) -> str:
+        """
+        :param kwargs: Additional arguments passed to `pl.DataFrame.write_csv`
+        :return: CSV string
+        """
         df = self.df
         date_columns = (Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value)
         df = df.with_columns(
@@ -66,7 +70,7 @@ class ExportMixin:
             for column in date_columns
             if column in df.columns
         )
-        return df.write_csv()
+        return df.write_csv(**kwargs)
 
     def to_format(self, fmt: str, **kwargs) -> str:
         """
