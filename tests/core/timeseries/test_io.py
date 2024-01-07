@@ -336,10 +336,11 @@ def test_stations_format_csv(df_stations):
         .to_csv()
         .strip()
     )
-    assert "station_id,start_date,end_date,height,latitude,longitude,name,state" in output
+    lines = output.split("\n")
+    assert lines[0] == "station_id,start_date,end_date,height,latitude,longitude,name,state"
     assert (
-        "01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
-        in output
+        lines[1]
+        == "01048,1957-05-01T00:00:00+00:00,1995-11-30T00:00:00+00:00,645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
     )
 
 
@@ -424,8 +425,9 @@ def test_values_format_geojson(df_values, stations_result_mock):
 def test_values_format_csv(df_values):
     """Test export of DataFrame to csv"""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
-    assert "station_id,dataset,parameter,date,value,quality" in output
-    assert "01048,climate_summary,temperature_air_max_200,2019-12-28T00:00:00+00:00,1.3," in output
+    lines = output.split("\n")
+    assert lines[0] == "station_id,dataset,parameter,date,value,quality"
+    assert lines[-1] == "01048,climate_summary,temperature_air_max_200,2022-01-01T00:00:00+00:00,4.0,"
 
 
 def test_values_format_csv_kwargs(df_values):
