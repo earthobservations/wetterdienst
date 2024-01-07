@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Allow for passing kwargs to the `to_csv` method
+
 0.71.0 (03.01.2024)
 *******************
 
