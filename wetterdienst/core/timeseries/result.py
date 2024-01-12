@@ -540,7 +540,7 @@ class InterpolatedValuesResult(_ValuesResult):
         feature = {
             "type": "Feature",
             "properties": {
-                "id": self.df.get_column(Columns.STATION_ID.value).take(0).item(),
+                "id": self.df.get_column(Columns.STATION_ID.value).gather(0).item(),
                 "name": name,
             },
             "geometry": {
@@ -628,7 +628,7 @@ class SummarizedValuesResult(_ValuesResult):
         feature = {
             "type": "Feature",
             "properties": {
-                "id": self.df.get_column(Columns.STATION_ID.value).take(0).item(),
+                "id": self.df.get_column(Columns.STATION_ID.value).gather(0).item(),
                 "name": name,
             },
             "geometry": {

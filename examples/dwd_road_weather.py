@@ -17,6 +17,7 @@ import datetime as dt
 import os
 
 import matplotlib.pyplot as plt
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.road import DwdRoadRequest
@@ -24,7 +25,7 @@ from wetterdienst.util.cli import setup_logging
 
 
 def dwd_road_weather_example():
-    end_date = dt.datetime.utcnow()
+    end_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
     start_date = end_date - dt.timedelta(days=1)
     drw_request = DwdRoadRequest(
         parameter="airTemperature", start_date=start_date, end_date=end_date

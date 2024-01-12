@@ -171,7 +171,7 @@ def test_radar_request_composite_historic_hg_yesterday(prefixed_radar_locations,
     """
     Example for testing radar/composite FX for a specific date.
     """
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.HG_REFLECTIVITY, start_date=timestamp, settings=default_settings
@@ -223,7 +223,7 @@ def test_radar_request_composite_historic_hg_timerange(default_settings):
     Example for testing radar/composite FX for a timerange.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.HG_REFLECTIVITY,
@@ -253,7 +253,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(radar_locations, 
     when using a specific date.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY, start_date=timestamp, settings=default_settings
@@ -300,7 +300,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange(radar_locations, 
     when using a specific date, with timerange.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
@@ -349,7 +349,7 @@ def test_radar_request_site_historic_dx_yesterday(default_settings):
     when using a specific date.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
@@ -394,7 +394,7 @@ def test_radar_request_site_historic_dx_timerange(default_settings):
     when using a specific date, with timerange.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
@@ -446,7 +446,7 @@ def test_radar_request_site_historic_pe_binary_yesterday(default_settings):
     """
 
     # Acquire data from yesterday at this time.
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
@@ -486,7 +486,7 @@ def test_radar_request_site_historic_pe_bufr(default_settings):
     """
 
     # Acquire data from yesterday at this time.
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
@@ -532,7 +532,7 @@ def test_radar_request_site_historic_pe_timerange(fmt, default_settings):
     This time, we will test both the BINARY and BUFR data format.
     """
 
-    start_date = dt.datetime.utcnow() - dt.timedelta(days=1)
+    start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
     end_date = dt.timedelta(hours=1)
 
     request = DwdRadarValues(
@@ -557,7 +557,7 @@ def test_radar_request_site_historic_pe_timerange(fmt, default_settings):
     if fmt == DwdRadarDataFormat.BINARY:
         buffer = results[0].data
         payload = buffer.getvalue()
-        month_year = dt.datetime.utcnow().strftime("%m%y")
+        month_year = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None).strftime("%m%y")
         header = (
             f"PE......10132{month_year}BY ....VS 1LV12  "
             "1.0  2.0  3.0  4.0  5.0  6.0  7.0  8.0  9.0 10.0 11.0 12.0"
@@ -572,7 +572,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings):
     Example for testing radar/site PX250 for a specific date.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
@@ -615,7 +615,7 @@ def test_radar_request_site_historic_px250_bufr_timerange(default_settings):
     Example for testing radar/site PX250 for a specific date, with timerange.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
@@ -640,7 +640,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings
     Example for testing radar/site sweep_vol_v for a specific date.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
@@ -676,7 +676,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
     this time in HDF5 format.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -727,7 +727,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
     this time in HDF5 format, with timerange.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
@@ -764,7 +764,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
     this time in HDF5 format, with timerange.
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
@@ -805,7 +805,7 @@ def test_radar_request_radvor_re_yesterday(prefixed_radar_locations, default_set
     https://opendata.dwd.de/weather/radar/radvor/re/
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RE_REFLECTIVITY, start_date=timestamp, settings=default_settings
@@ -859,7 +859,7 @@ def test_radar_request_radvor_re_timerange(default_settings, station_reference_p
     https://opendata.dwd.de/weather/radar/radvor/re/
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RE_REFLECTIVITY,
@@ -898,7 +898,7 @@ def test_radar_request_radvor_rq_yesterday(radar_locations, default_settings):
     https://opendata.dwd.de/weather/radar/radvor/rq/
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RQ_REFLECTIVITY, start_date=timestamp, settings=default_settings
@@ -950,7 +950,7 @@ def test_radar_request_radvor_rq_timerange(radar_locations, default_settings):
     https://opendata.dwd.de/weather/radar/radvor/rq/
     """
 
-    timestamp = dt.datetime.utcnow() - dt.timedelta(days=1)
+    timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RQ_REFLECTIVITY,

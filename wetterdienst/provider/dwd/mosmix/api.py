@@ -1051,7 +1051,7 @@ class DwdMosmixValues(TimeseriesValues):
 
         for df in self._collect_station_parameter():
             df = self._tidy_up_df(df)
-            station_id = df.get_column(Columns.STATION_ID.value).take(0).item()
+            station_id = df.get_column(Columns.STATION_ID.value).gather(0).item()
             df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
 
             if self.sr.humanize:

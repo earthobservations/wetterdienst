@@ -9,6 +9,7 @@ from typing import Iterator, List, Optional, Tuple, Union
 
 import pandas as pd
 import polars as pl
+from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -81,7 +82,7 @@ class HubeauValues(TimeseriesValues):
         :return:
         """
         freq, freq_unit = self._get_dynamic_frequency(station_id, parameter, dataset)
-        end = dt.datetime.utcnow()
+        end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         start = end - dt.timedelta(days=30)
         delta = end - start
         n_dates = delta / pd.Timedelta(freq, freq_unit)

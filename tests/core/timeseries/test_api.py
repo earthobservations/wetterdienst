@@ -29,7 +29,8 @@ def test_api_skip_empty_stations(settings_skip_empty_true, ts_skip_criteria, exp
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
     values = request.values.all()
     assert (
-        values.df.get_column("station_id").take(0).to_list() != request.df.get_column("station_id").take(0).to_list()
+        values.df.get_column("station_id").gather(0).to_list()
+        != request.df.get_column("station_id").gather(0).to_list()
     )  # not supposed to be the first station of the list
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_stations
     assert values.df_stations.get_column("station_id").to_list() == expected_stations

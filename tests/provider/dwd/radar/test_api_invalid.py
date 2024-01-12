@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime
+import datetime as dt
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
@@ -25,7 +26,7 @@ def test_radar_request_site_historic_pe_wrong_parameters(default_settings):
         request = DwdRadarValues(
             parameter=DwdRadarParameter.PE_ECHO_TOP,
             site=DwdRadarSite.BOO,
-            start_date=datetime.utcnow(),
+            start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
             settings=default_settings,
         )
         next(request.query())
