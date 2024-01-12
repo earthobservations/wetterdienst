@@ -6,6 +6,7 @@ import re
 
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
@@ -25,7 +26,7 @@ def test_radar_request_composite_latest_rv_reflectivity(default_settings, statio
     buffer = next(request.query())[1]
     payload = buffer.getvalue()
 
-    month_year = dt.datetime.utcnow().strftime("%m%y")
+    month_year = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None).strftime("%m%y")
     header = (
         f"RV......10000{month_year}BY   2640...VS 5SW ........PR E-02INT   5GP1200x1100VV 000MF 00000008MS"
         f"...<{station_reference_pattern_sorted_prefixed}>"
@@ -58,7 +59,9 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": IsDatetime(approx=dt.datetime.utcnow(), delta=dt.timedelta(minutes=90)),
+            "datetime": IsDatetime(
+                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None), delta=dt.timedelta(minutes=90)
+            ),
             "formatversion": 3,
             "intervalseconds": 3600,
             "maxrange": "150 km",
@@ -101,7 +104,9 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings):
         {
             "bytes": IsInt(gt=0),
             "cluttermap": 0,
-            "datetime": IsDatetime(approx=dt.datetime.utcnow().replace(tzinfo=None), delta=dt.timedelta(minutes=65)),
+            "datetime": IsDatetime(
+                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None), delta=dt.timedelta(minutes=65)
+            ),
             "dopplerfilter": 4,
             "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
             "message": "",

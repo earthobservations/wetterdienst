@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from datetime import datetime, timedelta
+import datetime as dt
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import (
@@ -22,8 +23,8 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings):
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=datetime.utcnow() - timedelta(hours=1),
-        end_date=datetime.utcnow(),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
+        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -66,8 +67,8 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings):
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=datetime.utcnow() - timedelta(minutes=20),
-        end_date=datetime.utcnow(),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=20),
+        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,

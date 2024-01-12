@@ -102,7 +102,7 @@ def test_request_period_historical_recent(default_settings):
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
-        end_date=dt.datetime.utcnow() - dt.timedelta(days=400),
+        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=400),
         settings=default_settings,
     )
     assert request.period == [
@@ -117,7 +117,7 @@ def test_request_period_historical_recent_now(default_settings):
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
         start_date="1971-01-01",
-        end_date=dt.datetime.utcnow(),
+        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         settings=default_settings,
     )
     assert request.period == [
@@ -132,7 +132,7 @@ def test_request_period_recent_now(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=dt.datetime.utcnow() - dt.timedelta(hours=2),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert request.period == [Period.RECENT, Period.NOW]
@@ -144,7 +144,7 @@ def test_request_period_now(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=dt.datetime.utcnow() - dt.timedelta(hours=2),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert request.period == [Period.NOW]
@@ -156,7 +156,7 @@ def test_request_period_now_fixed_date(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=dt.datetime.utcnow() - dt.timedelta(hours=2),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=2),
         settings=default_settings,
     )
     assert Period.NOW in request.period
@@ -167,7 +167,7 @@ def test_request_period_now_previous_hour(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=dt.datetime.utcnow() - dt.timedelta(hours=1),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
         settings=default_settings,
     )
     assert Period.NOW in request.period
@@ -178,7 +178,7 @@ def test_request_period_empty(default_settings):
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
-        start_date=dt.datetime.utcnow() + dt.timedelta(days=720),
+        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) + dt.timedelta(days=720),
         settings=default_settings,
     )
     assert request.period == []

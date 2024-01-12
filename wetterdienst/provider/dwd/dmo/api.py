@@ -11,6 +11,7 @@ from urllib.parse import urljoin
 
 import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
+from zoneinfo import ZoneInfo
 
 from wetterdienst import Kind, Parameter, Period, Provider, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -1116,7 +1117,7 @@ class DwdDmoValues(TimeseriesValues):
 
         for df in self._collect_station_parameter():
             df = self._tidy_up_df(df)
-            station_id = df.get_column(Columns.STATION_ID.value).take(0).item()
+            station_id = df.get_column(Columns.STATION_ID.value).gather(0).item()
             df = self._organize_df_columns(df, station_id, self.sr.stations.dmo_type)
 
             if self.sr.humanize:
@@ -1288,7 +1289,7 @@ class DwdDmoValues(TimeseriesValues):
             .map_elements(lambda s: s[:-4])
             .alias("date_str")
         )
-        df = add_date_from_filename(df, dt.datetime.utcnow())
+        df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
         if date == DwdForecastDate.LATEST:
             date = df.get_column("date").max()
         df = df.filter(pl.col("date").eq(date))

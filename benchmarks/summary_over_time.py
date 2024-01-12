@@ -47,7 +47,7 @@ def main():
     print(summarized_df)
     summarized_df = summarized_df.with_columns(
         pl.col("taken_station_id")
-        .map_dict({"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"})
+        .replace({"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"})
         .alias("color")
     )
 

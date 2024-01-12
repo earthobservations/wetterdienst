@@ -14,6 +14,7 @@ from typing import Generator, Optional, Union
 import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
 from fsspec.implementations.tar import TarFileSystem
+from zoneinfo import ZoneInfo
 
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -167,16 +168,16 @@ class DwdRadarValues:
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
         if fmt == DwdRadarDataFormat.HDF5 and start_date == DwdRadarDate.MOST_RECENT:
-            start_date = dt.datetime.utcnow() - dt.timedelta(minutes=5)
+            start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=5)
             end_date = None
 
         if start_date == DwdRadarDate.MOST_RECENT and parameter == DwdRadarParameter.RADOLAN_CDC:
-            start_date = dt.datetime.utcnow() - dt.timedelta(minutes=50)
+            start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=50)
             end_date = None
 
         # Evaluate "RadarDate.CURRENT" for "start_date".
         if start_date == DwdRadarDate.CURRENT:
-            start_date = dt.datetime.utcnow()
+            start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
             if parameter == DwdRadarParameter.RADOLAN_CDC:
                 if start_date.minute < 20:
                     start_date = start_date - dt.timedelta(hours=1)
