@@ -451,7 +451,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             interval = pd.Interval(pd.Timestamp(self.sr.start_date), pd.Timestamp(self.sr.end_date), closed="both")
             if self.sr.resolution == Resolution.MONTHLY:
                 df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").list.lengths() == 3)
+                    pl.when(pl.col("file").str.split("_").list.len() == 3)
                     .then(pl.col("file").str.split("_").list.first().map_elements(lambda y: [y, y]))
                     .otherwise(pl.col("file").str.split("_").list.slice(0, 2))
                     .map_elements(
@@ -466,7 +466,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 )
             else:
                 df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").list.lengths() == 2)
+                    pl.when(pl.col("file").str.split("_").list.len() == 2)
                     .then(
                         pl.col("file")
                         .str.split("_")

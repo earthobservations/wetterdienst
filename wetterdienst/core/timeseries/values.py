@@ -541,7 +541,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param humanized_parameters_mapping: mapping of original parameter names to humanized ones
         :return: pandas.DataFrame with renamed columns
         """
-        return df.with_columns(pl.col(Columns.PARAMETER.value).map_dict(humanized_parameters_mapping))
+        return df.with_columns(pl.col(Columns.PARAMETER.value).replace(humanized_parameters_mapping))
 
     def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
         """

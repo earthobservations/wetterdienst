@@ -41,7 +41,7 @@ def get_dwd_observation_station_values_df(station_id, settings):
         parameter: (unit["si"] if settings["ts_si_units"] else unit["origin"]) for parameter, unit in units.items()
     }
     values = get_dwd_observation_station(station_id, settings).values.all().df
-    return values.with_columns(pl.col("parameter").map_dict(units).alias("unit"))
+    return values.with_columns(pl.col("parameter").replace(units).alias("unit"))
 
 
 def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: list[str], x: str, y: str, facet: bool):

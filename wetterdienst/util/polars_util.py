@@ -36,7 +36,7 @@ def read_fwf_from_df(df: pl.DataFrame, column_specs: Tuple[Tuple[int, int], ...]
             for i, slice_tuple in enumerate(column_specs)
         ]
     )
-    df = df.select(pl.col(col).map_dict({"": None}, default=pl.col(col)) for col in df.columns)
+    df = df.select(pl.col(col).replace({"": None}, default=pl.col(col)) for col in df.columns)
     if header:
         columns = _get_columns(old_column)
         if columns:

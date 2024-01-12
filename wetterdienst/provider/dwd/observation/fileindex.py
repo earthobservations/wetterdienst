@@ -87,7 +87,7 @@ def create_file_index_for_climate_observations(
         .str.split("/")
         .list.last()
         .str.extract(STATION_ID_REGEX, 1)
-        .str.rjust(5, "0")
+        .str.pad_start(5, "0")
         .alias("station_id")
     )
 

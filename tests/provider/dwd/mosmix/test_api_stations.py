@@ -107,7 +107,7 @@ def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
         "name": "16N55W",
         "state": None,
     }
-    station_names_sorted = given_df.sort(pl.col("name").str.n_chars()).get_column("name").to_list()
+    station_names_sorted = given_df.sort(pl.col("name").str.len_chars()).get_column("name").to_list()
     assert station_names_sorted[:5] == ["ELM", "PAU", "SAL", "AUE", "HOF"]
     assert station_names_sorted[-5:] == [
         "KARLSRUHE/BADEN-BADE",

@@ -308,10 +308,10 @@ class DwdRoadValues(TimeseriesValues):
             pl.concat_str(
                 exprs=[
                     pl.col("year").cast(pl.Utf8),
-                    pl.col("month").cast(pl.Utf8).str.rjust(2, "0"),
-                    pl.col("day").cast(pl.Utf8).str.rjust(2, "0"),
-                    pl.col("hour").cast(pl.Utf8).str.rjust(2, "0"),
-                    pl.col("minute").cast(pl.Utf8).str.rjust(2, "0"),
+                    pl.col("month").cast(pl.Utf8).str.pad_start(2, "0"),
+                    pl.col("day").cast(pl.Utf8).str.pad_start(2, "0"),
+                    pl.col("hour").cast(pl.Utf8).str.pad_start(2, "0"),
+                    pl.col("minute").cast(pl.Utf8).str.pad_start(2, "0"),
                 ]
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")

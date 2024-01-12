@@ -194,7 +194,7 @@ class ExportMixin:
                     .dt.replace_time_zone(None)
                     .map_elements(lambda date: date.isoformat())
                 )
-                group = df.get_column("dataset").take(0).item()
+                group = df.get_column("dataset").gather(0).item()
                 df = df.to_pandas()
 
                 # Convert pandas DataFrame to xarray Dataset.

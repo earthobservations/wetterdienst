@@ -1420,7 +1420,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         ]
         df = df.select(
             pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.ICAO_ID.value).map_dict({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
+            pl.col(Columns.ICAO_ID.value).replace({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
             pl.col(Columns.LATITUDE.value).cast(float).map_batches(convert_dm_to_dd),
