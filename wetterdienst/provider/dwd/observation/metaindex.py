@@ -237,7 +237,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     meta_index_df = meta_index_df.select(pl.exclude(Columns.STATE.value))
 
     # Make station id str
-    return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.rjust(5, "0"))
+    return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.pad_start(5, "0"))
 
 
 def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pl.LazyFrame:

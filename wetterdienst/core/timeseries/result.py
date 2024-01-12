@@ -121,7 +121,7 @@ class StationsResult(ExportMixin):
         self._kwargs = kwargs
 
     def __eq__(self, other):
-        return (self.stations == other.stations) and self.df.frame_equal(other.df)
+        return (self.stations == other.stations) and self.df.equals(other.df)
 
     @property
     def settings(self):

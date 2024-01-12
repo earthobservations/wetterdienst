@@ -180,7 +180,7 @@ class DwdObservationValues(TimeseriesValues):
 
         return df.with_columns(
             pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"),
-            pl.col(Columns.STATION_ID.value).str.rjust(5, "0"),
+            pl.col(Columns.STATION_ID.value).str.pad_start(5, "0"),
             pl.col(Columns.VALUE.value).cast(pl.Float64),
             pl.col(Columns.QUALITY.value).cast(pl.Float64),
         )
@@ -448,7 +448,7 @@ class DwdObservationRequest(TimeseriesRequest):
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
-        return series.cast(pl.Utf8).str.rjust(5, "0")
+        return series.cast(pl.Utf8).str.pad_start(5, "0")
 
     def __init__(
         self,
@@ -494,7 +494,7 @@ class DwdObservationRequest(TimeseriesRequest):
 
     def filter_by_station_id(self, station_id: Union[str, int, Tuple[str, ...], Tuple[int, ...], List[str], List[int]]):
         return super().filter_by_station_id(
-            pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.rjust(5, "0")
+            pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0")
         )
 
     @classmethod

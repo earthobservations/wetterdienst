@@ -1551,7 +1551,7 @@ class DwdDmoRequest(TimeseriesRequest):
         df = pl.concat([df, self._station_patches])
         df = df.lazy()
         return df.with_columns(
-            pl.col(Columns.ICAO_ID.value).map_dict({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
+            pl.col(Columns.ICAO_ID.value).replace({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
             pl.col(Columns.LATITUDE.value).str.replace(" ", "").cast(float),
             pl.col(Columns.LONGITUDE.value).str.replace(" ", "").cast(float),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
