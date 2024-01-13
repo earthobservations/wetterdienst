@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.72.0 (13.01.2024)
+*******************
+
 - Allow for passing kwargs to the `to_csv` method
 - Fix issue when using `force_ndarray_like=True` with pint UnitRegistry
 
