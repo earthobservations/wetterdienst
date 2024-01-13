@@ -5,6 +5,7 @@ Development
 ***********
 
 - Allow for passing kwargs to the `to_csv` method
+- Fix issue when using `force_ndarray_like=True` with pint UnitRegistry
 
 0.71.0 (03.01.2024)
 *******************

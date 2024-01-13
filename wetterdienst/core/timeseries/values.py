@@ -280,6 +280,10 @@ class TimeseriesValues(metaclass=ABCMeta):
             return operator.add, degree_offset
         elif si_unit == SIUnit.PERCENT.value:
             factor = REGISTRY(str(origin_unit)).to(str(si_unit)).magnitude
+            try:
+                factor = factor.item()
+            except AttributeError:
+                pass
             return operator.mul, factor
         elif si_unit == SIUnit.DIMENSIONLESS.value:
             return None, None
@@ -287,6 +291,10 @@ class TimeseriesValues(metaclass=ABCMeta):
             # For multiplicative units we need to use 1 as quantity to apply the
             # appropriate factor
             factor = Quantity(1, origin_unit).to(si_unit).magnitude
+            try:
+                factor = factor.item()
+            except AttributeError:
+                pass
             return operator.mul, factor
 
     def _create_empty_station_parameter_df(self, station_id: str, dataset: Enum) -> pl.DataFrame:
