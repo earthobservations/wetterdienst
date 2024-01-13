@@ -1217,7 +1217,7 @@ class DwdMosmixValues(TimeseriesValues):
         df = pl.DataFrame({"url": urls})
 
         df = df.with_columns(
-            pl.col("url").str.split("/").list.last().str.split("_").list.take(2).flatten().alias("date")
+            pl.col("url").str.split("/").list.last().str.split("_").list.gather(2).flatten().alias("date")
         )
 
         df = df.filter(pl.col("date").ne("LATEST"))
