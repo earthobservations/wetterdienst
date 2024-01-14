@@ -104,7 +104,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """Timezone enumeration of published data."""
         pass
 
-    def fetch_dynamic_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+    def _fetch_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
         """
         Method used to fetch the dynamic frequency string from somewhere and then set it after download the
         corresponding dataset. The fetch may either be an arbitrary algorithm that parses the frequency from the
@@ -418,7 +418,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
                 # set dynamic resolution for services that have no fixed resolutions
                 if self.sr.resolution == Resolution.DYNAMIC:
-                    self.sr.stations.dynamic_frequency = self.fetch_dynamic_frequency(station_id, parameter, dataset)
+                    self.sr.stations.dynamic_frequency = self._fetch_frequency(station_id, parameter, dataset)
 
                 if self.sr.start_date:
                     parameter_df = self._build_complete_df(parameter_df, station_id)
