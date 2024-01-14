@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import datetime as dt
 import logging
 import operator
 from abc import ABCMeta, abstractmethod
@@ -117,21 +118,12 @@ class TimeseriesValues(metaclass=ABCMeta):
         if self.sr.resolution == Resolution.DYNAMIC:
             raise NotImplementedError("implement this method if the service has a dynamic resolution")
 
-    def _get_complete_dates(self, station_id) -> pl.Series:
+    def _adjust_start_end_date(
+        self, start_date: dt.datetime, end_date: dt.datetime, tzinfo: ZoneInfo
+    ) -> Tuple[dt.datetime, dt.datetime]:
+        """Adjust start and end date to the resolution of the service. This is
+        necessary for building a complete date range that matches the resolution.
         """
-        Complete datetime index for the requested start and end date, used for
-        building a complementary pandas DataFrame with the date column on which
-        other DataFrames can be joined on
-
-        :return: pandas.DatetimeIndex
-        """
-        start_date, end_date = self.sr.start_date, self.sr.end_date
-
-        if self._data_tz == Timezone.DYNAMIC:
-            timezone_ = self._get_timezone_from_station(station_id)
-        else:
-            timezone_ = self.data_tz
-
         # cut of everything smaller than day for daily or lower freq, same for monthly and annual
         if self.sr.resolution in DAILY_AT_MOST:
             start_date = start_date.replace(
@@ -173,14 +165,18 @@ class TimeseriesValues(metaclass=ABCMeta):
                 microsecond=0,
             )
 
-        start_date = start_date.replace(tzinfo=ZoneInfo(timezone_))
-        end_date = end_date.replace(tzinfo=ZoneInfo(timezone_))
+        return start_date.replace(tzinfo=tzinfo), end_date.replace(tzinfo=tzinfo)
 
+    def _get_complete_dates(self, start_date: dt.datetime, end_date: dt.datetime) -> pl.Series:
+        """
+        Complete datetime index for the requested start and end date, used for
+        building a complementary pandas DataFrame with the date column on which
+        other DataFrames can be joined on
+        """
         date_range = pd.date_range(start_date, end_date, freq=self.sr.frequency.value).to_series()
         if self.sr.resolution not in DAILY_AT_MOST:
             date_range = date_range.apply(lambda date: date.replace(day=1))
         date_range = pl.Series(values=date_range).dt.cast_time_unit("us")
-
         return date_range.dt.convert_time_zone("UTC")
 
     def _get_timezone_from_station(self, station_id: str) -> str:
@@ -201,14 +197,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         )
         return get_tz(longitude, latitude)
 
-    def _get_base_df(self, station_id: str) -> pl.DataFrame:
+    def _get_base_df(self, start_date: dt.datetime, end_date: dt.datetime) -> pl.DataFrame:
         """
         Base dataframe which is used for creating empty dataframes if no data is
         found or for merging other dataframes on the full dates
 
         :return: pandas DataFrame with a date column with complete dates
         """
-        return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(station_id)})
+        return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(start_date, end_date)})
 
     def _convert_values_to_si(self, df: pl.DataFrame, dataset) -> pl.DataFrame:
         """
@@ -310,7 +306,13 @@ class TimeseriesValues(metaclass=ABCMeta):
         if not self.sr.start_date:
             return pl.DataFrame(schema=self._meta_fields)
 
-        base_df = self._get_base_df(station_id)
+        if self._data_tz == Timezone.DYNAMIC:
+            tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
+        else:
+            tzinfo = ZoneInfo(self.data_tz)
+        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo)
+
+        base_df = self._get_base_df(start_date, end_date)
 
         data = []
         for par in pl.Series(parameter):
@@ -340,7 +342,12 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         if df.is_empty():
             return df
-        base_df = self._get_base_df(station_id)
+        if self._data_tz == Timezone.DYNAMIC:
+            tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
+        else:
+            tzinfo = ZoneInfo(self.data_tz)
+        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo)
+        base_df = self._get_base_df(start_date, end_date)
         data = []
         for (station_id, parameter), group in df.group_by(
             [Columns.STATION_ID.value, Columns.PARAMETER.value], maintain_order=True
