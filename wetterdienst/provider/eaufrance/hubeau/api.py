@@ -103,7 +103,7 @@ class HubeauValues(TimeseriesValues):
         minutes = int(date_diff.seconds / 60)
         return minutes, "min"
 
-    def fetch_dynamic_frequency(self, station_id, parameter, dataset) -> str:
+    def _fetch_frequency(self, station_id, parameter, dataset) -> str:
         freq, unit = self._get_dynamic_frequency(station_id, parameter, dataset)
         return f"{freq}{unit}"
 

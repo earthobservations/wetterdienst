@@ -151,7 +151,7 @@ class WsvPegelValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 
-    def fetch_dynamic_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+    def _fetch_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
         """
         Method to get the frequency string for a station and parameter from WSV Pegelonline. The frequency is given at
         each station dict queried from the REST-API under "equidistance"
