@@ -6123,13 +6123,13 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "stamina"
-version = "23.3.0"
+version = "24.1.0"
 description = "Production-grade retries made easy."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "stamina-23.3.0-py3-none-any.whl", hash = "sha256:efd0a6918bbb2adc9268768f7f9009d04f41c4fb5888e0aca82590d757988923"},
-    {file = "stamina-23.3.0.tar.gz", hash = "sha256:48f1b3c39ea7e03775fdc0653f9f6ad183b401c84e0eeada12ff18accc712a61"},
+    {file = "stamina-24.1.0-py3-none-any.whl", hash = "sha256:0382013a3072c9db02f18240d36d6212e590643a45a8662cabc4584c5d1a8919"},
+    {file = "stamina-24.1.0.tar.gz", hash = "sha256:de14695610e4ea8da0624fc368607e95d923b25bfe45f4eaa10e226360bc9e02"},
 ]
 
 [package.dependencies]
@@ -7206,4 +7206,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "7c99498718621d8aed005f0cb9496f96c4dac95e56199a734e5dc36f481c2d0d"
+content-hash = "575a34956e40b58df3cf691c6e16aefd26980e53167e87d111ffee2a912dd61c"
