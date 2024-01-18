@@ -92,7 +92,7 @@ classifiers = [
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9"
 
 aenum = ">=3,<3.2"
 aiohttp = ">=3.8,<3.10"
