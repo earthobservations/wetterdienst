@@ -145,7 +145,7 @@ openpyxl                        = { version = ">=3,<4", optional = true }
 pdbufr                          = { version = ">=0.10.2,<0.12", optional = true, extras = ["eccodes"] }
 plotly                          = { version = ">=5.11,<6", optional = true }  # Explorer UI feature.
 psycopg2-binary                 = { version = ">=2.8,<3", optional = true }  # Export feature.
-scipy                           = { version = ">=1.9,<1.12", optional = true }  # Interpolation feature.
+scipy                           = { version = ">=1.9,<1.13", optional = true }  # Interpolation feature.
 shapely                         = { version = ">=2,<3", optional = true }  # Interpolation feature.
 sqlalchemy                      = { version = ">=2,<2.1", optional = true }  # Export feature.
 streamlit                       = { version = ">=1.27,<2", optional = true, markers = "python_version != '3.9.7'" }  # Streamlit app
