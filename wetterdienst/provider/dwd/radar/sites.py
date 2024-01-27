@@ -112,7 +112,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
 
         # Mungle into one coherent data frame.
         data = firsts
-        data = data.drop(columns=["coordinates_wgs84_text", "coordinates_gauss"])
+        data = data.drop("coordinates_wgs84_text", "coordinates_gauss")
         data = data.rename(mapping={"coordinates_wgs84": "latitude"})
         data = data.with_columns(seconds.get_column("coordinates_wgs84").alias("longitude"))
         return data.with_columns(

@@ -23,7 +23,7 @@ def create_dwd_climate_summary_zarr_dump(path):
     store = zarr.DirectoryStore(path)
     data = []
     for result in tqdm(request.values.query(), total=meta.shape[0]):
-        df = result.df.drop(["quality"]).to_pandas()
+        df = result.df.drop("quality").to_pandas()
         df.date = df.date.map(lambda date: date.to_datetime64())
         df = df.set_index(["station_id", "dataset", "parameter", "date"])
         ds = df.to_xarray()

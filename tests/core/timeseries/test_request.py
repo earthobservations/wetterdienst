@@ -293,10 +293,10 @@ def test_dwd_observation_stations_filter_by_rank_single(default_request, expecte
         latlon=(50.0, 8.9),
         rank=1,
     )
-    given_df = request.df.drop(columns="end_date")
+    given_df = request.df.drop("end_date")
     assert_frame_equal(given_df[0, :], expected_stations_df[0, :])
     values = request.values.all()
-    assert_frame_equal(values.df_stations.head(1).drop(columns="end_date"), expected_stations_df.head(1))
+    assert_frame_equal(values.df_stations.head(1).drop("end_date"), expected_stations_df.head(1))
 
 
 @pytest.mark.remote
@@ -305,32 +305,32 @@ def test_dwd_observation_stations_filter_by_rank_multiple(default_request, expec
         latlon=(50.0, 8.9),
         rank=3,
     )
-    given_df = request.df.drop(columns="end_date")
+    given_df = request.df.drop("end_date")
     assert_frame_equal(
         given_df.head(3),
         expected_stations_df,
     )
     values = request.values.all()
-    assert_frame_equal(values.df_stations.drop(columns="end_date"), expected_stations_df)
+    assert_frame_equal(values.df_stations.drop("end_date"), expected_stations_df)
 
 
 @pytest.mark.remote
 def test_dwd_observation_stations_nearby_distance(default_request, expected_stations_df):
     # Kilometers
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=16.13, unit="km")
-    nearby_station = nearby_station.df.drop(columns="end_date")
+    nearby_station = nearby_station.df.drop("end_date")
     assert_frame_equal(nearby_station, expected_stations_df)
     # Miles
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=10.03, unit="mi")
-    nearby_station = nearby_station.df.drop(columns="end_date")
+    nearby_station = nearby_station.df.drop("end_date")
     assert_frame_equal(nearby_station, expected_stations_df)
 
 
 @pytest.mark.remote
 def test_dwd_observation_stations_bbox(default_request, expected_stations_df):
     nearby_station = default_request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0900)
-    nearby_station = nearby_station.df.drop(columns="end_date")
-    assert_frame_equal(nearby_station, expected_stations_df.drop(columns=["distance"]))
+    nearby_station = nearby_station.df.drop("end_date")
+    assert_frame_equal(nearby_station, expected_stations_df.drop("distance"))
 
 
 @pytest.mark.remote

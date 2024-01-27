@@ -229,9 +229,7 @@ class DwdObservationValues(TimeseriesValues):
         ]
 
         # Drop string columns, can't be coerced to float
-        df = df.drop(
-            columns=[col for col in droppable_columns if col in df.columns],
-        )
+        df = df.drop((col for col in droppable_columns if col in df.columns))
 
         df = df.select(
             pl.col(Columns.STATION_ID.value),
@@ -252,10 +250,8 @@ class DwdObservationValues(TimeseriesValues):
                     ]
                 )
                 df = df.drop(
-                    [
-                        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value,
-                        DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value,
-                    ]
+                    DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value,
+                    DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_GENERAL.value,
                 )
             elif resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
                 quality_general = df.get_column(DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
@@ -280,10 +276,8 @@ class DwdObservationValues(TimeseriesValues):
                     ]
                 )
                 df = df.drop(
-                    [
-                        DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value,
-                        DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value,
-                    ]
+                    DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value,
+                    DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value,
                 )
         elif resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME:
             quality = []
@@ -298,7 +292,7 @@ class DwdObservationValues(TimeseriesValues):
         else:
             n = len(df.columns) - 3
             quality = pl.Series(values=repeat(df.get_column(df.columns[2]), times=n)).list.explode()
-            df = df.drop([df.columns[2]])
+            df = df.drop(df.columns[2])
 
         possible_id_vars = (
             Columns.STATION_ID.value,

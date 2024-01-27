@@ -110,7 +110,7 @@ def parse_climate_observations_data(
                         pl.coalesce(pl.col("date"), pl.col("date_right")).alias("date"),
                     ]
                 )
-                df = df.drop(columns=["station_id_right", "date_right"])
+                df = df.drop("station_id_right", "date_right")
             return df.lazy()
         except ValueError:
             return data[0]
@@ -158,7 +158,7 @@ def _parse_climate_observations_data(
     df = df.rename(mapping={col: col.strip().lower() for col in df.columns})
 
     # End of record (EOR) has no value, so drop it right away.
-    df = df.drop(columns=[col for col in DROPPABLE_PARAMETERS if col in df.columns])
+    df = df.drop((col for col in DROPPABLE_PARAMETERS if col in df.columns))
 
     if resolution == Resolution.MINUTE_1:
         if dataset == DwdObservationDataset.PRECIPITATION:
@@ -175,10 +175,8 @@ def _parse_climate_observations_data(
                     )
                 )
                 df = df.drop(
-                    columns=[
-                        "mess_datum_beginn",
-                        "mess_datum_ende",
-                    ]
+                    "mess_datum_beginn",
+                    "mess_datum_ende",
                 )
                 # Expand dataframe over calculated date ranges -> one datetime per row
                 df = df.explode("mess_datum")
@@ -208,7 +206,7 @@ def _parse_climate_observations_data(
             df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3]))
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
-        df = df.drop(columns=[col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns]).rename(
+        df = df.drop((col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns)).rename(
             mapping={"mess_datum_beginn": "mess_datum"}
         )
 

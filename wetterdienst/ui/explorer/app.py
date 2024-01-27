@@ -197,7 +197,7 @@ def fetch_values(
         return empty_frame
 
     df = values.df
-    df = df.drop(columns="quality").drop_nulls()
+    df = df.drop("quality").drop_nulls()
     df = df.with_columns(pl.col("date").map_elements(lambda date: date.isoformat()))
 
     log.info(f"Propagating values data frame with {frame_summary(df)}")
@@ -368,7 +368,7 @@ def render_map(payload):
         for station_id, latitude, longitude in stations_data.select("station_id", "latitude", "longitude").iter_rows()
     ]
     # all the other columns used as properties
-    properties = stations_data.drop(["latitude", "longitude"]).to_dicts()
+    properties = stations_data.drop("latitude", "longitude").to_dicts()
     # whole geojson object
     feature_collection = FeatureCollection(features=features, properties=properties)
     return dl.GeoJSON(id="markers", data=feature_collection, cluster=True, zoomToBounds=True, zoomToBoundsOnClick=True)

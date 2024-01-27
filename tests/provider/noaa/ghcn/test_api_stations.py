@@ -72,4 +72,4 @@ def test_noaa_ghcn_stations(default_settings):
             "state": str,
         },
     )
-    assert_frame_equal(df.drop(columns="end_date"), df_expected)
+    assert_frame_equal(df.drop("end_date"), df_expected)
