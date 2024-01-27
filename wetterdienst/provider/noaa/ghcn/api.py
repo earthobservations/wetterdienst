@@ -74,9 +74,11 @@ class NoaaGhcnValues(TimeseriesValues):
         )
         time_zone = self._get_timezone_from_station(station_id)
         df = df.with_columns(
-            pl.col(Columns.DATE.value)
-            .str.to_datetime("%Y%m%d")
-            .map_elements(lambda date: date.replace(tzinfo=ZoneInfo(time_zone))),
+            pl.col(Columns.DATE.value).map_elements(
+                lambda date: dt.datetime.strptime(date, "%Y%m%d")
+                .replace(tzinfo=ZoneInfo(time_zone))
+                .astimezone(ZoneInfo("UTC"))
+            ),
             pl.col(Columns.PARAMETER.value).str.to_lowercase(),
             pl.col(Columns.VALUE.value).cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
