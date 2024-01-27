@@ -132,7 +132,7 @@ class ExportMixin:
         :return: self
         """
 
-        log.info(f"Exporting records to {target}\n{self.df.select(pl.count())}")
+        log.info(f"Exporting records to {target}\n{self.df.select(pl.len())}")
 
         connspec = ConnectionString(target)
         protocol = connspec.protocol
