@@ -24,7 +24,7 @@ def plot_temperature_timeseries():
         parameter="temperature_air_mean_200", resolution="daily", period="historical"
     ).filter_by_name("Hohenpeissenberg")
     df = stations.values.all().df
-    df_annual = df.group_by(pl.col("date").dt.year(), maintain_order=True).agg(pl.col("value").mean().alias("value"))
+    df_annual = df.group_by([pl.col("date").dt.year()], maintain_order=True).agg(pl.col("value").mean().alias("value"))
     df_annual = df_annual.with_columns(
         pl.col("date").cast(str).str.to_datetime("%Y"), pl.col("value").mean().alias("mean")
     )

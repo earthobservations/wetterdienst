@@ -88,7 +88,7 @@ class ModelYearlyGaussians:
 
     def get_valid_data(self, result_values: pl.DataFrame) -> pl.DataFrame:
         valid_data_lst = []
-        for _, group in result_values.group_by(pl.col("date").dt.year()):
+        for _, group in result_values.group_by([pl.col("date").dt.year()]):
             if self.validate_yearly_data(group):
                 valid_data_lst.append(group)
 
@@ -113,7 +113,7 @@ class ModelYearlyGaussians:
         index_per_year = x.max() / number_of_years
 
         pars, composite_model = None, None
-        for year, group in valid_data.group_by(pl.col("date").dt.year(), maintain_order=True):
+        for (year,), group in valid_data.group_by([pl.col("date").dt.year()], maintain_order=True):
             gmod = GaussianModel(prefix=f"g{year}_")
             if pars is None:
                 pars = gmod.make_params()

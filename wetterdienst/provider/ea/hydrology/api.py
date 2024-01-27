@@ -166,7 +166,7 @@ class EaHydrologyRequest(TimeseriesRequest):
             df.select(pl.col("notation"), pl.col("measures"))
             .explode("measures")
             .with_columns(pl.col("measures").map_elements(lambda measure: measure["parameter"]))
-            .group_by("notation")
+            .group_by(["notation"])
             .agg(pl.col("measures").is_in(["flow", "level"]).any().alias("has_measures"))
         )
         df = df.join(df_measures.filter(pl.col("has_measures")), how="inner", on="notation")

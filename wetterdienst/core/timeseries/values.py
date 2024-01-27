@@ -225,7 +225,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         data = []
         for (dataset, parameter), group in df.group_by(
-            by=[pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)], maintain_order=True
+            by=[Columns.DATASET.value, Columns.PARAMETER.value], maintain_order=True
         ):
             op, factor = conversion_factors.get(dataset).get(parameter, (None, None))
             if op:
@@ -509,7 +509,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)]
         ).unique()
 
-        for parameter, parameter_df in df.group_by(by=pl.col(Columns.PARAMETER.value), maintain_order=True):
+        for (parameter,), parameter_df in df.group_by([Columns.PARAMETER.value], maintain_order=True):
             # Build quality column name
             parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
             parameter_df = parameter_df.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]).rename(
@@ -586,7 +586,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             else:
                 dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
                 parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
-        percentage = df.group_by("parameter").agg(
+        percentage = df.group_by(["parameter"]).agg(
             (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc")
         )
         missing = pl.DataFrame(

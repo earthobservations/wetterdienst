@@ -108,7 +108,7 @@ class NoaaGhcnValues(TimeseriesValues):
         :return: DataFrame with applied factors
         """
         data = []
-        for parameter, group in df.group_by(pl.col(Columns.PARAMETER.value)):
+        for (parameter,), group in df.group_by([Columns.PARAMETER.value]):
             factor = self._mp_factors.get(parameter)
             if factor:
                 group = group.with_columns(pl.col(Columns.VALUE.value).cast(float).mul(factor))
@@ -206,7 +206,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = inventory_df.with_columns(
             pl.col(Columns.START_DATE.value).cast(int), pl.col(Columns.END_DATE.value).cast(int)
         )
-        inventory_df = inventory_df.group_by(Columns.STATION_ID.value).agg(
+        inventory_df = inventory_df.group_by([Columns.STATION_ID.value]).agg(
             pl.col(Columns.START_DATE.value).min(), pl.col(Columns.END_DATE.value).max()
         )
         inventory_df = inventory_df.with_columns(
