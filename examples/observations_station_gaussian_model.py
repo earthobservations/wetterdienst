@@ -73,7 +73,7 @@ class ModelYearlyGaussians:
 
         valid_data = self.get_valid_data(result_values)
 
-        valid_data = valid_data.with_row_count("rc")
+        valid_data = valid_data.with_row_index("rc")
 
         model, pars = self.make_composite_yearly_model(valid_data)
 
