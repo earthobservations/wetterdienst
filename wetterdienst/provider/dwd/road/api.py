@@ -318,7 +318,7 @@ class DwdRoadValues(TimeseriesValues):
             .alias("timestamp"),
             *parameters,
         )
-        df = df.rename({col: col.lower() for col in df.columns})
+        df = df.rename(mapping=lambda col: col.lower())
         df = df.melt(
             id_vars=["shortstationname", "timestamp"],
             variable_name=Columns.PARAMETER.value,

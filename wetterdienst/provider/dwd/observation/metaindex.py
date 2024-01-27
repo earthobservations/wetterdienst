@@ -179,7 +179,7 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
         (102, 200),
     )
     df = read_fwf_from_df(df, column_specs)
-    return df.rename(mapping={k: v for k, v in DWD_COLUMN_NAMES_MAPPING.items() if k in df.columns}).lazy()
+    return df.rename(mapping=lambda col: DWD_COLUMN_NAMES_MAPPING.get(col, col)).lazy()
 
 
 def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pl.LazyFrame:

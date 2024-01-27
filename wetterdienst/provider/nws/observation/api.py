@@ -186,7 +186,7 @@ class NwsObservationValues(TimeseriesValues):
             },
         )
 
-        df = df.rename(mapping={col: col.lower() for col in df.columns})
+        df = df.rename(mapping=lambda col: col.lower())
         df = df.rename(mapping={"station": Columns.STATION_ID.value, "timestamp": Columns.DATE.value})
 
         df = df.melt(

@@ -139,7 +139,7 @@ class EcccObservationValues(TimeseriesValues):
                 log.info(f"Acquiring file from {url}")
                 payload = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
                 df = pl.read_csv(payload, infer_schema_length=0).lazy()
-                df = df.rename(mapping={col: col.lower() for col in df.columns})
+                df = df.rename(mapping=lambda col: col.lower())
                 droppable_columns = [
                     "longitude (x)",
                     "latitude (y)",
@@ -304,7 +304,7 @@ class EcccObservationRequest(TimeseriesRequest):
         # Read into Pandas data frame.
         df = pl.read_csv(csv_payload, has_header=True, skip_rows=header, infer_schema_length=0).lazy()
 
-        df = df.rename(mapping={col: col.lower() for col in df.columns})
+        df = df.rename(mapping=lambda col: col.lower())
 
         df = df.drop("latitude", "longitude")
 

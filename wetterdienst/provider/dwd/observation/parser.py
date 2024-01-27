@@ -155,7 +155,7 @@ def _parse_climate_observations_data(
         return pl.LazyFrame()
 
     # Column names contain spaces, so strip them away.
-    df = df.rename(mapping={col: col.strip().lower() for col in df.columns})
+    df = df.rename(mapping=lambda col: col.strip().lower())
 
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop((col for col in DROPPABLE_PARAMETERS if col in df.columns))
@@ -239,4 +239,4 @@ def _parse_climate_observations_data(
         )
 
     # Assign meaningful column names (baseline).
-    return df.rename(mapping={key: value for key, value in DWD_TO_ENGLISH_COLUMNS_MAPPING.items() if key in df.columns})
+    return df.rename(mapping=lambda col: DWD_TO_ENGLISH_COLUMNS_MAPPING.get(col, col))
