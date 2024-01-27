@@ -170,7 +170,7 @@ class EaHydrologyRequest(TimeseriesRequest):
             .agg(pl.col("measures").is_in(["flow", "level"]).any().alias("has_measures"))
         )
         df = df.join(df_measures.filter(pl.col("has_measures")), how="inner", on="notation")
-        df = df.rename(mapping={col: col.lower() for col in df.columns})
+        df = df.rename(mapping=lambda col: col.lower())
 
         return df.rename(
             mapping={
