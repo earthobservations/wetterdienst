@@ -151,9 +151,7 @@ class EcccObservationValues(TimeseriesValues):
                     "time (lst)",
                     "data quality",
                 ]
-                df = df.drop(
-                    columns=[col for col in droppable_columns if col in df.columns],
-                )
+                df = df.drop((col for col in droppable_columns if col in df.columns))
                 data.append(df)
 
         try:
@@ -308,7 +306,7 @@ class EcccObservationRequest(TimeseriesRequest):
 
         df = df.rename(mapping={col: col.lower() for col in df.columns})
 
-        df = df.drop(columns=["latitude", "longitude"])
+        df = df.drop("latitude", "longitude")
 
         df = df.rename(mapping=self._columns_mapping)
 

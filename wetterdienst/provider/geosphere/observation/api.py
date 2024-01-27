@@ -746,7 +746,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
         url = self._endpoint.format(dataset=dataset)
         response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pl.read_csv(response).lazy()
-        df = df.drop(columns=["Sonnenschein", "Globalstrahlung"])
+        df = df.drop("Sonnenschein", "Globalstrahlung")
         df = df.rename(
             mapping={
                 "id": Columns.STATION_ID.value,
