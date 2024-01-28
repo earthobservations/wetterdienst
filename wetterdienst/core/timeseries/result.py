@@ -15,7 +15,7 @@ from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Frequency, FrequencyPolars, Resolution
+from wetterdienst.metadata.resolution import Frequency, Resolution
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -154,10 +154,6 @@ class StationsResult(ExportMixin):
     @property
     def frequency(self) -> Frequency:
         return self.stations.frequency
-
-    @property
-    def frequency_polars(self) -> FrequencyPolars:
-        return self.stations.frequency_polars
 
     @property
     def period(self) -> Period:

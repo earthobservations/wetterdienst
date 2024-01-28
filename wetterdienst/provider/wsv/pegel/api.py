@@ -166,7 +166,7 @@ class WsvPegelValues(TimeseriesValues):
 
         station_dict = json.load(response)
 
-        return f"{station_dict['equidistance']}min"
+        return f"{station_dict['equidistance']}m"
 
 
 class WsvPegelRequest(TimeseriesRequest):

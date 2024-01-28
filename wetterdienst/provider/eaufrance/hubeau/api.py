@@ -5,9 +5,8 @@ import datetime as dt
 import json
 import math
 from enum import Enum
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator, List, Literal, Optional, Tuple, Union
 
-import pandas as pd
 import polars as pl
 from zoneinfo import ZoneInfo
 
@@ -85,12 +84,18 @@ class HubeauValues(TimeseriesValues):
         end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         start = end - dt.timedelta(days=30)
         delta = end - start
-        n_dates = delta / pd.Timedelta(freq, freq_unit)
+        if freq_unit == "min":
+            data_delta = dt.timedelta(minutes=freq)
+        elif freq_unit == "H":
+            data_delta = dt.timedelta(hours=freq)
+        else:
+            raise KeyError(f"Unknown frequency unit {freq_unit}")
+        n_dates = delta / data_delta
         periods = math.ceil(n_dates / 1000)
-        request_date_range = pd.date_range(start=start, end=end, periods=periods).to_pydatetime()
+        request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)
         return zip(request_date_range[:-1], request_date_range[1:])
 
-    def _get_dynamic_frequency(self, station_id, parameter, dataset) -> Tuple[int, str]:
+    def _get_dynamic_frequency(self, station_id, parameter, dataset) -> Tuple[int, Literal["min", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
         values_dict = json.load(response)["data"]

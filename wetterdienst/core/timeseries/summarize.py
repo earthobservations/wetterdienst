@@ -89,10 +89,10 @@ def apply_station_values_per_parameter(
                     Columns.DATE.value: pl.datetime_range(
                         start=stations_ranked.stations.start_date,
                         end=stations_ranked.stations.end_date,
-                        interval=stations_ranked.frequency_polars.value,
+                        interval=stations_ranked.frequency.value,
                         time_zone="UTC",
                         eager=True,
-                    ).dt.round(stations_ranked.frequency_polars.value)
+                    ).dt.round(stations_ranked.frequency.value)
                 }
             )
             param_dict[parameter_name] = _ParameterData(df)

@@ -47,21 +47,6 @@ DAILY_AT_MOST = [
 
 
 class Frequency(Enum):
-    MINUTE_1 = "1min"
-    MINUTE_2 = "2min"
-    MINUTE_5 = "5min"
-    MINUTE_10 = "10min"
-    MINUTE_15 = "15min"
-    MINUTE_60 = "60min"  # similar to hourly, needed for WSV frequency detection
-    HOURLY = "1h"
-    HOUR_6 = "6h"
-    SUBDAILY = "1h"
-    DAILY = "1d"
-    MONTHLY = "1m"  # month start
-    ANNUAL = "1y"  # year start
-
-
-class FrequencyPolars(Enum):
     MINUTE_1 = "1m"
     MINUTE_2 = "2m"
     MINUTE_5 = "5m"

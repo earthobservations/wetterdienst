@@ -37,7 +37,7 @@ from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Frequency, FrequencyPolars, Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
@@ -84,12 +84,6 @@ class TimeseriesRequest(Core):
         if self.resolution == Resolution.DYNAMIC:
             return self._dynamic_frequency
         return Frequency[self.resolution.name]
-
-    @property
-    def frequency_polars(self) -> FrequencyPolars:
-        """Frequency for the given resolution, used to create a full date range for
-        mering"""
-        return FrequencyPolars[self.resolution.name]
 
     @property
     def dynamic_frequency(self) -> Optional[Frequency]:
