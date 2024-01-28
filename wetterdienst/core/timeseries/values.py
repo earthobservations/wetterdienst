@@ -8,7 +8,6 @@ from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
-import pandas as pd
 import polars as pl
 from backports.datetime_fromisoformat import MonkeyPatch
 from dateutil.relativedelta import relativedelta
@@ -173,10 +172,11 @@ class TimeseriesValues(metaclass=ABCMeta):
         building a complementary pandas DataFrame with the date column on which
         other DataFrames can be joined on
         """
-        date_range = pd.date_range(start_date, end_date, freq=self.sr.frequency.value).to_series()
+        date_range = pl.datetime_range(start_date, end_date, interval=self.sr.frequency.value, eager=True)
         if self.sr.resolution not in DAILY_AT_MOST:
-            date_range = date_range.apply(lambda date: date.replace(day=1))
-        date_range = pl.Series(values=date_range).dt.cast_time_unit("us")
+            date_range = date_range.map_elements(lambda date: date.replace(day=1).isoformat())
+            date_range = date_range.str.to_datetime()
+        date_range = date_range.dt.cast_time_unit("us")
         return date_range.dt.convert_time_zone("UTC")
 
     def _get_timezone_from_station(self, station_id: str) -> str:

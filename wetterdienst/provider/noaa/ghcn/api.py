@@ -5,7 +5,6 @@ import datetime as dt
 from enum import Enum
 from typing import List, Optional, Union
 
-import pandas as pd
 import polars as pl
 from zoneinfo import ZoneInfo
 
@@ -137,8 +136,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
     def __init__(
         self,
         parameter: List[Union[str, NoaaGhcnParameter, Parameter]],
-        start_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
-        end_date: Optional[Union[str, dt.datetime, pd.Timestamp]] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ) -> None:
         """

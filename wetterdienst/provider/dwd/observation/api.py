@@ -533,7 +533,10 @@ class DwdObservationRequest(TimeseriesRequest):
 
         :return:
         """
-        datasets = pd.Series(self.parameter).map(lambda x: x[1]).unique()
+        datasets = []
+        for _, dataset in self.parameter:
+            if dataset not in datasets:
+                datasets.append(dataset)
 
         stations = []
 
