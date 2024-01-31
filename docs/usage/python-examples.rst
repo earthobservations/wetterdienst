@@ -37,7 +37,7 @@ Get stations for daily historical precipitation:
     :okwarning:
 
     from wetterdienst import Resolution, Period
-    from wetterdienst.provider.dwd.observation import DwdObservationDataset
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -53,7 +53,7 @@ Get data for a dataset:
     :okwarning:
 
     from wetterdienst import Resolution, Period
-    from wetterdienst.provider.dwd.observation import DwdObservationDataset
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset
 
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.PRECIPITATION_MORE,
@@ -69,7 +69,7 @@ Get data for a parameter:
     :okwarning:
 
     from wetterdienst import Resolution, Period
-    from wetterdienst.provider.dwd.observation import DwdObservationParameter
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationParameter
 
     observation_data = DwdObservationRequest(
         parameter=DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT,
