@@ -82,10 +82,18 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
 def download_file(
     url: str, settings: Settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE
 ) -> BytesIO:
+    """A version of _download_file that retries on failure."""
+    return _download_file(url=url, settings=settings, ttl=ttl)
+
+
+def _download_file(
+    url: str, settings: Settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE
+) -> BytesIO:
     """
     A function used to download a specified file from the server.
 
     :param url:     The url to the file on the dwd server
+    :param settings:    The settings object.
     :param ttl:     How long the resource should be cached.
 
     :returns:        Bytes of the file.
