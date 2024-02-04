@@ -109,10 +109,10 @@ fsspec = ">=2023.1,<2023.13"
 lxml = ">=4.9.1,<6"
 measurement = ">=3.2,<4"
 numpy = ">=1.22,<1.27"
-pandas = ">=2,<2.3"
 Pint = ">=0.17,<0.24"
 platformdirs = "<5"
 polars = ">=0.20.6"
+portion = ">=2.4.2"
 pyarrow = ">=13,<16"
 pypdf = ">=3.12.1,<4.1"
 python-dateutil = "<3"
@@ -142,6 +142,7 @@ influxdb3-python                = { version = ">=0.3.0,<1", optional = true}  # 
 matplotlib                      = { version = ">=3.3,<3.9", optional = true }
 mysqlclient                     = { version = ">=2,<3", optional = true }  # Export feature.
 openpyxl                        = { version = ">=3,<4", optional = true }
+pandas                          = { version = ">=2,<2.2", optional = true }  # Export feature.
 pdbufr                          = { version = ">=0.10.2,<0.12", optional = true, extras = ["eccodes"] }
 plotly                          = { version = ">=5.11,<6", optional = true }  # Explorer UI feature.
 psycopg2-binary                 = { version = ">=2.8,<3", optional = true }  # Export feature.
@@ -155,7 +156,6 @@ wradlib                         = { version = ">=2.0.1,<3", optional = true }  #
 xarray                          = { version = ">=2023.1,<2024.2", optional = true }
 xradar                          = { version = ">=0.2,<0.5", optional = true } # Radar feature.
 zarr                            = { version = ">=2.13,<3", optional = true }  # Export feature.
-portion = "^2.4.2"
 
 [tool.poetry.group.dev]
 optional = true
@@ -209,15 +209,15 @@ tomlkit = ">=0.7,<1"
 
 [tool.poetry.extras]
 bufr                = ["pybufrkit", "pdbufr"]
-cratedb             = ["crate"]
-duckdb              = ["duckdb"]
+cratedb             = ["pandas", "crate"]
+duckdb              = ["pandas", "duckdb"]
 explorer            = ["dash", "dash-bootstrap-components", "dash-leaflet", "geojson", "plotly"]
-export              = ["openpyxl", "sqlalchemy", "xarray", "zarr"]
+export              = ["pandas", "openpyxl", "sqlalchemy", "xarray", "zarr"]
 influxdb            = ["influxdb", "influxdb-client", "influxdb3-python"]
 interpolation       = ["scipy", "shapely", "utm"]
 ipython             = ["ipython", "matplotlib"]
 mpl                 = ["matplotlib"]
-mysql               = ["mysqlclient"]
+mysql               = ["pandas", "mysqlclient"]
 postgresql          = ["psycopg2-binary"]
 radar               = ["h5py"]
 radarplus           = ["pybufrkit", "wradlib", "xradar"]
