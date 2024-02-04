@@ -7,8 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Optional, Union
 
-import pandas as pd
 import polars as pl
+import portion as P
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 from zoneinfo import ZoneInfo
@@ -448,7 +448,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
         if self.sr.start_date:
-            interval = pd.Interval(pd.Timestamp(self.sr.start_date), pd.Timestamp(self.sr.end_date), closed="both")
+            interval = P.closed(self.sr.start_date, self.sr.end_date)
             if self.sr.resolution == Resolution.MONTHLY:
                 df_files = df_files.with_columns(
                     pl.when(pl.col("file").str.split("_").list.len() == 3)
@@ -490,9 +490,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
-                .map_elements(
-                    lambda x: pd.Interval(pd.Timestamp(x["start_date"]), pd.Timestamp(x["end_date"]), closed="both")
-                )
+                .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]))
                 .alias("interval")
             )
             df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))

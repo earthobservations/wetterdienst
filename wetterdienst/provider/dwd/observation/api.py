@@ -6,9 +6,10 @@ import logging
 from itertools import repeat
 from typing import List, Optional, Tuple, Union
 
-import pandas as pd
 import polars as pl
+import portion as P
 from polars import ColumnNotFoundError
+from portion import Interval
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -334,8 +335,7 @@ class DwdObservationValues(TimeseriesValues):
         # is given but rather the entire available data is queried.
         # In this case the interval should overlap with all files
         interval = self.sr.stations._interval
-        start_date_min, end_date_max = interval and (interval.left, interval.right) or (None, None)
-
+        start_date_min, end_date_max = interval and (interval.lower, interval.upper) or (None, None)
         if start_date_min:
             file_index = file_index.filter(
                 pl.col(Columns.STATION_ID.value).eq(station_id)
@@ -368,7 +368,7 @@ class DwdObservationRequest(TimeseriesRequest):
     _values = DwdObservationValues
 
     @property
-    def _interval(self) -> Optional[pd.Interval]:
+    def _interval(self) -> Optional[Interval]:
         """
         Interval of the request if date given
 
@@ -376,27 +376,25 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         if self.start_date:
             # cut of hours, seconds,...
-            start_date = pd.Timestamp(self.start_date).tz_convert(self.tz)
-            end_date = pd.Timestamp(self.end_date).tz_convert(self.tz)
-            return pd.Interval(start_date, end_date, closed="both")
+            return P.closed(self.start_date.astimezone(self.tz), self.end_date.astimezone(self.tz))
 
         return None
 
     @property
-    def _historical_interval(self) -> pd.Interval:
+    def _historical_interval(self) -> Interval:
         """
         Interval of historical data release schedule. Historical data is typically
         release once in a year somewhere in the first few months with updated quality
 
         :return:
         """
-        historical_end = pd.Timestamp(self._now_local.replace(month=1, day=1))
+        historical_end = self._now_local.replace(month=1, day=1)
         # a year that is way before any data is collected
-        historical_begin = pd.Timestamp(dt.datetime(year=1678, month=1, day=1)).tz_localize(historical_end.tzinfo)
-        return pd.Interval(left=historical_begin, right=historical_end, closed="both")
+        historical_begin = dt.datetime(year=1678, month=1, day=1, tzinfo=historical_end.tzinfo)
+        return P.closed(historical_begin, historical_end)
 
     @property
-    def _recent_interval(self) -> pd.Interval:
+    def _recent_interval(self) -> Interval:
         """
         Interval of recent data release schedule. Recent data is released every day
         somewhere after midnight with data reaching back 500 days.
@@ -405,10 +403,10 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         recent_end = self._now_local.replace(hour=0, minute=0, second=0)
         recent_begin = recent_end - dt.timedelta(days=500)
-        return pd.Interval(left=pd.Timestamp(recent_begin), right=pd.Timestamp(recent_end), closed="both")
+        return P.closed(recent_begin, recent_end)
 
     @property
-    def _now_interval(self) -> pd.Interval:
+    def _now_interval(self) -> Interval:
         """
         Interval of now data release schedule. Now data is released every hour (near
         real time) reaching back to beginning of the previous day.
@@ -416,8 +414,8 @@ class DwdObservationRequest(TimeseriesRequest):
         :return:
         """
         now_end = self._now_local
-        now_begin = now_end.replace(hour=0, minute=0, second=0) - pd.Timedelta(days=1)
-        return pd.Interval(left=pd.Timestamp(now_begin), right=pd.Timestamp(now_end), closed="both")
+        now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
+        return P.closed(now_begin, now_end)
 
     def _get_periods(self) -> List[Period]:
         """
