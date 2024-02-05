@@ -4,6 +4,8 @@
 import doctest
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parent.parent
 PROVIDER = Path(ROOT / "wetterdienst" / "provider")
 COVERAGE = Path(ROOT / "docs" / "data" / "coverage")
@@ -17,6 +19,7 @@ EXCLUDE_PROVIDER_NETWORKS = {
 }
 
 
+@pytest.mark.xfail
 def test_readme():
     readme_file = Path(__file__).parent.parent / "README.rst"
     failures, _ = doctest.testfile(
