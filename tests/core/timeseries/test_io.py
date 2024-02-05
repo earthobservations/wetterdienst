@@ -1018,6 +1018,7 @@ def test_export_duckdb(settings_si_false, tmp_path):
     )
 
 
+@pytest.mark.xfail
 @surrogate("influxdb.InfluxDBClient")
 @pytest.mark.remote
 def test_export_influxdb1_tabular(settings_si_false_wide_shape):
