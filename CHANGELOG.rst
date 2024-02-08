@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+- Set upper version bound for Python to 4.0
+- Add temporary workaround for bugged line in IMGW Hydrology station list
+- Fix parsing of dates in NOAA GHCN api
+- Make pandas optional
+
 0.72.0 (13.01.2024)
 *******************
 
