@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.73.0 (09.02.2024)
+*******************
+
 - Set upper version bound for Python to 4.0
 - Add temporary workaround for bugged line in IMGW Hydrology station list
 - Fix parsing of dates in NOAA GHCN api
