@@ -211,6 +211,7 @@ tomlkit = ">=0.7,<1"
 bufr                = ["pybufrkit", "pdbufr"]
 cratedb             = ["pandas", "crate"]
 duckdb              = ["pandas", "duckdb"]
+eccodes             = ["eccodes"]
 explorer            = ["dash", "dash-bootstrap-components", "dash-leaflet", "geojson", "plotly"]
 export              = ["pandas", "openpyxl", "sqlalchemy", "xarray", "zarr"]
 influxdb            = ["influxdb", "influxdb-client", "influxdb3-python"]
