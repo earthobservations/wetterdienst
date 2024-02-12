@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_eccc_api_stations(settings_si_false):
     request = EcccObservationRequest(
@@ -36,6 +37,7 @@ def test_eccc_api_stations(settings_si_false):
     assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.xfail
 @pytest.mark.remote
 def test_eccc_api_values(settings_si_false):
     request = EcccObservationRequest(

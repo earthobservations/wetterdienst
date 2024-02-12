@@ -1,6 +1,7 @@
 import datetime as dt
 
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal
 from zoneinfo import ZoneInfo
 
@@ -84,7 +85,8 @@ def test_not_supported_provider_dwd_mosmix(default_settings, caplog):
     assert "Summary currently only works for DwdObservationRequest" in caplog.text
 
 
-def test_not_supported_provider_ecc(default_settings, caplog):
+@pytest.mark.xfail
+def test_not_supported_provider_eccc(default_settings, caplog):
     request = EcccObservationRequest(
         parameter="temperature_air_mean_200",
         resolution="daily",

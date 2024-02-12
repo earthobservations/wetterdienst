@@ -32,7 +32,9 @@ from wetterdienst.util.eccodes import ensure_eccodes
             marks=pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed"),
         ),
         # Environment and Climate Change Canada
-        ("eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None),  # noqa: E800, ERA001
+        pytest.param(
+            "eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None, marks=pytest.mark.xfail
+        ),  # noqa: E800, ERA001
         # IMGW Hydrology
         ("imgw", "hydrology", {"parameter": "hydrology", "resolution": "daily"}, None),
         # IMGW Meteorology

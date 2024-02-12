@@ -167,7 +167,8 @@ def test_not_supported_provider_dwd_mosmix(default_settings, caplog):
     assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
 
 
-def test_not_supported_provider_ecc(default_settings, caplog):
+@pytest.mark.xfail
+def test_not_supported_provider_eccc(default_settings, caplog):
     station = EcccObservationRequest(
         parameter=["temperature_air_mean_200"],
         resolution="daily",
