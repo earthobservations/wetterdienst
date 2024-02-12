@@ -197,7 +197,7 @@ optional = true
 
 [tool.poetry.group.docs.dependencies]
 docformatter = ">=1.4,<1.8"
-furo = ">=2023.3,<2023.10"
+furo = ">=2023.3,<2024.2"
 ipython = ">=8.5,<9"
 matplotlib = ">=3.3,<3.9"
 sphinx = ">=7,<8"
