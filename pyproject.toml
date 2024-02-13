@@ -142,7 +142,7 @@ influxdb3-python                = { version = ">=0.3.0,<1", optional = true}  # 
 matplotlib                      = { version = ">=3.3,<3.9", optional = true }
 mysqlclient                     = { version = ">=2,<3", optional = true }  # Export feature.
 openpyxl                        = { version = ">=3,<4", optional = true }
-pandas                          = { version = ">=2,<2.2", optional = true }  # Export feature.
+pandas                          = { version = ">=2,<2.3", optional = true }  # Export feature.
 pdbufr                          = { version = ">=0.10.2,<0.12", optional = true, extras = ["eccodes"] }
 plotly                          = { version = ">=5.11,<6", optional = true }  # Explorer UI feature.
 psycopg2-binary                 = { version = ">=2.8,<3", optional = true }  # Export feature.
