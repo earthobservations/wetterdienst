@@ -14,8 +14,10 @@ RUN \
       git build-essential python3-dev python3-pip python3-venv python3-wheel \
       python3-h5py ca-certificates pkg-config libhdf5-dev
 
+RUN pip install uv
+
 # Install wradlib.
-RUN python -m pip install --prefer-binary wradlib
+RUN uv pip install --system wradlib
 
 # Install Wetterdienst.
 
@@ -27,17 +29,17 @@ COPY dist/wetterdienst-*.whl /tmp/
 RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     true \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
-    && pip install --prefer-binary versioningit \
-    && pip install --use-pep517 --prefer-binary ${WHEEL}[bufr,cratedb,duckdb,explorer,influxdb,interpolation,postgresql,radar,radarplus,restapi]
+    && uv pip install --system versioningit \
+    && uv pip install --system ${WHEEL}[bufr,cratedb,duckdb,explorer,influxdb,interpolation,postgresql,radar,radarplus,restapi]
 
 # TODO: for linux/arm64 we currently cant install zarr as it depends on numcodecs which has no wheels
 #   and building it from source takes too long
 #   see also: https://github.com/zarr-developers/numcodecs/issues/288
 RUN WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) && \
     if [ "$(uname -m)" = "x86_64" ]; then \
-        pip install --use-pep517 --prefer-binary ${WHEEL}[export]; \
+        uv pip install --system ${WHEEL}[export]; \
     else \
-        pip install --use-pep517 --prefer-binary ${WHEEL}[export_without_zarr]; \
+        uv pip install --system ${WHEEL}[export_without_zarr]; \
     fi
 
 

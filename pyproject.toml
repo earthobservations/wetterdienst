@@ -1,243 +1,283 @@
-[tool.poetry]
+[project]
 name = "wetterdienst"
 version = "0.91.0"
-description = "Open weather data for humans"
 authors = [
-    "Benjamin Gutzmann <gutzemann@gmail.com>",
-    "Andreas Motl <andreas.motl@panodata.org>",
+  { name = "Benjamin Gutzmann", email = "gutzemann@gmail.com" },
+  { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
 ]
-license = "MIT"
+description = "Open weather data for humans"
 readme = "README.rst"
-include = [
-    "LICENSE",
-    "CHANGELOG.rst",
-    "CODE_OF_CONDUCT.md"
-]
-homepage = "https://wetterdienst.readthedocs.io/"
-repository = "https://github.com/earthobservations/wetterdienst"
-
+license = { file = "LICENSE" }
 keywords = [
-    "open-source",
-    "open-data",
-    "time-series",
-    "observation",
-    "forecast",
-    "radar",
-    "historical",
-    "recent",
-    "near-real-time",
-    "weather-data",
-    "weather-api",
-    "weather-station",
-    # DWD
-    "deutscher-wetterdienst",
-    "mosmix",
-    "dmo",
-    "radolan",
-    # Eaufrance Hubeau
-    "eaufrance-hubeau",
-    # EA
-    "environmental-agency-uk",
-    # ECCC
-    "environment-and-climate-change-canada",
-    # Geosphere Austria
-    "geosphere-austria",
-    # IMGW
-    "institute-of-meteorology-and-water-management-poland",
-    # NOAA
-    "national-oceanic-and-atmospheric-administration",
-    "ghcn",
-    # NWS
-    "national-weather-service",
-    # WSV
-    "federal-waterways-and-shipping-administration-germany",
+  # DWD
+  "deutscher-wetterdienst",
+  "dmo",
+  # Eaufrance Hubeau
+  "eaufrance-hubeau",
+  # ECCC
+  "environment-and-climate-change-canada",
+  # EA
+  "environmental-agency-uk",
+  # WSV
+  "federal-waterways-and-shipping-administration-germany",
+  "forecast",
+  # Geosphere Austria
+  "geosphere-austria",
+  "ghcn",
+  "historical",
+  # IMGW
+  "institute-of-meteorology-and-water-management-poland",
+  "mosmix",
+  # NOAA
+  "national-oceanic-and-atmospheric-administration",
+  # NWS
+  "national-weather-service",
+  "near-real-time",
+  "observation",
+  "open-data",
+  "open-source",
+  "radar",
+  "radolan",
+  "recent",
+  "time-series",
+  "weather-api",
+  "weather-data",
+  "weather-station",
 ]
 classifiers = [
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License",
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Education",
-    "Intended Audience :: Information Technology",
-    "Intended Audience :: Science/Research",
-    "Intended Audience :: System Administrators",
-    "Topic :: Communications",
-    "Topic :: Database",
-    "Topic :: Internet",
-    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
-    "Topic :: Scientific/Engineering :: Atmospheric Science",
-    "Topic :: Scientific/Engineering :: GIS",
-    "Topic :: Scientific/Engineering :: Human Machine Interfaces",
-    "Topic :: Scientific/Engineering :: Hydrology",
-    "Topic :: Scientific/Engineering :: Information Analysis",
-    "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator",
-    "Topic :: Scientific/Engineering :: Visualization",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: System :: Archiving",
-    "Topic :: Text Processing",
-    "Topic :: Utilities",
-    "Operating System :: POSIX",
-    "Operating System :: Unix",
-    "Operating System :: MacOS"
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Communications",
+  "Topic :: Database",
+  "Topic :: Internet",
+  "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+  "Topic :: Scientific/Engineering :: Atmospheric Science",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+  "Topic :: Scientific/Engineering :: Hydrology",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator",
+  "Topic :: Scientific/Engineering :: Visualization",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: System :: Archiving",
+  "Topic :: Text Processing",
+  "Topic :: Utilities",
+]
+requires-python = ">=3.9,<4.0"
+dependencies = [
+  "aenum>=3,<3.2",
+  "aiohttp>=3.8,<3.10",
+  "backports-datetime-fromisoformat>=2,<3; python_version<'3.11'",
+  "beautifulsoup4>=4.9,<5",
+  "cachetools>=5.2,<6",
+  "click>=8,<9",
+  "click-params>=0.4.1,<5",
+  "cloup>=3.0.1,<4",
+  "deprecation>=2.1,<3",
+  "diskcache>=5.4,<6",
+  "environs>=9.4,<12",
+  "eval-type-backport>=0.1.3; python_version<'3.10'",
+  "fsspec>=2023.1,<2024.3",
+  "lxml>=4.9.1,<6",
+  "measurement>=3.2,<4",
+  "numpy>=1.22,<1.27",
+  "pillow>=10.3",
+  "pint>=0.17,<0.24",
+  "platformdirs<5",
+  "polars>=0.20.10",
+  "portion>=2.4.2",
+  "pyarrow>=13,<18",
+  "pydantic>=2.7.3",
+  "pypdf>=3.12.1,<4.1",
+  "python-dateutil<3",
+  "rapidfuzz>=3.1,<4",
+  "requests>=2.20,<3",
+  "scikit-learn>=1.0.2,<1.6",
+  "stamina>=23,<25",
+  "tabulate>=0.8,<0.10",
+  "tqdm>=4,<5",
+  "tzfpy>=0.15.2,<1",
 ]
 
-[tool.poetry.urls]
-"Issues" = "https://github.com/earthobservations/wetterdienst/issues"
-"Releases" = "https://github.com/earthobservations/wetterdienst/releases"
-"Restapi" = "https://wetterdienst.eobs.org/"
-"Explorer" = "https://wetterdienst.streamlit.app/"
-"Stripes" = "https://stripes.streamlit.app/"
+[project.optional-dependencies]
+bufr = [
+  "pdbufr>=0.10.2,<0.12",
+  "pybufrkit>=0.2,<0.3",
+]
+cratedb = [
+  "pandas>=2,<2.3",
+  "sqlalchemy-cratedb<1",
+]
+duckdb = [
+  "duckdb>=0.9",
+  "pandas>=2,<2.3",
+]
+eccodes = [
+  "eccodes>=1.5.2,<1.8",
+]
+excel = [
+  "xlsxwriter>=3.0.9,<3.3",
+]
+explorer = [
+  "duckdb>=0.9",
+  "plotly>=5.11,<6",
+  "statsmodels>=0.14.1",
+  "streamlit>=1.27,<2",
+]
+export = [
+  "pandas>=2,<2.3",
+  "sqlalchemy>=2,<2.1",
+  "xarray>=2023.1,<2024.3",
+  "xlsxwriter>=3.0.9,<3.3",
+  "zarr>=2.13,<3",
+]
+export_without_zarr = [
+  "pandas>=2,<2.3",
+  "sqlalchemy>=2,<2.1",
+  "xarray>=2023.1,<2024.3",
+  "xlsxwriter>=3.0.9,<3.3",
+]
+import = [
+  "fastexcel>=0.10.4",
+]
+influxdb = [
+  "influxdb>=5.3,<6",
+  "influxdb-client>=1.18,<2",
+  "influxdb3-python>=0.3,<1",
+]
+interpolation = [
+  "scipy>=1.9,<1.13",
+  "shapely>=2,<3",
+  "utm>=0.7,<1",
+]
+ipython = [
+  "ipython>=8.5,<9",
+  "matplotlib>=3.3,<3.9",
+]
+mpl = [
+  "matplotlib>=3.3,<3.9",
+]
+mysql = [
+  "mysqlclient>=2,<3",
+  "pandas>=2,<2.3",
+]
+postgresql = [
+  "psycopg2-binary>=2,<3",
+]
+radar = [
+  "h5py>=3.1,<4",
+]
+radarplus = [
+  "pybufrkit>=0.2,<0.3",
+  "wradlib>=2.0.1,<3",
+  "xradar>=0.2,<0.5",
+]
+restapi = [
+  "fastapi>=0.95.1,<0.111",
+  "httpx>=0.24,<0.28",
+  "uvicorn>=0.14,<1",
+]
+sql = [
+  "duckdb>=0.9",
+]
+# docs
+docs = [
+  "docformatter>=1.4,<1.8",
+  "furo>=2023.3,<2024.2",
+  "ipython>=8.5,<9",
+  "matplotlib>=3.3,<3.9",
+  "pickleshare==0.7.5",
+  "pyyaml>=6,<7",
+  "sphinx>=7,<8",
+  "sphinx-autodoc-typehints>=1.11,<3",
+  "sphinx-autobuild>=2020.9,<2024.3",
+  "sphinx_design>=0.5,<1",
+  "sphinxcontrib-svg2pdfconverter>=1.1,<2",
+  "tomlkit>=0.7,<1",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+[project.urls]
+Explorer = "https://wetterdienst.streamlit.app/"
+Homepage = "https://wetterdienst.readthedocs.io/"
+Issues = "https://github.com/earthobservations/wetterdienst/issues"
+Releases = "https://github.com/earthobservations/wetterdienst/releases"
+Repository = "https://github.com/earthobservations/wetterdienst"
+Restapi = "https://wetterdienst.eobs.org/"
+Stripes = "https://stripes.streamlit.app/"
 
-aenum = ">=3,<3.2"
-aiohttp = ">=3.8,<3.10"
-backports-datetime-fromisoformat = { version = ">=2,<3", markers = "python_version < '3.11'" }
-beautifulsoup4 = ">=4.9,<5"
-cachetools = ">=5.2,<6"
-click = ">=8,<9"
-click-params = ">=0.4.1,<5"
-cloup = ">=3.0.1,<4"
-deprecation = ">=2.1,<3"
-diskcache = ">=5.4.0,<6"
-environs = ">=9.4.0,<12"
-eval-type-backport = { version = "^0.1.3", markers = "python_version < '3.10'" }
-fsspec = ">=2023.1,<2024.3"
-lxml = ">=4.9.1,<6"
-measurement = ">=3.2,<4"
-numpy = ">=1.22,<1.27"
-pillow = ">=10.3.0"
-Pint = ">=0.17,<0.24"
-platformdirs = "<5"
-polars = ">=0.20.10"
-portion = ">=2.4.2"
-pyarrow = ">=13,<18"
-pydantic = "^2.7.3"
-pypdf = ">=3.12.1,<4.1"
-python-dateutil = "<3"
-rapidfuzz = ">=3.1,<4"
-requests = ">=2.20,<3"
-scikit-learn = ">=1.0.2,<1.6"
-stamina = ">=23,<25"
-tabulate = ">=0.8,<0.10"
-tqdm = ">=4,<5"
-tzfpy = ">=0.15.2,<1"
+[project.scripts]
+wddump = "wetterdienst.provider.dwd.radar.cli:wddump"
+wetterdienst = "wetterdienst.ui.cli:cli"
 
-duckdb                          = { version = ">=0.9", optional = true }  # Export feature, Explorer UI feature.
-eccodes                         = { version = ">=1.5.2,<1.8", optional = true }
-fastapi                         = { version = ">=0.95.1,<0.111", optional = true }  # HTTP REST API feature.
-httpx                           = { version = ">=0.24,<0.28", optional = true}
-h5py                            = { version = ">=3.1,<4", optional = true }  # Radar feature.
-influxdb                        = { version = ">=5.3,<6", optional = true }  # Export feature.
-influxdb-client                 = { version = ">=1.18,<2", optional = true }  # Export feature.
-influxdb3-python                = { version = ">=0.3.0,<1", optional = true}  # Export feature
-matplotlib                      = { version = ">=3.3,<3.9", optional = true }
-mysqlclient                     = { version = ">=2,<3", optional = true }  # Export feature.
-pandas                          = { version = ">=2,<2.3", optional = true }  # Export feature.
-pdbufr                          = { version = ">=0.10.2,<0.12", optional = true, extras = ["eccodes"] }
-plotly                          = { version = ">=5.11,<6", optional = true }  # Explorer UI feature.
-psycopg2-binary                 = { version = ">=2.8,<3", optional = true }  # Export feature.
-scipy                           = { version = ">=1.9,<1.13", optional = true }  # Interpolation feature.
-shapely                         = { version = ">=2,<3", optional = true }  # Interpolation feature.
-sqlalchemy                      = { version = ">=2,<2.1", optional = true }  # Export feature.
-sqlalchemy-cratedb              = { version = ">=0.37.0,<1", optional = true }  # Export feature.
-statsmodels                     = { version = ">=0.14.1", optional = true }  # Explorer UI feature.
-streamlit                       = { version = ">=1.27,<2", optional = true, markers = "python_version != '3.9.7'" }  # Explorer UI feature.
-utm                             = { version = ">=0.7,<1", optional = true }  # Interpolation feature.
-uvicorn                         = { version = ">=0.14,<1", optional = true }  # HTTP REST API feature.
-wradlib                         = { version = ">=2.0.1,<3", optional = true }  # Radar feature.
-xarray                          = { version = ">=2023.1,<2024.3", optional = true }
-fastexcel                        = { version = ">=0.10.4", optional = true }  # Import
-xlsxwriter                      = { version = ">=3.0.9,<3.3", optional = true }  # Export feature.
-xradar                          = { version = ">=0.2,<0.5", optional = true } # Radar feature.
-zarr                            = { version = ">=2.13,<3", optional = true }  # Export feature.
+[tool.rye]
+dev-dependencies = [
+  # general
+  "coverage[toml]>=7.3,<8",
+  "dirty-equals>=0.5,<1",
+  "freezegun>=1.2,<2",
+  "h5py>=3.1,<3.11",
+  "jsonschema[format-nongpl]>=4.17.3,<5",
+  "lmfit>=1.1.0,<1.3",
+  "pybufrkit>=0.2,<0.3",
+  "pytest>=7.2,<9",
+  "pytest-cov>=4,<5",
+  "pytest-dictsdiff>=0.5,<0.6",
+  "pytest-notebook>=0.10",
+  "pytest-rerunfailures<14",
+  "pytest-xdist>=3,<4",
+  "surrogate==0.1",
+  # formatting and linting
+  "ruff>=0.3.3"
+]
 
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-# TODO: Currently there is a version conflict with jsonschema here
-#cff-from-621 = { version = "==0.0.1", python = ">= 3.10"}
-poethepoet = ">=0.18.1,<0.26"
-pyproject-fmt = "^1.5.3"
-ruff = "==0.3.3"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-coverage = { version = ">=7.3,<8", extras = ["toml"] }
-dirty-equals = ">=0.5.0,<1"
-freezegun = ">=1.2,<2"
-h5py = { version = ">=3.1,<3.11", optional = true}
-ipykernel = ">=6.19.4,<7"
-jsonschema = { version = ">=4.17.3,<5", extras = ["format-nongpl"] }
-jupyter = ">=1,<2"
-lmfit = ">=1.1.0,<1.3"  # required for example observations_station_gaussian_model.py
-pybufrkit = ">=0.2,<0.3"
-pytest = ">=7.2,<9"
-pytest-cov = ">=4,<5"
-pytest-dictsdiff = ">=0.5,<0.6"
-pytest-notebook = ">=0.10"
-pytest-rerunfailures = "<14"
-pytest-xdist = ">=3,<4"
-surrogate = "==0.1"
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-docformatter = ">=1.4,<1.8"
-furo = ">=2023.3,<2024.2"
-ipython = ">=8.5,<9"
-matplotlib = ">=3.3,<3.9"
-pickleshare = "^0.7.5"
-sphinx = ">=7,<8"
-sphinx-autodoc-typehints = ">=1.11,<3"
-sphinx-autobuild = ">=2020.9,<2024.3"
-sphinx_design = ">=0.5,<1"
-sphinxcontrib-svg2pdfconverter = ">=1.1,<2"
-tomlkit = ">=0.7,<1"
-
-[tool.poetry.extras]
-bufr                = ["pybufrkit", "pdbufr"]
-cratedb             = ["pandas", "sqlalchemy-cratedb"]
-duckdb              = ["pandas", "duckdb"]
-eccodes             = ["eccodes"]
-excel               = ["xlsxwriter"]
-explorer            = ["duckdb", "statsmodels", "streamlit", "plotly"]
-export              = ["pandas", "sqlalchemy", "xarray", "xlsxwriter", "zarr"]
-# this is meant especially for docker linux/arm64, where numcodecs cannot be installed
-export_without_zarr = ["pandas", "sqlalchemy", "xarray", "xlsxwriter"]
-import              = ["fastexcel"]
-influxdb            = ["influxdb", "influxdb-client", "influxdb3-python"]
-interpolation       = ["scipy", "shapely", "utm"]
-ipython             = ["ipython", "matplotlib"]
-mpl                 = ["matplotlib"]
-mysql               = ["pandas", "mysqlclient"]
-postgresql          = ["psycopg2-binary"]
-radar               = ["h5py"]
-radarplus           = ["pybufrkit", "wradlib", "xradar"]
-restapi             = ["fastapi", "httpx", "uvicorn"]
-sql                 = ["duckdb"]
-
-[tool.poetry.scripts]
-wetterdienst = 'wetterdienst.ui.cli:cli'
-wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
+[tool.rye.scripts]
+install-dev = { cmd = "uv pip install .[bufr,cratedb,duckdb,explorer,export,import,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
+# Formatting and linting
+"format:fmt" = { cmd = "rye run ruff format" }
+"format:lint" = { cmd = "rye run ruff check --fix" }
+format = { chain = [ "format:fmt", "format:lint" ] }
+"lint:fmt" = { cmd = "rye run ruff format --check" }
+"lint:lint" = { cmd = "rye run ruff check" }
+lint = { chain = [ "lint:fmt", "lint:lint" ] }
+# docs
+docs = { cmd = "cd docs && make html" }
+"test:parallel" = { cmd = "rye run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'" }
+"test:cflakes" = { cmd = "rye run pytest -vvv -m cflake" }
+test = { chain = [ "test:parallel", "test:cflakes" ] }
+# For Windows CI
+test-slow = { cmd = "rye run pytest" }
+coverage = { cmd = "rye run pytest --cov=wetterdienst" }
+coverage-parallel = { cmd = "rye run pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'" }
+sync = { cmd = "rye sync" }
+lock = { cmd = "rye lock" }
 
 [tool.ruff]
 target-version = "py39"
 line-length = 120
-include = ["wetterdienst/**/*.py", "tests/**/*.py", "benchmarks/**/*.py", "examples/**/*.py"]
-extend-include = ["*.ipynb"]
-
+include = [
+  "benchmarks/**/*.py",
+  "examples/**/*.py",
+  "tests/**/*.py",
+  "wetterdienst/**/*.py",
+]
+extend-include = [
+  "*.ipynb",
+]
 [tool.ruff.lint]
 select = [
     # Bandit
@@ -297,14 +337,14 @@ log_date_format = "%Y-%m-%dT%H:%M:%S"
 log_format = "%(asctime)-15s.%(msecs)03d [%(name)-35s] %(levelname)-8s: %(message)s"
 log_level = "DEBUG"
 markers = [
-    "remote: Tests accessing the internet.",
-    "slow: Slow tests.",
-    "sql: All tests related to SQL.",
-    "explorer: All tests related to the explorer UI.",
-    "cflake: Tests which are flaky under concurrency",
+  "remote: Tests accessing the internet.",
+  "slow: Slow tests.",
+  "sql: All tests related to SQL.",
+  "explorer: All tests related to the explorer UI.",
+  "cflake: Tests which are flaky under concurrency",
 ]
 minversion = "2.0"
-testpaths = ["tests"]
+testpaths = [ "tests" ]
 # Detect tests marked with xfail, which are actually succeeding.
 # xfail_strict = true
 
@@ -314,45 +354,11 @@ reruns_delay = 5
 
 [tool.coverage.run]
 branch = true
-source = ["wetterdienst"]
-
+source = [ "wetterdienst" ]
 [tool.coverage.report]
 show_missing = true
 fail_under = 0
 omit = [
-    "tests/*",
-    "wetterdienst/provider/dwd/radar/cli.py",
-]
-
-[tool.poe.tasks]
-install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E export -E duckdb -E influxdb -E cratedb -E mysql -E postgresql -E radar -E bufr -E restapi -E explorer -E bufr -E interpolation"
-# Linting and formatting.
-format = [
-  # Fix all things with ruff, but skip a few:
-  # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
-  { cmd = "ruff format" },
-  { cmd = "ruff check --fix" },
-  { cmd = "pyproject-fmt ." }
-]
-
-lint = [
-  { cmd = "ruff format --check" },
-  { cmd = "ruff check" },
-  { cmd = "pyproject-fmt --check ." }
-]
-docs = { shell = "cd docs && poetry run make html" }
-test-cflakes = "pytest -m cflake"
-test-parallel = "pytest --numprocesses=auto -m 'not (explorer or cflake)'"
-test = ["test-parallel", "test-cflakes"]
-# For Windows CI
-test-slow = "pytest"
-coverage = "pytest --cov=wetterdienst"
-coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
-update = "poetry update"
-citation = "python -m tools.citation"
-
-[build-system]
-build-backend = "poetry.core.masonry.api"
-requires = [
-  "poetry-core",
+  "tests/*",
+  "wetterdienst/provider/dwd/radar/cli.py",
 ]

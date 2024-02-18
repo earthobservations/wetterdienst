@@ -88,7 +88,7 @@ rdwd_ for the R language, which originally drew our interest in this project.
 Our long-term goal is to provide access to multiple weather services as well as other
 related agencies such as river measurements. With ``wetterdienst`` we try to use modern
 Python technologies all over the place. The library is based on polars_ (we <3 pandas_, it is still part of some
-IO processes) across the board, uses Poetry_ for package administration and GitHub Actions for all things CI.
+IO processes) across the board, uses rye_ for package administration and GitHub Actions for all things CI.
 Our users are an important part of the development as we are not currently using the
 data we are providing and only implement what we think would be the best. Therefore
 contributions and feedback whether it be data related or library related are very
@@ -98,7 +98,7 @@ source.
 .. _rdwd: https://github.com/brry/rdwd
 .. _polars: https://www.pola.rs/
 .. _pandas: https://pandas.pydata.org/
-.. _Poetry: https://python-poetry.org/
+.. _rye: https://rye.astral.sh/
 
 Data
 ****

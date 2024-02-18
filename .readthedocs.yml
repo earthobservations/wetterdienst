@@ -16,16 +16,10 @@ build:
   # https://docs.readthedocs.io/en/stable/build-customization.html#extend-the-build-process
   jobs:
     post_install:
-
       # setuptools has been downgraded to 58.2.0, so upgrade again.
       - pip install --upgrade setuptools
-
-      # Install Poetry.
-      # https://python-poetry.org/docs/#installing-manually
-      - pip install poetry==1.8.3
-
+      - pip install uv
       # Install project's dependencies.
-      # Tell Poetry to use the RTD virtual environment.
       # see https://github.com/python-poetry/poetry/issues/9025
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH .github/workflows/install.sh docs
 

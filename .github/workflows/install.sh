@@ -13,20 +13,9 @@ set -e
 set -x
 
 if [ "${flavor}" = "testing" ]; then
-  poetry install --verbose --no-interaction \
-    --with=test,dev \
-    --extras=bufr \
-    --extras=explorer \
-    --extras=export \
-    --extras=import \
-    --extras=interpolation \
-    --extras=ipython \
-    --extras=radar \
-    --extras=radarplus \
-    --extras=restapi \
-    --extras=sql
+  uv pip install .[bufr,explorer,export,import,interpolation,ipython,radar,radarplus,restapi,sql]
 
 elif [ "${flavor}" = "docs" ]; then
-  poetry install --verbose --no-interaction --with=docs --extras=interpolation
+  uv pip install .[docs,interpolation]
 
 fi

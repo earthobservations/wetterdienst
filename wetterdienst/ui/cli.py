@@ -640,9 +640,9 @@ def explorer(listen: str, debug: bool):
 
     process = None
     try:
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # noqa: S603
             ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port]  # noqa: S603, S607
-        )
+        )  # noqa: S603
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Explorer web service")
