@@ -9,24 +9,25 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install Rye
+        uses: eifinger/setup-rye@v4
         with:
-          python-version: "3.12"
-          architecture: x64
-          cache: poetry
-          cache-dependency-path: |
-            pyproject.toml
-            poetry.lock
+          enable-cache: true
+
+      - name: Install uv
+        run: rye install uv
+
+      - name: Pin python version
+        run: rye pin 3.12
+
+      - name: Install project
+        run: rye sync
 
       - name: Install project
         run: .github/workflows/install.sh testing
 
       - name: Build
-        run: poetry build
+        run: rye build
 
       - name: Publish
-        run: poetry publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
+        run: rye publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }} --yes

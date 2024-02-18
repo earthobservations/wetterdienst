@@ -28,16 +28,13 @@ Acquire sources and prerequisites
     cd wetterdienst
 
     # Prerequisites
-    brew install --cask firefox
-    brew install git python geckodriver poetry
+    brew install git python rye
 
     # Other OS
     # You can also get installers and/or release archives for Linux, macOS
     # and Windows at
     #
-    # - https://python-poetry.org/docs/#installation
-    # - https://www.mozilla.org/en-US/firefox/new/
-    # - https://github.com/mozilla/geckodriver/releases
+    # - https://rye.astral.sh/
 
 
 ************
@@ -46,7 +43,8 @@ Using Poetry
 
 .. code-block:: bash
 
-    poetry install --with=test,dev,docs --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
+    rye pin 3.12
+    rye install --with=test,dev,docs --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
     poetry shell
 
 

@@ -124,7 +124,7 @@ class OperaRadarSitesGenerator:
                 elif obj in ["false", "no", "off", "n", "f", "0"]:
                     return False
                 else:
-                    raise ValueError("String is not true/false: %r" % obj)
+                    raise ValueError(f"String is not true/false: {obj}")
             return bool(obj)
 
         def convert_types(element: dict) -> dict[str, int | float | bool | None]:

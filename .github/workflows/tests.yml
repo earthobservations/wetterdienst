@@ -44,38 +44,19 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      # Workaround until pipx is available on M1 machines
-      # - https://github.com/actions/runner-images/issues/9256
-      # We install poetry using brew instead of pipx
-      - name: Install Poetry (Mac M1 only)
-        if: ${{ startsWith(matrix.os, 'macos-14') }}
-        run: brew install poetry
-
-      - name: Install Poetry
-        if: ${{ !startsWith(matrix.os, 'macos-14') }}
-        run: pipx install poetry
-
-      - name: Setup Python
-        if: ${{ !startsWith(matrix.os, 'macos-14') }}
-        uses: actions/setup-python@v5
+      - name: Install Rye
+        uses: eifinger/setup-rye@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          architecture: x64
-          cache: poetry
-          cache-dependency-path: |
-            pyproject.toml
-            poetry.lock
+          enable-cache: true
 
-      - name: Setup Python (Mac M1 only)
-        if: ${{ startsWith(matrix.os, 'macos-14') }}
-        run: |
-          brew install pyenv
-          pyenv install ${{ matrix.python-version }}
-          pyenv global ${{ matrix.python-version }}
+      - name: Install uv
+        run: rye install uv
 
-          export PYENV_ROOT="$HOME/.pyenv"
-          [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init -)"
+      - name: Pin python version
+        run: rye pin ${{ matrix.python-version }}
+
+      - name: Install project
+        run: rye sync
 
       - name: Install eccodes (Mac only)
         if: ${{ startsWith(matrix.os, 'macos-') }}
@@ -86,10 +67,6 @@ jobs:
       - name: Install project
         run: .github/workflows/install.sh testing
 
-      - name: Install Jupyter kernel
-        run: poetry run python -m ipykernel install --name "python3" --user
-
       - name: Run tests
         run: |
-          poetry run pytest -vvv --numprocesses=auto -m "not (explorer or cflake)" tests
-          poetry run pytest -vvv -m cflake tests
+          rye run test

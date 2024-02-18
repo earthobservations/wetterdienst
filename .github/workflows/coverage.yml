@@ -25,26 +25,27 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install Rye
+        uses: eifinger/setup-rye@v4
         with:
-          python-version: "3.12"
-          architecture: x64
-          cache: poetry
-          cache-dependency-path: |
-            pyproject.toml
-            poetry.lock
+          enable-cache: true
+
+      - name: Install uv
+        run: rye install uv
+
+      - name: Pin python version
+        run: rye pin 3.12
+
+      - name: Install project
+        run: rye sync
 
       - name: Install project
         run: .github/workflows/install.sh testing
 
       - name: Run tests, with coverage
         run: |
-          poetry run pytest --cov=wetterdienst tests/
-          poetry run coverage xml
+          rye run pytest --cov=wetterdienst tests/
+          rye run coverage xml
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
