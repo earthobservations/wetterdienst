@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Poetry
-        run: pipx install poetry
+        run: pipx install hatch
 
       - name: Setup Python
         id: python-setup
@@ -33,10 +33,10 @@ jobs:
           cache: poetry
           cache-dependency-path: |
             pyproject.toml
-            poetry.lock
+            requirements.txt
 
       - name: Install project tooling
-        run: poetry install --no-interaction --no-root --with=dev
+        run: hatch env create dev
 
       - name: Run code-style checks
         run: poetry run poe lint
