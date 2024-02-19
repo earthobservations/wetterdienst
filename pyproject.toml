@@ -165,7 +165,7 @@ optional = true
 #cff-from-621 = { version = "==0.0.1", python = ">= 3.10"}
 poethepoet = ">=0.18.1,<0.25"
 pyproject-fmt = "^1.5.3"
-ruff = "==0.2.0"
+ruff = "==0.2.2"
 
 [tool.poetry.group.test]
 optional = true
