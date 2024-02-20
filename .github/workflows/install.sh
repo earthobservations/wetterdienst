@@ -18,6 +18,7 @@ if [ "${flavor}" = "testing" ]; then
     --extras=bufr \
     --extras=explorer \
     --extras=export \
+    --extras=import \
     --extras=interpolation \
     --extras=ipython \
     --extras=radar \
