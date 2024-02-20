@@ -232,7 +232,9 @@ wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
 
 [tool.ruff]
 line-length = 120
+extend-include = ["*.ipynb"]
 
+[tool.ruff.lint]
 select = [
     # Bandit
     "S",
@@ -258,17 +260,15 @@ select = [
     # return
     "RET",
 ]
-
-extend-include = ["*.ipynb"]
-
 extend-ignore = [
     # zip() without an explicit strict= parameter.
     "B905",
     # Unnecessary `elif` after `return` statement
     "RET505",
 ]
+unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
 "benchmarks/*" = ["T20"]
 "docs/conf.py" = ["ERA001"]
@@ -277,9 +277,6 @@ extend-ignore = [
 "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
 "wetterdienst/__init__.py" = ["E402"]
 "wetterdienst/ui/restapi.py" = ["B008"]
-
-[tool.ruff.lint]
-unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"
