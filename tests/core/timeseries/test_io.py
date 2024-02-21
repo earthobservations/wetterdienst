@@ -629,14 +629,14 @@ def test_export_unknown(default_settings):
     ).filter_by_station_id(
         station_id=[1048],
     )
-    df = request.values.all().df
+    values = request.values.all()
     with pytest.raises(KeyError) as exec_info:
-        ExportMixin(df=df).to_target("file:///test.foobar")
+        values.to_target("file:///test.foobar")
     assert exec_info.match("Unknown export file type")
 
 
 @pytest.mark.remote
-def test_export_spreadsheet(tmp_path, settings_si_false_wide_shape):
+def test_export_excel(tmp_path, settings_si_false_wide_shape):
     """Test export of DataFrame to spreadsheet"""
     pytest.importorskip("xlsx2csv")
 
@@ -650,9 +650,9 @@ def test_export_spreadsheet(tmp_path, settings_si_false_wide_shape):
     ).filter_by_station_id(
         station_id=[1048],
     )
-    df = request.values.all().df
+    values = request.values.all()
     filename = tmp_path.joinpath("observations.xlsx")
-    ExportMixin(df=df).to_target(f"file://{filename}")
+    values.to_target(f"file://{filename}")
 
     # 2. Validate some details of .xlsx file.
     # Validate header row.
@@ -776,10 +776,10 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     ).filter_by_station_id(
         station_id=[1048],
     )
-    df = request.values.all().df
+    values = request.values.all()
     # Save to Parquet file.
     filename = tmp_path.joinpath("observation.parquet")
-    ExportMixin(df=df).to_target(f"file://{filename}")
+    values.to_target(f"file://{filename}")
     # Read back Parquet file.
     table = pq.read_table(filename)
     # Validate dimensions.
@@ -809,10 +809,10 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     ).filter_by_station_id(
         station_id=[1048],
     )
-    df = request.values.all().df
+    values = request.values.all()
     # Save to Zarr group.
     filename = tmp_path.joinpath("observation.zarr")
-    ExportMixin(df=df).to_target(f"file://{filename}")
+    values.to_target(f"file://{filename}")
 
     # Read back Zarr group.
     root = zarr.open(filename, mode="r")
@@ -846,10 +846,10 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     ).filter_by_station_id(
         station_id=[1048],
     )
-    df = request.values.all().df
+    values = request.values.all()
     # Save to Feather file.
     filename = tmp_path.joinpath("observation.feather")
-    ExportMixin(df=df).to_target(f"file://{filename}")
+    values.to_target(f"file://{filename}")
     # Read back Feather file.
     table = feather.read_table(filename)
     # Validate dimensions.
@@ -878,8 +878,8 @@ def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
         station_id=[1048],
     )
     filename = tmp_path.joinpath("observation.sqlite")
-    df = request.values.all().df
-    ExportMixin(df=df).to_target(f"sqlite:///{filename}?table=testdrive")
+    values = request.values.all()
+    values.to_target(f"sqlite:///{filename}?table=testdrive")
     connection = sqlite3.connect(filename)
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM testdrive")
@@ -971,11 +971,11 @@ def test_export_cratedb(
     ).filter_by_station_id(
         station_id=[1048],
     )
+    values = request.values.all()
     with mock.patch(
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
-        df = request.values.all().df
-        ExportMixin(df=df).to_target("crate://localhost/?database=test&table=testdrive")
+        values.to_target("crate://localhost/?database=test&table=testdrive")
         mock_to_sql.assert_called_once_with(
             name="testdrive",
             con="crate://localhost",
@@ -999,8 +999,8 @@ def test_export_duckdb(settings_si_false, tmp_path):
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     filename = tmp_path.joinpath("test.duckdb")
-    df = request.values.all().df
-    ExportMixin(df=df).to_target(f"duckdb:///{filename}?table=testdrive")
+    values = request.values.all()
+    values.to_target(f"duckdb:///{filename}?table=testdrive")
     connection = duckdb.connect(str(filename), read_only=True)
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM testdrive")
@@ -1028,14 +1028,14 @@ def test_export_influxdb1_tabular(settings_si_false_wide_shape):
         period=DwdObservationPeriod.RECENT,
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
+    values = request.values.all()
     mock_client = mock.MagicMock()
     with mock.patch(
         "influxdb.InfluxDBClient",
         side_effect=[mock_client],
         create=True,
     ) as mock_connect:
-        df = request.values.all().df
-        ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
+        values.to_target("influxdb://localhost/?database=dwd&table=weather")
         mock_connect.assert_called_once_with(
             host="localhost",
             port=8086,
@@ -1096,14 +1096,14 @@ def test_export_influxdb1_tidy(settings_si_false):
         period=DwdObservationPeriod.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
+    values = request.values.all()
     mock_client = mock.MagicMock()
     with mock.patch(
         "influxdb.InfluxDBClient",
         side_effect=[mock_client],
         create=True,
     ) as mock_connect:
-        df = request.values.all().df
-        ExportMixin(df=df).to_target("influxdb://localhost/?database=dwd&table=weather")
+        values.to_target("influxdb://localhost/?database=dwd&table=weather")
         mock_connect.assert_called_once_with(
             host="localhost",
             port=8086,
@@ -1141,6 +1141,7 @@ def test_export_influxdb2_tabular(settings_si_false):
         period=DwdObservationPeriod.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
+    values = request.values.all()
     mock_client = mock.MagicMock()
     with mock.patch(
         "influxdb_client.InfluxDBClient",
@@ -1151,8 +1152,7 @@ def test_export_influxdb2_tabular(settings_si_false):
             "influxdb_client.Point",
             create=True,
         ):
-            df = request.values.all().df
-            ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
+            values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
             mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
 
 
@@ -1168,6 +1168,7 @@ def test_export_influxdb2_tidy(settings_si_false):
         period=DwdObservationPeriod.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
+    values = request.values.all()
     mock_client = mock.MagicMock()
     with mock.patch(
         "influxdb_client.InfluxDBClient",
@@ -1178,8 +1179,7 @@ def test_export_influxdb2_tidy(settings_si_false):
             "influxdb_client.Point",
             create=True,
         ):
-            df = request.values.all().df
-            ExportMixin(df=df).to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
+            values.to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather")
             mock_connect.assert_called_once_with(url="http://localhost:8086", org="orga", token="token")  # noqa: S106
 
 
@@ -1197,6 +1197,7 @@ def test_export_influxdb3_tabular(settings_si_false):
         period=DwdObservationPeriod.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
+    values = request.values.all()
     with mock.patch(
         "influxdb_client_3.InfluxDBClient3",
     ) as mock_client, mock.patch(
@@ -1208,8 +1209,7 @@ def test_export_influxdb3_tabular(settings_si_false):
     ) as mock_write_client_options, mock.patch(
         "influxdb_client_3.write_client.client.write_api.WriteType",
     ) as mock_write_type:
-        df = request.values.all().df
-        ExportMixin(df=df).to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
+        values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
         mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
         mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
         mock_client.assert_called_once_with(
@@ -1235,6 +1235,7 @@ def test_export_influxdb3_tidy(settings_si_false):
         period=DwdObservationPeriod.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
+    values = request.values.all()
     with mock.patch(
         "influxdb_client_3.InfluxDBClient3",
     ) as mock_client, mock.patch(
@@ -1246,8 +1247,7 @@ def test_export_influxdb3_tidy(settings_si_false):
     ) as mock_write_client_options, mock.patch(
         "influxdb_client_3.write_client.client.write_api.WriteType",
     ) as mock_write_type:
-        df = request.values.all().df
-        ExportMixin(df=df).to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
+        values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
         mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
         mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
         mock_client.assert_called_once_with(
