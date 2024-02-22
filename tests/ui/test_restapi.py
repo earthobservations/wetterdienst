@@ -27,6 +27,12 @@ def test_robots(client):
     assert response.status_code == 200
 
 
+def test_health(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "OK"}
+
+
 def test_no_provider(client):
     response = client.get(
         "/api/stations",
