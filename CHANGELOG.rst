@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Restapi: Add health check endpoint
+
 0.73.0 (09.02.2024)
 *******************
 

@@ -160,6 +160,11 @@ Disallow: /api/
     """.strip()
 
 
+@app.get("/health")
+def health():
+    return {"status": "OK"}
+
+
 @app.get("/api/coverage")
 def coverage(
     provider: Annotated[Optional[str], Query()] = None,
