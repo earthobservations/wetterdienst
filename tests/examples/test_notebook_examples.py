@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import sys
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,6 @@ EXAMPLE_DIR = Path(__file__).parent.parent.parent / "examples"
 
 @pytest.mark.slow
 @pytest.mark.remote
-@pytest.mark.skipif(condition=sys.version_info[:2] == (3, 12), reason="Python 3.12 currently not supported by duckdb")
 def test_wetterdienst_notebook():
     """Test for climate_observations jupyter notebook"""
     fixture = NBRegressionFixture(
