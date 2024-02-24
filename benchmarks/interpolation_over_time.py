@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from sklearn.feature_selection import r_regression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import root_mean_squared_error
 
 from wetterdienst import Parameter
 from wetterdienst.provider.dwd.observation import (
@@ -44,8 +44,8 @@ def get_regular_df(parameter: str, start_date: datetime, end_date: datetime, exc
 
 
 def get_rmse(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
-    return mean_squared_error(
-        regular_values.reshape((-1, 1)).to_list(), interpolated_values.reshape((-1, 1)).to_list(), squared=False
+    return root_mean_squared_error(
+        regular_values.reshape((-1, 1)).to_list(), interpolated_values.reshape((-1, 1)).to_list()
     )
 
 
