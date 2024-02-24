@@ -100,17 +100,7 @@ def parse_climate_observations_data(
         ]
         try:
             df1, df2 = data
-            df = df1.join(df2, on=["station_id", "date"], how="outer")
-            df = df.collect()
-            # TODO: remove this workaround once join is fixed
-            if "station_id_right" in df.columns:
-                df = df.with_columns(
-                    [
-                        pl.coalesce(pl.col("station_id"), pl.col("station_id_right")).alias("station_id"),
-                        pl.coalesce(pl.col("date"), pl.col("date_right")).alias("date"),
-                    ]
-                )
-                df = df.drop("station_id_right", "date_right")
+            df = df1.join(df2, on=["station_id", "date"], how="outer_coalesce")
             return df.lazy()
         except ValueError:
             return data[0]

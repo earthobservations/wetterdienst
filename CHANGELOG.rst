@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Remove join outer workaround for polars and use `outer_coalesce` instead
+
 0.74.0 (22.02.2024)
 *******************
 
