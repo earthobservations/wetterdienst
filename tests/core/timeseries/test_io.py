@@ -4,7 +4,6 @@
 import datetime as dt
 import json
 import sqlite3
-import sys
 from unittest import mock
 
 import polars as pl
@@ -592,7 +591,6 @@ def test_filter_by_date_interval(df_values):
 
 
 @pytest.mark.sql
-@pytest.mark.skipif(not sys.version_info < (3, 12), reason="DuckDB does not support Python 3.12 yet")
 def test_filter_by_sql(df_values):
     """Test filter by sql statement"""
     df = ExportMixin(df=df_values).filter_by_sql(
@@ -987,7 +985,6 @@ def test_export_cratedb(
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(not sys.version_info < (3, 12), reason="DuckDB does not support Python 3.12 yet")
 def test_export_duckdb(settings_si_false, tmp_path):
     """Test export of DataFrame to duckdb"""
     import duckdb

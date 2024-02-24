@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import sys
-
 import pytest
 from dirty_equals import IsNumber, IsStr
 
@@ -139,7 +137,6 @@ def test_dwd_stations_geo(client):
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(not sys.version_info < (3, 12), reason="DuckDB does not support Python 3.12 yet")
 def test_dwd_stations_sql(client):
     response = client.get(
         "/api/stations",
@@ -243,7 +240,6 @@ def test_dwd_values_no_resolution(client):
 
 @pytest.mark.remote
 @pytest.mark.sql
-@pytest.mark.skipif(condition=sys.version_info[:2] == (3, 12), reason="Python 3.12 currently not supported by duckdb")
 def test_dwd_values_sql_tabular(client):
     response = client.get(
         "/api/values",
@@ -301,7 +297,6 @@ def test_dwd_values_sql_tabular(client):
 
 @pytest.mark.remote
 @pytest.mark.sql
-@pytest.mark.skipif(condition=sys.version_info[:2] == (3, 12), reason="Python 3.12 currently not supported by duckdb")
 def test_dwd_values_sql_long(client):
     response = client.get(
         "/api/values",
