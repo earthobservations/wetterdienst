@@ -51,7 +51,6 @@ def test_gaussian_example(tmp_path):
     assert observations_station_gaussian_model.main(tmp_path) is None
 
 
-# @pytest.mark.skipif(IS_CI, reason="radar examples not working in CI")
 @pytest.mark.cflake
 def test_radar_examples():
     pytest.importorskip("wradlib")
@@ -59,6 +58,8 @@ def test_radar_examples():
         radar_composite_rw,
         radar_radolan_cdc,
         radar_radolan_rw,
+        radar_scan_precip,
+        radar_scan_volume,
         radar_site_dx,
         radar_sweep_hdf5,
     )
@@ -66,15 +67,7 @@ def test_radar_examples():
     assert radar_composite_rw.main() is None
     assert radar_radolan_cdc.main() is None
     assert radar_radolan_rw.main() is None
-    assert radar_site_dx.main() is None
-    assert radar_sweep_hdf5.main() is None
-
-
-@pytest.mark.skipif(IS_CI, reason="radar scans cause segfault in ci")
-@pytest.mark.cflake
-def test_radar_examples_failing():
-    pytest.importorskip("wradlib")
-    from examples.radar import radar_scan_precip, radar_scan_volume
-
     assert radar_scan_precip.main() is None
     assert radar_scan_volume.main() is None
+    assert radar_site_dx.main() is None
+    assert radar_sweep_hdf5.main() is None
