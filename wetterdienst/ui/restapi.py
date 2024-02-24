@@ -44,7 +44,7 @@ CommaSeparator = StringListParamType(",")
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    appname = f"{__appname__} {__version__}"
+    appname = f"{__appname__} v{__version__}"
     about = "Wetterdienst - Open weather data for humans."
     sources = []
     for provider in Provider:
@@ -123,14 +123,6 @@ def index():
         <body>
             <div class="container">
                 <h1>{about}</h1>
-                <h2>Producer</h2>
-                <div class="box">
-                    {PRODUCER_NAME} - <a href="{PRODUCER_LINK}" target="_blank" rel="noopener">{PRODUCER_LINK}</a></li>
-                </div>
-                <h2>Providers</h2>
-                <div class="list">
-                    {sources}
-                </div>
                 <h2>Endpoints</h2>
                 <div class="list">
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
@@ -141,10 +133,18 @@ def index():
                 </div>
                 <h2>Examples</h2>
                 <div class="list">
-                    <li><a href="api/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Observation Stations</a></li>
-                    <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Observation Values</a></li>
-                    <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Interpolation</a></li>
-                    <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Observation Summary</a></li>
+                    <li><a href="api/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Climate Stations</a></li>
+                    <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Climate Values</a></li>
+                    <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Climate Interpolation</a></li>
+                    <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Climate Summary</a></li>
+                </div>
+                <h2>Producer</h2>
+                <div class="box">
+                    {PRODUCER_NAME} - <a href="{PRODUCER_LINK}" target="_blank" rel="noopener">{PRODUCER_LINK}</a></li>
+                </div>
+                <h2>Providers</h2>
+                <div class="list">
+                    {sources}
                 </div>
             </div>
         </body>
