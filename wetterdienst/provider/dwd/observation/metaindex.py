@@ -236,6 +236,8 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     # Drop empty state column again as it will be merged later on
     meta_index_df = meta_index_df.select(pl.exclude(Columns.STATE.value))
 
+    meta_index_df = meta_index_df.with_columns(pl.all().str.strip_chars())
+
     # Make station id str
     return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.pad_start(5, "0"))
 
