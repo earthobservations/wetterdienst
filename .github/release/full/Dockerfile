@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM python:3.12-slim-bookworm
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
@@ -11,17 +11,8 @@ RUN \
     true \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests --yes \
-      git build-essential ca-certificates \
-      python-is-python3 python3-h5py python3-dev python3-pip python3-venv python3-wheel
-
-# Use Python 3.11.
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 0
-
-# Use venv to circumvent "externally managed environment" error
-# Source: https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+      git build-essential python3-dev python3-pip python3-venv python3-wheel \
+      python3-h5py ca-certificates
 
 # Install wradlib.
 RUN python -m pip install --prefer-binary wradlib
