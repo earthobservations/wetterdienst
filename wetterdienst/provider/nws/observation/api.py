@@ -245,7 +245,7 @@ class NwsObservationRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         response = download_file(self._endpoint, self.settings, CacheExpiry.METAINDEX)
-        df = pl.read_csv(source=response, has_header=False, separator="\t").lazy()
+        df = pl.read_csv(source=response, has_header=False, separator="\t", infer_schema_length=0).lazy()
         df = df.filter(pl.col("column_7").eq("US"))
         df = df.select(
             pl.col("column_2"), pl.col("column_3"), pl.col("column_4"), pl.col("column_5"), pl.col("column_6")
@@ -258,5 +258,11 @@ class NwsObservationRequest(TimeseriesRequest):
                 "column_5": Columns.HEIGHT.value,
                 "column_6": Columns.NAME.value,
             }
+        )
+        df = df.with_columns(pl.all().str.strip_chars())
+        df = df.with_columns(
+            pl.col(Columns.LATITUDE.value).cast(pl.Float64),
+            pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
+            pl.col(Columns.HEIGHT.value).cast(pl.Float64),
         )
         return df.filter(pl.col("longitude").lt(0) & pl.col("latitude").gt(0))
