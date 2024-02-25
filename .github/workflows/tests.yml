@@ -25,14 +25,11 @@ jobs:
           # arm64 (M1)
           - os: "macos-14"
             python-version: "3.12"
-            architecture: "arm64"
           # x86 (Intel)
           - os: "macos-latest"
             python-version: "3.12"
-            architecture: "x64"
           - os: "windows-latest"
             python-version: "3.12"
-            architecture: "x64"
 
     env:
       OS: ${{ matrix.os }}
@@ -50,26 +47,38 @@ jobs:
       # Workaround until pipx is available on M1 machines
       # - https://github.com/actions/runner-images/issues/9256
       # We install poetry using brew instead of pipx
-      - name: Install Poetry (Mac only)
-        if: ${{ startsWith(matrix.os, 'macOS') }}
+      - name: Install Poetry (Mac M1 only)
+        if: ${{ startsWith(matrix.os, 'macos-14') }}
         run: brew install poetry
 
       - name: Install Poetry
-        if: ${{ !startsWith(matrix.os, 'macOS') }}
+        if: ${{ !startsWith(matrix.os, 'macos-14') }}
         run: pipx install poetry
 
       - name: Setup Python
+        if: ${{ !startsWith(matrix.os, 'macos-14') }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          architecture: ${{ matrix.architecture }}
+          architecture: x64
           cache: poetry
           cache-dependency-path: |
             pyproject.toml
             poetry.lock
 
+      - name: Setup Python (Mac M1 only)
+        if: ${{ startsWith(matrix.os, 'macos-14') }}
+        run: |
+          brew install pyenv
+          pyenv install ${{ matrix.python-version }}
+          pyenv global ${{ matrix.python-version }}
+
+          export PYENV_ROOT="$HOME/.pyenv"
+          [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init -)"
+
       - name: Install eccodes (Mac only)
-        if: ${{ startsWith(matrix.os, 'macOS') }}
+        if: ${{ startsWith(matrix.os, 'macos-') }}
         run: |
           brew install eccodes
           export WD_ECCODES_DIR=$(brew --prefix eccodes)
