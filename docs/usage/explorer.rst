@@ -59,7 +59,7 @@ Invoke using Docker
 
 Run the Wetterdienst user interface using Docker::
 
-    docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst-full wetterdienst explorer --listen 0.0.0.0:7891
+    docker run -it --rm --publish=7891:7891 ghcr.io/earthobservations/wetterdienst wetterdienst explorer --listen 0.0.0.0:7891
 
 
 Serve Wetterdienst Explorer at non-root URL
@@ -81,4 +81,3 @@ The gist of a corresponding Nginx configuration snippet is::
         proxy_pass http://localhost:8891;
       }
     }
-

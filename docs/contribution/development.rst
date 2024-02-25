@@ -104,31 +104,24 @@ invoke::
     export BUILDKIT_PROGRESS=plain
 
     docker build \
-        --tag=local/wetterdienst-standard \
-        --file=.github/release/standard/Dockerfile \
-        .
-
-For the ``full`` image variant::
-
-    docker build \
-        --tag=local/wetterdienst-full \
-        --file=.github/release/full/Dockerfile \
+        --tag=local/wetterdienst \
+        --file=.github/release/Dockerfile \
         .
 
 In order to build images for other platforms than ``linux/amd64``, use the
 ``--platform`` option, For ARM 64-bit::
 
     docker build \
-        --tag=local/wetterdienst-standard \
-        --file=.github/release/standard/Dockerfile \
+        --tag=local/wetterdienst \
+        --file=.github/release/Dockerfile \
         --platform=linux/arm64 \
         .
 
 For ARM 32-bit::
 
     docker build \
-        --tag=local/wetterdienst-standard \
-        --file=.github/release/standard/Dockerfile \
+        --tag=local/wetterdienst \
+        --file=.github/release/Dockerfile \
         --platform=linux/arm/v7 \
         .
 
