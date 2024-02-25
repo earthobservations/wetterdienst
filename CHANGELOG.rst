@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.75.0 (25.02.2024)
+*******************
+
 - Remove join outer workaround for polars and use `outer_coalesce` instead
 - Allow duckdb for Python 3.12 again
 - Update REST API index layout
