@@ -33,6 +33,14 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
 # Final stage
 FROM python:3.12-slim-bookworm
 
+# Install h5py
+RUN apt-get update \
+    && apt-get install --no-install-recommends --no-install-suggests --yes \
+      python3-h5py \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
 # Copy installed pip packages from build stage
 COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
