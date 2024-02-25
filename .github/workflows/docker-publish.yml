@@ -2,7 +2,7 @@
 #
 # Derived from:
 # https://github.com/crate/cratedb-prometheus-adapter/blob/main/.github/workflows/release.yml
-name: Release Docker Full
+name: Release Docker
 
 on:
   push:
@@ -24,7 +24,7 @@ concurrency:
 
 # The name for the produced image at ghcr.io.
 env:
-  IMAGE_NAME: "${{ github.repository }}-full"
+  IMAGE_NAME: "${{ github.repository }}"
 
 jobs:
   build_and_test:
@@ -58,9 +58,9 @@ jobs:
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
           export BUILDKIT_PROGRESS=plain
-          if [[ -f .github/release/full.test.yml ]]; then
-            docker-compose --file .github/release/full.test.yml build
-            docker-compose --file .github/release/full.test.yml run sut
+          if [[ -f .github/release/test.yml ]]; then
+            docker-compose --file .github/release/test.yml build
+            docker-compose --file .github/release/test.yml run sut
           fi
 
   docker:
@@ -133,7 +133,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: .github/release/full/Dockerfile
+          file: .github/release/Dockerfile
           platforms: linux/amd64  # in future we might want to add: linux/arm64,linux/arm/v7
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

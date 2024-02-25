@@ -179,17 +179,13 @@ Docker
 
 Docker images for each stable release will get pushed to GitHub Container Registry.
 
-There are images in two variants, ``wetterdienst-standard`` and ``wetterdienst-full``.
-
-``wetterdienst-standard`` will contain a minimum set of 3rd-party packages,
-while ``wetterdienst-full`` will try to serve a full environment, including
-*all* of the optional dependencies of Wetterdienst.
+``wetterdienst`` serves a full environment, including *all* of the optional dependencies of Wetterdienst.
 
 Pull the Docker image:
 
 .. code-block:: bash
 
-    docker pull ghcr.io/earthobservations/wetterdienst-standard
+    docker pull ghcr.io/earthobservations/wetterdienst
 
 Library
 -------
@@ -198,7 +194,7 @@ Use the latest stable version of ``wetterdienst``:
 
 .. code-block:: bash
 
-    $ docker run -ti ghcr.io/earthobservations/wetterdienst-standard
+    $ docker run -ti ghcr.io/earthobservations/wetterdienst
     Python 3.8.5 (default, Sep 10 2020, 16:58:22)
     [GCC 8.3.0] on linux
 
@@ -215,7 +211,7 @@ The ``wetterdienst`` command is also available:
 .. code-block:: bash
 
     # Make an alias to use it conveniently from your shell.
-    alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst-standard wetterdienst'
+    alias wetterdienst='docker run -ti ghcr.io/earthobservations/wetterdienst wetterdienst'
 
     wetterdienst --help
     wetterdienst --version
