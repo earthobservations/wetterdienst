@@ -8,6 +8,7 @@ Development
 - Allow duckdb for Python 3.12 again
 - Update REST API index layout
 - Bump polars to 0.20.10
+- Docker: Bump to Python 3.12
 
 0.74.0 (22.02.2024)
 *******************
