@@ -407,7 +407,7 @@ class DwdRoadRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         payload = download_file(self._endpoint, self.settings, CacheExpiry.METAINDEX)
-        df = pl.read_excel(source=payload, sheet_name="Tabelle1", read_csv_options={"infer_schema_length": 0})
+        df = pl.read_excel(source=payload, sheet_name="Tabelle1", read_options={"infer_schema_length": 0})
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())
         df = df.filter(
