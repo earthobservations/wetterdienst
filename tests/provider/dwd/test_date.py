@@ -4,13 +4,17 @@
 import datetime as dt
 
 import pytest
-from backports.datetime_fromisoformat import MonkeyPatch
 from zoneinfo import ZoneInfo
 
 from wetterdienst import Resolution
 from wetterdienst.util.datetime import mktimerange
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
 
 
 def test_mktimerange_annual():

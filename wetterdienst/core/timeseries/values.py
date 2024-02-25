@@ -9,7 +9,6 @@ from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 from dateutil.relativedelta import relativedelta
 from pint import Quantity
 from tqdm import tqdm
@@ -23,7 +22,12 @@ from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.logging import TqdmToLogger
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
 
 log = logging.getLogger(__name__)
 

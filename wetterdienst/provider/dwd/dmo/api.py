@@ -10,7 +10,6 @@ from urllib.error import HTTPError
 from urllib.parse import urljoin
 
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 from zoneinfo import ZoneInfo
 
 from wetterdienst import Kind, Parameter, Period, Provider, Settings
@@ -32,7 +31,13 @@ from wetterdienst.util.parameter import DatasetTreeCore
 from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
+
 log = logging.getLogger(__name__)
 
 
