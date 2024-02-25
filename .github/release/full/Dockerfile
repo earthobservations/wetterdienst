@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm AS build
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
@@ -30,13 +30,12 @@ RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     && WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) \
     && pip install --use-pep517 --prefer-binary ${WHEEL}[export,influxdb,cratedb,postgresql,radar,bufr,restapi,explorer,radar,radarplus]
 
-# Uninstall build prerequisites again.
-RUN true \
-    && apt-get --yes remove --purge git build-essential python3-dev python3-pip python3-venv python3-wheel \
-    && apt-get --yes autoremove
+# Final stage
+FROM python:3.12-slim-bookworm
 
-# Purge /tmp directory
-RUN rm /tmp/*
+# Copy installed pip packages from build stage
+COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=build /usr/local/bin /usr/local/bin
 
 # Copy selftest.sh to the image
 COPY .github/release/selftest.sh /usr/local/bin
