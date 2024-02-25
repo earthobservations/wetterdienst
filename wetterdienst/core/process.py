@@ -5,14 +5,18 @@ import datetime as dt
 from typing import Optional, Tuple
 
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import mktimerange, parse_date
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
 
 
 def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[dt.datetime], Optional[dt.datetime]]:

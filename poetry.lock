@@ -7197,4 +7197,4 @@ streamlit = ["streamlit"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "534f31b4be628ba4ac3ec4f735ebb1ff72c46e931b890ce1ea2f20914ffd02a0"
+content-hash = "ef6f4df1056869e0fcef6bdef912015aae3407b10fa478d905c052078ee4b457"

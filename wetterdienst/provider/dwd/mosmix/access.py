@@ -10,7 +10,6 @@ from os.path import basename
 from typing import Iterator, List
 
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse  # noqa: S410
 from tqdm import tqdm
@@ -21,7 +20,13 @@ from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
+
 log = logging.getLogger(__name__)
 
 

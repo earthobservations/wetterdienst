@@ -12,7 +12,6 @@ from io import BytesIO
 from typing import Generator, Optional, Union
 
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 from fsspec.implementations.tar import TarFileSystem
 from zoneinfo import ZoneInfo
 
@@ -43,7 +42,13 @@ from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
+
 log = logging.getLogger(__name__)
 
 

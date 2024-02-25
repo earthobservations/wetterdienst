@@ -9,7 +9,6 @@ from typing import Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 from requests import HTTPError
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -36,7 +35,13 @@ from wetterdienst.util.parameter import DatasetTreeCore
 from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
+
 log = logging.getLogger(__name__)
 
 DWD_MOSMIX_S_PATH = "weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/"

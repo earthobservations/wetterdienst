@@ -96,7 +96,7 @@ python = ">=3.9,<4.0"
 
 aenum = ">=3,<3.2"
 aiohttp = ">=3.8,<3.10"
-backports-datetime-fromisoformat = ">=2,<3"
+backports-datetime-fromisoformat = { version = ">=2,<3", markers = "python_version < '3.11'" }
 beautifulsoup4 = ">=4.9,<5"
 cachetools = ">=5.2,<6"
 click = ">=8,<9"

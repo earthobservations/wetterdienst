@@ -11,7 +11,6 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
-from backports.datetime_fromisoformat import MonkeyPatch
 from measurement.measures import Distance
 from measurement.utils import guess
 from polars import NoDataError
@@ -42,7 +41,13 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
 
-MonkeyPatch.patch_fromisoformat()
+try:
+    from backports.datetime_fromisoformat import MonkeyPatch
+except ImportError:
+    pass
+else:
+    MonkeyPatch.patch_fromisoformat()
+
 log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
