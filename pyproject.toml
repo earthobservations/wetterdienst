@@ -130,7 +130,7 @@ dash-bootstrap-components       = { version = ">=1.4,<2", optional = true }  # E
 dash-leaflet                    = { version = ">=1.0.8,<2", optional = true }  # Explorer UI feature.
 duckdb                          = { version = ">=0.9", optional = true }  # Export feature.
 eccodes                         = { version = ">=1.5.2,<1.7", optional = true }
-fastapi                         = { version = ">=0.95.1,<0.110", optional = true }  # HTTP REST API feature.
+fastapi                         = { version = ">=0.95.1,<0.111", optional = true }  # HTTP REST API feature.
 geojson                         = { version = ">=3,<4", optional = true }  # Explorer UI feature.
 httpx                           = { version = ">=0.24,<0.27", optional = true}
 h5py                            = { version = ">=3.1,<4", optional = true }  # Radar feature.
