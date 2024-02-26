@@ -22,7 +22,7 @@ build:
 
       # Install Poetry.
       # https://python-poetry.org/docs/#installing-manually
-      - pip install poetry
+      - pip install poetry==1.7.1
 
       # Tell Poetry to not use a virtual environment.
       - poetry config virtualenvs.create false
