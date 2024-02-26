@@ -17,6 +17,7 @@ Documentation:
 
 """
 import json
+import platform
 import time
 
 import pytest
@@ -25,6 +26,7 @@ from bs4 import BeautifulSoup
 from tests.conftest import IS_CI
 
 
+@pytest.mark.skipif(platform.system() == "Darwin" and platform.machine() == "arm64", reason="problem with geckodriver")
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
