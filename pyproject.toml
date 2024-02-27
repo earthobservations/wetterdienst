@@ -132,7 +132,7 @@ duckdb                          = { version = ">=0.9", optional = true }  # Expo
 eccodes                         = { version = ">=1.5.2,<1.7", optional = true }
 fastapi                         = { version = ">=0.95.1,<0.111", optional = true }  # HTTP REST API feature.
 geojson                         = { version = ">=3,<4", optional = true }  # Explorer UI feature.
-httpx                           = { version = ">=0.24,<0.27", optional = true}
+httpx                           = { version = ">=0.24,<0.28", optional = true}
 h5py                            = { version = ">=3.1,<4", optional = true }  # Radar feature.
 influxdb                        = { version = ">=5.3,<6", optional = true }  # Export feature.
 influxdb-client                 = { version = ">=1.18,<2", optional = true }  # Export feature.
