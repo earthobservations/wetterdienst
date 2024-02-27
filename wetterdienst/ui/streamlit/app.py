@@ -53,11 +53,10 @@ def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: l
             .alias("parameter")
         )
     fig = px.scatter(
-        df,
-        x=df.get_column(x),
-        y=df.get_column(y),
-        color=df.get_column(variable_column),
-        facet_row=df.get_column(variable_column) if facet else None,
+        x=df.get_column(x).to_list(),
+        y=df.get_column(y).to_list(),
+        color=df.get_column(variable_column).to_list(),
+        facet_row=df.get_column(variable_column).to_list() if facet else None,
     )
     fig.update_layout(
         legend={"x": 0, "y": 1.08},
