@@ -7,7 +7,7 @@ import polars as pl
 import streamlit
 import streamlit as st
 
-from wetterdienst import Settings
+from wetterdienst import Settings, __version__
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 SQL_DEFAULT = """
@@ -74,7 +74,7 @@ def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: l
 
 def main():
     """Small streamlit app for accessing German climate stations by DWD"""
-    title = "Wetterdienst - Data Tool"
+    title = f"Wetterdienst Data Tool v{__version__}"
     st.set_page_config(page_title=title)
     st.title(title)
 
