@@ -90,7 +90,7 @@ def parse_climate_observations_data(
         date field
         period: enumeration of period of data
     Returns:
-        pandas.DataFrame with requested data, for different station ids the data is
+        polars.LazyFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
     if resolution is Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
@@ -125,7 +125,7 @@ def _parse_climate_observations_data(
         resolution: enumeration of time resolution used to correctly parse the
         date field
     Returns:
-        pandas.DataFrame with data from that station, acn be empty if no data is
+        polars.LazyFrame with data from that station, acn be empty if no data is
         provided or local file is not found or has no data in it
     """
     filename, file = filename_and_file
