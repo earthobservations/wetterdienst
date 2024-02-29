@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import json
 from typing import Optional
 
 import duckdb
@@ -132,7 +133,7 @@ def main():
     if station:
         station["start_date"] = station["start_date"].isoformat()
         station["end_date"] = station["end_date"].isoformat()
-        st.json(station, expanded=False)
+        st.code(json.dumps(station, indent=4), language="json")
         st.map(get_dwd_observation_station(station["station_id"], settings).df)
 
     st.subheader("DataFrame")
