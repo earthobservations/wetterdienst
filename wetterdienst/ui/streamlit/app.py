@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from typing import Optional
+
 import duckdb
 import plotly.express as px
 import polars as pl
@@ -44,8 +46,16 @@ def get_dwd_observation_station_values_df(station_id, settings):
     return values.with_columns(pl.col("parameter").replace(units).alias("unit"))
 
 
-def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: list[str], x: str, y: str, facet: bool):
-    df = df.filter(pl.col(variable_column).is_in(variable_filter))
+def create_plotly_fig(
+    df: pl.DataFrame,
+    variable_column: str,
+    variable_filter: list[str],
+    x: str,
+    y: str,
+    facet: bool,
+    lm: Optional[str],
+    settings: dict,
+):
     if "unit" in df.columns:
         df = df.with_columns(
             pl.struct(["parameter", "unit"])
@@ -57,10 +67,16 @@ def create_plotly_fig(df: pl.DataFrame, variable_column: str, variable_filter: l
         y=df.get_column(y).to_list(),
         color=df.get_column(variable_column).to_list(),
         facet_row=df.get_column(variable_column).to_list() if facet else None,
+        trendline=lm,
+    )
+    fig.update_traces(
+        marker={"opacity": settings["opacity"], "symbol": settings["symbol"], "size": settings["size"]},
     )
     fig.update_layout(
         legend={"x": 0, "y": 1.08},
         height=400 * len(variable_filter),  # plot height times parameters
+        xaxis_title="date",
+        yaxis_title="value",
     )
     fig.update_yaxes(matches=None)
     # Update y-axis titles to use facet labels and remove subplot titles
@@ -79,12 +95,19 @@ def main():
     st.title(title)
 
     with st.sidebar:
-        st.subheader("Settings")
+        st.header("Settings")
 
+        st.subheader("General")
         ts_humanize = st.checkbox("humanize", value=True)
         ts_si_units = st.checkbox("si_units", value=True)
-
         settings = {"ts_humanize": ts_humanize, "ts_si_units": ts_si_units}
+
+        st.subheader("Plotting")
+
+        marker_size = st.slider("marker size", min_value=1, max_value=8, value=2)
+        opacity = st.slider("opacity", min_value=0.0, max_value=1.0, value=1.0)
+        marker_symbol = st.selectbox("marker symbol", options=["circle", "square", "diamond", "cross", "x"])
+        plotting_settings = {"opacity": opacity, "symbol": marker_symbol, "size": marker_size}
 
     st.subheader("Introduction")
     st.markdown(
@@ -157,15 +180,18 @@ def main():
         )
         variable_options = df.get_column(variable_column).unique().sort().to_list()
         variable_filter = st.multiselect("Variable Filter", options=variable_options)
+        df = df.filter(pl.col(variable_column).is_in(variable_filter))
         facet = st.toggle("facet")
+        lm = st.selectbox("linear model", options=["none", "lowess", "ols", "expanding"])
+        lm = lm if lm != "none" else None
 
-    if plot_enable and variable_filter:
-        fig = create_plotly_fig(df, variable_column, variable_filter, column_x, column_y, facet)
-        st.plotly_chart(fig)
-    elif not plot_enable:
+    if not plot_enable:
         st.warning("No plot. Reason: empty DataFrame")
     elif not variable_filter:
         st.warning("No plot. Reason: empty variable filter")
+    else:
+        fig = create_plotly_fig(df, variable_column, variable_filter, column_x, column_y, facet, lm, plotting_settings)
+        st.plotly_chart(fig)
 
     st.subheader("Credits")
     st.markdown(
