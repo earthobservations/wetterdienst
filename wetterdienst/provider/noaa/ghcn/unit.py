@@ -9,6 +9,31 @@ from wetterdienst.util.parameter import DatasetTreeCore
 class NoaaGhcnUnit(DatasetTreeCore):
     """NOAA Global Historical Climatology Network Parameters"""
 
+    class HOURLY(DatasetTreeCore):
+        class HOURLY(UnitEnum):
+            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_3H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_6H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_9H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_12H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_15H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_18H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_21H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRECIPITATION_HEIGHT_LAST_24H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
+            PRESSURE_AIR_SEA_LEVEL = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            PRESSURE_AIR_SITE_DELTA_LAST_3H = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            PRESSURE_AIR_SITE_REDUCED = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
+            SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
+            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_DEW_POINT_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_WET_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            VISIBILITY_RANGE = OriginUnit.KILOMETER.value, SIUnit.METER.value
+            WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
+            WIND_GUST_MAX = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+            WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+
     class DAILY(DatasetTreeCore):
         class DAILY(UnitEnum):
             # The five core values are:

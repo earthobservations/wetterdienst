@@ -40,7 +40,8 @@ from wetterdienst.util.eccodes import ensure_eccodes
         # IMGW Meteorology
         ("imgw", "meteorology", {"parameter": "climate", "resolution": "daily"}, "249200180"),
         # NOAA Ghcn
-        ("noaa", "ghcn", {"parameter": "precipitation_height"}, None),
+        ("noaa", "ghcn", {"parameter": "precipitation_height", "resolution": "hourly"}, "AQC00914594"),
+        ("noaa", "ghcn", {"parameter": "precipitation_height", "resolution": "daily"}, "AQC00914594"),
         # WSV Pegelonline
         ("wsv", "pegel", {"parameter": "stage"}, None),
         # EA Hydrology
