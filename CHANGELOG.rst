@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.76.0 (02.03.2024)
+*******************
+
 - Add NOAA GHCN Hourly API (also known as ISD)
 
 0.75.0 (25.02.2024)
