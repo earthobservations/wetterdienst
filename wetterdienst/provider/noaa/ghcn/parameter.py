@@ -9,6 +9,97 @@ from wetterdienst.util.parameter import DatasetTreeCore
 class NoaaGhcnParameter(DatasetTreeCore):
     """NOAA Global Historical Climatology Network Parameters"""
 
+    class HOURLY(DatasetTreeCore):
+        class HOURLY(Enum):
+            # Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature (whole percent)
+            HUMIDITY = "relative_humidity"
+            # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement code column
+            # indicates a trace amount of precipitation (millimeters)
+            PRECIPITATION_HEIGHT = "precipitation"
+            # 3-hour total liquid precipitation (rain or melted snow) accumulation
+            # from FM12/SYNOP reports; a “T” in the measurement code column indicates a trace amount
+            # of precipitation (millimeters); accumulations can be reported over 3,6,9,12,15,18,21 and 24 hours.
+            PRECIPITATION_HEIGHT_LAST_3H = "precipitation_3_hour"
+            PRECIPITATION_HEIGHT_LAST_6H = "precipitation_6_hour"
+            PRECIPITATION_HEIGHT_LAST_9H = "precipitation_9_hour"
+            PRECIPITATION_HEIGHT_LAST_12H = "precipitation_12_hour"
+            PRECIPITATION_HEIGHT_LAST_15H = "precipitation_15_hour"
+            PRECIPITATION_HEIGHT_LAST_18H = "precipitation_18_hour"
+            PRECIPITATION_HEIGHT_LAST_21H = "precipitation_21_hour"
+            PRECIPITATION_HEIGHT_LAST_24H = "precipitation_24_hour"
+            # reduction estimates the pressure that would exist at sea level at a point directly below the station
+            # using a temperature profile based on temperatures that actually exist at the station (hPa)
+            PRESSURE_AIR_SEA_LEVEL = "sea_level_pressure"
+            # the pressure that is observed at a specific elevation and is the true barometric pressure of a location.
+            # It is the pressure exerted by the atmosphere at a point as a result of gravity acting upon the "column" of
+            # air that lies directly above the point. (hPa)
+            PRESSURE_AIR_SITE = "station_level_pressure"
+            # change in atmospheric pressure measured at the beginning and end of a three-hour period;
+            # accompanied by tendency code in measurement code field (millibars/hPa)
+            PRESSURE_AIR_SITE_DELTA_LAST_3H = "pressure_3hr_change"
+            # the pressure "reduced" to mean sea level using the temperature profile of the "standard" atmosphere,
+            # which is representative of average conditions over the United States at 40 degrees north
+            # latitude (millibars/hPa)  # noqa
+            PRESSURE_AIR_SITE_REDUCED = "altimeter"
+            # depth of snowpack on the ground (centimeters/m)
+            SNOW_DEPTH = "snow_depth"
+            # 2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)
+            TEMPERATURE_AIR_MEAN_200 = "temperature"
+            # Dew Point Temperature (⁰C to tenths)
+            TEMPERATURE_DEW_POINT_MEAN_200 = "dew_point_temperature"
+            # Wet bulb temperature (⁰C to tenths)
+            TEMPERATURE_WET_MEAN_200 = "wet_bulb_temperature"
+            # horizontal distance at which an object can be seen and identified (kilometers)
+            VISIBILITY_RANGE = "visibility"
+            # Wind Direction from true north using compass directions (e.g. 360=true north, 180=south, 270=west, etc.).
+            # Note: A direction of “000” is given for calm winds. (whole degrees)
+            WIND_DIRECTION = "wind_direction"
+            # Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds the wind_speed
+            # average
+            WIND_GUST_MAX = "wind_gust"
+            # Wind Speed (meters per second)
+            WIND_SPEED = "wind_speed"
+
+            # the following are left out for now
+            # pres_wx_mw1
+            # pres_wx_mw2
+            # pres_wx_mw3
+            # pres_wx_au1
+            # pres_wx_au2
+            # pres_wx_au3
+            # pres_wx_aw1
+            # pres_wx_aw2
+            # pres_wx_aw3
+            # sky_cover_1
+            # sky_cover_2
+            # sky_cover_3
+            # sky_cover_baseht_1
+            # sky_cover_baseht_2
+            # sky_cover_baseht_3
+
+        HUMIDITY = HOURLY.HUMIDITY
+        PRECIPITATION_HEIGHT = HOURLY.PRECIPITATION_HEIGHT
+        PRECIPITATION_HEIGHT_LAST_3H = HOURLY.PRECIPITATION_HEIGHT_LAST_3H
+        PRECIPITATION_HEIGHT_LAST_6H = HOURLY.PRECIPITATION_HEIGHT_LAST_6H
+        PRECIPITATION_HEIGHT_LAST_9H = HOURLY.PRECIPITATION_HEIGHT_LAST_9H
+        PRECIPITATION_HEIGHT_LAST_12H = HOURLY.PRECIPITATION_HEIGHT_LAST_12H
+        PRECIPITATION_HEIGHT_LAST_15H = HOURLY.PRECIPITATION_HEIGHT_LAST_15H
+        PRECIPITATION_HEIGHT_LAST_18H = HOURLY.PRECIPITATION_HEIGHT_LAST_18H
+        PRECIPITATION_HEIGHT_LAST_21H = HOURLY.PRECIPITATION_HEIGHT_LAST_21H
+        PRECIPITATION_HEIGHT_LAST_24H = HOURLY.PRECIPITATION_HEIGHT_LAST_24H
+        PRESSURE_AIR_SEA_LEVEL = HOURLY.PRESSURE_AIR_SEA_LEVEL
+        PRESSURE_AIR_SITE = HOURLY.PRESSURE_AIR_SITE
+        PRESSURE_AIR_SITE_DELTA_LAST_3H = HOURLY.PRESSURE_AIR_SITE_DELTA_LAST_3H
+        PRESSURE_AIR_SITE_REDUCED = HOURLY.PRESSURE_AIR_SITE_REDUCED
+        SNOW_DEPTH = HOURLY.SNOW_DEPTH
+        TEMPERATURE_AIR_MEAN_200 = HOURLY.TEMPERATURE_AIR_MEAN_200
+        TEMPERATURE_DEW_POINT_MEAN_200 = HOURLY.TEMPERATURE_DEW_POINT_MEAN_200
+        TEMPERATURE_WET_MEAN_200 = HOURLY.TEMPERATURE_WET_MEAN_200
+        VISIBILITY_RANGE = HOURLY.VISIBILITY_RANGE
+        WIND_DIRECTION = HOURLY.WIND_DIRECTION
+        WIND_GUST_MAX = HOURLY.WIND_GUST_MAX
+        WIND_SPEED = HOURLY.WIND_SPEED
+
     class DAILY(DatasetTreeCore):
         class DAILY(Enum):
             # The five core values are:
@@ -596,7 +687,7 @@ class NoaaGhcnParameter(DatasetTreeCore):
         WEATHER_TYPE_VICINITY_RAIN_SNOW_SHOWER = DAILY.WEATHER_TYPE_VICINITY_RAIN_SNOW_SHOWER
 
 
-PARAMETER_MULTIPLICATION_FACTORS = {
+DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnParameter.DAILY.PRECIPITATION_HEIGHT.value: 1 / 10,
     NoaaGhcnParameter.DAILY.PRECIPITATION_HEIGHT_MULTIDAY.value: 1 / 10,
     NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MAX_200.value: 1 / 10,

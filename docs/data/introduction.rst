@@ -40,7 +40,7 @@ ECCC (Environnement et Changement Climatique Canada / Environment and Climate Ch
 
 NOAA (National Oceanic And Atmospheric Administration / National Oceanic And Atmospheric Administration / United States Of America)
     - Global Historical Climatology Network
-        - Historical, daily weather observations from around the globe
+        - Historical, hourly (ISD) and daily weather observations from around the globe
         - more then 100k stations
         - data for weather services which don't publish data themselves
 

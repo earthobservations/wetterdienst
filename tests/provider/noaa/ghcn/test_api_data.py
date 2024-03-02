@@ -21,6 +21,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 def test_api_amsterdam(start_date, end_date, default_settings):
     request = NoaaGhcnRequest(
         parameter=[NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_200],
+        resolution="daily",
         start_date=start_date,
         end_date=end_date,
         settings=default_settings,
