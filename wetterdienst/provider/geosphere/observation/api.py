@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import json
+import logging
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import List, Optional, Union
@@ -24,6 +25,8 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
+
+log = logging.getLogger(__name__)
 
 
 class GeosphereObservationResolution(Enum):
@@ -670,6 +673,7 @@ class GeosphereObservationValues(TimeseriesValues):
             start_date=start_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
             end_date=end_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
         )
+        log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         data_raw = json.loads(response.read())
         timestamps = data_raw.pop("timestamps")
@@ -744,6 +748,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
     def _all(self) -> pl.LazyFrame:
         dataset = self._dataset_base[self.resolution.name].value
         url = self._endpoint.format(dataset=dataset)
+        log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pl.read_csv(response).lazy()
         df = df.drop("Sonnenschein", "Globalstrahlung")

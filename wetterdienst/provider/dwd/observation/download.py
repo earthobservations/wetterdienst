@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import List, Tuple
@@ -13,6 +14,8 @@ from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
+
+log = logging.getLogger(__name__)
 
 
 def download_climate_observations_data_parallel(
@@ -51,6 +54,7 @@ def _download_climate_observations_data(remote_file: str, settings: Settings) ->
 
 
 def __download_climate_observations_data(remote_file: str, settings: Settings) -> bytes:
+    log.info(f"Downloading file {remote_file}.")
     file = download_file(remote_file, settings=settings, ttl=CacheExpiry.FIVE_MINUTES)
 
     try:

@@ -90,6 +90,7 @@ class EaHydrologyValues(TimeseriesValues):
 
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
         endpoint = self._base_url.format(station_id=station_id)
+        log.info(f"Downloading file {endpoint}.")
         payload = download_file(endpoint, self.sr.stations.settings, CacheExpiry.NO_CACHE)
         measures_list = json.load(payload)["items"][0]["measures"]
         measures_list = pl.Series(name="measure", values=measures_list).to_frame()
@@ -105,6 +106,7 @@ class EaHydrologyValues(TimeseriesValues):
         except IndexError:
             return pl.DataFrame()
         values_endpoint = f"{measure_dict['@id']}/readings.json"
+        log.info(f"Downloading file {values_endpoint}.")
         payload = download_file(values_endpoint, CacheExpiry.FIVE_MINUTES)
         readings = json.loads(payload.read())["items"]
         df = pl.from_dicts(readings)

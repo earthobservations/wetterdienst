@@ -347,6 +347,7 @@ class EcccObservationRequest(TimeseriesRequest):
         payload = None
         source = None
         try:
+            log.info(f"Downloading file {gdrive_url}.")
             payload = download_file(gdrive_url, self.settings, CacheExpiry.METAINDEX)
             source = 0
         except Exception as e:
@@ -355,6 +356,7 @@ class EcccObservationRequest(TimeseriesRequest):
 
             # Fall back to different source.
             try:
+                log.info(f"Downloading file {http_url}.")
                 response = download_file(http_url, self.settings, CacheExpiry.METAINDEX)
                 with gzip.open(response, mode="rb") as f:
                     payload = BytesIO(f.read())

@@ -2,6 +2,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO, StringIO
@@ -23,6 +24,8 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
+
+log = logging.getLogger(__name__)
 
 DWD_COLUMN_NAMES_MAPPING = {
     "column_0": Columns.STATION_ID.value,
@@ -131,6 +134,7 @@ def _create_meta_index_for_climate_observations(
     remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(remote_files, url, ["beschreibung", "txt"])
+    log.info(f"Downloading file {meta_file}.")
     payload = download_file(meta_file, settings=settings, ttl=CacheExpiry.METAINDEX)
     return _read_meta_df(payload)
 
@@ -194,7 +198,9 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     # Find the one meta file from the files listed on the server
     meta_file_fx3 = _find_meta_file(remote_files, url, ["fx3", "beschreibung", "txt"])
     meta_file_fx6 = _find_meta_file(remote_files, url, ["fx6", "beschreibung", "txt"])
+    log.info(f"Downloading file {meta_file_fx3}.")
     payload_fx3 = download_file(meta_file_fx3, settings=settings, ttl=CacheExpiry.METAINDEX)
+    log.info(f"Downloading file {meta_file_fx6}.")
     payload_fx6 = download_file(meta_file_fx6, settings=settings, ttl=CacheExpiry.METAINDEX)
     df_fx3 = _read_meta_df(payload_fx3)
     df_fx6 = _read_meta_df(payload_fx6)
@@ -217,6 +223,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     metadata_file_paths = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]
 
+    log.info(f"Downloading {len(metadata_file_paths)} files for 1minute precipitation historical metadata.")
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
             lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.NO_CACHE), metadata_file_paths

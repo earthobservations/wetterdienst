@@ -2,6 +2,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+import logging
 from enum import Enum
 from typing import List, Optional, Union
 
@@ -27,6 +28,8 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
+
+log = logging.getLogger(__name__)
 
 
 class NoaaGhcnDataset(Enum):
@@ -55,6 +58,7 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_hourly(self, station_id: str, parameter, dataset) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
         file = url.format(station_id=station_id)
+        log.info(f"Downloading file {file}.")
         try:
             payload = download_file(file, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         except FileNotFoundError:
@@ -337,6 +341,7 @@ class NoaaGhcnValues(TimeseriesValues):
         """
         url = "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
         file = url.format(station_id=station_id)
+        log.info(f"Downloading file {file}.")
         payload = download_file(file, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         df = pl.read_csv(
             source=payload,
@@ -447,6 +452,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         file = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv"
+        log.info(f"Downloading file {file}.")
         payload = download_file(file, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pl.read_csv(
             payload,
@@ -500,6 +506,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         :return: DataFrame with all stations_result
         """
         listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
+        log.info(f"Downloading file {listings_url}.")
         listings_file = download_file(listings_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
         df = pl.read_csv(listings_file, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (12, 19), (21, 29), (31, 36), (38, 39), (41, 70), (80, 84))
@@ -515,6 +522,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         ]
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
+        log.info(f"Downloading file {inventory_url}.")
         inventory_file = download_file(inventory_url, settings=self.settings, ttl=CacheExpiry.TWELVE_HOURS)
         inventory_df = pl.read_csv(inventory_file, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))

@@ -3,6 +3,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import json
+import logging
 import math
 from enum import Enum
 from typing import Iterator, List, Literal, Optional, Tuple, Union
@@ -25,6 +26,8 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
+
+log = logging.getLogger(__name__)
 
 REQUIRED_ENTRIES = [
     "code_station",
@@ -97,6 +100,7 @@ class HubeauValues(TimeseriesValues):
 
     def _get_dynamic_frequency(self, station_id, parameter, dataset) -> Tuple[int, Literal["min", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
+        log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
         values_dict = json.load(response)["data"]
         try:
@@ -130,6 +134,7 @@ class HubeauValues(TimeseriesValues):
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
+            log.info(f"Downloading file {url}.")
             response = download_file(url=url, settings=self.sr.stations.settings)
             data_dict = json.load(response)["data"]
             df = pl.DataFrame(data_dict)
@@ -207,6 +212,7 @@ class HubeauRequest(TimeseriesRequest):
 
         :return:
         """
+        log.info(f"Downloading file {self._endpoint}.")
         response = download_file(url=self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         data = json.load(response)["data"]
         for entry in data:

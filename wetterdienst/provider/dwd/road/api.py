@@ -233,6 +233,7 @@ class DwdRoadValues(TimeseriesValues):
         :param remote_files:    List of requested files
         :return:                List of downloaded files
         """
+        log.info(f"Downloading {len(remote_files)} files from DWD Road Weather.")
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
                 lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS), remote_files
@@ -406,6 +407,7 @@ class DwdRoadRequest(TimeseriesRequest):
         )
 
     def _all(self) -> pl.LazyFrame:
+        log.info(f"Downloading file {self._endpoint}.")
         payload = download_file(self._endpoint, self.settings, CacheExpiry.METAINDEX)
         df = pl.read_excel(source=payload, sheet_name="Tabelle1", read_options={"infer_schema_length": 0})
         df = df.rename(mapping=self._column_mapping)

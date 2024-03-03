@@ -2,6 +2,7 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
@@ -25,6 +26,8 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
+
+log = logging.getLogger(__name__)
 
 
 class ImgwHydrologyParameter(DatasetTreeCore):
@@ -350,6 +353,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
 
         :return:
         """
+        log.info(f"Downloading file {self._endpoint}.")
         payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pl.read_csv(
             payload, encoding="latin-1", has_header=False, separator=";", skip_rows=1, infer_schema_length=0

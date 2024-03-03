@@ -433,7 +433,7 @@ class DwdRadarValues:
         ttl = CacheExpiry.FIVE_MINUTES
         if not self._should_cache_download(url):
             ttl = CacheExpiry.NO_CACHE
-
+        log.info(f"Downloading file {url}.")
         data = download_file(url=url, ttl=ttl, settings=self.settings)
 
         # RadarParameter.FX_REFLECTIVITY
@@ -523,6 +523,7 @@ class DwdRadarValues:
             the file in binary, either an archive of one file or an archive of multiple
             files
         """
+        log.info(f"Downloading file {url}.")
         return download_file(url=url, ttl=CacheExpiry.TWELVE_HOURS, settings=settings)
 
     @staticmethod

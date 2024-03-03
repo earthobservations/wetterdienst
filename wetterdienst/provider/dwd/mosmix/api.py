@@ -1407,6 +1407,7 @@ class DwdMosmixRequest(TimeseriesRequest):
 
         :return:
         """
+        log.info(f"Downloading file {self._url}.")
         payload = download_file(self._url, self.settings, CacheExpiry.METAINDEX)
         text = StringIO(payload.read().decode(encoding="latin-1"))
         lines = text.readlines()
