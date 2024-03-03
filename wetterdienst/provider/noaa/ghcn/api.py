@@ -308,7 +308,11 @@ class NoaaGhcnValues(TimeseriesValues):
         df = df.select(
             "station_id",
             pl.concat_str(["year", "month", "day", "hour", "minute"], separator="-")
-            .str.to_datetime("%Y-%m-%d-%H-%M")
+            .map_elements(
+                lambda date: dt.datetime.strptime(date, "%Y-%m-%d-%H-%M")
+                .replace(tzinfo=ZoneInfo(time_zone))
+                .astimezone(ZoneInfo("UTC"))
+            )
             .alias("date"),
             *parameter,
         )
@@ -316,7 +320,6 @@ class NoaaGhcnValues(TimeseriesValues):
             id_vars=["station_id", "date"], value_vars=parameter, variable_name="parameter", value_name="value"
         )
         return df.with_columns(
-            pl.col("date").dt.replace_time_zone(time_zone).dt.replace_time_zone("UTC"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").cast(pl.Float64),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),

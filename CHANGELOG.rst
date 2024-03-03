@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- NOAA GHCN Hourly: Fix date parsing
+
 0.76.0 (02.03.2024)
 *******************
 
