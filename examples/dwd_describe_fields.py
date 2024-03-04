@@ -8,6 +8,7 @@ About
 Acquire information about the data fields from DWD.
 
 """  # Noqa:D205,D400
+
 import logging
 from pprint import pprint
 

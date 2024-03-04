@@ -10,6 +10,7 @@ and not in "Decimal Degrees".
 
 Source: https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations.cfg?view=nasPublication&nn=495490
 """
+
 import polars as pl
 import pytest
 from dirty_equals import IsInt, IsTuple

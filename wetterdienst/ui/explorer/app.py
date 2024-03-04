@@ -4,6 +4,7 @@
 """
 Wetterdienst Explorer UI Dash application.
 """
+
 import json
 import logging
 from typing import Optional

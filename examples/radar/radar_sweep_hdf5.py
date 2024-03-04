@@ -15,6 +15,7 @@ This program will request the latest RADAR SWEEP_PCP_VELOCITY_H data
 for Boostedt and plot the outcome with matplotlib.
 
 """  # Noqa:D205,D400
+
 import logging
 import os
 

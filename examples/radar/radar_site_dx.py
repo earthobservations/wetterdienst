@@ -18,6 +18,7 @@ This program will request the latest RADAR DX data
 for Boostedt and plot the outcome with matplotlib.
 
 """  # noqa:D205,D400,E501
+
 import logging
 import os
 

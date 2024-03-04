@@ -16,6 +16,7 @@ References
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_network.html
 - https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
 """  # noqa:B950,E501
+
 from enum import Enum
 from typing import Dict
 

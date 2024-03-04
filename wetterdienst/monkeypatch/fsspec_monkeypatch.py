@@ -15,6 +15,7 @@ For FSSPEC related code the license of the project (https://github.com/fsspec/fi
 
 TODO: remove this as soon as our PR is merged
 """
+
 import logging
 import warnings
 from collections.abc import MutableMapping

@@ -516,11 +516,9 @@ class InterpolatedValuesResult(_ValuesResult):
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance_mean and station_ids.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> List[_InterpolatedValuesItemDict]:
-            ...
+        def _to_dict(self, df: pl.DataFrame) -> List[_InterpolatedValuesItemDict]: ...
 
-        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict:
-            ...
+        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict: ...
 
     def to_ogc_feature_collection(self, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
         """
@@ -604,11 +602,9 @@ class SummarizedValuesResult(_ValuesResult):
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance and station_id.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> List[_SummarizedValuesItemDict]:
-            ...
+        def _to_dict(self, df: pl.DataFrame) -> List[_SummarizedValuesItemDict]: ...
 
-        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict:
-            ...
+        def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict: ...
 
     def to_ogc_feature_collection(self, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
         """

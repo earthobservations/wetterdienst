@@ -8,6 +8,7 @@ About
 Acquire station information from DWD.
 
 """  # Noqa:D205,D400
+
 import logging
 from datetime import datetime
 

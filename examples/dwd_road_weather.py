@@ -13,6 +13,7 @@ This program will request latest DWD air temperature for
 and compare them in a plot.
 
 """  # Noqa:D205,D400
+
 import datetime as dt
 import os
 

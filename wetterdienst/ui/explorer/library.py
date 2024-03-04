@@ -7,6 +7,7 @@ Library of generic components.
 Examples:
 - Different figures for different data types.
 """
+
 import plotly.graph_objs as go
 import polars as pl
 

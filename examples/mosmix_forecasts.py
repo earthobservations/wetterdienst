@@ -13,6 +13,7 @@ stations_result 01001 and 01008 and parameters DD and ww.
 Other MOSMIX variants are also listed and can be
 enabled on demand.
 """  # Noqa:D205,D400
+
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.mosmix import (
     DwdForecastDate,
