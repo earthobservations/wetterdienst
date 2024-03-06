@@ -145,7 +145,8 @@ class ImgwHydrologyValues(TimeseriesValues):
         urls = self._get_urls(dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES), urls
+                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES),
+                urls,
             )
         data = []
         file_schema = self._file_schema[self.sr.resolution.name.lower()][dataset.name.lower()]
@@ -264,7 +265,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             interval = P.closed(self.sr.start_date, self.sr.end_date)
             if self.sr.resolution == Resolution.DAILY:
                 df_files = df_files.with_columns(
-                    pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month")
+                    pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
                 )
                 df_files = df_files.with_columns(
                     pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
@@ -283,9 +284,9 @@ class ImgwHydrologyValues(TimeseriesValues):
                         lambda x: [
                             dt.datetime(x["year"], x["month"], 1),
                             dt.datetime(x["year"], x["month"], 1) + relativedelta(months=1) - relativedelta(days=1),
-                        ]
+                        ],
                     )
-                    .alias("date_range")
+                    .alias("date_range"),
                 )
             else:
                 df_files = df_files.with_columns(
@@ -295,9 +296,9 @@ class ImgwHydrologyValues(TimeseriesValues):
                     .list.last()
                     .str.to_datetime("%Y", time_zone="UTC", strict=False)
                     .map_elements(
-                        lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)]
+                        lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
                     )
-                    .alias("date_range")
+                    .alias("date_range"),
                 )
             df_files = df_files.select(
                 pl.col("url"),
@@ -307,7 +308,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
                 .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]))
-                .alias("interval")
+                .alias("interval"),
             )
             df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))
         return df_files.get_column("url")
@@ -355,7 +356,12 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         log.info(f"Downloading file {self._endpoint}.")
         payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
         df = pl.read_csv(
-            payload, encoding="latin-1", has_header=False, separator=";", skip_rows=1, infer_schema_length=0
+            payload,
+            encoding="latin-1",
+            has_header=False,
+            separator=";",
+            skip_rows=1,
+            infer_schema_length=0,
         )
         df = df[:, [1, 2, 4, 5]]
         df.columns = [

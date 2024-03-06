@@ -49,7 +49,8 @@ def test_data_coverage():
         provider_coverage = Path(COVERAGE / f"{provider.name}.rst").read_text()
         for network in Path(PROVIDER / provider.name).glob("*"):
             if _check_startswith(
-                network.name, EXCLUDE_PROVIDER_NETWORKS_STARTSWITH
+                network.name,
+                EXCLUDE_PROVIDER_NETWORKS_STARTSWITH,
             ) or network.name in EXCLUDE_PROVIDER_NETWORKS.get(provider.name, []):
                 continue
             assert f"{provider.name}/{network.name}" in provider_coverage

@@ -1031,7 +1031,9 @@ class DwdMosmixValues(TimeseriesValues):
                 parameter_.append(parameter.value)
 
         self.kml = KMLReader(
-            station_ids=self.sr.station_id.to_list(), parameters=parameter_, settings=self.sr.stations.settings
+            station_ids=self.sr.station_id.to_list(),
+            parameters=parameter_,
+            settings=self.sr.stations.settings,
         )
 
     @property
@@ -1094,7 +1096,10 @@ class DwdMosmixValues(TimeseriesValues):
                 yield df
         else:
             for date in pl.datetime_range(
-                self.sr.stations.start_issue, self.sr.stations.end_issue, interval=self.sr.frequency.value, eager=True
+                self.sr.stations.start_issue,
+                self.sr.stations.end_issue,
+                interval=self.sr.frequency.value,
+                eager=True,
             ):
                 try:
                     for df in self.read_mosmix(date):
@@ -1134,7 +1139,7 @@ class DwdMosmixValues(TimeseriesValues):
             df_forecast = df_forecast.rename(
                 mapping={
                     "datetime": Columns.DATE.value,
-                }
+                },
             )
 
             yield df_forecast
@@ -1166,7 +1171,8 @@ class DwdMosmixValues(TimeseriesValues):
         yield from self.kml.get_forecasts()
 
     def read_mosmix_large(
-        self, date: Union[DwdForecastDate, dt.datetime]
+        self,
+        date: Union[DwdForecastDate, dt.datetime],
     ) -> Iterator[Tuple[pl.DataFrame, pl.DataFrame]]:
         """
         Reads multiple MOSMIX-L files with one per each station and returns a
@@ -1219,13 +1225,13 @@ class DwdMosmixValues(TimeseriesValues):
         df = pl.DataFrame({"url": urls})
 
         df = df.with_columns(
-            pl.col("url").str.split("/").list.last().str.split("_").list.gather(2).flatten().alias("date")
+            pl.col("url").str.split("/").list.last().str.split("_").list.gather(2).flatten().alias("date"),
         )
 
         df = df.filter(pl.col("date").ne("LATEST"))
 
         df = df.with_columns(
-            pl.col("date").map_elements(lambda d: f"{d}00").str.to_datetime(DatetimeFormat.YMDHM.value)
+            pl.col("date").map_elements(lambda d: f"{d}00").str.to_datetime(DatetimeFormat.YMDHM.value),
         )
 
         df = df.filter(pl.col("date").eq(date))

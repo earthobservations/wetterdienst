@@ -12,7 +12,9 @@ class _ParameterData:
 
 
 def extract_station_values(
-    param_data: _ParameterData, result_series_param: pl.Series, valid_station_groups_exists: bool
+    param_data: _ParameterData,
+    result_series_param: pl.Series,
+    valid_station_groups_exists: bool,
 ) -> None:
     # Three rules:
     # 1. only add further stations if not a minimum of 4 stations is reached OR
@@ -28,7 +30,7 @@ def extract_station_values(
         # "S" is added to station id titles to prevent bug with pandas that somehow doesn't allow column name "02000"
         # under certain circumstances
         param_data.values = param_data.values.with_columns(
-            pl.lit(result_series_param).alias(f"S{result_series_param.name}")
+            pl.lit(result_series_param).alias(f"S{result_series_param.name}"),
         )
     else:
         param_data.finished = True

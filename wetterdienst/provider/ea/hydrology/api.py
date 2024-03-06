@@ -98,7 +98,7 @@ class EaHydrologyValues(TimeseriesValues):
             .map_elements(lambda measure: measure["parameterName"])
             .str.to_lowercase()
             .str.replace(" ", "")
-            .eq(parameter.value.lower().replace("_", ""))
+            .eq(parameter.value.lower().replace("_", "")),
         )
         try:
             measure_dict = measures_list.get_column("measure")[0]
@@ -179,5 +179,5 @@ class EaHydrologyRequest(TimeseriesRequest):
                 "lat": Columns.LATITUDE.value,
                 "long": Columns.LONGITUDE.value,
                 "notation": Columns.STATION_ID.value,
-            }
+            },
         )

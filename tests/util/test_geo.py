@@ -22,7 +22,7 @@ def test_get_coordinates_in_radians():
                 [0.0349066, 0.1047198],
                 [0.0523599, 0.122173],
                 [0.0698132, 0.1396263],
-            ]
+            ],
         ),
     )
 
@@ -50,7 +50,7 @@ def test_derive_nearest_neighbours():
             "station_id": [4371, 4373, 4411, 13904, 13965, 15207],
             "latitude": [52.1042, 52.8568, 49.9195, 55.0, 48.2639, 51.2835],
             "longitude": [8.7521, 11.1319, 8.9671, 6.3333, 8.8134, 9.359],
-        }
+        },
     )
     distances, indices_nearest_neighbours = derive_nearest_neighbours(
         latitudes=metadata.get_column("latitude"),

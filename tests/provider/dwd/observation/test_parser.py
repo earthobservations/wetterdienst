@@ -55,7 +55,7 @@ def test_parse_dwd_data():
             "txk": ["2.5", "24.8"],
             "tnk": ["-1.6", "14.4"],
             "tgk": pl.Series(values=[None, None], dtype=pl.Utf8),
-        }
+        },
     )
     assert_frame_equal(
         given_df[[0, -1], :],

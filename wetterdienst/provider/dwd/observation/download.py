@@ -18,7 +18,8 @@ log = logging.getLogger(__name__)
 
 
 def download_climate_observations_data_parallel(
-    remote_files: pl.Series, settings: Settings
+    remote_files: pl.Series,
+    settings: Settings,
 ) -> List[Tuple[str, BytesIO]]:
     """
     Wrapper for ``_download_dwd_data`` to provide a multiprocessing feature.
@@ -28,7 +29,8 @@ def download_climate_observations_data_parallel(
     """
     with ThreadPoolExecutor() as p:
         files_in_bytes = p.map(
-            lambda file: _download_climate_observations_data(remote_file=file, settings=settings), remote_files
+            lambda file: _download_climate_observations_data(remote_file=file, settings=settings),
+            remote_files,
         )
 
     return list(zip(remote_files, files_in_bytes))

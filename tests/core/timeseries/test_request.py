@@ -96,7 +96,7 @@ def test_dwd_observation_data_api(default_settings):
         (
             DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
             DwdObservationDataset.CLIMATE_SUMMARY,
-        )
+        ),
     ]
 
 
@@ -104,7 +104,10 @@ def test_dwd_observation_data_api(default_settings):
 def test_dwd_observation_data_dataset(default_settings):
     """Request a parameter set"""
     given = DwdObservationRequest(
-        parameter=["kl"], resolution="daily", period=["recent", "historical"], settings=default_settings
+        parameter=["kl"],
+        resolution="daily",
+        period=["recent", "historical"],
+        settings=default_settings,
     ).filter_by_station_id(station_id=(1,))
     expected = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
@@ -137,7 +140,7 @@ def test_dwd_observation_data_dataset(default_settings):
         (
             DwdObservationDataset.CLIMATE_SUMMARY,
             DwdObservationDataset.CLIMATE_SUMMARY,
-        )
+        ),
     ]
 
 
@@ -153,10 +156,13 @@ def test_dwd_observation_data_parameter(default_settings):
         (
             DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
             DwdObservationDataset.CLIMATE_SUMMARY,
-        )
+        ),
     ]
     given = DwdObservationRequest(
-        parameter=["climate_summary"], resolution="daily", period=["recent", "historical"], settings=default_settings
+        parameter=["climate_summary"],
+        resolution="daily",
+        period=["recent", "historical"],
+        settings=default_settings,
     )
     assert given.parameter == [(DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)]
 
@@ -180,7 +186,7 @@ def test_dwd_observation_data_parameter_dataset_pairs(default_settings):
         (
             DwdObservationParameter.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
             DwdObservationDataset.PRECIPITATION_MORE,
-        )
+        ),
     ]
 
 

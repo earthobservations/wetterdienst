@@ -26,7 +26,7 @@ def test_dwd_observation_metadata_discover_parameters():
                 "si": "kg / m ** 2",
             },
             "precipitation_index": {"origin": "-", "si": "-"},
-        }
+        },
     }
     assert json.dumps(expected) in json.dumps(metadata)
 
@@ -83,7 +83,7 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
             resolution=DwdObservationResolution.DAILY,
             period=DwdObservationPeriod.RECENT,
             language="de",
-        )["parameters"].keys()
+        )["parameters"].keys(),
     ) == [
         "stations_id",
         "mess_datum",

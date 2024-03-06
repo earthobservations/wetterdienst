@@ -28,14 +28,19 @@ def dwd_road_weather_example():
     end_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
     start_date = end_date - dt.timedelta(days=1)
     drw_request = DwdRoadRequest(
-        parameter="airTemperature", start_date=start_date, end_date=end_date
+        parameter="airTemperature",
+        start_date=start_date,
+        end_date=end_date,
     ).filter_by_station_id("A006")
     print(drw_request)
     df_drw = drw_request.values.all().df.drop_nulls(subset="value")
     print(df_drw)
 
     dobs_request = DwdObservationRequest(
-        parameter="temperature_air_mean_200", resolution="10_minutes", start_date=start_date, end_date=end_date
+        parameter="temperature_air_mean_200",
+        resolution="10_minutes",
+        start_date=start_date,
+        end_date=end_date,
     ).summarize(latlon=(54.8892, 8.9087))
     print(dobs_request.stations)
     df_dobs = dobs_request.df.drop_nulls(subset="value")

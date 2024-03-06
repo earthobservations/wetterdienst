@@ -189,7 +189,9 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
 
 @stamina.retry(on=Exception, attempts=3)
 def download_file(
-    url: str, settings: Settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE
+    url: str,
+    settings: Settings,
+    ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE,
 ) -> BytesIO:
     """
     A function used to download a specified file from the server.

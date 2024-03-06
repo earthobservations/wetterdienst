@@ -14,7 +14,9 @@ def test_dwd_mosmix_l(settings_humanize_false):
     Test some details of a typical MOSMIX-L response.
     """
     request = DwdMosmixRequest(
-        parameter="large", mosmix_type="large", settings=settings_humanize_false
+        parameter="large",
+        mosmix_type="large",
+        settings=settings_humanize_false,
     ).filter_by_station_id(
         station_id=["01001"],
     )
@@ -157,7 +159,7 @@ def test_dwd_mosmix_l(settings_humanize_false):
             "wpc61",
             "wpch1",
             "wpcd1",
-        ]
+        ],
     )
 
 
@@ -166,7 +168,9 @@ def test_dwd_mosmix_l(settings_humanize_false):
 def test_dwd_mosmix_s(settings_humanize_false):
     """Test some details of a typical MOSMIX-S response."""
     request = DwdMosmixRequest(
-        parameter="small", mosmix_type="small", settings=settings_humanize_false
+        parameter="small",
+        mosmix_type="small",
+        settings=settings_humanize_false,
     ).filter_by_station_id(
         station_id=["01028"],
     )
@@ -229,7 +233,7 @@ def test_dwd_mosmix_s(settings_humanize_false):
             "rd50",
             "rad1h",
             "sund1",
-        ]
+        ],
     )
 
 
@@ -254,7 +258,9 @@ def test_mosmix_l_parameters(settings_humanize_false):
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
     request = DwdMosmixRequest(
-        parameter=["dd", "ww"], mosmix_type="large", settings=settings_humanize_false
+        parameter=["dd", "ww"],
+        mosmix_type="large",
+        settings=settings_humanize_false,
     ).filter_by_station_id(
         station_id=("01001", "123"),
     )

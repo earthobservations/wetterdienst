@@ -364,7 +364,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
         urls = self._get_urls(dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES), urls
+                lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES),
+                urls,
             )
         data = []
         file_schema = self._file_schema[self.sr.resolution.name.lower()][dataset.name.lower()]
@@ -459,9 +460,9 @@ class ImgwMeteorologyValues(TimeseriesValues):
                             dt.datetime(int(years[1]), 1, 1, tzinfo=ZoneInfo("UTC"))
                             + relativedelta(years=1)
                             - relativedelta(days=1),
-                        ]
+                        ],
                     )
-                    .alias("date_range")
+                    .alias("date_range"),
                 )
             else:
                 df_files = df_files.with_columns(
@@ -471,16 +472,16 @@ class ImgwMeteorologyValues(TimeseriesValues):
                         .str.split("_")
                         .list.first()
                         .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                        .map_elements(lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)])
+                        .map_elements(lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)]),
                     )
                     .otherwise(
                         pl.col("file")
                         .str.split("_")
                         .map_elements(lambda s: "_".join(s[:2]))
                         .str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
-                        .map_elements(lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)])
+                        .map_elements(lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)]),
                     )
-                    .alias("date_range")
+                    .alias("date_range"),
                 )
             df_files = df_files.select(
                 pl.col("url"),
@@ -490,7 +491,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
                 .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]))
-                .alias("interval")
+                .alias("interval"),
             )
             df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))
         return df_files.get_column("url")

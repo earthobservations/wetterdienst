@@ -50,7 +50,7 @@ def index():
         shortname = provider.name
         _, name, country, copyright_, url = provider.value
         sources.append(
-            f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
+            f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>",
         )
     sources = "\n".join(sources)
     info = Info()
@@ -405,7 +405,8 @@ def values(
 # - _InterpolatedValuesOgcFeatureCollection for geojson
 # - str for csv
 @app.get(
-    "/api/interpolate", response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str]
+    "/api/interpolate",
+    response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str],
 )
 def interpolate(
     provider: Annotated[Optional[str], Query()] = None,

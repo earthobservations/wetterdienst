@@ -115,10 +115,12 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
 
     df = df.with_columns(
         pl.col(Columns.START_DATE.value).map_elements(
-            lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8
+            lambda date: date and date.isoformat() or None,
+            return_dtype=pl.Utf8,
         ),
         pl.col(Columns.END_DATE.value).map_elements(
-            lambda date: date and date.isoformat() or None, return_dtype=pl.Utf8
+            lambda date: date and date.isoformat() or None,
+            return_dtype=pl.Utf8,
         ),
     )
 
@@ -140,7 +142,13 @@ def fetch_stations(provider: str, network: str, resolution: str, dataset: str, p
     ],
 )
 def fetch_values(
-    provider: str, network: str, resolution: str, dataset: str, parameter: str, period: str, station_id: int
+    provider: str,
+    network: str,
+    resolution: str,
+    dataset: str,
+    parameter: str,
+    period: str,
+    station_id: int,
 ):
     """
     Fetch "values" data.
@@ -164,7 +172,7 @@ def fetch_values(
 
     log.info(
         f"Requesting values for station_id={station_id}, parameter={parameter}, resolution={resolution}, "
-        f"period={period}"
+        f"period={period}",
     )
 
     try:
@@ -244,7 +252,13 @@ def render_navigation_stations(payload):
     ],
 )
 def render_status_response_stations(
-    provider: str, network: str, resolution: str, dataset: str, parameter: str, period: str, payload: str
+    provider: str,
+    network: str,
+    resolution: str,
+    dataset: str,
+    parameter: str,
+    period: str,
+    payload: str,
 ):
     """
     Report about the status of the query.
@@ -262,8 +276,8 @@ def render_status_response_stations(
             f"""
             No data. Maybe the combination of "{resolution}", "{dataset}", "{parameter}" and "{period}"
             is invalid for provider "{provider}" and network "{network}".
-            """
-        )
+            """,
+        ),
     ]
 
     data = json.loads(payload)
@@ -278,8 +292,8 @@ def render_status_response_stations(
             [
                 html.Div(f"Columns: {len(stations_data.columns)}"),
                 html.Div(f"Records: {len(stations_data)}"),
-            ]
-        )
+            ],
+        ),
     ]
 
 
@@ -356,7 +370,9 @@ def render_map(payload):
         return []
     stations_data = pl.from_dicts(data, infer_schema_length=0)
     stations_data = stations_data.with_columns(
-        pl.col("station_id").cast(pl.Utf8), pl.col("latitude").cast(pl.Float64), pl.col("longitude").cast(pl.Float64)
+        pl.col("station_id").cast(pl.Utf8),
+        pl.col("latitude").cast(pl.Float64),
+        pl.col("longitude").cast(pl.Float64),
     )
     log.info(f"Rendering stations_result map from {frame_summary(stations_data)}")
     # columns used for constructing geojson object
@@ -417,7 +433,7 @@ def render_graph(parameter, resolution, payload: str):
             r=0,  # right margin
             b=0,  # bottom margin
             t=0,  # top margin
-        )
+        ),
     )
 
     return fig

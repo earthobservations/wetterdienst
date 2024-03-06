@@ -254,12 +254,14 @@ class StationsResult(ExportMixin):
             df = df.with_columns(
                 [
                     pl.col("start_date").map_elements(
-                        lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8
+                        lambda date: date.isoformat() if date else None,
+                        return_dtype=pl.Utf8,
                     ),
                     pl.col("end_date").map_elements(
-                        lambda date: date.isoformat() if date else None, return_dtype=pl.Utf8
+                        lambda date: date.isoformat() if date else None,
+                        return_dtype=pl.Utf8,
                     ),
-                ]
+                ],
             )
         data["stations"] = df.to_dicts()
         return data
@@ -312,7 +314,7 @@ class StationsResult(ExportMixin):
                             station["height"],
                         ],
                     },
-                }
+                },
             )
         data["data"] = {
             "type": "FeatureCollection",
@@ -372,7 +374,10 @@ class _ValuesResult(ExportMixin):
         return data
 
     def to_json(
-        self, with_metadata: bool = False, with_stations: bool = False, indent: Optional[Union[int, bool]] = 4
+        self,
+        with_metadata: bool = False,
+        with_stations: bool = False,
+        indent: Optional[Union[int, bool]] = 4,
     ) -> str:
         """
         Format values as JSON.
@@ -432,7 +437,7 @@ class ValuesResult(_ValuesResult):
         features = []
         for station in df_stations.iter_rows(named=True):
             df_values = self.df.filter(pl.col("station_id") == station["station_id"]).select(
-                pl.all().exclude("station_id")
+                pl.all().exclude("station_id"),
             )
             features.append(
                 {
@@ -457,7 +462,7 @@ class ValuesResult(_ValuesResult):
                         ],
                     },
                     "values": self._to_dict(df_values),
-                }
+                },
             )
         data["data"] = {
             "type": "FeatureCollection",

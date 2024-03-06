@@ -30,7 +30,7 @@ def test_file_index_creation_success(default_settings):
     assert not file_index.is_empty()
     assert file_index.filter(pl.col("station_id").eq("01048")).get_column("filename").to_list() == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
-        "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip"
+        "climate/daily/kl/recent/tageswerte_KL_01048_akt.zip",
     ]
 
 
@@ -51,7 +51,10 @@ def test_file_index_creation_precipitation_minute_1(default_settings):
 def test_file_index_creation_failure(default_settings):
     with pytest.raises(FileNotFoundError):
         create_file_index_for_climate_observations(
-            DwdObservationDataset.CLIMATE_SUMMARY, Resolution.MINUTE_1, Period.HISTORICAL, settings=default_settings
+            DwdObservationDataset.CLIMATE_SUMMARY,
+            Resolution.MINUTE_1,
+            Period.HISTORICAL,
+            settings=default_settings,
         )
 
 
@@ -66,7 +69,7 @@ def test_create_file_list_for_dwd_server(default_settings):
     ).to_list()
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
-        "daily/kl/recent/tageswerte_KL_01048_akt.zip"
+        "daily/kl/recent/tageswerte_KL_01048_akt.zip",
     ]
     # with date range
     remote_file_path = create_file_list_for_climate_observations(
@@ -80,5 +83,5 @@ def test_create_file_list_for_dwd_server(default_settings):
     assert remote_file_path == [
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/"
         "10_minutes/air_temperature/historical/"
-        "10minutenwerte_TU_00003_19930428_19991231_hist.zip"
+        "10minutenwerte_TU_00003_19930428_19991231_hist.zip",
     ]

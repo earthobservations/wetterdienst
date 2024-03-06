@@ -240,12 +240,6 @@ extend-include = ["*.ipynb"]
 select = [
     # Bandit
     "S",
-    # Bugbear
-    "B",
-    # Builtins
-    "A",
-    # comprehensions
-    "C4",
     # eradicate
     "ERA",
     # flake8-2020
@@ -262,13 +256,16 @@ select = [
     # return
     "RET",
     # pyupgrade
-    "UP"
+    "UP",
+    # flake8-commas
+    "COM"
 ]
 extend-ignore = [
     # zip() without an explicit strict= parameter.
     "B905",
     # Unnecessary `elif` after `return` statement
     "RET505",
+    "COM812"
 ]
 unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 

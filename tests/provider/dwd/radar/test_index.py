@@ -17,7 +17,9 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 @pytest.mark.remote
 def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings):
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PG_REFLECTIVITY, fmt=DwdRadarDataFormat.BINARY, settings=default_settings
+        parameter=DwdRadarParameter.PG_REFLECTIVITY,
+        fmt=DwdRadarDataFormat.BINARY,
+        settings=default_settings,
     )
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -27,7 +29,9 @@ def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings):
 @pytest.mark.remote
 def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings):
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PG_REFLECTIVITY, fmt=DwdRadarDataFormat.BUFR, settings=default_settings
+        parameter=DwdRadarParameter.PG_REFLECTIVITY,
+        fmt=DwdRadarDataFormat.BUFR,
+        settings=default_settings,
     )
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -91,7 +95,9 @@ def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings):
 @pytest.mark.remote
 def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings):
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PX250_REFLECTIVITY, site=DwdRadarSite.BOO, settings=default_settings
+        parameter=DwdRadarParameter.PX250_REFLECTIVITY,
+        site=DwdRadarSite.BOO,
+        settings=default_settings,
     )
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
@@ -205,7 +211,7 @@ def test_radar_fileindex_radolan_cdc_5minutes(default_settings):
     urls = file_index.get_column("filename").to_list()
     assert all(
         PurePath(url).match(
-            "*/climate_environment/CDC/grids_germany/5_minutes/radolan/reproc/2017_002/bin/*/YW2017*.tar"
+            "*/climate_environment/CDC/grids_germany/5_minutes/radolan/reproc/2017_002/bin/*/YW2017*.tar",
         )
         for url in urls
         if not url.endswith(".tar.gz")

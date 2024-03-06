@@ -33,8 +33,8 @@ def default_figure(climate_data: pl.DataFrame, parameter, resolution, unit_dict)
                 x=climate_data.get_column("date").to_list(),
                 y=climate_data.get_column("value").to_list(),
                 hoverinfo="x+y",
-            )
-        ]
+            ),
+        ],
     )
     fig.update_layout(yaxis={"title": ytitle}, xaxis={"title": "Date"}, showlegend=False)
     return fig

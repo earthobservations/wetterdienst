@@ -116,7 +116,7 @@ def create_fileindex_radar(
             .map_elements(
                 lambda fn: get_date_from_filename(filename=fn, pattern=RADAR_DT_PATTERN, formats=formats),
             )
-            .alias("datetime")
+            .alias("datetime"),
         )
 
     return df_fileindex.drop_nulls()
@@ -136,12 +136,17 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
     :return:                File index as DataFrame
     """
     df_fileindex = create_fileindex_radar(
-        parameter=DwdRadarParameter.RADOLAN_CDC, resolution=resolution, period=period, settings=settings
+        parameter=DwdRadarParameter.RADOLAN_CDC,
+        resolution=resolution,
+        period=period,
+        settings=settings,
     )
 
     df_fileindex = df_fileindex.filter(
         pl.col("filename").str.contains("/bin/", literal=True)
-        & (pl.col("filename").str.ends_with(Extension.GZ.value) | pl.col("filename").str.ends_with(Extension.TAR.value))
+        & (
+            pl.col("filename").str.ends_with(Extension.GZ.value) | pl.col("filename").str.ends_with(Extension.TAR.value)
+        ),
     )
 
     if period == Period.HISTORICAL:
@@ -154,7 +159,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
         .map_elements(
             lambda fn: get_date_from_filename(filename=fn, pattern=RADOLAN_DT_PATTERN, formats=formats),
         )
-        .alias("datetime")
+        .alias("datetime"),
     )
 
     return df_fileindex.drop_nulls()

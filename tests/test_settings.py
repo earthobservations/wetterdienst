@@ -89,7 +89,9 @@ def test_settings_mixed(caplog):
     os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = "precipitation_height=40.0,other=42"
     caplog.set_level(logging.INFO)
     settings = Settings(
-        ts_skip_threshold=0.81, ts_si_units=False, ts_interpolation_station_distance={"just_another": 43}
+        ts_skip_threshold=0.81,
+        ts_si_units=False,
+        ts_interpolation_station_distance={"just_another": 43},
     )
     log_message = caplog.messages[0]
     assert settings.cache_disable

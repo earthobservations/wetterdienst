@@ -160,8 +160,8 @@ def _parse_climate_observations_data(
                 )
                 df = df.with_columns(
                     pl.datetime_ranges(pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m").alias(
-                        "mess_datum"
-                    )
+                        "mess_datum",
+                    ),
                 )
                 df = df.drop(
                     "mess_datum_beginn",
@@ -171,10 +171,10 @@ def _parse_climate_observations_data(
                 df = df.explode("mess_datum")
             else:
                 df = df.with_columns(
-                    [pl.all(), *[pl.lit(None, pl.Utf8).alias(par) for par in PRECIPITATION_PARAMETERS]]
+                    [pl.all(), *[pl.lit(None, pl.Utf8).alias(par) for par in PRECIPITATION_PARAMETERS]],
                 )
                 df = df.with_columns(
-                    pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC")
+                    pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
                 )
     if resolution == Resolution.MINUTE_5 and dataset == DwdObservationDataset.PRECIPITATION:
         # apparently historical datasets differ from recent and now having all columns as described in the
@@ -196,12 +196,13 @@ def _parse_climate_observations_data(
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop(col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns).rename(
-            mapping={"mess_datum_beginn": "mess_datum"}
+            mapping={"mess_datum_beginn": "mess_datum"},
         )
 
     if resolution == Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
         df = df.select(
-            pl.all().exclude("qn_8"), pl.col("qn_8").alias("qn_8_3" if "fx_911_3" in df.columns else "qn_8_6")
+            pl.all().exclude("qn_8"),
+            pl.col("qn_8").alias("qn_8_3" if "fx_911_3" in df.columns else "qn_8_6"),
         )
 
     fmt = None

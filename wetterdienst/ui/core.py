@@ -103,7 +103,7 @@ def _get_stations_request(
     if api._data_range == DataRange.LOOSELY and not start_date and not end_date:
         # TODO: use another property "network" on each class
         raise TypeError(
-            f"Combination of provider {api._provider.name} and network {api._kind.name} requires start and end date"
+            f"Combination of provider {api._provider.name} and network {api._kind.name} requires start and end date",
         )
 
     # Todo: We may have to apply other measures to allow for

@@ -305,7 +305,11 @@ class DwdRadarValues:
         # Find latest file.
         if self.start_date == DwdRadarDate.LATEST:
             file_index = create_fileindex_radar(
-                parameter=self.parameter, site=self.site, fmt=self.format, parse_datetime=False, settings=self.settings
+                parameter=self.parameter,
+                site=self.site,
+                fmt=self.format,
+                parse_datetime=False,
+                settings=self.settings,
             )
 
             # Find "-latest-" or "LATEST" or similar file.
@@ -332,20 +336,22 @@ class DwdRadarValues:
                 results = []
                 for period in period_types:
                     file_index = create_fileindex_radolan_cdc(
-                        resolution=self.resolution, period=period, settings=self.settings
+                        resolution=self.resolution,
+                        period=period,
+                        settings=self.settings,
                     )
 
                     # Filter for dates range if start_date and end_date are defined.
                     if period == Period.RECENT:
                         file_index = file_index.filter(
-                            pl.col("datetime").is_between(self.start_date, self.end_date, closed="both")
+                            pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
                         )
 
                     # This is for matching historical data, e.g. "RW-200509.tar.gz".
                     else:
                         file_index = file_index.filter(
                             pl.col("datetime").dt.year().eq(self.start_date.year)
-                            & pl.col("datetime").dt.month().eq(self.start_date.month)
+                            & pl.col("datetime").dt.month().eq(self.start_date.month),
                         )
 
                     results.append(file_index)
@@ -374,7 +380,7 @@ class DwdRadarValues:
 
                 # Filter for dates range if start_date and end_date are defined.
                 file_index = file_index.filter(
-                    pl.col("datetime").is_between(self.start_date, self.end_date, closed="both")
+                    pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),
                 )
 
                 # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
@@ -383,7 +389,7 @@ class DwdRadarValues:
                         pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
                         | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
                         | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
-                        | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}")
+                        | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}"),
                     )
 
                 if file_index.is_empty():
@@ -447,7 +453,9 @@ class DwdRadarValues:
                 yield RadarResult(
                     data=BytesIO(tfs.open(file).read()),
                     timestamp=get_date_from_filename(
-                        file_name, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+                        file_name,
+                        pattern=RADAR_DT_PATTERN,
+                        formats=[DatetimeFormat.ymdhm.value],
                     ),
                     filename=file_name,
                 )
@@ -460,7 +468,9 @@ class DwdRadarValues:
                     url=url,
                     data=data,
                     timestamp=get_date_from_filename(
-                        url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+                        url,
+                        pattern=RADAR_DT_PATTERN,
+                        formats=[DatetimeFormat.ymdhm.value],
                     ),
                 )
 
@@ -472,7 +482,9 @@ class DwdRadarValues:
                     url=url,
                     data=data,
                     timestamp=get_date_from_filename(
-                        url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+                        url,
+                        pattern=RADAR_DT_PATTERN,
+                        formats=[DatetimeFormat.ymdhm.value],
                     ),
                 )
 

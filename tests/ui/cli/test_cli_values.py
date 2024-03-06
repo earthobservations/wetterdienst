@@ -90,7 +90,11 @@ def invoke_wetterdienst_values_filter_by_rank(provider, network, setting, fmt="j
 def test_cli_values_json_wide(setting):
     provider, network, setting, station_id, station_name = setting
     result = invoke_wetterdienst_values_static_wide(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="json"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="json",
     )
     response = json.loads(result.stdout)
     station_ids = {reading["station_id"] for reading in response["values"]}
@@ -139,7 +143,11 @@ def test_cli_values_json_multiple_datasets():
 @pytest.mark.parametrize("provider,network,setting,station_id,station_name", SETTINGS_VALUES)
 def test_cli_values_json(provider, network, setting, station_id, station_name):
     result = invoke_wetterdienst_values_static(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="json"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="json",
     )
     response = json.loads(result.output)
     first = response["values"][0]
@@ -151,7 +159,7 @@ def test_cli_values_json(provider, network, setting, station_id, station_name):
             "parameter",
             "value",
             "quality",
-        }
+        },
     )
 
 
@@ -246,7 +254,7 @@ def test_cli_values_geojson():
                 },
                 "geometry": {"type": "Point", "coordinates": [13.7543, 51.1278, 228.0]},
                 "values": IsInstance(list),
-            }
+            },
         ],
     }
 
@@ -301,7 +309,11 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock):
 )
 def test_cli_values_csv(provider, network, setting, station_id, station_name):
     result = invoke_wetterdienst_values_static_wide(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="csv"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="csv",
     )
     assert station_id in result.output
 
@@ -335,7 +347,11 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
 )
 def test_cli_values_format_unknown(provider, network, setting, station_id, station_name):
     result = invoke_wetterdienst_values_static_wide(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="foobar"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="foobar",
     )
     assert "Error: Invalid value for '--format': 'foobar' is not one of 'json', 'geojson', 'csv'" in result.output
 

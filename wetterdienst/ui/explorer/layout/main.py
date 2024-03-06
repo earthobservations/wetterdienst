@@ -22,8 +22,8 @@ def get_about_modal():
                     **Resources**:
                     - https://wetterdienst.readthedocs.io/en/latest/overview.html
                     - https://github.com/earthobservations/wetterdienst
-                    """
-                )
+                    """,
+                ),
             ),
             dbc.ModalFooter(dbc.Button("Close", id="close-about", className="ml-auto")),
         ],

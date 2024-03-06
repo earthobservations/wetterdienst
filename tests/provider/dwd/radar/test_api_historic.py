@@ -106,7 +106,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings, radar_
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
             "radolanversion": "2.21.0",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -159,7 +159,7 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings, radar_l
             "radardays": IsList(IsStr(regex=radardays_pattern), length=(10, len(radar_locations))),
             "radarlocations": IsList(IsStr(regex=radar_locations_pattern), length=(10, len(radar_locations))),
             "radolanversion": "2.21.0",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -173,7 +173,9 @@ def test_radar_request_composite_historic_hg_yesterday(prefixed_radar_locations,
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.HG_REFLECTIVITY, start_date=timestamp, settings=default_settings
+        parameter=DwdRadarParameter.HG_REFLECTIVITY,
+        start_date=timestamp,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -207,10 +209,11 @@ def test_radar_request_composite_historic_hg_yesterday(prefixed_radar_locations,
             "producttype": "HG",
             "radarid": "10000",
             "radarlocations": IsList(
-                IsStr(regex=prefixed_radar_locations_pattern), length=(10, len(prefixed_radar_locations))
+                IsStr(regex=prefixed_radar_locations_pattern),
+                length=(10, len(prefixed_radar_locations)),
             ),
             "radolanversion": IsStr(regex="P4000.H"),
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -255,7 +258,9 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(radar_locations, 
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RW_REFLECTIVITY, start_date=timestamp, settings=default_settings
+        parameter=DwdRadarParameter.RW_REFLECTIVITY,
+        start_date=timestamp,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -286,7 +291,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(radar_locations, 
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
             "radolanversion": "2.29.1",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -335,7 +340,7 @@ def test_radar_request_composite_historic_radolan_rw_timerange(radar_locations, 
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex=radarlocations_pattern), length=(10, len(radar_locations))),
             "radolanversion": "2.29.1",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -380,7 +385,7 @@ def test_radar_request_site_historic_dx_yesterday(default_settings):
             "radarid": "10132",
             "statfilter": 0,
             "version": " 2",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -429,7 +434,7 @@ def test_radar_request_site_historic_dx_timerange(default_settings):
             "radarid": "10132",
             "statfilter": 0,
             "version": " 2",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -807,7 +812,9 @@ def test_radar_request_radvor_re_yesterday(prefixed_radar_locations, default_set
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RE_REFLECTIVITY, start_date=timestamp, settings=default_settings
+        parameter=DwdRadarParameter.RE_REFLECTIVITY,
+        start_date=timestamp,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -839,10 +846,11 @@ def test_radar_request_radvor_re_yesterday(prefixed_radar_locations, default_set
             "quantification": 16,
             "radarid": "10000",
             "radarlocations": IsList(
-                IsStr(regex="|".join(prefixed_radar_locations)), length=(10, len(prefixed_radar_locations))
+                IsStr(regex="|".join(prefixed_radar_locations)),
+                length=(10, len(prefixed_radar_locations)),
             ),
             "radolanversion": IsStr(regex="P4000.H"),
-        }
+        },
     )
 
     assert requested_attrs == attrs, str(requested_attrs)
@@ -900,7 +908,9 @@ def test_radar_request_radvor_rq_yesterday(radar_locations, default_settings):
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RQ_REFLECTIVITY, start_date=timestamp, settings=default_settings
+        parameter=DwdRadarParameter.RQ_REFLECTIVITY,
+        start_date=timestamp,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -933,7 +943,7 @@ def test_radar_request_radvor_rq_yesterday(radar_locations, default_settings):
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
             "radolanversion": "2.29.1",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -986,7 +996,7 @@ def test_radar_request_radvor_rq_timerange(radar_locations, default_settings):
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
             "radolanversion": "2.29.1",
-        }
+        },
     )
 
     assert requested_attrs == attrs

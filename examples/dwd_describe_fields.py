@@ -36,7 +36,7 @@ def fields_example():
             resolution=DwdObservationResolution.DAILY,
             period=DwdObservationPeriod.RECENT,
             language="en",
-        )
+        ),
     )
 
     pprint(
@@ -45,7 +45,7 @@ def fields_example():
             resolution=DwdObservationResolution.DAILY,
             period=DwdObservationPeriod.RECENT,
             language="de",
-        )
+        ),
     )
 
 

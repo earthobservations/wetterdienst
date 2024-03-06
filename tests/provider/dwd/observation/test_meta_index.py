@@ -20,7 +20,10 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 def test_meta_index_creation_success(default_settings):
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
-        DwdObservationDataset.CLIMATE_SUMMARY, Resolution.DAILY, Period.HISTORICAL, settings=default_settings
+        DwdObservationDataset.CLIMATE_SUMMARY,
+        Resolution.DAILY,
+        Period.HISTORICAL,
+        settings=default_settings,
     ).collect()
     assert not meta_index.is_empty()
 
@@ -29,14 +32,20 @@ def test_meta_index_creation_success(default_settings):
 def test_meta_index_creation_failure(default_settings):
     with pytest.raises(FileNotFoundError):
         create_meta_index_for_climate_observations(
-            DwdObservationDataset.CLIMATE_SUMMARY, Resolution.MINUTE_1, Period.HISTORICAL, settings=default_settings
+            DwdObservationDataset.CLIMATE_SUMMARY,
+            Resolution.MINUTE_1,
+            Period.HISTORICAL,
+            settings=default_settings,
         )
 
 
 @pytest.mark.remote
 def test_meta_index_1mph_creation(default_settings):
     meta_index_1mph = create_meta_index_for_climate_observations(
-        DwdObservationDataset.PRECIPITATION, Resolution.MINUTE_1, Period.HISTORICAL, settings=default_settings
+        DwdObservationDataset.PRECIPITATION,
+        Resolution.MINUTE_1,
+        Period.HISTORICAL,
+        settings=default_settings,
     ).collect()
     assert meta_index_1mph.filter(pl.col(Columns.STATION_ID.value).eq("00003")).row(0) == (
         (

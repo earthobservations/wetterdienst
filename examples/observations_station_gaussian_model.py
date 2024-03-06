@@ -128,7 +128,11 @@ class ModelYearlyGaussians:
 
     @staticmethod
     def model_pars_update(
-        year: int, group: pl.DataFrame, pars: Parameters, index_per_year: float, y_max: float
+        year: int,
+        group: pl.DataFrame,
+        pars: Parameters,
+        index_per_year: float,
+        y_max: float,
     ) -> Parameters:
         """updates the initial values of the model parameters"""
         idx = group.get_column("rc").to_numpy()
@@ -149,7 +153,7 @@ class ModelYearlyGaussians:
                 "year": valid_data.get_column("date"),
                 "value": valid_data.get_column("value").to_numpy(),
                 "model": out.best_fit,
-            }
+            },
         )
         title = valid_data.get_column("parameter").unique()[0]
         df.to_pandas().plot(x="year", y=["value", "model"], title=title)
