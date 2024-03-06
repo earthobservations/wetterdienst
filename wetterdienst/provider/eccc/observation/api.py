@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -151,7 +150,7 @@ class EcccObservationValues(TimeseriesValues):
                     "time (lst)",
                     "data quality",
                 ]
-                df = df.drop((col for col in droppable_columns if col in df.columns))
+                df = df.drop(col for col in droppable_columns if col in df.columns)
                 data.append(df)
 
         try:
@@ -286,7 +285,7 @@ class EcccObservationRequest(TimeseriesRequest):
         :param start_date: start date for values filtering
         :param end_date: end date for values filtering
         """
-        super(EcccObservationRequest, self).__init__(
+        super().__init__(
             parameter=parameter,
             resolution=resolution,
             period=Period.HISTORICAL,

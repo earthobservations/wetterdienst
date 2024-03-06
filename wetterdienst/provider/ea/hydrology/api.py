@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -138,7 +137,7 @@ class EaHydrologyRequest(TimeseriesRequest):
         end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
-        super(EaHydrologyRequest, self).__init__(
+        super().__init__(
             parameter=parameter,
             resolution=resolution,
             period=Period.HISTORICAL,

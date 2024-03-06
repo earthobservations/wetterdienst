@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -1078,7 +1077,7 @@ class DwdDmoValues(TimeseriesValues):
 
         :param stations_result:
         """
-        super(DwdDmoValues, self).__init__(stations_result=stations_result)
+        super().__init__(stations_result=stations_result)
 
         parameter_base = self.sr.stations._parameter_base
         dataset_accessor = self.sr.stations._dataset_accessor
@@ -1232,8 +1231,7 @@ class DwdDmoValues(TimeseriesValues):
             url = urljoin("https://opendata.dwd.de", dmo_path)
             file_url = self.get_url_for_date(url, date)
             self.kml.read(file_url)
-            for forecast in self.kml.get_forecasts():
-                yield forecast
+            yield from self.kml.get_forecasts()
         else:
             for station_id in self.sr.station_id:
                 dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU, station_id=station_id)
@@ -1259,8 +1257,7 @@ class DwdDmoValues(TimeseriesValues):
             url = urljoin("https://opendata.dwd.de", dmo_path)
             file_url = self.get_url_for_date(url, date)
             self.kml.read(file_url)
-            for forecast in self.kml.get_forecasts():
-                yield forecast
+            yield from self.kml.get_forecasts()
         else:
             for station_id in self.sr.station_id:
                 dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON, station_id=station_id)

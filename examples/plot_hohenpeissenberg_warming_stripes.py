@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2018-2023 earthobservations
 import os
 from pathlib import Path

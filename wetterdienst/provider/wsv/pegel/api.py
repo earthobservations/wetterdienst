@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -215,7 +214,7 @@ class WsvPegelRequest(TimeseriesRequest):
         end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
-        super(WsvPegelRequest, self).__init__(
+        super().__init__(
             parameter=parameter,
             resolution=Resolution.DYNAMIC,
             period=Period.RECENT,

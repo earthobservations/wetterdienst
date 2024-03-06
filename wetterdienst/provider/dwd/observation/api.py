@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -83,7 +82,7 @@ class DwdObservationValues(TimeseriesValues):
         :param other:
         :return:
         """
-        return super(DwdObservationValues, self).__eq__(other) and (
+        return super().__eq__(other) and (
             self.sr.resolution == other.sr.resolution and self.sr.period == other.sr.period
         )
 
@@ -96,7 +95,7 @@ class DwdObservationValues(TimeseriesValues):
 
         return ", ".join(
             [
-                super(DwdObservationValues, self).__str__(),
+                super().__str__(),
                 f"resolution {self.sr.resolution.value}",
                 f"periods {periods_joined}",
             ]
@@ -230,7 +229,7 @@ class DwdObservationValues(TimeseriesValues):
         ]
 
         # Drop string columns, can't be coerced to float
-        df = df.drop((col for col in droppable_columns if col in df.columns))
+        df = df.drop(col for col in droppable_columns if col in df.columns)
 
         df = df.select(
             pl.col(Columns.STATION_ID.value),
