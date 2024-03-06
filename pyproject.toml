@@ -233,6 +233,7 @@ wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
 
 [tool.ruff]
 line-length = 120
+include = ["wetterdienst/**/*.py", "tests/**/*.py", "benchmarks/**/*.py", "examples/**/*.py"]
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
@@ -320,15 +321,15 @@ install_dev = "poetry install --with=test,dev,docs -E mpl -E ipython -E sql -E e
 format = [
   # Fix all things with ruff, but skip a few:
   # unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
-  { cmd = "ruff format wetterdienst tests benchmarks examples"},
-  { cmd = "ruff check --fix wetterdienst tests benchmarks examples" },
-  { cmd = "pyproject-fmt ."}
+  { cmd = "ruff format" },
+  { cmd = "ruff check --fix" },
+  { cmd = "pyproject-fmt ." }
 ]
 
 lint = [
-  { cmd = "ruff format --check wetterdienst tests benchmarks examples" },
-  { cmd = "ruff check wetterdienst tests benchmarks examples" },
-  { cmd = "pyproject-fmt --check ."}
+  { cmd = "ruff format --check" },
+  { cmd = "ruff check" },
+  { cmd = "pyproject-fmt --check ." }
 ]
 docs = { shell = "cd docs && poetry run make html" }
 test-cflakes = "pytest -m cflake"
