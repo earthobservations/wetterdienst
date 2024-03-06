@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -1018,7 +1017,7 @@ class DwdMosmixValues(TimeseriesValues):
 
         :param stations_result:
         """
-        super(DwdMosmixValues, self).__init__(stations_result=stations_result)
+        super().__init__(stations_result=stations_result)
 
         parameter_base = self.sr.stations._parameter_base
         dataset_accessor = self.sr.stations._dataset_accessor
@@ -1164,8 +1163,7 @@ class DwdMosmixValues(TimeseriesValues):
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
         file_url = self.get_url_for_date(url, date)
         self.kml.read(file_url)
-        for forecast in self.kml.get_forecasts():
-            yield forecast
+        yield from self.kml.get_forecasts()
 
     def read_mosmix_large(
         self, date: Union[DwdForecastDate, dt.datetime]
@@ -1184,8 +1182,7 @@ class DwdMosmixValues(TimeseriesValues):
 
             self.kml.read(file_url)
 
-            for forecast in self.kml.get_forecasts():
-                yield forecast
+            yield from self.kml.get_forecasts()
         else:
             for station_id in self.sr.station_id:
                 station_url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)

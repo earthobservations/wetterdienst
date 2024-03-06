@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import logging
@@ -148,7 +147,7 @@ def _parse_climate_observations_data(
     df = df.rename(mapping=lambda col: col.strip().lower())
 
     # End of record (EOR) has no value, so drop it right away.
-    df = df.drop((col for col in DROPPABLE_PARAMETERS if col in df.columns))
+    df = df.drop(col for col in DROPPABLE_PARAMETERS if col in df.columns)
 
     if resolution == Resolution.MINUTE_1:
         if dataset == DwdObservationDataset.PRECIPITATION:
@@ -196,7 +195,7 @@ def _parse_climate_observations_data(
             df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3]))
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
-        df = df.drop((col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns)).rename(
+        df = df.drop(col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns).rename(
             mapping={"mess_datum_beginn": "mess_datum"}
         )
 

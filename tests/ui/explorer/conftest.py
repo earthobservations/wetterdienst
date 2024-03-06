@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
@@ -42,7 +41,7 @@ class DashCompositePlus(DashComposite):
             EC.element_to_be_clickable,
             ((By.ID, element_id),),
             timeout,
-            "timeout {}s => waiting for element id {}".format(timeout if timeout else self._wait_timeout, element_id),
+            f"timeout {timeout if timeout else self._wait_timeout}s => waiting for element id {element_id}",
         )
 
 

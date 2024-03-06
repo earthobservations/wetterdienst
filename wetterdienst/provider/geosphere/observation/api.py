@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -736,7 +735,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
             res = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
             start_date = self._default_start_dates[res.name.lower()]
             end_date = datetime.now()
-        super(GeosphereObservationRequest, self).__init__(
+        super().__init__(
             parameter=parameter,
             resolution=resolution,
             period=Period.HISTORICAL,

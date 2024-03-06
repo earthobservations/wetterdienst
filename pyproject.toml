@@ -261,6 +261,8 @@ select = [
     "F",
     # return
     "RET",
+    # pyupgrade
+    "UP"
 ]
 extend-ignore = [
     # zip() without an explicit strict= parameter.

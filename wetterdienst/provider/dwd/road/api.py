@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
@@ -397,7 +396,7 @@ class DwdRoadRequest(TimeseriesRequest):
         end_date: Optional[Union[str, dt.datetime]] = None,
         settings: Optional[Settings] = None,
     ):
-        super(DwdRoadRequest, self).__init__(
+        super().__init__(
             parameter=parameter,
             resolution=Resolution.MINUTE_10,
             period=Period.HISTORICAL,
