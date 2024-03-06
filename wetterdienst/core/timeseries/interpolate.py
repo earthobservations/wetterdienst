@@ -31,7 +31,11 @@ def get_interpolated_df(request: "TimeseriesRequest", latitude: float, longitude
 
 
 def request_stations(
-    request: "TimeseriesRequest", latitude: float, longitude: float, utm_x: float, utm_y: float
+    request: "TimeseriesRequest",
+    latitude: float,
+    longitude: float,
+    utm_x: float,
+    utm_y: float,
 ) -> Tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
@@ -75,7 +79,8 @@ def apply_station_values_per_parameter(
 
         ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interpolation_station_distance
         if station["distance"] > ts_interpolation_station_distance.get(
-            parameter.name.lower(), ts_interpolation_station_distance["default"]
+            parameter.name.lower(),
+            ts_interpolation_station_distance["default"],
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
@@ -98,8 +103,8 @@ def apply_station_values_per_parameter(
                         interval=stations_ranked.frequency.value,
                         time_zone="UTC",
                         eager=True,
-                    ).dt.round(stations_ranked.frequency.value)
-                }
+                    ).dt.round(stations_ranked.frequency.value),
+                },
             )
             param_dict[parameter_name] = _ParameterData(df)
 
@@ -127,8 +132,8 @@ def calculate_interpolation(
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE_MEAN.value: pl.Float64,
                 Columns.TAKEN_STATION_IDS.value: pl.List(inner=pl.Utf8),
-            }
-        )
+            },
+        ),
     ]
     valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
 
@@ -143,7 +148,7 @@ def calculate_interpolation(
         results = []
         for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
             results.append(
-                apply_interpolation(row, stations_dict, valid_station_groups, parameter, utm_x, utm_y, nearby_stations)
+                apply_interpolation(row, stations_dict, valid_station_groups, parameter, utm_x, utm_y, nearby_stations),
             )
         results = pl.DataFrame(
             results,
@@ -164,7 +169,7 @@ def calculate_interpolation(
         by=[
             Columns.PARAMETER.value,
             Columns.DATE.value,
-        ]
+        ],
     )
 
 

@@ -158,7 +158,7 @@ def test_radar_request_radolan_cdc_most_recent(default_settings, radar_locations
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
             "radolanversion": "2.29.1",
-        }
+        },
     )
 
     assert requested_attrs == attrs

@@ -56,7 +56,7 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords(default_setting
             "value": [277.71],
             "distance_mean": [13.37],
             "taken_station_ids": [["02480", "04411", "07341", "00917"]],
-        }
+        },
     )
     assert_frame_equal(given_df, expected_df)
 
@@ -81,7 +81,7 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id(default_sett
             "value": [279.52, 281.85],
             "distance_mean": [16.99, 0.0],
             "taken_station_ids": [["00072", "02074", "02638", "04703"], ["00071"]],
-        }
+        },
     )
     for result in (
         request.interpolate(latlon=(48.2156, 8.9784)),
@@ -114,7 +114,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings):
             "value": [0.03],
             "distance_mean": [9.38],
             "taken_station_ids": [["04230", "02480", "04411", "07341"]],
-        }
+        },
     )
     assert_frame_equal(given_df, expected_df)
 

@@ -95,7 +95,7 @@ def df_stations():
             "longitude": [13.5528],
             "name": ["Freyung vorm Wald"],
             "state": ["Bayern"],
-        }
+        },
     )
 
 
@@ -383,14 +383,14 @@ def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
                 "parameter": "temperature_air_max_200",
                 "quality": None,
                 "value": 1.3,
-            }
+            },
         ],
     }
 
 
 def test_values_to_ogc_feature_collection_with_metadata(df_values, stations_result_mock, dwd_metadata):
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
-        with_metadata=True
+        with_metadata=True,
     )
     assert data.keys() == {"data", "metadata"}
     assert data["metadata"] == dwd_metadata
@@ -446,13 +446,13 @@ def test_interpolated_values_to_dict(df_interpolated_values):
             "value": 1.3,
             "distance_mean": 0.0,
             "taken_station_ids": ["01048"],
-        }
+        },
     ]
 
 
 def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stations_result_mock, dwd_metadata):
     data = InterpolatedValuesResult(stations=stations_result_mock, df=df_interpolated_values, latlon=(1, 2)).to_dict(
-        with_metadata=True
+        with_metadata=True,
     )
     assert data.keys() == {"values", "metadata"}
     assert data["metadata"] == dwd_metadata
@@ -460,7 +460,9 @@ def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stati
 
 def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, stations_result_mock):
     data = InterpolatedValuesResult(
-        stations=stations_result_mock, df=df_interpolated_values, latlon=(1.2345, 2.3456)
+        stations=stations_result_mock,
+        df=df_interpolated_values,
+        latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
@@ -476,7 +478,7 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
                 "height": 645.0,
                 "name": "Freyung vorm Wald",
                 "state": "Bayern",
-            }
+            },
         ],
         "type": "Feature",
         "values": [
@@ -487,16 +489,20 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
                 "value": 1.3,
                 "distance_mean": 0.0,
                 "taken_station_ids": ["01048"],
-            }
+            },
         ],
     }
 
 
 def test_interpolated_values_to_ogc_feature_collection_with_metadata(
-    df_interpolated_values, stations_result_mock, dwd_metadata
+    df_interpolated_values,
+    stations_result_mock,
+    dwd_metadata,
 ):
     data = InterpolatedValuesResult(
-        stations=stations_result_mock, df=df_interpolated_values, latlon=(1.2345, 2.3456)
+        stations=stations_result_mock,
+        df=df_interpolated_values,
+        latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
     assert data["metadata"] == dwd_metadata
@@ -513,13 +519,15 @@ def test_summarized_values_to_dict(df_summarized_values):
             "value": 1.3,
             "distance": 0.0,
             "taken_station_id": "01048",
-        }
+        },
     ]
 
 
 def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_result_mock, dwd_metadata):
     data = SummarizedValuesResult(
-        stations=stations_result_mock, df=df_summarized_values, latlon=(1.2345, 2.3456)
+        stations=stations_result_mock,
+        df=df_summarized_values,
+        latlon=(1.2345, 2.3456),
     ).to_dict(with_metadata=True)
     assert data.keys() == {"values", "metadata"}
     assert data["metadata"] == dwd_metadata
@@ -527,7 +535,9 @@ def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_
 
 def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stations_result_mock):
     data = SummarizedValuesResult(
-        stations=stations_result_mock, df=df_summarized_values, latlon=(1.2345, 2.3456)
+        stations=stations_result_mock,
+        df=df_summarized_values,
+        latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
@@ -543,7 +553,7 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
                 "height": 645.0,
                 "name": "Freyung vorm Wald",
                 "state": "Bayern",
-            }
+            },
         ],
         "type": "Feature",
         "values": [
@@ -554,16 +564,20 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
                 "value": 1.3,
                 "distance": 0.0,
                 "taken_station_id": "01048",
-            }
+            },
         ],
     }
 
 
 def test_summarized_values_to_ogc_feature_collection_with_metadata(
-    df_summarized_values, stations_result_mock, dwd_metadata
+    df_summarized_values,
+    stations_result_mock,
+    dwd_metadata,
 ):
     data = SummarizedValuesResult(
-        stations=stations_result_mock, df=df_summarized_values, latlon=(1.2345, 2.3456)
+        stations=stations_result_mock,
+        df=df_summarized_values,
+        latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
     assert data["metadata"] == dwd_metadata
@@ -593,11 +607,11 @@ def test_filter_by_date_interval(df_values):
 def test_filter_by_sql(df_values):
     """Test filter by sql statement"""
     df = ExportMixin(df=df_values).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5"
+        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5",
     )
     assert not df.is_empty()
     df = ExportMixin(df=df_values).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 4"
+        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 4",
     )
     assert df.is_empty()
 

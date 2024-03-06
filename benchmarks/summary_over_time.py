@@ -47,7 +47,7 @@ def main():
     summarized_df = summarized_df.with_columns(
         pl.col("taken_station_id")
         .replace({"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"})
-        .alias("color")
+        .alias("color"),
     )
 
     regular_df_01050 = get_regular_df(start_date, end_date, "01050")

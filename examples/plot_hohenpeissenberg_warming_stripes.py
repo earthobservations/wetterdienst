@@ -29,7 +29,7 @@ def plot_hohenpeissenberg_warming_stripes():
     Source: https://matplotlib.org/matplotblog/posts/warming-stripes/
     """
     request = DwdObservationRequest("temperature_air_mean_200", "annual", "historical").filter_by_name(
-        "Hohenpeissenberg"
+        "Hohenpeissenberg",
     )
     df_values = request.values.all().df
     # definition of years
@@ -64,7 +64,7 @@ def plot_hohenpeissenberg_warming_stripes():
             "#cb181d",
             "#a50f15",
             "#67000d",
-        ]
+        ],
     )
     ax.set_axis_off()
     col = PatchCollection([Rectangle((y, 0), 1, 1) for y in range(first_year, last_year + 1)])

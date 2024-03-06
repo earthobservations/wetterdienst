@@ -168,7 +168,7 @@ class KMLReader:
                     measurement_values = " ".join(measurement_string.split()).split(" ")
                     measurement_values = [None if i == "-" else float(i) for i in measurement_values]
                     assert len(measurement_values) == len(  # noqa:S101
-                        self.timesteps
+                        self.timesteps,
                     ), "Number of time steps does not match number of measurement values"
                     data_dict[measurement_parameter.lower()] = measurement_values
 

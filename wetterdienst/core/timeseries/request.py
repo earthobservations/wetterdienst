@@ -215,7 +215,7 @@ class TimeseriesRequest(Core):
                 [
                     parse_enumeration_from_template(p, intermediate=self._period_base, base=Period)
                     for p in to_list(period)
-                ]
+                ],
             )
 
     def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Tuple[Enum, Enum]]:
@@ -303,7 +303,8 @@ class TimeseriesRequest(Core):
                 # Case 2: dataset and parameter e.g. (precipitation_height, climate_summary)
                 try:
                     parameter_ = parse_enumeration_from_template(
-                        parameter, self._parameter_base[self._dataset_accessor][dataset_.name]
+                        parameter,
+                        self._parameter_base[self._dataset_accessor][dataset_.name],
                     )
                 except (InvalidEnumerationError, TypeError):
                     pass
@@ -397,12 +398,12 @@ class TimeseriesRequest(Core):
         if not self.tidy and settings.ts_skip_empty:
             log.info(
                 "option 'ts_skip_empty' is only available with option 'ts_shape' "
-                "and is thus ignored in this request."
+                "and is thus ignored in this request.",
             )
 
         if not self.tidy and settings.ts_dropna:
             log.info(
-                "option 'ts_dropna' is only available with option 'ts_shape' " "and is thus ignored in this request."
+                "option 'ts_dropna' is only available with option 'ts_shape' " "and is thus ignored in this request.",
             )
 
         # optional attribute for dynamic resolutions
@@ -775,7 +776,7 @@ class TimeseriesRequest(Core):
             lat, lon = latlon
             log.info(
                 f"No weather stations were found for coordinates {lat}/{lon} (lat/lon) "
-                f"and distance {distance_in_km}km"
+                f"and distance {distance_in_km}km",
             )
 
         return StationsResult(
@@ -807,7 +808,7 @@ class TimeseriesRequest(Core):
 
         df = df.filter(
             pl.col(Columns.LATITUDE.value).is_between(bottom, top, closed="both")
-            & pl.col(Columns.LONGITUDE.value).is_between(left, right, closed="both")
+            & pl.col(Columns.LONGITUDE.value).is_between(left, right, closed="both"),
         )
 
         if df.is_empty():

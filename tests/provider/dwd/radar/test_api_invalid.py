@@ -95,7 +95,9 @@ def test_radar_request_site_without_site(default_settings):
     """
     with pytest.raises(ValueError) as exec_info:
         request = DwdRadarValues(
-            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H, start_date=DwdRadarDate.LATEST, settings=default_settings
+            parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+            start_date=DwdRadarDate.LATEST,
+            settings=default_settings,
         )
         list(request.query())
     assert exec_info.match("Argument 'site' is missing")

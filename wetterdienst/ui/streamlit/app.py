@@ -60,7 +60,7 @@ def create_plotly_fig(
         df = df.with_columns(
             pl.struct(["parameter", "unit"])
             .map_elements(lambda s: f"{s['parameter']} ({s['unit']})")
-            .alias("parameter")
+            .alias("parameter"),
         )
     fig = px.scatter(
         x=df.get_column(x).to_list(),
@@ -117,7 +117,7 @@ def main():
         the [Deutscher Wetterdienst](https://www.dwd.de/). There are over 1_500 climate stations in Germany and
         all of the data can be accessed freely thanks to the open data initiative. The app enables you to select any
         of the stations (by station id or name), download its data (as CSV) and get visualizations of it.
-        """
+        """,
     )
     st.markdown("Here's a map of all stations:")
     stations = get_dwd_observation_stations(settings)
@@ -142,7 +142,7 @@ def main():
         Important:
           - use **FROM df**
           - use single quotes for strings e.g. 'a_string'
-        """
+        """,
     )
     sql_query = st.text_area(
         "sql query",
@@ -158,7 +158,8 @@ def main():
         st.download_button(
             "Download JSON",
             df.with_columns(pl.col("date").map_elements(lambda d: d.isoformat())).write_json(
-                pretty=True, row_oriented=True
+                pretty=True,
+                row_oriented=True,
             ),
             "data.json",
             "text/json",
@@ -176,7 +177,9 @@ def main():
         columns = columns.copy()
         columns.remove(column_y)
         variable_column = st.selectbox(
-            "Column Variable", options=columns, index="parameter" in columns and columns.index("parameter")
+            "Column Variable",
+            options=columns,
+            index="parameter" in columns and columns.index("parameter"),
         )
         variable_options = df.get_column(variable_column).unique().sort().to_list()
         variable_filter = st.multiselect("Variable Filter", options=variable_options)
@@ -202,7 +205,7 @@ def main():
         publishing their data as **open data**. Credits also go to [streamlit](https://streamlit.io/) for hosting this
         app. If you have any issues or ideas regarding this app, please let us know in the
         [issues](https://github.com/earthobservations/wetterdienst/issues).
-        """
+        """,
     )
 
 

@@ -8,7 +8,9 @@ from wetterdienst.util.python import to_list
 
 
 def parse_enumeration_from_template(
-    enum_: Union[str, Enum], intermediate: Type[Enum], base: Optional[Type[Enum]] = None
+    enum_: Union[str, Enum],
+    intermediate: Type[Enum],
+    base: Optional[Type[Enum]] = None,
 ) -> Optional[Enum]:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template

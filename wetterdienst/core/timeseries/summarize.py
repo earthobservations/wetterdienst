@@ -92,8 +92,8 @@ def apply_station_values_per_parameter(
                         interval=stations_ranked.frequency.value,
                         time_zone="UTC",
                         eager=True,
-                    ).dt.round(stations_ranked.frequency.value)
-                }
+                    ).dt.round(stations_ranked.frequency.value),
+                },
             )
             param_dict[parameter_name] = _ParameterData(df)
 
@@ -114,8 +114,8 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE.value: pl.Float64,
                 Columns.TAKEN_STATION_ID.value: pl.Utf8,
-            }
-        )
+            },
+        ),
     ]
 
     for parameter, param_data in param_dict.items():
@@ -142,7 +142,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
         by=[
             Columns.PARAMETER.value,
             Columns.DATE.value,
-        ]
+        ],
     )
 
 

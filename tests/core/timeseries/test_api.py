@@ -115,5 +115,5 @@ def test_api_partly_valid_parameters(default_settings, caplog):
         (
             DwdObservationDataset.SOLAR,
             DwdObservationDataset.SOLAR,
-        )
+        ),
     ]

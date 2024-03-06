@@ -12,7 +12,9 @@ from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_from
 
 def test_radar_get_date_from_filename():
     date = get_date_from_filename(
-        "sweep_pcp_v_0-20200926143033_10132--buf.bz2", pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.YMDHM.value]
+        "sweep_pcp_v_0-20200926143033_10132--buf.bz2",
+        pattern=RADAR_DT_PATTERN,
+        formats=[DatetimeFormat.YMDHM.value],
     )
     assert date == datetime.datetime(2020, 9, 26, 14, 30)
 
@@ -31,12 +33,16 @@ def test_radar_get_date_from_filename():
     assert date == datetime.datetime(2020, 9, 26, 14, 30)
 
     date = get_date_from_filename(
-        "rab02-tt_10132-20200926161533-boo---buf", pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.YMDHM.value]
+        "rab02-tt_10132-20200926161533-boo---buf",
+        pattern=RADAR_DT_PATTERN,
+        formats=[DatetimeFormat.YMDHM.value],
     )
     assert date == datetime.datetime(2020, 9, 26, 16, 15)
 
     date = get_date_from_filename(
-        "rab02-tt_10132-2301010000-boo---buf", pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]
+        "rab02-tt_10132-2301010000-boo---buf",
+        pattern=RADAR_DT_PATTERN,
+        formats=[DatetimeFormat.ymdhm.value],
     )
     assert date == datetime.datetime(2023, 1, 1, 0, 0)
 

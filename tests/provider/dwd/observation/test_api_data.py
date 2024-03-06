@@ -198,7 +198,7 @@ def test_dwd_observation_data_result_missing_data(default_settings):
     )
     given_df = request.values.all().df.drop("quality")
     assert not given_df.filter(
-        pl.col("date").dt.year().is_in((1933, 1934)) & ~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all())
+        pl.col("date").dt.year().is_in((1933, 1934)) & ~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all()),
     ).is_empty()
     request = DwdObservationRequest(
         parameter=DwdObservationParameter.HOURLY.TEMPERATURE_AIR_MEAN_200,
@@ -249,7 +249,8 @@ def test_dwd_observation_data_result_all_missing_data(default_settings):
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tabular(
-    settings_humanize_si_false_wide_shape, dwd_climate_summary_tabular_columns
+    settings_humanize_si_false_wide_shape,
+    dwd_climate_summary_tabular_columns,
 ):
     """Test for actual values (tabular)"""
     request = DwdObservationRequest(
@@ -342,7 +343,8 @@ def test_dwd_observation_data_result_tabular(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tabular_si(
-    settings_humanize_false_wide_shape, dwd_climate_summary_tabular_columns
+    settings_humanize_false_wide_shape,
+    dwd_climate_summary_tabular_columns,
 ):
     """Test for actual values (tabular) in metric units"""
     request = DwdObservationRequest(
@@ -721,7 +723,7 @@ def test_dwd_observations_urban_values(default_settings):
                 286.54999999999995,
             ],
             "quality": [3.0, 3.0],
-        }
+        },
     )
     assert_frame_equal(given_df, expected_df)
 
@@ -1022,7 +1024,7 @@ def test_tidy_up_data(settings_humanize_false):
             "txk": [-1.7],
             "tnk": [-7.9],
             "tgk": [-11.4],
-        }
+        },
     )
     given_df = request.values._tidy_up_df(df, request.parameter[0][1])
     given_df = request.values._organize_df_columns(given_df, "01048", DwdObservationDataset.CLIMATE_SUMMARY)
@@ -1064,7 +1066,7 @@ def test_tidy_up_data(settings_humanize_false):
                 -11.4,
             ],
             "quality": [10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-        }
+        },
     )
     assert_frame_equal(given_df, expected_df)
 

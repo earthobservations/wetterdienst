@@ -33,7 +33,7 @@ def read_fwf_from_df(df: pl.DataFrame, column_specs: Tuple[Tuple[int, int], ...]
             .str.strip_chars()
             .alias(f"column_{i}")
             for i, slice_tuple in enumerate(column_specs)
-        ]
+        ],
     )
     df = df.select(pl.col(col).replace({"": None}, default=pl.col(col)) for col in df.columns)
     if header:

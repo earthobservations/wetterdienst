@@ -191,7 +191,7 @@ class ExportMixin:
                     pl.col("date")
                     .dt.convert_time_zone("UTC")
                     .dt.replace_time_zone(None)
-                    .map_elements(lambda date: date.isoformat())
+                    .map_elements(lambda date: date.isoformat()),
                 )
                 group = df.get_column("dataset").gather(0).item()
                 df = df.to_pandas()
@@ -530,6 +530,6 @@ def convert_datetimes(df: pl.DataFrame) -> pl.DataFrame:
     for date_column in date_columns:
         if date_column in df:
             df = df.with_columns(
-                pl.col(date_column).map_elements(lambda v: v.isoformat() if v else None, return_dtype=pl.Utf8)
+                pl.col(date_column).map_elements(lambda v: v.isoformat() if v else None, return_dtype=pl.Utf8),
             )
     return df

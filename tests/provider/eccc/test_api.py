@@ -31,7 +31,7 @@ def test_eccc_api_stations(settings_si_false):
             "height": [4.0],
             "name": ["ACTIVE PASS"],
             "state": ["BRITISH COLUMBIA"],
-        }
+        },
     )
     assert_frame_equal(given_df, expected_df)
 

@@ -314,14 +314,17 @@ class NoaaGhcnValues(TimeseriesValues):
             .map_elements(
                 lambda date: dt.datetime.strptime(date, "%Y-%m-%d-%H-%M")
                 .replace(tzinfo=ZoneInfo(time_zone))
-                .astimezone(ZoneInfo("UTC"))
+                .astimezone(ZoneInfo("UTC")),
             )
             .alias("date"),
             *parameter,
         )
         df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
         df = df.melt(
-            id_vars=["station_id", "date"], value_vars=parameter, variable_name="parameter", value_name="value"
+            id_vars=["station_id", "date"],
+            value_vars=parameter,
+            variable_name="parameter",
+            value_name="value",
         )
         return df.with_columns(
             pl.col("parameter").str.to_lowercase(),
@@ -356,14 +359,14 @@ class NoaaGhcnValues(TimeseriesValues):
                 "column_2": Columns.DATE.value,
                 "column_3": Columns.PARAMETER.value,
                 "column_4": Columns.VALUE.value,
-            }
+            },
         )
         time_zone = self._get_timezone_from_station(station_id)
         df = df.with_columns(
             pl.col(Columns.DATE.value).map_elements(
                 lambda date: dt.datetime.strptime(date, "%Y%m%d")
                 .replace(tzinfo=ZoneInfo(time_zone))
-                .astimezone(ZoneInfo("UTC"))
+                .astimezone(ZoneInfo("UTC")),
             ),
             pl.col(Columns.PARAMETER.value).str.to_lowercase(),
             pl.col(Columns.VALUE.value).cast(float),
@@ -375,8 +378,8 @@ class NoaaGhcnValues(TimeseriesValues):
                 (
                     NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,
                     NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX_1MILE_OR_1MIN.value,
-                )
-            )
+                ),
+            ),
         )
         df = self._apply_daily_factors(df)
         return df.select(
@@ -529,10 +532,12 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = read_fwf_from_df(inventory_df, column_specs)
         inventory_df.columns = [Columns.STATION_ID.value, Columns.START_DATE.value, Columns.END_DATE.value]
         inventory_df = inventory_df.with_columns(
-            pl.col(Columns.START_DATE.value).cast(int), pl.col(Columns.END_DATE.value).cast(int)
+            pl.col(Columns.START_DATE.value).cast(int),
+            pl.col(Columns.END_DATE.value).cast(int),
         )
         inventory_df = inventory_df.group_by([Columns.STATION_ID.value]).agg(
-            pl.col(Columns.START_DATE.value).min(), pl.col(Columns.END_DATE.value).max()
+            pl.col(Columns.START_DATE.value).min(),
+            pl.col(Columns.END_DATE.value).max(),
         )
         inventory_df = inventory_df.with_columns(
             pl.col(Columns.START_DATE.value).cast(str).str.to_datetime("%Y"),

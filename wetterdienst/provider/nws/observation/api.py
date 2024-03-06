@@ -118,69 +118,69 @@ class NwsObservationValues(TimeseriesValues):
                 "temperature": pl.Struct(
                     [
                         pl.Field("value", pl.Float64),
-                    ]
+                    ],
                 ),
                 "dewpoint": pl.Struct(
                     [
                         pl.Field("value", pl.Float64),
-                    ]
+                    ],
                 ),
                 "windDirection": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "windSpeed": pl.Struct(
                     [
                         pl.Field("value", pl.Float64),
-                    ]
+                    ],
                 ),
                 "windGust": pl.Struct(
                     [
                         pl.Field("value", pl.Int32),
-                    ]
+                    ],
                 ),
                 "barometricPressure": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "seaLevelPressure": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "visibility": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "maxTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
                 "minTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
                 "precipitationLastHour": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "precipitationLast3Hours": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "precipitationLast6Hours": pl.Struct(
                     [
                         pl.Field("value", pl.Int64),
-                    ]
+                    ],
                 ),
                 "relativeHumidity": pl.Struct(
                     [
                         pl.Field("value", pl.Float64),
-                    ]
+                    ],
                 ),
                 "windChill": pl.Struct(
                     [
                         pl.Field("value", pl.Float64),
-                    ]
+                    ],
                 ),
             },
         )
@@ -238,8 +238,8 @@ class NwsObservationRequest(TimeseriesRequest):
                 "headers": {
                     "User-Agent": "wetterdienst/0.48.0",
                     "Content-Type": "application/json",
-                }
-            }
+                },
+            },
         )
 
     def _all(self) -> pl.LazyFrame:
@@ -247,7 +247,11 @@ class NwsObservationRequest(TimeseriesRequest):
         df = pl.read_csv(source=response, has_header=False, separator="\t", infer_schema_length=0).lazy()
         df = df.filter(pl.col("column_7").eq("US"))
         df = df.select(
-            pl.col("column_2"), pl.col("column_3"), pl.col("column_4"), pl.col("column_5"), pl.col("column_6")
+            pl.col("column_2"),
+            pl.col("column_3"),
+            pl.col("column_4"),
+            pl.col("column_5"),
+            pl.col("column_6"),
         )
         df = df.rename(
             mapping={
@@ -256,7 +260,7 @@ class NwsObservationRequest(TimeseriesRequest):
                 "column_4": Columns.LONGITUDE.value,
                 "column_5": Columns.HEIGHT.value,
                 "column_6": Columns.NAME.value,
-            }
+            },
         )
         df = df.with_columns(pl.all().str.strip_chars())
         df = df.with_columns(

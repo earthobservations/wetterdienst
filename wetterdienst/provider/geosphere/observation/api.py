@@ -681,14 +681,16 @@ class GeosphereObservationValues(TimeseriesValues):
             data[par] = par_dict["data"]
         df = pl.DataFrame(data)
         df = df.melt(
-            id_vars=[Columns.DATE.value], variable_name=Columns.PARAMETER.value, value_name=Columns.VALUE.value
+            id_vars=[Columns.DATE.value],
+            variable_name=Columns.PARAMETER.value,
+            value_name=Columns.VALUE.value,
         )
         if self.sr.resolution == Resolution.MINUTE_10:
             df = df.with_columns(
                 pl.when(pl.col(Columns.PARAMETER.value).is_in(["GSX", "HSX"]))
                 .then(pl.col(Columns.VALUE.value) * 600)
                 .otherwise(pl.col(Columns.VALUE.value))
-                .alias(Columns.VALUE.value)
+                .alias(Columns.VALUE.value),
             )
         return df.with_columns(
             pl.col(Columns.DATE.value).str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
@@ -761,7 +763,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
                 "Startdatum": Columns.START_DATE.value,
                 "Enddatum": Columns.END_DATE.value,
                 "Bundesland": Columns.STATE.value,
-            }
+            },
         )
         return df.with_columns(
             pl.col(Columns.START_DATE.value).str.to_datetime(),

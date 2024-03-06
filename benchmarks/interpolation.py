@@ -47,7 +47,12 @@ class Data:
 
 
 def request_weather_data(
-    parameter: str, lat: float, lon: float, distance: float, start_date: dt.datetime, end_date: dt.datetime
+    parameter: str,
+    lat: float,
+    lon: float,
+    distance: float,
+    start_date: dt.datetime,
+    end_date: dt.datetime,
 ):
     stations = DwdObservationRequest(
         parameter=parameter,

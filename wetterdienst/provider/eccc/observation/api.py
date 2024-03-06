@@ -97,7 +97,10 @@ class EcccObservationValues(TimeseriesValues):
             return pl.LazyFrame()
 
     def _collect_station_parameter(
-        self, station_id: str, parameter: EcccObservationParameter, dataset: Enum
+        self,
+        station_id: str,
+        parameter: EcccObservationParameter,
+        dataset: Enum,
     ) -> pl.DataFrame:
         """
 
@@ -113,7 +116,7 @@ class EcccObservationValues(TimeseriesValues):
                 [
                     pl.col(Columns.START_DATE.value).dt.year(),
                     pl.col(Columns.END_DATE.value).dt.year(),
-                ]
+                ],
             )
             .transpose()
             .to_series()
@@ -159,7 +162,7 @@ class EcccObservationValues(TimeseriesValues):
             df = pl.LazyFrame()
 
         df = df.rename(
-            mapping={col: Columns.DATE.value for col in ["date/time (lst)", "date/time"] if col in df.columns}
+            mapping={col: Columns.DATE.value for col in ["date/time (lst)", "date/time"] if col in df.columns},
         )
 
         df = self._tidy_up_df(df)
@@ -192,7 +195,10 @@ class EcccObservationValues(TimeseriesValues):
         # For hourly data request only necessary data to reduce amount of data being
         # downloaded and parsed
         for date in pl.datetime_range(
-            dt.datetime(start_year, 1, 1), dt.datetime(end_year + 1, 1, 1), interval=freq, eager=True
+            dt.datetime(start_year, 1, 1),
+            dt.datetime(end_year + 1, 1, 1),
+            interval=freq,
+            eager=True,
         ):
             url = self._base_url.format(int(station_id), self._timeframe)
             url += f"&Year={date.year}"
@@ -253,7 +259,7 @@ class EcccObservationRequest(TimeseriesRequest):
             {
                 start_date: Columns.START_DATE.value,
                 end_date: Columns.END_DATE.value,
-            }
+            },
         )
 
         return dcm

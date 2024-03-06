@@ -148,7 +148,7 @@ class HubeauValues(TimeseriesValues):
                     Columns.DATE.value: pl.Datetime(time_zone="UTC"),
                     Columns.VALUE.value: pl.Float64,
                     Columns.QUALITY.value: pl.Float64,
-                }
+                },
             )
         else:
             df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat))
@@ -162,7 +162,7 @@ class HubeauValues(TimeseriesValues):
                 "date_obs": Columns.DATE.value,
                 "resultat_obs": Columns.VALUE.value,
                 "code_qualification_obs": Columns.QUALITY.value,
-            }
+            },
         )
 
         return df.select(
@@ -232,7 +232,7 @@ class HubeauRequest(TimeseriesRequest):
                 "libelle_departement": Columns.STATE.value,
                 "date_ouverture_station": Columns.START_DATE.value,
                 "date_fermeture_station": Columns.END_DATE.value,
-            }
+            },
         )
 
         df = df.with_columns(

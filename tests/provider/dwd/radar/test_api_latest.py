@@ -19,7 +19,9 @@ def test_radar_request_composite_latest_rv_reflectivity(default_settings, statio
     """
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RV_REFLECTIVITY, start_date=DwdRadarDate.LATEST, settings=default_settings
+        parameter=DwdRadarParameter.RV_REFLECTIVITY,
+        start_date=DwdRadarDate.LATEST,
+        settings=default_settings,
     )
 
     buffer = next(request.query())[1]
@@ -42,7 +44,9 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
     wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
 
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RW_REFLECTIVITY, start_date=DwdRadarDate.LATEST, settings=default_settings
+        parameter=DwdRadarParameter.RW_REFLECTIVITY,
+        start_date=DwdRadarDate.LATEST,
+        settings=default_settings,
     )
 
     results = list(request.query())
@@ -59,7 +63,8 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
         {
             "datasize": 1620000,
             "datetime": IsDatetime(
-                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None), delta=dt.timedelta(minutes=90)
+                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+                delta=dt.timedelta(minutes=90),
             ),
             "formatversion": 3,
             "intervalseconds": 3600,
@@ -72,7 +77,7 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings, radar_
             "radarid": "10000",
             "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
             "radolanversion": "2.29.1",
-        }
+        },
     )
 
     assert requested_attrs == attrs
@@ -104,7 +109,8 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings):
             "bytes": IsInt(gt=0),
             "cluttermap": 0,
             "datetime": IsDatetime(
-                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None), delta=dt.timedelta(minutes=65)
+                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+                delta=dt.timedelta(minutes=65),
             ),
             "dopplerfilter": 4,
             "elevprofile": IsList(IsNumeric(ge=0.8, le=0.9), length=8),
@@ -113,7 +119,7 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings):
             "radarid": "10132",
             "statfilter": 0,
             "version": " 2",
-        }
+        },
     )
 
     assert requested_attrs == attrs

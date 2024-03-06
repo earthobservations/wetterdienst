@@ -200,11 +200,13 @@ class DwdRoadValues(TimeseriesValues):
             .list.last()
             .str.extract(DATE_REGEX, 1)
             .str.to_datetime("%y%m%d%H%M", time_zone="UTC")
-            .alias("date")
+            .alias("date"),
         )
 
     def _collect_data_by_station_group(
-        self, road_weather_station_group: DwdRoadStationGroup, parameters: List[str]
+        self,
+        road_weather_station_group: DwdRoadStationGroup,
+        parameters: List[str],
     ) -> pl.DataFrame:
         """
         Method to collect data for one specified parameter. Manages restoring,
@@ -220,7 +222,7 @@ class DwdRoadValues(TimeseriesValues):
         remote_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             remote_files = remote_files.filter(
-                pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date)
+                pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date),
             )
         remote_files = remote_files.get_column(Columns.FILENAME.value).to_list()
         filenames_and_files = self._download_road_weather_observations(remote_files, self.sr.settings)
@@ -235,13 +237,16 @@ class DwdRoadValues(TimeseriesValues):
         log.info(f"Downloading {len(remote_files)} files from DWD Road Weather.")
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
-                lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS), remote_files
+                lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.TWELVE_HOURS),
+                remote_files,
             )
 
         return list(zip(remote_files, files_in_bytes))
 
     def _parse_dwd_road_weather_data(
-        self, filenames_and_files: List[Tuple[str, BytesIO]], parameters: List[str]
+        self,
+        filenames_and_files: List[Tuple[str, BytesIO]],
+        parameters: List[str],
     ) -> pl.DataFrame:
         """
         This function is used to read the road weather station data from given bytes object.
@@ -259,7 +264,7 @@ class DwdRoadValues(TimeseriesValues):
             [
                 self.__parse_dwd_road_weather_data(filename_and_file, parameters)
                 for filename_and_file in filenames_and_files
-            ]
+            ],
         )
 
     @staticmethod
@@ -312,7 +317,7 @@ class DwdRoadValues(TimeseriesValues):
                     pl.col("day").cast(pl.Utf8).str.pad_start(2, "0"),
                     pl.col("hour").cast(pl.Utf8).str.pad_start(2, "0"),
                     pl.col("minute").cast(pl.Utf8).str.pad_start(2, "0"),
-                ]
+                ],
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
             .alias("timestamp"),
@@ -325,7 +330,8 @@ class DwdRoadValues(TimeseriesValues):
             value_name=Columns.VALUE.value,
         )
         return df.with_columns(
-            pl.col("value").cast(pl.Float64), pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value)
+            pl.col("value").cast(pl.Float64),
+            pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 
 
@@ -353,7 +359,7 @@ class DwdRoadRequest(TimeseriesRequest):
             Columns.ROAD_TYPE.value,
             Columns.ROAD_SURFACE_TYPE.value,
             Columns.ROAD_SURROUNDINGS_TYPE.value,
-        )
+        ),
     )
     _endpoint = (
         "https://www.dwd.de/DE/leistungen/opendata/help/stationen/sws_stations_xls.xlsx?__blob=publicationFile&v=11"
@@ -414,17 +420,17 @@ class DwdRoadRequest(TimeseriesRequest):
         df = df.filter(
             pl.col(Columns.HAS_FILE.value).is_null()
             & pl.col(Columns.STATION_GROUP.value).ne("0")
-            & pl.col(Columns.STATION_ID.value).is_not_null()
+            & pl.col(Columns.STATION_ID.value).is_not_null(),
         )
         df = df.with_columns(
             pl.col(Columns.LONGITUDE.value).str.replace(",", "."),
             pl.col(Columns.LATITUDE.value).str.replace(",", "."),
             pl.when(~pl.col(Columns.ROAD_TYPE.value).str.contains("x")).then(pl.col(Columns.ROAD_TYPE.value)),
             pl.when(~pl.col(Columns.ROAD_SURROUNDINGS_TYPE.value).str.contains("x")).then(
-                pl.col(Columns.ROAD_SURROUNDINGS_TYPE.value)
+                pl.col(Columns.ROAD_SURROUNDINGS_TYPE.value),
             ),
             pl.when(~pl.col(Columns.ROAD_SURFACE_TYPE.value).str.contains("x")).then(
-                pl.col(Columns.ROAD_SURFACE_TYPE.value)
+                pl.col(Columns.ROAD_SURFACE_TYPE.value),
             ),
         )
         df = df.with_columns(pl.col(col).cast(dtype) for col, dtype in self._dtypes.items())

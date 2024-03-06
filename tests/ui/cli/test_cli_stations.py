@@ -113,7 +113,11 @@ def invoke_wetterdienst_stations_filter_by_rank(provider, network, setting, fmt=
 )
 def test_cli_stations_json(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_static(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="json"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="json",
     )
     response = json.loads(result.output)
     assert response.keys() == {"stations"}
@@ -151,7 +155,11 @@ def test_cli_stations_empty(provider, network, setting, station_id, expected_dic
 @pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
 def test_cli_stations_geojson(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_static(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="geojson"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="geojson",
     )
     response = json.loads(result.output)
     assert response.keys() == {"data"}
@@ -186,7 +194,11 @@ def test_cli_stations_geojson_with_metadata(metadata):
 )
 def test_cli_stations_csv(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_static(
-        provider=provider, network=network, setting=setting, station=station_id, fmt="csv"
+        provider=provider,
+        network=network,
+        setting=setting,
+        station=station_id,
+        fmt="csv",
     )
     assert expected_dict["name"] in result.output
 
@@ -221,7 +233,10 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
 )
 def test_cli_stations_geospatial(provider, network, setting, station_id, expected_dict, coordinates):
     result = invoke_wetterdienst_stations_filter_by_rank(
-        provider=provider, network=network, setting=setting, fmt="json"
+        provider=provider,
+        network=network,
+        setting=setting,
+        fmt="json",
     )
     response = json.loads(result.output)
     station = [item for item in response["stations"] if item["station_id"] == station_id][0]

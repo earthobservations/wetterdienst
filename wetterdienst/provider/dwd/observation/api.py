@@ -98,7 +98,7 @@ class DwdObservationValues(TimeseriesValues):
                 super().__str__(),
                 f"resolution {self.sr.resolution.value}",
                 f"periods {periods_joined}",
-            ]
+            ],
         )
 
     def _collect_station_parameter(
@@ -132,7 +132,11 @@ class DwdObservationValues(TimeseriesValues):
 
         for period, date_range in periods_and_date_ranges:
             parameter_identifier = build_parameter_set_identifier(
-                dataset, self.sr.resolution, period, station_id, date_range
+                dataset,
+                self.sr.resolution,
+                period,
+                station_id,
+                date_range,
             )
 
             log.info(f"Acquiring observation data for {parameter_identifier}.")
@@ -143,7 +147,12 @@ class DwdObservationValues(TimeseriesValues):
                 continue
 
             remote_files = create_file_list_for_climate_observations(
-                station_id, dataset, self.sr.resolution, period, self.sr.stations.settings, date_range
+                station_id,
+                dataset,
+                self.sr.resolution,
+                period,
+                self.sr.stations.settings,
+                date_range,
             )
 
             if remote_files.is_empty():
@@ -199,7 +208,7 @@ class DwdObservationValues(TimeseriesValues):
             pl.when(pl.col(Columns.DATE.value).dt.year() < 2000)
             .then(pl.col(Columns.DATE.value) - pl.duration(hours=1))
             .otherwise(pl.col(Columns.DATE.value))
-            .alias(Columns.DATE.value)
+            .alias(Columns.DATE.value),
         )
 
     def _tidy_up_df(self, df: pl.DataFrame, dataset) -> pl.DataFrame:
@@ -247,7 +256,7 @@ class DwdObservationValues(TimeseriesValues):
                     [
                         pl.Series(repeat(quality_wind, times=2)).list.explode(),
                         pl.Series(repeat(quality_general, times=12)).list.explode(),
-                    ]
+                    ],
                 )
                 df = df.drop(
                     DwdObservationParameter.DAILY.CLIMATE_SUMMARY.QUALITY_WIND.value,
@@ -256,7 +265,7 @@ class DwdObservationValues(TimeseriesValues):
             elif resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
                 quality_general = df.get_column(DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value)
                 quality_precipitation = df.get_column(
-                    DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value
+                    DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_PRECIPITATION.value,
                 )
 
                 quality = pl.concat(
@@ -265,15 +274,15 @@ class DwdObservationValues(TimeseriesValues):
                             repeat(
                                 quality_general,
                                 times=9,
-                            )
+                            ),
                         ).list.explode(),
                         pl.Series(
                             repeat(
                                 quality_precipitation,
                                 times=2,
-                            )
+                            ),
                         ).list.explode(),
-                    ]
+                    ],
                 )
                 df = df.drop(
                     DwdObservationParameter.MONTHLY.CLIMATE_SUMMARY.QUALITY_GENERAL.value,
@@ -314,7 +323,10 @@ class DwdObservationValues(TimeseriesValues):
         return df.with_columns(pl.when(pl.col(Columns.VALUE.value).is_not_null()).then(pl.col(Columns.QUALITY.value)))
 
     def _get_historical_date_ranges(
-        self, station_id: str, dataset: DwdObservationDataset, settings: Settings
+        self,
+        station_id: str,
+        dataset: DwdObservationDataset,
+        settings: Settings,
     ) -> List[str]:
         """
         Get particular files for historical data which for high resolution is
@@ -325,7 +337,10 @@ class DwdObservationValues(TimeseriesValues):
         :return:
         """
         file_index = create_file_index_for_climate_observations(
-            dataset, self.sr.resolution, Period.HISTORICAL, settings
+            dataset,
+            self.sr.resolution,
+            Period.HISTORICAL,
+            settings,
         )
 
         file_index = file_index.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
@@ -339,7 +354,7 @@ class DwdObservationValues(TimeseriesValues):
             file_index = file_index.filter(
                 pl.col(Columns.STATION_ID.value).eq(station_id)
                 & pl.col(Columns.START_DATE.value).ge(end_date_max).not_()
-                & pl.col(Columns.END_DATE.value).le(start_date_min).not_()
+                & pl.col(Columns.END_DATE.value).le(start_date_min).not_(),
             )
 
         return file_index.collect().get_column(Columns.DATE_RANGE.value).to_list()
@@ -485,7 +500,7 @@ class DwdObservationRequest(TimeseriesRequest):
 
     def filter_by_station_id(self, station_id: Union[str, int, Tuple[str, ...], Tuple[int, ...], List[str], List[int]]):
         return super().filter_by_station_id(
-            pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0")
+            pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0"),
         )
 
     @classmethod
@@ -543,7 +558,7 @@ class DwdObservationRequest(TimeseriesRequest):
             for period in reversed(self.period):
                 if not check_dwd_observations_dataset(dataset, self.resolution, period):
                     log.warning(
-                        f"The combination of {dataset.value}, " f"{self.resolution.value}, {period.value} is invalid."
+                        f"The combination of {dataset.value}, " f"{self.resolution.value}, {period.value} is invalid.",
                     )
 
                     continue

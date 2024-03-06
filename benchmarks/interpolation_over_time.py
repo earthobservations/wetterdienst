@@ -44,13 +44,15 @@ def get_regular_df(parameter: str, start_date: datetime, end_date: datetime, exc
 
 def get_rmse(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
     return root_mean_squared_error(
-        regular_values.reshape((-1, 1)).to_list(), interpolated_values.reshape((-1, 1)).to_list()
+        regular_values.reshape((-1, 1)).to_list(),
+        interpolated_values.reshape((-1, 1)).to_list(),
     )
 
 
 def get_corr(regular_values: pl.Series, interpolated_values: pl.Series) -> float:
     return r_regression(
-        regular_values.reshape((-1, 1)).to_list(), interpolated_values.reshape((-1, 1)).to_list()
+        regular_values.reshape((-1, 1)).to_list(),
+        interpolated_values.reshape((-1, 1)).to_list(),
     ).item()
 
 
@@ -61,7 +63,10 @@ def visualize(parameter: str, unit: str, regular_df: pl.DataFrame, interpolated_
     plt.figure(figsize=(factor * 19.2, factor * 10.8))
     plt.plot(regular_df.get_column("date"), regular_df.get_column("value"), color="red", label="regular")
     plt.plot(
-        interpolated_df.get_column("date"), interpolated_df.get_column("value"), color="black", label="interpolated"
+        interpolated_df.get_column("date"),
+        interpolated_df.get_column("value"),
+        color="black",
+        label="interpolated",
     )
     ylabel = f"{parameter.lower()} [{unit}]"
     plt.ylabel(ylabel)

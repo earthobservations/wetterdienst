@@ -82,12 +82,16 @@ class Settings:
                 # timeseries
                 self.ts_humanize: bool = _da(ts_humanize, env.bool("HUMANIZE", None), _defaults["ts_humanize"])
                 self.ts_shape: str = _da(
-                    ts_shape, env.str("SHAPE", None, validate=OneOf(["long", "wide"])), _defaults["ts_shape"]
+                    ts_shape,
+                    env.str("SHAPE", None, validate=OneOf(["long", "wide"])),
+                    _defaults["ts_shape"],
                 )
                 self.ts_si_units: bool = _da(ts_si_units, env.bool("SI_UNITS", None), _defaults["ts_si_units"])
                 self.ts_skip_empty: bool = _da(ts_skip_empty, env.bool("SKIP_EMPTY", None), _defaults["ts_skip_empty"])
                 self.ts_skip_threshold: float = _da(
-                    ts_skip_threshold, env.float("SKIP_THRESHOLD", None), _defaults["ts_skip_threshold"]
+                    ts_skip_threshold,
+                    env.float("SKIP_THRESHOLD", None),
+                    _defaults["ts_skip_threshold"],
                 )
                 self.ts_skip_criteria: str = _da(
                     ts_skip_criteria,
@@ -99,7 +103,7 @@ class Settings:
                 with env.prefixed("INTERPOLATION_"):
                     _ts_interpolation_station_distance = _defaults["ts_interpolation_station_distance"]
                     _ts_interpolation_station_distance.update(
-                        {k: float(v) for k, v in env.dict("STATION_DISTANCE", {}).items()} if not ignore_env else {}
+                        {k: float(v) for k, v in env.dict("STATION_DISTANCE", {}).items()} if not ignore_env else {},
                     )
                     _ts_interpolation_station_distance.update(ts_interpolation_station_distance or {})
                     self.ts_interpolation_station_distance = _ts_interpolation_station_distance

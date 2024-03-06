@@ -27,7 +27,7 @@ def expected_df():
             "height": [478.0],
             "name": ["Aach"],
             "state": ["Baden-Württemberg"],
-        }
+        },
     )
 
 
@@ -48,7 +48,10 @@ def test_dwd_observations_stations_filter(default_settings, expected_df):
 def test_dwd_observations_urban_stations(default_settings):
     """Test DWD Observation urban stations"""
     request = DwdObservationRequest(
-        parameter="urban_air_temperature", resolution="hourly", period="historical", settings=default_settings
+        parameter="urban_air_temperature",
+        resolution="hourly",
+        period="historical",
+        settings=default_settings,
     ).all()
     assert request.station_id.to_list() == ["00399", "13667", "15811", "15818", "19711"]
 
@@ -114,6 +117,6 @@ def test_dwd_observations_stations_minute_1(default_settings):
             "height": 202.0,
             "name": "Aachen",
             "state": "Nordrhein-Westfalen",
-        }
+        },
     )
     assert_frame_equal(given_df, expected_df)

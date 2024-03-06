@@ -1015,12 +1015,12 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
             pl.lit(year).alias("year"),
             pl.col("date_str").map_elements(lambda s: s[:2]).cast(int).alias("day"),
             pl.col("date_str").map_elements(lambda s: s[2:4]).cast(int).alias("hour"),
-        ]
+        ],
     )
     days_difference = df.get_column("day").max() - df.get_column("day").min()
     if days_difference > 20:
         df = df.with_columns(
-            pl.when(pl.col("day") > 25).then(month - 1 if month > 1 else 12).otherwise(month).alias("month")
+            pl.when(pl.col("day") > 25).then(month - 1 if month > 1 else 12).otherwise(month).alias("month"),
         )
     else:
         df = df.with_columns(pl.lit(month).alias("month"))
@@ -1035,7 +1035,7 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
             pl.struct(["year", "month", "day", "hour"])
             .map_elements(lambda s: dt.datetime(s["year"], s["month"], s["day"], s["hour"]))
             .alias("date"),
-        ]
+        ],
     )
 
 
@@ -1091,7 +1091,9 @@ class DwdDmoValues(TimeseriesValues):
                 parameter_.append(parameter.value)
 
         self.kml = KMLReader(
-            station_ids=self.sr.station_id.to_list(), parameters=parameter_, settings=self.sr.stations.settings
+            station_ids=self.sr.station_id.to_list(),
+            parameters=parameter_,
+            settings=self.sr.stations.settings,
         )
 
     def get_dwd_dmo_path(self, dataset: Enum, station_id: Optional[str] = None) -> str:
@@ -1160,7 +1162,10 @@ class DwdDmoValues(TimeseriesValues):
                 yield df
         else:
             for date in pl.datetime_range(
-                self.sr.stations.start_issue, self.sr.stations.end_issue, interval=self.sr.frequency.value, eager=True
+                self.sr.stations.start_issue,
+                self.sr.stations.end_issue,
+                interval=self.sr.frequency.value,
+                eager=True,
             ):
                 try:
                     for df in self.read_dmo(date):
@@ -1200,7 +1205,7 @@ class DwdDmoValues(TimeseriesValues):
             df_forecast = df_forecast.rename(
                 mapping={
                     "datetime": Columns.DATE.value,
-                }
+                },
             )
 
             yield df_forecast
@@ -1289,7 +1294,7 @@ class DwdDmoValues(TimeseriesValues):
             .str.split("_")
             .list.last()
             .map_elements(lambda s: s[:-4])
-            .alias("date_str")
+            .alias("date_str"),
         )
         df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
         if date == DwdForecastDate.LATEST:
@@ -1525,7 +1530,7 @@ class DwdDmoRequest(TimeseriesRequest):
                 "longitude": "0.12",
                 "height": "5",
             },
-        ]
+        ],
     )
 
     def _all(self) -> pl.LazyFrame:

@@ -58,7 +58,10 @@ def create_file_list_for_climate_observations(
 
 
 def create_file_index_for_climate_observations(
-    dataset: "DwdObservationDataset", resolution: Resolution, period: Period, settings: Settings
+    dataset: "DwdObservationDataset",
+    resolution: Resolution,
+    period: Period,
+    settings: Settings,
 ) -> pl.LazyFrame:
     """
     Function (cached) to create a file index of the DWD station data. The file index
@@ -72,11 +75,19 @@ def create_file_index_for_climate_observations(
     """
     if dataset in DWD_URBAN_DATASETS:
         file_index = _create_file_index_for_dwd_server(
-            dataset, resolution, Period.RECENT, "observations_germany/climate_urban", settings
+            dataset,
+            resolution,
+            Period.RECENT,
+            "observations_germany/climate_urban",
+            settings,
         )
     else:
         file_index = _create_file_index_for_dwd_server(
-            dataset, resolution, period, "observations_germany/climate", settings
+            dataset,
+            resolution,
+            period,
+            "observations_germany/climate",
+            settings,
         )
 
     file_index = file_index.filter(pl.col("filename").str.ends_with(Extension.ZIP.value))
@@ -87,7 +98,7 @@ def create_file_index_for_climate_observations(
         .list.last()
         .str.extract(STATION_ID_REGEX, 1)
         .str.pad_start(5, "0")
-        .alias("station_id")
+        .alias("station_id"),
     )
 
     file_index = file_index.filter(pl.col("station_id").is_not_null() & pl.col("station_id").ne("00000"))
@@ -124,7 +135,11 @@ def create_file_index_for_climate_observations(
 
 
 def _create_file_index_for_dwd_server(
-    dataset: DwdObservationDataset, resolution: Resolution, period: Period, cdc_base: str, settings: Settings
+    dataset: DwdObservationDataset,
+    resolution: Resolution,
+    period: Period,
+    cdc_base: str,
+    settings: Settings,
 ) -> pl.LazyFrame:
     """
     Function to create a file index of the DWD station data, which usually is shipped as

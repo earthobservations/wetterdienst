@@ -51,7 +51,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """Representation of values object"""
         station_ids_joined = ", ".join(self.sr.station_id.to_list())
         parameters_joined = ", ".join(
-            [f"({parameter.value}/{dataset.value})" for parameter, dataset in self.sr.stations.parameter]
+            [f"({parameter.value}/{dataset.value})" for parameter, dataset in self.sr.stations.parameter],
         )
         periods_joined = self.sr.stations.period and ", ".join([period.value for period in self.sr.stations.period])
 
@@ -121,7 +121,10 @@ class TimeseriesValues(metaclass=ABCMeta):
             raise NotImplementedError("implement this method if the service has a dynamic resolution")
 
     def _adjust_start_end_date(
-        self, start_date: dt.datetime, end_date: dt.datetime, tzinfo: ZoneInfo
+        self,
+        start_date: dt.datetime,
+        end_date: dt.datetime,
+        tzinfo: ZoneInfo,
     ) -> Tuple[dt.datetime, dt.datetime]:
         """Adjust start and end date to the resolution of the service. This is
         necessary for building a complete date range that matches the resolution.
@@ -224,7 +227,8 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         data = []
         for (dataset, parameter), group in df.group_by(
-            by=[Columns.DATASET.value, Columns.PARAMETER.value], maintain_order=True
+            by=[Columns.DATASET.value, Columns.PARAMETER.value],
+            maintain_order=True,
         ):
             op, factor = conversion_factors.get(dataset).get(parameter, (None, None))
             if op:
@@ -234,7 +238,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         return pl.concat(data)
 
     def _create_conversion_factors(
-        self, datasets: List[str]
+        self,
+        datasets: List[str],
     ) -> Dict[str, Dict[str, Tuple[Union[operator.add, operator.mul], float]]]:
         """
         Function to create conversion factors based on a given dataset
@@ -256,7 +261,8 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     @staticmethod
     def _get_conversion_factor(
-        origin_unit: Enum, si_unit: Enum
+        origin_unit: Enum,
+        si_unit: Enum,
     ) -> Tuple[Optional[Union[operator.mul, operator.add]], Optional[float]]:
         """
         Method to get the conversion factor (flaot) for a specific parameter
@@ -353,7 +359,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         base_df = self._get_base_df(start_date, end_date)
         data = []
         for (station_id, parameter), group in df.group_by(
-            [Columns.STATION_ID.value, Columns.PARAMETER.value], maintain_order=True
+            [Columns.STATION_ID.value, Columns.PARAMETER.value],
+            maintain_order=True,
         ):
             par_df = base_df.join(
                 other=group,
@@ -361,7 +368,8 @@ class TimeseriesValues(metaclass=ABCMeta):
                 how="left",
             )
             par_df = par_df.with_columns(
-                pl.lit(station_id).alias(Columns.STATION_ID.value), pl.lit(parameter).alias(Columns.PARAMETER.value)
+                pl.lit(station_id).alias(Columns.STATION_ID.value),
+                pl.lit(parameter).alias(Columns.PARAMETER.value),
             )
             data.append(par_df)
         return pl.concat(data)
@@ -408,7 +416,9 @@ class TimeseriesValues(metaclass=ABCMeta):
 
             for parameter, dataset in self.sr.parameter:
                 parameter_df = self._collect_station_parameter(
-                    station_id=station_id, parameter=parameter, dataset=dataset
+                    station_id=station_id,
+                    parameter=parameter,
+                    dataset=dataset,
                 )
 
                 if parameter_df.is_empty():
@@ -441,7 +451,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                         self.sr.start_date,
                         self.sr.end_date,
                         closed="both",
-                    )
+                    ),
                 )
 
             if self.sr.skip_empty:
@@ -449,7 +459,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 if percentage < self.sr.skip_threshold:
                     log.info(
                         f"station {station_id} is skipped as percentage of actual values ({percentage}) "
-                        f"is below threshold ({self.sr.skip_threshold})."
+                        f"is below threshold ({self.sr.skip_threshold}).",
                     )
                     continue
 
@@ -516,14 +526,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         and quality flags
         """
         df_tabulated = df.select(
-            [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)]
+            [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)],
         ).unique()
 
         for (parameter,), parameter_df in df.group_by([Columns.PARAMETER.value], maintain_order=True):
             # Build quality column name
             parameter_quality = f"{Columns.QUALITY_PREFIX.value}_{parameter}"
             parameter_df = parameter_df.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]).rename(
-                mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality}
+                mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality},
             )
             df_tabulated = df_tabulated.join(parameter_df, on=[Columns.DATE.value])
 
@@ -597,7 +607,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
                 parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
         percentage = df.group_by(["parameter"]).agg(
-            (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc")
+            (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc"),
         )
         missing = pl.DataFrame(
             [{"parameter": par, "perc": 0.0} for par in parameters if par not in percentage.get_column("parameter")],

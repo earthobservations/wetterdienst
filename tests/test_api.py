@@ -32,7 +32,11 @@ from wetterdienst.util.eccodes import ensure_eccodes
         ),
         # Environment and Climate Change Canada
         pytest.param(
-            "eccc", "observation", {"parameter": "daily", "resolution": "daily"}, None, marks=pytest.mark.xfail
+            "eccc",
+            "observation",
+            {"parameter": "daily", "resolution": "daily"},
+            None,
+            marks=pytest.mark.xfail,
         ),  # noqa: E800, ERA001
         # IMGW Hydrology
         ("imgw", "hydrology", {"parameter": "hydrology", "resolution": "daily"}, None),
@@ -45,7 +49,11 @@ from wetterdienst.util.eccodes import ensure_eccodes
         ("wsv", "pegel", {"parameter": "stage"}, None),
         # EA Hydrology
         pytest.param(
-            "ea", "hydrology", {"parameter": "discharge", "resolution": "daily"}, None, marks=pytest.mark.xfail
+            "ea",
+            "hydrology",
+            {"parameter": "discharge", "resolution": "daily"},
+            None,
+            marks=pytest.mark.xfail,
         ),
         # NWS Observation
         ("nws", "observation", {"parameter": "temperature_air_mean_200"}, "KBHM"),
@@ -87,7 +95,7 @@ def test_api(provider, network, kwargs, si_units, station_id):
             "height",
             "name",
             "state",
-        }
+        },
     )
     # Check that there are actually stations_result
     assert not stations.is_empty()

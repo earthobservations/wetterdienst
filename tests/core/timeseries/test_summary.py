@@ -36,7 +36,7 @@ def test_summary_temperature_air_mean_200_daily(default_settings):
             "value": [273.65, 267.65, 270.45],
             "distance": [13.42, 5.05, 0.0],
             "taken_station_id": ["01048", "01051", "01050"],
-        }
+        },
     )
     for result in (request.summarize(latlon=(51.0221, 13.8470)), request.summarize_by_station_id(station_id="1050")):
         given_df = result.df

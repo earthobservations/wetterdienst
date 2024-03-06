@@ -72,7 +72,8 @@ def test_no_provider():
 def test_no_network(caplog):
     runner = CliRunner()
     runner.invoke(
-        cli, "stations --provider=dwd --network=abc --parameter=precipitation_height --resolution=daily --all"
+        cli,
+        "stations --provider=dwd --network=abc --parameter=precipitation_height --resolution=daily --all",
     )
     assert "No API available for provider DWD and network abc" in caplog.text
 
@@ -268,7 +269,7 @@ def test_cli_interpolate_geojson():
                         "taken_station_ids": ["00071"],
                     },
                 ],
-            }
+            },
         ],
     }
 
@@ -366,7 +367,7 @@ def test_cli_summarize_geojson():
                         "taken_station_id": "00071",
                     },
                 ],
-            }
+            },
         ],
     }
 

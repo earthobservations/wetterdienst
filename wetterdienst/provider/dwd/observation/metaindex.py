@@ -52,7 +52,10 @@ STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 
 
 def create_meta_index_for_climate_observations(
-    dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
+    dataset: DwdObservationDataset,
+    resolution: Resolution,
+    period: Period,
+    settings: Settings,
 ) -> pl.LazyFrame:
     """
     Wrapper function that either calls the regular meta index function for general
@@ -88,7 +91,10 @@ def create_meta_index_for_climate_observations(
     # precipitation
     if cond1:
         mdp = _create_meta_index_for_climate_observations(
-            DwdObservationDataset.PRECIPITATION_MORE, Resolution.DAILY, Period.HISTORICAL, settings=settings
+            DwdObservationDataset.PRECIPITATION_MORE,
+            Resolution.DAILY,
+            Period.HISTORICAL,
+            settings=settings,
         )
 
         meta_index = meta_index.join(
@@ -109,7 +115,10 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    dataset: DwdObservationDataset, resolution: Resolution, period: Period, settings: Settings
+    dataset: DwdObservationDataset,
+    resolution: Resolution,
+    period: Period,
+    settings: Settings,
 ) -> pl.LazyFrame:
     """Function used to create meta index DataFrame parsed from the text files that are
     located in each data section of the station data directory of the weather service.
@@ -225,7 +234,8 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     log.info(f"Downloading {len(metadata_file_paths)} files for 1minute precipitation historical metadata.")
     with ThreadPoolExecutor() as executor:
         metadata_files = executor.map(
-            lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.NO_CACHE), metadata_file_paths
+            lambda file: download_file(url=file, settings=settings, ttl=CacheExpiry.NO_CACHE),
+            metadata_file_paths,
         )
 
     metadata_dfs = [_parse_geo_metadata((file, station_id)) for file, station_id in zip(metadata_files, station_ids)]
@@ -236,7 +246,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         pl.when(pl.col(Columns.END_DATE.value).str.strip_chars().eq(""))
         .then(pl.lit((dt.date.today() - dt.timedelta(days=1)).strftime("%Y%m%d")))
         .otherwise(pl.col(Columns.END_DATE.value))
-        .alias(Columns.END_DATE.value)
+        .alias(Columns.END_DATE.value),
     )
 
     # Drop empty state column again as it will be merged later on
@@ -279,7 +289,7 @@ def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pl
             "von_datum": Columns.START_DATE.value,
             "bis_datum": Columns.END_DATE.value,
             "Stationsname": Columns.NAME.value,
-        }
+        },
     )
 
     df = df.with_columns(pl.col(Columns.START_DATE.value).first().cast(str), pl.col(Columns.END_DATE.value).cast(str))
