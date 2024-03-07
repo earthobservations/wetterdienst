@@ -1,11 +1,12 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import json
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Optional, Union
 
 import polars as pl
 
@@ -727,11 +728,11 @@ class GeosphereObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: List[Union[str, GeosphereObservationParameter, Parameter]],
-        resolution: Union[str, GeosphereObservationResolution, Resolution],
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | GeosphereObservationParameter | Parameter],
+        resolution: str | GeosphereObservationResolution | Resolution,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         if not start_date or not end_date:
             res = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)

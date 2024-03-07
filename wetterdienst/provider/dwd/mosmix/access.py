@@ -2,11 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 # Source:
 # https://github.com/jlewis91/dwdbulk/blob/master/dwdbulk/api/forecasts.py
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from io import BytesIO
 from os.path import basename
-from typing import Iterator, List
+from typing import Iterator
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
@@ -32,7 +34,7 @@ log = logging.getLogger(__name__)
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(self, station_ids: List[str], parameters: List[str], settings: Settings) -> None:
+    def __init__(self, station_ids: list[str], parameters: list[str], settings: Settings) -> None:
         self.station_ids = station_ids
         self.parameters = parameters
         self.metadata = {}

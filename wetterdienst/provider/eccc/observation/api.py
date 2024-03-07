@@ -1,11 +1,13 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import gzip
 import logging
 from enum import Enum
 from io import BytesIO
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Iterator
 
 import polars as pl
 
@@ -178,7 +180,7 @@ class EcccObservationValues(TimeseriesValues):
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         ).collect()
 
-    def _create_file_urls(self, station_id: str, start_year: int, end_year: int) -> Generator[str, None, None]:
+    def _create_file_urls(self, station_id: str, start_year: int, end_year: int) -> Iterator[str]:
         """
 
         :param station_id:
@@ -278,11 +280,11 @@ class EcccObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: List[Union[str, EcccObservationParameter, Parameter]],
-        resolution: Union[str, EcccObservationResolution, Resolution],
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | EcccObservationParameter | Parameter],
+        resolution: str | EcccObservationResolution | Resolution,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         """
 
@@ -336,7 +338,7 @@ class EcccObservationRequest(TimeseriesRequest):
 
         return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))
 
-    def _download_stations(self) -> Tuple[BytesIO, int]:
+    def _download_stations(self) -> tuple[BytesIO, int]:
         """
         Download station list from ECCC FTP server.
 

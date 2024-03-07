@@ -1,7 +1,8 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import json
-from typing import Optional
 
 import duckdb
 import plotly.express as px
@@ -53,7 +54,7 @@ def create_plotly_fig(
     x: str,
     y: str,
     facet: bool,
-    lm: Optional[str],
+    lm: str | None,
     settings: dict,
 ):
     if "unit" in df.columns:

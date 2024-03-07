@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from typing import Tuple, Union
+from __future__ import annotations
 
 import numpy as np
 import polars as pl
@@ -46,7 +46,7 @@ def derive_nearest_neighbours(
     longitudes: np.array,
     coordinates: Coordinates,
     number_nearby: int = 1,
-) -> Tuple[Union[float, np.ndarray], np.ndarray]:
+) -> tuple[float | np.ndarray, np.ndarray]:
     """
     A function that uses a k-d tree algorithm to obtain the nearest
     neighbours to coordinate pairs

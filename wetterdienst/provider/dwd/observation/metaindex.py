@@ -1,11 +1,12 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO, StringIO
-from typing import List, Tuple
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
@@ -147,7 +148,7 @@ def _create_meta_index_for_climate_observations(
     return _read_meta_df(payload)
 
 
-def _find_meta_file(files: List[str], url: str, strings: List[str]) -> str:
+def _find_meta_file(files: list[str], url: str, strings: list[str]) -> str:
     """
     Function used to find meta file based on predefined strings that are usually found
     in those files
@@ -258,7 +259,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     return meta_index_df.with_columns(pl.col(Columns.STATION_ID.value).cast(str).str.pad_start(5, "0"))
 
 
-def _parse_geo_metadata(metadata_file_and_station_id: Tuple[BytesIO, str]) -> pl.LazyFrame:
+def _parse_geo_metadata(metadata_file_and_station_id: tuple[BytesIO, str]) -> pl.LazyFrame:
     """A function that analysis the given file (bytes) and extracts geography of
     1minute metadata zip and catches the relevant information and create a similar file
     to those that can usually be found already prepared for other

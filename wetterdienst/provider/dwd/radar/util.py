@@ -1,9 +1,10 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import re
 from io import BytesIO
-from typing import List, Optional
 
 # 6-character timestamps are used for data within "RADOLAN_CDC/historical".
 # Examples:
@@ -32,7 +33,7 @@ RADAR_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}|{R
 RADOLAN_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_SHORT}|{RADAR_DT_REGEX_MEDIUM}")
 
 
-def get_date_from_filename(filename: str, pattern: re.Pattern, formats: List[str]) -> Optional[dt.datetime]:
+def get_date_from_filename(filename: str, pattern: re.Pattern, formats: list[str]) -> dt.datetime | None:
     try:
         date_string = pattern.findall(filename)[0]
     except IndexError:

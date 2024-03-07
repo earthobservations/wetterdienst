@@ -1,7 +1,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
-from typing import Optional, Tuple
 
 import polars as pl
 
@@ -18,7 +19,7 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 
-def create_date_range(date: str, resolution: Resolution) -> Tuple[Optional[dt.datetime], Optional[dt.datetime]]:
+def create_date_range(date: str, resolution: Resolution) -> tuple[dt.datetime | None, dt.datetime | None]:
     if "/" in date:
         if date.count("/") >= 2:
             raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")

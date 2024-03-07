@@ -1,11 +1,13 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 import operator
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Iterator
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
@@ -67,7 +69,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     # Fields for type coercion, needed for separation from fields with actual data
     # that have to be parsed differently when having data in tabular form
     @property
-    def _meta_fields(self) -> Dict[str, str]:
+    def _meta_fields(self) -> dict[str, str]:
         """
         Metadata fields that are independent of actual values and should be parsed
         differently
@@ -125,7 +127,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         start_date: dt.datetime,
         end_date: dt.datetime,
         tzinfo: ZoneInfo,
-    ) -> Tuple[dt.datetime, dt.datetime]:
+    ) -> tuple[dt.datetime, dt.datetime]:
         """Adjust start and end date to the resolution of the service. This is
         necessary for building a complete date range that matches the resolution.
         """
@@ -239,8 +241,8 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     def _create_conversion_factors(
         self,
-        datasets: List[str],
-    ) -> Dict[str, Dict[str, Tuple[Union[operator.add, operator.mul], float]]]:
+        datasets: list[str],
+    ) -> dict[str, dict[str, tuple[operator.add | operator.mul, float]]]:
         """
         Function to create conversion factors based on a given dataset
 
@@ -263,7 +265,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     def _get_conversion_factor(
         origin_unit: Enum,
         si_unit: Enum,
-    ) -> Tuple[Optional[Union[operator.mul, operator.add]], Optional[float]]:
+    ) -> tuple[operator.mul | operator.add | None, float | None]:
         """
         Method to get the conversion factor (flaot) for a specific parameter
         :param origin_unit: origin unit enumeration of parameter
@@ -389,7 +391,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         )
         return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
 
-    def query(self) -> Generator[ValuesResult, None, None]:
+    def query(self) -> Iterator[ValuesResult]:
         """
         Core method for data collection, iterating of station ids and yielding a
         DataFrame for each station with all found parameters. Takes care of type
@@ -561,7 +563,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         return ValuesResult(stations=self.sr, values=self, df=df)
 
     @staticmethod
-    def _humanize(df: pl.DataFrame, humanized_parameters_mapping: Dict[str, str]) -> pl.DataFrame:
+    def _humanize(df: pl.DataFrame, humanized_parameters_mapping: dict[str, str]) -> pl.DataFrame:
         """
         Method for humanizing parameters.
 
@@ -571,7 +573,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         return df.with_columns(pl.col(Columns.PARAMETER.value).replace(humanized_parameters_mapping))
 
-    def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
+    def _create_humanized_parameters_mapping(self) -> dict[str, str]:
         """
         Reduce the creation of parameter mapping of the massive amount of parameters
         by specifying the resolution.

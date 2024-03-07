@@ -258,7 +258,9 @@ select = [
     # pyupgrade
     "UP",
     # flake8-commas
-    "COM"
+    "COM",
+    # future-annotations
+    "FA"
 ]
 extend-ignore = [
     # zip() without an explicit strict= parameter.

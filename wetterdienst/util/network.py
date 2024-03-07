@@ -1,10 +1,12 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import logging
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, MutableMapping, Optional, Tuple, Union
+from typing import MutableMapping
 
 import stamina
 from fsspec import AbstractFileSystem
@@ -21,8 +23,8 @@ class FileDirCache(MutableMapping):
     def __init__(
         self,
         use_listings_cache: bool,
-        listings_expiry_time: Union[int, float],
-        listings_cache_location: Optional[str] = None,
+        listings_expiry_time: int | float,
+        listings_cache_location: str | None = None,
     ):
         """
 
@@ -101,9 +103,9 @@ class FileDirCache(MutableMapping):
 class HTTPFileSystem(_HTTPFileSystem):
     def __init__(
         self,
-        use_listings_cache: Optional[bool] = None,
-        listings_expiry_time: Optional[Union[int, float]] = None,
-        listings_cache_location: Optional[str] = None,
+        use_listings_cache: bool | None = None,
+        listings_expiry_time: int | float | None = None,
+        listings_cache_location: str | None = None,
         *args,
         **kwargs,
     ):
@@ -129,10 +131,10 @@ class NetworkFilesystemManager:
     Manage multiple FSSPEC instances keyed by cache expiration time.
     """
 
-    filesystems: Dict[str, AbstractFileSystem] = {}
+    filesystems: dict[str, AbstractFileSystem] = {}
 
     @staticmethod
-    def resolve_ttl(ttl: Union[int, CacheExpiry]) -> Tuple[str, int]:
+    def resolve_ttl(ttl: int | CacheExpiry) -> tuple[str, int]:
         ttl_name = ttl
         ttl_value = ttl
 
@@ -143,7 +145,7 @@ class NetworkFilesystemManager:
         return ttl_name, ttl_value
 
     @classmethod
-    def register(cls, settings, ttl: Union[int, CacheExpiry] = CacheExpiry.NO_CACHE):
+    def register(cls, settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         real_cache_dir = os.path.join(settings.cache_dir, "fsspec", key)
@@ -158,7 +160,7 @@ class NetworkFilesystemManager:
         cls.filesystems[key] = filesystem_effective
 
     @classmethod
-    def get(cls, settings, ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE) -> AbstractFileSystem:
+    def get(cls, settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE) -> AbstractFileSystem:
         ttl_name, _ = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
         if key not in cls.filesystems:
@@ -167,7 +169,7 @@ class NetworkFilesystemManager:
 
 
 @stamina.retry(on=Exception, attempts=3)
-def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> List[str]:
+def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FILEINDEX) -> list[str]:
     """
     A function used to create a listing of all files of a given path on the server.
 
@@ -191,12 +193,13 @@ def list_remote_files_fsspec(url: str, settings: Settings, ttl: CacheExpiry = Ca
 def download_file(
     url: str,
     settings: Settings,
-    ttl: Optional[Union[int, CacheExpiry]] = CacheExpiry.NO_CACHE,
+    ttl: int | CacheExpiry = CacheExpiry.NO_CACHE,
 ) -> BytesIO:
     """
     A function used to download a specified file from the server.
 
     :param url:     The url to the file on the dwd server
+    :param settings: The settings object.
     :param ttl:     How long the resource should be cached.
 
     :returns:        Bytes of the file.

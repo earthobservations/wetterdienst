@@ -1,10 +1,11 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import json
 import logging
 from enum import Enum
-from typing import List, Optional, Union
 
 import polars as pl
 
@@ -219,10 +220,10 @@ class NwsObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: List[Union[str, NwsObservationParameter, Parameter]],
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | NwsObservationParameter | Parameter],
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         super().__init__(
             parameter=parameter,

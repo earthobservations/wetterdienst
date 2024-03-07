@@ -1,7 +1,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
-from typing import Optional
 
 import polars as pl
 
@@ -25,11 +26,11 @@ DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
 
 def create_file_list_for_climate_observations(
     station_id: str,
-    dataset: "DwdObservationDataset",
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
     settings: Settings,
-    date_range: Optional[str] = None,
+    date_range: str | None = None,
 ) -> pl.Series:
     """
     Function for selecting datafiles (links to archives) for given
@@ -58,7 +59,7 @@ def create_file_list_for_climate_observations(
 
 
 def create_file_index_for_climate_observations(
-    dataset: "DwdObservationDataset",
+    dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
     settings: Settings,

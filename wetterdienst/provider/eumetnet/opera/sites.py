@@ -1,9 +1,11 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import gzip
 import importlib.resources
 import json
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import requests
 
@@ -18,7 +20,7 @@ class OperaRadarSites:
     def __init__(self):
         self.sites = self.load()
 
-    def load(self) -> List[Dict]:
+    def load(self) -> list[dict]:
         """
         Load and decode JSON file from filesystem.
         """
@@ -26,13 +28,13 @@ class OperaRadarSites:
             with gzip.open(rf, mode="rb") as f:
                 return json.load(f)
 
-    def all(self) -> List[Dict]:  # noqa: A003
+    def all(self) -> list[dict]:  # noqa: A003
         """
         The whole list of OPERA radar sites.
         """
         return self.sites
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """
         Dictionary of sites, keyed by ODIM code.
         """
@@ -43,7 +45,7 @@ class OperaRadarSites:
             result[site["odimcode"]] = site
         return result
 
-    def by_odim_code(self, odim_code: str) -> Dict:
+    def by_odim_code(self, odim_code: str) -> dict:
         """
         Return radar site by ODIM code.
 
@@ -58,7 +60,7 @@ class OperaRadarSites:
         else:
             raise KeyError("Radar site not found")
 
-    def by_wmo_code(self, wmo_code: int) -> Dict:
+    def by_wmo_code(self, wmo_code: int) -> dict:
         """
         Return radar site by WMO code.
 
@@ -71,7 +73,7 @@ class OperaRadarSites:
         else:
             raise KeyError("Radar site not found")
 
-    def by_country_name(self, country_name: str) -> List[Dict]:
+    def by_country_name(self, country_name: str) -> list[dict]:
         """
         Filter list of radar sites by country name.
 
@@ -96,7 +98,7 @@ class OperaRadarSitesGenerator:
         "current-activities/opera/database/OPERA_Database/OPERA_RADARS_DB.json"
     )
 
-    def get_opera_radar_sites(self) -> List[Dict]:  # pragma: no cover
+    def get_opera_radar_sites(self) -> list[dict]:  # pragma: no cover
         data = requests.get(self.url, timeout=10).json()
 
         # Filter empty elements and convert data types.
@@ -125,7 +127,7 @@ class OperaRadarSitesGenerator:
                     raise ValueError("String is not true/false: %r" % obj)
             return bool(obj)
 
-        def convert_types(element: Dict) -> Dict[str, Union[int, float, bool, None]]:
+        def convert_types(element: dict) -> dict[str, int | float | bool | None]:
             converted = {}
             for key, value in element.items():
                 try:

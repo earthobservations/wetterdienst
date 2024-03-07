@@ -1,11 +1,13 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import json
 import logging
 import math
 from enum import Enum
-from typing import Iterator, List, Literal, Optional, Tuple, Union
+from typing import Iterator, Literal
 
 import polars as pl
 from zoneinfo import ZoneInfo
@@ -76,7 +78,7 @@ class HubeauValues(TimeseriesValues):
         "grandeur_hydro={grandeur_hydro}&sort=asc&size=2"
     )
 
-    def _get_hubeau_dates(self, station_id, parameter, dataset) -> Iterator[Tuple[dt.datetime, dt.datetime]]:
+    def _get_hubeau_dates(self, station_id, parameter, dataset) -> Iterator[tuple[dt.datetime, dt.datetime]]:
         """
         Method to get the Hubeau interval, which is roughly today - 30 days. We'll add another day on
         each end as buffer.
@@ -97,7 +99,7 @@ class HubeauValues(TimeseriesValues):
         request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)
         return zip(request_date_range[:-1], request_date_range[1:])
 
-    def _get_dynamic_frequency(self, station_id, parameter, dataset) -> Tuple[int, Literal["min", "H"]]:
+    def _get_dynamic_frequency(self, station_id, parameter, dataset) -> tuple[int, Literal["min", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
@@ -192,10 +194,10 @@ class HubeauRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: List[Union[str, Enum, Parameter]],
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | Enum | Parameter],
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         super().__init__(
             parameter=parameter,

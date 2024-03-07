@@ -1,10 +1,11 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Optional, Union
 
 import polars as pl
 import portion as P
@@ -518,9 +519,9 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         self,
         parameter,
         resolution,
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         super().__init__(
             parameter=parameter,

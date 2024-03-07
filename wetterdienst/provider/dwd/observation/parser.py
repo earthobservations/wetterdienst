@@ -1,8 +1,9 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import logging
 from io import BytesIO, StringIO
-from typing import List, Tuple
 
 import polars as pl
 
@@ -73,7 +74,7 @@ DWD_TO_ENGLISH_COLUMNS_MAPPING = {
 
 
 def parse_climate_observations_data(
-    filenames_and_files: List[Tuple[str, BytesIO]],
+    filenames_and_files: list[tuple[str, BytesIO]],
     dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,
@@ -110,7 +111,7 @@ def parse_climate_observations_data(
 
 
 def _parse_climate_observations_data(
-    filename_and_file: Tuple[str, BytesIO],
+    filename_and_file: tuple[str, BytesIO],
     dataset: DwdObservationDataset,
     resolution: Resolution,
     period: Period,

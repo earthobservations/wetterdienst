@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from typing import Optional
+from __future__ import annotations
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -32,7 +32,7 @@ def build_parameter_set_identifier(
     resolution: Resolution,
     period: Period,
     station_id: str,
-    date_range_string: Optional[str] = None,
+    date_range_string: str | None = None,
 ) -> str:
     """Create parameter set identifier that is used for storage interactions"""
     identifier = f"{dataset.value}/{resolution.value}/{period.value}/{station_id}"

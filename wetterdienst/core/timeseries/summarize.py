@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import logging
 from collections import defaultdict
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Tuple
 
 import polars as pl
 
@@ -26,12 +27,12 @@ SUMMARY_STATION_KM_LIMIT = defaultdict(
 )
 
 
-def get_summarized_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pl.DataFrame:
+def get_summarized_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
     stations_dict, param_dict = request_stations(request, latitude, longitude)
     return calculate_summary(stations_dict, param_dict)
 
 
-def request_stations(request: "TimeseriesRequest", latitude: float, longitude: float) -> Tuple[dict, dict]:
+def request_stations(request: TimeseriesRequest, latitude: float, longitude: float) -> tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
 
@@ -57,7 +58,7 @@ def request_stations(request: "TimeseriesRequest", latitude: float, longitude: f
 
 def apply_station_values_per_parameter(
     result_df: pl.DataFrame,
-    stations_ranked: "StationsResult",
+    stations_ranked: StationsResult,
     param_dict: dict,
     station: dict,
 ) -> None:
@@ -150,7 +151,7 @@ def apply_summary(
     row: dict,
     stations_dict: dict,
     parameter: Enum,
-) -> Tuple[Enum, Optional[float], Optional[float], Optional[str]]:
+) -> tuple[Enum, float | None, float | None, str | None]:
     vals = {s: v for s, v in row.items() if v is not None}
 
     if not vals:

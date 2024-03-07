@@ -1138,7 +1138,7 @@ def test_dwd_observation_solar_hourly(default_settings):
         ts_dropna=True,
         ignore_env=True,
     )
-    latlon_bremen: tuple[float, float] = 53.0980433, 8.7747248
+    latlon_bremen = 53.0980433, 8.7747248
     # request for radiation
     request = DwdObservationRequest(
         parameter="radiation_global",

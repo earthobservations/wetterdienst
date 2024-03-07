@@ -1,12 +1,13 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from abc import abstractmethod
-from datetime import datetime
 from enum import Enum
 from hashlib import sha256
-from typing import List, Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 import polars as pl
@@ -71,7 +72,7 @@ class TimeseriesRequest(Core):
 
     @property
     @abstractmethod
-    def _resolution_base(self) -> Optional[Resolution]:
+    def _resolution_base(self) -> Resolution | None:
         """Optional enumeration for multiple resolutions"""
         pass
 
@@ -90,7 +91,7 @@ class TimeseriesRequest(Core):
         return Frequency[self.resolution.name]
 
     @property
-    def dynamic_frequency(self) -> Optional[Frequency]:
+    def dynamic_frequency(self) -> Frequency | None:
         return self._dynamic_frequency
 
     @dynamic_frequency.setter
@@ -106,7 +107,7 @@ class TimeseriesRequest(Core):
 
     @property
     @abstractmethod
-    def _period_base(self) -> Optional[Period]:
+    def _period_base(self) -> Period | None:
         """Period base enumeration from which a period string can be parsed"""
         pass
 
@@ -137,7 +138,7 @@ class TimeseriesRequest(Core):
         pass
 
     @property
-    def _dataset_base(self) -> Optional[Enum]:
+    def _dataset_base(self) -> Enum | None:
         """Dataset base that is used to differ between different datasets"""
         if self._has_datasets:
             raise NotImplementedError("implement _dataset_base enumeration that contains available datasets")
@@ -199,7 +200,7 @@ class TimeseriesRequest(Core):
         Parameter.PRECIPITATION_HEIGHT.name,
     ]
 
-    def _parse_period(self, period: Period) -> Optional[List[Period]]:
+    def _parse_period(self, period: Period) -> list[Period] | None:
         """
         Method to parse period(s)
 
@@ -218,7 +219,7 @@ class TimeseriesRequest(Core):
                 ],
             )
 
-    def _parse_parameter(self, parameter: List[Union[str, Enum]]) -> List[Tuple[Enum, Enum]]:
+    def _parse_parameter(self, parameter: list[str | Enum | None]) -> list[tuple[Enum, Enum]]:
         """
         Method to parse parameters, either from string or enum. Case independent for
         strings.
@@ -271,7 +272,7 @@ class TimeseriesRequest(Core):
 
         return parameters
 
-    def _parse_dataset_and_parameter(self, parameter, dataset) -> Tuple[Optional[Enum], Optional[Enum]]:
+    def _parse_dataset_and_parameter(self, parameter, dataset) -> tuple[Enum | None, Enum | None]:
         """
         Parse parameters for cases like
             - parameter=("climate_summary", ) or
@@ -311,7 +312,7 @@ class TimeseriesRequest(Core):
 
         return parameter_, dataset_
 
-    def _parse_parameter_and_dataset(self, parameter) -> Tuple[Enum, Enum]:
+    def _parse_parameter_and_dataset(self, parameter) -> tuple[Enum, Enum]:
         """Try to parse dataset first e.g. when "climate_summary" or
         "precipitation_height", "climate_summary" is requested
 
@@ -347,12 +348,12 @@ class TimeseriesRequest(Core):
 
     def __init__(
         self,
-        parameter: Union[_PARAMETER_TYPE, Tuple[_PARAMETER_TYPE], List[_PARAMETER_TYPE]],
-        resolution: Union[str, Resolution],
-        period: Union[str, Period],
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: _PARAMETER_TYPE | tuple[_PARAMETER_TYPE] | list[_PARAMETER_TYPE],
+        resolution: str | Resolution,
+        period: str | Period,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ) -> None:
         """
 
@@ -441,9 +442,9 @@ class TimeseriesRequest(Core):
 
     @staticmethod
     def convert_timestamps(
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
-    ) -> Union[Tuple[None, None], Tuple[datetime, datetime]]:
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+    ) -> tuple[None, None] | tuple[dt.datetime, dt.datetime]:
         """
         Sort out start_date vs. end_date, parse strings to datetime
         objects and finally convert both to pd.Timestamp types.
@@ -638,7 +639,7 @@ class TimeseriesRequest(Core):
             stations_filter=StationsFilter.ALL,
         )
 
-    def filter_by_station_id(self, station_id: Union[str, Tuple[str, ...], List[str]]) -> StationsResult:
+    def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
         """
         Method to filter stations_result by station ids
 
@@ -705,7 +706,7 @@ class TimeseriesRequest(Core):
 
     def filter_by_rank(
         self,
-        latlon: Tuple[float, float],
+        latlon: tuple[float, float],
         rank: int,
     ) -> StationsResult:
         """
@@ -748,7 +749,7 @@ class TimeseriesRequest(Core):
             rank=rank,
         )
 
-    def filter_by_distance(self, latlon: Tuple[float, float], distance: float, unit: str = "km") -> StationsResult:
+    def filter_by_distance(self, latlon: tuple[float, float], distance: float, unit: str = "km") -> StationsResult:
         """
         Wrapper for get_nearby_stations_by_distance using the given parameter set.
         Returns the nearest stations_result defined by distance (km).
@@ -839,7 +840,7 @@ class TimeseriesRequest(Core):
             log.info(f"No stations were found for sql {sql}")
         return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_SQL)
 
-    def interpolate(self, latlon: Tuple[float, float]) -> InterpolatedValuesResult:
+    def interpolate(self, latlon: tuple[float, float]) -> InterpolatedValuesResult:
         """
         Method to interpolate values
 
@@ -896,7 +897,7 @@ class TimeseriesRequest(Core):
         latlon = self._get_latlon_by_station_id(station_id)
         return self.interpolate(latlon=latlon)
 
-    def summarize(self, latlon: Tuple[float, float]) -> SummarizedValuesResult:
+    def summarize(self, latlon: tuple[float, float]) -> SummarizedValuesResult:
         """
         Method to interpolate values
 
@@ -957,7 +958,7 @@ class TimeseriesRequest(Core):
         latlon = self._get_latlon_by_station_id(station_id)
         return self.summarize(latlon=latlon)
 
-    def _get_latlon_by_station_id(self, station_id: str) -> Tuple[float, float]:
+    def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
         """
         Method to parse latlon for methods .summary/.interpolate. Typically, we expect a latlon tuple of floats, but
         we want users to be able to request for a station id as well.
