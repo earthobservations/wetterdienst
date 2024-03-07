@@ -1,8 +1,10 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import logging
 import sys
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Literal
 
 from wetterdienst.core.process import create_date_range
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -22,7 +24,7 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 log = logging.getLogger(__name__)
 
 
-def unpack_parameters(parameter: str) -> List[str]:
+def unpack_parameters(parameter: str) -> list[str]:
     """Parse parameters to either
     - list of str, each representing a parameter or
     - list of tuple of str representing a pair of parameter and dataset
@@ -35,7 +37,7 @@ def unpack_parameters(parameter: str) -> List[str]:
 
     """
 
-    def unpack_parameter(par: str) -> Union[str, Tuple[str, str]]:
+    def unpack_parameter(par: str) -> str | tuple[str, str]:
         try:
             parameter_, dataset_ = par.split("/")
         except ValueError:
@@ -54,11 +56,11 @@ def unpack_parameters(parameter: str) -> List[str]:
 
 def _get_stations_request(
     api,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: str,
-    date: Optional[str],
+    date: str | None,
     issue: str,
     si_units: bool,
     shape: Literal["long", "wide"],
@@ -134,14 +136,14 @@ def _get_stations_request(
 
 def get_stations(
     api,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: str,
-    date: Optional[str],
-    issue: Optional[str],
+    date: str | None,
+    issue: str | None,
     all_: bool,
-    station_id: List[str],
+    station_id: list[str],
     name: str,
     coordinates: str,
     rank: int,
@@ -231,14 +233,14 @@ def get_stations(
 
 def get_values(
     api: TimeseriesRequest,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
     lead_time: str,
     date: str,
     issue: str,
-    period: List[str],
+    period: list[str],
     all_,
-    station_id: List[str],
+    station_id: list[str],
     name: str,
     coordinates: str,
     rank: int,
@@ -301,9 +303,9 @@ def get_values(
 
 def get_interpolate(
     api: TimeseriesRequest,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: str,
     date: str,
     issue: str,
@@ -356,9 +358,9 @@ def get_interpolate(
 
 def get_summarize(
     api: TimeseriesRequest,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: str,
     date: str,
     issue: str,

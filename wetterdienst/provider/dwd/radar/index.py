@@ -1,7 +1,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import os
-from typing import Optional
 
 import polars as pl
 
@@ -50,11 +51,11 @@ def use_cache() -> int:  # pragma: no cover
 def create_fileindex_radar(
     parameter: DwdRadarParameter,
     settings: Settings,
-    site: Optional[DwdRadarSite] = None,
-    fmt: Optional[DwdRadarDataFormat] = None,
-    subset: Optional[DwdRadarDataSubset] = None,
-    resolution: Optional[Resolution] = None,
-    period: Optional[Period] = None,
+    site: DwdRadarSite | None = None,
+    fmt: DwdRadarDataFormat | None = None,
+    subset: DwdRadarDataSubset | None = None,
+    resolution: Resolution | None = None,
+    period: Period | None = None,
     parse_datetime: bool = False,
 ) -> pl.DataFrame:
     """
@@ -167,11 +168,11 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
 
 def build_path_to_parameter(
     parameter: DwdRadarParameter,
-    site: Optional[DwdRadarSite] = None,
-    fmt: Optional[DwdRadarDataFormat] = None,
-    subset: Optional[DwdRadarDataSubset] = None,
-    resolution: Optional[Resolution] = None,
-    period: Optional[Period] = None,
+    site: DwdRadarSite | None = None,
+    fmt: DwdRadarDataFormat | None = None,
+    subset: DwdRadarDataSubset | None = None,
+    resolution: Resolution | None = None,
+    period: Period | None = None,
 ) -> str:
     """
     Compute URL path to data product.

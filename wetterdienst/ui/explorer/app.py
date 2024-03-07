@@ -4,9 +4,10 @@
 Wetterdienst Explorer UI Dash application.
 """
 
+from __future__ import annotations
+
 import json
 import logging
-from typing import Optional
 
 import dash
 import dash_bootstrap_components as dbc
@@ -576,7 +577,7 @@ def reset_values(provider, network, resolution, dataset, parameter, period):
     return network, resolution, dataset, parameter, period
 
 
-def start_service(listen_address: Optional[str] = None, reload: Optional[bool] = False):  # pragma: no cover
+def start_service(listen_address: str | None = None, reload: bool | None = False):  # pragma: no cover
     """
     This entrypoint will be used by `wetterdienst.cli`.
     """

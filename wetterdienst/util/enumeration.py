@@ -1,17 +1,18 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 from enum import Enum
-from typing import Optional, Type, Union
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.util.python import to_list
 
 
 def parse_enumeration_from_template(
-    enum_: Union[str, Enum],
-    intermediate: Type[Enum],
-    base: Optional[Type[Enum]] = None,
-) -> Optional[Enum]:
+    enum_: str | Enum,
+    intermediate: type[Enum],
+    base: type[Enum] | None = None,
+) -> Enum | None:
     """
     Function used to parse an enumeration(string) to a enumeration based on a template
 

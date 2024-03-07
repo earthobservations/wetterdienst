@@ -13,10 +13,11 @@ Requires:
 
 """  # Noqa:D205,D400
 
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
-from typing import Tuple
 
 import matplotlib.pyplot as plt
 import polars as pl
@@ -102,7 +103,7 @@ class ModelYearlyGaussians:
             return False
         return True
 
-    def make_composite_yearly_model(self, valid_data: pl.DataFrame) -> Tuple[GaussianModel, Parameters]:
+    def make_composite_yearly_model(self, valid_data: pl.DataFrame) -> tuple[GaussianModel, Parameters]:
         """makes a composite model
         https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models"""
         number_of_years = valid_data.get_column("date").dt.year().n_unique()

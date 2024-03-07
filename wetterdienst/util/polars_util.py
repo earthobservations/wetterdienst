@@ -1,11 +1,11 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from typing import List, Tuple
+from __future__ import annotations
 
 import polars as pl
 
 
-def read_fwf_from_df(df: pl.DataFrame, column_specs: Tuple[Tuple[int, int], ...], header: bool = False) -> pl.DataFrame:
+def read_fwf_from_df(df: pl.DataFrame, column_specs: tuple[tuple[int, int], ...], header: bool = False) -> pl.DataFrame:
     """Function to split a column of a polars DataFrame into multiple columns by given column specs
     :param df: the polars DataFrame of which a column is split
     :param column_specs: definition of column widths in [start, end]
@@ -13,7 +13,7 @@ def read_fwf_from_df(df: pl.DataFrame, column_specs: Tuple[Tuple[int, int], ...]
     :return: polars DataFrame with split columns
     """
 
-    def _get_columns(column: str) -> List[str]:
+    def _get_columns(column: str) -> list[str]:
         cols = []
         for col_start, col_end in column_specs:
             col = column[col_start : (col_end + 1)]

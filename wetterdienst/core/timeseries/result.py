@@ -1,11 +1,13 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import json
 import typing
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 from typing_extensions import NotRequired, TypedDict
@@ -58,8 +60,8 @@ class _Metadata(TypedDict):
 
 class _Station(TypedDict):
     station_id: str
-    start_date: Optional[str]
-    end_date: Optional[str]
+    start_date: str | None
+    end_date: str | None
     latitude: float
     longitude: float
     height: float
@@ -69,20 +71,20 @@ class _Station(TypedDict):
 
 class _StationsDict(TypedDict):
     metadata: NotRequired[_Metadata]
-    stations: List[_Station]
+    stations: list[_Station]
 
 
 class _OgcFeatureProperties(TypedDict):
     id: str
     name: str
     state: str
-    start_date: Optional[str]
-    end_date: Optional[str]
+    start_date: str | None
+    end_date: str | None
 
 
 class _OgcFeatureGeometry(TypedDict):
     type: Literal["Point"]
-    coordinates: List[float]
+    coordinates: list[float]
 
 
 class _StationsOgcFeature(TypedDict):
@@ -93,7 +95,7 @@ class _StationsOgcFeature(TypedDict):
 
 class _StationsOgcFeatureCollectionData(TypedDict):
     type: Literal["FeatureCollection"]
-    features: List[_StationsOgcFeature]
+    features: list[_StationsOgcFeature]
 
 
 class _StationsOgcFeatureCollection(TypedDict):
@@ -104,11 +106,11 @@ class _StationsOgcFeatureCollection(TypedDict):
 class StationsResult(ExportMixin):
     def __init__(
         self,
-        stations: Union["TimeseriesRequest", "DwdMosmixRequest", "DwdDmoRequest"],
+        stations: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest,
         df: pl.DataFrame,
         df_all: pl.DataFrame,
         stations_filter: StationsFilter,
-        rank: Optional[int] = None,
+        rank: int | None = None,
         **kwargs,
     ) -> None:
         # TODO: add more attributes from ScalarStations class
@@ -143,7 +145,7 @@ class StationsResult(ExportMixin):
         return self.stations._resolution_type
 
     @property
-    def values(self) -> "TimeseriesValues":
+    def values(self) -> TimeseriesValues:
         return self.stations._values.from_stations(self)
 
     @property
@@ -266,7 +268,7 @@ class StationsResult(ExportMixin):
         data["stations"] = df.to_dicts()
         return data
 
-    def to_json(self, with_metadata: bool = False, indent: Optional[Union[int, bool]] = 4) -> str:
+    def to_json(self, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
         """
         Format station information as JSON.
         :param with_metadata: bool whether to include metadata
@@ -334,8 +336,8 @@ class _ValuesItemDict(TypedDict):
 
 class _ValuesDict(TypedDict):
     metadata: NotRequired[_Metadata]
-    stations: NotRequired[List[_Station]]
-    values: List[_ValuesItemDict]
+    stations: NotRequired[list[_Station]]
+    values: list[_ValuesItemDict]
 
 
 @dataclass
@@ -344,7 +346,7 @@ class _ValuesResult(ExportMixin):
     df: pl.DataFrame
 
     @staticmethod
-    def _to_dict(df: pl.DataFrame) -> List[_ValuesItemDict]:
+    def _to_dict(df: pl.DataFrame) -> list[_ValuesItemDict]:
         """
         Format values as dictionary. This method is used both by ``to_dict()`` and ``to_ogc_feature_collection()``,
         however the latter one splits the DataFrame into multiple DataFrames by station and calls this method
@@ -377,7 +379,7 @@ class _ValuesResult(ExportMixin):
         self,
         with_metadata: bool = False,
         with_stations: bool = False,
-        indent: Optional[Union[int, bool]] = 4,
+        indent: int | bool | None = 4,
     ) -> str:
         """
         Format values as JSON.
@@ -401,12 +403,12 @@ class _ValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    values: List[_ValuesItemDict]
+    values: list[_ValuesItemDict]
 
 
 class _ValuesOgcFeatureCollectionData(TypedDict):
     type: Literal["FeatureCollection"]
-    features: List[_ValuesOgcFeature]
+    features: list[_ValuesOgcFeature]
 
 
 class _ValuesOgcFeatureCollection(TypedDict):
@@ -417,7 +419,7 @@ class _ValuesOgcFeatureCollection(TypedDict):
 @dataclass
 class ValuesResult(_ValuesResult):
     stations: StationsResult
-    values: "TimeseriesValues"
+    values: TimeseriesValues
     df: pl.DataFrame
 
     @property
@@ -482,26 +484,26 @@ class _InterpolatedValuesItemDict(TypedDict):
     date: str
     value: float
     distance_mean: float
-    taken_station_ids: List[str]
+    taken_station_ids: list[str]
 
 
 class _InterpolatedValuesDict(TypedDict):
     metadata: NotRequired[_Metadata]
-    stations: NotRequired[List[_Station]]
-    values: List[_InterpolatedValuesItemDict]
+    stations: NotRequired[list[_Station]]
+    values: list[_InterpolatedValuesItemDict]
 
 
 class _InterpolatedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: List[_Station]
-    values: List[_InterpolatedValuesItemDict]
+    stations: list[_Station]
+    values: list[_InterpolatedValuesItemDict]
 
 
 class _InterpolatedValuesOgcFeatureCollectionData(TypedDict):
     type: Literal["FeatureCollection"]
-    features: List[_InterpolatedValuesOgcFeature]
+    features: list[_InterpolatedValuesOgcFeature]
 
 
 class _InterpolatedValuesOgcFeatureCollection(TypedDict):
@@ -513,14 +515,14 @@ class _InterpolatedValuesOgcFeatureCollection(TypedDict):
 class InterpolatedValuesResult(_ValuesResult):
     stations: StationsResult
     df: pl.DataFrame
-    latlon: Optional[Tuple[float, float]]
+    latlon: tuple[float, float] | None
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance_mean and station_ids.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> List[_InterpolatedValuesItemDict]: ...
+        def _to_dict(self, df: pl.DataFrame) -> list[_InterpolatedValuesItemDict]: ...
 
         def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _InterpolatedValuesDict: ...
 
@@ -573,21 +575,21 @@ class _SummarizedValuesItemDict(TypedDict):
 
 class _SummarizedValuesDict(TypedDict):
     metadata: NotRequired[_Metadata]
-    stations: NotRequired[List[_Station]]
-    values: List[_SummarizedValuesItemDict]
+    stations: NotRequired[list[_Station]]
+    values: list[_SummarizedValuesItemDict]
 
 
 class _SummarizedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: List[_Station]
-    values: List[_SummarizedValuesItemDict]
+    stations: list[_Station]
+    values: list[_SummarizedValuesItemDict]
 
 
 class _SummarizedValuesOgcFeatureCollectionData(TypedDict):
     type: Literal["FeatureCollection"]
-    features: List[_SummarizedValuesOgcFeature]
+    features: list[_SummarizedValuesOgcFeature]
 
 
 class _SummarizedValuesOgcFeatureCollection(TypedDict):
@@ -599,14 +601,14 @@ class _SummarizedValuesOgcFeatureCollection(TypedDict):
 class SummarizedValuesResult(_ValuesResult):
     stations: StationsResult
     df: pl.DataFrame
-    latlon: Tuple[float, float]
+    latlon: tuple[float, float]
 
     if typing.TYPE_CHECKING:
         # We need to override the signature of the method to_dict() from ValuesResult here
         # because we want to return a slightly different type with columns related to interpolation.
         # Those are distance and station_id.
         # https://github.com/python/typing/discussions/1015
-        def _to_dict(self, df: pl.DataFrame) -> List[_SummarizedValuesItemDict]: ...
+        def _to_dict(self, df: pl.DataFrame) -> list[_SummarizedValuesItemDict]: ...
 
         def to_dict(self, with_metadata: bool = False, with_stations: bool = False) -> _SummarizedValuesDict: ...
 

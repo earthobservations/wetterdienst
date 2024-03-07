@@ -2,10 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """A set of utility functions"""
 
+from __future__ import annotations
+
 import logging
 import sys
 import textwrap
-from typing import List, Optional
 
 
 def setup_logging(level=logging.INFO) -> None:
@@ -21,7 +22,7 @@ def setup_logging(level=logging.INFO) -> None:
     pint_logger.setLevel(logging.ERROR)
 
 
-def read_list(data: Optional[str], separator: str = ",") -> List[str]:
+def read_list(data: str | None, separator: str = ",") -> list[str]:
     if data is None:
         return []
 

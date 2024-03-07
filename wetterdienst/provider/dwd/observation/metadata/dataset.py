@@ -1,7 +1,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 from enum import Enum
-from typing import Dict, List
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -58,7 +59,7 @@ DWD_URBAN_DATASETS = (
     DwdObservationDataset.URBAN_WIND,
 )
 
-RESOLUTION_DATASET_MAPPING: Dict[Resolution, Dict[DwdObservationDataset, List[Period]]] = {
+RESOLUTION_DATASET_MAPPING: dict[Resolution, dict[DwdObservationDataset, list[Period]]] = {
     Resolution.MINUTE_1: {
         DwdObservationDataset.PRECIPITATION: [
             Period.HISTORICAL,

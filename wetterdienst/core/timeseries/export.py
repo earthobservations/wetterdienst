@@ -1,10 +1,11 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import json
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Union
 from urllib.parse import urlunparse
 
 import polars as pl
@@ -42,7 +43,7 @@ class ExportMixin:
     def to_ogc_feature_collection(self, *args, **kwargs) -> dict:
         pass
 
-    def to_geojson(self, with_metadata: bool = False, indent: Optional[Union[int, bool]] = 4, **_kwargs) -> str:
+    def to_geojson(self, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs) -> str:
         """
         Convert station information into GeoJSON format
         :param with_metadata: Include metadata in GeoJSON output

@@ -1,9 +1,10 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import List, Tuple
 from zipfile import BadZipFile
 
 import polars as pl
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 def download_climate_observations_data_parallel(
     remote_files: pl.Series,
     settings: Settings,
-) -> List[Tuple[str, BytesIO]]:
+) -> list[tuple[str, BytesIO]]:
     """
     Wrapper for ``_download_dwd_data`` to provide a multiprocessing feature.
 

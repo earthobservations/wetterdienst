@@ -16,8 +16,9 @@ References
 - https://github.com/wradlib/wradlib-notebooks/blob/v1.8.0/notebooks/radolan/radolan_network.ipynb
 """  # noqa:B950,E501
 
+from __future__ import annotations
+
 from enum import Enum
-from typing import Dict
 
 import polars as pl
 
@@ -59,7 +60,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         "/HaeufigGesucht/koordinaten-radarverbund.pdf?__blob=publicationFile"
     )
 
-    def all(self) -> Dict:  # pragma: no cover  # noqa: A003
+    def all(self) -> dict:  # pragma: no cover  # noqa: A003
         """
         Build dictionary from DataFrame containing radar site information.
         """

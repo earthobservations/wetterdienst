@@ -1,12 +1,14 @@
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from enum import Enum
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
 import polars as pl
 import utm
@@ -24,19 +26,19 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def get_interpolated_df(request: "TimeseriesRequest", latitude: float, longitude: float) -> pl.DataFrame:
+def get_interpolated_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
     utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
     stations_dict, param_dict = request_stations(request, latitude, longitude, utm_x, utm_y)
     return calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, request.interp_use_nearby_station_until_km)
 
 
 def request_stations(
-    request: "TimeseriesRequest",
+    request: TimeseriesRequest,
     latitude: float,
     longitude: float,
     utm_x: float,
     utm_y: float,
-) -> Tuple[dict, dict]:
+) -> tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
     stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
@@ -63,7 +65,7 @@ def request_stations(
 
 def apply_station_values_per_parameter(
     result_df: pl.DataFrame,
-    stations_ranked: "StationsResult",
+    stations_ranked: StationsResult,
     param_dict: dict,
     station: dict,
     valid_station_groups_exists: bool,
@@ -202,8 +204,8 @@ def apply_interpolation(
     parameter: Enum,
     utm_x: float,
     utm_y: float,
-    nearby_stations: List[str],
-) -> Tuple[Enum, Optional[float], Optional[float], List[str]]:
+    nearby_stations: list[str],
+) -> tuple[Enum, float | None, float | None, list[str]]:
     """
     Interpolation function that is being applied over each row of the accumulated data of different stations.
     :param row: row with values of each station

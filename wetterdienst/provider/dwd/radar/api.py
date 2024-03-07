@@ -1,5 +1,7 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import bz2
 import datetime as dt
 import gzip
@@ -8,7 +10,7 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Generator, Optional, Union
+from typing import Generator
 
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
@@ -96,16 +98,16 @@ class DwdRadarValues:
 
     def __init__(
         self,
-        parameter: Union[str, DwdRadarParameter],
-        site: Optional[DwdRadarSite] = None,
-        fmt: Optional[DwdRadarDataFormat] = None,
-        subset: Optional[DwdRadarDataSubset] = None,
-        elevation: Optional[int] = None,
-        start_date: Optional[Union[str, dt.datetime, DwdRadarDate]] = None,
-        end_date: Optional[Union[str, dt.datetime, dt.timedelta]] = None,
-        resolution: Optional[Union[str, Resolution, DwdRadarResolution]] = None,
-        period: Optional[Union[str, Period, DwdRadarPeriod]] = None,
-        settings: Optional[Settings] = None,
+        parameter: str | DwdRadarParameter,
+        site: DwdRadarSite | None = None,
+        fmt: DwdRadarDataFormat | None = None,
+        subset: DwdRadarDataSubset | None = None,
+        elevation: int | None = None,
+        start_date: str | dt.datetime | DwdRadarDate | None = None,
+        end_date: str | dt.datetime | dt.timedelta | None = None,
+        resolution: str | Resolution | DwdRadarResolution | None = None,
+        period: str | Period | DwdRadarPeriod | None = None,
+        settings: Settings | None = None,
     ) -> None:
         """
         :param parameter:       The radar moment to request

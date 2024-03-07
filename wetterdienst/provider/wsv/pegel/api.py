@@ -1,9 +1,10 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import json
 from enum import Enum
-from typing import List, Optional, Union
 
 import polars as pl
 
@@ -23,7 +24,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
-FLOAT_9_TIMES = List[Optional[float]]
+FLOAT_9_TIMES = list[float | None]
 
 
 class WsvPegelParameter(DatasetTreeCore):
@@ -209,10 +210,10 @@ class WsvPegelRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: List[Union[str, WsvPegelParameter, Parameter]],
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | WsvPegelParameter | Parameter],
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         super().__init__(
             parameter=parameter,
@@ -231,7 +232,7 @@ class WsvPegelRequest(TimeseriesRequest):
         """
 
         def _extract_ts(
-            ts_list: List[dict],
+            ts_list: list[dict],
         ) -> FLOAT_9_TIMES:
             """
             Function to extract water level related information namely gauge zero and characteristic values

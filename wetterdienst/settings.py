@@ -1,11 +1,13 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import json
 import logging
 import pathlib
 from copy import deepcopy
 from functools import partial
-from typing import Dict, Literal, Optional, Union
+from typing import Literal
 
 import platformdirs
 from environs import Env
@@ -48,18 +50,18 @@ class Settings:
 
     def __init__(
         self,
-        cache_disable: Optional[bool] = None,
-        cache_dir: Optional[pathlib.Path] = None,
-        fsspec_client_kwargs: Optional[dict] = None,
-        ts_humanize: Optional[bool] = None,
-        ts_shape: Optional[Literal["wide", "long"]] = None,
-        ts_si_units: Optional[bool] = None,
-        ts_skip_empty: Optional[bool] = None,
-        ts_skip_threshold: Optional[float] = None,
-        ts_skip_criteria: Optional[Literal["min", "mean", "max"]] = None,
-        ts_dropna: Optional[bool] = None,
-        ts_interpolation_use_nearby_station_distance: Optional[Union[float, int]] = None,
-        ts_interpolation_station_distance: Optional[Dict[str, float]] = None,
+        cache_disable: bool | None = None,
+        cache_dir: pathlib.Path | None = None,
+        fsspec_client_kwargs: dict | None = None,
+        ts_humanize: bool | None = None,
+        ts_shape: Literal["wide", "long"] | None = None,
+        ts_si_units: bool | None = None,
+        ts_skip_empty: bool | None = None,
+        ts_skip_threshold: float | None = None,
+        ts_skip_criteria: Literal["min", "mean", "max"] | None = None,
+        ts_dropna: bool | None = None,
+        ts_interpolation_use_nearby_station_distance: float | int | None = None,
+        ts_interpolation_station_distance: dict[str, float] | None = None,
         ignore_env: bool = False,
     ) -> None:
         _defaults = deepcopy(self._defaults)  # make sure mutable objects are not changed
@@ -127,7 +129,7 @@ class Settings:
     def __str__(self) -> str:
         return f"Settings({json.dumps(self.to_dict(),indent=4)})"
 
-    def __eq__(self, other: "Settings"):
+    def __eq__(self, other: Settings):
         return self.to_dict() == other.to_dict()
 
     def to_dict(self) -> dict:
@@ -146,12 +148,12 @@ class Settings:
             "ts_interpolation_use_nearby_station_distance": self.ts_interpolation_use_nearby_station_distance,
         }
 
-    def reset(self) -> "Settings":
+    def reset(self) -> Settings:
         """Reset Wetterdienst Settings to start"""
         return self.__init__()
 
     @classmethod
-    def default(cls) -> "Settings":
+    def default(cls) -> Settings:
         """Ignore environmental variables and use all default arguments as defined above"""
         # Put empty env to force using the given defaults
         return cls(ignore_env=True)

@@ -1,10 +1,12 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Iterator
 from urllib.parse import urljoin
 
 import polars as pl
@@ -998,7 +1000,7 @@ class DwdMosmixValues(TimeseriesValues):
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
 
-    def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
+    def _create_humanized_parameters_mapping(self) -> dict[str, str]:
         """
         Method for creation of parameter name mappings based on
         self._parameter_base
@@ -1127,7 +1129,7 @@ class DwdMosmixValues(TimeseriesValues):
 
         return df.with_columns(pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value))
 
-    def read_mosmix(self, date: Union[dt.datetime, DwdForecastDate]) -> Iterator[pl.DataFrame]:
+    def read_mosmix(self, date: dt.datetime | DwdForecastDate) -> Iterator[pl.DataFrame]:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -1144,7 +1146,7 @@ class DwdMosmixValues(TimeseriesValues):
 
             yield df_forecast
 
-    def _read_mosmix(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
+    def _read_mosmix(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
         """
         Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
         defined period type
@@ -1157,7 +1159,7 @@ class DwdMosmixValues(TimeseriesValues):
         else:
             yield from self.read_mosmix_large(date)
 
-    def read_mosmix_small(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
+    def read_mosmix_small(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
         """
         Reads single MOSMIX-S file with all stations_result and returns every mosmix that
         matches with one of the defined station ids.
@@ -1172,8 +1174,8 @@ class DwdMosmixValues(TimeseriesValues):
 
     def read_mosmix_large(
         self,
-        date: Union[DwdForecastDate, dt.datetime],
-    ) -> Iterator[Tuple[pl.DataFrame, pl.DataFrame]]:
+        date: DwdForecastDate | dt.datetime,
+    ) -> Iterator[tuple[pl.DataFrame, pl.DataFrame]]:
         """
         Reads multiple MOSMIX-L files with one per each station and returns a
         mosmix per file.
@@ -1203,7 +1205,7 @@ class DwdMosmixValues(TimeseriesValues):
 
                 yield next(self.kml.get_forecasts())
 
-    def get_url_for_date(self, url: str, date: Union[dt.datetime, DwdForecastDate]) -> str:
+    def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
         """
         Method to get a file url based on the MOSMIX-S/MOSMIX-L url and the date that is
         used for filtering.
@@ -1317,14 +1319,14 @@ class DwdMosmixRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: Optional[List[Union[str, DwdMosmixParameter, Parameter]]],
-        mosmix_type: Union[str, DwdMosmixType],
-        start_issue: Optional[Union[str, dt.datetime, DwdForecastDate]] = DwdForecastDate.LATEST,
-        end_issue: Optional[Union[str, dt.datetime]] = None,
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        station_group: Optional[DwdMosmixStationGroup] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | DwdMosmixParameter | Parameter] | None,
+        mosmix_type: str | DwdMosmixType,
+        start_issue: str | dt.datetime | DwdForecastDate | None = DwdForecastDate.LATEST,
+        end_issue: str | dt.datetime | None = None,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        station_group: DwdMosmixStationGroup | None = None,
+        settings: Settings | None = None,
     ) -> None:
         """
 

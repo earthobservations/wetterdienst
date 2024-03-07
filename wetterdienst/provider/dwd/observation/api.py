@@ -1,9 +1,10 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from itertools import repeat
-from typing import List, Optional, Tuple, Union
 
 import polars as pl
 import portion as P
@@ -104,7 +105,7 @@ class DwdObservationValues(TimeseriesValues):
     def _collect_station_parameter(
         self,
         station_id: str,
-        parameter: Union[DwdObservationParameter, DwdObservationDataset],
+        parameter: DwdObservationParameter | DwdObservationDataset,
         dataset: DwdObservationDataset,
     ) -> pl.DataFrame:
         """
@@ -327,7 +328,7 @@ class DwdObservationValues(TimeseriesValues):
         station_id: str,
         dataset: DwdObservationDataset,
         settings: Settings,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get particular files for historical data which for high resolution is
         released in data chunks e.g. decades or monthly chunks
@@ -382,7 +383,7 @@ class DwdObservationRequest(TimeseriesRequest):
     _values = DwdObservationValues
 
     @property
-    def _interval(self) -> Optional[Interval]:
+    def _interval(self) -> Interval | None:
         """
         Interval of the request if date given
 
@@ -431,7 +432,7 @@ class DwdObservationRequest(TimeseriesRequest):
         now_begin = now_end.replace(hour=0, minute=0, second=0) - dt.timedelta(days=1)
         return P.closed(now_begin, now_end)
 
-    def _get_periods(self) -> List[Period]:
+    def _get_periods(self) -> list[Period]:
         """
         Set periods automatically depending on the given start date and end date.
         Overlapping of historical and recent interval will cause both periods to appear
@@ -458,17 +459,15 @@ class DwdObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: Union[
-            Union[str, DwdObservationDataset, DwdObservationParameter],
-            List[Union[str, DwdObservationDataset, DwdObservationParameter]],
-        ],
-        resolution: Union[str, Resolution, DwdObservationResolution],
-        period: Optional[
-            Union[str, Period, DwdObservationPeriod, List[Union[str, Period, DwdObservationPeriod]]]
-        ] = None,
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: str
+        | DwdObservationDataset
+        | DwdObservationParameter
+        | list[str | DwdObservationDataset | DwdObservationParameter],
+        resolution: str | Resolution | DwdObservationResolution,
+        period: str | Period | DwdObservationPeriod | list[str | Period | DwdObservationPeriod] = None,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         """
 
@@ -498,7 +497,7 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.period = self._parse_period([*self._period_base])
 
-    def filter_by_station_id(self, station_id: Union[str, int, Tuple[str, ...], Tuple[int, ...], List[str], List[int]]):
+    def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
         return super().filter_by_station_id(
             pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0"),
         )

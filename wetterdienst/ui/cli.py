@@ -1,12 +1,14 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import functools
 import json
 import logging
 import sys
 from collections import OrderedDict
 from pprint import pformat
-from typing import List, Literal
+from typing import Literal
 
 import click
 import cloup
@@ -710,11 +712,11 @@ def fields(provider, network, dataset, resolution, period, language, **kwargs):
 def stations(
     provider: str,
     network: str,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     all_: bool,
-    station: List[str],
+    station: list[str],
     name: str,
     coordinates: str,
     rank: int,
@@ -805,9 +807,9 @@ def stations(
 def values(
     provider: str,
     network: str,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: Literal["short", "long"],
     date: str,
     issue: str,
@@ -913,9 +915,9 @@ def values(
 def interpolate(
     provider: str,
     network: str,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: Literal["short", "long"],
     use_nearby_station_distance: float,
     date: str,
@@ -1000,9 +1002,9 @@ def interpolate(
 def summarize(
     provider: str,
     network: str,
-    parameter: List[str],
+    parameter: list[str],
     resolution: str,
-    period: List[str],
+    period: list[str],
     lead_time: Literal["short", "long"],
     date: str,
     issue: str,

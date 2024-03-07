@@ -1,14 +1,15 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
-from typing import Tuple
 
 from dateutil.relativedelta import relativedelta
 
 from wetterdienst.metadata.resolution import Resolution
 
 
-def round_minutes(timestamp: dt.datetime, step: int):
+def round_minutes(timestamp: dt.datetime, step: int) -> dt.datetime:
     """
     Align timestamp to the given minute mark before tm.
     - https://stackoverflow.com/a/3464000
@@ -23,7 +24,7 @@ def round_minutes(timestamp: dt.datetime, step: int):
     return timestamp - change
 
 
-def raster_minutes(timestamp: dt.datetime, value: int):
+def raster_minutes(timestamp: dt.datetime, value: int) -> dt.datetime:
     """
     Align timestamp to the most recent minute mark.
 
@@ -46,8 +47,8 @@ def raster_minutes(timestamp: dt.datetime, value: int):
 def mktimerange(
     resolution: Resolution,
     date_from: dt.datetime,
-    date_to: dt.datetime = None,
-) -> Tuple[dt.datetime, dt.datetime]:
+    date_to: dt.datetime | None = None,
+) -> tuple[dt.datetime, dt.datetime]:
     """
     Compute appropriate time ranges for monthly and annual time resolutions.
     This takes into account to properly floor/ceil the date_from/date_to

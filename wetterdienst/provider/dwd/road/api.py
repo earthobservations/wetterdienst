@@ -1,5 +1,7 @@
 # Copyright (c) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -7,7 +9,7 @@ from enum import Enum
 from functools import reduce
 from io import BytesIO
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import polars as pl
@@ -153,7 +155,7 @@ class DwdRoadValues(TimeseriesValues):
 
     _data_tz = Timezone.UTC
 
-    def __init__(self, stations_result: "StationsResult") -> None:
+    def __init__(self, stations_result: StationsResult) -> None:
         check_pdbufr()
         super().__init__(stations_result)
 
@@ -206,7 +208,7 @@ class DwdRoadValues(TimeseriesValues):
     def _collect_data_by_station_group(
         self,
         road_weather_station_group: DwdRoadStationGroup,
-        parameters: List[str],
+        parameters: list[str],
     ) -> pl.DataFrame:
         """
         Method to collect data for one specified parameter. Manages restoring,
@@ -229,7 +231,7 @@ class DwdRoadValues(TimeseriesValues):
         return self._parse_dwd_road_weather_data(filenames_and_files, parameters)
 
     @staticmethod
-    def _download_road_weather_observations(remote_files: List[str], settings) -> List[Tuple[str, BytesIO]]:
+    def _download_road_weather_observations(remote_files: list[str], settings) -> list[tuple[str, BytesIO]]:
         """
         :param remote_files:    List of requested files
         :return:                List of downloaded files
@@ -245,8 +247,8 @@ class DwdRoadValues(TimeseriesValues):
 
     def _parse_dwd_road_weather_data(
         self,
-        filenames_and_files: List[Tuple[str, BytesIO]],
-        parameters: List[str],
+        filenames_and_files: list[tuple[str, BytesIO]],
+        parameters: list[str],
     ) -> pl.DataFrame:
         """
         This function is used to read the road weather station data from given bytes object.
@@ -268,7 +270,7 @@ class DwdRoadValues(TimeseriesValues):
         )
 
     @staticmethod
-    def __parse_dwd_road_weather_data(filename_and_file: Tuple[str, BytesIO], parameters: List[str]) -> pl.DataFrame:
+    def __parse_dwd_road_weather_data(filename_and_file: tuple[str, BytesIO], parameters: list[str]) -> pl.DataFrame:
         """
         A wrapping function that only handles data for one station id. The files passed to
         it are thus related to this id. This is important for storing the data locally as
@@ -397,10 +399,10 @@ class DwdRoadRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: List[Union[str, Enum, Parameter]],
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | Enum | Parameter],
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        settings: Settings | None = None,
     ):
         super().__init__(
             parameter=parameter,

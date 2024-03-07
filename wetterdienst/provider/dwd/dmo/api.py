@@ -1,10 +1,12 @@
 # Copyright (C) 2018-2023, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Iterator
 from urllib.error import HTTPError
 from urllib.parse import urljoin
 
@@ -1058,7 +1060,7 @@ class DwdDmoValues(TimeseriesValues):
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
 
-    def _create_humanized_parameters_mapping(self) -> Dict[str, str]:
+    def _create_humanized_parameters_mapping(self) -> dict[str, str]:
         """
         Method for creation of parameter name mappings based on
         self._parameter_base
@@ -1096,7 +1098,7 @@ class DwdDmoValues(TimeseriesValues):
             settings=self.sr.stations.settings,
         )
 
-    def get_dwd_dmo_path(self, dataset: Enum, station_id: Optional[str] = None) -> str:
+    def get_dwd_dmo_path(self, dataset: Enum, station_id: str | None = None) -> str:
         path = f"weather/local_forecasts/dmo/{dataset.value}/{self.sr.stations.station_group.value}"
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
             return f"{path}/kmz"
@@ -1193,7 +1195,7 @@ class DwdDmoValues(TimeseriesValues):
 
         return df.with_columns(pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value))
 
-    def read_dmo(self, date: Union[dt.datetime, DwdForecastDate]) -> Iterator[pl.DataFrame]:
+    def read_dmo(self, date: dt.datetime | DwdForecastDate) -> Iterator[pl.DataFrame]:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the DMO path of the DWD server.
@@ -1210,7 +1212,7 @@ class DwdDmoValues(TimeseriesValues):
 
             yield df_forecast
 
-    def _read_dmo(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
+    def _read_dmo(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
         """
         Wrapper that either calls read_icon_eu or read_icon depending on
         defined period type
@@ -1223,7 +1225,7 @@ class DwdDmoValues(TimeseriesValues):
         else:
             yield from self.read_icon(date)
 
-    def read_icon_eu(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
+    def read_icon_eu(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
         """
         Reads single icon_eu file with all stations_result and returns every chunk that
         matches with one of the defined station ids.
@@ -1249,7 +1251,7 @@ class DwdDmoValues(TimeseriesValues):
                 self.kml.read(file_url)
                 yield next(self.kml.get_forecasts())
 
-    def read_icon(self, date: Union[DwdForecastDate, dt.datetime]) -> Iterator[pl.DataFrame]:
+    def read_icon(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
         """
         Reads multiple icon files with one per each station and returns a
         chunk per file.
@@ -1275,7 +1277,7 @@ class DwdDmoValues(TimeseriesValues):
                 self.kml.read(file_url)
                 yield next(self.kml.get_forecasts())
 
-    def get_url_for_date(self, url: str, date: Union[dt.datetime, DwdForecastDate]) -> str:
+    def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
         """
         Method to get a file url based on the dmo url and the date that is
         used for filtering.
@@ -1380,15 +1382,15 @@ class DwdDmoRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: Optional[List[Union[str, DwdDmoParameter, Parameter]]],
-        dmo_type: Union[str, DwdDmoType],
-        start_issue: Union[str, dt.datetime, DwdForecastDate] = DwdForecastDate.LATEST,
-        end_issue: Optional[Union[str, dt.datetime]] = None,
-        start_date: Optional[Union[str, dt.datetime]] = None,
-        end_date: Optional[Union[str, dt.datetime]] = None,
-        station_group: Optional[Union[str, DwdDmoStationGroup]] = None,
-        lead_time: Optional[Union[str, DwdDmoLeadTime]] = None,
-        settings: Optional[Settings] = None,
+        parameter: list[str | DwdDmoParameter | Parameter] | None,
+        dmo_type: str | DwdDmoType,
+        start_issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
+        end_issue: str | dt.datetime | None = None,
+        start_date: str | dt.datetime | None = None,
+        end_date: str | dt.datetime | None = None,
+        station_group: str | DwdDmoStationGroup | None = None,
+        lead_time: str | DwdDmoLeadTime | None = None,
+        settings: Settings | None = None,
     ) -> None:
         """
 
