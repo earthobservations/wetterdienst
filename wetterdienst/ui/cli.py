@@ -12,6 +12,7 @@ from typing import Literal
 
 import click
 import cloup
+import orjson
 from click_params import StringListParamType
 from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
@@ -635,7 +636,7 @@ def coverage(provider, network, dataset, resolution, debug):
     set_logging_level(debug)
 
     if not provider or not network:
-        print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
+        print(orjson.dumps(Wetterdienst.discover(), option=orjson.OPT_INDENT_2).decode())  # noqa: T201
         return
 
     api = get_api(provider=provider, network=network)
@@ -652,7 +653,7 @@ def coverage(provider, network, dataset, resolution, debug):
     for resolution, labels in cov.items():
         result[resolution] = list(labels.keys())
 
-    print(json.dumps(result, indent=2))  # noqa: T201
+    print(orjson.dumps(result, option=orjson.OPT_INDENT_2).decode())  # noqa: T201
 
 
 @about.command("fields")
@@ -1068,14 +1069,12 @@ def summarize(
     RequireExactly(1),
     ["dwd", "all_", "odim_code", "wmo_code", "country_name"],
 )
-@cloup.option("--indent", type=click.INT, default=4)
 def radar(
     dwd: bool,
     all_: bool,
     odim_code: str,
     wmo_code: int,
     country_name: str,
-    indent: int,
 ):
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
     from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
@@ -1094,7 +1093,7 @@ def radar(
         else:
             raise KeyError("No valid option provided")
 
-    output = json.dumps(data, indent=indent)
+    output = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode()
 
     print(output)  # noqa: T201
 

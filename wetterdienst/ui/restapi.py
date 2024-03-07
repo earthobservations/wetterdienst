@@ -6,6 +6,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, Union
 
+import orjson
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
@@ -184,7 +185,7 @@ def coverage(
 
     if not provider or not network:
         cov = Wetterdienst.discover()
-        return Response(content=json.dumps(cov, indent=4), media_type="application/json")
+        return Response(content=orjson.dumps(cov, option=orjson.OPT_INDENT_2).decode(), media_type="application/json")
 
     api = get_api(provider=provider, network=network)
 
@@ -194,7 +195,7 @@ def coverage(
         flatten=False,
     )
 
-    return Response(content=json.dumps(cov, indent=4), media_type="application/json")
+    return Response(content=orjson.dumps(cov, option=orjson.OPT_INDENT_2).decode(), media_type="application/json")
 
 
 # response models for the different formats are

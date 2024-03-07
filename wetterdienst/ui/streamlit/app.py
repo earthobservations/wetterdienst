@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import duckdb
+import orjson
 import plotly.express as px
 import polars as pl
 import streamlit
@@ -133,7 +134,7 @@ def main():
     if station:
         station["start_date"] = station["start_date"].isoformat()
         station["end_date"] = station["end_date"].isoformat()
-        st.code(json.dumps(station, indent=4), language="json")
+        st.code(orjson.dumps(station, option=orjson.OPT_INDENT_2).decode(), language="json")
         st.map(get_dwd_observation_station(station["station_id"], settings).df)
 
     st.subheader("DataFrame")

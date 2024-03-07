@@ -12,6 +12,7 @@ import logging
 import dash
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
+import orjson
 import plotly.graph_objects as go
 import polars as pl
 from dash import Input, Output, State, dcc, html
@@ -211,7 +212,7 @@ def fetch_values(
 
     log.info(f"Propagating values data frame with {frame_summary(df)}")
 
-    return json.dumps({"values": df.to_dicts(), "unit_dict": values.stations.stations.discover()})
+    return orjson.dumps({"values": df.to_dicts(), "unit_dict": values.stations.stations.discover()}).decode()
 
 
 @app.callback(
