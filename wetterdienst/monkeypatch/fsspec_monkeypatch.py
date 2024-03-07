@@ -241,6 +241,7 @@ class AsyncFileSystem(asyn.AsyncFileSystem):
             warnings.warn("add_aliases has been removed.", FutureWarning, stacklevel=2)
         # This is set in _Cached
         self._fs_token_ = None
+        super().__init__(*args, **storage_options)
 
 
 def activate():
