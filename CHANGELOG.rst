@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.77.0 (08.03.2024)
+*******************
+
 - Refactor index caching -> Remove monkeypatch for fsspec
 
 0.76.1 (03.03.2024)
