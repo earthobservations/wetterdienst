@@ -5,12 +5,6 @@
 from textwrap import dedent
 
 
-def monkeypatch():
-    from wetterdienst.monkeypatch import fsspec_monkeypatch
-
-    fsspec_monkeypatch.activate()
-
-
 def get_version(appname):
     from importlib.metadata import PackageNotFoundError, version  # noqa
 
