@@ -320,6 +320,7 @@ class NoaaGhcnValues(TimeseriesValues):
             .alias("date"),
             *parameter,
         )
+        df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
         df = df.melt(
             id_vars=["station_id", "date"], value_vars=parameter, variable_name="parameter", value_name="value"
         )
