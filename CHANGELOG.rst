@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.77.1 (08.03.2024)
+*******************
+
 - Fix setting NOAA GHCN-h date to UTC
 
 0.77.0 (08.03.2024)
