@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.78.0 (09.03.2024)
+*******************
+
 - Docker: Install more extras
 - Cli/Restapi: Return empty values if no data is available
 
