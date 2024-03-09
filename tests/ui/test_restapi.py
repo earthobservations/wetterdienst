@@ -408,6 +408,23 @@ def test_api_values_missing_null(client):
 
 
 @pytest.mark.remote
+def test_api_values_missing_empty(client):
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "00011",
+            "parameter": "precipitation_height",
+            "resolution": "1_minute",
+            "period": "recent",
+        },
+    )
+    assert response.status_code == 200
+    assert not response.json()["values"]
+
+
+@pytest.mark.remote
 def test_api_stations_missing_null(client):
     response = client.get(
         "/api/stations",

@@ -7,7 +7,12 @@ from typing import List, Literal, Optional, Tuple, Union
 
 from wetterdienst.core.process import create_date_range
 from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
+from wetterdienst.core.timeseries.result import (
+    InterpolatedValuesResult,
+    StationsResult,
+    SummarizedValuesResult,
+    ValuesResult,
+)
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -285,7 +290,7 @@ def get_values(
     else:
         if values_.df.is_empty():
             log.error("No data available for given constraints")
-            sys.exit(1)
+            return values_
 
     if sql_values:
         log.info(f"Filtering with SQL: {sql_values}")
@@ -309,7 +314,7 @@ def get_interpolate(
     si_units: bool,
     humanize: bool,
     use_nearby_station_distance: float,
-) -> ValuesResult:
+) -> InterpolatedValuesResult:
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
@@ -341,7 +346,7 @@ def get_interpolate(
     else:
         if values_.df.is_empty():
             log.error("No data available for given constraints")
-            sys.exit(1)
+            return values_
 
     if sql_values:
         log.info(f"Filtering with SQL: {sql_values}")
@@ -363,7 +368,7 @@ def get_summarize(
     sql_values: str,
     si_units: bool,
     humanize: bool,
-) -> ValuesResult:
+) -> SummarizedValuesResult:
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
@@ -395,7 +400,7 @@ def get_summarize(
     else:
         if values_.df.is_empty():
             log.error("No data available for given constraints")
-            sys.exit(1)
+            return values_
 
     if sql_values:
         log.info(f"Filtering with SQL: {sql_values}")
