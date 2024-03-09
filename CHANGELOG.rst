@@ -5,6 +5,7 @@ Development
 ***********
 
 - Docker: Install more extras
+- Cli/Restapi: Return empty values if no data is available
 
 0.77.1 (08.03.2024)
 *******************
