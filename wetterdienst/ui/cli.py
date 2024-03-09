@@ -568,10 +568,9 @@ def cache():
 
 @cli.command("info", section=basic_section)
 def info():
-    from wetterdienst import get_info_text
+    from wetterdienst import Info
 
-    info_text = get_info_text()
-    print(info_text)  # noqa: T201
+    print(Info())  # noqa: T201
     return
 
 
