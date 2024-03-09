@@ -90,6 +90,7 @@ classifiers = [
 [tool.poetry.urls]
 "Issues" = "https://github.com/earthobservations/wetterdienst/issues"
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
+"Restapi" = "https://wetterdienst.eobs.org/"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
