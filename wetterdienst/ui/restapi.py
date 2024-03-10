@@ -9,7 +9,7 @@ from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
-from wetterdienst import Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Author, Info, Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
@@ -36,14 +36,14 @@ app = FastAPI(debug=False)
 
 log = logging.getLogger(__name__)
 
-PRODUCER_NAME = "Wetterdienst"
-PRODUCER_LINK = "https://github.com/earthobservations/wetterdienst"
-
 CommaSeparator = StringListParamType(",")
 
 
 @app.get("/", response_class=HTMLResponse)
 def index():
+    def _create_author_entry(author: Author):
+        return f"<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>{author.name}</a> ({author.email})"  # noqa: E501
+
     appname = f"{__appname__} v{__version__}"
     about = "Wetterdienst - Open weather data for humans."
     sources = []
@@ -54,6 +54,7 @@ def index():
             f"<li><a href={url} target='_blank' rel='noopener'>{shortname}</a> ({name}, {country}) - {copyright_}</li>"
         )
     sources = "\n".join(sources)
+    info = Info()
     return f"""
     <html>
         <head>
@@ -139,8 +140,11 @@ def index():
                     <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Climate Summary</a></li>
                 </div>
                 <h2>Producer</h2>
-                <div class="box">
-                    {PRODUCER_NAME} - <a href="{PRODUCER_LINK}" target="_blank" rel="noopener">{PRODUCER_LINK}</a></li>
+                <div class="List">
+                    <li>Version: {info.__version__}</li>
+                    <li>Authors: {', '.join(_create_author_entry(author) for author in info.authors)}</li>
+                    <li>Documentation: <a href="{info.documentation}" target="_blank" rel="noopener">{info.documentation}</a></li>
+                    <li>Repository: <a href="{info.repository}" target="_blank" rel="noopener">{info.repository}</a></li>
                 </div>
                 <h2>Providers</h2>
                 <div class="list">
