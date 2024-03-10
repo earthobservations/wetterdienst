@@ -141,7 +141,13 @@ def test_cli_values_json_multiple_datasets():
 
 @pytest.mark.remote
 @pytest.mark.parametrize("provider,network,setting,station_id,station_name", SETTINGS_VALUES)
-def test_cli_values_json(provider, network, setting, station_id, station_name):
+def test_cli_values_json(
+    provider,
+    network,
+    setting,
+    station_id,
+    station_name,  # noqa: ARG001
+):
     result = invoke_wetterdienst_values_static(
         provider=provider,
         network=network,
@@ -307,7 +313,13 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock):
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_csv(provider, network, setting, station_id, station_name):
+def test_cli_values_csv(
+    provider,
+    network,
+    setting,
+    station_id,
+    station_name,  # noqa: ARG001
+):
     result = invoke_wetterdienst_values_static_wide(
         provider=provider,
         network=network,
@@ -323,7 +335,14 @@ def test_cli_values_csv(provider, network, setting, station_id, station_name):
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_excel(provider, network, setting, station_id, station_name, tmp_path):
+def test_cli_values_excel(
+    provider,
+    network,
+    setting,
+    station_id,
+    station_name,  # noqa: ARG001
+    tmp_path,
+):
     filename = Path("values.xlsx")
     if not IS_WINDOWS:
         filename = tmp_path.joinpath(filename)
@@ -345,7 +364,13 @@ def test_cli_values_excel(provider, network, setting, station_id, station_name, 
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_format_unknown(provider, network, setting, station_id, station_name):
+def test_cli_values_format_unknown(
+    provider,
+    network,
+    setting,
+    station_id,
+    station_name,  # noqa: ARG001
+):
     result = invoke_wetterdienst_values_static_wide(
         provider=provider,
         network=network,
@@ -361,7 +386,13 @@ def test_cli_values_format_unknown(provider, network, setting, station_id, stati
     "provider,network,setting,station_id,station_name",
     SETTINGS_VALUES,
 )
-def test_cli_values_filter_by_rank(provider, network, setting, station_id, station_name):
+def test_cli_values_filter_by_rank(
+    provider,
+    network,
+    setting,
+    station_id,
+    station_name,  # noqa: ARG001
+):
     result = invoke_wetterdienst_values_filter_by_rank(provider=provider, network=network, setting=setting, fmt="json")
     response = json.loads(result.output)
     station_ids = {reading["station_id"] for reading in response["values"]}

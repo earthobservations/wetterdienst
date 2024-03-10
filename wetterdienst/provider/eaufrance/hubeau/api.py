@@ -101,7 +101,12 @@ class HubeauValues(TimeseriesValues):
         request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)
         return zip(request_date_range[:-1], request_date_range[1:])
 
-    def _get_dynamic_frequency(self, station_id, parameter, dataset) -> tuple[int, Literal["min", "H"]]:
+    def _get_dynamic_frequency(
+        self,
+        station_id,
+        parameter,
+        dataset,  # noqa: ARG002
+    ) -> tuple[int, Literal["min", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)

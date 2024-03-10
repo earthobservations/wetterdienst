@@ -110,7 +110,12 @@ class TimeseriesValues(metaclass=ABCMeta):
         """Timezone enumeration of published data."""
         pass
 
-    def _fetch_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+    def _fetch_frequency(
+        self,
+        station_id,  # noqa: ARG002
+        parameter: Enum,  # noqa: ARG002
+        dataset: Enum,  # noqa: ARG002
+    ) -> str:
         """
         Method used to fetch the dynamic frequency string from somewhere and then set it after download the
         corresponding dataset. The fetch may either be an arbitrary algorithm that parses the frequency from the

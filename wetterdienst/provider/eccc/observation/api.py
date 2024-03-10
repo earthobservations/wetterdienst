@@ -103,8 +103,8 @@ class EcccObservationValues(TimeseriesValues):
     def _collect_station_parameter(
         self,
         station_id: str,
-        parameter: EcccObservationParameter,
-        dataset: Enum,
+        parameter: EcccObservationParameter,  # noqa: ARG002
+        dataset: Enum,  # noqa: ARG002
     ) -> pl.DataFrame:
         """
 

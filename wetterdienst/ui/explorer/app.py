@@ -554,7 +554,14 @@ def set_parameter_options(provider, network, resolution, dataset):
         Input("select-period", "value"),
     ],
 )
-def reset_values(provider, network, resolution, dataset, parameter, period):
+def reset_values(
+    provider,  # noqa: ARG001
+    network,
+    resolution,
+    dataset,
+    parameter,
+    period,
+):
     """Reset settings values if any previous parameter has been changed e.g.
     when a new provider is selected, reset network, resolution, etc"""
     last_triggered = dash.callback_context.triggered[0]["prop_id"].split(".")[0]

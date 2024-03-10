@@ -105,7 +105,7 @@ class DwdObservationValues(TimeseriesValues):
     def _collect_station_parameter(
         self,
         station_id: str,
-        parameter: DwdObservationParameter | DwdObservationDataset,
+        parameter: DwdObservationParameter | DwdObservationDataset,  # noqa: ARG002
         dataset: DwdObservationDataset,
     ) -> pl.DataFrame:
         """
