@@ -4,22 +4,24 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from wetterdienst.core.process import create_date_range
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.result import (
-    InterpolatedValuesResult,
-    StationsResult,
-    SummarizedValuesResult,
-    ValuesResult,
-)
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
+
+if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
+    from wetterdienst.core.timeseries.result import (
+        InterpolatedValuesResult,
+        StationsResult,
+        SummarizedValuesResult,
+        ValuesResult,
+    )
 
 log = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
-import datetime as dt
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -10,6 +10,9 @@ from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.util.datetime import mktimerange, parse_date
+
+if TYPE_CHECKING:
+    import datetime as dt
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

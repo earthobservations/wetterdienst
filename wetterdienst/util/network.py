@@ -6,15 +6,18 @@ import logging
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import MutableMapping
+from typing import TYPE_CHECKING, MutableMapping
 
 import stamina
-from fsspec import AbstractFileSystem
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
+
+if TYPE_CHECKING:
+    from fsspec import AbstractFileSystem
+
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 

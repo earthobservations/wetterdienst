@@ -2,10 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
-from enum import Enum
+from typing import TYPE_CHECKING
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.util.python import to_list
+
+if TYPE_CHECKING:
+    from enum import Enum
 
 
 def parse_enumeration_from_template(

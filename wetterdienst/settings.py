@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import json
 import logging
-import pathlib
 from copy import deepcopy
 from functools import partial
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import platformdirs
 from environs import Env
 from marshmallow.validate import OneOf
 
 from wetterdienst import Parameter
+
+if TYPE_CHECKING:
+    import pathlib
 
 log = logging.getLogger(__name__)
 

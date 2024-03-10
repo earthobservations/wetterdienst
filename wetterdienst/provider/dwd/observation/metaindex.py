@@ -7,6 +7,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO, StringIO
+from typing import TYPE_CHECKING
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
@@ -20,10 +21,12 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DWD_URBAN_DATASETS,
     DwdObservationDataset,
 )
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 

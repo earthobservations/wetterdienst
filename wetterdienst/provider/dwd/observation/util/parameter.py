@@ -2,12 +2,16 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
-from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Resolution
+from typing import TYPE_CHECKING
+
 from wetterdienst.provider.dwd.observation.metadata.dataset import (
     RESOLUTION_DATASET_MAPPING,
     DwdObservationDataset,
 )
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.period import Period
+    from wetterdienst.metadata.resolution import Resolution
 
 
 def check_dwd_observations_dataset(

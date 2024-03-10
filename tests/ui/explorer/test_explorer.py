@@ -19,11 +19,14 @@ Documentation:
 import json
 import platform
 import time
+from typing import TYPE_CHECKING
 
 import pytest
-from bs4 import BeautifulSoup
 
 from tests.conftest import IS_CI
+
+if TYPE_CHECKING:
+    from bs4 import BeautifulSoup
 
 
 @pytest.mark.skipif(platform.system() == "Darwin" and platform.machine() == "arm64", reason="problem with geckodriver")

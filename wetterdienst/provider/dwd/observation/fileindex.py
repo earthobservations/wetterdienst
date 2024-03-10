@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -16,9 +17,11 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
     DwdObservationDataset,
 )
 from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"

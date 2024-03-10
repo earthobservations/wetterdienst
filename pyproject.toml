@@ -260,7 +260,9 @@ select = [
     # flake8-commas
     "COM",
     # future-annotations
-    "FA"
+    "FA",
+    # flake8-type-checking
+    "TCH"
 ]
 extend-ignore = [
     # zip() without an explicit strict= parameter.

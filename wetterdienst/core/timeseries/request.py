@@ -7,7 +7,7 @@ import logging
 from abc import abstractmethod
 from enum import Enum
 from hashlib import sha256
-from typing import Tuple, Union
+from typing import TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 import polars as pl
@@ -31,15 +31,17 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.kind import Kind
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
-from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.datarange import DataRange
+    from wetterdienst.metadata.kind import Kind
+    from wetterdienst.metadata.provider import Provider
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
