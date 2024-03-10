@@ -8,18 +8,20 @@ import datetime as dt
 import logging
 from io import BytesIO
 from os.path import basename
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse  # noqa: S410
 from tqdm import tqdm
 
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
+
+if TYPE_CHECKING:
+    from wetterdienst.settings import Settings
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

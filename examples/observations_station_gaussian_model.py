@@ -18,19 +18,23 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import polars as pl
-from lmfit import Parameters
-from lmfit.model import ModelResult
 
 from wetterdienst import Settings
-from wetterdienst.core.timeseries.result import StationsResult
 from wetterdienst.provider.dwd.observation import (
     DwdObservationParameter,
     DwdObservationRequest,
     DwdObservationResolution,
 )
+
+if TYPE_CHECKING:
+    from lmfit import Parameters
+    from lmfit.model import ModelResult
+
+    from wetterdienst.core.timeseries.result import StationsResult
 
 HERE = Path(__file__).parent
 

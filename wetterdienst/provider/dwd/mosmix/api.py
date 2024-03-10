@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 from urllib.parse import urljoin
 
 import polars as pl
@@ -19,7 +19,6 @@ from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -27,7 +26,6 @@ from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
@@ -35,6 +33,10 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
 from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.parameter import Parameter
+    from wetterdienst.settings import Settings
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

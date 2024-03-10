@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import polars as pl
 from zoneinfo import ZoneInfo
@@ -14,7 +15,6 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -24,10 +24,13 @@ from wetterdienst.provider.noaa.ghcn.parameter import (
     NoaaGhcnParameter,
 )
 from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.parameter import Parameter
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 

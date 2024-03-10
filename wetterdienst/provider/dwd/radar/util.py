@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from io import BytesIO
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from io import BytesIO
 
 # 6-character timestamps are used for data within "RADOLAN_CDC/historical".
 # Examples:

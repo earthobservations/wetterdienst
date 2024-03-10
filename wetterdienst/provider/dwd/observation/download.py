@@ -5,15 +5,19 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from typing import TYPE_CHECKING
 from zipfile import BadZipFile
 
-import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.exceptions import ProductFileNotFoundError
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
+
+if TYPE_CHECKING:
+    import polars as pl
+
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 

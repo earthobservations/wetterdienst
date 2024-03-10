@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
 from wetterdienst import Author, Info, Provider, Wetterdienst, __appname__, __version__
-from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -32,6 +31,9 @@ from wetterdienst.ui.core import (
     set_logging_level,
 )
 from wetterdienst.util.cli import read_list, setup_logging
+
+if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
 
 app = FastAPI(debug=False)
 

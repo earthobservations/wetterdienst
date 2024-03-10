@@ -2,12 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
-import datetime as dt
 import logging
 import operator
 from abc import ABCMeta, abstractmethod
-from enum import Enum
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
@@ -22,6 +20,10 @@ from wetterdienst.metadata.resolution import DAILY_AT_MOST, Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.logging import TqdmToLogger
+
+if TYPE_CHECKING:
+    import datetime as dt
+    from enum import Enum
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

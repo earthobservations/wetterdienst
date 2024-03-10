@@ -7,10 +7,10 @@ import json
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst import Parameter, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
@@ -25,6 +25,9 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
+
+if TYPE_CHECKING:
+    from wetterdienst import Parameter, Settings
 
 log = logging.getLogger(__name__)
 

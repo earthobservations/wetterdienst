@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from enum import Enum
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
@@ -20,6 +19,8 @@ from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
 
 if TYPE_CHECKING:
+    from enum import Enum
+
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.result import StationsResult
 

@@ -2,12 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
-import datetime as dt
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import reduce
-from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
@@ -29,6 +27,9 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
+    import datetime as dt
+    from io import BytesIO
+
     from wetterdienst.core.timeseries.result import StationsResult
 
 log = logging.getLogger(__name__)

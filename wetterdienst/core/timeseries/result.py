@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import typing
 from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
@@ -15,12 +13,15 @@ from typing_extensions import NotRequired, TypedDict
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Frequency, Resolution
 
 if TYPE_CHECKING:
+    from datetime import datetime
+    from enum import Enum
+
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
+    from wetterdienst.metadata.period import Period
+    from wetterdienst.metadata.resolution import Frequency, Resolution
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 

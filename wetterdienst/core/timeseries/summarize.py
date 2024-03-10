@@ -3,15 +3,19 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import datetime
-from enum import Enum
+from typing import TYPE_CHECKING
 
 import polars as pl
 
 from wetterdienst import Parameter
-from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.result import StationsResult
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
+
+if TYPE_CHECKING:
+    from enum import Enum
+
+    from wetterdienst.core.timeseries.request import TimeseriesRequest
+    from wetterdienst.core.timeseries.result import StationsResult
 
 log = logging.getLogger(__name__)
 

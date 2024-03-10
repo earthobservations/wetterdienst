@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -20,15 +21,17 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataSubset,
     DwdRadarParameter,
 )
-from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import (
     RADAR_DT_PATTERN,
     RADOLAN_DT_PATTERN,
     get_date_from_filename,
 )
-from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
+
+if TYPE_CHECKING:
+    from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
+    from wetterdienst.settings import Settings
 
 
 def use_cache() -> int:  # pragma: no cover
