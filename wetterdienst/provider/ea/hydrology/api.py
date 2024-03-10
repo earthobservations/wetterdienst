@@ -92,7 +92,12 @@ class EaHydrologyValues(TimeseriesValues):
     _base_url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
     _data_tz = Timezone.UK
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter(
+        self,
+        station_id: str,
+        parameter: Enum,
+        dataset: Enum,  # noqa: ARG002
+    ) -> pl.DataFrame:
         endpoint = self._base_url.format(station_id=station_id)
         log.info(f"Downloading file {endpoint}.")
         payload = download_file(endpoint, self.sr.stations.settings, CacheExpiry.NO_CACHE)

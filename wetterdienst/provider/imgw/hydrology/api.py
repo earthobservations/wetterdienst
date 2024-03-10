@@ -135,7 +135,12 @@ class ImgwHydrologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter(
+        self,
+        station_id: str,
+        parameter: Enum,  # noqa: ARG002
+        dataset: Enum,
+    ) -> pl.DataFrame:
         """
 
         :param station_id:

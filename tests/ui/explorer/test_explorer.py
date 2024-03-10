@@ -33,7 +33,10 @@ if TYPE_CHECKING:
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_app_layout(wetterdienst_ui, dash_tre):
+def test_app_layout(
+    wetterdienst_ui,  # noqa: ARG001
+    dash_tre,
+):
     # Sanity check if we are on the right page.
     assert dash_tre.find_element("h1").text == "Wetterdienst Explorer"
     # Roughly verify the application elements.
@@ -46,7 +49,10 @@ def test_app_layout(wetterdienst_ui, dash_tre):
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_app_data_stations_success(wetterdienst_ui, dash_tre):
+def test_app_data_stations_success(
+    wetterdienst_ui,  # noqa: ARG001
+    dash_tre,
+):
     """
     Verify if data for "stations_result" has been correctly propagated.
     """
@@ -99,7 +105,10 @@ def test_app_data_stations_success(wetterdienst_ui, dash_tre):
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
+def test_app_data_stations_failed(
+    wetterdienst_ui,  # noqa: ARG001
+    dash_tre,
+):
     """
     Verify if data for "stations_result" has been correctly propagated.
     """
@@ -138,7 +147,10 @@ def test_app_data_stations_failed(wetterdienst_ui, dash_tre):
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_options_reset(wetterdienst_ui, dash_tre):
+def test_options_reset(
+    wetterdienst_ui,  # noqa: ARG001
+    dash_tre,
+):
     """
     Verify if data for "stations_result" has been correctly propagated.
     """
@@ -183,7 +195,10 @@ def test_options_reset(wetterdienst_ui, dash_tre):
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_app_data_values(wetterdienst_ui, dash_tre):
+def test_app_data_values(
+    wetterdienst_ui,  # noqa: ARG001
+    dash_tre,
+):
     """
     Verify if data for "values" has been correctly propagated.
     """
@@ -235,7 +250,11 @@ def test_app_data_values(wetterdienst_ui, dash_tre):
 @pytest.mark.slow
 @pytest.mark.cflake
 @pytest.mark.explorer
-def test_dwd_mosmix_options(wetterdienst_ui, dash_tre, is_ci):
+def test_dwd_mosmix_options(
+    wetterdienst_ui,  # noqa: ARG001
+    dash_tre,
+    is_ci,
+):
     """
     Verify if data for "values" has been correctly propagated.
     """

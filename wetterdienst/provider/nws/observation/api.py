@@ -102,7 +102,12 @@ class NwsObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter(
+        self,
+        station_id: str,
+        parameter: Enum,  # noqa: ARG002
+        dataset: Enum,  # noqa: ARG002
+    ) -> pl.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
         response = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)

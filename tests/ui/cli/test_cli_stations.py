@@ -111,7 +111,14 @@ def invoke_wetterdienst_stations_filter_by_rank(provider, network, setting, fmt=
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_json(provider, network, setting, station_id, expected_dict, coordinates):
+def test_cli_stations_json(
+    provider,
+    network,
+    setting,
+    station_id,
+    expected_dict,  # noqa: ARG001
+    coordinates,  # noqa: ARG001
+):
     result = invoke_wetterdienst_stations_static(
         provider=provider,
         network=network,
@@ -144,7 +151,15 @@ def test_cli_stations_json_with_metadata(metadata):
 
 @pytest.mark.remote
 @pytest.mark.parametrize("provider,network,setting,station_id,expected_dict,coordinates", SETTINGS_STATIONS)
-def test_cli_stations_empty(provider, network, setting, station_id, expected_dict, coordinates, caplog):
+def test_cli_stations_empty(
+    provider,
+    network,
+    setting,
+    station_id,  # noqa: ARG001
+    expected_dict,  # noqa: ARG001
+    coordinates,  # noqa: ARG001
+    caplog,
+):
     result = invoke_wetterdienst_stations_empty(provider=provider, network=network, setting=setting, fmt="json")
     assert isinstance(result.exception, SystemExit)
     assert "ERROR" in caplog.text
@@ -192,7 +207,14 @@ def test_cli_stations_geojson_with_metadata(metadata):
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_csv(provider, network, setting, station_id, expected_dict, coordinates):
+def test_cli_stations_csv(
+    provider,
+    network,
+    setting,
+    station_id,
+    expected_dict,
+    coordinates,  # noqa: ARG001
+):
     result = invoke_wetterdienst_stations_static(
         provider=provider,
         network=network,
@@ -208,7 +230,15 @@ def test_cli_stations_csv(provider, network, setting, station_id, expected_dict,
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_excel(provider, network, setting, station_id, expected_dict, coordinates, tmp_path):
+def test_cli_stations_excel(
+    provider,
+    network,
+    setting,
+    station_id,
+    expected_dict,
+    coordinates,  # noqa: ARG001
+    tmp_path,
+):
     filename = Path("stations.xlsx")
     if not IS_WINDOWS:
         filename = tmp_path.joinpath(filename)
@@ -231,7 +261,14 @@ def test_cli_stations_excel(provider, network, setting, station_id, expected_dic
     "provider,network,setting,station_id,expected_dict,coordinates",
     SETTINGS_STATIONS,
 )
-def test_cli_stations_geospatial(provider, network, setting, station_id, expected_dict, coordinates):
+def test_cli_stations_geospatial(
+    provider,
+    network,
+    setting,
+    station_id,
+    expected_dict,
+    coordinates,  # noqa: ARG001
+):
     result = invoke_wetterdienst_stations_filter_by_rank(
         provider=provider,
         network=network,

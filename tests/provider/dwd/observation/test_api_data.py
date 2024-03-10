@@ -1126,7 +1126,7 @@ def test_dwd_observation_solar_daily(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_solar_hourly(default_settings):
+def test_dwd_observation_solar_hourly():
     """Test DWD observation solar hourly data"""
     # Snippet provided by @lasinludwig
     settings = Settings(
@@ -1207,6 +1207,7 @@ def test_dwd_observation_data_5minute_precipitation_data_tidy(default_settings):
         resolution=DwdObservationResolution.MINUTE_5,
         start_date="2023-08-25 00:00",
         end_date="2023-08-27 00:00",
+        settings=default_settings,
     ).filter_by_rank(
         latlon=(49.853706, 8.66311),
         rank=1,
@@ -1221,6 +1222,7 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
         parameter=["precipitation_height_rocker", "precipitation_height_droplet"],
         resolution=DwdObservationResolution.MINUTE_5,
         period=[DwdObservationPeriod.RECENT, DwdObservationPeriod.NOW],
+        settings=default_settings,
     ).filter_by_rank(
         latlon=(49.853706, 8.66311),
         rank=1,
@@ -1236,6 +1238,7 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings):
         resolution=DwdObservationResolution.MINUTE_1,
         start_date="1990-01-01 00:00",
         end_date="1995-01-01 00:10",
+        settings=default_settings,
     ).filter_by_station_id(1048)
     values = request.values.all().df
     assert values.get_column("value").sum() == 2681.8

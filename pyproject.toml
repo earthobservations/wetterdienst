@@ -262,7 +262,9 @@ select = [
     # future-annotations
     "FA",
     # flake8-type-checking
-    "TCH"
+    "TCH",
+    # flake8-unused-arguments
+    "ARG",
 ]
 extend-ignore = [
     # zip() without an explicit strict= parameter.

@@ -129,7 +129,12 @@ class WsvPegelValues(TimeseriesValues):
     def _data_tz(self) -> Timezone:
         return Timezone.GERMANY
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter(
+        self,
+        station_id: str,
+        parameter: Enum,
+        dataset: Enum,  # noqa: ARG002
+    ) -> pl.DataFrame:
         """
         Method to collect data for station parameter from WSV Pegelonline following its open REST-API at
         https://pegelonline.wsv.de/webservices/rest-api/v2/stations/
@@ -154,7 +159,12 @@ class WsvPegelValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 
-    def _fetch_frequency(self, station_id, parameter: Enum, dataset: Enum) -> str:
+    def _fetch_frequency(
+        self,
+        station_id,
+        parameter: Enum,
+        dataset: Enum,  # noqa: ARG002
+    ) -> str:
         """
         Method to get the frequency string for a station and parameter from WSV Pegelonline. The frequency is given at
         each station dict queried from the REST-API under "equidistance"

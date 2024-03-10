@@ -53,7 +53,7 @@ def test_cli_about_resolutions():
     assert "annual" in result.output
 
 
-def test_cli_about_coverage(capsys):
+def test_cli_about_coverage():
     runner = CliRunner()
     result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
     assert "minute_1" in result.output

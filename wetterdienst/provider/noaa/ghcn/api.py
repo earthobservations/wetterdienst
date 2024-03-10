@@ -336,7 +336,12 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
 
-    def _collect_station_parameter_for_daily(self, station_id: str, parameter, dataset) -> pl.DataFrame:
+    def _collect_station_parameter_for_daily(
+        self,
+        station_id: str,
+        parameter,  # noqa: ARG002
+        dataset,  # noqa: ARG002
+    ) -> pl.DataFrame:
         """
         Collection method for NOAA GHCN data. Parameter and dataset can be ignored as data
         is provided as a whole.
