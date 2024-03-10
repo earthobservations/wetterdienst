@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from io import BytesIO
-from os.path import basename
+from pathlib import Path
 from typing import TYPE_CHECKING, Iterator
 
 import polars as pl
@@ -92,7 +92,7 @@ class KMLReader:
         Download and read DWD XML Weather Forecast File of Type KML.
         """
 
-        log.info(f"Downloading KMZ file {basename(url)}")
+        log.info(f"Downloading KMZ file {Path(url).name}")
         kml = self.fetch(url)
 
         log.info("Parsing KML data")
