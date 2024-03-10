@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, MutableMapping
@@ -151,7 +150,7 @@ class NetworkFilesystemManager:
     def register(cls, settings, ttl: int | CacheExpiry = CacheExpiry.NO_CACHE):
         ttl_name, ttl_value = cls.resolve_ttl(ttl)
         key = f"ttl-{ttl_name}"
-        real_cache_dir = os.path.join(settings.cache_dir, "fsspec", key)
+        real_cache_dir = str(Path(settings.cache_dir) / "fsspec" / key)
 
         use_cache = not (settings.cache_disable or ttl is CacheExpiry.NO_CACHE)
         fs = HTTPFileSystem(use_listings_cache=use_cache, client_kwargs=settings.fsspec_client_kwargs)

@@ -265,6 +265,8 @@ select = [
     "TCH",
     # flake8-unused-arguments
     "ARG",
+    # flake8-use-pathlib
+    "PTH"
 ]
 extend-ignore = [
     # zip() without an explicit strict= parameter.
