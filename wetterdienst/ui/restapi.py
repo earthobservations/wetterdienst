@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, Union
 
 from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
@@ -174,11 +174,11 @@ def health():
 
 @app.get("/api/coverage")
 def coverage(
-    provider: Annotated[str | None, Query()] = None,
-    network: Annotated[str | None, Query()] = None,
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
     debug: Annotated[bool, Query()] = False,
-    dataset: Annotated[str | None, Query()] = None,
-    resolution: Annotated[str | None, Query()] = None,
+    dataset: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
 ):
     set_logging_level(debug)
 
@@ -201,21 +201,21 @@ def coverage(
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/stations", response_model=_StationsDict | _StationsOgcFeatureCollection | str)
+@app.get("/api/stations", response_model=Union[_StationsDict, _StationsOgcFeatureCollection, str])
 def stations(
-    provider: Annotated[str | None, Query()] = None,
-    network: Annotated[str | None, Query()] = None,
-    parameter: Annotated[str | None, Query()] = None,
-    resolution: Annotated[str | None, Query()] = None,
-    period: Annotated[str | None, Query()] = None,
-    all_: Annotated[bool | None, Query(alias="all")] = None,
-    station: Annotated[str | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    rank: Annotated[int | None, Query()] = None,
-    distance: Annotated[float | None, Query()] = None,
-    bbox: Annotated[str | None, Query()] = None,
-    sql: Annotated[str | None, Query()] = None,
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
+    all_: Annotated[Optional[bool], Query(alias="all")] = None,
+    station: Annotated[Optional[str], Query()] = None,
+    name: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    rank: Annotated[Optional[int], Query()] = None,
+    distance: Annotated[Optional[float], Query()] = None,
+    bbox: Annotated[Optional[str], Query()] = None,
+    sql: Annotated[Optional[str], Query()] = None,
     fmt: Annotated[str, Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = None,
     debug: Annotated[bool, Query()] = None,
@@ -301,25 +301,25 @@ def stations(
 # - _ValuesDict for json
 # - _ValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/values", response_model=_ValuesDict | _ValuesOgcFeatureCollection | str)
+@app.get("/api/values", response_model=Union[_ValuesDict, _ValuesOgcFeatureCollection, str])
 def values(
-    provider: Annotated[str | None, Query()] = None,
-    network: Annotated[str | None, Query()] = None,
-    parameter: Annotated[str | None, Query()] = None,
-    resolution: Annotated[str | None, Query()] = None,
-    period: Annotated[str | None, Query()] = None,
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[str | None, Query()] = None,
-    issue: Annotated[str | None, Query()] = None,
-    all_: Annotated[bool | None, Query(alias="all")] = None,
-    station: Annotated[str | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    rank: Annotated[int | None, Query()] = None,
-    distance: Annotated[float | None, Query()] = None,
-    bbox: Annotated[str | None, Query()] = None,
-    sql: Annotated[str | None, Query()] = None,
-    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
+    date: Annotated[Optional[str], Query()] = None,
+    issue: Annotated[Optional[str], Query()] = None,
+    all_: Annotated[Optional[bool], Query(alias="all")] = None,
+    station: Annotated[Optional[str], Query()] = None,
+    name: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    rank: Annotated[Optional[int], Query()] = None,
+    distance: Annotated[Optional[float], Query()] = None,
+    bbox: Annotated[Optional[str], Query()] = None,
+    sql: Annotated[Optional[str], Query()] = None,
+    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
     shape: Annotated[str, Query()] = "long",
     si_units: Annotated[bool, Query(alias="si-units")] = True,
@@ -410,20 +410,20 @@ def values(
 # - str for csv
 @app.get(
     "/api/interpolate",
-    response_model=_InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str,
+    response_model=Union[_InterpolatedValuesDict, _InterpolatedValuesOgcFeatureCollection, str],
 )
 def interpolate(
-    provider: Annotated[str | None, Query()] = None,
-    network: Annotated[str | None, Query()] = None,
-    parameter: Annotated[str | None, Query()] = None,
-    resolution: Annotated[str | None, Query()] = None,
-    period: Annotated[str | None, Query()] = None,
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[str | None, Query()] = None,
-    issue: Annotated[str | None, Query()] = None,
-    station: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
+    date: Annotated[Optional[str], Query()] = None,
+    issue: Annotated[Optional[str], Query()] = None,
+    station: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
     si_units: Annotated[bool, Query(alias="si-units")] = True,
     use_nearby_station_distance: Annotated[float, Query()] = 1.0,
@@ -499,19 +499,19 @@ def interpolate(
 # - _SummarizedValuesDict for json
 # - _SummarizedValuesOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
+@app.get("/api/summarize", response_model=Union[_SummarizedValuesDict, _SummarizedValuesOgcFeatureCollection, str])
 def summarize(
-    provider: Annotated[str | None, Query()] = None,
-    network: Annotated[str | None, Query()] = None,
-    parameter: Annotated[str | None, Query()] = None,
-    resolution: Annotated[str | None, Query()] = None,
-    period: Annotated[str | None, Query()] = None,
+    provider: Annotated[Optional[str], Query()] = None,
+    network: Annotated[Optional[str], Query()] = None,
+    parameter: Annotated[Optional[str], Query()] = None,
+    resolution: Annotated[Optional[str], Query()] = None,
+    period: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
-    date: Annotated[str | None, Query()] = None,
-    issue: Annotated[str | None, Query()] = "latest",
-    station: Annotated[str | None, Query()] = None,
-    coordinates: Annotated[str | None, Query()] = None,
-    sql_values: Annotated[str | None, Query(alias="sql-values")] = None,
+    date: Annotated[Optional[str], Query()] = None,
+    issue: Annotated[Optional[str], Query()] = "latest",
+    station: Annotated[Optional[str], Query()] = None,
+    coordinates: Annotated[Optional[str], Query()] = None,
+    sql_values: Annotated[Optional[str], Query(alias="sql-values")] = None,
     humanize: Annotated[bool, Query()] = True,
     si_units: Annotated[bool, Query(alias="si-units")] = True,
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
