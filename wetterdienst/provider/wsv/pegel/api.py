@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import polars as pl
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 
-FLOAT_9_TIMES = list[float | None]
+FLOAT_9_TIMES = list[Optional[float]]
 
 
 class WsvPegelParameter(DatasetTreeCore):
