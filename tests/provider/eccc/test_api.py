@@ -1,11 +1,11 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
-from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 

@@ -7,10 +7,10 @@ import json
 import logging
 import math
 from enum import Enum
-from typing import TYPE_CHECKING, Iterator, Literal
+from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 import polars as pl
-from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
@@ -27,6 +27,8 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 

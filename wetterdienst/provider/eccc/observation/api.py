@@ -7,7 +7,7 @@ import gzip
 import logging
 from enum import Enum
 from io import BytesIO
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -32,6 +32,8 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 

@@ -3,12 +3,12 @@
 import datetime as dt
 import os
 from dataclasses import dataclass, field
+from zoneinfo import ZoneInfo
 
 import matplotlib.pyplot as plt
 import polars as pl
 import utm
 from scipy import interpolate
-from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,

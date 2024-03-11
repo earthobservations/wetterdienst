@@ -3,12 +3,12 @@
 import datetime as dt
 from io import BytesIO
 from zipfile import ZipFile
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 import requests
 from polars.testing import assert_frame_equal
-from zoneinfo import ZoneInfo
 
 from wetterdienst import Period, Resolution
 from wetterdienst.provider.dwd.observation import DwdObservationDataset

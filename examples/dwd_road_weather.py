@@ -15,9 +15,9 @@ and compare them in a plot.
 
 import datetime as dt
 import os
+from zoneinfo import ZoneInfo
 
 import matplotlib.pyplot as plt
-from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.road import DwdRoadRequest

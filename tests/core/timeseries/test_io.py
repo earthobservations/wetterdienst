@@ -4,11 +4,11 @@ import datetime as dt
 import json
 import sqlite3
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from surrogate import surrogate
-from zoneinfo import ZoneInfo
 
 from wetterdienst import Provider
 from wetterdienst.core.process import filter_by_date
@@ -1208,17 +1208,23 @@ def test_export_influxdb3_tabular(settings_si_false):
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
-    with mock.patch(
-        "influxdb_client_3.InfluxDBClient3",
-    ) as mock_client, mock.patch(
-        "influxdb_client_3.Point",
-    ), mock.patch(
-        "influxdb_client_3.WriteOptions",
-    ) as mock_write_options, mock.patch(
-        "influxdb_client_3.write_client_options",
-    ) as mock_write_client_options, mock.patch(
-        "influxdb_client_3.write_client.client.write_api.WriteType",
-    ) as mock_write_type:
+    with (
+        mock.patch(
+            "influxdb_client_3.InfluxDBClient3",
+        ) as mock_client,
+        mock.patch(
+            "influxdb_client_3.Point",
+        ),
+        mock.patch(
+            "influxdb_client_3.WriteOptions",
+        ) as mock_write_options,
+        mock.patch(
+            "influxdb_client_3.write_client_options",
+        ) as mock_write_client_options,
+        mock.patch(
+            "influxdb_client_3.write_client.client.write_api.WriteType",
+        ) as mock_write_type,
+    ):
         values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
         mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
         mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())
@@ -1246,17 +1252,23 @@ def test_export_influxdb3_tidy(settings_si_false):
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
-    with mock.patch(
-        "influxdb_client_3.InfluxDBClient3",
-    ) as mock_client, mock.patch(
-        "influxdb_client_3.Point",
-    ), mock.patch(
-        "influxdb_client_3.WriteOptions",
-    ) as mock_write_options, mock.patch(
-        "influxdb_client_3.write_client_options",
-    ) as mock_write_client_options, mock.patch(
-        "influxdb_client_3.write_client.client.write_api.WriteType",
-    ) as mock_write_type:
+    with (
+        mock.patch(
+            "influxdb_client_3.InfluxDBClient3",
+        ) as mock_client,
+        mock.patch(
+            "influxdb_client_3.Point",
+        ),
+        mock.patch(
+            "influxdb_client_3.WriteOptions",
+        ) as mock_write_options,
+        mock.patch(
+            "influxdb_client_3.write_client_options",
+        ) as mock_write_client_options,
+        mock.patch(
+            "influxdb_client_3.write_client.client.write_api.WriteType",
+        ) as mock_write_type,
+    ):
         values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
         mock_write_options.assert_called_once_with(write_type=mock_write_type.synchronous)
         mock_write_client_options.assert_called_once_with(WriteOptions=mock_write_options())

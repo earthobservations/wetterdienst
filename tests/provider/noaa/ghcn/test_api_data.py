@@ -1,9 +1,9 @@
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
-from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 

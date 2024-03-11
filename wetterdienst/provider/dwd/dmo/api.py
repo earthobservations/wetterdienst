@@ -6,12 +6,12 @@ import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import Iterator
+from typing import TYPE_CHECKING
 from urllib.error import HTTPError
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
 
 import polars as pl
-from zoneinfo import ZoneInfo
 
 from wetterdienst import Kind, Parameter, Period, Provider, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -31,6 +31,9 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
 from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

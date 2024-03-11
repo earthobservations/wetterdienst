@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import MutableMapping
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, MutableMapping
+from typing import TYPE_CHECKING
 
 import stamina
 from fsspec.implementations.cached import WholeFileCacheFileSystem

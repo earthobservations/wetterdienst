@@ -5,14 +5,14 @@ from __future__ import annotations
 import logging
 import operator
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
 from pint import Quantity
 from tqdm import tqdm
 from tzfpy import get_tz
-from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
@@ -23,6 +23,7 @@ from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Iterator
     from enum import Enum
 
 try:

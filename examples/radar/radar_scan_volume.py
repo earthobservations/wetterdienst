@@ -19,12 +19,12 @@ for Essen and plot the outcome with matplotlib.
 import datetime as dt
 import logging
 import os
+from zoneinfo import ZoneInfo
 
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from datatree import DataTree
-from zoneinfo import ZoneInfo
 
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (

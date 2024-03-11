@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import polars as pl
@@ -35,6 +35,8 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 

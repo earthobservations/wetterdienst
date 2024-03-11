@@ -2,11 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
 import re
+from zoneinfo import ZoneInfo
 
 import pybufrkit
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
-from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
