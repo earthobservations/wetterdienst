@@ -10,11 +10,11 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Generator
+from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
-from zoneinfo import ZoneInfo
 
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -42,6 +42,9 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.datetime import raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -297,7 +300,7 @@ class DwdRadarValues:
             if self.end_date is None:
                 self.end_date = self.start_date + dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
 
-    def query(self) -> Generator[RadarResult, None, None]:
+    def query(self) -> Iterator[RadarResult]:
         """
         Send request(s) and return generator of ``RadarResult`` instances.
 
@@ -428,7 +431,7 @@ class DwdRadarValues:
             return False
         return True
 
-    def _download_generic_data(self, url: str) -> Generator[RadarResult, None, None]:
+    def _download_generic_data(self, url: str) -> Iterator[RadarResult]:
         """
         Download radar data.
 
@@ -497,7 +500,7 @@ class DwdRadarValues:
                 timestamp=get_date_from_filename(url, pattern=RADAR_DT_PATTERN, formats=[DatetimeFormat.ymdhm.value]),
             )
 
-    def _download_radolan_data(self, url: str, start_date, end_date) -> Generator[RadarResult, None, None]:
+    def _download_radolan_data(self, url: str, start_date, end_date) -> Iterator[RadarResult]:
         """
         Function used to download RADOLAN_CDC data for a given datetime. The function calls
         a separate download function that is cached for reuse which is especially used for
@@ -540,7 +543,7 @@ class DwdRadarValues:
         return download_file(url=url, ttl=CacheExpiry.TWELVE_HOURS, settings=settings)
 
     @staticmethod
-    def _extract_radolan_data(archive_in_bytes: BytesIO) -> Generator[RadarResult, None, None]:
+    def _extract_radolan_data(archive_in_bytes: BytesIO) -> Iterator[RadarResult]:
         """
         Function used to extract RADOLAN_CDC file for the requested datetime
         from the downloaded archive.

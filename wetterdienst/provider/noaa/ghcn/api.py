@@ -6,9 +6,9 @@ import datetime as dt
 import logging
 from enum import Enum
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import polars as pl
-from zoneinfo import ZoneInfo
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues

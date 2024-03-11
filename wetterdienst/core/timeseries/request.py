@@ -7,7 +7,8 @@ import logging
 from abc import abstractmethod
 from enum import Enum
 from hashlib import sha256
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Union
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import polars as pl
@@ -15,7 +16,6 @@ from measurement.measures import Distance
 from measurement.utils import guess
 from polars import NoDataError
 from rapidfuzz import fuzz, process
-from zoneinfo import ZoneInfo
 
 from wetterdienst.core.core import Core
 from wetterdienst.core.timeseries.result import (
@@ -54,7 +54,7 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 
-_PARAMETER_TYPE = Union[Union[str, Enum, Parameter], Tuple[Union[str, Enum, Parameter], Union[str, Enum, Parameter]]]
+_PARAMETER_TYPE = Union[Union[str, Enum, Parameter], tuple[Union[str, Enum, Parameter], Union[str, Enum, Parameter]]]
 
 
 class TimeseriesRequest(Core):

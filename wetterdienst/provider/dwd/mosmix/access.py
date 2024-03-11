@@ -8,7 +8,7 @@ import datetime as dt
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
@@ -21,6 +21,8 @@ from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from wetterdienst.settings import Settings
 
 try:

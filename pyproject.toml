@@ -233,6 +233,7 @@ wetterdienst = 'wetterdienst.ui.cli:cli'
 wddump = 'wetterdienst.provider.dwd.radar.cli:wddump'
 
 [tool.ruff]
+target-version = "py39"
 line-length = 120
 include = ["wetterdienst/**/*.py", "tests/**/*.py", "benchmarks/**/*.py", "examples/**/*.py"]
 extend-include = ["*.ipynb"]

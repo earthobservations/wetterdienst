@@ -1,9 +1,9 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 import pytest
-from zoneinfo import ZoneInfo
 
 from wetterdienst.provider.dwd.radar import DwdRadarParameter, DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import (

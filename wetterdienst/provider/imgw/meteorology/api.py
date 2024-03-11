@@ -6,12 +6,12 @@ import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion as P
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
-from zoneinfo import ZoneInfo
 
 from wetterdienst import Kind, Period, Provider, Resolution, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest

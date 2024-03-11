@@ -1,7 +1,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import pytest
 import zoneinfo
+
+import pytest
 
 from wetterdienst import Settings, Wetterdienst
 from wetterdienst.util.eccodes import ensure_eccodes
