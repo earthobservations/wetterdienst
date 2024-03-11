@@ -285,7 +285,7 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "tests/*" = ["S101"]
 "tests/provider/dwd/observation/test_available_datasets.py" = ["E402"]
 "wetterdienst/__init__.py" = ["E402"]
-"wetterdienst/ui/restapi.py" = ["B008"]
+"wetterdienst/ui/restapi.py" = ["B008", "UP007"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"
