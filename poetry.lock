@@ -6162,13 +6162,13 @@ full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7
 
 [[package]]
 name = "streamlit"
-version = "1.32.0"
+version = "1.32.1"
 description = "A faster way to build and share data apps"
 optional = true
 python-versions = ">=3.8, !=3.9.7"
 files = [
-    {file = "streamlit-1.32.0-py2.py3-none-any.whl", hash = "sha256:d8458d6d00fd9d7e965e8125ec97d0ef7ed3d82844bf5663e71231fdb623ebb1"},
-    {file = "streamlit-1.32.0.tar.gz", hash = "sha256:65bf22e190de973b910c0b127b33d80d31c5275ed891c6fde740de46e5e05323"},
+    {file = "streamlit-1.32.1-py2.py3-none-any.whl", hash = "sha256:fe30ce26f08a5b50b3cb2b349c49c0ad9d3bba6c5ed2f19aac05e39026a30fcc"},
+    {file = "streamlit-1.32.1.tar.gz", hash = "sha256:ec6400496f678852143cbc23c4c43889f78b6c93c2e2756fd8e060cccde4b8fd"},
 ]
 
 [package.dependencies]
