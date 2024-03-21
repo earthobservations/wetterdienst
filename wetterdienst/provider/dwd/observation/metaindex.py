@@ -182,17 +182,17 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
     if first.startswith("SP"):
         # Skip first line if it contains a header
         lines = lines[1:]
-    content = BytesIO(b"\n".join(lines))
-    df = pl.read_csv(source=content, encoding="latin-1", has_header=False, truncate_ragged_lines=True)
+    lines = [line.decode("latin-1") for line in lines]
+    df = pl.DataFrame(lines)
     column_specs = (
-        (0, 5),
-        (6, 14),
-        (15, 24),
-        (23, 38),
-        (38, 50),
-        (50, 60),
-        (60, 102),
-        (102, 200),
+        (0, 4),
+        (6, 13),
+        (15, 22),
+        (24, 37),
+        (39, 49),
+        (51, 59),
+        (61, 140),
+        (141, 200),
     )
     df = read_fwf_from_df(df, column_specs)
     return df.rename(mapping=lambda col: DWD_COLUMN_NAMES_MAPPING.get(col, col)).lazy()
