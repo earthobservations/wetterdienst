@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.79.0 (21.03.2024)
+*******************
+
 - Fix parsing of DWD Observation stations where name contains a comma
 
 0.78.0 (09.03.2024)
