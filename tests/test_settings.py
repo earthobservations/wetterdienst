@@ -32,6 +32,7 @@ def test_default_settings(caplog):
     default_settings = Settings.default()
     assert not default_settings.cache_disable
     assert re.match(WD_CACHE_DIR_PATTERN, default_settings.cache_dir)
+    assert default_settings.eccodes_dir is None
     assert default_settings.fsspec_client_kwargs == {}
     assert default_settings.ts_humanize
     assert default_settings.ts_shape == "long"
@@ -44,6 +45,7 @@ def test_default_settings(caplog):
         "precipitation_height": 20.0,
     }
     assert default_settings.ts_interpolation_use_nearby_station_distance == 1
+    assert not default_settings.read_bufr
     log_message = caplog.messages[0]
     assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
 

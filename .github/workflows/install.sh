@@ -24,7 +24,8 @@ if [ "${flavor}" = "testing" ]; then
     --extras=radar \
     --extras=radarplus \
     --extras=restapi \
-    --extras=sql
+    --extras=sql \
+    --extras=bufr
 
 elif [ "${flavor}" = "docs" ]; then
   poetry install --verbose --no-interaction --with=docs --extras=interpolation

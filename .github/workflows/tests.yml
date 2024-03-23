@@ -83,6 +83,12 @@ jobs:
           brew install eccodes
           export WD_ECCODES_DIR=$(brew --prefix eccodes)
 
+      - name: Install eccodes (Mac only)
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+               brew install eccodes && export WD_ECCODES_DIR=$(brew --prefix eccodes)
+          fi       
+
       - name: Install project
         run: .github/workflows/install.sh testing
 
