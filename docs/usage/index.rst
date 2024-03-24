@@ -10,5 +10,4 @@ Usage
     restapi
     explorer
     docker
-    streamlit
     settings
