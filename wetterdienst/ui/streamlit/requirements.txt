@@ -1,4 +1,0 @@
-wetterdienst
-duckdb
-plotly
-statsmodels

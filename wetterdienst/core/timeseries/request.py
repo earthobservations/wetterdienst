@@ -541,11 +541,16 @@ class TimeseriesRequest(Core):
 
             return parameters
 
-        datasets_filter = (
-            [parse_enumeration_from_template(ds, intermediate=cls._dataset_base) for ds in to_list(dataset)]
-            if dataset
-            else cls._dataset_base
-        )
+        has_datasets = cls._has_datasets
+
+        if dataset:
+            datasets_filter = [
+                parse_enumeration_from_template(ds, intermediate=cls._dataset_base) for ds in to_list(dataset)
+            ]
+        elif has_datasets:
+            datasets_filter = cls._dataset_base
+        else:
+            datasets_filter = cls._resolution_base
 
         datasets_filter = [ds.name for ds in datasets_filter]
 

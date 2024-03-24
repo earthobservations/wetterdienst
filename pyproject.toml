@@ -127,13 +127,9 @@ tqdm = ">=4,<5"
 tzfpy = ">=0.15.2,<1"
 
 crate                           = { version = ">=0.30.1,<1", optional = true }  # Export feature.
-dash                            = { version = ">=2.10,<2.16", optional = true }  # Explorer UI feature.
-dash-bootstrap-components       = { version = ">=1.4,<2", optional = true }  # Explorer UI feature.
-dash-leaflet                    = { version = ">=1.0.8,<2", optional = true }  # Explorer UI feature.
-duckdb                          = { version = ">=0.9", optional = true }  # Export feature.
+duckdb                          = { version = ">=0.9", optional = true }  # Export feature, Explorer UI feature.
 eccodes                         = { version = ">=1.5.2,<1.7", optional = true }
 fastapi                         = { version = ">=0.95.1,<0.111", optional = true }  # HTTP REST API feature.
-geojson                         = { version = ">=3,<4", optional = true }  # Explorer UI feature.
 httpx                           = { version = ">=0.24,<0.28", optional = true}
 h5py                            = { version = ">=3.1,<4", optional = true }  # Radar feature.
 influxdb                        = { version = ">=5.3,<6", optional = true }  # Export feature.
@@ -148,7 +144,8 @@ psycopg2-binary                 = { version = ">=2.8,<3", optional = true }  # E
 scipy                           = { version = ">=1.9,<1.13", optional = true }  # Interpolation feature.
 shapely                         = { version = ">=2,<3", optional = true }  # Interpolation feature.
 sqlalchemy                      = { version = ">=2,<2.1", optional = true }  # Export feature.
-streamlit                       = { version = ">=1.27,<2", optional = true, markers = "python_version != '3.9.7'" }  # Streamlit app
+statsmodels                     = { version = ">=0.14.1", optional = true }  # Explorer UI feature.
+streamlit                       = { version = ">=1.27,<2", optional = true, markers = "python_version != '3.9.7'" }  # Explorer UI feature.
 utm                             = { version = ">=0.7,<1", optional = true }  # Interpolation feature.
 uvicorn                         = { version = ">=0.14,<1", optional = true }  # HTTP REST API feature.
 wradlib                         = { version = ">=2.0.1,<3", optional = true }  # Radar feature.
@@ -173,7 +170,6 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 coverage = { version = ">=7.3,<8", extras = ["toml"] }
-dash = { version = ">=2.10,<2.16", extras = ["testing"] }
 dirty-equals = ">=0.5.0,<1"
 freezegun = ">=1.2,<2"
 h5py = { version = ">=3.1,<3.11", optional = true}
@@ -188,9 +184,7 @@ pytest-dictsdiff = ">=0.5,<0.6"
 pytest-notebook = ">=0.10"
 pytest-rerunfailures = "<14"
 pytest-xdist = ">=3,<4"
-selenium = ">=4,<5"
 surrogate = "==0.1"
-webdriver-manager = ">=4,<5"
 
 [tool.poetry.group.docs]
 optional = true
@@ -213,7 +207,7 @@ cratedb             = ["pandas", "crate"]
 duckdb              = ["pandas", "duckdb"]
 eccodes             = ["eccodes"]
 excel               = ["xlsxwriter"]
-explorer            = ["dash", "dash-bootstrap-components", "dash-leaflet", "geojson", "plotly"]
+explorer            = ["duckdb", "statsmodels", "streamlit", "plotly"]
 export              = ["pandas", "sqlalchemy", "xarray", "xlsxwriter", "zarr"]
 import              = ["xlsx2csv"]
 influxdb            = ["influxdb", "influxdb-client", "influxdb3-python"]
@@ -226,7 +220,6 @@ radar               = ["h5py"]
 radarplus           = ["pybufrkit", "wradlib", "xradar"]
 restapi             = ["fastapi", "httpx", "uvicorn"]
 sql                 = ["duckdb"]
-streamlit           = ["streamlit"]
 
 [tool.poetry.scripts]
 wetterdienst = 'wetterdienst.ui.cli:cli'
@@ -290,7 +283,7 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "wetterdienst/ui/restapi.py" = ["B008", "UP007"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --webdriver=Firefox --headless"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -350,7 +343,6 @@ coverage = "pytest --cov=wetterdienst"
 coverage-parallel = "pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
 update = "poetry update"
 citation = "python -m tools.citation"
-streamlit = "streamlit run ./wetterdienst/ui/streamlit/app.py"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"

@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Migrate explorer to streamlit
+
 0.79.0 (21.03.2024)
 *******************
 

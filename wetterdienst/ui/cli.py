@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import subprocess
 import sys
 from collections import OrderedDict
 from pprint import pformat
@@ -594,18 +595,30 @@ def restapi(listen: str, reload: bool, debug: bool):
 
 
 @cli.command("explorer", section=advanced_section)
-@cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
-@cloup.option("--reload", is_flag=True, help="Dynamically reload changed files")
 @debug_opt
-def explorer(listen: str, reload: bool, debug: bool):
+def explorer(debug: bool):
     set_logging_level(debug)
 
-    log.info(f"Starting {appname}")
-    log.info(f"Starting Explorer web service on http://{listen}")
-    from wetterdienst.ui.explorer.app import start_service
+    try:
+        from wetterdienst.ui import explorer  # noqa: F401
+    except ImportError:
+        log.error("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
+        sys.exit(1)
 
-    start_service(listen, reload=reload)
-    return
+    log.info(f"Starting {appname}")
+    log.info("Starting Explorer web service on http://localhost:8501")
+
+    process = None
+    try:
+        process = subprocess.Popen(["streamlit", "run", "wetterdienst/ui/explorer.py"])  # noqa: S603, S607
+        process.wait()
+    except KeyboardInterrupt:
+        log.info("Stopping Explorer web service")
+    except Exception as e:
+        log.error(f"An error occurred: {str(e)}")
+    finally:
+        if process is not None:
+            process.terminate()
 
 
 @cli.group(section=data_section)
