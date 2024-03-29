@@ -5,6 +5,7 @@ Development
 ***********
 
 - Migrate explorer to streamlit
+- Explorer: Disable higher than daily resolutions for hosted version
 
 0.79.0 (21.03.2024)
 *******************

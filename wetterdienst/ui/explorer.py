@@ -3,15 +3,29 @@
 from __future__ import annotations
 
 import json
+import os
 
 import duckdb
 import plotly.express as px
 import polars as pl
 import streamlit as st
 
-from wetterdienst import Settings, Wetterdienst, __version__
+from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.api import RequestRegistry
 from wetterdienst.metadata.period import PeriodType
+
+# this env is set manually on streamlit.com
+LIVE = os.getenv("LIVE", "false").lower() == "true"
+
+SUBDAILY_AT_MOST = [
+    Resolution.MINUTE_1.value,
+    Resolution.MINUTE_5.value,
+    Resolution.MINUTE_10.value,
+    Resolution.MINUTE_15.value,
+    Resolution.HOURLY.value,
+    Resolution.HOUR_6.value,
+    Resolution.SUBDAILY.value,
+]
 
 SQL_DEFAULT = """
 SELECT *
@@ -135,6 +149,12 @@ resolution = st.selectbox(
     options=resolution_options,
     index=resolution_options.index("daily") if "daily" in resolution_options else 0,
 )
+# for hosted app, we disallow higher resolutions as the machine might not be able to handle it
+if LIVE:
+    if resolution in SUBDAILY_AT_MOST:
+        st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
+        st.stop()
+
 dataset_options = list(api.discover(flatten=False)[resolution].keys())
 dataset = st.selectbox(
     "Select dataset",
