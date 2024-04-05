@@ -24,6 +24,7 @@ from wetterdienst.core.timeseries.result import (
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import (
+    _plot_warming_stripes,
     get_interpolate,
     get_stations,
     get_summarize,
@@ -134,6 +135,7 @@ def index():
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
                     <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
+                    <li><a href="api/warming_stripes" target="_blank" rel="noopener">warming stripes</a></li>
                 </div>
                 <h2>Examples</h2>
                 <div class="list">
@@ -141,6 +143,7 @@ def index():
                     <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Climate Values</a></li>
                     <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Climate Interpolation</a></li>
                     <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Climate Summary</a></li>
+                    <li><a href="api/warming_stripes?station=1048" target="_blank" rel="noopener">DWD Climate Warming Stripes</a></li>
                 </div>
                 <h2>Producer</h2>
                 <div class="List">
@@ -579,6 +582,66 @@ def summarize(
         media_type = "application/json"
 
     return Response(content=content, media_type=media_type)
+
+
+@app.get("/api/warming_stripes")
+def warming_stripes(
+    station: Annotated[Optional[str], Query()] = None,
+    name: Annotated[Optional[str], Query()] = None,
+    start_year: Annotated[Optional[int], Query()] = None,
+    end_year: Annotated[Optional[int], Query()] = None,
+    name_threshold: Annotated[Optional[int], Query()] = 80,
+    show_title: Annotated[bool, Query()] = True,
+    show_years: Annotated[bool, Query()] = True,
+    show_data_availability: Annotated[bool, Query()] = True,
+    fmt: Annotated[str, Query(alias="format")] = "png",
+    debug: Annotated[bool, Query()] = False,
+) -> Any:
+    """Wrapper around get_summarize to provide results via restapi"""
+    set_logging_level(debug)
+    if not station and not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'station' or 'name' is required",
+        )
+    if station and name:
+        raise HTTPException(
+            status_code=400,
+            detail="Query arguments 'station' and 'name' are mutually exclusive",
+        )
+    if start_year and end_year:
+        if start_year >= end_year:
+            raise HTTPException(
+                status_code=400,
+                detail="Query argument 'start_year' must be less than 'end_year'",
+            )
+    if name_threshold <= 0 or name_threshold > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'name_threshold' must be more than 0 and less than or equal to 100",
+        )
+    if fmt not in ["png", "jpg", "svg", "pdf"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'format' must be one of 'png', 'jpg', 'svg' or 'pdf'",
+        )
+    try:
+        buf = _plot_warming_stripes(
+            station_id=station,
+            name=name,
+            start_year=start_year,
+            end_year=end_year,
+            name_threshold=name_threshold,
+            show_title=show_title,
+            show_years=show_years,
+            show_data_availability=show_data_availability,
+            fmt=fmt,
+        )
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    media_type = f"image/{fmt}"
+    return Response(content=buf.getvalue(), media_type=media_type)
 
 
 def start_service(listen_address: str | None = None, reload: bool | None = False):  # pragma: no cover

@@ -497,3 +497,108 @@ def test_dwd_dmo_lead_time_long(client):
         "value": IsNumber,
         "quality": None,
     }
+
+
+@pytest.mark.remote
+def test_warming_stripes_default(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "station": "01048",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+
+
+@pytest.mark.remote
+def test_warming_stripes_name(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "name": "Dresden-Klotzsche",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"show_title": "true"},
+        {"show_years": "true"},
+        {"show_data_availability": "true"},
+        {"show_title": "false"},
+        {"show_years": "false"},
+        {"show_data_availability": "false"},
+    ],
+)
+def test_warming_stripes_non_defaults(client, params):
+    response = client.get(
+        "/api/warming_stripes",
+        params=params
+        | {
+            "station": "01048",
+            "show_title": "true",
+            "show_years": "true",
+            "show_data_availability": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+
+
+@pytest.mark.remote
+def test_warming_stripes_start_year_ge_end_year(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "station": "01048",
+            "start_year": "2021",
+            "end_year": "2020",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Query argument 'start_year' must be less than 'end_year'"}
+
+
+@pytest.mark.remote
+def test_warming_stripes_wrong_name_threshold(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "name": "Dresden-Klotzsche",
+            "name_threshold": 101,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Query argument 'name_threshold' must be more than 0 and less than or equal to 100"
+    }
+
+
+@pytest.mark.remote
+def test_warming_stripes_unknown_name(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "name": "foobar",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "No station with a name similar to 'foobar' found"}
+
+
+@pytest.mark.remote
+def test_warming_stripes_unknown_format(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "station": "01048",
+            "format": "foobar",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Query argument 'format' must be one of 'png', 'jpg', 'svg' or 'pdf'"}

@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import logging
 import sys
+from io import BytesIO
 from typing import TYPE_CHECKING, Literal
+
+import polars as pl
 
 from wetterdienst.core.process import create_date_range
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 
@@ -410,6 +414,114 @@ def get_summarize(
         values_.filter_by_sql(sql_values)
 
     return values_
+
+
+def _plot_warming_stripes(
+    station_id: str | None = None,
+    name: str | None = None,
+    start_year: int | None = None,
+    end_year: int | None = None,
+    name_threshold: int = 80,
+    show_title: bool = True,
+    show_years: bool = True,
+    show_data_availability: bool = True,
+    fmt: str | Literal["png", "jpg", "svg", "pdf"] = "png",
+) -> BytesIO:
+    """Create warming stripes for station in Germany.
+    Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
+    """
+    if start_year and end_year:
+        if start_year >= end_year:
+            raise ValueError("start_year must be less than end_year")
+    if name_threshold <= 0 or name_threshold > 100:
+        raise ValueError("name_threshold must be more than 0 and less than or equal to 100")
+
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    default_backend = matplotlib.get_backend()
+
+    matplotlib.use("agg")
+    color_map = plt.get_cmap("RdBu")
+
+    request = DwdObservationRequest(
+        parameter="temperature_air_mean_200",
+        resolution="annual",
+        period="historical",
+    )
+    if station_id:
+        stations = request.filter_by_station_id(station_id)
+    elif name:
+        stations = request.filter_by_name(name, threshold=name_threshold)
+    else:
+        param_options = [
+            "station (string)",
+            "name (string)",
+        ]
+        raise KeyError(f"Give one of the parameters: {', '.join(param_options)}")
+
+    try:
+        station_dict = stations.to_dict()["stations"][0]
+    except IndexError as e:
+        raise ValueError(f"No station with a name similar to '{name}' found") from e
+
+    df = stations.values.all().df
+    df = df.set_sorted("date")
+    df = df.with_columns(
+        (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
+            "value_scaled"
+        )
+    )
+    df = df.with_columns(pl.col("value_scaled").map_elements(color_map).alias("color"))
+    df = df.drop_nulls("value")
+
+    if start_year:
+        df = df.filter(pl.col("date").dt.year().ge(start_year))
+    if end_year:
+        df = df.filter(pl.col("date").dt.year().le(end_year))
+
+    if len(df) == 1:
+        raise ValueError("At least two years are required to create warming stripes.")
+
+    fig, ax = plt.subplots(tight_layout=True)
+
+    ax.bar(df.get_column("date").dt.year(), 1.0, width=1.0, color=df.get_column("color"))
+    ax.set_axis_off()
+    if show_data_availability:
+        df = df.upsample("date", every="1y")
+        df = df.with_columns(
+            pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("value"),
+        )
+        ax.plot(
+            df.get_column("date").dt.year(),
+            df.get_column("value"),
+            color="gold",
+            label="Missing data",
+        )
+        ax.text(
+            df.get_column("date").dt.year().min(),
+            -0.03,
+            "data availability",
+            ha="left",
+            va="top",
+            color="gold",
+        )
+    ax.text(0.5, -0.04, "Source: Deutscher Wetterdienst", ha="center", va="center", transform=ax.transAxes)
+
+    if show_title:
+        ax.set_title(f"""Warming stripes for {station_dict["name"]}, Germany ({station_dict["station_id"]})""")
+    if show_years:
+        ax.text(0.05, -0.05, df.get_column("date").min().year, ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.95, -0.05, df.get_column("date").max().year, ha="center", va="center", transform=ax.transAxes)
+
+    buf = BytesIO()
+    plt.savefig(buf, format=fmt, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+
+    matplotlib.use(default_backend)
+
+    return buf
 
 
 def set_logging_level(debug: bool):

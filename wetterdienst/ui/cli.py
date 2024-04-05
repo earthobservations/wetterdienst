@@ -8,6 +8,7 @@ import logging
 import subprocess
 import sys
 from collections import OrderedDict
+from pathlib import Path
 from pprint import pformat
 from typing import Literal
 
@@ -16,10 +17,12 @@ import cloup
 from click_params import StringListParamType
 from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
+from PIL import Image
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.core import (
+    _plot_warming_stripes,
     get_interpolate,
     get_stations,
     get_summarize,
@@ -547,6 +550,20 @@ Explore OPERA radar stations:
     # Display radar station with specific ODIM- or WMO-code.
     wetterdienst radar --odim-code=deasb
     wetterdienst radar --wmo-code=10103
+
+Create warming stripes (only DWD Observation data):
+
+    # Create warming stripes for a specific station
+    wetterdienst warming_stripes --station=1048 > warming_stripes.png
+
+    # Create warming stripes for a specific station with approximate name
+    wetterdienst warming_stripes --name=Dresden-Klotzsche  --name_treshold=70 > warming_stripes.png
+
+    # Create warming stripes for a specific station for years 2000 to 2020
+    wetterdienst warming_stripes --station=1048 --start_year=2000 --end_year=2020 > warming_stripes.png
+
+    # Create warming stripes for a specific station and write to file
+    wetterdienst warming_stripes --station=1048 --target=warming_stripes.png
 """  # noqa: E501
 
 
@@ -1112,6 +1129,69 @@ def radar(
     print(output)  # noqa: T201
 
     return
+
+
+@cli.command("warming_stripes", section=data_section)
+@cloup.option("--station", type=click.STRING)
+@cloup.option("--name", type=click.STRING)
+@cloup.option("--start_year", type=click.INT)
+@cloup.option("--end_year", type=click.INT)
+@cloup.option("--name_threshold", type=click.INT, default=80)
+@cloup.option("--show_title", type=click.BOOL, default=True)
+@cloup.option("--show_years", type=click.BOOL, default=True)
+@cloup.option("--show_data_availability", type=click.BOOL, default=True)
+@cloup.option("--format", "fmt", type=click.Choice(["png", "jpg", "svg", "pdf"], case_sensitive=False), default="png")
+@cloup.option("--target", type=click.Path(dir_okay=False, path_type=Path))
+@debug_opt
+@cloup.constraint(
+    RequireExactly(1),
+    ["station", "name"],
+)
+def warming_stripes(
+    station: str,
+    name: str,
+    start_year: int,
+    end_year: int,
+    name_threshold: int,
+    show_title: bool,
+    show_years: bool,
+    show_data_availability: bool,
+    fmt: str,
+    target: Path,
+    debug: bool,
+):
+    if target:
+        if not target.name.lower().endswith(fmt):
+            raise click.ClickException(f"'target' must have extension '{fmt}'")
+
+    import matplotlib.pyplot as plt
+
+    set_logging_level(debug)
+
+    try:
+        buf = _plot_warming_stripes(
+            station_id=station,
+            name=name,
+            start_year=start_year,
+            end_year=end_year,
+            name_threshold=name_threshold,
+            show_title=show_title,
+            show_years=show_years,
+            show_data_availability=show_data_availability,
+            fmt=fmt,
+        )
+    except Exception as e:
+        log.exception(e)
+        raise click.ClickException(str(e)) from e
+
+    if target:
+        image = Image.open(buf, formats=["png"])
+        plt.imshow(image)
+        plt.axis("off")
+        plt.savefig(target, dpi=300, bbox_inches="tight")
+        return
+
+    click.echo(buf.getvalue(), nl=False)
 
 
 if __name__ == "__main__":
