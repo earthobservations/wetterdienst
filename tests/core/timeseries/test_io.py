@@ -1013,11 +1013,21 @@ def test_export_duckdb(settings_si_false, tmp_path):
     values.to_target(f"duckdb:///{filename}?table=testdrive")
     connection = duckdb.connect(str(filename), read_only=True)
     cursor = connection.cursor()
-    cursor.execute("SELECT * FROM testdrive")
+    query = """
+        SELECT
+            *
+        FROM
+            testdrive
+        WHERE
+            date = '1939-07-26'
+            AND
+            parameter = 'temperature_air_min_200'
+    """
+    cursor.execute(query)
     results = cursor.fetchall()
     cursor.close()
     connection.close()
-    assert results[300_000] == (
+    assert results[0] == (
         "01048",
         "climate_summary",
         "temperature_air_min_200",
