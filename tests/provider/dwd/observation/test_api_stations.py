@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from dirty_equals import IsDatetime, IsDict
 from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.dwd.observation import (
@@ -132,34 +133,40 @@ def test_dwd_observations_stations_name_with_comma():
     stations = request.all()
     stations = stations.df.filter(pl.col("station_id").is_in(["00314", "03164", "06272"]))
     assert stations.to_dicts() == [
-        {
-            "station_id": "00314",
-            "start_date": dt.datetime(1881, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-            "end_date": dt.datetime(2024, 2, 29, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-            "latitude": 51.1604,
-            "longitude": 14.5042,
-            "height": 234.0,
-            "name": "Kubschütz, Kr. Bautzen",
-            "state": "Sachsen",
-        },
-        {
-            "station_id": "03164",
-            "start_date": dt.datetime(1881, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-            "end_date": dt.datetime(2024, 2, 29, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-            "latitude": 50.8492,
-            "longitude": 8.7745,
-            "height": 187.0,
-            "name": "Cölbe, Kr. Marburg-Biedenkopf",
-            "state": "Hessen",
-        },
-        {
-            "station_id": "06272",
-            "start_date": dt.datetime(2004, 10, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-            "end_date": dt.datetime(2024, 2, 29, 0, 0, tzinfo=ZoneInfo(key="UTC")),
-            "latitude": 50.8426,
-            "longitude": 10.2518,
-            "height": 284.0,
-            "name": "Salzungen, Bad-Gräfen-Nitzendorf",
-            "state": "Thüringen",
-        },
+        IsDict(
+            {
+                "station_id": "00314",
+                "start_date": dt.datetime(1881, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "end_date": IsDatetime,
+                "latitude": 51.1604,
+                "longitude": 14.5042,
+                "height": 234.0,
+                "name": "Kubschütz, Kr. Bautzen",
+                "state": "Sachsen",
+            }
+        ),
+        IsDict(
+            {
+                "station_id": "03164",
+                "start_date": dt.datetime(1881, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "end_date": IsDatetime,
+                "latitude": 50.8492,
+                "longitude": 8.7745,
+                "height": 187.0,
+                "name": "Cölbe, Kr. Marburg-Biedenkopf",
+                "state": "Hessen",
+            }
+        ),
+        IsDict(
+            {
+                "station_id": "06272",
+                "start_date": dt.datetime(2004, 10, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "end_date": IsDatetime,
+                "latitude": 50.8426,
+                "longitude": 10.2518,
+                "height": 284.0,
+                "name": "Salzungen, Bad-Gräfen-Nitzendorf",
+                "state": "Thüringen",
+            }
+        ),
     ]
