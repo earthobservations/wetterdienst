@@ -3,17 +3,21 @@ Wetterdienst - Open weather data for humans
 
 .. |pic1| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png
     :alt: German weather stations managed by Deutscher Wetterdienst
-    :width: 32 %
 
 .. |pic2| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
     :alt: temperature timeseries of Hohenpeissenberg/Germany
-    :width: 32 %
 
 .. |pic3| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
     :alt: warming stripes of Hohenpeissenberg/Germany
-    :width: 32 %
 
-|pic1| |pic2| |pic3|
+.. list-table::
+   :widths: 33 33 33
+
+    * - |pic1|
+      - |pic2|
+      - |pic3|
+
+..
 
     **"What do we want? Climate Justice! When do we want it? Now!" - FFF**
 
