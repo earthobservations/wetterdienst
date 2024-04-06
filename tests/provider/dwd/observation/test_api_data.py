@@ -239,7 +239,7 @@ def test_dwd_observation_data_result_all_missing_data(default_settings):
     request = DwdObservationRequest(
         parameter=Parameter.PRECIPITATION_HEIGHT,
         resolution=DwdObservationResolution.MINUTE_10,
-        start_date=dt.datetime(2021, 10, 3),
+        start_date=dt.datetime(2021, 10, 4),
         end_date=dt.datetime(2021, 10, 5),
         settings=default_settings,
     ).filter_by_station_id(["05435"])
