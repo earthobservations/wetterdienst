@@ -1141,6 +1141,7 @@ def radar(
 @cloup.option("--show_years", type=click.BOOL, default=True)
 @cloup.option("--show_data_availability", type=click.BOOL, default=True)
 @cloup.option("--format", "fmt", type=click.Choice(["png", "jpg", "svg", "pdf"], case_sensitive=False), default="png")
+@cloup.option("--dpi", type=click.INT, default=300)
 @cloup.option("--target", type=click.Path(dir_okay=False, path_type=Path))
 @debug_opt
 @cloup.constraint(
@@ -1157,6 +1158,7 @@ def warming_stripes(
     show_years: bool,
     show_data_availability: bool,
     fmt: str,
+    dpi: int,
     target: Path,
     debug: bool,
 ):
@@ -1179,6 +1181,7 @@ def warming_stripes(
             show_years=show_years,
             show_data_availability=show_data_availability,
             fmt=fmt,
+            dpi=dpi,
         )
     except Exception as e:
         log.exception(e)

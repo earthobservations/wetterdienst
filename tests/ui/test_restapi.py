@@ -602,3 +602,16 @@ def test_warming_stripes_unknown_format(client):
     )
     assert response.status_code == 400
     assert response.json() == {"detail": "Query argument 'format' must be one of 'png', 'jpg', 'svg' or 'pdf'"}
+
+
+@pytest.mark.remote
+def test_warming_stripes_wrong_dpi(client):
+    response = client.get(
+        "/api/warming_stripes",
+        params={
+            "station": "01048",
+            "dpi": 0,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Query argument 'dpi' must be more than 0"}

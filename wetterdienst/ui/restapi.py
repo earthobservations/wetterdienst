@@ -595,6 +595,7 @@ def warming_stripes(
     show_years: Annotated[bool, Query()] = True,
     show_data_availability: Annotated[bool, Query()] = True,
     fmt: Annotated[str, Query(alias="format")] = "png",
+    dpi: Annotated[int, Query()] = 300,
     debug: Annotated[bool, Query()] = False,
 ) -> Any:
     """Wrapper around get_summarize to provide results via restapi"""
@@ -625,6 +626,11 @@ def warming_stripes(
             status_code=400,
             detail="Query argument 'format' must be one of 'png', 'jpg', 'svg' or 'pdf'",
         )
+    if dpi <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'dpi' must be more than 0",
+        )
     try:
         buf = _thread_safe_plot_warming_stripes(
             station_id=station,
@@ -636,6 +642,7 @@ def warming_stripes(
             show_years=show_years,
             show_data_availability=show_data_availability,
             fmt=fmt,
+            dpi=dpi,
         )
     except Exception as e:
         log.exception(e)

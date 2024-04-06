@@ -79,3 +79,11 @@ def test_warming_stripes_target_not_matching_format(tmp_path):
     result = runner.invoke(cli, f"warming_stripes --station 1048 --target {target}")
     assert result.exit_code == 1
     assert "Error: 'target' must have extension 'png'" in result.stdout
+
+
+@pytest.mark.remote
+def test_warming_stripes_target_wrong_dpi():
+    runner = CliRunner()
+    result = runner.invoke(cli, "warming_stripes --station 1048 --dpi 0")
+    assert result.exit_code == 1
+    assert "Error: dpi must be more than 0" in result.stdout

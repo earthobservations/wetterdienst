@@ -427,6 +427,7 @@ def _plot_warming_stripes(
     show_years: bool = True,
     show_data_availability: bool = True,
     fmt: str | Literal["png", "jpg", "svg", "pdf"] = "png",
+    dpi: int = 100,
 ) -> BytesIO:
     """Create warming stripes for station in Germany.
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
@@ -436,6 +437,8 @@ def _plot_warming_stripes(
             raise ValueError("start_year must be less than end_year")
     if name_threshold <= 0 or name_threshold > 100:
         raise ValueError("name_threshold must be more than 0 and less than or equal to 100")
+    if dpi <= 0:
+        raise ValueError("dpi must be more than 0")
 
     import matplotlib
     import matplotlib.pyplot as plt
@@ -514,7 +517,7 @@ def _plot_warming_stripes(
         ax.text(0.95, -0.05, df.get_column("date").max().year, ha="center", va="center", transform=ax.transAxes)
 
     buf = BytesIO()
-    plt.savefig(buf, format=fmt, dpi=100, bbox_inches="tight")
+    plt.savefig(buf, format=fmt, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
     buf.seek(0)
 
@@ -531,6 +534,7 @@ def _thread_safe_plot_warming_stripes(
     show_years: bool = True,
     show_data_availability: bool = True,
     fmt: str | Literal["png", "jpg", "svg", "pdf"] = "png",
+    dpi: int = 100,
 ) -> BytesIO:
     """Thread-safe wrapper for _plot_warming_stripes because matplotlib is not thread-safe."""
     with ThreadPoolExecutor(1) as executor:
@@ -545,6 +549,7 @@ def _thread_safe_plot_warming_stripes(
                 show_years=show_years,
                 show_data_availability=show_data_availability,
                 fmt=fmt,
+                dpi=dpi,
             )
         ).result()
 
