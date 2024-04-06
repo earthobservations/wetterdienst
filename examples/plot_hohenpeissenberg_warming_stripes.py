@@ -35,7 +35,7 @@ def plot_hohenpeissenberg_warming_stripes():
     plt.axis("off")
 
     if SAVE_PLOT:
-        plt.savefig(PLOT_PATH, dpi=300, bbox_inches="tight")
+        plt.savefig(PLOT_PATH, dpi=100, bbox_inches="tight")
     elif "PYTEST_CURRENT_TEST" not in os.environ:
         plt.show()
 

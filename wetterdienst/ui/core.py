@@ -514,7 +514,7 @@ def _plot_warming_stripes(
         ax.text(0.95, -0.05, df.get_column("date").max().year, ha="center", va="center", transform=ax.transAxes)
 
     buf = BytesIO()
-    plt.savefig(buf, format=fmt, dpi=300, bbox_inches="tight")
+    plt.savefig(buf, format=fmt, dpi=100, bbox_inches="tight")
     plt.close(fig)
     buf.seek(0)
 
