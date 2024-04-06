@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import TYPE_CHECKING, Literal
 
@@ -439,8 +440,6 @@ def _plot_warming_stripes(
     import matplotlib
     import matplotlib.pyplot as plt
 
-    default_backend = matplotlib.get_backend()
-
     matplotlib.use("agg")
     color_map = plt.get_cmap("RdBu")
 
@@ -519,9 +518,35 @@ def _plot_warming_stripes(
     plt.close(fig)
     buf.seek(0)
 
-    matplotlib.use(default_backend)
-
     return buf
+
+
+def _thread_safe_plot_warming_stripes(
+    station_id: str | None = None,
+    name: str | None = None,
+    start_year: int | None = None,
+    end_year: int | None = None,
+    name_threshold: int = 80,
+    show_title: bool = True,
+    show_years: bool = True,
+    show_data_availability: bool = True,
+    fmt: str | Literal["png", "jpg", "svg", "pdf"] = "png",
+) -> BytesIO:
+    """Thread-safe wrapper for _plot_warming_stripes because matplotlib is not thread-safe."""
+    with ThreadPoolExecutor(1) as executor:
+        return executor.submit(
+            lambda: _plot_warming_stripes(
+                station_id=station_id,
+                name=name,
+                start_year=start_year,
+                end_year=end_year,
+                name_threshold=name_threshold,
+                show_title=show_title,
+                show_years=show_years,
+                show_data_availability=show_data_availability,
+                fmt=fmt,
+            )
+        ).result()
 
 
 def set_logging_level(debug: bool):
