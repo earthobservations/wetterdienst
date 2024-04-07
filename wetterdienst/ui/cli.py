@@ -1199,5 +1199,32 @@ def warming_stripes(
     click.echo(buf.getvalue(), nl=False)
 
 
+@cli.command("warming_stripes_interactive", section=advanced_section)
+@debug_opt
+def warming_stripes_interactive(debug: bool):
+    set_logging_level(debug)
+
+    try:
+        from wetterdienst.ui.streamlit.warming_stripes import app
+    except ImportError:
+        log.error("Please install the warming_stripes extras with 'pip install wetterdienst[warming_stripes]'")
+        sys.exit(1)
+
+    log.info(f"Starting {appname}")
+    log.info("Starting Warming Stripes web service on http://localhost:8501")
+
+    process = None
+    try:
+        process = subprocess.Popen(["streamlit", "run", app.__file__])  # noqa: S603, S607
+        process.wait()
+    except KeyboardInterrupt:
+        log.info("Stopping Warming Stripes web service")
+    except Exception as e:
+        log.error(f"An error occurred: {str(e)}")
+    finally:
+        if process is not None:
+            process.terminate()
+
+
 if __name__ == "__main__":
     cli()
