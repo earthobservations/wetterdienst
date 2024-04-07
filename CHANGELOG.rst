@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.80.0 (08.04.2024)
+*******************
+
 - Migrate explorer to streamlit
 - Explorer: Disable higher than daily resolutions for hosted version
 - UI: Add warming stripes
