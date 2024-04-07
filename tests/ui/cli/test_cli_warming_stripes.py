@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 
+from tests.conftest import IS_WINDOWS
 from wetterdienst.ui.cli import cli
 
 
@@ -64,12 +67,16 @@ def test_warming_stripes_wrong_name_threshold():
 
 @pytest.mark.remote
 def test_warming_stripes_target(tmp_path):
-    target = tmp_path / "foobar.png"
+    target = Path("foobar.png")
+    if not IS_WINDOWS:
+        target = tmp_path / "foobar.png"
     runner = CliRunner()
     result = runner.invoke(cli, f"warming_stripes --station 1048 --target {target}")
     assert result.exit_code == 0
     assert target.exists()
     assert not result.stdout
+    if IS_WINDOWS:
+        target.unlink(missing_ok=True)
 
 
 @pytest.mark.remote
