@@ -417,7 +417,17 @@ def get_summarize(
     return values_
 
 
+def _get_warming_stripes_request():
+    """Need this for displaying stations in the interactive app."""
+    return DwdObservationRequest(
+        parameter="temperature_air_mean_200",
+        resolution="annual",
+        period="historical",
+    )
+
+
 def _plot_warming_stripes(
+    request: DwdObservationRequest,
     station_id: str | None = None,
     name: str | None = None,
     start_year: int | None = None,
@@ -446,11 +456,6 @@ def _plot_warming_stripes(
     matplotlib.use("agg")
     color_map = plt.get_cmap("RdBu")
 
-    request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
-        resolution="annual",
-        period="historical",
-    )
     if station_id:
         stations = request.filter_by_station_id(station_id)
     elif name:
@@ -525,6 +530,7 @@ def _plot_warming_stripes(
 
 
 def _thread_safe_plot_warming_stripes(
+    request: DwdObservationRequest,
     station_id: str | None = None,
     name: str | None = None,
     start_year: int | None = None,
@@ -540,6 +546,7 @@ def _thread_safe_plot_warming_stripes(
     with ThreadPoolExecutor(1) as executor:
         return executor.submit(
             lambda: _plot_warming_stripes(
+                request=request,
                 station_id=station_id,
                 name=name,
                 start_year=start_year,

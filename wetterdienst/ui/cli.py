@@ -22,6 +22,7 @@ from PIL import Image
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.core import (
+    _get_warming_stripes_request,
     _plot_warming_stripes,
     get_interpolate,
     get_stations,
@@ -1172,6 +1173,7 @@ def warming_stripes(
 
     try:
         buf = _plot_warming_stripes(
+            request=_get_warming_stripes_request(),
             station_id=station,
             name=name,
             start_year=start_year,

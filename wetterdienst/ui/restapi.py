@@ -24,6 +24,7 @@ from wetterdienst.core.timeseries.result import (
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import (
+    _get_warming_stripes_request,
     _thread_safe_plot_warming_stripes,
     get_interpolate,
     get_stations,
@@ -633,6 +634,7 @@ def warming_stripes(
         )
     try:
         buf = _thread_safe_plot_warming_stripes(
+            request=_get_warming_stripes_request(),
             station_id=station,
             name=name,
             start_year=start_year,
