@@ -24,6 +24,7 @@ def test_cli_help():
         "Advanced:\n"
         "  restapi\n"
         "  explorer\n"
+        "  warming_stripes_interactive\n"
         "\n"
         "Data:\n"
         "  about\n"
