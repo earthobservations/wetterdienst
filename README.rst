@@ -7,15 +7,10 @@ Wetterdienst - Open weather data for humans
 .. |pic2| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png
     :alt: temperature timeseries of Hohenpeissenberg/Germany
 
-.. |pic3| image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
+.. image:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png
     :alt: warming stripes of Hohenpeissenberg/Germany
-
-.. list-table::
-   :widths: 33 33 33
-
-    * - |pic1|
-      - |pic2|
-      - |pic3|
+    :align: center
+    :width: 100%
 
 ..
 
