@@ -617,7 +617,7 @@ def explorer(debug: bool):
     set_logging_level(debug)
 
     try:
-        from wetterdienst.ui import explorer  # noqa: F401
+        from wetterdienst.ui.streamlit.explorer import app
     except ImportError:
         log.error("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
         sys.exit(1)
@@ -627,7 +627,7 @@ def explorer(debug: bool):
 
     process = None
     try:
-        process = subprocess.Popen(["streamlit", "run", "wetterdienst/ui/explorer.py"])  # noqa: S603, S607
+        process = subprocess.Popen(["streamlit", "run", app.__file__])  # noqa: S603, S607
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Explorer web service")
