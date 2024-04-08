@@ -41,6 +41,27 @@ def get_warming_stripes(
     )
 
 
+def get_rest_api_url(
+    station_id: str,
+    start_year: int,
+    end_year: int,
+    name_threshold: int,
+    show_title: bool,
+    show_years: bool,
+    show_data_availability: bool,
+    dpi: int,
+):
+    url = f"https://wetterdienst.eobs.org/api/warming_stripes?station={station_id}"
+    url += f"&start_year={start_year}" if start_year else ""
+    url += f"&end_year={end_year}" if end_year else ""
+    url += f"&name_threshold={name_threshold}" if name_threshold else ""
+    url += f"&show_title={show_title}" if show_title else ""
+    url += f"&show_years={show_years}" if show_years else ""
+    url += f"&show_data_availability={show_data_availability}" if show_data_availability else ""
+    url += f"&dpi={dpi}" if dpi else ""
+    return url
+
+
 title = f"Warming Stripes (v{__version__})"
 st.set_page_config(page_title=title)
 st.title(title)
@@ -107,6 +128,21 @@ if station:
     )
     st.subheader("Warming Stripes")
     st.image(buf, use_column_width=True)
+    st.download_button("Download", buf, file_name="warming_stripes.png", mime="image/png", use_container_width=True)
+    st.link_button(
+        "Static URL",
+        get_rest_api_url(
+            station_id=station["station_id"],
+            start_year=start_year,
+            end_year=end_year,
+            name_threshold=name_threshold,
+            show_title=show_title,
+            show_years=show_years,
+            show_data_availability=show_data_availability,
+            dpi=dpi,
+        ),
+        use_container_width=True,
+    )
 
 st.subheader("Credits")
 st.markdown(
