@@ -473,15 +473,17 @@ def _plot_warming_stripes(
     except IndexError as e:
         raise ValueError(f"No station with a name similar to '{name}' found") from e
 
-    df = stations.values.all().df
+    df = stations.values.all().df.sort("date")
     df = df.set_sorted("date")
+    df = df.select("date", "value")
+    df = df.upsample("date", every="1y")
     df = df.with_columns(
         (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
             "value_scaled"
-        )
+        ),
+        pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
     df = df.with_columns(pl.col("value_scaled").map_elements(color_map).alias("color"))
-    df = df.drop_nulls("value")
 
     if start_year:
         df = df.filter(pl.col("date").dt.year().ge(start_year))
@@ -493,18 +495,25 @@ def _plot_warming_stripes(
 
     fig, ax = plt.subplots(tight_layout=True)
 
-    ax.bar(df.get_column("date").dt.year(), 1.0, width=1.0, color=df.get_column("color"))
+    ax.bar(
+        df.drop_nulls("value").get_column("date").dt.year(),
+        1.0,
+        width=1.0,
+        color=df.drop_nulls("value").get_column("color"),
+    )
     ax.set_axis_off()
     if show_data_availability:
-        df = df.upsample("date", every="1y")
-        df = df.with_columns(
-            pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("value"),
+        ax.scatter(
+            df.get_column("date").dt.year(),
+            df.get_column("availability"),
+            color="gold",
+            marker=",",
+            s=0.5,
         )
         ax.plot(
             df.get_column("date").dt.year(),
-            df.get_column("value"),
+            df.get_column("availability"),
             color="gold",
-            label="Missing data",
         )
         ax.text(
             df.get_column("date").dt.year().min(),
