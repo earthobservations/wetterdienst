@@ -10,7 +10,7 @@ from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
-from wetterdienst import Author, Info, Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Author, Info, Period, Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -634,7 +634,7 @@ def warming_stripes(
         )
     try:
         buf = _thread_safe_plot_warming_stripes(
-            request=_get_warming_stripes_request(),
+            request=_get_warming_stripes_request(period=Period.HISTORICAL),
             station_id=station,
             name=name,
             start_year=start_year,

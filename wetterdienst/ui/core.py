@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
+from wetterdienst import Parameter
 from wetterdienst.core.process import create_date_range
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.period import PeriodType
+from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -417,12 +418,12 @@ def get_summarize(
     return values_
 
 
-def _get_warming_stripes_request():
+def _get_warming_stripes_request(period: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameter="temperature_air_mean_200",
-        resolution="annual",
-        period="historical",
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        resolution=Resolution.ANNUAL,
+        period=period,
     )
 
 
