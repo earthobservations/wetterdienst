@@ -19,7 +19,7 @@ from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
 from PIL import Image
 
-from wetterdienst import Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Period, Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.core import (
     _get_warming_stripes_request,
@@ -1173,7 +1173,7 @@ def warming_stripes(
 
     try:
         buf = _plot_warming_stripes(
-            request=_get_warming_stripes_request(),
+            request=_get_warming_stripes_request(period=Period.HISTORICAL),
             station_id=station,
             name=name,
             start_year=start_year,
