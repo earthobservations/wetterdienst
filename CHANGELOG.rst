@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Warming stripes: Add option to enable/disable showing only active stations
+
 0.80.0 (08.04.2024)
 *******************
 
