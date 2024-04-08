@@ -3,13 +3,17 @@ import json
 import polars as pl
 import streamlit as st
 
-from wetterdienst import __version__
+from wetterdienst import Period, __version__
 from wetterdienst.ui.core import _get_warming_stripes_request, _thread_safe_plot_warming_stripes
 
 
 @st.cache_data
-def get_stations():
-    return _get_warming_stripes_request().all().df
+def get_stations(active: bool = True):
+    df = _get_warming_stripes_request(period=Period.HISTORICAL).all().df
+    if active:
+        station_ids_active = _get_warming_stripes_request(period=Period.RECENT).all().df.select("station_id")
+        df = df.join(station_ids_active, on="station_id")
+    return df
 
 
 @st.cache_data
@@ -49,6 +53,7 @@ with st.sidebar:
     start_year = st.number_input("Start year", value=None, step=1)
     end_year = st.number_input("End year", min_value=start_year + 1 if start_year else None, value=None, step=1)
     name_threshold = st.number_input("Name threshold", min_value=1, max_value=100, value=80, step=1)
+    use_only_active_stations = st.checkbox("Use only active stations", value=True)
 
     st.header("Settings")
 
@@ -68,7 +73,7 @@ st.markdown(
     """
 )
 
-df_stations = get_stations()
+df_stations = get_stations(active=use_only_active_stations)
 with st.expander("Map of all stations", expanded=False):
     st.map(df_stations, latitude="latitude", longitude="longitude")
 
