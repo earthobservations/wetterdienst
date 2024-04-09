@@ -2,12 +2,15 @@ import datetime as dt
 import json
 from zoneinfo import ZoneInfo
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 from wetterdienst import __version__
 from wetterdienst.ui.streamlit.explorer import app
 
 
+@pytest.mark.cflake
+@pytest.mark.remote
 def test_explorer():
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
