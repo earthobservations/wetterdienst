@@ -2,7 +2,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 from __future__ import annotations
 
-import json
 import os
 
 import duckdb
@@ -201,7 +200,7 @@ if station:
     station["start_date"] = station["start_date"].isoformat() if station["start_date"] else None
     station["end_date"] = station["end_date"].isoformat() if station["end_date"] else None
     with st.expander("Station JSON", expanded=False):
-        st.json(json.dumps(station, indent=4, ensure_ascii=False))
+        st.json(station)
     with st.expander("Map of selected station", expanded=False):
         st.map(request_station.df, latitude="latitude", longitude="longitude")
 
@@ -218,7 +217,7 @@ df_stats = df_stats.with_columns(
 )
 values_summary = df_stats.to_dicts()
 with st.expander("Stats JSON", expanded=False):
-    st.json(json.dumps(values_summary, indent=4, ensure_ascii=False))
+    st.json(values_summary)
 
 st.info(
     """
