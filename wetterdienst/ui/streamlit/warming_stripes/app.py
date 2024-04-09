@@ -69,14 +69,16 @@ st.title(title)
 st.markdown(f"version refers to Wetterdienst  v{__version__}")
 
 with st.sidebar:
-    st.header("Data")
+    st.header("Settings")
+
+    st.subheader("Data")
 
     start_year = st.number_input("Start year", value=None, step=1)
     end_year = st.number_input("End year", min_value=start_year + 1 if start_year else None, value=None, step=1)
     name_threshold = st.number_input("Name threshold", min_value=1, max_value=100, value=80, step=1)
     use_only_active_stations = st.checkbox("Use only active stations", value=True)
 
-    st.header("Settings")
+    st.subheader("Settings")
 
     show_title = st.checkbox("Show title", value=True)
     show_years = st.checkbox("Show years", value=True)

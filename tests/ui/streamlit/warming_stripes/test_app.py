@@ -13,7 +13,7 @@ def test_warming_stripes():
     assert app_test.error == []
     assert app_test.title[0].value == f"Warming Stripes (v{__version__})"
     subheaders = [subheader.value for subheader in app_test.subheader]
-    assert subheaders == ["Introduction", "Station", "Warming Stripes", "Credits"]
+    assert subheaders == ["Introduction", "Station", "Warming Stripes", "Credits", "Data", "Settings"]
     selected_station = app_test.selectbox[0].value
     assert selected_station == {
         "station_id": "15000",
