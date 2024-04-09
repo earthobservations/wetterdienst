@@ -1,5 +1,3 @@
-import json
-
 import polars as pl
 import streamlit as st
 
@@ -111,7 +109,7 @@ if station:
     station["start_date"] = station["start_date"].isoformat() if station["start_date"] else None
     station["end_date"] = station["end_date"].isoformat() if station["end_date"] else None
     with st.expander("Station JSON", expanded=False):
-        st.json(json.dumps(station, indent=4, ensure_ascii=False))
+        st.json(station)
     with st.expander("Map of selected station", expanded=False):
         st.map(
             df_stations.filter(pl.col("station_id").eq(station["station_id"])),
