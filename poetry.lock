@@ -1344,12 +1344,12 @@ files = [
 
 [[package]]
 name = "eccodes"
-version = "1.6.1"
+version = "1.7.0"
 description = "Python interface to the ecCodes GRIB and BUFR decoder/encoder"
 optional = true
 python-versions = "*"
 files = [
-    {file = "eccodes-1.6.1.tar.gz", hash = "sha256:0d23e88cf9f3b4f5a2bee76f2b38080fd4b84386531d06d830831af3b1a18473"},
+    {file = "eccodes-1.7.0.tar.gz", hash = "sha256:0f233009eac228b99be6e40e5f7cc175b477d322bd91c0dac6bf226f0222cb17"},
 ]
 
 [package.dependencies]
@@ -6863,4 +6863,4 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "6d179ced609b81478a5253d60ddfffa72066fb182f36a802a92bbd06fe8859dc"
+content-hash = "955ce29e338b38d41d3dfed7ffcd854a4ffa5954afb37ac5859e319f79027dab"
