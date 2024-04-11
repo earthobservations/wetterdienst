@@ -47,7 +47,8 @@ CommaSeparator = StringListParamType(",")
 @app.get("/", response_class=HTMLResponse)
 def index():
     def _create_author_entry(author: Author):
-        return f"<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>{author.name}</a> ({author.email})"  # noqa: E501
+        # create author string Max Mustermann (Github href, Mailto)
+        return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"
 
     appname = f"{__appname__} v{__version__}"
     about = "Wetterdienst - Open weather data for humans."
