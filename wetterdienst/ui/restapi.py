@@ -61,9 +61,11 @@ def index():
     sources = "\n".join(sources)
     info = Info()
     return f"""
-    <html>
+    <html lang="en">
         <head>
             <title>{appname}</title>
+            <meta name="description" content="{about}">
+            <meta name="keywords" content="weather, climate, data, api, open, source, wetterdienst">
             <style>
                 body {{
                     font-family: Arial, sans-serif;
