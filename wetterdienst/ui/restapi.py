@@ -48,7 +48,7 @@ CommaSeparator = StringListParamType(",")
 def index():
     def _create_author_entry(author: Author):
         # create author string Max Mustermann (Github href, Mailto)
-        return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"
+        return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
     appname = f"{__appname__} v{__version__}"
     about = "Wetterdienst - Open weather data for humans."
@@ -152,7 +152,7 @@ def index():
                 <h2>Producer</h2>
                 <div class="List">
                     <li>Version: {info.__version__}</li>
-                    <li>Authors: {', '.join(_create_author_entry(author) for author in info.authors)}</li>
+                    <li>Authors: {', w'.join(_create_author_entry(author) for author in info.authors)}</li>
                     <li>Documentation: <a href="{info.documentation}" target="_blank" rel="noopener">{info.documentation}</a></li>
                     <li>Repository: <a href="{info.repository}" target="_blank" rel="noopener">{info.repository}</a></li>
                 </div>
