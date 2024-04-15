@@ -264,7 +264,7 @@ select = [
     # flake8-use-pathlib
     "PTH"
 ]
-extend-ignore = [
+ignore = [
     # zip() without an explicit strict= parameter.
     "B905",
     # Unnecessary `elif` after `return` statement
