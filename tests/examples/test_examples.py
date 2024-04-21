@@ -1,6 +1,5 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import sys
 from pathlib import Path
 
 import pytest
@@ -13,60 +12,60 @@ EXAMPLES_DIR = HERE.parent.parent / "example"
 
 @pytest.mark.cflake
 def test_examples():
-    from examples import (
-        dwd_climate_summary_xarray_dump,
-        dwd_describe_fields,
-        mosmix_forecasts,
-        observations_sql,
-        observations_stations,
-        plot_german_weather_stations,
-        plot_hohenpeissenberg_warming_stripes,
-        plot_temperature_timeseries,
+    from examples.provider.dwd.mosmix import dwd_mosmix_forecasts
+    from examples.provider.dwd.observation import (
+        dwd_obs_climate_summary_describe_fields,
+        dwd_obs_climate_summary_zarr_dump,
+        dwd_obs_plot_german_weather_stations,
+        dwd_obs_plot_hohenpeissenberg_warming_stripes,
+        dwd_obs_plot_temperature_timeseries,
+        dwd_obs_stations_filter_by_distance,
+        dwd_obs_values_sql,
     )
 
-    assert dwd_describe_fields.main() is None
-    assert mosmix_forecasts.main() is None
-    if sys.version_info < (3, 12):
-        assert observations_sql.main() is None
-    assert observations_stations.main() is None
-    assert dwd_climate_summary_xarray_dump.main() is None
-    assert plot_german_weather_stations.main() is None
-    assert plot_hohenpeissenberg_warming_stripes.main() is None
-    assert plot_temperature_timeseries.main() is None
+    assert dwd_mosmix_forecasts.main() is None
+    assert dwd_obs_climate_summary_describe_fields.main() is None
+    assert dwd_obs_climate_summary_zarr_dump.main() is None
+    assert dwd_obs_plot_german_weather_stations.main() is None
+    assert dwd_obs_plot_hohenpeissenberg_warming_stripes.main() is None
+    assert dwd_obs_plot_temperature_timeseries.main() is None
+    assert dwd_obs_stations_filter_by_distance.main() is None
+    assert dwd_obs_values_sql.main() is None
 
 
 @pytest.mark.skipif(not ENSURE_ECCODES_PDBUFR, reason="eccodes and pdbufr required")
 def test_pdbufr_examples():
-    from examples import dwd_road_weather
+    from examples.provider.dwd.road import dwd_road_validation
 
-    assert dwd_road_weather.main() is None
+    assert dwd_road_validation.main() is None
 
 
 @pytest.mark.skipif(IS_CI and IS_LINUX, reason="stalls on Mac/Windows in CI")
 @pytest.mark.cflake
 def test_gaussian_example(tmp_path):
-    from examples import observations_station_gaussian_model
+    from examples.provider.dwd.observation import dwd_obs_station_gaussian_model
 
-    assert observations_station_gaussian_model.main(tmp_path) is None
+    assert dwd_obs_station_gaussian_model.main(tmp_path) is None
 
 
 @pytest.mark.cflake
 def test_radar_examples():
     pytest.importorskip("wradlib")
-    from examples.radar import (
-        radar_composite_rw,
-        radar_radolan_cdc,
-        radar_radolan_rw,
-        radar_scan_precip,
-        radar_scan_volume,
-        radar_site_dx,
-        radar_sweep_hdf5,
+
+    from examples.provider.dwd.radar import (
+        dwd_radar_composite_rw,
+        dwd_radar_radolan_cdc,
+        dwd_radar_radolan_rw,
+        dwd_radar_scan_precip,
+        dwd_radar_scan_volume,
+        dwd_radar_site_dx,
+        dwd_radar_sweep_hdf5,
     )
 
-    assert radar_composite_rw.main() is None
-    assert radar_radolan_cdc.main() is None
-    assert radar_radolan_rw.main() is None
-    assert radar_scan_precip.main() is None
-    assert radar_scan_volume.main() is None
-    assert radar_site_dx.main() is None
-    assert radar_sweep_hdf5.main() is None
+    assert dwd_radar_composite_rw.main() is None
+    assert dwd_radar_radolan_cdc.main() is None
+    assert dwd_radar_radolan_rw.main() is None
+    assert dwd_radar_scan_precip.main() is None
+    assert dwd_radar_scan_volume.main() is None
+    assert dwd_radar_site_dx.main() is None
+    assert dwd_radar_sweep_hdf5.main() is None

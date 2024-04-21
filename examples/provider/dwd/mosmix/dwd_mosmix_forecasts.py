@@ -25,7 +25,7 @@ from wetterdienst.util.cli import setup_logging
 def mosmix_example():
     """Retrieve Mosmix mosmix data by DWD."""
     # A. MOSMIX-L -- Specific stations_result - each station with own file
-    settings = Settings(ts_shape=True, ts_humanize=True)
+    settings = Settings(ts_shape="wide", ts_humanize=True)
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],

@@ -40,14 +40,6 @@ def get_earliest_start_issue() -> dt.datetime:
 
 def main(obs_id: str, for_id: str) -> None:
     """Compare the forecast with the observation by plotting them."""
-    observation_request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
-        resolution="hourly",
-        period="recent",
-        start_date=dt.datetime.now() - dt.timedelta(days=2),
-        end_date=dt.datetime.now(),
-    ).filter_by_station_id(station_id=obs_id)
-    observation_values = observation_request.values.all().df
     forecast_request = DwdMosmixRequest(
         parameter="temperature_air_mean_200",
         mosmix_type="large",
@@ -55,13 +47,25 @@ def main(obs_id: str, for_id: str) -> None:
         start_date=dt.datetime.now() - dt.timedelta(days=2),
         end_date=dt.datetime.now(),
     ).filter_by_station_id(station_id=for_id)
-    forecast_values = forecast_request.values.all().df
-    merged = (
-        observation_values.select(["date", "value"])
-        .rename({"value": "observation"})
-        .join(forecast_values.select(["date", "value"]).rename({"value": "forecast"}), on="date")
+    print(forecast_request.df)
+    forecast_values = forecast_request.values.all()
+    print(forecast_values.df)
+    observation_request = DwdObservationRequest(
+        parameter="temperature_air_mean_200",
+        resolution="hourly",
+        period="recent",
+        start_date=dt.datetime.now() - dt.timedelta(days=2),
+        end_date=dt.datetime.now(),
+    ).filter_by_station_id(station_id=obs_id)
+    print(observation_request.df)
+    observation_values = observation_request.values.all()
+    print(observation_values.df)
+    df_joined = (
+        forecast_values.df.select(["date", "value"])
+        .rename({"value": "forecast"})
+        .join(observation_values.df.select(["date", "value"]).rename({"value": "observation"}), on="date")
     )
-    merged.to_pandas().plot(x="date", y=["observation", "forecast"], title="Forecast validation")
+    df_joined.to_pandas().plot(x="date", y=["observation", "forecast"], title="Forecast validation")
     plt.show()
 
 

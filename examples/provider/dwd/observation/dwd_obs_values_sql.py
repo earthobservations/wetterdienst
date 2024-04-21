@@ -28,7 +28,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def sql_example():
+def values_sql_example():
     """Retrieve temperature data by DWD and filter by sql statement."""
     settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=False)
 
@@ -41,6 +41,8 @@ def sql_example():
     )
 
     stations = request.filter_by_station_id(station_id=(1048,))
+
+    print(stations.df)
 
     sql = "SELECT * FROM data WHERE " "parameter='temperature_air_mean_200' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
@@ -55,7 +57,7 @@ def sql_example():
 def main():
     """Run example."""
     logging.basicConfig(level=logging.INFO)
-    sql_example()
+    values_sql_example()
 
 
 if __name__ == "__main__":

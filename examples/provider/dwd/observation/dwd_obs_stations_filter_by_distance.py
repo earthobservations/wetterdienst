@@ -21,7 +21,7 @@ from wetterdienst.provider.dwd.observation import (
 log = logging.getLogger()
 
 
-def station_example():
+def stations_filter_by_distance_example():
     """Retrieve stations_result of DWD that measure temperature."""
     stations = DwdObservationRequest(
         parameter=DwdObservationDataset.TEMPERATURE_AIR,
@@ -39,7 +39,7 @@ def station_example():
 def main():
     """Run example."""
     logging.basicConfig(level=logging.INFO)
-    station_example()
+    stations_filter_by_distance_example()
 
 
 if __name__ == "__main__":
