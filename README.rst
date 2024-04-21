@@ -261,7 +261,7 @@ Library
     ...     ts_si_units=True  # convert values to SI units
     ... )
     >>> request = DwdObservationRequest(
-    ...    parameter=["climate_summary"],
+    ...    parameter="climate_summary",
     ...    resolution="daily",
     ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
     ...    end_date="2020-01-01",  # if not given timezone defaulted to UTC
