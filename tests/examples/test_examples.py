@@ -1,13 +1,8 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from pathlib import Path
-
 import pytest
 
 from tests.conftest import ENSURE_ECCODES_PDBUFR, IS_CI, IS_LINUX
-
-HERE = Path(__name__).parent.absolute()
-EXAMPLES_DIR = HERE.parent.parent / "example"
 
 
 @pytest.mark.cflake
