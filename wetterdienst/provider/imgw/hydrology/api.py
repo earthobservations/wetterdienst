@@ -7,6 +7,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
+from io import StringIO
 
 import polars as pl
 import portion as P
@@ -361,6 +362,10 @@ class ImgwHydrologyRequest(TimeseriesRequest):
         """
         log.info(f"Downloading file {self._endpoint}.")
         payload = download_file(self._endpoint, settings=self.settings, ttl=CacheExpiry.METAINDEX)
+        # skip empty lines in the csv file
+        lines = payload.read().decode("latin-1").replace("\r", "").split("\n")
+        lines = [line for line in lines if line]
+        payload = StringIO("\n".join(lines))
         df = pl.read_csv(
             payload,
             encoding="latin-1",
@@ -368,6 +373,7 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             separator=";",
             skip_rows=1,
             infer_schema_length=0,
+            truncate_ragged_lines=True,
         )
         df = df[:, [1, 2, 4, 5]]
         df.columns = [
