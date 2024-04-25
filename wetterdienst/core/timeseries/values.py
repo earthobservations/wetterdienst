@@ -437,7 +437,9 @@ class TimeseriesValues(metaclass=ABCMeta):
                 if parameter != dataset:
                     parameter_df = parameter_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.value.lower()))
 
-                parameter_df = parameter_df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value])
+                parameter_df = parameter_df.unique(
+                    subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True
+                )
 
                 # set dynamic resolution for services that have no fixed resolutions
                 if self.sr.resolution == Resolution.DYNAMIC:
