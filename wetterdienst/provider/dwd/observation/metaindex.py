@@ -144,6 +144,13 @@ def _create_meta_index_for_climate_observations(
         dwd_cdc_base = "observations_germany/climate/"
     url = f"https://opendata.dwd.de/climate_environment/CDC/{dwd_cdc_base}/{parameter_path}"
     remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
+    # TODO: remove workaround once station list at https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/historical/2022/ is removed  # noqa: E501
+    if (
+        period == Period.HISTORICAL
+        and resolution == Resolution.MINUTE_5
+        and dataset == DwdObservationDataset.PRECIPITATION
+    ):
+        remote_files = [file for file in remote_files if file.split("/")[-2] != "2022"]
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(remote_files, url, ["beschreibung", "txt"])
     log.info(f"Downloading file {meta_file}.")
@@ -178,7 +185,7 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
     :return: DataFrame with Stations
     """
     lines = file.readlines()[2:]
-    first = lines[0].decode("latin-1").strip()
+    first = lines[0].decode("latin-1")
     if first.startswith("SP"):
         # Skip first line if it contains a header
         lines = lines[1:]
