@@ -24,7 +24,7 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
 
 
 @pytest.fixture
-def dwd_climate_summary_tabular_columns():
+def dwd_climate_summary_wide_columns():
     return [
         "station_id",
         "dataset",
@@ -248,11 +248,11 @@ def test_dwd_observation_data_result_all_missing_data(default_settings):
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tabular(
+def test_dwd_observation_data_result_wide_single_dataset(
     settings_humanize_si_false_wide_shape,
-    dwd_climate_summary_tabular_columns,
+    dwd_climate_summary_wide_columns,
 ):
-    """Test for actual values (tabular)"""
+    """Test for actual values (wide)"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -263,7 +263,7 @@ def test_dwd_observation_data_result_tabular(
         station_id=[1048],
     )
     given_df = request.values.all().df
-    assert given_df.columns == dwd_climate_summary_tabular_columns
+    assert given_df.columns == dwd_climate_summary_wide_columns
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 2,
@@ -342,11 +342,55 @@ def test_dwd_observation_data_result_tabular(
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tabular_si(
-    settings_humanize_false_wide_shape,
-    dwd_climate_summary_tabular_columns,
+def test_dwd_observation_data_result_wide_single_parameter(
+    settings_humanize_si_false_wide_shape,
 ):
-    """Test for actual values (tabular) in metric units"""
+    """Test for actual values (wide)"""
+    request = DwdObservationRequest(
+        parameter=["precipitation_height"],
+        resolution=DwdObservationResolution.DAILY,
+        start_date="1933-12-31",  # few days before official start
+        end_date="1934-01-01",  # few days after official start,
+        settings=settings_humanize_si_false_wide_shape,
+    ).filter_by_station_id(
+        station_id=[1048],
+    )
+    given_df = request.values.all().df
+    assert given_df.columns == [
+        "station_id",
+        "dataset",
+        "date",
+        "rsk",
+        "qn_rsk",
+    ]
+    expected_df = pl.DataFrame(
+        {
+            "station_id": ["01048"] * 2,
+            "dataset": ["climate_summary"] * 2,
+            "date": [
+                dt.datetime(1933, 12, 31, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
+            ],
+            "rsk": [None, 0.2],
+            "qn_rsk": [None, 1.0],
+        },
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "rsk": pl.Float64,
+            "qn_rsk": pl.Float64,
+        },
+    )
+    assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_result_wide_si(
+    settings_humanize_false_wide_shape,
+    dwd_climate_summary_wide_columns,
+):
+    """Test for actual values (wide) in metric units"""
     request = DwdObservationRequest(
         parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
         resolution=DwdObservationResolution.DAILY,
@@ -357,7 +401,7 @@ def test_dwd_observation_data_result_tabular_si(
         station_id=[1048],
     )
     given_df = request.values.all().df
-    assert given_df.columns == dwd_climate_summary_tabular_columns
+    assert given_df.columns == dwd_climate_summary_wide_columns
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 2,
@@ -429,10 +473,234 @@ def test_dwd_observation_data_result_tabular_si(
             "qn_tgk": pl.Float64,
         },
     )
-    assert_frame_equal(
-        given_df,
-        expected_df,
+    assert_frame_equal(given_df, expected_df)
+
+
+@pytest.mark.remote
+def test_dwd_observation_data_result_wide_two_datasets(
+    settings_humanize_si_false_wide_shape,
+):
+    """Test for actual values (wide)"""
+    request = DwdObservationRequest(
+        parameter=[DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.PRECIPITATION_MORE],
+        resolution=DwdObservationResolution.DAILY,
+        start_date="1933-12-31",  # few days before official start
+        end_date="1934-01-01",  # few days after official start,
+        settings=settings_humanize_si_false_wide_shape,
+    ).filter_by_station_id(
+        station_id=[1048],
     )
+    given_df = request.values.all().df
+    expected_df = pl.DataFrame(
+        [
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "date": dt.datetime(1933, 12, 31, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "climate_summary_fx": None,
+                "qn_climate_summary_fx": None,
+                "climate_summary_fm": None,
+                "qn_climate_summary_fm": None,
+                "climate_summary_rsk": None,
+                "qn_climate_summary_rsk": None,
+                "climate_summary_rskf": None,
+                "qn_climate_summary_rskf": None,
+                "climate_summary_sdk": None,
+                "qn_climate_summary_sdk": None,
+                "climate_summary_shk_tag": None,
+                "qn_climate_summary_shk_tag": None,
+                "climate_summary_nm": None,
+                "qn_climate_summary_nm": None,
+                "climate_summary_vpm": None,
+                "qn_climate_summary_vpm": None,
+                "climate_summary_pm": None,
+                "qn_climate_summary_pm": None,
+                "climate_summary_tmk": None,
+                "qn_climate_summary_tmk": None,
+                "climate_summary_upm": None,
+                "qn_climate_summary_upm": None,
+                "climate_summary_txk": None,
+                "qn_climate_summary_txk": None,
+                "climate_summary_tnk": None,
+                "qn_climate_summary_tnk": None,
+                "climate_summary_tgk": None,
+                "qn_climate_summary_tgk": None,
+                "precipitation_more_rs": 0.6,
+                "qn_precipitation_more_rs": 1.0,
+                "precipitation_more_rsf": 1.0,
+                "qn_precipitation_more_rsf": 1.0,
+                "precipitation_more_sh_tag": 0.0,
+                "qn_precipitation_more_sh_tag": 1.0,
+                "precipitation_more_nsh_tag": None,
+                "qn_precipitation_more_nsh_tag": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "climate_summary",
+                "date": dt.datetime(1934, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "climate_summary_fx": None,
+                "qn_climate_summary_fx": None,
+                "climate_summary_fm": None,
+                "qn_climate_summary_fm": None,
+                "climate_summary_rsk": 0.2,
+                "qn_climate_summary_rsk": 1.0,
+                "climate_summary_rskf": 8.0,
+                "qn_climate_summary_rskf": 1.0,
+                "climate_summary_sdk": None,
+                "qn_climate_summary_sdk": None,
+                "climate_summary_shk_tag": 0.0,
+                "qn_climate_summary_shk_tag": 1.0,
+                "climate_summary_nm": 8.0,
+                "qn_climate_summary_nm": 1.0,
+                "climate_summary_vpm": 6.4,
+                "qn_climate_summary_vpm": 1.0,
+                "climate_summary_pm": 1008.6,
+                "qn_climate_summary_pm": 1.0,
+                "climate_summary_tmk": 0.5,
+                "qn_climate_summary_tmk": 1.0,
+                "climate_summary_upm": 97.0,
+                "qn_climate_summary_upm": 1.0,
+                "climate_summary_txk": 0.7,
+                "qn_climate_summary_txk": 1.0,
+                "climate_summary_tnk": 0.2,
+                "qn_climate_summary_tnk": 1.0,
+                "climate_summary_tgk": None,
+                "qn_climate_summary_tgk": None,
+                "precipitation_more_rs": 0.2,
+                "qn_precipitation_more_rs": 1.0,
+                "precipitation_more_rsf": 8.0,
+                "qn_precipitation_more_rsf": 1.0,
+                "precipitation_more_sh_tag": 0.0,
+                "qn_precipitation_more_sh_tag": 1.0,
+                "precipitation_more_nsh_tag": None,
+                "qn_precipitation_more_nsh_tag": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "precipitation_more",
+                "date": dt.datetime(1933, 12, 31, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "climate_summary_fx": None,
+                "qn_climate_summary_fx": None,
+                "climate_summary_fm": None,
+                "qn_climate_summary_fm": None,
+                "climate_summary_rsk": None,
+                "qn_climate_summary_rsk": None,
+                "climate_summary_rskf": None,
+                "qn_climate_summary_rskf": None,
+                "climate_summary_sdk": None,
+                "qn_climate_summary_sdk": None,
+                "climate_summary_shk_tag": None,
+                "qn_climate_summary_shk_tag": None,
+                "climate_summary_nm": None,
+                "qn_climate_summary_nm": None,
+                "climate_summary_vpm": None,
+                "qn_climate_summary_vpm": None,
+                "climate_summary_pm": None,
+                "qn_climate_summary_pm": None,
+                "climate_summary_tmk": None,
+                "qn_climate_summary_tmk": None,
+                "climate_summary_upm": None,
+                "qn_climate_summary_upm": None,
+                "climate_summary_txk": None,
+                "qn_climate_summary_txk": None,
+                "climate_summary_tnk": None,
+                "qn_climate_summary_tnk": None,
+                "climate_summary_tgk": None,
+                "qn_climate_summary_tgk": None,
+                "precipitation_more_rs": 0.6,
+                "qn_precipitation_more_rs": 1.0,
+                "precipitation_more_rsf": 1.0,
+                "qn_precipitation_more_rsf": 1.0,
+                "precipitation_more_sh_tag": 0.0,
+                "qn_precipitation_more_sh_tag": 1.0,
+                "precipitation_more_nsh_tag": None,
+                "qn_precipitation_more_nsh_tag": None,
+            },
+            {
+                "station_id": "01048",
+                "dataset": "precipitation_more",
+                "date": dt.datetime(1934, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+                "climate_summary_fx": None,
+                "qn_climate_summary_fx": None,
+                "climate_summary_fm": None,
+                "qn_climate_summary_fm": None,
+                "climate_summary_rsk": 0.2,
+                "qn_climate_summary_rsk": 1.0,
+                "climate_summary_rskf": 8.0,
+                "qn_climate_summary_rskf": 1.0,
+                "climate_summary_sdk": None,
+                "qn_climate_summary_sdk": None,
+                "climate_summary_shk_tag": 0.0,
+                "qn_climate_summary_shk_tag": 1.0,
+                "climate_summary_nm": 8.0,
+                "qn_climate_summary_nm": 1.0,
+                "climate_summary_vpm": 6.4,
+                "qn_climate_summary_vpm": 1.0,
+                "climate_summary_pm": 1008.6,
+                "qn_climate_summary_pm": 1.0,
+                "climate_summary_tmk": 0.5,
+                "qn_climate_summary_tmk": 1.0,
+                "climate_summary_upm": 97.0,
+                "qn_climate_summary_upm": 1.0,
+                "climate_summary_txk": 0.7,
+                "qn_climate_summary_txk": 1.0,
+                "climate_summary_tnk": 0.2,
+                "qn_climate_summary_tnk": 1.0,
+                "climate_summary_tgk": None,
+                "qn_climate_summary_tgk": None,
+                "precipitation_more_rs": 0.2,
+                "qn_precipitation_more_rs": 1.0,
+                "precipitation_more_rsf": 8.0,
+                "qn_precipitation_more_rsf": 1.0,
+                "precipitation_more_sh_tag": 0.0,
+                "qn_precipitation_more_sh_tag": 1.0,
+                "precipitation_more_nsh_tag": None,
+                "qn_precipitation_more_nsh_tag": None,
+            },
+        ],
+        schema={
+            "station_id": pl.Utf8,
+            "dataset": pl.Utf8,
+            "date": pl.Datetime(time_zone="UTC"),
+            "climate_summary_fx": pl.Float64,
+            "qn_climate_summary_fx": pl.Float64,
+            "climate_summary_fm": pl.Float64,
+            "qn_climate_summary_fm": pl.Float64,
+            "climate_summary_rsk": pl.Float64,
+            "qn_climate_summary_rsk": pl.Float64,
+            "climate_summary_rskf": pl.Float64,
+            "qn_climate_summary_rskf": pl.Float64,
+            "climate_summary_sdk": pl.Float64,
+            "qn_climate_summary_sdk": pl.Float64,
+            "climate_summary_shk_tag": pl.Float64,
+            "qn_climate_summary_shk_tag": pl.Float64,
+            "climate_summary_nm": pl.Float64,
+            "qn_climate_summary_nm": pl.Float64,
+            "climate_summary_vpm": pl.Float64,
+            "qn_climate_summary_vpm": pl.Float64,
+            "climate_summary_pm": pl.Float64,
+            "qn_climate_summary_pm": pl.Float64,
+            "climate_summary_tmk": pl.Float64,
+            "qn_climate_summary_tmk": pl.Float64,
+            "climate_summary_upm": pl.Float64,
+            "qn_climate_summary_upm": pl.Float64,
+            "climate_summary_txk": pl.Float64,
+            "qn_climate_summary_txk": pl.Float64,
+            "climate_summary_tnk": pl.Float64,
+            "qn_climate_summary_tnk": pl.Float64,
+            "climate_summary_tgk": pl.Float64,
+            "qn_climate_summary_tgk": pl.Float64,
+            "precipitation_more_rs": pl.Float64,
+            "qn_precipitation_more_rs": pl.Float64,
+            "precipitation_more_rsf": pl.Float64,
+            "qn_precipitation_more_rsf": pl.Float64,
+            "precipitation_more_sh_tag": pl.Float64,
+            "qn_precipitation_more_sh_tag": pl.Float64,
+            "precipitation_more_nsh_tag": pl.Float64,
+            "qn_precipitation_more_nsh_tag": pl.Float64,
+        },
+    )
+    assert_frame_equal(given_df, expected_df)
 
 
 @pytest.mark.remote
@@ -692,10 +960,7 @@ def test_dwd_observation_data_result_tidy_si(settings_humanize_false):
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(
-        given_df,
-        expected_df,
-    )
+    assert_frame_equal(given_df, expected_df)
 
 
 @pytest.mark.remote
@@ -833,10 +1098,7 @@ def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_si_false)
             "quality": pl.Float64,
         },
     )
-    assert_frame_equal(
-        given_df,
-        expected_df,
-    )
+    assert_frame_equal(given_df, expected_df)
 
 
 @pytest.mark.remote

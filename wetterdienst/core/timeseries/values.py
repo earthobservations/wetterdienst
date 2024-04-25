@@ -537,7 +537,17 @@ class TimeseriesValues(metaclass=ABCMeta):
         :returns DataFrame with widened data e.g. pairwise columns of values
         and quality flags
         """
-        df_tabulated = df.select(
+        # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
+        # column name conflicts
+        if df.get_column(Columns.DATASET.value).unique().len() > 1:
+            df = df.with_columns(
+                pl.struct([pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)])
+                .map_elements(
+                    lambda x: f"""{x["dataset"]}_{x["parameter"]}""",
+                )
+                .alias(Columns.PARAMETER.value),
+            )
+        df_wide = df.select(
             [pl.col(Columns.STATION_ID.value), pl.col(Columns.DATASET.value), pl.col(Columns.DATE.value)],
         ).unique()
 
@@ -547,9 +557,9 @@ class TimeseriesValues(metaclass=ABCMeta):
             parameter_df = parameter_df.select([Columns.DATE.value, Columns.VALUE.value, Columns.QUALITY.value]).rename(
                 mapping={Columns.VALUE.value: parameter, Columns.QUALITY.value: parameter_quality},
             )
-            df_tabulated = df_tabulated.join(parameter_df, on=[Columns.DATE.value])
+            df_wide = df_wide.join(parameter_df, on=[Columns.DATE.value])
 
-        return df_tabulated
+        return df_wide
 
     def all(self) -> ValuesResult:  # noqa: A003
         """

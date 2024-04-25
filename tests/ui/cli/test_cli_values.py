@@ -120,7 +120,7 @@ def test_cli_values_json_multiple_stations():
 
 @pytest.mark.remote
 def test_cli_values_json_multiple_datasets():
-    result = invoke_wetterdienst_values_static_wide(
+    result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
         setting="--resolution=daily --parameter=kl,more_precip --date=2020-06-30",

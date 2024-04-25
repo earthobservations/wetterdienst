@@ -54,7 +54,8 @@ The following settings are available:
      - rename parameters to more meaningful names
      - True
    * - ts_shape
-     - reshape the returned data to a `long/tidy format`_, one of "long", "wide"
+     - reshape the returned data to a `long/tidy format`_, one of "long", "wide", if two datasets are requested,
+       parameter names are prefixed with the dataset name
      - "long"
    * - ts_si_units
      - convert values to SI units
