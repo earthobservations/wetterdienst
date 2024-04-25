@@ -5,6 +5,7 @@ Development
 ***********
 
 - Adjust column specs for DWD Observation station listing
+- Maintain order during deduplication
 
 0.81.0 (09.04.2024)
 *******************
