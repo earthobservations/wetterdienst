@@ -10,7 +10,7 @@ from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
-from wetterdienst import Author, Info, Period, Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Author, Info, Period, Provider, Wetterdienst, __appname__
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -50,7 +50,7 @@ def index():
         # create author string Max Mustermann (Github href, Mailto)
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
-    appname = f"{__appname__} v{__version__}"
+    title = f"{__appname__} restapi"
     about = "Wetterdienst - Open weather data for humans."
     sources = []
     for provider in Provider:
@@ -64,7 +64,7 @@ def index():
     return f"""
     <html lang="en">
         <head>
-            <title>{appname}</title>
+            <title>{title}</title>
             <meta name="description" content="{about}">
             <meta name="keywords" content="weather, climate, data, api, open, source, wetterdienst">
             <style>
