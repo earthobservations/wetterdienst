@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Adjust column specs for DWD Observation station listing
+
 0.81.0 (09.04.2024)
 *******************
 

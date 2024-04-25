@@ -186,13 +186,13 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
     df = pl.DataFrame(lines)
     column_specs = (
         (0, 4),
-        (6, 13),
-        (15, 22),
-        (24, 37),
-        (39, 49),
-        (51, 59),
-        (61, 140),
-        (141, 200),
+        (21, 29),
+        (30, 38),
+        (40, 53),
+        (55, 65),
+        (67, 75),
+        (76, 156),
+        (157, 200),
     )
     df = read_fwf_from_df(df, column_specs)
     return df.rename(mapping=lambda col: DWD_COLUMN_NAMES_MAPPING.get(col, col)).lazy()
