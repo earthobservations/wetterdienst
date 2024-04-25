@@ -668,22 +668,22 @@ class TimeseriesRequest(Core):
             stations_filter=StationsFilter.BY_STATION_ID,
         )
 
-    def filter_by_name(self, name: str, rank: int = 1, threshold: int = 90) -> StationsResult:
+    def filter_by_name(self, name: str, rank: int = 1, threshold: float = 0.9) -> StationsResult:
         """
         Method to filter stations_result for station name using string comparison.
 
         :param name: name of looked up station
         :param rank: number of stations requested
-        :param threshold: threshold for string match 0...100
+        :param threshold: threshold for string match 0.0...1.0
         :return: df with matched station
         """
         rank = int(rank)
         if rank <= 0:
             raise ValueError("'rank' has to be at least 1.")
 
-        threshold = int(threshold)
-        if threshold < 0:
-            raise ValueError("threshold must be ge 0")
+        threshold = float(threshold)
+        if threshold < 0 or threshold > 1:
+            raise ValueError("threshold must be between 0.0 and 1.0")
 
         df = self.all().df
 
@@ -691,7 +691,7 @@ class TimeseriesRequest(Core):
             query=name,
             choices=df[Columns.NAME.value],
             scorer=fuzz.token_set_ratio,
-            score_cutoff=threshold,
+            score_cutoff=threshold * 100,
         )
 
         if station_match:

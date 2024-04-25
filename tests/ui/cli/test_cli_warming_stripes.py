@@ -60,9 +60,9 @@ def test_warming_stripes_start_year_ge_end_year():
 @pytest.mark.remote
 def test_warming_stripes_wrong_name_threshold():
     runner = CliRunner()
-    result = runner.invoke(cli, "warming_stripes --station 1048 --name_threshold 101")
+    result = runner.invoke(cli, "warming_stripes --station 1048 --name_threshold 1.01")
     assert result.exit_code == 1
-    assert "Error: name_threshold must be more than 0 and less than or equal to 100" in result.stdout
+    assert "Error: name_threshold must be between 0.0 and 1.0" in result.stdout
 
 
 @pytest.mark.remote

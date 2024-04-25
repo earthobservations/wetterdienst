@@ -6,6 +6,7 @@ Development
 
 - Adjust column specs for DWD Observation station listing
 - Maintain order during deduplication
+- Change threshold in `filter_by_name` to 0.0...1.0
 
 0.81.0 (09.04.2024)
 *******************

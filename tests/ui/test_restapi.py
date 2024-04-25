@@ -570,13 +570,11 @@ def test_warming_stripes_wrong_name_threshold(client):
         "/api/warming_stripes",
         params={
             "name": "Dresden-Klotzsche",
-            "name_threshold": 101,
+            "name_threshold": 1.01,
         },
     )
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "Query argument 'name_threshold' must be more than 0 and less than or equal to 100"
-    }
+    assert response.json() == {"detail": "Query argument 'name_threshold' must be between 0.0 and 1.0"}
 
 
 @pytest.mark.remote

@@ -73,7 +73,7 @@ with st.sidebar:
 
     start_year = st.number_input("Start year", value=None, step=1)
     end_year = st.number_input("End year", min_value=start_year + 1 if start_year else None, value=None, step=1)
-    name_threshold = st.number_input("Name threshold", min_value=1, max_value=100, value=80, step=1)
+    name_threshold = st.number_input("Name threshold", min_value=0.0, max_value=1.0, value=0.9, step=0.1)
     use_only_active_stations = st.checkbox("Use only active stations", value=True)
 
     st.subheader("Settings")

@@ -1137,7 +1137,7 @@ def radar(
 @cloup.option("--name", type=click.STRING)
 @cloup.option("--start_year", type=click.INT)
 @cloup.option("--end_year", type=click.INT)
-@cloup.option("--name_threshold", type=click.INT, default=80)
+@cloup.option("--name_threshold", type=click.FLOAT, default=0.90)
 @cloup.option("--show_title", type=click.BOOL, default=True)
 @cloup.option("--show_years", type=click.BOOL, default=True)
 @cloup.option("--show_data_availability", type=click.BOOL, default=True)
@@ -1154,7 +1154,7 @@ def warming_stripes(
     name: str,
     start_year: int,
     end_year: int,
-    name_threshold: int,
+    name_threshold: float,
     show_title: bool,
     show_years: bool,
     show_data_availability: bool,

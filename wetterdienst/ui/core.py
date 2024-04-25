@@ -433,7 +433,7 @@ def _plot_warming_stripes(
     name: str | None = None,
     start_year: int | None = None,
     end_year: int | None = None,
-    name_threshold: int = 80,
+    name_threshold: float = 0.9,
     show_title: bool = True,
     show_years: bool = True,
     show_data_availability: bool = True,
@@ -446,8 +446,8 @@ def _plot_warming_stripes(
     if start_year and end_year:
         if start_year >= end_year:
             raise ValueError("start_year must be less than end_year")
-    if name_threshold <= 0 or name_threshold > 100:
-        raise ValueError("name_threshold must be more than 0 and less than or equal to 100")
+    if name_threshold < 0 or name_threshold > 1:
+        raise ValueError("name_threshold must be between 0.0 and 1.0")
     if dpi <= 0:
         raise ValueError("dpi must be more than 0")
 
@@ -545,7 +545,7 @@ def _thread_safe_plot_warming_stripes(
     name: str | None = None,
     start_year: int | None = None,
     end_year: int | None = None,
-    name_threshold: int = 80,
+    name_threshold: float = 0.9,
     show_title: bool = True,
     show_years: bool = True,
     show_data_availability: bool = True,

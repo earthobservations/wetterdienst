@@ -594,7 +594,7 @@ def warming_stripes(
     name: Annotated[Optional[str], Query()] = None,
     start_year: Annotated[Optional[int], Query()] = None,
     end_year: Annotated[Optional[int], Query()] = None,
-    name_threshold: Annotated[Optional[int], Query()] = 80,
+    name_threshold: Annotated[Optional[float], Query()] = 0.9,
     show_title: Annotated[bool, Query()] = True,
     show_years: Annotated[bool, Query()] = True,
     show_data_availability: Annotated[bool, Query()] = True,
@@ -620,10 +620,10 @@ def warming_stripes(
                 status_code=400,
                 detail="Query argument 'start_year' must be less than 'end_year'",
             )
-    if name_threshold <= 0 or name_threshold > 100:
+    if name_threshold < 0 or name_threshold > 1:
         raise HTTPException(
             status_code=400,
-            detail="Query argument 'name_threshold' must be more than 0 and less than or equal to 100",
+            detail="Query argument 'name_threshold' must be between 0.0 and 1.0",
         )
     if fmt not in ["png", "jpg", "svg", "pdf"]:
         raise HTTPException(
