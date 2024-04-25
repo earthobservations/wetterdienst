@@ -380,15 +380,8 @@ class TimeseriesRequest(Core):
             raise NoParametersFoundError("no valid parameters could be parsed from given argument")
 
         self.humanize = settings.ts_humanize
-        shape = settings.ts_shape
-        if self._has_datasets:
-            any_not_dataset = any(parameter not in self._dataset_base for parameter, dataset in self.parameter)
-            multiple_datasets = (
-                len({parameter.value for parameter, dataset in self.parameter if parameter in self._dataset_base}) > 1
-            )
-            shape = "long" if (any_not_dataset or multiple_datasets) else shape
-        self.shape = shape
-        self.tidy = 1 if shape == "long" else 0
+        self.shape = settings.ts_shape
+        self.tidy = 1 if self.shape == "long" else 0
         self.si_units = settings.ts_si_units
 
         # skip empty stations
