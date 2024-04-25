@@ -486,7 +486,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                     station_df = self._humanize(df=station_df, humanized_parameters_mapping=hpm)
 
                 if not self.sr.tidy:
-                    station_df = self._tabulate_df(df=station_df)
+                    station_df = self._widen_df(df=station_df)
 
                 if self.sr.tidy:
                     sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
@@ -515,9 +515,9 @@ class TimeseriesValues(metaclass=ABCMeta):
         pass
 
     @staticmethod
-    def _tabulate_df(df: pl.DataFrame) -> pl.DataFrame:
+    def _widen_df(df: pl.DataFrame) -> pl.DataFrame:
         """
-        Method to tabulate a dataframe with each row having one timestamp and
+        Method to widen a dataframe with each row having one timestamp and
         all parameter values and corresponding quality levels.
 
         Example:
@@ -533,8 +533,8 @@ class TimeseriesValues(metaclass=ABCMeta):
             temperature_air_mean_200    ...
             10                          ...
 
-        :param df: pandas.DataFrame with ts_shape data
-        :returns pandas.DataFrame with tabulated data e.g. pairwise columns of values
+        :param df: DataFrame with ts_shape data
+        :returns DataFrame with widened data e.g. pairwise columns of values
         and quality flags
         """
         df_tabulated = df.select(

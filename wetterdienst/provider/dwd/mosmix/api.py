@@ -1074,7 +1074,7 @@ class DwdMosmixValues(TimeseriesValues):
                 df = df.filter(pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date))
 
             if not self.sr.tidy:
-                df = self._tabulate_df(df)
+                df = self._widen_df(df)
 
             self.stations_counter += 1
             self.stations_collected.append(station_id)
