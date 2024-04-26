@@ -353,7 +353,7 @@ def test_cli_values_excel(
         station=station_id,
         target=f"file://{filename}",
     )
-    df = pl.read_excel(filename, sheet_name="Sheet1", read_csv_options={"infer_schema_length": 0})
+    df = pl.read_excel(filename, sheet_name="Sheet1", infer_schema_length=0)
     if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "station_id" in df.columns
