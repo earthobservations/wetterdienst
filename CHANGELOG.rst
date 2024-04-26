@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.83.0 (26.04.2024)
+*******************
+
 - Allow `wide` shape with multiple datasets
 
 0.82.0 (25.04.2024)
