@@ -66,24 +66,6 @@ def dwd_climate_summary_tabular_columns():
 
 
 @pytest.fixture
-def dwd_metadata():
-    return {
-        "producer": {
-            "doi": "10.5281/zenodo.3960624",
-            "name": "Wetterdienst",
-            "url": "https://github.com/earthobservations/wetterdienst",
-        },
-        "provider": {
-            "copyright": "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)",
-            "country": "Germany",
-            "name_english": "German Weather Service",
-            "name_local": "Deutscher Wetterdienst",
-            "url": "https://opendata.dwd.de/climate_environment/CDC/",
-        },
-    }
-
-
-@pytest.fixture
 def df_stations():
     return pl.DataFrame(
         {
@@ -251,7 +233,7 @@ def test_stations_to_dict(df_stations):
     ]
 
 
-def test_stations_to_dict_with_metadata(df_stations, stations_mock, dwd_metadata):
+def test_stations_to_dict_with_metadata(df_stations, stations_mock, metadata):
     data = StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -259,7 +241,7 @@ def test_stations_to_dict_with_metadata(df_stations, stations_mock, dwd_metadata
         stations=stations_mock,
     ).to_dict(with_metadata=True)
     assert data.keys() == {"stations", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_stations_to_ogc_feature_collection(df_stations):
@@ -283,7 +265,7 @@ def test_stations_to_ogc_feature_collection(df_stations):
     }
 
 
-def test_stations_to_ogc_feature_collection_with_metadata(df_stations, stations_mock, dwd_metadata):
+def test_stations_to_ogc_feature_collection_with_metadata(df_stations, stations_mock, metadata):
     data = StationsResult(
         df=df_stations,
         df_all=df_stations,
@@ -291,7 +273,7 @@ def test_stations_to_ogc_feature_collection_with_metadata(df_stations, stations_
         stations=stations_mock,
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_stations_format_json(df_stations):
@@ -357,10 +339,10 @@ def test_values_to_dict(df_values):
     ]
 
 
-def test_values_to_dict_with_metadata(df_values, stations_result_mock, dwd_metadata):
+def test_values_to_dict_with_metadata(df_values, stations_result_mock, metadata):
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_dict(with_metadata=True)
     assert data.keys() == {"values", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
@@ -388,12 +370,12 @@ def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
     }
 
 
-def test_values_to_ogc_feature_collection_with_metadata(df_values, stations_result_mock, dwd_metadata):
+def test_values_to_ogc_feature_collection_with_metadata(df_values, stations_result_mock, metadata):
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
         with_metadata=True,
     )
     assert data.keys() == {"data", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_values_format_json(df_values):
@@ -450,12 +432,12 @@ def test_interpolated_values_to_dict(df_interpolated_values):
     ]
 
 
-def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stations_result_mock, dwd_metadata):
+def test_interpolated_values_to_dict_with_metadata(df_interpolated_values, stations_result_mock, metadata):
     data = InterpolatedValuesResult(stations=stations_result_mock, df=df_interpolated_values, latlon=(1, 2)).to_dict(
         with_metadata=True,
     )
     assert data.keys() == {"values", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, stations_result_mock):
@@ -497,7 +479,7 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
 def test_interpolated_values_to_ogc_feature_collection_with_metadata(
     df_interpolated_values,
     stations_result_mock,
-    dwd_metadata,
+    metadata,
 ):
     data = InterpolatedValuesResult(
         stations=stations_result_mock,
@@ -505,7 +487,7 @@ def test_interpolated_values_to_ogc_feature_collection_with_metadata(
         latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_summarized_values_to_dict(df_summarized_values):
@@ -523,14 +505,14 @@ def test_summarized_values_to_dict(df_summarized_values):
     ]
 
 
-def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_result_mock, dwd_metadata):
+def test_summarized_values_to_dict_with_metadata(df_summarized_values, stations_result_mock, metadata):
     data = SummarizedValuesResult(
         stations=stations_result_mock,
         df=df_summarized_values,
         latlon=(1.2345, 2.3456),
     ).to_dict(with_metadata=True)
     assert data.keys() == {"values", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stations_result_mock):
@@ -572,7 +554,7 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
 def test_summarized_values_to_ogc_feature_collection_with_metadata(
     df_summarized_values,
     stations_result_mock,
-    dwd_metadata,
+    metadata,
 ):
     data = SummarizedValuesResult(
         stations=stations_result_mock,
@@ -580,7 +562,7 @@ def test_summarized_values_to_ogc_feature_collection_with_metadata(
         latlon=(1.2345, 2.3456),
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
-    assert data["metadata"] == dwd_metadata
+    assert data["metadata"] == metadata
 
 
 def test_filter_by_date(df_values):

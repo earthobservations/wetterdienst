@@ -26,21 +26,22 @@ class Author:
 
 class Info:
     def __init__(self):
-        self.__version__ = __version__
+        self.name = __appname__
+        self.version = __version__
         self.authors = [
             Author("Benjamin Gutzmann", "gutzemann@gmail.com", "gutzbenj"),
             Author("Andreas Motl", "andreas.motl@panodata.org", "amotl"),
         ]
-        self.documentation = "https://wetterdienst.readthedocs.io"
         self.repository = "https://github.com/earthobservations/wetterdienst"
+        self.documentation = "https://wetterdienst.readthedocs.io"
         self.cache_dir = Settings().cache_dir
 
     def __str__(self):
         return dedent(f"""
         ===========================================
-        Wetterdienst - Open weather data for humans
+        {self.name} - open weather data for humans
         ===========================================
-        version:                {self.__version__}
+        version:                {self.version}
         authors:                {', '.join([f"{author.name} <{author.email}>" for author in self.authors])}
         documentation:          {self.documentation}
         repository:             {self.repository}
@@ -49,10 +50,11 @@ class Info:
 
     def to_dict(self):
         return {
-            "version": self.__version__,
+            "name": self.name,
+            "version": self.version,
             "authors": [asdict(author) for author in self.authors],
-            "documentation": self.documentation,
             "repository": self.repository,
+            "documentation": self.documentation,
             "cache_dir": self.cache_dir,
         }
 
@@ -60,6 +62,7 @@ class Info:
 __all__ = [
     "__appname__",
     "__version__",
+    "Author",
     "Info",
     "Kind",
     "Parameter",

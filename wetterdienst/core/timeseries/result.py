@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Literal
 import polars as pl
 from typing_extensions import NotRequired, TypedDict
 
+from wetterdienst import Info
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
@@ -25,8 +26,7 @@ if TYPE_CHECKING:
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
-PRODUCER_NAME = "Wetterdienst"
-PRODUCER_LINK = "https://github.com/earthobservations/wetterdienst"
+info = Info()
 
 
 class StationsFilter:
@@ -50,7 +50,9 @@ class _Provider(TypedDict):
 
 class _Producer(TypedDict):
     name: str
-    url: str
+    version: str
+    repository: str
+    documentation: str
     doi: str
 
 
@@ -236,8 +238,10 @@ class StationsResult(ExportMixin):
                 "url": url,
             },
             "producer": {
-                "name": PRODUCER_NAME,
-                "url": PRODUCER_LINK,
+                "name": info.name,
+                "version": info.version,
+                "repository": info.repository,
+                "documentation": info.documentation,
                 "doi": "10.5281/zenodo.3960624",
             },
         }
