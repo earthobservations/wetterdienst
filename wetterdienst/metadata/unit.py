@@ -13,6 +13,7 @@ REGISTRY = pint.UnitRegistry()
 REGISTRY.define("fraction = [] = frac")
 REGISTRY.define("percent = 1e-2 frac = pct")
 REGISTRY.define("one_eighth = 0.125 frac = 1/8")
+REGISTRY.define("one_hundredth = 0.01 frac = 1/100")
 REGISTRY.define("beaufort = 1 frac = bft")
 REGISTRY.define("significant_weather = 1frac = sign [0..95]")
 REGISTRY.define("@alias degree = wind_direction = []")
@@ -34,6 +35,7 @@ class OriginUnit(Enum):
     PERCENT = REGISTRY.percent
     WIND_DIRECTION = REGISTRY.wind_direction
     DEGREE = REGISTRY.degree
+    ONE_HUNDREDTH = REGISTRY.one_hundredth
 
     SIGNIFICANT_WEATHER = REGISTRY.significant_weather  # should stay the same in SI
 
@@ -68,6 +70,9 @@ class OriginUnit(Enum):
     JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter**2)
     KILOJOULE_PER_SQUARE_METER = REGISTRY.kilojoule / (REGISTRY.meter**2)
 
+    # Power
+    WATT_PER_SQUARE_METER = REGISTRY.watt / (REGISTRY.meter**2)
+
     # Volume
     CUBIC_METERS_PER_SECOND = (REGISTRY.meter**3) / REGISTRY.second
     LITERS_PER_SECOND = REGISTRY.liter / REGISTRY.second
@@ -95,6 +100,7 @@ class SIUnit(Enum):
     PERCENT = REGISTRY.percent
     WIND_DIRECTION = REGISTRY.wind_direction
     DEGREE = REGISTRY.degree
+    ONE_HUNDREDTH = REGISTRY.one_hundredth
 
     # Temperature
     DEGREE_KELVIN = 1 * REGISTRY.degree_Kelvin
@@ -116,6 +122,9 @@ class SIUnit(Enum):
 
     # Energy
     JOULE_PER_SQUARE_METER = REGISTRY.joule / (REGISTRY.meter**2)
+
+    # Power
+    WATT_PER_SQUARE_METER = REGISTRY.watt / (REGISTRY.meter**2)
 
     # Precipitation
     KILOGRAM_PER_SQUARE_METER = REGISTRY.kilogram / (REGISTRY.meter**2)
