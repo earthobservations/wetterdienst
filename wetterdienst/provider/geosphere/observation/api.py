@@ -160,8 +160,8 @@ class GeosphereObservationParameter(DatasetTreeCore):
             TEMPERATURE_AIR_MEAN_200 = "tl_mittel"  # Lufttemperaturmittel 2m °C
             TEMPERATURE_AIR_MIN_200 = "tlmin"  # Lufttemperatur 2m Minimum °C
             TEMPERATURE_AIR_MIN_005 = "tsmin"  # 5 cm Lufttemperatur Minimum °C
-            WIND_SPEED = "vv_mittel"  # Windgeschwindigkeit Tagesmittel m/s
             WIND_GUST_MAX = "ffx"  # Maximale Windgeschwindigkeit (Spitzenböe) m/s
+            WIND_SPEED = "vv_mittel"  # Windgeschwindigkeit Tagesmittel m/s
             # Not (yet) implemented parameters:
             # Check dataset description and metadeta for more details (https://data.hub.geosphere.at/dataset/klima-v2-1d)
 
@@ -179,8 +179,8 @@ class GeosphereObservationParameter(DatasetTreeCore):
         TEMPERATURE_AIR_MEAN_200 = DAILY.TEMPERATURE_AIR_MEAN_200
         TEMPERATURE_AIR_MIN_200 = DAILY.TEMPERATURE_AIR_MIN_200
         TEMPERATURE_AIR_MIN_005 = DAILY.TEMPERATURE_AIR_MIN_005
-        WIND_SPEED = DAILY.WIND_SPEED
         WIND_GUST_MAX = DAILY.WIND_GUST_MAX
+        WIND_SPEED = DAILY.WIND_SPEED
 
     class MONTHLY(DatasetTreeCore):
         class MONTHLY(Enum):
@@ -200,12 +200,12 @@ class GeosphereObservationParameter(DatasetTreeCore):
             SUNSHINE_DURATION_RELATIVE = (
                 "so_r"  # Anteil der Sonnenscheindauer zur effektiv möglichen Sonnenscheindauer %
             )
-            TEMPERATURE_AIR_MAX_000 = "bet0_max"  # Lufttemperatur Beton 0cm Monatsmaximal °C
             TEMPERATURE_AIR_MAX_200 = "tlmax"  # Lufttemperatur 2m Monatsmaximum °C
-            TEMPERATURE_AIR_MEAN_000 = "bet0"  # Lufttemperatur Beton 0cm Monatsmittel °C
+            TEMPERATURE_CONCRETE_MAX_000 = "bet0_max"  # Lufttemperatur Beton 0cm Monatsmaximal °C
             TEMPERATURE_AIR_MEAN_200 = "tl_mittel"  # Lufttemperatur 2m Monatsmittel °C
-            TEMPERATURE_AIR_MIN_000 = "beta_min"  # Lufttemperatur Beton 0cm Monatsminimum °C
+            TEMPERATURE_CONCRETE_MEAN_000 = "bet0"  # Lufttemperatur Beton 0cm Monatsmittel °C
             TEMPERATURE_AIR_MIN_200 = "tlmin"  # Lufttemperatur 2m Monatsminimum °C
+            TEMPERATURE_CONCRETE_MIN_000 = "beta_min"  # Lufttemperatur Beton 0cm Monatsminimum °C
             TEMPERATURE_SOIL_MAX_010 = "tb10_max"  # Erdbodentemperatur -10cm Monatsmaximum °C
             TEMPERATURE_SOIL_MAX_020 = "tb20_max"  # Erdbodentemperatur -20cm Monatsmaximum °C
             TEMPERATURE_SOIL_MAX_050 = "tb50_max"  # Erdbodentemperatur -50cm Monatsmaximum °C
@@ -239,12 +239,12 @@ class GeosphereObservationParameter(DatasetTreeCore):
         SNOW_DEPTH_MAX = MONTHLY.SNOW_DEPTH_MAX
         SUNSHINE_DURATION = MONTHLY.SUNSHINE_DURATION
         SUNSHINE_DURATION_RELATIVE = MONTHLY.SUNSHINE_DURATION_RELATIVE
-        TEMPERATURE_AIR_MAX_000 = MONTHLY.TEMPERATURE_AIR_MAX_000
         TEMPERATURE_AIR_MAX_200 = MONTHLY.TEMPERATURE_AIR_MAX_200
-        TEMPERATURE_AIR_MEAN_000 = MONTHLY.TEMPERATURE_AIR_MEAN_000
+        TEMPERATURE_CONCRETE_MAX_000 = MONTHLY.TEMPERATURE_CONCRETE_MAX_000
         TEMPERATURE_AIR_MEAN_200 = MONTHLY.TEMPERATURE_AIR_MEAN_200
-        TEMPERATURE_AIR_MIN_000 = MONTHLY.TEMPERATURE_AIR_MIN_000
+        TEMPERATURE_CONCRETE_MEAN_000 = MONTHLY.TEMPERATURE_CONCRETE_MEAN_000
         TEMPERATURE_AIR_MIN_200 = MONTHLY.TEMPERATURE_AIR_MIN_200
+        TEMPERATURE_CONCRETE_MIN_000 = MONTHLY.TEMPERATURE_CONCRETE_MIN_000
         TEMPERATURE_SOIL_MAX_010 = MONTHLY.TEMPERATURE_SOIL_MAX_010
         TEMPERATURE_SOIL_MAX_020 = MONTHLY.TEMPERATURE_SOIL_MAX_020
         TEMPERATURE_SOIL_MAX_050 = MONTHLY.TEMPERATURE_SOIL_MAX_050
@@ -348,12 +348,12 @@ class GeosphereObservationUnit(DatasetTreeCore):
             SNOW_DEPTH_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             SUNSHINE_DURATION = OriginUnit.HOUR.value, SIUnit.SECOND.value
             SUNSHINE_DURATION_RELATIVE = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_MAX_000 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_AIR_MAX_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MEAN_000 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_CONCRETE_MAX_000 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_000 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_CONCRETE_MEAN_000 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_AIR_MIN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_CONCRETE_MIN_000 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value            
             TEMPERATURE_SOIL_MAX_010 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_SOIL_MAX_020 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_SOIL_MAX_050 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
