@@ -205,7 +205,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
             TEMPERATURE_AIR_MEAN_200 = "tl_mittel"  # Lufttemperatur 2m Monatsmittel °C
             TEMPERATURE_CONCRETE_MEAN_000 = "bet0"  # Lufttemperatur Beton 0cm Monatsmittel °C
             TEMPERATURE_AIR_MIN_200 = "tlmin"  # Lufttemperatur 2m Monatsminimum °C
-            TEMPERATURE_CONCRETE_MIN_000 = "beta_min"  # Lufttemperatur Beton 0cm Monatsminimum °C
+            TEMPERATURE_CONCRETE_MIN_000 = "bet0_min"  # Lufttemperatur Beton 0cm Monatsminimum °C
             TEMPERATURE_SOIL_MAX_010 = "tb10_max"  # Erdbodentemperatur -10cm Monatsmaximum °C
             TEMPERATURE_SOIL_MAX_020 = "tb20_max"  # Erdbodentemperatur -20cm Monatsmaximum °C
             TEMPERATURE_SOIL_MAX_050 = "tb50_max"  # Erdbodentemperatur -50cm Monatsmaximum °C
