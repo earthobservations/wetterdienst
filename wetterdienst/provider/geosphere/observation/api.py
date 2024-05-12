@@ -382,7 +382,7 @@ class GeosphereObservationDataset(Enum):
 class GeosphereObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = (
-        "https://dataset.api.hub.zamg.ac.at/v1/station/historical/{resolution}?"
+        "https://dataset.api.hub.geosphere.at/v1/station/historical/{resolution}?"
         "parameters={parameters}&"
         "start={start_date}&"
         "end={end_date}&"
