@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix DWD Obs station list parsing again
+
 0.83.0 (26.04.2024)
 *******************
 
