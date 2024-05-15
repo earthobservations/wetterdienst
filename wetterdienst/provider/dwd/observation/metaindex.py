@@ -23,7 +23,6 @@ from wetterdienst.provider.dwd.observation.metadata.dataset import (
 )
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -31,14 +30,14 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 DWD_COLUMN_NAMES_MAPPING = {
-    "column_0": Columns.STATION_ID.value,
-    "column_1": Columns.START_DATE.value,
-    "column_2": Columns.END_DATE.value,
-    "column_3": Columns.HEIGHT.value,
-    "column_4": Columns.LATITUDE.value,
-    "column_5": Columns.LONGITUDE.value,
-    "column_6": Columns.NAME.value,
-    "column_7": Columns.STATE.value,
+    "column_1": Columns.STATION_ID.value,
+    "column_2": Columns.START_DATE.value,
+    "column_3": Columns.END_DATE.value,
+    "column_4": Columns.HEIGHT.value,
+    "column_5": Columns.LATITUDE.value,
+    "column_6": Columns.LONGITUDE.value,
+    "column_7": Columns.NAME.value,
+    "column_8": Columns.STATE.value,
 }
 
 METADATA_COLUMNS = [
@@ -190,19 +189,26 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
         # Skip first line if it contains a header
         lines = lines[1:]
     lines = [line.decode("latin-1") for line in lines]
-    df = pl.DataFrame(lines)
-    column_specs = (
-        (0, 4),
-        (21, 29),
-        (30, 38),
-        (40, 53),
-        (55, 65),
-        (67, 75),
-        (76, 156),
-        (157, 200),
-    )
-    df = read_fwf_from_df(df, column_specs)
+    lines = [_create_csv_line(line.split()) for line in lines]
+    text = "\n".join(lines)
+    df = pl.read_csv(StringIO(text), has_header=False, infer_schema_length=0)
     return df.rename(mapping=lambda col: DWD_COLUMN_NAMES_MAPPING.get(col, col)).lazy()
+
+
+def _create_csv_line(columns: list[str]) -> str:
+    """Each column is typically separated by a whitespace and has 7 columns.
+    If it has more than 7 columns, the columns from second last column and previous columns are joined together so that
+    there's only 7 columns in the line.
+    """
+    num_columns = len(columns)
+    if num_columns > 8:
+        excess_columns = num_columns - 8
+        station_name = " ".join(columns[-excess_columns - 2 : -1])
+        columns = columns[: -excess_columns - 2] + [station_name] + columns[-1:]
+    station_name = columns[-2]
+    if "," in station_name:
+        columns[-2] = f'"{station_name}"'
+    return ",".join(columns)
 
 
 def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Settings) -> pl.LazyFrame:
