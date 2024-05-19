@@ -1073,6 +1073,9 @@ class DwdMosmixValues(TimeseriesValues):
             if not df.is_empty() and self.sr.start_date and self.sr.start_date != DwdForecastDate.LATEST:
                 df = df.filter(pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date))
 
+            if self.sr.dropna:
+                df = df.drop_nulls(subset="value")
+
             if not self.sr.tidy:
                 df = self._widen_df(df)
 

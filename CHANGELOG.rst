@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix `dropna` argument for DWD Mosmix and DMO
+
 0.84.0 (15.05.2024)
 *******************
 
