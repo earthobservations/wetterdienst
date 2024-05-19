@@ -1025,20 +1025,8 @@ class DwdMosmixValues(TimeseriesValues):
         """
         super().__init__(stations_result=stations_result)
 
-        parameter_base = self.sr.stations._parameter_base
-        dataset_accessor = self.sr.stations._dataset_accessor
-
-        parameter_ = []
-        for parameter, dataset in self.sr.parameter:
-            if parameter == dataset:
-                parameter = [par.value for par in parameter_base[dataset_accessor][dataset_accessor]]
-                parameter_.extend(parameter)
-            else:
-                parameter_.append(parameter.value)
-
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
-            parameters=parameter_,
             settings=self.sr.stations.settings,
         )
 
@@ -1061,10 +1049,22 @@ class DwdMosmixValues(TimeseriesValues):
         self.stations_counter = 0
         self.stations_collected = []
 
+        parameter_base = self.sr.stations._parameter_base
+        dataset_accessor = self.sr.stations._dataset_accessor
+
+        parameter_names = set()
+        for parameter, dataset in self.sr.parameter:
+            if parameter == dataset:
+                parameter = [par.value for par in parameter_base[dataset_accessor][dataset_accessor]]
+                parameter_names.update(parameter)
+            else:
+                parameter_names.add(parameter.value)
+
         for df in self._collect_station_parameter():
             df = self._tidy_up_df(df)
             station_id = df.get_column(Columns.STATION_ID.value).gather(0).item()
             df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
+            df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
 
             if self.sr.humanize:
                 df = self._humanize(df, hpm)

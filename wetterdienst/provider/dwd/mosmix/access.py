@@ -38,9 +38,8 @@ log = logging.getLogger(__name__)
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(self, station_ids: list[str], parameters: list[str], settings: Settings) -> None:
+    def __init__(self, station_ids: list[str], settings: Settings) -> None:
         self.station_ids = station_ids
-        self.parameters = parameters
         self.metadata = {}
         self.timesteps = []
         self.nsmap = None
@@ -169,14 +168,13 @@ class KMLReader:
 
             for measurement_item in measurement_list:
                 measurement_parameter = measurement_item.get(f"{{{self.nsmap['dwd']}}}elementName")
-                if measurement_parameter.lower() in self.parameters:
-                    measurement_string = measurement_item.getchildren()[0].text
-                    measurement_values = " ".join(measurement_string.split()).split(" ")
-                    measurement_values = [None if i == "-" else float(i) for i in measurement_values]
-                    assert len(measurement_values) == len(  # noqa:S101
-                        self.timesteps,
-                    ), "Number of time steps does not match number of measurement values"
-                    data_dict[measurement_parameter.lower()] = measurement_values
+                measurement_string = measurement_item.getchildren()[0].text
+                measurement_values = " ".join(measurement_string.split()).split(" ")
+                measurement_values = [None if i == "-" else float(i) for i in measurement_values]
+                assert len(measurement_values) == len(  # noqa:S101
+                    self.timesteps,
+                ), "Number of time steps does not match number of measurement values"
+                data_dict[measurement_parameter.lower()] = measurement_values
 
             station_forecast.clear()
             yield pl.DataFrame(data_dict)
