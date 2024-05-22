@@ -418,7 +418,7 @@ def get_summarize(
     return values_
 
 
-def _get_warming_stripes_request(period: Period = Period.HISTORICAL):
+def _get_stripes_temperature_request(period: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
         parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
@@ -427,8 +427,38 @@ def _get_warming_stripes_request(period: Period = Period.HISTORICAL):
     )
 
 
-def _plot_warming_stripes(
-    request: DwdObservationRequest,
+def _get_stripes_precipitation_request(period: Period = Period.HISTORICAL):
+    """Need this for displaying stations in the interactive app."""
+    return DwdObservationRequest(
+        parameter=Parameter.PRECIPITATION_HEIGHT,
+        resolution=Resolution.ANNUAL,
+        period=period,
+    )
+
+
+CLIMATE_STRIPES_CONFIG = {
+    "temperature": {
+        "request": _get_stripes_temperature_request,
+        "color_map": "RdBu",
+    },
+    "precipitation": {
+        "request": _get_stripes_precipitation_request,
+        "color_map": "BrBG",
+    },
+}
+
+
+def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True):
+    request = CLIMATE_STRIPES_CONFIG[kind]["request"]
+    stations = request(period=Period.HISTORICAL).all()
+    if active:
+        station_ids_active = request(period=Period.RECENT).all().df.select("station_id")
+        stations.df = stations.df.join(station_ids_active, on="station_id")
+    return stations
+
+
+def _plot_stripes(
+    kind: Literal["temperature", "precipitation"],
     station_id: str | None = None,
     name: str | None = None,
     start_year: int | None = None,
@@ -443,6 +473,8 @@ def _plot_warming_stripes(
     """Create warming stripes for station in Germany.
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
+    if kind not in ["temperature", "precipitation"]:
+        raise ValueError("kind must be either 'temperature' or 'precipitation'")
     if start_year and end_year:
         if start_year >= end_year:
             raise ValueError("start_year must be less than end_year")
@@ -454,8 +486,11 @@ def _plot_warming_stripes(
     import matplotlib
     import matplotlib.pyplot as plt
 
+    request = CLIMATE_STRIPES_CONFIG[kind]["request"]()
+    cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
+
     matplotlib.use("agg")
-    color_map = plt.get_cmap("RdBu")
+    color_map = plt.get_cmap(cmap)
 
     if station_id:
         stations = request.filter_by_station_id(station_id)
@@ -526,7 +561,7 @@ def _plot_warming_stripes(
     ax.text(0.5, -0.04, "Source: Deutscher Wetterdienst", ha="center", va="center", transform=ax.transAxes)
 
     if show_title:
-        ax.set_title(f"""Warming stripes for {station_dict["name"]}, Germany ({station_dict["station_id"]})""")
+        ax.set_title(f"""Climate stripes ({kind}) for {station_dict["name"]}, Germany ({station_dict["station_id"]})""")
     if show_years:
         ax.text(0.05, -0.05, df.get_column("date").min().year, ha="center", va="center", transform=ax.transAxes)
         ax.text(0.95, -0.05, df.get_column("date").max().year, ha="center", va="center", transform=ax.transAxes)
@@ -539,8 +574,8 @@ def _plot_warming_stripes(
     return buf
 
 
-def _thread_safe_plot_warming_stripes(
-    request: DwdObservationRequest,
+def _thread_safe_plot_stripes(
+    kind: Literal["temperature", "precipitation"],
     station_id: str | None = None,
     name: str | None = None,
     start_year: int | None = None,
@@ -555,8 +590,8 @@ def _thread_safe_plot_warming_stripes(
     """Thread-safe wrapper for _plot_warming_stripes because matplotlib is not thread-safe."""
     with ThreadPoolExecutor(1) as executor:
         return executor.submit(
-            lambda: _plot_warming_stripes(
-                request=request,
+            lambda: _plot_stripes(
+                kind=kind,
                 station_id=station_id,
                 name=name,
                 start_year=start_year,

@@ -10,6 +10,7 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
+    DwdObservationParameter,
     DwdObservationPeriod,
     DwdObservationResolution,
 )
@@ -170,3 +171,22 @@ def test_dwd_observations_stations_name_with_comma():
             }
         ),
     ]
+
+
+def test_dwd_observation_stations():
+    failed = []
+    for resolution in DwdObservationParameter:
+        resolution = resolution.name
+        datasets = []
+        for dataset in DwdObservationParameter[resolution]:
+            if not hasattr(dataset, "__name__"):
+                continue
+            if dataset.__name__ not in datasets:
+                datasets.append(dataset.__name__)
+        for dataset in datasets:
+            DwdObservationRequest(parameter=dataset, resolution=resolution).all()
+            try:
+                DwdObservationRequest(parameter=dataset, resolution=resolution).all()
+            except Exception:
+                failed.append(f"{resolution} - {dataset}")
+    assert not failed

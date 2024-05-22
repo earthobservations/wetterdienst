@@ -10,7 +10,7 @@ from click_params import StringListParamType
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 
-from wetterdienst import Author, Info, Period, Provider, Wetterdienst
+from wetterdienst import Author, Info, Provider, Wetterdienst
 from wetterdienst.core.timeseries.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -24,8 +24,8 @@ from wetterdienst.core.timeseries.result import (
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import (
-    _get_warming_stripes_request,
-    _thread_safe_plot_warming_stripes,
+    _get_stripes_stations,
+    _thread_safe_plot_stripes,
     get_interpolate,
     get_stations,
     get_summarize,
@@ -138,7 +138,8 @@ def index():
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
                     <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
-                    <li><a href="api/warming_stripes" target="_blank" rel="noopener">warming stripes</a></li>
+                    <li><a href="api/stripes/stations" target="_blank" rel="noopener">stripes stations</a></li>
+                    <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                 </div>
                 <h2>Examples</h2>
                 <div class="list">
@@ -146,7 +147,8 @@ def index():
                     <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Obs Daily Climate Values</a></li>
                     <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Interpolation</a></li>
                     <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Summary</a></li>
-                    <li><a href="api/warming_stripes?station=1048" target="_blank" rel="noopener">DWD Obs Daily Climate Warming Stripes</a></li>
+                    <li><a href="api/stripes/stations?kind=temperature" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Stations</a></li>
+                    <li><a href="api/stripes/values?kind=temperature&station=1048" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Values</a></li>
                 </div>
                 <h2>Producer</h2>
                 <div class="List">
@@ -587,8 +589,42 @@ def summarize(
     return Response(content=content, media_type=media_type)
 
 
-@app.get("/api/warming_stripes")
-def warming_stripes(
+@app.get("/api/stripes/stations")
+def stripes_stations(
+    kind: Annotated[str, Query()],
+    active: Annotated[bool, Query()] = True,
+    fmt: Annotated[str, Query(alias="format")] = "json",
+    pretty: Annotated[bool, Query()] = False,
+    debug: Annotated[bool, Query()] = False,
+) -> Any:
+    """Wrapper around get_climate_stripes_temperature_request to provide results via restapi"""
+    set_logging_level(debug)
+    if kind not in ["temperature", "precipitation"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'kind' must be one of 'temperature' or 'precipitation'",
+        )
+    if fmt not in ["json", "geojson", "csv"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'format' must be one of 'json', 'geojson' or 'csv'",
+        )
+    try:
+        stations = _get_stripes_stations(kind=kind, active=active)
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    content = stations.to_format(fmt=fmt, with_metadata=True, indent=pretty)
+    if fmt == "csv":
+        media_type = "text/csv"
+    else:
+        media_type = "application/json"
+    return Response(content=content, media_type=media_type)
+
+
+@app.get("/api/stripes/values")
+def stripes_values(
+    kind: Annotated[str, Query()],
     station: Annotated[Optional[str], Query()] = None,
     name: Annotated[Optional[str], Query()] = None,
     start_year: Annotated[Optional[int], Query()] = None,
@@ -603,6 +639,11 @@ def warming_stripes(
 ) -> Any:
     """Wrapper around get_summarize to provide results via restapi"""
     set_logging_level(debug)
+    if kind not in ["temperature", "precipitation"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Query argument 'kind' must be one of 'temperature' or 'precipitation'",
+        )
     if not station and not name:
         raise HTTPException(
             status_code=400,
@@ -635,8 +676,8 @@ def warming_stripes(
             detail="Query argument 'dpi' must be more than 0",
         )
     try:
-        buf = _thread_safe_plot_warming_stripes(
-            request=_get_warming_stripes_request(period=Period.HISTORICAL),
+        buf = _thread_safe_plot_stripes(
+            kind=kind,
             station_id=station,
             name=name,
             start_year=start_year,

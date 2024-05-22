@@ -5,19 +5,21 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from wetterdienst import __version__
-from wetterdienst.ui.streamlit.warming_stripes import app
+from wetterdienst.ui.streamlit.climate_stripes import app
 
 
 @pytest.mark.cflake
 @pytest.mark.remote
-def test_warming_stripes():
+def test_climate_stripes():
     app_test = AppTest.from_file(app.__file__)
     app_test.run()
     assert app_test.error == []
-    assert app_test.title[0].value == f"Warming Stripes (v{__version__})"
+    assert app_test.title[0].value == f"Climate Stripes (v{__version__})"
     subheaders = [subheader.value for subheader in app_test.subheader]
-    assert subheaders == ["Introduction", "Station", "Warming Stripes", "Credits", "Data", "Settings"]
-    selected_station = app_test.selectbox[0].value
+    assert subheaders == ["Introduction", "Station", "Climate Stripes", "Credits", "Data", "Settings"]
+    kind = app_test.selectbox[0]
+    assert kind.value == "temperature"
+    selected_station = app_test.selectbox[1].value
     assert selected_station == {
         "station_id": "15000",
         "start_date": dt.datetime(2011, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
@@ -28,3 +30,6 @@ def test_warming_stripes():
         "name": "Aachen-Orsbach",
         "state": "Nordrhein-Westfalen",
     }
+    # change kind to precipitation and run the app again
+    kind.select("precipitation")
+    app_test.run()
