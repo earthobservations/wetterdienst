@@ -5,7 +5,7 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 from PIL import Image
 
-from wetterdienst.ui.core import _get_warming_stripes_request, _plot_warming_stripes
+from wetterdienst.ui.core import _get_stripes_temperature_request, _plot_stripes
 
 HERE = Path(__file__).parent
 ROOT = HERE.parent
@@ -25,8 +25,8 @@ def plot_hohenpeissenberg_warming_stripes():
     """Create warming stripes for Potsdam
     Source: https://matplotlib.org/matplotblog/posts/warming-stripes/
     """
-    buf = _plot_warming_stripes(
-        request=_get_warming_stripes_request(),
+    buf = _plot_stripes(
+        request=_get_stripes_temperature_request(),
         name="Hohenpeissenberg",
         fmt="png",
     )

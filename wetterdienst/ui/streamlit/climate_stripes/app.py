@@ -1,21 +1,24 @@
+from typing import Literal
+
 import polars as pl
 import streamlit as st
 
-from wetterdienst import Period, __version__
-from wetterdienst.ui.core import _get_warming_stripes_request, _thread_safe_plot_warming_stripes
+from wetterdienst import __version__
+from wetterdienst.ui.core import (
+    _get_stripes_stations,
+    _thread_safe_plot_stripes,
+)
 
 
 @st.cache_data
-def get_stations(active: bool = True):
-    df = _get_warming_stripes_request(period=Period.HISTORICAL).all().df
-    if active:
-        station_ids_active = _get_warming_stripes_request(period=Period.RECENT).all().df.select("station_id")
-        df = df.join(station_ids_active, on="station_id")
-    return df
+def get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True):
+    stations = _get_stripes_stations(kind=kind, active=active)
+    return stations.df
 
 
 @st.cache_data
-def get_warming_stripes(
+def get_stripes_values(
+    kind: Literal["temperature", "precipitation"],
     station_id: str,
     start_year: int,
     end_year: int,
@@ -25,8 +28,8 @@ def get_warming_stripes(
     show_data_availability: bool,
     dpi: int,
 ):
-    return _thread_safe_plot_warming_stripes(
-        request=_get_warming_stripes_request(),
+    return _thread_safe_plot_stripes(
+        kind=kind,
         station_id=station_id,
         start_year=start_year,
         end_year=end_year,
@@ -40,6 +43,7 @@ def get_warming_stripes(
 
 
 def get_rest_api_url(
+    kind: Literal["temperature", "precipitation"],
     station_id: str,
     start_year: int,
     end_year: int,
@@ -49,7 +53,8 @@ def get_rest_api_url(
     show_data_availability: bool,
     dpi: int,
 ):
-    url = f"https://wetterdienst.eobs.org/api/warming_stripes?station={station_id}"
+    url = f"https://wetterdienst.eobs.org/api/stripes/values?kind={kind}"
+    url += f"&station={station_id}"
     url += f"&start_year={start_year}" if start_year else ""
     url += f"&end_year={end_year}" if end_year else ""
     url += f"&name_threshold={name_threshold}" if name_threshold else ""
@@ -60,7 +65,7 @@ def get_rest_api_url(
     return url
 
 
-title = f"Warming Stripes (v{__version__})"
+title = f"Climate Stripes (v{__version__})"
 st.set_page_config(page_title=title)
 st.title(title)
 
@@ -86,15 +91,19 @@ with st.sidebar:
 st.subheader("Introduction")
 st.markdown(
     """
-    This app visualizes the warming stripes for a given German temperature station. The warming stripes are a data
-    visualization showing the change in temperature over time. Each stripe represents the temperature of a single year,
-    ordered from the earliest available data to the most recent. The color scale represents the temperature, with blue
-    stripes representing cooler years and red stripes representing warmer years. The data is being acquired with
+    This app visualizes the climate stripes - either of temperature or precipitation height - for a given German
+    climate station. The climate stripes are a data visualization showing the change in temperature / precipitation
+    height over time. Each stripe represents the temperature / precipitation height of a single year,
+    ordered from the earliest available data to the most recent. The color scale represents the temperature /
+    precipitation height, with blue/brown stripes representing cooler / dryer years and red / blue-green stripes
+    representing warmer / wetter years. The data is being acquired with
     [wetterdienst](https://github.com/earthobservations/wetterdienst).
     """
 )
 
-df_stations = get_stations(active=use_only_active_stations)
+kind = st.selectbox("Select kind", options=["temperature", "precipitation"])
+
+df_stations = get_stripes_stations(kind=kind, active=use_only_active_stations)
 with st.expander("Map of all stations", expanded=False):
     st.map(df_stations, latitude="latitude", longitude="longitude")
 
@@ -116,7 +125,8 @@ if station:
             latitude="latitude",
             longitude="longitude",
         )
-    buf = get_warming_stripes(
+    buf = get_stripes_values(
+        kind=kind,
         station_id=station["station_id"],
         start_year=start_year,
         end_year=end_year,
@@ -126,12 +136,13 @@ if station:
         show_data_availability=show_data_availability,
         dpi=dpi,
     )
-    st.subheader("Warming Stripes")
+    st.subheader("Climate Stripes")
     st.image(buf, use_column_width=True)
-    st.download_button("Download", buf, file_name="warming_stripes.png", mime="image/png", use_container_width=True)
+    st.download_button("Download", buf, file_name="climate_stripes.png", mime="image/png", use_container_width=True)
     st.link_button(
         "Static URL",
         get_rest_api_url(
+            kind=kind,
             station_id=station["station_id"],
             start_year=start_year,
             end_year=end_year,

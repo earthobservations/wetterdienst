@@ -19,11 +19,11 @@ from cloup import Section
 from cloup.constraints import If, RequireExactly, accept_none
 from PIL import Image
 
-from wetterdienst import Period, Provider, Wetterdienst, __appname__, __version__
+from wetterdienst import Provider, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.core import (
-    _get_warming_stripes_request,
-    _plot_warming_stripes,
+    _get_stripes_stations,
+    _plot_stripes,
     get_interpolate,
     get_stations,
     get_summarize,
@@ -1132,7 +1132,29 @@ def radar(
     return
 
 
-@cli.command("warming_stripes", section=data_section)
+@cli.group("stripes", section=data_section)
+def stripes():
+    pass
+
+
+@stripes.command("stations")
+@cloup.option("--kind", type=click.STRING, required=True)
+@cloup.option("--active", type=click.BOOL, default=True)
+@cloup.option("--format", "fmt", type=click.Choice(["json", "geojson", "csv"], case_sensitive=False), default="json")
+@cloup.option("--pretty", type=click.BOOL, default=False)
+def stripes_stations(kind: str, active: bool, fmt: str, pretty: bool):
+    if kind not in ["temperature", "precipitation"]:
+        raise click.ClickException(f"Invalid kind '{kind}'")
+
+    stations = _get_stripes_stations(kind=kind, active=active)
+
+    output = stations.to_format(fmt, indent=pretty)
+
+    print(output)  # noqa: T201
+
+
+@stripes.command("values")
+@cloup.option("--kind", type=click.STRING, required=True)
 @cloup.option("--station", type=click.STRING)
 @cloup.option("--name", type=click.STRING)
 @cloup.option("--start_year", type=click.INT)
@@ -1149,7 +1171,8 @@ def radar(
     RequireExactly(1),
     ["station", "name"],
 )
-def warming_stripes(
+def stripes_values(
+    kind: Literal["temperature", "precipitation"],
     station: str,
     name: str,
     start_year: int,
@@ -1172,8 +1195,8 @@ def warming_stripes(
     set_logging_level(debug)
 
     try:
-        buf = _plot_warming_stripes(
-            request=_get_warming_stripes_request(period=Period.HISTORICAL),
+        buf = _plot_stripes(
+            kind=kind,
             station_id=station,
             name=name,
             start_year=start_year,
@@ -1199,26 +1222,26 @@ def warming_stripes(
     click.echo(buf.getvalue(), nl=False)
 
 
-@cli.command("warming_stripes_interactive", section=advanced_section)
+@stripes.command("interactive")
 @debug_opt
-def warming_stripes_interactive(debug: bool):
+def interactive(debug: bool):
     set_logging_level(debug)
 
     try:
-        from wetterdienst.ui.streamlit.warming_stripes import app
+        from wetterdienst.ui.streamlit.stripes import app
     except ImportError:
-        log.error("Please install the warming_stripes extras with 'pip install wetterdienst[warming_stripes]'")
+        log.error("Please install the stripes extras from stripes/requirements.txt")
         sys.exit(1)
 
     log.info(f"Starting {appname}")
-    log.info("Starting Warming Stripes web service on http://localhost:8501")
+    log.info("Starting Stripes web service on http://localhost:8501")
 
     process = None
     try:
         process = subprocess.Popen(["streamlit", "run", app.__file__])  # noqa: S603, S607
         process.wait()
     except KeyboardInterrupt:
-        log.info("Stopping Warming Stripes web service")
+        log.info("Stopping Climate Stripes web service")
     except Exception as e:
         log.error(f"An error occurred: {str(e)}")
     finally:

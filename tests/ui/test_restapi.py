@@ -500,10 +500,40 @@ def test_dwd_dmo_lead_time_long(client):
 
 
 @pytest.mark.remote
-def test_warming_stripes_default(client):
+def test_stripes_stations_default(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/stations",
         params={
+            "kind": "temperature",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    data = response.json()
+    assert len(data["stations"]) >= 500
+
+
+@pytest.mark.remote
+def test_stripes_stations_active_false(client):
+    response = client.get(
+        "/api/stripes/stations",
+        params={
+            "kind": "temperature",
+            "active": False,
+        },
+    )
+    assert response.status_code == 200
+    assert response.content
+    data = response.json()
+    assert len(data["stations"]) >= 1100
+
+
+@pytest.mark.remote
+def test_stripes_values_default(client):
+    response = client.get(
+        "/api/stripes/values",
+        params={
+            "kind": "temperature",
             "station": "01048",
         },
     )
@@ -512,10 +542,11 @@ def test_warming_stripes_default(client):
 
 
 @pytest.mark.remote
-def test_warming_stripes_name(client):
+def test_stripes_values_name(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params={
+            "kind": "temperature",
             "name": "Dresden-Klotzsche",
         },
     )
@@ -535,11 +566,12 @@ def test_warming_stripes_name(client):
         {"show_data_availability": "false"},
     ],
 )
-def test_warming_stripes_non_defaults(client, params):
+def test_stripes_values_non_defaults(client, params):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params=params
         | {
+            "kind": "temperature",
             "station": "01048",
             "show_title": "true",
             "show_years": "true",
@@ -551,10 +583,11 @@ def test_warming_stripes_non_defaults(client, params):
 
 
 @pytest.mark.remote
-def test_warming_stripes_start_year_ge_end_year(client):
+def test_stripes_values_start_year_ge_end_year(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params={
+            "kind": "temperature",
             "station": "01048",
             "start_year": "2021",
             "end_year": "2020",
@@ -565,10 +598,11 @@ def test_warming_stripes_start_year_ge_end_year(client):
 
 
 @pytest.mark.remote
-def test_warming_stripes_wrong_name_threshold(client):
+def test_stripes_values_wrong_name_threshold(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params={
+            "kind": "temperature",
             "name": "Dresden-Klotzsche",
             "name_threshold": 1.01,
         },
@@ -578,10 +612,11 @@ def test_warming_stripes_wrong_name_threshold(client):
 
 
 @pytest.mark.remote
-def test_warming_stripes_unknown_name(client):
+def test_stripes_values_unknown_name(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params={
+            "kind": "temperature",
             "name": "foobar",
         },
     )
@@ -590,10 +625,11 @@ def test_warming_stripes_unknown_name(client):
 
 
 @pytest.mark.remote
-def test_warming_stripes_unknown_format(client):
+def test_stripes_values_unknown_format(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params={
+            "kind": "temperature",
             "station": "01048",
             "format": "foobar",
         },
@@ -603,10 +639,11 @@ def test_warming_stripes_unknown_format(client):
 
 
 @pytest.mark.remote
-def test_warming_stripes_wrong_dpi(client):
+def test_stripes_values_wrong_dpi(client):
     response = client.get(
-        "/api/warming_stripes",
+        "/api/stripes/values",
         params={
+            "kind": "temperature",
             "station": "01048",
             "dpi": 0,
         },

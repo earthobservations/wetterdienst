@@ -24,7 +24,6 @@ def test_cli_help():
         "Advanced:\n"
         "  restapi\n"
         "  explorer\n"
-        "  warming_stripes_interactive\n"
         "\n"
         "Data:\n"
         "  about\n"
@@ -32,7 +31,8 @@ def test_cli_help():
         "  values\n"
         "  interpolate\n"
         "  summarize\n"
-        "  radar\n" in result.output
+        "  radar\n"
+        "  stripes\n" in result.output
     )
 
 
@@ -387,3 +387,10 @@ def test_cli_radar_stations_dwd():
     response = json.loads(result.output)
     assert isinstance(response, list)
     assert len(response) == 20
+
+
+def test_cli_stripes():
+    runner = CliRunner()
+    result = runner.invoke(cli, "stripes --help")
+    assert result.exit_code == 0
+    assert "Commands:\n  interactive\n  stations\n  values\n" in result.output
