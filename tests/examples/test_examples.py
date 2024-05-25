@@ -10,6 +10,7 @@ def test_examples():
     from examples.provider.dwd.mosmix import dwd_mosmix_forecasts
     from examples.provider.dwd.observation import (
         dwd_obs_climate_summary_describe_fields,
+        dwd_obs_climate_summary_duckdb_dump,
         dwd_obs_climate_summary_zarr_dump,
         dwd_obs_plot_german_weather_stations,
         dwd_obs_plot_hohenpeissenberg_warming_stripes,
@@ -21,6 +22,7 @@ def test_examples():
     assert dwd_mosmix_forecasts.main() is None
     assert dwd_obs_climate_summary_describe_fields.main() is None
     assert dwd_obs_climate_summary_zarr_dump.main() is None
+    assert dwd_obs_climate_summary_duckdb_dump.main() is None
     assert dwd_obs_plot_german_weather_stations.main() is None
     assert dwd_obs_plot_hohenpeissenberg_warming_stripes.main() is None
     assert dwd_obs_plot_temperature_timeseries.main() is None
