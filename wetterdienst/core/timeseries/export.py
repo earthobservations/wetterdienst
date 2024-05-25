@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from abc import abstractmethod
+from copy import copy
 from dataclasses import dataclass
 from urllib.parse import urlunparse
 
@@ -245,7 +246,12 @@ class ExportMixin:
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
             import duckdb
 
-            df = self.df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone(None)).to_pandas()
+            df = copy(self.df)
+
+            for column in (Columns.START_DATE.value, Columns.END_DATE.value, Columns.DATE.value):
+                if column in df.columns:
+                    df = df.with_columns(pl.col(column).dt.replace_time_zone(None))
+            df = df.to_pandas()
 
             connection = duckdb.connect(database=database, read_only=False)
             connection.register("origin", df)
