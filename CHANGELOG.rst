@@ -7,6 +7,7 @@ Development
 - Fix `dropna` argument for DWD Mosmix and DMO
 - Adjust DWD Mosmix and DMO kml reader to parse all parameters
 - Fix `to_target(duckdb)` for stations
+- Fix init of `DwdDmoRequest`
 
 0.84.0 (15.05.2024)
 *******************

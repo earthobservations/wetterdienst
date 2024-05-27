@@ -17,7 +17,7 @@ from wetterdienst import Kind, Parameter, Period, Provider, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.exceptions import InvalidEnumerationError, NoParametersFoundError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.period import PeriodType
@@ -1408,9 +1408,9 @@ class DwdDmoRequest(TimeseriesRequest):
         :param end_date: end date
         """
         try:
-            self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType) or DwdDmoLeadTime.SHORT
-        except InvalidEnumerationError:
-            self.dmo_type = DwdDmoLeadTime.SHORT
+            self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType)
+        except InvalidEnumerationError as e:
+            raise NoParametersFoundError("no valid parameters could be parsed from given argument") from e
         try:
             self.station_group = (
                 parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
@@ -1422,8 +1422,8 @@ class DwdDmoRequest(TimeseriesRequest):
         else:
             try:
                 self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
-            except InvalidEnumerationError:
-                self.lead_time = DwdDmoLeadTime.SHORT
+            except InvalidEnumerationError as e:
+                raise NoParametersFoundError("no valid lead time could be parsed from given argument") from e
 
         super().__init__(
             parameter=parameter,
