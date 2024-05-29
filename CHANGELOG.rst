@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.85.0 (29.05.2024)
+*******************
+
 - Fix `dropna` argument for DWD Mosmix and DMO
 - Adjust DWD Mosmix and DMO kml reader to parse all parameters
 - Fix `to_target(duckdb)` for stations
