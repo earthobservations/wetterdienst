@@ -29,19 +29,3 @@ def check_dwd_observations_dataset(
         return False
 
     return True
-
-
-def build_parameter_set_identifier(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
-    period: Period,
-    station_id: str,
-    date_range_string: str | None = None,
-) -> str:
-    """Create parameter set identifier that is used for storage interactions"""
-    identifier = f"{dataset.value}/{resolution.value}/{period.value}/{station_id}"
-
-    if date_range_string:
-        return f"{identifier}/{date_range_string}"
-
-    return identifier
