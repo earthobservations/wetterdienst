@@ -46,7 +46,6 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 )
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.provider.dwd.observation.util.parameter import (
-    build_parameter_set_identifier,
     check_dwd_observations_dataset,
 )
 from wetterdienst.settings import Settings
@@ -132,20 +131,13 @@ class DwdObservationValues(TimeseriesValues):
         parameter_data = []
 
         for period, date_range in periods_and_date_ranges:
-            parameter_identifier = build_parameter_set_identifier(
-                dataset,
-                self.sr.resolution,
-                period,
-                station_id,
-                date_range,
-            )
-
-            log.info(f"Acquiring observation data for {parameter_identifier}.")
-
             if not check_dwd_observations_dataset(dataset, self.sr.resolution, period):
-                log.info(f"Invalid combination {dataset.value}/" f"{self.sr.resolution.value}/{period} is skipped.")
-
+                log.info(f"Invalid combination {dataset.value}/{self.sr.resolution.value}/{period} is skipped.")
                 continue
+
+            dataset_identifier = f"{dataset.value}/{self.sr.resolution.value}/{period.value}/{station_id}/{date_range}"
+
+            log.info(f"Acquiring observation data for {dataset_identifier}.")
 
             remote_files = create_file_list_for_climate_observations(
                 station_id,
@@ -157,14 +149,7 @@ class DwdObservationValues(TimeseriesValues):
             )
 
             if remote_files.is_empty():
-                parameter_identifier = build_parameter_set_identifier(
-                    dataset,
-                    self.sr.resolution,
-                    period,
-                    station_id,
-                    date_range,
-                )
-                log.info(f"No files found for {parameter_identifier}. Station will be skipped.")
+                log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
 
             filenames_and_files = download_climate_observations_data_parallel(remote_files, self.sr.stations.settings)
