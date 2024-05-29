@@ -153,7 +153,7 @@ def index():
                 <h2>Producer</h2>
                 <div class="List">
                     <li>Version: {info.version}</li>
-                    <li>Authors: {', w'.join(_create_author_entry(author) for author in info.authors)}</li>
+                    <li>Authors: {', '.join(_create_author_entry(author) for author in info.authors)}</li>
                     <li>Repository: <a href="{info.repository}" target="_blank" rel="noopener">{info.repository}</a></li>
                     <li>Documentation: <a href="{info.documentation}" target="_blank" rel="noopener">{info.documentation}</a></li>
                 </div>
