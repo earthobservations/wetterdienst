@@ -6,13 +6,12 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
     DwdObservationRequest,
     DwdObservationResolution,
 )
-from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 
 
 def test_summary_temperature_air_mean_200_daily(default_settings):
@@ -72,28 +71,14 @@ def test_not_summarizable_dataset(default_settings):
     )
 
 
-def test_not_supported_provider_dwd_mosmix(default_settings, caplog):
+@pytest.mark.remote
+def test_provider_dwd_mosmix(default_settings):
     request = DwdMosmixRequest(
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2022, 1, 20),
-        parameter=["DD", "ww"],
-        mosmix_type=DwdMosmixType.SMALL,
-        settings=default_settings,
-    )
-    given_df = request.summarize(latlon=(50.0, 8.9)).df
-    assert given_df.is_empty()
-    assert "Summary currently only works for DwdObservationRequest" in caplog.text
-
-
-@pytest.mark.xfail
-def test_not_supported_provider_eccc(default_settings, caplog):
-    request = EcccObservationRequest(
         parameter="temperature_air_mean_200",
-        resolution="daily",
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2022, 1, 20),
+        mosmix_type="small",
+        start_date=dt.datetime.today() + dt.timedelta(days=1),
+        end_date=dt.datetime.today() + dt.timedelta(days=8),
         settings=default_settings,
     )
     given_df = request.summarize(latlon=(50.0, 8.9)).df
-    assert given_df.is_empty()
-    assert "Summary currently only works for DwdObservationRequest" in caplog.text
+    assert given_df.get_column("value").min() >= 233.15  # equals -40.0°C
