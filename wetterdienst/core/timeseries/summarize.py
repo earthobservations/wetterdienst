@@ -50,11 +50,9 @@ def apply_station_values_per_parameter(
         if parameter == dataset:
             log.info("only individual parameters can be interpolated")
             continue
-
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-
         ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interpolation_station_distance
         if station["distance"] > ts_interpolation_station_distance.get(
             parameter.name.lower(),
@@ -62,16 +60,13 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-
         parameter_name = parameter.name.lower()
         if parameter_name in param_dict and param_dict[parameter_name].finished:
             continue
-
         # Filter only for exact parameter
         result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter_name))
         if result_series_param.drop_nulls().is_empty():
             continue
-
         if parameter_name not in param_dict:
             df = pl.DataFrame(
                 {
@@ -85,12 +80,10 @@ def apply_station_values_per_parameter(
                 },
             )
             param_dict[parameter_name] = _ParameterData(df)
-
         result_series_param = (
             param_dict[parameter_name].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value).rename(station["station_id"])
-
         extract_station_values(param_dict[parameter_name], result_series_param, True)
 
 
@@ -106,7 +99,6 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
             },
         ),
     ]
-
     for parameter, param_data in param_dict.items():
         param_df = pl.DataFrame({Columns.DATE.value: param_data.values.get_column(Columns.DATE.value)})
         results = []
@@ -123,10 +115,8 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
         )
         param_df = pl.concat([param_df, results], how="horizontal")
         data.append(param_df)
-
     df = pl.concat(data)
     df = df.with_columns(pl.col(Columns.VALUE.value).round(2), pl.col(Columns.DISTANCE.value).round(2))
-
     return df.sort(
         by=[
             Columns.PARAMETER.value,
@@ -141,14 +131,11 @@ def apply_summary(
     parameter: Enum,
 ) -> tuple[Enum, float | None, float | None, str | None]:
     vals = {s: v for s, v in row.items() if v is not None}
-
     if not vals:
         return parameter, None, None, None
-
     value = list(vals.values())[0]
     station_id = list(vals.keys())[0][1:]
     distance = stations_dict[station_id][2]
-
     return parameter, value, distance, station_id
 
 
