@@ -65,7 +65,7 @@ def apply_station_values_per_parameter(
             continue
         # Filter only for exact parameter
         result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter_name))
-        if result_series_param.drop_nulls().is_empty():
+        if result_series_param.drop_nulls("value").is_empty():
             continue
         if parameter_name not in param_dict:
             df = pl.DataFrame(
