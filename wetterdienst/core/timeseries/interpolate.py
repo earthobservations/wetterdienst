@@ -69,11 +69,9 @@ def apply_station_values_per_parameter(
         if parameter == dataset:
             log.info("only individual parameters can be interpolated")
             continue
-
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
-
         ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interpolation_station_distance
         if station["distance"] > ts_interpolation_station_distance.get(
             parameter.name.lower(),
@@ -81,16 +79,13 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-
         parameter_name = parameter.name.lower()
         if parameter_name in param_dict and param_dict[parameter_name].finished:
             continue
-
         # Filter only for exact parameter
         result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter_name))
         if result_series_param.drop_nulls().is_empty():
             continue
-
         if parameter_name not in param_dict:
             df = pl.DataFrame(
                 {
@@ -104,13 +99,11 @@ def apply_station_values_per_parameter(
                 },
             )
             param_dict[parameter_name] = _ParameterData(df)
-
         result_series_param = (
             param_dict[parameter_name].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value)
         result_series_param = result_series_param.rename(station["station_id"])
-
         extract_station_values(param_dict[parameter_name], result_series_param, valid_station_groups_exists)
 
 
@@ -133,13 +126,11 @@ def calculate_interpolation(
         ),
     ]
     valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
-
     nearby_stations = [
         "S" + station_id
         for station_id, (_, _, distance) in stations_dict.items()
         if distance < use_nearby_station_until_km
     ]
-
     for parameter, param_data in param_dict.items():
         param_df = pl.DataFrame({Columns.DATE.value: param_data.values.get_column(Columns.DATE.value)})
         results = []
@@ -158,10 +149,8 @@ def calculate_interpolation(
         )
         param_df = pl.concat([param_df, results], how="horizontal")
         data.append(param_df)
-
     df = pl.concat(data)
     df = df.with_columns(pl.col(Columns.VALUE.value).round(2), pl.col(Columns.DISTANCE_MEAN.value).round(2))
-
     return df.sort(
         by=[
             Columns.PARAMETER.value,
@@ -172,7 +161,6 @@ def calculate_interpolation(
 
 def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
     point = Point(utm_x, utm_y)
-
     valid_groups = Queue()
     # get all combinations of 4 stations
     for station_group in combinations(stations_dict.keys(), 4):
@@ -180,7 +168,6 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
         pol = Polygon(coords)
         if pol.covers(point):
             valid_groups.put(station_group)
-
     return valid_groups
 
 
@@ -219,26 +206,21 @@ def apply_interpolation(
             return parameter, valid_values[first_station], stations_dict[first_station[1:]][2], [first_station[1:]]
     vals = {s: v for s, v in row.items() if v is not None}
     station_group_ids = get_station_group_ids(valid_station_groups, frozenset([s[1:] for s in vals.keys()]))
-
     if station_group_ids:
         station_group_ids_with_s = ["S" + s for s in station_group_ids]
         vals = {s: v for s, v in vals.items() if s in station_group_ids_with_s}
     else:
         vals = None
-
     if not vals or len(vals) < 4:
         return parameter, None, None, []
-
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids]))
     distance_mean = sum(distances) / len(distances)
     f = LinearNDInterpolator(points=(xs, ys), values=list(vals.values()))
     value = f(utm_x, utm_y)
-
     if parameter == Parameter.PRECIPITATION_HEIGHT.name.lower():
         f_index = LinearNDInterpolator(points=(xs, ys), values=[float(v > 0) for v in list(vals.values())])
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0
-
     return parameter, value, distance_mean, station_group_ids
 
 
