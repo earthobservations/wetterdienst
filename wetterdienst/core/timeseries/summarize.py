@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst import Parameter
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
 
@@ -19,17 +17,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-SUMMARY_STATION_KM_LIMIT = defaultdict(
-    lambda: 40,
-    {
-        Parameter.TEMPERATURE_AIR_MEAN_200.name: 40,
-        Parameter.TEMPERATURE_AIR_MAX_200.name: 40,
-        Parameter.TEMPERATURE_AIR_MIN_200.name: 40,
-        Parameter.WIND_SPEED.name: 40,
-        Parameter.PRECIPITATION_HEIGHT.name: 20,
-    },
-)
-
 
 def get_summarized_df(request: TimeseriesRequest, latitude: float, longitude: float) -> pl.DataFrame:
     stations_dict, param_dict = request_stations(request, latitude, longitude)
@@ -39,24 +26,17 @@ def get_summarized_df(request: TimeseriesRequest, latitude: float, longitude: fl
 def request_stations(request: TimeseriesRequest, latitude: float, longitude: float) -> tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
-
-    stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
-    stations_ranked_df = stations_ranked.df.drop_nulls()
-
-    for station, result in zip(stations_ranked_df.iter_rows(named=True), stations_ranked.values.query()):
-        if station[Columns.DISTANCE.value] > max(SUMMARY_STATION_KM_LIMIT.values()):
-            break
-
+    distance = max(request.settings.ts_interpolation_station_distance.values())
+    stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
+    df_stations_ranked = stations_ranked.df
+    for station, result in zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()):
         # check if all parameters found enough stations and the stations build a valid station group
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
             break
-
-        if result.df.drop_nulls().is_empty():
+        if result.df.drop_nulls("value").is_empty():
             continue
-
         stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
         apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station)
-
     return stations_dict, param_dict
 
 
@@ -75,7 +55,11 @@ def apply_station_values_per_parameter(
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
 
-        if station["distance"] > SUMMARY_STATION_KM_LIMIT[parameter.name]:
+        ts_interpolation_station_distance = stations_ranked.stations.settings.ts_interpolation_station_distance
+        if station["distance"] > ts_interpolation_station_distance.get(
+            parameter.name.lower(),
+            ts_interpolation_station_distance["default"],
+        ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
 
