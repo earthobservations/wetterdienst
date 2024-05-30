@@ -5,6 +5,8 @@ Development
 ***********
 
 - Interpolation/Summary: Require start and end date
+- Fix multiple issues with interpolation and summarization
+- Enable interpolation and summarization for all services
 
 0.85.0 (29.05.2024)
 *******************
