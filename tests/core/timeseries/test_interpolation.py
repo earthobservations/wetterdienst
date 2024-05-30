@@ -14,7 +14,6 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )
-from wetterdienst.provider.eccc.observation.api import EcccObservationRequest
 
 pytest.importorskip("shapely")
 
@@ -153,31 +152,17 @@ def test_not_interpolatable_dataset(default_settings, df_interpolated_empty):
     )
 
 
-def test_not_supported_provider_dwd_mosmix(default_settings, caplog):
+@pytest.mark.remote
+def test_provider_dwd_mosmix(default_settings):
     request = DwdMosmixRequest(
-        parameter=["dd", "ww"],
+        parameter="temperature_air_mean_200",
         mosmix_type="small",
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2022, 1, 20),
+        start_date=dt.datetime.today() + dt.timedelta(days=1),
+        end_date=dt.datetime.today() + dt.timedelta(days=8),
         settings=default_settings,
     )
     given_df = request.interpolate(latlon=(50.0, 8.9)).df
-    assert given_df.is_empty()
-    assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
-
-
-@pytest.mark.xfail
-def test_not_supported_provider_eccc(default_settings, caplog):
-    station = EcccObservationRequest(
-        parameter=["temperature_air_mean_200"],
-        resolution="daily",
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2022, 1, 20),
-        settings=default_settings,
-    )
-    result = station.interpolate(latlon=(50.0, 8.9))
-    assert result.df.is_empty()
-    assert "Interpolation currently only works for DwdObservationRequest" in caplog.text
+    assert given_df.get_column("value").min() >= 233.15  # equals -40.0°C
 
 
 def test_interpolation_temperature_air_mean_200_daily_three_floats(default_settings):
