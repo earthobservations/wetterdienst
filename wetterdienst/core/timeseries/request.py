@@ -849,7 +849,6 @@ class TimeseriesRequest(Core):
         """
 
         from wetterdienst.core.timeseries.interpolate import get_interpolated_df
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
         if self.resolution in (
             Resolution.MINUTE_1,
@@ -858,9 +857,6 @@ class TimeseriesRequest(Core):
         ):
             log.warning("Interpolation might be slow for high resolutions due to mass of data")
 
-        if not isinstance(self, DwdObservationRequest):
-            log.error("Interpolation currently only works for DwdObservationRequest")
-            return InterpolatedValuesResult(df=pl.DataFrame(), stations=self.all(), latlon=None)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         df_interpolated = get_interpolated_df(self, lat, lon)
@@ -905,7 +901,6 @@ class TimeseriesRequest(Core):
         :return:
         """
         from wetterdienst.core.timeseries.summarize import get_summarized_df
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
         if self.resolution in (
             Resolution.MINUTE_1,
@@ -914,15 +909,6 @@ class TimeseriesRequest(Core):
         ):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
-        if not isinstance(self, DwdObservationRequest):
-            log.error("Summary currently only works for DwdObservationRequest")
-            stations_result = StationsResult(
-                stations=self,
-                df=pl.DataFrame(),
-                df_all=self.all().df,
-                stations_filter=StationsFilter.BY_STATION_ID,
-            )
-            return SummarizedValuesResult(df=pl.DataFrame(), stations=stations_result, latlon=latlon)
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
         summarized_values = get_summarized_df(self, lat, lon)
