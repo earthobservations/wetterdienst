@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Interpolation/Summary: Require start and end date
+
 0.85.0 (29.05.2024)
 *******************
 

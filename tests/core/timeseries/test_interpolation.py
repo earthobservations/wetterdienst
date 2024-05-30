@@ -215,3 +215,13 @@ def test_interpolation_increased_station_distance():
     )
     values = request.interpolate(latlon=(52.8, 12.9))
     assert values.df.get_column("value").sum() == 21.07
+
+
+def test_interpolation_error_no_start_date():
+    request = DwdObservationRequest(
+        parameter="precipitation_height",
+        resolution="hourly",
+    )
+    with pytest.raises(ValueError) as exec_info:
+        request.interpolate(latlon=(52.8, 12.9))
+    assert exec_info.match("start_date and end_date are required for interpolation")

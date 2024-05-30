@@ -850,6 +850,9 @@ class TimeseriesRequest(Core):
 
         from wetterdienst.core.timeseries.interpolate import get_interpolated_df
 
+        if not self.start_date:
+            raise ValueError("start_date and end_date are required for interpolation")
+
         if self.resolution in (
             Resolution.MINUTE_1,
             Resolution.MINUTE_5,
@@ -901,6 +904,9 @@ class TimeseriesRequest(Core):
         :return:
         """
         from wetterdienst.core.timeseries.summarize import get_summarized_df
+
+        if not self.start_date:
+            raise ValueError("start_date and end_date are required for summarization")
 
         if self.resolution in (
             Resolution.MINUTE_1,
