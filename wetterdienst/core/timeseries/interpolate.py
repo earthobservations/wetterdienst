@@ -42,25 +42,19 @@ def request_stations(
 ) -> tuple[dict, dict]:
     param_dict = {}
     stations_dict = {}
-    stations_ranked = request.filter_by_rank(latlon=(latitude, longitude), rank=20)
-    stations_ranked_df = stations_ranked.df.drop_nulls()
-
-    for station, result in zip(stations_ranked_df.iter_rows(named=True), stations_ranked.values.query()):
-        if station[Columns.DISTANCE.value] > max(request.settings.ts_interpolation_station_distance.values()):
-            break
-
+    distance = max(request.settings.ts_interpolation_station_distance.values())
+    stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
+    df_stations_ranked = stations_ranked.df
+    for station, result in zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()):
         valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
         # check if all parameters found enough stations and the stations build a valid station group
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()) and valid_station_groups_exists:
             break
-
-        if result.df.drop_nulls().is_empty():
+        if result.df.drop_nulls("value").is_empty():
             continue
-
         utm_x, utm_y = utm.from_latlon(station["latitude"], station["longitude"])[:2]
         stations_dict[station["station_id"]] = (utm_x, utm_y, station["distance"])
         apply_station_values_per_parameter(result.df, stations_ranked, param_dict, station, valid_station_groups_exists)
-
     return stations_dict, param_dict
 
 
