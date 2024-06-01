@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.86.0 (01.06.2024)
+*******************
+
 - Interpolation/Summary: Require start and end date
 - Fix multiple issues with interpolation and summarization
 - Enable interpolation and summarization for all services
