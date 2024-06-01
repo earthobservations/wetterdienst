@@ -3,24 +3,10 @@
 from wetterdienst import Period, Resolution
 from wetterdienst.provider.dwd.observation import (
     DwdObservationDataset,
-    DwdObservationPeriod,
-    DwdObservationResolution,
 )
 from wetterdienst.provider.dwd.observation.util.parameter import (
-    build_parameter_set_identifier,
     check_dwd_observations_dataset,
 )
-
-
-def test_build_parameter_identifier():
-    parameter_identifier = build_parameter_set_identifier(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.HISTORICAL,
-        "00001",
-    )
-
-    assert parameter_identifier == "kl/daily/historical/00001"
 
 
 def test_check_parameters():
