@@ -53,7 +53,6 @@ def index():
         return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
 
     title = f"{info.name} restapi"
-    about = "Wetterdienst - Open weather data for humans."
     sources = []
     for provider in Provider:
         shortname = provider.name
@@ -66,7 +65,7 @@ def index():
     <html lang="en">
         <head>
             <title>{title}</title>
-            <meta name="description" content="{about}">
+            <meta name="description" content="{info.slogan}">
             <meta name="keywords" content="weather, climate, data, api, open, source, wetterdienst">
             <style>
                 body {{
@@ -131,7 +130,7 @@ def index():
         </head>
         <body>
             <div class="container">
-                <h1>{about}</h1>
+                <h1>{info.slogan}</h1>
                 <h2>Endpoints</h2>
                 <div class="list">
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
