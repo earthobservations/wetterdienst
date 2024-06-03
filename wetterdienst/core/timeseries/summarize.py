@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import polars as pl
+from tqdm import tqdm
 
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
@@ -29,7 +30,12 @@ def request_stations(request: TimeseriesRequest, latitude: float, longitude: flo
     distance = max(request.settings.ts_interpolation_station_distance.values())
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
     df_stations_ranked = stations_ranked.df
-    for station, result in zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()):
+    for station, result in tqdm(
+        zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()),
+        total=len(df_stations_ranked),
+        desc="querying stations for summary",
+        unit="station",
+    ):
         # check if all parameters found enough stations and the stations build a valid station group
         if len(param_dict) > 0 and all(param.finished for param in param_dict.values()):
             break
