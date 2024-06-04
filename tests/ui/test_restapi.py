@@ -16,7 +16,7 @@ def client():
 def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Wetterdienst - Open weather data for humans" in response.text
+    assert "wetterdienst - open weather data for humans" in response.text
 
 
 def test_robots(client):
