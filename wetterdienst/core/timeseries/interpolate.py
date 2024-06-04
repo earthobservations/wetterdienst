@@ -18,6 +18,7 @@ from tqdm import tqdm
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
+from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -46,11 +47,13 @@ def request_stations(
     distance = max(request.settings.ts_interpolation_station_distance.values())
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
     df_stations_ranked = stations_ranked.df
+    tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for station, result in tqdm(
         zip(df_stations_ranked.iter_rows(named=True), stations_ranked.values.query()),
         total=len(df_stations_ranked),
         desc="querying stations for interpolation",
         unit="station",
+        file=tqdm_out,
     ):
         valid_station_groups_exists = not get_valid_station_groups(stations_dict, utm_x, utm_y).empty()
         # check if all parameters found enough stations and the stations build a valid station group
