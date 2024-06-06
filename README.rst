@@ -337,9 +337,11 @@ Important Links
 - Explorer: https://wetterdienst.streamlit.app/
 - Stripes: https://stripes.streamlit.app/
 - Documentation: https://wetterdienst.readthedocs.io/
+
   - Usage: https://wetterdienst.readthedocs.io/en/latest/usage/
   - Contribution: https://wetterdienst.readthedocs.io/en/latest/contribution/
   - Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
+
 - Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/examples
 - Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks
 
