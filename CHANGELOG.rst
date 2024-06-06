@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.87.0 (06.06.2024)
+*******************
+
 - Rename warming stripes to climate stripes
 - Add precipitation version
 - Replace custom Settings class with pydantic model
