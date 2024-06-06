@@ -120,8 +120,8 @@ Features
   `start date`, `end date`
 - Define general settings in Settings context
 - Command line interface
-- Web-API via FastAPI
-- Rich UI features like `wetterdienst explorer <https://wetterdienst.streamlit.app>`_
+- Web-API via FastAPI, hosted on `wetterdienst.eobs.org <https://wetterdienst.eobs.org>`_
+- Rich UI features like `explorer <https://wetterdienst.streamlit.app>`_, `stripes <https://stripes.streamlit.app>`_
 - Run SQL queries on the results
 - Export results to databases and other data sinks
 - Public Docker image
@@ -333,11 +333,13 @@ library that make it better and better every day.
 Important Links
 ***************
 
-- Full documentation: https://wetterdienst.readthedocs.io/
-- Usage: https://wetterdienst.readthedocs.io/en/latest/usage/
-- Contribution: https://wetterdienst.readthedocs.io/en/latest/contribution/
-- Known Issues: https://wetterdienst.readthedocs.io/en/latest/known_issues/
-- Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
+- Restapi: https://wetterdienst.eobs.org/
+- Explorer: https://wetterdienst.streamlit.app/
+- Stripes: https://stripes.streamlit.app/
+- Documentation: https://wetterdienst.readthedocs.io/
+  - Usage: https://wetterdienst.readthedocs.io/en/latest/usage/
+  - Contribution: https://wetterdienst.readthedocs.io/en/latest/contribution/
+  - Changelog: https://wetterdienst.readthedocs.io/en/latest/changelog.html
 - Examples (runnable scripts): https://github.com/earthobservations/wetterdienst/tree/main/examples
 - Benchmarks: https://github.com/earthobservations/wetterdienst/tree/main/benchmarks
 

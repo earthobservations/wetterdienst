@@ -91,6 +91,8 @@ classifiers = [
 "Issues" = "https://github.com/earthobservations/wetterdienst/issues"
 "Releases" = "https://github.com/earthobservations/wetterdienst/releases"
 "Restapi" = "https://wetterdienst.eobs.org/"
+"Explorer" = "https://wetterdienst.streamlit.app/"
+"Stripes" = "https://stripes.streamlit.app/"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
