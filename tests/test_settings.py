@@ -1,37 +1,21 @@
 # Copyright (C) 2018-2022, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-import inspect
 import logging
 import os
 import re
 from unittest import mock
 
-from wetterdienst import Settings
-from wetterdienst.settings import _decide_arg
+from wetterdienst.settings import Settings
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
-
-
-def test__decide_arg():
-    # regular_arg
-    assert _decide_arg(1, 2, 3, True) == 1
-    assert _decide_arg(1, 2, 3, False) == 1
-    # env_arg
-    assert _decide_arg(None, 2, 3, False) == 2
-    # default_arg
-    assert _decide_arg(None, 2, 3, True) == 3
-    assert _decide_arg(None, None, 3, True) == 3
-    assert _decide_arg(None, None, 3, False) == 3
-    assert _decide_arg(None, None, None, True) is None
-    assert _decide_arg(None, 2, None, True) is None
 
 
 def test_default_settings(caplog):
     caplog.set_level(logging.INFO)
     default_settings = Settings.default()
     assert not default_settings.cache_disable
-    assert re.match(WD_CACHE_DIR_PATTERN, default_settings.cache_dir)
+    assert re.match(WD_CACHE_DIR_PATTERN, str(default_settings.cache_dir))
     assert default_settings.fsspec_client_kwargs == {}
     assert default_settings.ts_humanize
     assert default_settings.ts_shape == "long"
@@ -105,13 +89,3 @@ def test_settings_mixed(caplog):
         "other": 42.0,
         "just_another": 43.0,
     }
-
-
-def test_settings_args():
-    """Test to check that all default values of Settings arguments are None and there is a default value in the
-    default dict instead"""
-    argspec = inspect.signature(Settings.__init__)
-    args_dict = {k: v.default for k, v in argspec.parameters.items() if k not in ("self", "ignore_env")}
-    assert all(val is None for val in args_dict.values())
-    assert args_dict.keys() == Settings._defaults.keys()
-    assert args_dict.keys() == Settings.default().to_dict().keys()

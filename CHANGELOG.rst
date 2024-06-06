@@ -6,6 +6,7 @@ Development
 
 - Rename warming stripes to climate stripes
 - Add precipitation version
+- Replace custom Settings class with pydantic model
 
 0.86.0 (01.06.2024)
 *******************

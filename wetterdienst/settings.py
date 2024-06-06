@@ -5,157 +5,117 @@ from __future__ import annotations
 import json
 import logging
 from copy import deepcopy
-from functools import partial
-from typing import TYPE_CHECKING, Literal
+from pathlib import Path  # noqa: TCH003
+from typing import Literal
 
 import platformdirs
 from environs import Env
-from marshmallow.validate import OneOf
+from pydantic import BaseModel, Field, model_validator
 
 from wetterdienst import Parameter
-
-if TYPE_CHECKING:
-    import pathlib
 
 log = logging.getLogger(__name__)
 
 
-def _decide_arg(regular_arg, env_arg, default_arg, ignore_env):
-    if regular_arg is not None:
-        return regular_arg
-    elif not ignore_env and env_arg is not None:
-        return env_arg
-    else:
-        return default_arg
+class Settings(BaseModel):
+    """Pydantic model for Wetterdienst general settings"""
 
-
-class Settings:
-    """Wetterdienst class for general settings"""
-
-    _defaults = {
-        "cache_disable": False,
-        "cache_dir": platformdirs.user_cache_dir(appname="wetterdienst"),
-        "fsspec_client_kwargs": {},
-        "ts_humanize": True,
-        "ts_shape": "long",
-        "ts_si_units": True,
-        "ts_skip_empty": False,
-        "ts_skip_threshold": 0.95,
-        "ts_skip_criteria": "min",
-        "ts_dropna": False,
-        "ts_interpolation_station_distance": {
+    cache_disable: bool | None = Field(default=False)
+    cache_dir: Path | None = Field(default=platformdirs.user_cache_dir(appname="wetterdienst"))
+    fsspec_client_kwargs: dict | None = Field(default_factory=dict)
+    ts_humanize: bool | None = Field(default=True)
+    ts_shape: Literal["wide", "long"] | None = Field(default="long")
+    ts_si_units: bool | None = Field(default=True)
+    ts_skip_empty: bool | None = Field(default=False)
+    ts_skip_threshold: float | None = Field(default=0.95)
+    ts_skip_criteria: Literal["min", "mean", "max"] | None = Field(default="min")
+    ts_dropna: bool | None = Field(default=False)
+    ts_interpolation_station_distance: dict[str, float] | None = Field(
+        default_factory=lambda: {
             "default": 40.0,
-            Parameter.PRECIPITATION_HEIGHT.name.lower(): 20.0,
-        },
-        "ts_interpolation_use_nearby_station_distance": 1,
-    }
+            Parameter.PRECIPITATION_HEIGHT.value.lower(): 20.0,
+        }
+    )
+    ts_interpolation_use_nearby_station_distance: float | None = Field(default=1)
+    ignore_env: bool | None = Field(default=False)
 
-    def __init__(
-        self,
-        cache_disable: bool | None = None,
-        cache_dir: pathlib.Path | None = None,
-        fsspec_client_kwargs: dict | None = None,
-        ts_humanize: bool | None = None,
-        ts_shape: Literal["wide", "long"] | None = None,
-        ts_si_units: bool | None = None,
-        ts_skip_empty: bool | None = None,
-        ts_skip_threshold: float | None = None,
-        ts_skip_criteria: Literal["min", "mean", "max"] | None = None,
-        ts_dropna: bool | None = None,
-        ts_interpolation_use_nearby_station_distance: float | int | None = None,
-        ts_interpolation_station_distance: dict[str, float] | None = None,
-        ignore_env: bool = False,
-    ) -> None:
-        _defaults = deepcopy(self._defaults)  # make sure mutable objects are not changed
-        _da = partial(_decide_arg, ignore_env=ignore_env)
+    @model_validator(mode="before")
+    def set_values(cls, values):
+        _defaults = deepcopy(cls.__fields__)
+        _defaults = {k: v.default_factory() if callable(v.default_factory) else v.default for k, v in _defaults.items()}
 
         env = Env()
-        # Evaluate environment variables `WD_CACHE_DISABLE` and `WD_CACHE_DIR`.
+        env.read_env()
+
+        ignore_env = values.get("ignore_env", False)
+
+        def decide_arg(regular_arg, env_var_name, default_arg):
+            return regular_arg if regular_arg is not None else (not ignore_env and env_var_name) or default_arg
+
         with env.prefixed("WD_"):
-            # cache
-            self.cache_disable: bool = _da(cache_disable, env.bool("CACHE_DISABLE", None), _defaults["cache_disable"])
-            self.cache_dir: pathlib.Path = _da(cache_dir, env.path("CACHE_DIR", None), _defaults["cache_dir"])
-            # FSSPEC aiohttp client kwargs, may be used to pass extra arguments
-            # such as proxies to aiohttp
-            self.fsspec_client_kwargs: dict = _da(
-                fsspec_client_kwargs,
-                env.dict("FSSPEC_CLIENT_KWARGS", {}) or None,
+            values["cache_disable"] = decide_arg(
+                values.get("cache_disable"),
+                env.bool("CACHE_DISABLE", None),
+                _defaults["cache_disable"],
+            )
+            values["cache_dir"] = decide_arg(
+                values.get("cache_dir"), env.path("CACHE_DIR", None), _defaults["cache_dir"]
+            )
+            values["fsspec_client_kwargs"] = decide_arg(
+                values.get("fsspec_client_kwargs"),
+                env.dict("FSSPEC_CLIENT_KWARGS", {}),
                 _defaults["fsspec_client_kwargs"],
             )
             with env.prefixed("TS_"):
-                # timeseries
-                self.ts_humanize: bool = _da(ts_humanize, env.bool("HUMANIZE", None), _defaults["ts_humanize"])
-                self.ts_shape: str = _da(
-                    ts_shape,
-                    env.str("SHAPE", None, validate=OneOf(["long", "wide"])),
-                    _defaults["ts_shape"],
+                values["ts_humanize"] = decide_arg(
+                    values.get("ts_humanize"), env.bool("HUMANIZE", None), _defaults["ts_humanize"]
                 )
-                self.ts_si_units: bool = _da(ts_si_units, env.bool("SI_UNITS", None), _defaults["ts_si_units"])
-                self.ts_skip_empty: bool = _da(ts_skip_empty, env.bool("SKIP_EMPTY", None), _defaults["ts_skip_empty"])
-                self.ts_skip_threshold: float = _da(
-                    ts_skip_threshold,
-                    env.float("SKIP_THRESHOLD", None),
-                    _defaults["ts_skip_threshold"],
+                values["ts_shape"] = decide_arg(values.get("ts_shape"), env.str("SHAPE", None), _defaults["ts_shape"])
+                values["ts_si_units"] = decide_arg(
+                    values.get("ts_si_units"), env.bool("SI_UNITS", None), _defaults["ts_si_units"]
                 )
-                self.ts_skip_criteria: str = _da(
-                    ts_skip_criteria,
-                    env.str("SKIP_CRITERIA", None, validate=OneOf(["min", "mean", "max"])),
-                    _defaults["ts_skip_criteria"],
+                values["ts_skip_empty"] = decide_arg(
+                    values.get("ts_skip_empty"), env.bool("SKIP_EMPTY", None), _defaults["ts_skip_empty"]
                 )
-                self.ts_dropna: bool = _da(ts_dropna, env.bool("DROPNA", ts_dropna), _defaults["ts_dropna"])
-
+                values["ts_skip_threshold"] = decide_arg(
+                    values.get("ts_skip_threshold"), env.float("SKIP_THRESHOLD", None), _defaults["ts_skip_threshold"]
+                )
+                values["ts_skip_criteria"] = decide_arg(
+                    values.get("ts_skip_criteria"), env.str("SKIP_CRITERIA", None), _defaults["ts_skip_criteria"]
+                )
+                values["ts_dropna"] = decide_arg(
+                    values.get("ts_dropna"), env.bool("DROPNA", None), _defaults["ts_dropna"]
+                )
                 with env.prefixed("INTERPOLATION_"):
-                    _ts_interpolation_station_distance = _defaults["ts_interpolation_station_distance"]
-                    _ts_interpolation_station_distance.update(
-                        {k: float(v) for k, v in env.dict("STATION_DISTANCE", {}).items()} if not ignore_env else {},
-                    )
-                    _ts_interpolation_station_distance.update(ts_interpolation_station_distance or {})
-                    self.ts_interpolation_station_distance = _ts_interpolation_station_distance
-
-                    self.ts_interpolation_use_nearby_station_distance: float = _da(
-                        ts_interpolation_use_nearby_station_distance,
+                    ts_interpolation_station_distance = _defaults["ts_interpolation_station_distance"].copy()
+                    if not ignore_env:
+                        ts_interpolation_station_distance.update(env.dict("STATION_DISTANCE", {}, subcast_values=float))
+                    ts_interpolation_station_distance.update(values.get("ts_interpolation_station_distance", {}))
+                    values["ts_interpolation_station_distance"] = ts_interpolation_station_distance
+                    values["ts_interpolation_use_nearby_station_distance"] = decide_arg(
+                        values.get("ts_interpolation_use_nearby_station_distance"),
                         env.float("USE_NEARBY_STATION_DISTANCE", None),
                         _defaults["ts_interpolation_use_nearby_station_distance"],
                     )
 
-        if self.cache_disable:
+        if values["cache_disable"]:
             log.info("Wetterdienst cache is disabled")
         else:
-            log.info(f"Wetterdienst cache is enabled [CACHE_DIR: {self.cache_dir}]")
+            log.info(f"Wetterdienst cache is enabled [CACHE_DIR: {values['cache_dir']}]")
+
+        return values
 
     def __repr__(self) -> str:
-        settings = ",".join([f"{k}:{v}" for k, v in self.to_dict().items()])
-        settings = settings.replace(" ", "").replace("'", "")
-        return f"Settings({settings})"
+        return json.dumps(self.model_dump(mode="json"))
 
     def __str__(self) -> str:
-        return f"Settings({json.dumps(self.to_dict(),indent=4)})"
-
-    def __eq__(self, other: Settings):
-        return self.to_dict() == other.to_dict()
-
-    def to_dict(self) -> dict:
-        return {
-            "cache_disable": self.cache_disable,
-            "cache_dir": self.cache_dir,
-            "fsspec_client_kwargs": self.fsspec_client_kwargs,
-            "ts_humanize": self.ts_humanize,
-            "ts_shape": self.ts_shape,
-            "ts_si_units": self.ts_si_units,
-            "ts_skip_empty": self.ts_skip_empty,
-            "ts_skip_threshold": self.ts_skip_threshold,
-            "ts_skip_criteria": self.ts_skip_criteria,
-            "ts_dropna": self.ts_dropna,
-            "ts_interpolation_station_distance": self.ts_interpolation_station_distance,
-            "ts_interpolation_use_nearby_station_distance": self.ts_interpolation_use_nearby_station_distance,
-        }
+        return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""
 
     def reset(self) -> Settings:
         """Reset Wetterdienst Settings to start"""
-        return self.__init__()
+        return self.__class__()
 
     @classmethod
     def default(cls) -> Settings:
         """Ignore environmental variables and use all default arguments as defined above"""
-        # Put empty env to force using the given defaults
         return cls(ignore_env=True)

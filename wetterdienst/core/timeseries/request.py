@@ -366,7 +366,7 @@ class TimeseriesRequest(Core):
         :param end_date:   End date for filtering stations_result for their available data
         """
         settings = settings or Settings.default()
-        self.settings = settings
+        self.settings = Settings.model_validate(settings)
 
         super().__init__()
 
