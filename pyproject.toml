@@ -130,7 +130,6 @@ tabulate = ">=0.8,<0.10"
 tqdm = ">=4,<5"
 tzfpy = ">=0.15.2,<1"
 
-crate                           = { version = ">=0.30.1,<1", optional = true }  # Export feature.
 duckdb                          = { version = ">=0.9", optional = true }  # Export feature, Explorer UI feature.
 eccodes                         = { version = ">=1.5.2,<1.8", optional = true }
 fastapi                         = { version = ">=0.95.1,<0.111", optional = true }  # HTTP REST API feature.
@@ -148,6 +147,7 @@ psycopg2-binary                 = { version = ">=2.8,<3", optional = true }  # E
 scipy                           = { version = ">=1.9,<1.13", optional = true }  # Interpolation feature.
 shapely                         = { version = ">=2,<3", optional = true }  # Interpolation feature.
 sqlalchemy                      = { version = ">=2,<2.1", optional = true }  # Export feature.
+sqlalchemy-cratedb              = { version = ">=0.37.0,<1", optional = true }  # Export feature.
 statsmodels                     = { version = ">=0.14.1", optional = true }  # Explorer UI feature.
 streamlit                       = { version = ">=1.27,<2", optional = true, markers = "python_version != '3.9.7'" }  # Explorer UI feature.
 utm                             = { version = ">=0.7,<1", optional = true }  # Interpolation feature.
@@ -208,7 +208,7 @@ tomlkit = ">=0.7,<1"
 
 [tool.poetry.extras]
 bufr                = ["pybufrkit", "pdbufr"]
-cratedb             = ["pandas", "crate"]
+cratedb             = ["pandas", "sqlalchemy-cratedb"]
 duckdb              = ["pandas", "duckdb"]
 eccodes             = ["eccodes"]
 excel               = ["xlsxwriter"]
