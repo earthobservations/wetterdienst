@@ -613,8 +613,9 @@ def restapi(listen: str, reload: bool, debug: bool):
 
 
 @cli.command("explorer", section=advanced_section)
+@cloup.option("--listen", type=click.STRING, default=None, help="HTTP server listen address")
 @debug_opt
-def explorer(debug: bool):
+def explorer(listen: str, debug: bool):
     set_logging_level(debug)
 
     try:
@@ -623,12 +624,25 @@ def explorer(debug: bool):
         log.error("Please install the explorer extras with 'pip install wetterdienst[explorer]'")
         sys.exit(1)
 
+    address = "localhost"
+    port = "8501"
+    if listen:
+        try:
+            address, port = listen.split(":")
+        except ValueError:
+            log.error(
+                f"Invalid listen address. Please provide address and port separated by a colon e.g. '{address}:{port}'."
+            )
+            sys.exit(1)
+
     log.info(f"Starting {appname}")
-    log.info("Starting Explorer web service on http://localhost:8501")
+    log.info(f"Starting Explorer web service on http://{address}:{port}")
 
     process = None
     try:
-        process = subprocess.Popen(["streamlit", "run", app.__file__])  # noqa: S603, S607
+        process = subprocess.Popen(
+            ["streamlit", "run", app.__file__, "--server.address", address, "--server.port", port]  # noqa: S603, S607
+        )
         process.wait()
     except KeyboardInterrupt:
         log.info("Stopping Explorer web service")
