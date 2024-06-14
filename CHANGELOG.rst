@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.88.0 (14.06.2024)
+*******************
+
 - Allow passing `--listen` when running the explorer to specify the host and port
 
 0.87.0 (06.06.2024)
