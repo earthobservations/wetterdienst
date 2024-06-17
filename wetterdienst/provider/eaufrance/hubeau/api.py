@@ -92,7 +92,7 @@ class HubeauValues(TimeseriesValues):
         end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         start = end - dt.timedelta(days=30)
         delta = end - start
-        if freq_unit == "min":
+        if freq_unit == "m":
             data_delta = dt.timedelta(minutes=freq)
         elif freq_unit == "H":
             data_delta = dt.timedelta(hours=freq)
@@ -108,7 +108,7 @@ class HubeauValues(TimeseriesValues):
         station_id,
         parameter,
         dataset,  # noqa: ARG002
-    ) -> tuple[int, Literal["min", "H"]]:
+    ) -> tuple[int, Literal["m", "H"]]:
         url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
@@ -120,7 +120,7 @@ class HubeauValues(TimeseriesValues):
             return 1, "H"
         date_diff = dt.datetime.fromisoformat(second_date) - dt.datetime.fromisoformat(first_date)
         minutes = int(date_diff.seconds / 60)
-        return minutes, "min"
+        return minutes, "m"
 
     def _fetch_frequency(self, station_id, parameter, dataset) -> str:
         freq, unit = self._get_dynamic_frequency(station_id, parameter, dataset)
