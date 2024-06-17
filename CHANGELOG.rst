@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- EaHydrology: Fix date parsing
+
 0.88.0 (14.06.2024)
 *******************
 
