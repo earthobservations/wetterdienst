@@ -22,13 +22,12 @@ build:
 
       # Install Poetry.
       # https://python-poetry.org/docs/#installing-manually
-      - pip install poetry==1.7.1
-
-      # Tell Poetry to not use a virtual environment.
-      - poetry config virtualenvs.create false
+      - pip install poetry==1.8.3
 
       # Install project's dependencies.
-      - .github/workflows/install.sh docs
+      # Tell Poetry to use the RTD virtual environment.
+      # see https://github.com/python-poetry/poetry/issues/9025
+      - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH .github/workflows/install.sh docs
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
