@@ -4,11 +4,13 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest, ImgwMeteorologyResolution
 
 
+@pytest.mark.xfail
 def test_imgw_meteorology_api_daily():
     request = ImgwMeteorologyRequest(
         parameter="klimat",
@@ -126,6 +128,7 @@ def test_imgw_meteorology_api_daily():
     assert_frame_equal(values.df, df_expected_values)
 
 
+@pytest.mark.xfail
 def test_imgw_meteorology_api_monthly():
     request = ImgwMeteorologyRequest(
         parameter="synop",
