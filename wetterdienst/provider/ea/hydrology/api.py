@@ -120,7 +120,8 @@ class EaHydrologyValues(TimeseriesValues):
         readings = json.loads(payload.read())["items"]
         df = pl.from_dicts(readings)
         df = df.select(pl.lit(parameter.value).alias("parameter"), pl.col("dateTime"), pl.col("value"))
-        return df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
+        df = df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
+        return df.with_columns(pl.col(Columns.DATE.value).str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 
 
 class EaHydrologyRequest(TimeseriesRequest):
@@ -171,7 +172,7 @@ class EaHydrologyRequest(TimeseriesRequest):
         log.info(f"Acquiring station listing from {self.endpoint}")
         response = download_file(self.endpoint, self.settings, CacheExpiry.FIVE_MINUTES)
         payload = json.load(response)["items"]
-        df = pl.DataFrame(payload).lazy()
+        df = pl.DataFrame(payload)
         # filter for stations that have wanted resolution and parameter combinations
         df_measures = (
             df.select(pl.col("notation"), pl.col("measures"))
@@ -182,12 +183,18 @@ class EaHydrologyRequest(TimeseriesRequest):
         )
         df = df.join(df_measures.filter(pl.col("has_measures")), how="inner", on="notation")
         df = df.rename(mapping=lambda col: col.lower())
-
-        return df.rename(
+        df = df.rename(
             mapping={
                 "label": Columns.NAME.value,
                 "lat": Columns.LATITUDE.value,
                 "long": Columns.LONGITUDE.value,
                 "notation": Columns.STATION_ID.value,
+                "dateopened": "start_date",
+                "dateclosed": "end_date",
             },
         )
+        df = df.with_columns(
+            pl.col("start_date").str.to_datetime(format="%Y-%m-%d"),
+            pl.col("end_date").str.to_datetime(format="%Y-%m-%d"),
+        )
+        return df.lazy()
