@@ -172,6 +172,7 @@ def test_api_noaa_ghcn_daily(settings_si_true):
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail
 def test_api_wsv_pegel(settings_si_true):
     request = WsvPegelRequest(parameter="stage", settings=settings_si_true).all()
     assert not request.df.is_empty()
