@@ -5,6 +5,7 @@ Development
 ***********
 
 - EaHydrology: Fix date parsing
+- Hubeau: Use correct frequency unit
 
 0.88.0 (14.06.2024)
 *******************
