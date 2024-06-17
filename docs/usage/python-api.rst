@@ -20,7 +20,6 @@ The available APIs can be accessed by the top-level API Wetterdienst. This API a
 allows the user to discover the available APIs of each service included:
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst import Wetterdienst
 
@@ -30,7 +29,6 @@ To load any of the available APIs pass the provider and the network of data to t
 Wetterdienst API:
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst import Wetterdienst
 
@@ -80,14 +78,12 @@ combined thus data is only taken from the given period and between the given tim
 Enumerations for resolution and period arguments are given at the main level e.g.
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst import Resolution, Period
 
 or at the domain specific level e.g.
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationResolution, DwdObservationPeriod
 
@@ -154,7 +150,6 @@ Get station information for a given *parameter/dataset*, *resolution* and
 *period*.
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
@@ -173,7 +168,6 @@ filter by station id
 --------------------
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
@@ -190,7 +184,6 @@ filter by name
 --------------
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
 
@@ -209,7 +202,6 @@ filter by distance
 Distance in kilometers (default)
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -228,7 +220,6 @@ Distance in kilometers (default)
 Distance in miles
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -248,7 +239,6 @@ filter by rank
 --------------
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -268,7 +258,6 @@ filter by bbox
 --------------
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
@@ -290,7 +279,6 @@ Values
 Values are just an extension of requests:
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
     from wetterdienst import Settings
@@ -308,7 +296,6 @@ Values are just an extension of requests:
 From here you can query data by station:
 
 .. ipython:: python
-    :okwarning:
 
     for result in stations.values.query():
         # analyse the station here
@@ -317,7 +304,6 @@ From here you can query data by station:
 Query data all together:
 
 .. ipython:: python
-    :okwarning:
 
     df = stations.values.all().df.drop_nulls()
     print(df.head())
@@ -331,7 +317,6 @@ In case you use `filter_by_rank` you may want to skip empty stations. We can use
 achieve that:
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -411,7 +396,6 @@ The interpolated value looks like this:
 
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -431,7 +415,6 @@ Instead of a latlon you may alternatively use an existing station id for which t
 getting a more complete dataset:
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -450,7 +433,6 @@ getting a more complete dataset:
 Increase maximum distance for interpolation:
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -479,7 +461,6 @@ The code to execute the summary is given below. It currently only works for ``Dw
 Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -499,7 +480,6 @@ Instead of a latlon you may alternatively use an existing station id for which t
 getting a more complete dataset:
 
 .. ipython:: python
-    :okwarning:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -691,7 +671,6 @@ asynchronous requests and may swallow some errors related to proxies, ssl or sim
 FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.observation import DwdObservationRequest

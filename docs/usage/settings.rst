@@ -128,7 +128,6 @@ If your system is running behind a proxy e.g. like `here <https://github.com/ear
 you may want to use the `trust_env` setting like
 
 .. ipython:: python
-    :okwarning:
 
     from wetterdienst import Settings
 
