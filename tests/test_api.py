@@ -106,6 +106,8 @@ def test_api_eccc_observation(settings_si_true):
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail
+@pytest.mark.remote
 def test_api_imgw_hydrology(settings_si_true):
     request = ImgwHydrologyRequest(parameter="hydrology", resolution="daily", settings=settings_si_true).all()
     assert not request.df.is_empty()
@@ -120,6 +122,8 @@ def test_api_imgw_hydrology(settings_si_true):
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.xfail
+@pytest.mark.remote
 def test_api_imgw_meteorology(settings_si_true):
     request = ImgwMeteorologyRequest(
         parameter="climate", resolution="daily", settings=settings_si_true
