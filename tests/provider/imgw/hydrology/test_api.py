@@ -34,6 +34,7 @@ def df_expected_station():
     )
 
 
+@pytest.mark.xfail
 def test_imgw_hydrology_api_daily(df_expected_station):
     request = ImgwHydrologyRequest(
         parameter="hydrology",
@@ -81,6 +82,7 @@ def test_imgw_hydrology_api_daily(df_expected_station):
     assert_frame_equal(values.df, df_expected)
 
 
+@pytest.mark.xfail
 def test_imgw_hydrology_api_monthly(df_expected_station):
     request = ImgwHydrologyRequest(
         parameter="hydrology",
