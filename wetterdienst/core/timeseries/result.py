@@ -361,7 +361,7 @@ class _ValuesResult(ExportMixin):
         """
         if not df.is_empty():
             df = df.with_columns(
-                pl.col("date").map_elements(lambda date: date.isoformat()),
+                pl.col("date").map_elements(lambda date: date.isoformat(), return_dtype=pl.Utf8),
             )
         return df.to_dicts()
 
