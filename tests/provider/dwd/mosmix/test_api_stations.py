@@ -76,6 +76,7 @@ def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
     assert_frame_equal(given_df[[0, -1], :], expected_df)
 
 
+@pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
 def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
     """
