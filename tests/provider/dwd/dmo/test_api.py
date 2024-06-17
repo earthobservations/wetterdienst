@@ -48,6 +48,7 @@ def df_files_end_of_month():
     )
 
 
+@pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
 def test_dwd_dmo_stations(default_settings):
     # Acquire data.
