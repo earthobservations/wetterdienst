@@ -25,7 +25,9 @@ def create_dwd_climate_summary_duckdb_dump(path, test):
             break
 
 
-def main(filepath, test):
+def main():
+    filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
+    test = "PYTEST_CURRENT_TEST" in os.environ
     # this takes something like 15 min and will require roughly 1 gb on disk
     create_dwd_climate_summary_duckdb_dump(filepath, test=test)
     con = duckdb.connect(str(filepath))
@@ -36,6 +38,4 @@ def main(filepath, test):
 
 
 if __name__ == "__main__":
-    filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
-    test = "PYTEST_CURRENT_TEST" in os.environ
-    main(filepath, test=test)
+    main()

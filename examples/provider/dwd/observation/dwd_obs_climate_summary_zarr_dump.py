@@ -33,7 +33,9 @@ def create_dwd_climate_summary_zarr_dump(filepath, test):
     ds.to_zarr(store, mode="w")
 
 
-def main(filepath, test):
+def main():
+    filepath = ROOT / "dwd_obs_climate_summary.zarr"
+    test = "PYTEST_CURRENT_TEST" in os.environ
     # this takes something like 15 min and will require roughly 1 gb on disk
     create_dwd_climate_summary_zarr_dump(filepath, test)
     ds = xr.open_zarr(filepath)
@@ -41,6 +43,4 @@ def main(filepath, test):
 
 
 if __name__ == "__main__":
-    filepath = ROOT / "dwd_obs_climate_summary.zarr"
-    test = "PYTEST_CURRENT_TEST" in os.environ
-    main(filepath, test)
+    main()
