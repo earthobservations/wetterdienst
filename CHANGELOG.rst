@@ -6,6 +6,7 @@ Development
 
 - EaHydrology: Fix date parsing
 - Hubeau: Use correct frequency unit
+- Fix group by unpack
 
 0.88.0 (14.06.2024)
 *******************
