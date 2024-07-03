@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.89.0 (03.07.2024)
+*******************
+
 - EaHydrology: Fix date parsing
 - Hubeau: Use correct frequency unit
 - Fix group by unpack
