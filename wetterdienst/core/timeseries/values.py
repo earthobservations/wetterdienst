@@ -237,7 +237,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         data = []
         for (dataset, parameter), group in df.group_by(
-            by=[Columns.DATASET.value, Columns.PARAMETER.value],
+            [Columns.DATASET.value, Columns.PARAMETER.value],
             maintain_order=True,
         ):
             op, factor = conversion_factors.get(dataset).get(parameter, (None, None))
