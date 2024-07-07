@@ -54,6 +54,3 @@ RUN apt-get update \
 # Copy installed pip packages from build stage
 COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
-
-# Copy selftest.sh to the image
-COPY .github/release/selftest.sh /usr/local/bin
