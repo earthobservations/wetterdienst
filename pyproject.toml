@@ -214,6 +214,8 @@ eccodes             = ["eccodes"]
 excel               = ["xlsxwriter"]
 explorer            = ["duckdb", "statsmodels", "streamlit", "plotly"]
 export              = ["pandas", "sqlalchemy", "xarray", "xlsxwriter", "zarr"]
+# this is meant especially for docker linux/arm64, where numcodecs cannot be installed
+export_without_zarr = ["pandas", "sqlalchemy", "xarray", "xlsxwriter"]
 import              = ["xlsx2csv"]
 influxdb            = ["influxdb", "influxdb-client", "influxdb3-python"]
 interpolation       = ["scipy", "shapely", "utm"]

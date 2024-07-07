@@ -134,7 +134,7 @@ jobs:
         with:
           context: .
           file: .github/release/Dockerfile
-          platforms: linux/amd64  # in future we might want to add: linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64  # TODO: add linux/arm/v7
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
