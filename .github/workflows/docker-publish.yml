@@ -58,10 +58,8 @@ jobs:
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
           export BUILDKIT_PROGRESS=plain
-          if [[ -f .github/release/test.yml ]]; then
-            docker-compose --file .github/release/test.yml build
-            docker-compose --file .github/release/test.yml run sut
-          fi
+          docker build . -t wd
+          docker run wd wetterdienst info
 
   docker:
     needs: build_and_test
@@ -133,7 +131,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: .github/release/Dockerfile
+          file: Dockerfile
           platforms: linux/amd64,linux/arm64  # TODO: add linux/arm/v7
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
