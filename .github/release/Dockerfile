@@ -1,7 +1,7 @@
 FROM python:3.12-slim-bookworm AS build
 
-ENV DEBIAN_FRONTEND noninteractive
-ENV TERM linux
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=linux
 
 # Install build prerequisites.
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
