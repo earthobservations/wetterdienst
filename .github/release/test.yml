@@ -1,4 +1,0 @@
-sut:
-  build: ../..
-  dockerfile: .github/release/Dockerfile
-  command: wetterdienst info
