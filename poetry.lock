@@ -1472,6 +1472,28 @@ files = [
 ]
 
 [[package]]
+name = "fastexcel"
+version = "0.10.4"
+description = ""
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "fastexcel-0.10.4-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:be881f6828c7a5c3a8dd6e57c64f94c2d9499d2616848436c5040908cc77800f"},
+    {file = "fastexcel-0.10.4-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:03c58045e8aee03612fb76da67a41179d23f80a79615f894258561004748de92"},
+    {file = "fastexcel-0.10.4-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:43d456fdf4a3d87d579620ec607f9cc4d88d2c4fbea1474c2bb3378ddfb65021"},
+    {file = "fastexcel-0.10.4-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3081cac3be3c26ad118e62f536f8d3c8b8cb5d96da5e13a54435c8115c6fb697"},
+    {file = "fastexcel-0.10.4-cp38-abi3-win_amd64.whl", hash = "sha256:75c32a46e788151ec043ecd1ba814bfc5416485221261aa6f14fd4ececf9e32d"},
+]
+
+[package.dependencies]
+pyarrow = ">=8.0.0"
+typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.10\""}
+
+[package.extras]
+pandas = ["pandas (>=1.4.4)"]
+polars = ["polars (>=0.16.14)"]
+
+[[package]]
 name = "fastjsonschema"
 version = "2.20.0"
 description = "Fastest Python implementation of JSON schema"
@@ -6683,16 +6705,6 @@ packaging = "*"
 xarray = ">=2023.12.0"
 
 [[package]]
-name = "xlsx2csv"
-version = "0.8.2"
-description = "xlsx to csv converter"
-optional = true
-python-versions = "*"
-files = [
-    {file = "xlsx2csv-0.8.2.tar.gz", hash = "sha256:cdd272c82f8b32f1cee76aeaef87b2ee3549661fddf90f7ecf2310967a16fc84"},
-]
-
-[[package]]
 name = "xlsxwriter"
 version = "3.2.0"
 description = "A Python module for creating Excel XLSX files."
@@ -6890,7 +6902,7 @@ excel = ["xlsxwriter"]
 explorer = ["duckdb", "plotly", "statsmodels", "streamlit"]
 export = ["pandas", "sqlalchemy", "xarray", "xlsxwriter", "zarr"]
 export-without-zarr = ["pandas", "sqlalchemy", "xarray", "xlsxwriter"]
-import = ["xlsx2csv"]
+import = ["fastexcel"]
 influxdb = ["influxdb", "influxdb-client", "influxdb3-python"]
 interpolation = ["scipy", "shapely", "utm"]
 ipython = ["matplotlib"]
@@ -6905,4 +6917,4 @@ sql = ["duckdb"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "359d4fa1866e1a4c440159090ac6b8fb084fbbf1872d406b165f9439ee3a3286"
+content-hash = "ab9a408b0f28590081eea21e5356269446423ae9329d6e6d05807febe819b215"
