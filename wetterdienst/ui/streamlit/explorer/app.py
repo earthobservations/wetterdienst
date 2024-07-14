@@ -235,13 +235,12 @@ if station:
     if sql_query:
         df = duckdb.query(sql_query).pl()
     st.dataframe(df, hide_index=True, use_container_width=True)
-    st.download_button("Download CSV", df.write_csv(), "data.csv", "text/csv")
+    data_csv = df.write_csv()
+    st.download_button("Download CSV", data_csv, "data.csv", "text/csv")
+    data_json = df.with_columns(pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.Utf8)).write_json()
     st.download_button(
         "Download JSON",
-        df.with_columns(pl.col("date").map_elements(lambda d: d.isoformat())).write_json(
-            pretty=True,
-            row_oriented=True,
-        ),
+        data_json,
         "data.json",
         "text/json",
     )

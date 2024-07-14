@@ -5,6 +5,7 @@ Development
 ***********
 
 - Bump `environs` to <12
+- Explorer: Fix json export
 
 0.89.0 (03.07.2024)
 *******************
