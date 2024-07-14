@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.90.0 (14.07.2024)
+*******************
+
 - Bump `environs` to <12
 - Explorer: Fix json export
 
