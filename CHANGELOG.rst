@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Bump `environs` to <12
+
 0.89.0 (03.07.2024)
 *******************
 
