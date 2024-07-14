@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix DWD Road api
+
 0.90.0 (14.07.2024)
 *******************
 

@@ -373,9 +373,9 @@ class DwdRoadRequest(TimeseriesRequest):
         "Bundesland  ": Columns.STATE.value,
         "Straße / Fahrtrichtung": Columns.ROAD_NAME.value,
         "Strecken-kilometer 100 m": Columns.ROAD_SECTOR.value,
-        """Streckentyp (Register ""Typen"")""": Columns.ROAD_TYPE.value,
-        """Streckenlage (Register ""Typen"")""": Columns.ROAD_SURROUNDINGS_TYPE.value,
-        """Streckenbelag (Register ""Typen"")""": Columns.ROAD_SURFACE_TYPE.value,
+        """Streckentyp (Register "Typen")""": Columns.ROAD_TYPE.value,
+        """Streckenlage (Register "Typen")""": Columns.ROAD_SURROUNDINGS_TYPE.value,
+        """Streckenbelag (Register "Typen")""": Columns.ROAD_SURFACE_TYPE.value,
         "Breite (Dezimalangabe)": Columns.LATITUDE.value,
         "Länge (Dezimalangabe)": Columns.LONGITUDE.value,
         "Höhe in m über NN": Columns.HEIGHT.value,
@@ -421,7 +421,7 @@ class DwdRoadRequest(TimeseriesRequest):
         df = df.rename(mapping=self._column_mapping)
         df = df.select(pl.col(col) for col in self._column_mapping.values())
         df = df.filter(
-            pl.col(Columns.HAS_FILE.value).is_null()
+            pl.col(Columns.HAS_FILE.value).ne("x")
             & pl.col(Columns.STATION_GROUP.value).ne("0")
             & pl.col(Columns.STATION_ID.value).is_not_null(),
         )
