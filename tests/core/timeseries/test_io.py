@@ -631,7 +631,7 @@ def test_export_unknown(default_settings):
 @pytest.mark.remote
 def test_export_excel(tmp_path, settings_si_false_wide_shape):
     """Test export of DataFrame to spreadsheet"""
-    pytest.importorskip("xlsx2csv")
+    pytest.importorskip("fastexcel")
 
     # 1. Request data and save to .xlsx file.
     request = DwdObservationRequest(
