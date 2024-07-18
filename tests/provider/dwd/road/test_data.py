@@ -7,7 +7,7 @@ from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
 
 @pytest.mark.skipif(not ensure_eccodes() or not ensure_pdbufr(), reason="eccodes and/or pdbufr not installed")
 @pytest.mark.remote
-@pytest.mark.parametrize("parameter", ("minute_10", "temperature_air_mean_200"))
+@pytest.mark.parametrize("parameter", ("minute_10", "temperature_air_mean_2m"))
 def test_dwd_road_weather(parameter):
     request = DwdRoadRequest(parameter).filter_by_station_id("A006")
     item = request.to_dict()["stations"][0]
@@ -28,6 +28,6 @@ def test_dwd_road_weather(parameter):
         "station_group": "KK",
     }
     values = (
-        request.values.all().df.drop_nulls(subset="value").filter(pl.col("parameter").eq("temperature_air_mean_200"))
+        request.values.all().df.drop_nulls(subset="value").filter(pl.col("parameter").eq("temperature_air_mean_2m"))
     )
     assert 230 <= values.get_column("value").min() <= 313  # approx. -+40 K

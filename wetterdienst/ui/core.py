@@ -37,11 +37,11 @@ def unpack_parameters(parameter: str) -> list[str]:
     - list of str, each representing a parameter or
     - list of tuple of str representing a pair of parameter and dataset
     e.g.
-       "precipitation_height,temperature_air_200" ->
-           ["precipitation_height", "temperature_air_200"]
+       "precipitation_height,temperature_air_2m" ->
+           ["precipitation_height", "temperature_air_2m"]
 
-       "precipitation_height/precipitation_more,temperature_air_200/kl" ->
-           [("precipitation_height", "precipitation_more"), ("temperature_air_200", "kl")]
+       "precipitation_height/precipitation_more,temperature_air_2m/kl" ->
+           [("precipitation_height", "precipitation_more"), ("temperature_air_2m", "kl")]
 
     """
 
@@ -421,7 +421,7 @@ def get_summarize(
 def _get_stripes_temperature_request(period: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=Resolution.ANNUAL,
         period=period,
     )

@@ -37,7 +37,7 @@ def dwd_road_weather_example():
     print(df_drw)
 
     dobs_request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="10_minutes",
         start_date=start_date,
         end_date=end_date,

@@ -25,9 +25,9 @@ class NoaaGhcnUnit(DatasetTreeCore):
             PRESSURE_AIR_SITE_DELTA_LAST_3H = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SITE_REDUCED = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_DEW_POINT_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_WET_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_DEW_POINT_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_WET_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             VISIBILITY_RANGE = OriginUnit.KILOMETER.value, SIUnit.METER.value
             WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
             WIND_GUST_MAX = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
@@ -54,17 +54,17 @@ class NoaaGhcnUnit(DatasetTreeCore):
             )
             # Maximum  temperature  (Fahrenheit or  Celsius  as per  user  preference,
             # Fahrenheit  to  tenths on Daily Form pdf file
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             # Minimum  temperature  (Fahrenheit  or  Celsius as per  user  preference,
             # Fahrenheit  to  tenths  on Daily Form pdf file
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -114,12 +114,12 @@ class NoaaGhcnUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             # Number of days included in the multiday minimum temperature (MDTN)
-            COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MIN_200 = (
+            COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
             # Number of days included in the multiday maximum temperature (MDTX)
-            COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MAX_200 = (
+            COUNT_DAYS_MULTIDAY_TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -129,7 +129,7 @@ class NoaaGhcnUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             # Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
-            COUNT_DAYS_MULTIDAY_PRECIPITATION_HEIGHT_GT_0 = (
+            COUNT_DAYS_MULTIDAY_PRECIPITATION_HEIGHT_GT_0MM = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -168,12 +168,12 @@ class NoaaGhcnUnit(DatasetTreeCore):
                 SIUnit.KILOGRAM_PER_SQUARE_METER.value,
             )
             # Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)
-            TEMPERATURE_AIR_MIN_200_MULTIDAY = (
+            TEMPERATURE_AIR_MIN_2M_MULTIDAY = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             # Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)
-            TEMPERATURE_AIR_MAX_200_MULTIDAY = (
+            TEMPERATURE_AIR_MAX_2M_MULTIDAY = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -227,532 +227,532 @@ class NoaaGhcnUnit(DatasetTreeCore):
 
             # Height definition similar to temperature with three digits
             # 0 - unknown
-            TEMPERATURE_SOIL_MIN_UNKNOWN_005 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_UNKNOWN_010 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_UNKNOWN_020 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_UNKNOWN_050 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_UNKNOWN_100 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_UNKNOWN_150 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_UNKNOWN_180 = (
+            TEMPERATURE_SOIL_MIN_UNKNOWN_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_UNKNOWN_005 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_UNKNOWN_010 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_UNKNOWN_020 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_UNKNOWN_050 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_UNKNOWN_100 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_UNKNOWN_150 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_UNKNOWN_180 = (
+            TEMPERATURE_SOIL_MAX_UNKNOWN_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 1 - grass
-            TEMPERATURE_SOIL_MIN_GRASS_005 = (
+            TEMPERATURE_SOIL_MIN_GRASS_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_010 = (
+            TEMPERATURE_SOIL_MIN_GRASS_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_020 = (
+            TEMPERATURE_SOIL_MIN_GRASS_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_050 = (
+            TEMPERATURE_SOIL_MIN_GRASS_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_100 = (
+            TEMPERATURE_SOIL_MIN_GRASS_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_150 = (
+            TEMPERATURE_SOIL_MIN_GRASS_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_180 = (
+            TEMPERATURE_SOIL_MIN_GRASS_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_GRASS_005 = (
+            TEMPERATURE_SOIL_MAX_GRASS_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_010 = (
+            TEMPERATURE_SOIL_MAX_GRASS_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_020 = (
+            TEMPERATURE_SOIL_MAX_GRASS_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_050 = (
+            TEMPERATURE_SOIL_MAX_GRASS_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_100 = (
+            TEMPERATURE_SOIL_MAX_GRASS_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_150 = (
+            TEMPERATURE_SOIL_MAX_GRASS_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_180 = (
+            TEMPERATURE_SOIL_MAX_GRASS_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 2 - fallow
-            TEMPERATURE_SOIL_MIN_FALLOW_005 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_FALLOW_010 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_FALLOW_020 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_FALLOW_050 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_FALLOW_100 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_FALLOW_150 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_FALLOW_180 = (
+            TEMPERATURE_SOIL_MIN_FALLOW_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_FALLOW_005 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_FALLOW_010 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_FALLOW_020 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_FALLOW_050 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_FALLOW_100 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_FALLOW_150 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_FALLOW_180 = (
+            TEMPERATURE_SOIL_MAX_FALLOW_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 3 - bare ground
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_005 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_010 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_020 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_050 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_100 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_150 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_GROUND_180 = (
+            TEMPERATURE_SOIL_MIN_BARE_GROUND_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_005 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_010 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_020 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_050 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_100 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_150 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_GROUND_180 = (
+            TEMPERATURE_SOIL_MAX_BARE_GROUND_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 4 - brome grass
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_005 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_010 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_020 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_050 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_100 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_150 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BROME_GRASS_180 = (
+            TEMPERATURE_SOIL_MIN_BROME_GRASS_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_005 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_010 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_020 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_050 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_100 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_150 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BROME_GRASS_180 = (
+            TEMPERATURE_SOIL_MAX_BROME_GRASS_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 5 - sod
-            TEMPERATURE_SOIL_MIN_SOD_005 = (
+            TEMPERATURE_SOIL_MIN_SOD_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_SOD_010 = (
+            TEMPERATURE_SOIL_MIN_SOD_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_SOD_020 = (
+            TEMPERATURE_SOIL_MIN_SOD_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_SOD_050 = (
+            TEMPERATURE_SOIL_MIN_SOD_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_SOD_100 = (
+            TEMPERATURE_SOIL_MIN_SOD_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_SOD_150 = (
+            TEMPERATURE_SOIL_MIN_SOD_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_SOD_180 = (
+            TEMPERATURE_SOIL_MIN_SOD_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_SOD_005 = (
+            TEMPERATURE_SOIL_MAX_SOD_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_SOD_010 = (
+            TEMPERATURE_SOIL_MAX_SOD_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_SOD_020 = (
+            TEMPERATURE_SOIL_MAX_SOD_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_SOD_050 = (
+            TEMPERATURE_SOIL_MAX_SOD_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_SOD_100 = (
+            TEMPERATURE_SOIL_MAX_SOD_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_SOD_150 = (
+            TEMPERATURE_SOIL_MAX_SOD_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_SOD_180 = (
+            TEMPERATURE_SOIL_MAX_SOD_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 6 - straw mulch
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_005 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_010 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_020 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_050 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_100 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_150 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_STRAW_MULCH_180 = (
+            TEMPERATURE_SOIL_MIN_STRAW_MULCH_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_005 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_010 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_020 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_050 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_100 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_150 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_STRAW_MULCH_180 = (
+            TEMPERATURE_SOIL_MAX_STRAW_MULCH_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 7 - grass muck
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_005 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_010 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_020 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_050 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_100 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_150 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_GRASS_MUCK_180 = (
+            TEMPERATURE_SOIL_MIN_GRASS_MUCK_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_005 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_010 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_020 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_050 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_100 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_150 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_GRASS_MUCK_180 = (
+            TEMPERATURE_SOIL_MAX_GRASS_MUCK_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
             # 8 - bare muck
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_005 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_010 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_020 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_050 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_100 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_150 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MIN_BARE_MUCK_180 = (
+            TEMPERATURE_SOIL_MIN_BARE_MUCK_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
 
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_005 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_010 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_020 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_050 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_100 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_150 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_1_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MAX_BARE_MUCK_180 = (
+            TEMPERATURE_SOIL_MAX_BARE_MUCK_1_8M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -760,7 +760,7 @@ class NoaaGhcnUnit(DatasetTreeCore):
             # Thickness of ice on water (inches or mm as per user preference)
             ICE_ON_WATER_THICKNESS = OriginUnit.MILLIMETER.value, SIUnit.METER.value
             # Temperature at the time of observation  (Fahrenheit or Celsius as per user preference)
-            TEMPERATURE_AIR_200 = (
+            TEMPERATURE_AIR_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -797,7 +797,7 @@ class NoaaGhcnUnit(DatasetTreeCore):
                 SIUnit.WIND_DIRECTION.value,
             )
             # 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)
-            WIND_MOVEMENT_24HOUR = OriginUnit.KILOMETER.value, SIUnit.METER.value
+            WIND_MOVEMENT_24H = OriginUnit.KILOMETER.value, SIUnit.METER.value
             # Water equivalent of snow on the ground (inches or mm as per user preference)
             WATER_EQUIVALENT_SNOW_DEPTH = (
                 OriginUnit.MILLIMETER.value,

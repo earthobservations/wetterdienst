@@ -14,9 +14,9 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
-def test_summary_temperature_air_mean_200_daily(default_settings):
+def test_summary_temperature_air_mean_2m_daily(default_settings):
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date=dt.datetime(1934, 1, 1),
         end_date=dt.datetime(1965, 12, 31),
@@ -30,7 +30,7 @@ def test_summary_temperature_air_mean_200_daily(default_settings):
     expected_df = pl.DataFrame(
         {
             "station_id": ["7ac6c582", "7ac6c582", "7ac6c582"],
-            "parameter": ["temperature_air_mean_200", "temperature_air_mean_200", "temperature_air_mean_200"],
+            "parameter": ["temperature_air_mean_2m", "temperature_air_mean_2m", "temperature_air_mean_2m"],
             "date": selected_dates,
             "value": [273.65, 267.65, 270.45],
             "distance": [13.42, 5.05, 0.0],
@@ -74,7 +74,7 @@ def test_not_summarizable_dataset(default_settings):
 @pytest.mark.remote
 def test_provider_dwd_mosmix(default_settings):
     request = DwdMosmixRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         mosmix_type="small",
         start_date=dt.datetime.today() + dt.timedelta(days=1),
         end_date=dt.datetime.today() + dt.timedelta(days=8),

@@ -58,16 +58,16 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.HECTOPASCAL.value,
                 SIUnit.PASCAL.value,
             )
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MEAN_005 = (
+            TEMPERATURE_AIR_MEAN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_DEW_POINT_MEAN_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -75,19 +75,19 @@ class DwdObservationUnit(DatasetTreeCore):
         # extreme_temperature
         class TEMPERATURE_EXTREME(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MAX_005 = (
+            TEMPERATURE_AIR_MAX_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_005 = (
+            TEMPERATURE_AIR_MIN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -156,7 +156,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -223,11 +223,11 @@ class DwdObservationUnit(DatasetTreeCore):
         # dew_point
         class DEW_POINT(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_DEW_POINT_MEAN_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -248,17 +248,17 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_WET_MEAN_200 = (
+            TEMPERATURE_WET_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_DEW_POINT_MEAN_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -294,27 +294,27 @@ class DwdObservationUnit(DatasetTreeCore):
         # soil_temperature
         class TEMPERATURE_SOIL(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_MEAN_002 = (
+            TEMPERATURE_SOIL_MEAN_0_02M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_005 = (
+            TEMPERATURE_SOIL_MEAN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_010 = (
+            TEMPERATURE_SOIL_MEAN_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_020 = (
+            TEMPERATURE_SOIL_MEAN_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_050 = (
+            TEMPERATURE_SOIL_MEAN_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_100 = (
+            TEMPERATURE_SOIL_MEAN_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -391,7 +391,7 @@ class DwdObservationUnit(DatasetTreeCore):
 
         class URBAN_TEMPERATURE_AIR(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -417,23 +417,23 @@ class DwdObservationUnit(DatasetTreeCore):
 
         class URBAN_TEMPERATURE_SOIL(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_MEAN_005 = (
+            TEMPERATURE_SOIL_MEAN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_010 = (
+            TEMPERATURE_SOIL_MEAN_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_020 = (
+            TEMPERATURE_SOIL_MEAN_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_050 = (
+            TEMPERATURE_SOIL_MEAN_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_100 = (
+            TEMPERATURE_SOIL_MEAN_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -458,7 +458,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # air_temperature
         class TEMPERATURE_AIR(UnitEnum):  # noqa
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -490,11 +490,11 @@ class DwdObservationUnit(DatasetTreeCore):
         class MOISTURE(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_MEAN_005 = (
+            TEMPERATURE_AIR_MEAN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -508,7 +508,7 @@ class DwdObservationUnit(DatasetTreeCore):
         # soil
         class SOIL(UnitEnum):
             QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_MEAN_005 = (
+            TEMPERATURE_SOIL_MEAN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -557,20 +557,20 @@ class DwdObservationUnit(DatasetTreeCore):
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_005 = (
+            TEMPERATURE_AIR_MIN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -600,27 +600,27 @@ class DwdObservationUnit(DatasetTreeCore):
         # soil_temperature
         class TEMPERATURE_SOIL(UnitEnum):  # noqa
             QUALITY = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DIMENSIONLESS.value
-            TEMPERATURE_SOIL_MEAN_002 = (
+            TEMPERATURE_SOIL_MEAN_0_02M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_005 = (
+            TEMPERATURE_SOIL_MEAN_0_05M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_010 = (
+            TEMPERATURE_SOIL_MEAN_0_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_020 = (
+            TEMPERATURE_SOIL_MEAN_0_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_050 = (
+            TEMPERATURE_SOIL_MEAN_0_5M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_SOIL_MEAN_100 = (
+            TEMPERATURE_SOIL_MEAN_1M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -705,20 +705,20 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MAX_200_MEAN = (
+            TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_200_MEAN = (
+            TEMPERATURE_AIR_MIN_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             WIND_FORCE_BEAUFORT = OriginUnit.BEAUFORT.value, SIUnit.BEAUFORT.value
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -726,7 +726,7 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.METER_PER_SECOND.value,
                 SIUnit.METER_PER_SECOND.value,
             )
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -803,15 +803,15 @@ class DwdObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             CLOUD_COVER_TOTAL = OriginUnit.ONE_EIGHTH.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MAX_200_MEAN = (
+            TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_200_MEAN = (
+            TEMPERATURE_AIR_MIN_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
@@ -821,11 +821,11 @@ class DwdObservationUnit(DatasetTreeCore):
                 OriginUnit.METER_PER_SECOND.value,
                 SIUnit.METER_PER_SECOND.value,
             )
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )

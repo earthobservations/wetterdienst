@@ -148,7 +148,7 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "daily",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": -16.3,
                 "quality": None,
@@ -156,7 +156,7 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "daily",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": -16.4,
                 "quality": None,
@@ -164,7 +164,7 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "daily",
-                "parameter": "temperature_air_mean_200",
+                "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": -22.7,
                 "quality": None,
@@ -172,7 +172,7 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "daily",
-                "parameter": "temperature_air_mean_200",
+                "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": -22.4,
                 "quality": None,
@@ -180,7 +180,7 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "daily",
-                "parameter": "temperature_air_min_200",
+                "parameter": "temperature_air_min_2m",
                 "date": dt.datetime(1980, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": -29.1,
                 "quality": None,
@@ -188,7 +188,7 @@ def test_eccc_api_values(settings_si_false):
             {
                 "station_id": "1652",
                 "dataset": "daily",
-                "parameter": "temperature_air_min_200",
+                "parameter": "temperature_air_min_2m",
                 "date": dt.datetime(1980, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": -28.3,
                 "quality": None,

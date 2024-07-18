@@ -85,7 +85,7 @@ def test_cli_interpolate():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--parameter=temperature_air_mean_2m --resolution=daily "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:
@@ -95,7 +95,7 @@ def test_cli_interpolate():
     assert response["values"] == [
         {
             "station_id": "6754d04d",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 279.52,
             "distance_mean": 16.99,
@@ -103,7 +103,7 @@ def test_cli_interpolate():
         },
         {
             "station_id": "6754d04d",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance_mean": 0.0,
@@ -118,7 +118,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--parameter=temperature_air_mean_2m --resolution=daily "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json --with-metadata=true --with-stations=true",
     )
     if result.exit_code != 0:
@@ -186,7 +186,7 @@ def test_cli_interpolate_geojson():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--parameter=temperature_air_mean_2m --resolution=daily "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
     )
     if result.exit_code != 0:
@@ -255,7 +255,7 @@ def test_cli_interpolate_geojson():
                 "values": [
                     {
                         "station_id": "6754d04d",
-                        "parameter": "temperature_air_mean_200",
+                        "parameter": "temperature_air_mean_2m",
                         "date": "1986-10-31T00:00:00+00:00",
                         "value": 279.52,
                         "distance_mean": 16.99,
@@ -264,7 +264,7 @@ def test_cli_interpolate_geojson():
                     {
                         "station_id": "6754d04d",
                         "date": "1986-11-01T00:00:00+00:00",
-                        "parameter": "temperature_air_mean_200",
+                        "parameter": "temperature_air_mean_2m",
                         "value": 281.85,
                         "distance_mean": 0.0,
                         "taken_station_ids": ["00071"],
@@ -281,7 +281,7 @@ def test_cli_summarize():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--parameter=temperature_air_mean_2m --resolution=daily "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:
@@ -291,7 +291,7 @@ def test_cli_summarize():
     assert response["values"] == [
         {
             "station_id": "a87291a8",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 279.75,
             "distance": 6.97,
@@ -299,7 +299,7 @@ def test_cli_summarize():
         },
         {
             "station_id": "a87291a8",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance": 0.0,
@@ -314,7 +314,7 @@ def test_cli_summarize_geojson():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_200 --resolution=daily "
+        "--parameter=temperature_air_mean_2m --resolution=daily "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
     )
     if result.exit_code != 0:
@@ -353,7 +353,7 @@ def test_cli_summarize_geojson():
                 "values": [
                     {
                         "station_id": "a87291a8",
-                        "parameter": "temperature_air_mean_200",
+                        "parameter": "temperature_air_mean_2m",
                         "date": "1986-10-31T00:00:00+00:00",
                         "value": 279.75,
                         "distance": 6.97,
@@ -361,7 +361,7 @@ def test_cli_summarize_geojson():
                     },
                     {
                         "station_id": "a87291a8",
-                        "parameter": "temperature_air_mean_200",
+                        "parameter": "temperature_air_mean_2m",
                         "date": "1986-11-01T00:00:00+00:00",
                         "value": 281.85,
                         "distance": 0.0,

@@ -524,13 +524,13 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         date         parameter                  value   quality
         1971-01-01   precipitation_height       0       0
-        1971-01-01   temperature_air_mean_200   10      0
+        1971-01-01   temperature_air_mean_2m   10      0
 
         becomes
 
         date         precipitation_height   qn_precipitation_height
         1971-01-01   0                      0
-            temperature_air_mean_200    ...
+            temperature_air_mean_2m    ...
             10                          ...
 
         :param df: DataFrame with ts_shape data

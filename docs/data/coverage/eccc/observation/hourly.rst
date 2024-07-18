@@ -101,7 +101,7 @@ pressure_air_site
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -121,7 +121,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

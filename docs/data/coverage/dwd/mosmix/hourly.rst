@@ -60,7 +60,7 @@ cloud_base_convective
    * - constraints
      - :math:`\geq{0}`
 
-cloud_cover_above_7_km
+cloud_cover_above_7km
 ^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -80,7 +80,7 @@ cloud_cover_above_7_km
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_below_500_ft
+cloud_cover_below_500ft
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -100,7 +100,7 @@ cloud_cover_below_500_ft
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_below_1000_ft
+cloud_cover_below_1000ft
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -120,7 +120,7 @@ cloud_cover_below_1000_ft
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_below_7_km
+cloud_cover_below_7km
 ^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -140,7 +140,7 @@ cloud_cover_below_7_km
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_between_2_to_7_km
+cloud_cover_between_2km_to_7km
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -320,7 +320,7 @@ probability_fog_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_0_mm_last_12h
+probability_precipitation_height_gt_0_0mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -340,7 +340,7 @@ probability_precipitation_height_gt_0_0_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_6h
+probability_precipitation_height_gt_0_2mm_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -360,7 +360,7 @@ probability_precipitation_height_gt_0_2_mm_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_12h
+probability_precipitation_height_gt_0_2mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -380,7 +380,7 @@ probability_precipitation_height_gt_0_2_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_24h
+probability_precipitation_height_gt_0_2mm_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -400,7 +400,7 @@ probability_precipitation_height_gt_0_2_mm_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_1_0_mm_last_12h
+probability_precipitation_height_gt_1mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -420,7 +420,7 @@ probability_precipitation_height_gt_1_0_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_6h
+probability_precipitation_height_gt_5mm_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -440,7 +440,7 @@ probability_precipitation_height_gt_5_0_mm_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_12h
+probability_precipitation_height_gt_5mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -460,7 +460,7 @@ probability_precipitation_height_gt_5_0_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_24h
+probability_precipitation_height_gt_5mm_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -480,7 +480,7 @@ probability_precipitation_height_gt_5_0_mm_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_25_kn_last_12h
+probability_wind_gust_ge_25kn_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -500,7 +500,7 @@ probability_wind_gust_ge_25_kn_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_40_kn_last_12h
+probability_wind_gust_ge_40kn_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -520,7 +520,7 @@ probability_wind_gust_ge_40_kn_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_55_kn_last_12h
+probability_wind_gust_ge_55kn_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -580,7 +580,7 @@ sunshine_duration
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -600,7 +600,7 @@ temperature_air_max_200
    * - constraints
      - none
 
-temperature_air_mean_005
+temperature_air_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -620,7 +620,7 @@ temperature_air_mean_005
    * - constraints
      - none
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -640,7 +640,7 @@ temperature_air_mean_200
    * - constraints
      - none
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -660,7 +660,7 @@ temperature_air_min_200
    * - constraints
      - none
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -904,7 +904,7 @@ Metadata
 Parameters
 ----------
 
-cloud_cover_above_7_km
+cloud_cover_above_7km
 ^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -924,7 +924,7 @@ cloud_cover_above_7_km
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_below_500_ft
+cloud_cover_below_500ft
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -944,7 +944,7 @@ cloud_cover_below_500_ft
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_below_1000_ft
+cloud_cover_below_1000ft
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -964,7 +964,7 @@ cloud_cover_below_1000_ft
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-cloud_cover_between_2_to_7_km
+cloud_cover_between_2km_to_7km
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1044,7 +1044,7 @@ error_absolute_pressure_air_site
    * - constraints
      - none
 
-error_absolute_temperature_air_mean_200
+error_absolute_temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1064,7 +1064,7 @@ error_absolute_temperature_air_mean_200
    * - constraints
      - none
 
-error_absolute_temperature_dew_point_mean_200
+error_absolute_temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1664,7 +1664,7 @@ probability_precipitation_freezing_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_0_mm_last_6h
+probability_precipitation_height_gt_0_0mm_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1684,7 +1684,7 @@ probability_precipitation_height_gt_0_0_mm_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_0_mm_last_12h
+probability_precipitation_height_gt_0_0mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1704,7 +1704,7 @@ probability_precipitation_height_gt_0_0_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_0_mm_last_24h
+probability_precipitation_height_gt_0_0mm_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1724,7 +1724,7 @@ probability_precipitation_height_gt_0_0_mm_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_1_mm_last_1h
+probability_precipitation_height_gt_0_1mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1744,7 +1744,7 @@ probability_precipitation_height_gt_0_1_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_1h
+probability_precipitation_height_gt_0_2mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1764,7 +1764,7 @@ probability_precipitation_height_gt_0_2_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_6h
+probability_precipitation_height_gt_0_2mm_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1784,7 +1784,7 @@ probability_precipitation_height_gt_0_2_mm_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_12h
+probability_precipitation_height_gt_0_2mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1804,7 +1804,7 @@ probability_precipitation_height_gt_0_2_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_2_mm_last_24h
+probability_precipitation_height_gt_0_2mm_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1824,7 +1824,7 @@ probability_precipitation_height_gt_0_2_mm_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_3_mm_last_1h
+probability_precipitation_height_gt_0_3mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1844,7 +1844,7 @@ probability_precipitation_height_gt_0_3_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_5_mm_last_1h
+probability_precipitation_height_gt_0_5mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1864,7 +1864,7 @@ probability_precipitation_height_gt_0_5_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_0_7_mm_last_1h
+probability_precipitation_height_gt_0_7mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1884,7 +1884,7 @@ probability_precipitation_height_gt_0_7_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_1_0_mm_last_1h
+probability_precipitation_height_gt_1mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1904,7 +1904,7 @@ probability_precipitation_height_gt_1_0_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_1_0_mm_last_6h
+probability_precipitation_height_gt_1mm_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1924,7 +1924,7 @@ probability_precipitation_height_gt_1_0_mm_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_1_0_mm_last_12h
+probability_precipitation_height_gt_1mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1944,7 +1944,7 @@ probability_precipitation_height_gt_1_0_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_1_0_mm_last_24h
+probability_precipitation_height_gt_1mm_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1964,7 +1964,7 @@ probability_precipitation_height_gt_1_0_mm_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_2_0_mm_last_1h
+probability_precipitation_height_gt_2mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1984,7 +1984,7 @@ probability_precipitation_height_gt_2_0_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_3_0_mm_last_1h
+probability_precipitation_height_gt_3mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2004,7 +2004,7 @@ probability_precipitation_height_gt_3_0_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_1h
+probability_precipitation_height_gt_5mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2024,7 +2024,7 @@ probability_precipitation_height_gt_5_0_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_6h
+probability_precipitation_height_gt_5mm_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2044,7 +2044,7 @@ probability_precipitation_height_gt_5_0_mm_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_12h
+probability_precipitation_height_gt_5mm_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2064,7 +2064,7 @@ probability_precipitation_height_gt_5_0_mm_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_5_0_mm_last_24h
+probability_precipitation_height_gt_5mm_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2084,7 +2084,7 @@ probability_precipitation_height_gt_5_0_mm_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_10_0_mm_last_1h
+probability_precipitation_height_gt_10mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2104,7 +2104,7 @@ probability_precipitation_height_gt_10_0_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_15_0_mm_last_1h
+probability_precipitation_height_gt_15mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2124,7 +2124,7 @@ probability_precipitation_height_gt_15_0_mm_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_precipitation_height_gt_25_0_mm_last_1h
+probability_precipitation_height_gt_25mm_last_1h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2404,7 +2404,7 @@ probability_radiation_global_last_1h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_sunshine_duration_relative_gt_0_pct_last_24h
+probability_sunshine_duration_relative_gt_0pct_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2424,7 +2424,7 @@ probability_sunshine_duration_relative_gt_0_pct_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_sunshine_duration_relative_gt_30_pct_last_24h
+probability_sunshine_duration_relative_gt_30pct_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2444,7 +2444,7 @@ probability_sunshine_duration_relative_gt_30_pct_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_sunshine_duration_relative_gt_60_pct_last_24h
+probability_sunshine_duration_relative_gt_60pct_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2544,7 +2544,7 @@ probability_thunder_last_24h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_visibility_below_1000_m
+probability_visibility_below_1000m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2564,7 +2564,7 @@ probability_visibility_below_1000_m
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_25_kn_last_6h
+probability_wind_gust_ge_25kn_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2584,7 +2584,7 @@ probability_wind_gust_ge_25_kn_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_25_kn_last_12h
+probability_wind_gust_ge_25kn_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2604,7 +2604,7 @@ probability_wind_gust_ge_25_kn_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_40_kn_last_6h
+probability_wind_gust_ge_40kn_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2624,7 +2624,7 @@ probability_wind_gust_ge_40_kn_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_40_kn_last_12h
+probability_wind_gust_ge_40kn_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2644,7 +2644,7 @@ probability_wind_gust_ge_40_kn_last_12h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_55_kn_last_6h
+probability_wind_gust_ge_55kn_last_6h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2664,7 +2664,7 @@ probability_wind_gust_ge_55_kn_last_6h
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-probability_wind_gust_ge_55_kn_last_12h
+probability_wind_gust_ge_55kn_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2824,7 +2824,7 @@ sunshine_duration_yesterday
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2844,7 +2844,7 @@ temperature_air_max_200
    * - constraints
      - none
 
-temperature_air_mean_005
+temperature_air_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2864,7 +2864,7 @@ temperature_air_mean_005
    * - constraints
      - none
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2884,7 +2884,7 @@ temperature_air_mean_200
    * - constraints
      - none
 
-temperature_air_mean_200_last_24h
+temperature_air_mean_2m_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2905,7 +2905,7 @@ temperature_air_mean_200_last_24h
      - none
 
 
-temperature_air_min_005_last_12h
+temperature_air_min_0_05m_last_12h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2925,7 +2925,7 @@ temperature_air_min_005_last_12h
    * - constraints
      - none
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2945,7 +2945,7 @@ temperature_air_min_200
    * - constraints
      - none
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

@@ -160,7 +160,7 @@ pressure_air_sl
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_max_200_last_24h
+temperature_air_max_2m_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -180,7 +180,7 @@ temperature_air_max_200_last_24h
    * - constraints
      - :math:`None`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -200,7 +200,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_200_last_24h
+temperature_air_min_2m_last_24h
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -220,7 +220,7 @@ temperature_air_min_200_last_24h
    * - constraints
      - :math:`None`
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

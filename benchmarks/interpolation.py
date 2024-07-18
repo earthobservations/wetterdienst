@@ -28,12 +28,12 @@ example:
 5      01420 1981-01-01 00:00:00+00:00 2022-02-11 00:00:00+00:00   100.0   50.0259     8.5213          Frankfurt/Main  Hessen  27.212977
 
      station_id          dataset                 parameter                      date   value  quality
-24        02480  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  278.15      1.0
-481       04411  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  277.15      1.0
-938       07341  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  278.35      1.0
-1395      00917  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  276.25      1.0
-1852      01424  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  281.05      1.0
-2309      01420  temperature_air  temperature_air_mean_200 2022-01-02 00:00:00+00:00  277.05      1.0
+24        02480  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  278.15      1.0
+481       04411  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  277.15      1.0
+938       07341  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  278.35      1.0
+1395      00917  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  276.25      1.0
+1852      01424  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  281.05      1.0
+2309      01420  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  277.05      1.0
 """  # noqa: E501
 
 
@@ -124,7 +124,7 @@ def visualize_points(data: Data):
 
 
 def main():
-    parameter = [("temperature_air_mean_200", "temperature_air")]
+    parameter = [("temperature_air_mean_2m", "temperature_air")]
     latitude = 50.0
     longitude = 8.9
     distance = 21.0

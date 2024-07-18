@@ -7,19 +7,19 @@ from wetterdienst.util.parameter import DatasetTreeCore
 class EcccObservationUnit(DatasetTreeCore):
     class HOURLY(DatasetTreeCore):
         class HOURLY(UnitEnum):
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MEAN_200 = (
+            QUALITY_TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_DEW_POINT_MEAN_200 = (
+            TEMPERATURE_DEW_POINT_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_DEW_POINT_MEAN_200 = (
+            QUALITY_TEMPERATURE_DEW_POINT_MEAN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -72,27 +72,27 @@ class EcccObservationUnit(DatasetTreeCore):
     class DAILY(DatasetTreeCore):
         class DAILY(UnitEnum):
             # Data Quality  quality of all variables?
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MAX_200 = (
+            QUALITY_TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MIN_200 = (
+            QUALITY_TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MEAN_200 = (
+            QUALITY_TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -157,43 +157,43 @@ class EcccObservationUnit(DatasetTreeCore):
 
     class MONTHLY(DatasetTreeCore):
         class MONTHLY(UnitEnum):
-            TEMPERATURE_AIR_MAX_200_MEAN = (
+            TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MAX_200_MEAN = (
+            QUALITY_TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_AIR_MIN_200_MEAN = (
+            TEMPERATURE_AIR_MIN_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MIN_200_MEAN = (
+            QUALITY_TEMPERATURE_AIR_MIN_2M_MEAN = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_AIR_MEAN_200 = (
+            TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MEAN_200 = (
+            QUALITY_TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MAX_200 = (
+            QUALITY_TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            QUALITY_TEMPERATURE_AIR_MIN_200 = (
+            QUALITY_TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
@@ -243,23 +243,23 @@ class EcccObservationUnit(DatasetTreeCore):
 
     class ANNUAL(DatasetTreeCore):
         class ANNUAL(UnitEnum):
-            TEMPERATURE_AIR_MAX_200_MEAN = (
+            TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
-            TEMPERATURE_AIR_MIN_200_MEAN = (
+            TEMPERATURE_AIR_MIN_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             PRECIPITATION_FREQUENCY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_AIR_MAX_200 = (
+            TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )
             # 'highest temp.year'
             # 'highest temp. period'
             # 'highest temp. data quality'
-            TEMPERATURE_AIR_MIN_200 = (
+            TEMPERATURE_AIR_MIN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
             )

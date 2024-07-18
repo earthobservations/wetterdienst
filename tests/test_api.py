@@ -78,7 +78,7 @@ def test_api_dwd_dmo(settings_si_true):
 
 @pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
 def test_api_dwd_road(settings_si_true):
-    request = DwdRoadRequest(parameter="temperature_air_mean_200", settings=settings_si_true).all()
+    request = DwdRoadRequest(parameter="temperature_air_mean_2m", settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_start_date = request.df.get_column("start_date").to_list()[0]
@@ -203,7 +203,7 @@ def test_api_ea_hydrology(settings_si_true):
 
 def test_api_nws_observation(settings_si_true):
     request = NwsObservationRequest(
-        parameter="temperature_air_mean_200", settings=settings_si_true
+        parameter="temperature_air_mean_2m", settings=settings_si_true
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)

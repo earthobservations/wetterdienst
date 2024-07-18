@@ -140,7 +140,7 @@ snow_depth_new_max
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -160,7 +160,7 @@ temperature_air_max_200
    * - constraints
      - none
 
-temperature_air_max_200_mean
+temperature_air_max_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -180,7 +180,7 @@ temperature_air_max_200_mean
    * - constraints
      - none
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -200,7 +200,7 @@ temperature_air_min_200
    * - constraints
      - none
 
-temperature_air_min_200_mean
+temperature_air_min_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

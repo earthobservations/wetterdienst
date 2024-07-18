@@ -250,7 +250,7 @@ def test_dwd_values_sql_tabular(client):
             "resolution": "daily",
             "period": "historical",
             "date": "2020/2021",
-            "sql-values": "SELECT * FROM data WHERE temperature_air_max_200 < 2.0",
+            "sql-values": "SELECT * FROM data WHERE temperature_air_max_2m < 2.0",
             "shape": "wide",
             "si-units": False,
         },
@@ -279,14 +279,14 @@ def test_dwd_values_sql_tabular(client):
         "station_id": "01048",
         "sunshine_duration": 0.0,
         "qn_sunshine_duration": 10.0,
-        "temperature_air_max_200": -0.6,
-        "qn_temperature_air_max_200": 10.0,
-        "temperature_air_mean_200": -2.2,
-        "qn_temperature_air_mean_200": 10.0,
-        "temperature_air_min_005": -6.6,
-        "qn_temperature_air_min_005": 10.0,
-        "temperature_air_min_200": -4.6,
-        "qn_temperature_air_min_200": 10.0,
+        "temperature_air_max_2m": -0.6,
+        "qn_temperature_air_max_2m": 10.0,
+        "temperature_air_mean_2m": -2.2,
+        "qn_temperature_air_mean_2m": 10.0,
+        "temperature_air_min_0_05m": -6.6,
+        "qn_temperature_air_min_0_05m": 10.0,
+        "temperature_air_min_2m": -4.6,
+        "qn_temperature_air_min_2m": 10.0,
         "wind_gust_max": 4.6,
         "qn_wind_gust_max": 10.0,
         "wind_speed": 1.9,
@@ -306,7 +306,7 @@ def test_dwd_values_sql_long(client):
             "parameter": "kl",
             "resolution": "daily",
             "date": "2019-12-01/2019-12-31",
-            "sql-values": "SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5",
+            "sql-values": "SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value < 1.5",
             "si-units": False,
         },
     )
@@ -315,7 +315,7 @@ def test_dwd_values_sql_long(client):
     assert item == {
         "station_id": "01048",
         "dataset": "climate_summary",
-        "parameter": "temperature_air_max_200",
+        "parameter": "temperature_air_max_2m",
         "date": "2019-12-28T00:00:00+00:00",
         "value": 1.3,
         "quality": 10.0,
@@ -329,7 +329,7 @@ def test_dwd_interpolate(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "resolution": "daily",
             "station": "00071",
             "date": "1986-10-31/1986-11-01",
@@ -339,7 +339,7 @@ def test_dwd_interpolate(client):
     assert response.json()["values"] == [
         {
             "station_id": "6754d04d",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 279.52,
             "distance_mean": 16.99,
@@ -347,7 +347,7 @@ def test_dwd_interpolate(client):
         },
         {
             "station_id": "6754d04d",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance_mean": 0.0,
@@ -363,7 +363,7 @@ def test_dwd_summarize(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "resolution": "daily",
             "station": "00071",
             "date": "1986-10-31/1986-11-01",
@@ -373,7 +373,7 @@ def test_dwd_summarize(client):
     assert response.json()["values"] == [
         {
             "station_id": "a87291a8",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-10-31T00:00:00+00:00",
             "value": 279.75,
             "distance": 6.97,
@@ -381,7 +381,7 @@ def test_dwd_summarize(client):
         },
         {
             "station_id": "a87291a8",
-            "parameter": "temperature_air_mean_200",
+            "parameter": "temperature_air_mean_2m",
             "date": "1986-11-01T00:00:00+00:00",
             "value": 281.85,
             "distance": 0.0,
@@ -467,7 +467,7 @@ def test_dwd_mosmix(client):
     assert first == {
         "station_id": "01025",
         "dataset": "small",
-        "parameter": "temperature_air_mean_200",
+        "parameter": "temperature_air_mean_2m",
         "date": IsStr,
         "value": IsNumber,
         "quality": None,
@@ -492,7 +492,7 @@ def test_dwd_dmo_lead_time_long(client):
     assert first == {
         "station_id": "01025",
         "dataset": "icon",
-        "parameter": "temperature_air_mean_200",
+        "parameter": "temperature_air_mean_2m",
         "date": IsStr,
         "value": IsNumber,
         "quality": None,

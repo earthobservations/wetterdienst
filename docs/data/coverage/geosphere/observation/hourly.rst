@@ -262,7 +262,7 @@ sunshine_duration
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_005
+temperature_air_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -282,7 +282,7 @@ temperature_air_mean_005
    * - constraints
      - :math:`None`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -302,7 +302,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_010
+temperature_soil_mean_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -322,7 +322,7 @@ temperature_soil_mean_010
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_020
+temperature_soil_mean_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -342,7 +342,7 @@ temperature_soil_mean_020
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_050
+temperature_soil_mean_0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -362,7 +362,7 @@ temperature_soil_mean_050
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_100
+temperature_soil_mean_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -382,7 +382,7 @@ temperature_soil_mean_100
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_200
+temperature_soil_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -402,7 +402,7 @@ temperature_soil_mean_200
    * - constraints
      - :math:`None`
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

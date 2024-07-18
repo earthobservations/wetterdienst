@@ -42,7 +42,7 @@ Metadata
 Parameters
 ----------
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -249,7 +249,7 @@ pressure_vapor
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_005
+temperature_air_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -269,7 +269,7 @@ temperature_air_mean_005
    * - constraints
      - none
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -374,7 +374,7 @@ Metadata
 Parameters
 ----------
 
-temperature_soil_mean_005
+temperature_soil_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -416,7 +416,7 @@ Metadata
 Parameters
 ----------
 
-temperature_soil_mean_005
+temperature_soil_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
