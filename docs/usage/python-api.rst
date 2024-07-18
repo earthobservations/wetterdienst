@@ -130,7 +130,7 @@ Parameters can be requested in three different ways:
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter=[("precipitation_height", "more_precip"), ("temperature_air_mean_200", "kl")]
+        parameter=[("precipitation_height", "more_precip"), ("temperature_air_mean_2m", "kl")]
     )
 
 Data
@@ -344,12 +344,12 @@ station's location. To address this need, we have introduced an interpolation fe
 from nearby stations to your exact coordinates. The function leverages the four closest stations to your specified
 latitude and longitude and employs the bilinear interpolation method provided by the scipy package (interp2d) to
 interpolate the given parameter values. Currently, this interpolation feature is exclusive to
-`DWDObservationRequest` and parameters ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
+`DWDObservationRequest` and parameters ``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.
 As it is in its early stages, we welcome feedback to enhance and refine its functionality. Interpolation by nearby
 stations is limited to a distance of 40 km by default (20.0 km for precipitation). You can
 change this by setting the ``ts_interpolation_station_distance`` setting. An example is shown below.
 
-The graphic below shows values of the parameter ``temperature_air_mean_200`` from multiple stations measured at the same time.
+The graphic below shows values of the parameter ``temperature_air_mean_2m`` from multiple stations measured at the same time.
 The blue points represent the position of a station and includes the measured value.
 The red point represents the position of the interpolation and includes the interpolated value.
 
@@ -366,19 +366,19 @@ Values represented as a table:
      - date
      - value
    * - 02480
-     - temperature_air_mean_200
+     - temperature_air_mean_2m
      - 2022-01-02 00:00:00+00:00
      - 278.15
    * - 04411
-     - temperature_air_mean_200
+     - temperature_air_mean_2m
      - 2022-01-02 00:00:00+00:00
      - 277.15
    * - 07341
-     - temperature_air_mean_200
+     - temperature_air_mean_2m
      - 2022-01-02 00:00:00+00:00
      - 278.35
    * - 00917
-     - temperature_air_mean_200
+     - temperature_air_mean_2m
      - 2022-01-02 00:00:00+00:00
      - 276.25
 
@@ -390,7 +390,7 @@ The interpolated value looks like this:
    * - parameter
      - date
      - value
-   * - temperature_air_mean_200
+   * - temperature_air_mean_2m
      - 2022-01-02 00:00:00+00:00
      - 277.65
 
@@ -402,7 +402,7 @@ The interpolated value looks like this:
     from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=Resolution.HOURLY,
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -421,7 +421,7 @@ getting a more complete dataset:
     from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=Resolution.HOURLY,
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -458,7 +458,7 @@ Similar to interpolation you may sometimes want to combine multiple stations to 
 reason you can use `.summary(latlon)`, which goes through nearest stations and combines data from them meaningful.
 
 The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
-Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_200``, ``wind_speed``, ``precipitation_height``.
+Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.
 
 .. ipython:: python
 
@@ -467,7 +467,7 @@ Currently the following parameters are supported (more will be added if useful):
     from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=Resolution.HOURLY,
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -486,7 +486,7 @@ getting a more complete dataset:
     from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_200,
+        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=Resolution.HOURLY,
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -506,7 +506,7 @@ To Dict
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date="2020-01-01",
         end_date="2020-01-02"
@@ -523,7 +523,7 @@ To Json
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date="2020-01-01",
         end_date="2020-01-02"
@@ -540,7 +540,7 @@ To Ogc Feature Collection
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date="2020-01-01",
         end_date="2020-01-02"
@@ -557,7 +557,7 @@ To GeoJson
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date="2020-01-01",
         end_date="2020-01-02"
@@ -574,7 +574,7 @@ To CSV
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date="2020-01-01",
         end_date="2020-01-02"
@@ -607,7 +607,7 @@ The result data is provided through a virtual table called ``data``.
     )
     stations = request.filter_by_station_id(station_id=[1048])
     values = stations.values.all()
-    df = values.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_200' AND value < -7.0;")
+    df = values.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_2m' AND value < -7.0;")
     print(df.head())
 
 Export

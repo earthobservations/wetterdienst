@@ -35,10 +35,10 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
             HUMIDITY = "średnia dobowa wilgotność względna"  # kdt
             PRECIPITATION_HEIGHT = "suma dobowa opadów"  # kd
             SNOW_DEPTH = "wysokość pokrywy śnieżnej"  # kd
-            TEMPERATURE_AIR_MAX_200 = "maksymalna temperatura dobowa"  # kd
-            TEMPERATURE_AIR_MEAN_005 = "temperatura minimalna przy gruncie"  # kd
-            TEMPERATURE_AIR_MEAN_200 = "średnia dobowa temperatura"  # kdt, kd
-            TEMPERATURE_AIR_MIN_200 = "minimalna temperatura dobowa"  # kd
+            TEMPERATURE_AIR_MAX_2M = "maksymalna temperatura dobowa"  # kd
+            TEMPERATURE_AIR_MEAN_0_05M = "temperatura minimalna przy gruncie"  # kd
+            TEMPERATURE_AIR_MEAN_2M = "średnia dobowa temperatura"  # kdt, kd
+            TEMPERATURE_AIR_MIN_2M = "minimalna temperatura dobowa"  # kd
             WIND_SPEED = "średnia dobowa prędkość wiatru"  # kdt
 
         class PRECIPITATION(Enum):
@@ -54,7 +54,7 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
             PRESSURE_AIR_SITE = "średnia dobowe ciśnienie na poziomie stacji"
             PRESSURE_AIR_SEA_LEVEL = "średnie dobowe ciśnienie na pozimie morza"
             PRESSURE_VAPOR = "średnia dobowe ciśnienie pary wodnej"
-            TEMPERATURE_AIR_MEAN_200 = "średnia dobowa temperatura"
+            TEMPERATURE_AIR_MEAN_2M = "średnia dobowa temperatura"
             WIND_SPEED = "średnia dobowa prędkość wiatru"
 
         CLOUD_COVER_TOTAL = SYNOP.CLOUD_COVER_TOTAL
@@ -67,10 +67,10 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
         PRESSURE_VAPOR = SYNOP.PRESSURE_VAPOR
         SNOW_DEPTH = PRECIPITATION_HEIGHT.SNOW_DEPTH
         SNOW_DEPTH_NEW = PRECIPITATION_HEIGHT.SNOW_DEPTH_NEW
-        TEMPERATURE_AIR_MAX_200 = CLIMATE.TEMPERATURE_AIR_MAX_200
-        TEMPERATURE_AIR_MEAN_005 = CLIMATE.TEMPERATURE_AIR_MEAN_005
-        TEMPERATURE_AIR_MEAN_200 = CLIMATE.TEMPERATURE_AIR_MEAN_200
-        TEMPERATURE_AIR_MIN_200 = CLIMATE.TEMPERATURE_AIR_MIN_200
+        TEMPERATURE_AIR_MAX_2M = CLIMATE.TEMPERATURE_AIR_MAX_2M
+        TEMPERATURE_AIR_MEAN_0_05M = CLIMATE.TEMPERATURE_AIR_MEAN_0_05M
+        TEMPERATURE_AIR_MEAN_2M = CLIMATE.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_AIR_MIN_2M = CLIMATE.TEMPERATURE_AIR_MIN_2M
         WIND_SPEED = SYNOP.WIND_SPEED
 
     class MONTHLY(DatasetTreeCore):
@@ -80,12 +80,12 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
             PRECIPITATION_HEIGHT = "miesieczna suma opadów"
             PRECIPITATION_HEIGHT_MAX = "maksymalna dobowa suma opadóww"
             SNOW_DEPTH_MAX = "maksymalna wysokość pokrywy śnieżnej"
-            TEMPERATURE_AIR_MAX_200 = "absolutna temperatura maksymalna"
-            TEMPERATURE_AIR_MAX_200_MEAN = "średnia temperatura maksymalna"
-            TEMPERATURE_AIR_MEAN_200 = "średnia miesięczna temperatura"
-            TEMPERATURE_AIR_MIN_005 = "minimalna temperatura przy gruncie"
-            TEMPERATURE_AIR_MIN_200 = "absolutna temperatura minimalna"
-            TEMPERATURE_AIR_MIN_200_MEAN = "średnia temperatura minimalna"
+            TEMPERATURE_AIR_MAX_2M = "absolutna temperatura maksymalna"
+            TEMPERATURE_AIR_MAX_2M_MEAN = "średnia temperatura maksymalna"
+            TEMPERATURE_AIR_MEAN_2M = "średnia miesięczna temperatura"
+            TEMPERATURE_AIR_MIN_0_05M = "minimalna temperatura przy gruncie"
+            TEMPERATURE_AIR_MIN_2M = "absolutna temperatura minimalna"
+            TEMPERATURE_AIR_MIN_2M_MEAN = "średnia temperatura minimalna"
             WIND_SPEED = "średnia miesięczna prędkość wiatru"
 
         class PRECIPITATION(Enum):
@@ -103,12 +103,12 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
             PRESSURE_AIR_SEA_LEVEL = "średnie miesięczne ciśnienie na pozimie morza"
             PRESSURE_VAPOR = "średnie miesięczne ciśnienie pary wodnej"
             SNOW_DEPTH_MAX = "maksymalna wysokość pokrywy śnieżnej"
-            TEMPERATURE_AIR_MAX_200 = "absolutna temperatura maksymalna"
-            TEMPERATURE_AIR_MAX_200_MEAN = "średnia temperatura maksymalna"
-            TEMPERATURE_AIR_MEAN_200 = "średnia miesięczna temperatura"
-            TEMPERATURE_AIR_MIN_005 = "minimalna temperatura przy gruncie"
-            TEMPERATURE_AIR_MIN_200 = "absolutna temperatura minimalna"
-            TEMPERATURE_AIR_MIN_200_MEAN = "średnia temperatura minimalnaj"
+            TEMPERATURE_AIR_MAX_2M = "absolutna temperatura maksymalna"
+            TEMPERATURE_AIR_MAX_2M_MEAN = "średnia temperatura maksymalna"
+            TEMPERATURE_AIR_MEAN_2M = "średnia miesięczna temperatura"
+            TEMPERATURE_AIR_MIN_0_05M = "minimalna temperatura przy gruncie"
+            TEMPERATURE_AIR_MIN_2M = "absolutna temperatura minimalna"
+            TEMPERATURE_AIR_MIN_2M_MEAN = "średnia temperatura minimalnaj"
             WIND_SPEED = "średnia miesięczna prędkość wiatru"
 
         CLOUD_COVER_TOTAL = SYNOP.CLOUD_COVER_TOTAL
@@ -121,12 +121,12 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
         PRESSURE_AIR_SEA_LEVEL = SYNOP.PRESSURE_AIR_SEA_LEVEL
         PRESSURE_VAPOR = SYNOP.PRESSURE_VAPOR
         SNOW_DEPTH_MAX = SYNOP.SNOW_DEPTH_MAX
-        TEMPERATURE_AIR_MAX_200 = SYNOP.TEMPERATURE_AIR_MAX_200
-        TEMPERATURE_AIR_MAX_200_MEAN = SYNOP.TEMPERATURE_AIR_MAX_200_MEAN
-        TEMPERATURE_AIR_MEAN_200 = SYNOP.TEMPERATURE_AIR_MEAN_200
-        TEMPERATURE_AIR_MIN_005 = SYNOP.TEMPERATURE_AIR_MIN_005
-        TEMPERATURE_AIR_MIN_200 = SYNOP.TEMPERATURE_AIR_MIN_200
-        TEMPERATURE_AIR_MIN_200_MEAN = SYNOP.TEMPERATURE_AIR_MIN_200_MEAN
+        TEMPERATURE_AIR_MAX_2M = SYNOP.TEMPERATURE_AIR_MAX_2M
+        TEMPERATURE_AIR_MAX_2M_MEAN = SYNOP.TEMPERATURE_AIR_MAX_2M_MEAN
+        TEMPERATURE_AIR_MEAN_2M = SYNOP.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_AIR_MIN_0_05M = SYNOP.TEMPERATURE_AIR_MIN_0_05M
+        TEMPERATURE_AIR_MIN_2M = SYNOP.TEMPERATURE_AIR_MIN_2M
+        TEMPERATURE_AIR_MIN_2M_MEAN = SYNOP.TEMPERATURE_AIR_MIN_2M_MEAN
         WIND_SPEED = SYNOP.WIND_SPEED
 
 
@@ -137,10 +137,10 @@ class ImgwMeteorologyUnit(DatasetTreeCore):
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MAX_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MEAN_005 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MAX_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_0_05M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
         class PRECIPITATION(UnitEnum):
@@ -157,7 +157,7 @@ class ImgwMeteorologyUnit(DatasetTreeCore):
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SEA_LEVEL = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
     class MONTHLY(DatasetTreeCore):
@@ -167,12 +167,12 @@ class ImgwMeteorologyUnit(DatasetTreeCore):
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             PRECIPITATION_HEIGHT_MAX = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             SNOW_DEPTH_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MAX_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MAX_200_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_005 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_200_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MAX_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MAX_2M_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_0_05M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_2M_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
         class PRECIPITATION(UnitEnum):
@@ -190,12 +190,12 @@ class ImgwMeteorologyUnit(DatasetTreeCore):
             PRESSURE_AIR_SEA_LEVEL = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_VAPOR = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             SNOW_DEPTH_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MAX_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MAX_200_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_200_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_005 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MAX_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MAX_2M_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_2M_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_0_05M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
 

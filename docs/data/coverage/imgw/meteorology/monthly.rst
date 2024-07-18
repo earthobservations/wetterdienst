@@ -142,7 +142,7 @@ snow_depth_max
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -162,7 +162,7 @@ temperature_air_max_200
    * - constraints
      - :math:`None`
 
-temperature_air_max_200_mean
+temperature_air_max_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -182,7 +182,7 @@ temperature_air_max_200_mean
    * - constraints
      - :math:`None`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -202,7 +202,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_005
+temperature_air_min_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -222,7 +222,7 @@ temperature_air_min_005
    * - constraints
      - :math:`None`
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -242,7 +242,7 @@ temperature_air_min_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_200_mean
+temperature_air_min_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -570,7 +570,7 @@ snow_depth_max
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -590,7 +590,7 @@ temperature_air_max_200
    * - constraints
      - :math:`None`
 
-temperature_air_max_200_mean
+temperature_air_max_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -610,7 +610,7 @@ temperature_air_max_200_mean
    * - constraints
      - :math:`None`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -630,7 +630,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_005
+temperature_air_min_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -650,7 +650,7 @@ temperature_air_min_005
    * - constraints
      - :math:`None`
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -670,7 +670,7 @@ temperature_air_min_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_200_mean
+temperature_air_min_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

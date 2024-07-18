@@ -387,7 +387,7 @@ Acquire observation data:
 
     # Acquire data for multiple given parameters
     wetterdienst values --provider=dwd --network=observation \\
-        --parameter=precipitation_height/precipitation_more,temperature_air_mean_200/air_temperature \\
+        --parameter=precipitation_height/precipitation_more,temperature_air_mean_2m/air_temperature \\
         --resolution=hourly --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
 Acquire MOSMIX data:

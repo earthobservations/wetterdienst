@@ -145,8 +145,8 @@ def index():
                 <div class="list">
                     <li><a href="api/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Obs Daily Climate Stations</a></li>
                     <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Obs Daily Climate Values</a></li>
-                    <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Interpolation</a></li>
-                    <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_200&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Summary</a></li>
+                    <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_2m&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Interpolation</a></li>
+                    <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_2m&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Summary</a></li>
                     <li><a href="api/stripes/stations?kind=temperature" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Stations</a></li>
                     <li><a href="api/stripes/values?kind=temperature&station=1048" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Values</a></li>
                 </div>

@@ -20,7 +20,7 @@ plt.style.use("ggplot")
 def plot_temperature_timeseries():
     """Create plot for README sketch"""
     stations = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         period="historical",
     ).filter_by_name("Hohenpeissenberg")

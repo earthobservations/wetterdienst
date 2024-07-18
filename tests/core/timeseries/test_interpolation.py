@@ -35,9 +35,9 @@ def df_interpolated_empty():
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_200_hourly_by_coords(default_settings):
+def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings):
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="hourly",
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -50,7 +50,7 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords(default_setting
     expected_df = pl.DataFrame(
         {
             "station_id": "f674568e",
-            "parameter": ["temperature_air_mean_200"],
+            "parameter": ["temperature_air_mean_2m"],
             "date": [dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC"))],
             "value": [277.71],
             "distance_mean": [13.37],
@@ -61,9 +61,9 @@ def test_interpolation_temperature_air_mean_200_hourly_by_coords(default_setting
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_200_daily_by_station_id(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_settings):
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date=dt.datetime(1986, 10, 31),
         end_date=dt.datetime(1986, 11, 1),
@@ -72,7 +72,7 @@ def test_interpolation_temperature_air_mean_200_daily_by_station_id(default_sett
     expected_df = pl.DataFrame(
         {
             "station_id": ["6754d04d", "6754d04d"],
-            "parameter": ["temperature_air_mean_200", "temperature_air_mean_200"],
+            "parameter": ["temperature_air_mean_2m", "temperature_air_mean_2m"],
             "date": [
                 dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
                 dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
@@ -155,7 +155,7 @@ def test_not_interpolatable_dataset(default_settings, df_interpolated_empty):
 @pytest.mark.remote
 def test_provider_dwd_mosmix(default_settings):
     request = DwdMosmixRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         mosmix_type="small",
         start_date=dt.datetime.today() + dt.timedelta(days=1),
         end_date=dt.datetime.today() + dt.timedelta(days=8),
@@ -165,9 +165,9 @@ def test_provider_dwd_mosmix(default_settings):
     assert given_df.get_column("value").min() >= 233.15  # equals -40.0°C
 
 
-def test_interpolation_temperature_air_mean_200_daily_three_floats(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settings):
     stations = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -178,9 +178,9 @@ def test_interpolation_temperature_air_mean_200_daily_three_floats(default_setti
     assert exec_info.match("too many values to unpack")
 
 
-def test_interpolation_temperature_air_mean_200_daily_one_floats(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings):
     stations = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
@@ -191,9 +191,9 @@ def test_interpolation_temperature_air_mean_200_daily_one_floats(default_setting
     assert exec_info.match("not enough values to unpack")
 
 
-def test_interpolation_temperature_air_mean_200_daily_no_station_found(default_settings):
+def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_settings):
     stations = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="daily",
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2022, 1, 20),

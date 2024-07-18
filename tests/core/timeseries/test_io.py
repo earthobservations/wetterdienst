@@ -52,16 +52,16 @@ def dwd_climate_summary_tabular_columns():
         "qn_pressure_vapor",
         "pressure_air_site",
         "qn_pressure_air_site",
-        "temperature_air_mean_200",
-        "qn_temperature_air_mean_200",
+        "temperature_air_mean_2m",
+        "qn_temperature_air_mean_2m",
         "humidity",
         "qn_humidity",
-        "temperature_air_max_200",
-        "qn_temperature_air_max_200",
-        "temperature_air_min_200",
-        "qn_temperature_air_min_200",
-        "temperature_air_min_005",
-        "qn_temperature_air_min_005",
+        "temperature_air_max_2m",
+        "qn_temperature_air_max_2m",
+        "temperature_air_min_2m",
+        "qn_temperature_air_min_2m",
+        "temperature_air_min_0_05m",
+        "qn_temperature_air_min_0_05m",
     ]
 
 
@@ -106,7 +106,7 @@ def df_values():
             {
                 "station_id": "01048",
                 "dataset": "climate_summary",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "quality": None,
@@ -114,7 +114,7 @@ def df_values():
             {
                 "station_id": "01048",
                 "dataset": "climate_summary",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
                 "quality": None,
@@ -122,7 +122,7 @@ def df_values():
             {
                 "station_id": "01048",
                 "dataset": "climate_summary",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "quality": None,
@@ -130,7 +130,7 @@ def df_values():
             {
                 "station_id": "01048",
                 "dataset": "climate_summary",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 2.0,
                 "quality": None,
@@ -138,7 +138,7 @@ def df_values():
             {
                 "station_id": "01048",
                 "dataset": "climate_summary",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.0,
                 "quality": None,
@@ -146,7 +146,7 @@ def df_values():
             {
                 "station_id": "01048",
                 "dataset": "climate_summary",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.0,
                 "quality": None,
@@ -169,7 +169,7 @@ def df_interpolated_values():
         [
             {
                 "station_id": "abc",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "distance_mean": 0.0,
@@ -193,7 +193,7 @@ def df_summarized_values():
         [
             {
                 "station_id": "abc",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "distance": 0.0,
@@ -331,7 +331,7 @@ def test_values_to_dict(df_values):
         {
             "dataset": "climate_summary",
             "date": "2019-01-01T00:00:00+00:00",
-            "parameter": "temperature_air_max_200",
+            "parameter": "temperature_air_max_2m",
             "quality": None,
             "station_id": "01048",
             "value": 1.3,
@@ -362,7 +362,7 @@ def test_values_to_ogc_feature_collection(df_values, stations_result_mock):
             {
                 "dataset": "climate_summary",
                 "date": "2019-01-01T00:00:00+00:00",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "quality": None,
                 "value": 1.3,
             },
@@ -395,7 +395,7 @@ def test_values_format_geojson(df_values, stations_result_mock):
     item = response["data"]["features"][0]["values"][0]
     assert item == {
         "dataset": "climate_summary",
-        "parameter": "temperature_air_max_200",
+        "parameter": "temperature_air_max_2m",
         "date": "2019-01-01T00:00:00+00:00",
         "value": 1.3,
         "quality": None,
@@ -407,14 +407,14 @@ def test_values_format_csv(df_values):
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
     assert lines[0] == "station_id,dataset,parameter,date,value,quality"
-    assert lines[-1] == "01048,climate_summary,temperature_air_max_200,2022-01-01T00:00:00+00:00,4.0,"
+    assert lines[-1] == "01048,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00+00:00,4.0,"
 
 
 def test_values_format_csv_kwargs(df_values):
     """Test export of DataFrame to csv"""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv(include_header=False).strip()
     lines = output.split("\n")
-    assert lines[0] == "01048,climate_summary,temperature_air_max_200,2019-01-01T00:00:00+00:00,1.3,"
+    assert lines[0] == "01048,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00+00:00,1.3,"
 
 
 def test_interpolated_values_to_dict(df_interpolated_values):
@@ -423,7 +423,7 @@ def test_interpolated_values_to_dict(df_interpolated_values):
     assert data["values"] == [
         {
             "station_id": "abc",
-            "parameter": "temperature_air_max_200",
+            "parameter": "temperature_air_max_2m",
             "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
             "distance_mean": 0.0,
@@ -466,7 +466,7 @@ def test_interpolated_values_to_ogc_feature_collection(df_interpolated_values, s
         "values": [
             {
                 "station_id": "abc",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
                 "distance_mean": 0.0,
@@ -496,7 +496,7 @@ def test_summarized_values_to_dict(df_summarized_values):
     assert data["values"] == [
         {
             "station_id": "abc",
-            "parameter": "temperature_air_max_200",
+            "parameter": "temperature_air_max_2m",
             "date": "2019-01-01T00:00:00+00:00",
             "value": 1.3,
             "distance": 0.0,
@@ -541,7 +541,7 @@ def test_summarized_values_to_ogc_feature_collection(df_summarized_values, stati
         "values": [
             {
                 "station_id": "abc",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": "2019-01-01T00:00:00+00:00",
                 "value": 1.3,
                 "distance": 0.0,
@@ -589,11 +589,11 @@ def test_filter_by_date_interval(df_values):
 def test_filter_by_sql(df_values):
     """Test filter by sql statement"""
     df = ExportMixin(df=df_values).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value < 1.5",
+        sql="SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value < 1.5",
     )
     assert not df.is_empty()
     df = ExportMixin(df=df_values).filter_by_sql(
-        sql="SELECT * FROM data WHERE parameter='temperature_air_max_200' AND value > 4",
+        sql="SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value > 4",
     )
     assert df.is_empty()
 
@@ -672,16 +672,16 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
         "qn_pressure_vapor",
         "pressure_air_site",
         "qn_pressure_air_site",
-        "temperature_air_mean_200",
-        "qn_temperature_air_mean_200",
+        "temperature_air_mean_2m",
+        "qn_temperature_air_mean_2m",
         "humidity",
         "qn_humidity",
-        "temperature_air_max_200",
-        "qn_temperature_air_max_200",
-        "temperature_air_min_200",
-        "qn_temperature_air_min_200",
-        "temperature_air_min_005",
-        "qn_temperature_air_min_005",
+        "temperature_air_max_2m",
+        "qn_temperature_air_max_2m",
+        "temperature_air_min_2m",
+        "qn_temperature_air_min_2m",
+        "temperature_air_min_0_05m",
+        "qn_temperature_air_min_0_05m",
     ]
     # Validate number of records.
     assert len(df) == 366
@@ -708,16 +708,16 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
         "qn_pressure_vapor": 10,
         "pressure_air_site": 991.9,
         "qn_pressure_air_site": 10,
-        "temperature_air_mean_200": 5.9,
-        "qn_temperature_air_mean_200": 10,
+        "temperature_air_mean_2m": 5.9,
+        "qn_temperature_air_mean_2m": 10,
         "humidity": 84,
         "qn_humidity": 10,
-        "temperature_air_max_200": 7.5,
-        "qn_temperature_air_max_200": 10,
-        "temperature_air_min_200": 2,
-        "qn_temperature_air_min_200": 10,
-        "temperature_air_min_005": 1.5,
-        "qn_temperature_air_min_005": 10,
+        "temperature_air_max_2m": 7.5,
+        "qn_temperature_air_max_2m": 10,
+        "temperature_air_min_2m": 2,
+        "qn_temperature_air_min_2m": 10,
+        "temperature_air_min_0_05m": 1.5,
+        "qn_temperature_air_min_0_05m": 10,
     }
     last_record = df.tail(1).to_dicts()[0]
     assert last_record == {
@@ -742,16 +742,16 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
         "qn_pressure_vapor": 10,
         "pressure_air_site": 1005.1,
         "qn_pressure_air_site": 10,
-        "temperature_air_mean_200": 2.4,
-        "qn_temperature_air_mean_200": 10,
+        "temperature_air_mean_2m": 2.4,
+        "qn_temperature_air_mean_2m": 10,
         "humidity": 79,
         "qn_humidity": 10,
-        "temperature_air_max_200": 5.6,
-        "qn_temperature_air_max_200": 10,
-        "temperature_air_min_200": -2.8,
-        "qn_temperature_air_min_200": 10,
-        "temperature_air_min_005": -4.6,
-        "qn_temperature_air_min_005": 10,
+        "temperature_air_max_2m": 5.6,
+        "qn_temperature_air_max_2m": 10,
+        "temperature_air_min_2m": -2.8,
+        "qn_temperature_air_min_2m": 10,
+        "temperature_air_min_0_05m": -4.6,
+        "qn_temperature_air_min_0_05m": 10,
     }
 
 
@@ -783,9 +783,9 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     # Validate content.
     data = table.to_pydict()
     assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert data["temperature_air_min_005"][0] == 1.5
+    assert data["temperature_air_min_0_05m"][0] == 1.5
     assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert data["temperature_air_min_005"][-1] == -4.6
+    assert data["temperature_air_min_0_05m"][-1] == -4.6
 
 
 @pytest.mark.remote
@@ -820,9 +820,9 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     # Validate content.
     data = group
     assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9) == dt.datetime(2019, 1, 1, 0, 0)
-    assert data["temperature_air_min_005"][0] == 1.5
+    assert data["temperature_air_min_0_05m"][0] == 1.5
     assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9) == dt.datetime(2020, 1, 1, 0, 0)
-    assert data["temperature_air_min_005"][-1] == -4.6
+    assert data["temperature_air_min_0_05m"][-1] == -4.6
 
 
 @pytest.mark.remote
@@ -853,9 +853,9 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     # Validate content.
     data = table.to_pydict()
     assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert data["temperature_air_min_005"][0] == 1.5
+    assert data["temperature_air_min_0_05m"][0] == 1.5
     assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert data["temperature_air_min_005"][-1] == -4.6
+    assert data["temperature_air_min_0_05m"][-1] == -4.6
 
 
 @pytest.mark.remote
@@ -1003,7 +1003,7 @@ def test_export_duckdb(settings_si_false, tmp_path):
         WHERE
             date = '1939-07-26'
             AND
-            parameter = 'temperature_air_min_200'
+            parameter = 'temperature_air_min_2m'
     """
     cursor.execute(query)
     results = cursor.fetchall()
@@ -1012,7 +1012,7 @@ def test_export_duckdb(settings_si_false, tmp_path):
     assert results[0] == (
         "01048",
         "climate_summary",
-        "temperature_air_min_200",
+        "temperature_air_min_2m",
         dt.datetime(1939, 7, 26),
         10.0,
         1.0,
@@ -1075,16 +1075,16 @@ def test_export_influxdb1_tabular(settings_si_false_wide_shape):
             "qn_pressure_vapor",
             "pressure_air_site",
             "qn_pressure_air_site",
-            "temperature_air_mean_200",
-            "qn_temperature_air_mean_200",
+            "temperature_air_mean_2m",
+            "qn_temperature_air_mean_2m",
             "humidity",
             "qn_humidity",
-            "temperature_air_max_200",
-            "qn_temperature_air_max_200",
-            "temperature_air_min_200",
-            "qn_temperature_air_min_200",
-            "temperature_air_min_005",
-            "qn_temperature_air_min_005",
+            "temperature_air_max_2m",
+            "qn_temperature_air_max_2m",
+            "temperature_air_min_2m",
+            "qn_temperature_air_min_2m",
+            "temperature_air_min_0_05m",
+            "qn_temperature_air_min_0_05m",
         ]
 
 

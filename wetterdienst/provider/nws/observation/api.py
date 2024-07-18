@@ -34,16 +34,16 @@ log = logging.getLogger(__name__)
 class NwsObservationParameter(DatasetTreeCore):
     class HOURLY(DatasetTreeCore):
         class HOURLY(Enum):
-            TEMPERATURE_AIR_MEAN_200 = "temperature"
-            TEMPERATURE_DEW_POINT_MEAN_200 = "dewpoint"
+            TEMPERATURE_AIR_MEAN_2M = "temperature"
+            TEMPERATURE_DEW_POINT_MEAN_2M = "dewpoint"
             WIND_DIRECTION = "winddirection"
             WIND_SPEED = "windspeed"
             WIND_GUST_MAX = "windgust"
             PRESSURE_AIR_SITE = "barometricpressure"
             PRESSURE_AIR_SEA_LEVEL = "sealevelpressure"
             VISIBILITY_RANGE = "visibility"
-            TEMPERATURE_AIR_MAX_200_LAST_24H = "maxtemperaturelast24hours"
-            TEMPERATURE_AIR_MIN_200_LAST_24H = "mintemperaturelast24hours"
+            TEMPERATURE_AIR_MAX_2M_LAST_24H = "maxtemperaturelast24hours"
+            TEMPERATURE_AIR_MIN_2M_LAST_24H = "mintemperaturelast24hours"
             PRECIPITATION_HEIGHT = "precipitationlasthour"
             PRECIPITATION_HEIGHT_LAST_3H = "precipitationlast3hours"
             PRECIPITATION_HEIGHT_LAST_6H = "precipitationlast6hours"
@@ -53,16 +53,16 @@ class NwsObservationParameter(DatasetTreeCore):
             # cloudLayers group
             # CLOUD_BASE = "cloudLayers" noqa: E800
 
-        TEMPERATURE_AIR_MEAN_200 = HOURLY.TEMPERATURE_AIR_MEAN_200
-        TEMPERATURE_DEW_POINT_MEAN_200 = HOURLY.TEMPERATURE_DEW_POINT_MEAN_200
+        TEMPERATURE_AIR_MEAN_2M = HOURLY.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_DEW_POINT_MEAN_2M = HOURLY.TEMPERATURE_DEW_POINT_MEAN_2M
         WIND_DIRECTION = HOURLY.WIND_DIRECTION
         WIND_SPEED = HOURLY.WIND_SPEED
         WIND_GUST_MAX = HOURLY.WIND_GUST_MAX
         PRESSURE_AIR_SITE = HOURLY.PRESSURE_AIR_SITE
         PRESSURE_AIR_SEA_LEVEL = HOURLY.PRESSURE_AIR_SEA_LEVEL
         VISIBILITY_RANGE = HOURLY.VISIBILITY_RANGE
-        TEMPERATURE_AIR_MAX_200_LAST_24H = HOURLY.TEMPERATURE_AIR_MAX_200_LAST_24H
-        TEMPERATURE_AIR_MIN_200_LAST_24H = HOURLY.TEMPERATURE_AIR_MIN_200_LAST_24H
+        TEMPERATURE_AIR_MAX_2M_LAST_24H = HOURLY.TEMPERATURE_AIR_MAX_2M_LAST_24H
+        TEMPERATURE_AIR_MIN_2M_LAST_24H = HOURLY.TEMPERATURE_AIR_MIN_2M_LAST_24H
         PRECIPITATION_HEIGHT = HOURLY.PRECIPITATION_HEIGHT
         PRECIPITATION_HEIGHT_LAST_3H = HOURLY.PRECIPITATION_HEIGHT_LAST_3H
         PRECIPITATION_HEIGHT_LAST_6H = HOURLY.PRECIPITATION_HEIGHT_LAST_6H
@@ -73,16 +73,16 @@ class NwsObservationParameter(DatasetTreeCore):
 class NwsObservationUnit(DatasetTreeCore):
     class HOURLY(DatasetTreeCore):
         class HOURLY(UnitEnum):
-            TEMPERATURE_AIR_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_DEW_POINT_MEAN_200 = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_DEW_POINT_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
             WIND_SPEED = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
             WIND_GUST_MAX = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
             PRESSURE_AIR_SITE = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SEA_LEVEL = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
             VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MAX_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_200_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MAX_2M_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
+            TEMPERATURE_AIR_MIN_2M_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             PRECIPITATION_HEIGHT_LAST_3H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             PRECIPITATION_HEIGHT_LAST_6H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value

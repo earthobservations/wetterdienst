@@ -300,7 +300,7 @@ sunshine_duration_relative
    * - constraints
      - :math:`\geq{0},\leq{100}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -320,7 +320,7 @@ temperature_air_max_200
    * - constraints
      - :math:`None`
 
-temperature_air_max_200_mean
+temperature_air_max_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -340,7 +340,7 @@ temperature_air_max_200_mean
    * - constraints
      - :math:`None`
 
-temperature_air_mean_005
+temperature_air_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -360,7 +360,7 @@ temperature_air_mean_005
    * - constraints
      - :math:`None`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -380,7 +380,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_005
+temperature_air_min_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -400,7 +400,7 @@ temperature_air_min_005
    * - constraints
      - :math:`None`
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -420,7 +420,7 @@ temperature_air_min_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_200_mean
+temperature_air_min_2m_mean
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -440,7 +440,7 @@ temperature_air_min_200_mean
    * - constraints
      - :math:`None`
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -460,7 +460,7 @@ temperature_dew_point_mean_200
    * - constraints
      - :math:`None`
 
-temperature_soil_max_010
+temperature_soil_max_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -480,7 +480,7 @@ temperature_soil_max_010
    * - constraints
      - :math:`None`
 
-temperature_soil_max_020
+temperature_soil_max_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -500,7 +500,7 @@ temperature_soil_max_020
    * - constraints
      - :math:`None`
 
-TEMPERATURE_SOIL_MAX_050
+TEMPERATURE_SOIL_MAX_0_5M
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -520,7 +520,7 @@ TEMPERATURE_SOIL_MAX_050
    * - constraints
      - :math:`None`
 
-temperature_soil_max_100
+temperature_soil_max_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -540,7 +540,7 @@ temperature_soil_max_100
    * - constraints
      - :math:`None`
 
-temperature_soil_max_200
+temperature_soil_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -560,7 +560,7 @@ temperature_soil_max_200
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_010
+temperature_soil_mean_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -580,7 +580,7 @@ temperature_soil_mean_010
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_020
+temperature_soil_mean_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -600,7 +600,7 @@ temperature_soil_mean_020
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_050
+temperature_soil_mean__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -620,7 +620,7 @@ temperature_soil_mean_050
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_100
+temperature_soil_mean_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -640,7 +640,7 @@ temperature_soil_mean_100
    * - constraints
      - :math:`None`
 
-temperature_soil_mean_200
+temperature_soil_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -660,7 +660,7 @@ temperature_soil_mean_200
    * - constraints
      - :math:`None`
 
-temperature_soil_min_010
+temperature_soil_min_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -680,7 +680,7 @@ temperature_soil_min_010
    * - constraints
      - :math:`None`
 
-temperature_soil_min_020
+temperature_soil_min_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -700,7 +700,7 @@ temperature_soil_min_020
    * - constraints
      - :math:`None`
 
-temperature_soil_min_050
+temperature_soil_min__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -720,7 +720,7 @@ temperature_soil_min_050
    * - constraints
      - :math:`None`
 
-temperature_soil_min_100
+temperature_soil_min_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -740,7 +740,7 @@ temperature_soil_min_100
    * - constraints
      - :math:`None`
 
-temperature_soil_min_200
+temperature_soil_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

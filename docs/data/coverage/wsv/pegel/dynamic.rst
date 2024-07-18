@@ -280,7 +280,7 @@ precipitation_intensity
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

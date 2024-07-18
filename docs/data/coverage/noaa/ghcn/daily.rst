@@ -162,7 +162,7 @@ count_days_multiday_precipitation
    * - constraints
      - :math:`\geq{0}`
 
-count_days_multiday_precipitation_height_gt_0
+count_days_multiday_precipitation_height_gt_0mm
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -202,7 +202,7 @@ count_days_multiday_snow_depth_new
    * - constraints
      - :math:`\geq{0}`
 
-count_days_multiday_temperature_air_max_200
+count_days_multiday_temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -222,7 +222,7 @@ count_days_multiday_temperature_air_max_200
    * - constraints
      - :math:`\geq{0}`
 
-count_days_multiday_temperature_air_min_200
+count_days_multiday_temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -543,7 +543,7 @@ sunshine_duration_relative
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-temperature_air_200
+temperature_air_2m
 ^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -563,7 +563,7 @@ temperature_air_200
    * - constraints
      - none
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -584,7 +584,7 @@ temperature_air_max_200
    * - constraints
      - none
 
-temperature_air_max_200_multiday
+temperature_air_max_2m_multiday
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -604,7 +604,7 @@ temperature_air_max_200_multiday
    * - constraints
      - none
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -616,7 +616,7 @@ temperature_air_mean_200
    * - description file
      - `NOAA GHCN dataset description`_
    * - description
-     - mean temperature calculated from tmean = (temperature_air_max_200 + temperature_air_min_200) / 2
+     - mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2
    * - origin unit
      - :math:`°C`
    * - SI unit
@@ -624,7 +624,7 @@ temperature_air_mean_200
    * - constraints
      - none
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -645,7 +645,7 @@ temperature_air_min_200
    * - constraints
      - none
 
-temperature_air_min_200_multiday
+temperature_air_min_2m_multiday
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -665,7 +665,7 @@ temperature_air_min_200_multiday
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_005
+temperature_soil_max_bare_ground_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -685,7 +685,7 @@ temperature_soil_max_bare_ground_005
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_010
+temperature_soil_max_bare_ground_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -705,7 +705,7 @@ temperature_soil_max_bare_ground_010
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_020
+temperature_soil_max_bare_ground_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -725,7 +725,7 @@ temperature_soil_max_bare_ground_020
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_050
+temperature_soil_max_bare_ground__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -745,7 +745,7 @@ temperature_soil_max_bare_ground_050
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_100
+temperature_soil_max_bare_ground_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -765,7 +765,7 @@ temperature_soil_max_bare_ground_100
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_150
+temperature_soil_max_bare_ground_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -785,7 +785,7 @@ temperature_soil_max_bare_ground_150
    * - constraints
      - none
 
-temperature_soil_max_bare_ground_180
+temperature_soil_max_bare_ground_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -805,7 +805,7 @@ temperature_soil_max_bare_ground_180
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_005
+temperature_soil_min_bare_ground_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -825,7 +825,7 @@ temperature_soil_min_bare_ground_005
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_010
+temperature_soil_min_bare_ground_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -845,7 +845,7 @@ temperature_soil_min_bare_ground_010
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_020
+temperature_soil_min_bare_ground_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -865,7 +865,7 @@ temperature_soil_min_bare_ground_020
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_050
+temperature_soil_min_bare_ground__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -885,7 +885,7 @@ temperature_soil_min_bare_ground_050
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_100
+temperature_soil_min_bare_ground_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -905,7 +905,7 @@ temperature_soil_min_bare_ground_100
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_150
+temperature_soil_min_bare_ground_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -925,7 +925,7 @@ temperature_soil_min_bare_ground_150
    * - constraints
      - none
 
-temperature_soil_min_bare_ground_180
+temperature_soil_min_bare_ground_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -945,7 +945,7 @@ temperature_soil_min_bare_ground_180
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_005
+temperature_soil_max_bare_muck_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -965,7 +965,7 @@ temperature_soil_max_bare_muck_005
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_010
+temperature_soil_max_bare_muck_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -985,7 +985,7 @@ temperature_soil_max_bare_muck_010
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_020
+temperature_soil_max_bare_muck_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1005,7 +1005,7 @@ temperature_soil_max_bare_muck_020
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_050
+temperature_soil_max_bare_muck__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1025,7 +1025,7 @@ temperature_soil_max_bare_muck_050
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_100
+temperature_soil_max_bare_muck_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1045,7 +1045,7 @@ temperature_soil_max_bare_muck_100
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_150
+temperature_soil_max_bare_muck_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1065,7 +1065,7 @@ temperature_soil_max_bare_muck_150
    * - constraints
      - none
 
-temperature_soil_max_bare_muck_180
+temperature_soil_max_bare_muck_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1085,7 +1085,7 @@ temperature_soil_max_bare_muck_180
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_005
+temperature_soil_min_bare_muck_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1105,7 +1105,7 @@ temperature_soil_min_bare_muck_005
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_010
+temperature_soil_min_bare_muck_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1125,7 +1125,7 @@ temperature_soil_min_bare_muck_010
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_020
+temperature_soil_min_bare_muck_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1145,7 +1145,7 @@ temperature_soil_min_bare_muck_020
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_050
+temperature_soil_min_bare_muck__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1165,7 +1165,7 @@ temperature_soil_min_bare_muck_050
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_100
+temperature_soil_min_bare_muck_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1185,7 +1185,7 @@ temperature_soil_min_bare_muck_100
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_150
+temperature_soil_min_bare_muck_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1205,7 +1205,7 @@ temperature_soil_min_bare_muck_150
    * - constraints
      - none
 
-temperature_soil_min_bare_muck_180
+temperature_soil_min_bare_muck_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1225,7 +1225,7 @@ temperature_soil_min_bare_muck_180
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_005
+temperature_soil_max_brome_grass_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1245,7 +1245,7 @@ temperature_soil_max_brome_grass_005
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_010
+temperature_soil_max_brome_grass_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1265,7 +1265,7 @@ temperature_soil_max_brome_grass_010
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_020
+temperature_soil_max_brome_grass_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1285,7 +1285,7 @@ temperature_soil_max_brome_grass_020
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_050
+temperature_soil_max_brome_grass__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1305,7 +1305,7 @@ temperature_soil_max_brome_grass_050
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_100
+temperature_soil_max_brome_grass_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1325,7 +1325,7 @@ temperature_soil_max_brome_grass_100
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_150
+temperature_soil_max_brome_grass_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1345,7 +1345,7 @@ temperature_soil_max_brome_grass_150
    * - constraints
      - none
 
-temperature_soil_max_brome_grass_180
+temperature_soil_max_brome_grass_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1365,7 +1365,7 @@ temperature_soil_max_brome_grass_180
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_005
+temperature_soil_min_brome_grass_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1385,7 +1385,7 @@ temperature_soil_min_brome_grass_005
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_010
+temperature_soil_min_brome_grass_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1405,7 +1405,7 @@ temperature_soil_min_brome_grass_010
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_020
+temperature_soil_min_brome_grass_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1425,7 +1425,7 @@ temperature_soil_min_brome_grass_020
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_050
+temperature_soil_min_brome_grass__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1445,7 +1445,7 @@ temperature_soil_min_brome_grass_050
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_100
+temperature_soil_min_brome_grass_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1465,7 +1465,7 @@ temperature_soil_min_brome_grass_100
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_150
+temperature_soil_min_brome_grass_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1485,7 +1485,7 @@ temperature_soil_min_brome_grass_150
    * - constraints
      - none
 
-temperature_soil_min_brome_grass_180
+temperature_soil_min_brome_grass_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1505,7 +1505,7 @@ temperature_soil_min_brome_grass_180
    * - constraints
      - none
 
-temperature_soil_max_fallow_005
+temperature_soil_max_fallow_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1525,7 +1525,7 @@ temperature_soil_max_fallow_005
    * - constraints
      - none
 
-temperature_soil_max_fallow_010
+temperature_soil_max_fallow_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1545,7 +1545,7 @@ temperature_soil_max_fallow_010
    * - constraints
      - none
 
-temperature_soil_max_fallow_020
+temperature_soil_max_fallow_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1565,7 +1565,7 @@ temperature_soil_max_fallow_020
    * - constraints
      - none
 
-temperature_soil_max_fallow_050
+temperature_soil_max_fallow__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1585,7 +1585,7 @@ temperature_soil_max_fallow_050
    * - constraints
      - none
 
-temperature_soil_max_fallow_100
+temperature_soil_max_fallow_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1605,7 +1605,7 @@ temperature_soil_max_fallow_100
    * - constraints
      - none
 
-temperature_soil_max_fallow_150
+temperature_soil_max_fallow_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1625,7 +1625,7 @@ temperature_soil_max_fallow_150
    * - constraints
      - none
 
-temperature_soil_max_fallow_180
+temperature_soil_max_fallow_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1645,7 +1645,7 @@ temperature_soil_max_fallow_180
    * - constraints
      - none
 
-temperature_soil_min_fallow_005
+temperature_soil_min_fallow_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1665,7 +1665,7 @@ temperature_soil_min_fallow_005
    * - constraints
      - none
 
-temperature_soil_min_fallow_010
+temperature_soil_min_fallow_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1685,7 +1685,7 @@ temperature_soil_min_fallow_010
    * - constraints
      - none
 
-temperature_soil_min_fallow_020
+temperature_soil_min_fallow_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1705,7 +1705,7 @@ temperature_soil_min_fallow_020
    * - constraints
      - none
 
-temperature_soil_min_fallow_050
+temperature_soil_min_fallow__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1725,7 +1725,7 @@ temperature_soil_min_fallow_050
    * - constraints
      - none
 
-temperature_soil_min_fallow_100
+temperature_soil_min_fallow_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1745,7 +1745,7 @@ temperature_soil_min_fallow_100
    * - constraints
      - none
 
-temperature_soil_min_fallow_150
+temperature_soil_min_fallow_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1765,7 +1765,7 @@ temperature_soil_min_fallow_150
    * - constraints
      - none
 
-temperature_soil_min_fallow_180
+temperature_soil_min_fallow_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1785,7 +1785,7 @@ temperature_soil_min_fallow_180
    * - constraints
      - none
 
-temperature_soil_max_grass_005
+temperature_soil_max_grass_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1805,7 +1805,7 @@ temperature_soil_max_grass_005
    * - constraints
      - none
 
-temperature_soil_max_grass_010
+temperature_soil_max_grass_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1825,7 +1825,7 @@ temperature_soil_max_grass_010
    * - constraints
      - none
 
-temperature_soil_max_grass_020
+temperature_soil_max_grass_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1845,7 +1845,7 @@ temperature_soil_max_grass_020
    * - constraints
      - none
 
-temperature_soil_max_grass_050
+temperature_soil_max_grass__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1865,7 +1865,7 @@ temperature_soil_max_grass_050
    * - constraints
      - none
 
-temperature_soil_max_grass_100
+temperature_soil_max_grass_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1885,7 +1885,7 @@ temperature_soil_max_grass_100
    * - constraints
      - none
 
-temperature_soil_max_grass_150
+temperature_soil_max_grass_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1905,7 +1905,7 @@ temperature_soil_max_grass_150
    * - constraints
      - none
 
-temperature_soil_max_grass_180
+temperature_soil_max_grass_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1925,7 +1925,7 @@ temperature_soil_max_grass_180
    * - constraints
      - none
 
-temperature_soil_min_grass_005
+temperature_soil_min_grass_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1945,7 +1945,7 @@ temperature_soil_min_grass_005
    * - constraints
      - none
 
-temperature_soil_min_grass_010
+temperature_soil_min_grass_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1965,7 +1965,7 @@ temperature_soil_min_grass_010
    * - constraints
      - none
 
-temperature_soil_min_grass_020
+temperature_soil_min_grass_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -1985,7 +1985,7 @@ temperature_soil_min_grass_020
    * - constraints
      - none
 
-temperature_soil_min_grass_050
+temperature_soil_min_grass__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2005,7 +2005,7 @@ temperature_soil_min_grass_050
    * - constraints
      - none
 
-temperature_soil_min_grass_100
+temperature_soil_min_grass_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2025,7 +2025,7 @@ temperature_soil_min_grass_100
    * - constraints
      - none
 
-temperature_soil_min_grass_150
+temperature_soil_min_grass_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2045,7 +2045,7 @@ temperature_soil_min_grass_150
    * - constraints
      - none
 
-temperature_soil_min_grass_180
+temperature_soil_min_grass_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2065,7 +2065,7 @@ temperature_soil_min_grass_180
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_005
+temperature_soil_max_grass_muck_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2085,7 +2085,7 @@ temperature_soil_max_grass_muck_005
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_010
+temperature_soil_max_grass_muck_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2105,7 +2105,7 @@ temperature_soil_max_grass_muck_010
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_020
+temperature_soil_max_grass_muck_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2125,7 +2125,7 @@ temperature_soil_max_grass_muck_020
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_050
+temperature_soil_max_grass_muck__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2145,7 +2145,7 @@ temperature_soil_max_grass_muck_050
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_100
+temperature_soil_max_grass_muck_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2165,7 +2165,7 @@ temperature_soil_max_grass_muck_100
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_150
+temperature_soil_max_grass_muck_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2185,7 +2185,7 @@ temperature_soil_max_grass_muck_150
    * - constraints
      - none
 
-temperature_soil_max_grass_muck_180
+temperature_soil_max_grass_muck_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2205,7 +2205,7 @@ temperature_soil_max_grass_muck_180
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_005
+temperature_soil_min_grass_muck_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2225,7 +2225,7 @@ temperature_soil_min_grass_muck_005
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_010
+temperature_soil_min_grass_muck_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2245,7 +2245,7 @@ temperature_soil_min_grass_muck_010
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_020
+temperature_soil_min_grass_muck_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2265,7 +2265,7 @@ temperature_soil_min_grass_muck_020
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_050
+temperature_soil_min_grass_muck__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2285,7 +2285,7 @@ temperature_soil_min_grass_muck_050
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_100
+temperature_soil_min_grass_muck_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2305,7 +2305,7 @@ temperature_soil_min_grass_muck_100
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_150
+temperature_soil_min_grass_muck_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2325,7 +2325,7 @@ temperature_soil_min_grass_muck_150
    * - constraints
      - none
 
-temperature_soil_min_grass_muck_180
+temperature_soil_min_grass_muck_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2345,7 +2345,7 @@ temperature_soil_min_grass_muck_180
    * - constraints
      - none
 
-temperature_soil_max_sod_005
+temperature_soil_max_sod_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2365,7 +2365,7 @@ temperature_soil_max_sod_005
    * - constraints
      - none
 
-temperature_soil_max_sod_010
+temperature_soil_max_sod_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2385,7 +2385,7 @@ temperature_soil_max_sod_010
    * - constraints
      - none
 
-temperature_soil_max_sod_020
+temperature_soil_max_sod_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2405,7 +2405,7 @@ temperature_soil_max_sod_020
    * - constraints
      - none
 
-temperature_soil_max_sod_050
+temperature_soil_max_sod__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2425,7 +2425,7 @@ temperature_soil_max_sod_050
    * - constraints
      - none
 
-temperature_soil_max_sod_100
+temperature_soil_max_sod_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2445,7 +2445,7 @@ temperature_soil_max_sod_100
    * - constraints
      - none
 
-temperature_soil_max_sod_150
+temperature_soil_max_sod_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2465,7 +2465,7 @@ temperature_soil_max_sod_150
    * - constraints
      - none
 
-temperature_soil_max_sod_180
+temperature_soil_max_sod_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2485,7 +2485,7 @@ temperature_soil_max_sod_180
    * - constraints
      - none
 
-temperature_soil_min_sod_005
+temperature_soil_min_sod_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2505,7 +2505,7 @@ temperature_soil_min_sod_005
    * - constraints
      - none
 
-temperature_soil_min_sod_010
+temperature_soil_min_sod_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2525,7 +2525,7 @@ temperature_soil_min_sod_010
    * - constraints
      - none
 
-temperature_soil_min_sod_020
+temperature_soil_min_sod_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2545,7 +2545,7 @@ temperature_soil_min_sod_020
    * - constraints
      - none
 
-temperature_soil_min_sod_050
+temperature_soil_min_sod__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2565,7 +2565,7 @@ temperature_soil_min_sod_050
    * - constraints
      - none
 
-temperature_soil_min_sod_100
+temperature_soil_min_sod_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2585,7 +2585,7 @@ temperature_soil_min_sod_100
    * - constraints
      - none
 
-temperature_soil_min_sod_150
+temperature_soil_min_sod_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2605,7 +2605,7 @@ temperature_soil_min_sod_150
    * - constraints
      - none
 
-temperature_soil_min_sod_180
+temperature_soil_min_sod_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2625,7 +2625,7 @@ temperature_soil_min_sod_180
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_005
+temperature_soil_max_straw_mulch_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2645,7 +2645,7 @@ temperature_soil_max_straw_mulch_005
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_010
+temperature_soil_max_straw_mulch_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2665,7 +2665,7 @@ temperature_soil_max_straw_mulch_010
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_020
+temperature_soil_max_straw_mulch_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2685,7 +2685,7 @@ temperature_soil_max_straw_mulch_020
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_050
+temperature_soil_max_straw_mulch__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2705,7 +2705,7 @@ temperature_soil_max_straw_mulch_050
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_100
+temperature_soil_max_straw_mulch_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2725,7 +2725,7 @@ temperature_soil_max_straw_mulch_100
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_150
+temperature_soil_max_straw_mulch_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2745,7 +2745,7 @@ temperature_soil_max_straw_mulch_150
    * - constraints
      - none
 
-temperature_soil_max_straw_mulch_180
+temperature_soil_max_straw_mulch_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2765,7 +2765,7 @@ temperature_soil_max_straw_mulch_180
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_005
+temperature_soil_min_straw_mulch_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2785,7 +2785,7 @@ temperature_soil_min_straw_mulch_005
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_010
+temperature_soil_min_straw_mulch_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2805,7 +2805,7 @@ temperature_soil_min_straw_mulch_010
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_020
+temperature_soil_min_straw_mulch_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2825,7 +2825,7 @@ temperature_soil_min_straw_mulch_020
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_050
+temperature_soil_min_straw_mulch__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2845,7 +2845,7 @@ temperature_soil_min_straw_mulch_050
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_100
+temperature_soil_min_straw_mulch_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2865,7 +2865,7 @@ temperature_soil_min_straw_mulch_100
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_150
+temperature_soil_min_straw_mulch_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2885,7 +2885,7 @@ temperature_soil_min_straw_mulch_150
    * - constraints
      - none
 
-temperature_soil_min_straw_mulch_180
+temperature_soil_min_straw_mulch_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2905,7 +2905,7 @@ temperature_soil_min_straw_mulch_180
    * - constraints
      - none
 
-temperature_soil_max_unknown_005
+temperature_soil_max_unknown_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2925,7 +2925,7 @@ temperature_soil_max_unknown_005
    * - constraints
      - none
 
-temperature_soil_max_unknown_010
+temperature_soil_max_unknown_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2945,7 +2945,7 @@ temperature_soil_max_unknown_010
    * - constraints
      - none
 
-temperature_soil_max_unknown_020
+temperature_soil_max_unknown_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2965,7 +2965,7 @@ temperature_soil_max_unknown_020
    * - constraints
      - none
 
-temperature_soil_max_unknown_050
+temperature_soil_max_unknown__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -2985,7 +2985,7 @@ temperature_soil_max_unknown_050
    * - constraints
      - none
 
-temperature_soil_max_unknown_100
+temperature_soil_max_unknown_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3005,7 +3005,7 @@ temperature_soil_max_unknown_100
    * - constraints
      - none
 
-temperature_soil_max_unknown_150
+temperature_soil_max_unknown_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3025,7 +3025,7 @@ temperature_soil_max_unknown_150
    * - constraints
      - none
 
-temperature_soil_max_unknown_180
+temperature_soil_max_unknown_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3045,7 +3045,7 @@ temperature_soil_max_unknown_180
    * - constraints
      - none
 
-temperature_soil_min_unknown_005
+temperature_soil_min_unknown_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3065,7 +3065,7 @@ temperature_soil_min_unknown_005
    * - constraints
      - none
 
-temperature_soil_min_unknown_010
+temperature_soil_min_unknown_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3085,7 +3085,7 @@ temperature_soil_min_unknown_010
    * - constraints
      - none
 
-temperature_soil_min_unknown_020
+temperature_soil_min_unknown_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3105,7 +3105,7 @@ temperature_soil_min_unknown_020
    * - constraints
      - none
 
-temperature_soil_min_unknown_050
+temperature_soil_min_unknown__0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3125,7 +3125,7 @@ temperature_soil_min_unknown_050
    * - constraints
      - none
 
-temperature_soil_min_unknown_100
+temperature_soil_min_unknown_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3145,7 +3145,7 @@ temperature_soil_min_unknown_100
    * - constraints
      - none
 
-temperature_soil_min_unknown_150
+temperature_soil_min_unknown_1_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -3165,7 +3165,7 @@ temperature_soil_min_unknown_150
    * - constraints
      - none
 
-temperature_soil_min_unknown_180
+temperature_soil_min_unknown_1_8m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -4085,7 +4085,7 @@ wind_gust_max_5sec
    * - constraints
      - :math:`\geq{0}`
 
-wind_movement_24hour
+wind_movement_24h
 ^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

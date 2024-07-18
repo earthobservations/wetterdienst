@@ -78,7 +78,7 @@ def test_imgw_meteorology_api_daily():
             {
                 "station_id": "253160090",
                 "dataset": "climate",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 301.35,
                 "quality": None,
@@ -86,7 +86,7 @@ def test_imgw_meteorology_api_daily():
             {
                 "station_id": "253160090",
                 "dataset": "climate",
-                "parameter": "temperature_air_mean_005",
+                "parameter": "temperature_air_mean_0_05m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 278.75,
                 "quality": None,
@@ -94,7 +94,7 @@ def test_imgw_meteorology_api_daily():
             {
                 "station_id": "253160090",
                 "dataset": "climate",
-                "parameter": "temperature_air_mean_200",
+                "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 293.75,
                 "quality": None,
@@ -102,7 +102,7 @@ def test_imgw_meteorology_api_daily():
             {
                 "station_id": "253160090",
                 "dataset": "climate",
-                "parameter": "temperature_air_min_200",
+                "parameter": "temperature_air_min_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 282.35,
                 "quality": None,
@@ -244,7 +244,7 @@ def test_imgw_meteorology_api_monthly():
             {
                 "station_id": "349190600",
                 "dataset": "synop",
-                "parameter": "temperature_air_max_200",
+                "parameter": "temperature_air_max_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 302.65,
                 "quality": None,
@@ -252,7 +252,7 @@ def test_imgw_meteorology_api_monthly():
             {
                 "station_id": "349190600",
                 "dataset": "synop",
-                "parameter": "temperature_air_max_200_mean",
+                "parameter": "temperature_air_max_2m_mean",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 296.34999999999997,
                 "quality": None,
@@ -260,7 +260,7 @@ def test_imgw_meteorology_api_monthly():
             {
                 "station_id": "349190600",
                 "dataset": "synop",
-                "parameter": "temperature_air_mean_200",
+                "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 291.34999999999997,
                 "quality": None,
@@ -268,7 +268,7 @@ def test_imgw_meteorology_api_monthly():
             {
                 "station_id": "349190600",
                 "dataset": "synop",
-                "parameter": "temperature_air_min_005",
+                "parameter": "temperature_air_min_0_05m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 280.84999999999997,
                 "quality": None,
@@ -276,7 +276,7 @@ def test_imgw_meteorology_api_monthly():
             {
                 "station_id": "349190600",
                 "dataset": "synop",
-                "parameter": "temperature_air_min_200",
+                "parameter": "temperature_air_min_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 281.65,
                 "quality": None,
@@ -284,7 +284,7 @@ def test_imgw_meteorology_api_monthly():
             {
                 "station_id": "349190600",
                 "dataset": "synop",
-                "parameter": "temperature_air_min_200_mean",
+                "parameter": "temperature_air_min_2m_mean",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 287.15,
                 "quality": None,

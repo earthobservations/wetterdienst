@@ -201,7 +201,7 @@ def test_dwd_observation_data_result_missing_data(default_settings):
         pl.col("date").dt.year().is_in((1933, 1934)) & ~pl.fold(True, lambda acc, s: acc & s.is_null(), pl.all()),
     ).is_empty()
     request = DwdObservationRequest(
-        parameter=DwdObservationParameter.HOURLY.TEMPERATURE_AIR_MEAN_200,
+        parameter=DwdObservationParameter.HOURLY.TEMPERATURE_AIR_MEAN_2M,
         resolution=DwdObservationResolution.HOURLY,
         start_date="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end_date="2020-06-09 12:00:00",
@@ -214,7 +214,7 @@ def test_dwd_observation_data_result_missing_data(default_settings):
         {
             "station_id": ["03348"],
             "dataset": ["temperature_air"],
-            "parameter": ["temperature_air_mean_200"],
+            "parameter": ["temperature_air_mean_2m"],
             "date": [dt.datetime(2020, 6, 9, 12, 0, 0, tzinfo=ZoneInfo("UTC"))],
             "value": [None],
             "quality": [None],
@@ -980,7 +980,7 @@ def test_dwd_observations_urban_values(default_settings):
             "dataset": ["urban_temperature_air"] * 2,
             "parameter": [
                 "humidity",
-                "temperature_air_mean_200",
+                "temperature_air_mean_2m",
             ],
             "date": [dt.datetime(2022, 6, 1, tzinfo=dt.timezone.utc)] * 2,
             "value": [
@@ -1235,11 +1235,11 @@ def test_create_humanized_column_names_mapping():
         "nm": "cloud_cover_total",
         "vpm": "pressure_vapor",
         "pm": "pressure_air_site",
-        "tmk": "temperature_air_mean_200",
+        "tmk": "temperature_air_mean_2m",
         "upm": "humidity",
-        "txk": "temperature_air_max_200",
-        "tnk": "temperature_air_min_200",
-        "tgk": "temperature_air_min_005",
+        "txk": "temperature_air_max_2m",
+        "tnk": "temperature_air_min_2m",
+        "tgk": "temperature_air_min_0_05m",
     }
     hcnm = (
         DwdObservationRequest(

@@ -51,7 +51,7 @@ def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankf
     """Retrieve stations_result of DWD that measure temperature."""
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameter.DAILY.TEMPERATURE_AIR_MEAN_200,
+        parameter=DwdObservationParameter.DAILY.TEMPERATURE_AIR_MEAN_2M,
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,

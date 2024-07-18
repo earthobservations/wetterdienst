@@ -157,7 +157,7 @@ if __name__ == "__main__":
     end_date = datetime(2004, 12, 31)
 
     stations = DwdObservationRequest(
-        parameter="temperature_air_mean_200",
+        parameter="temperature_air_mean_2m",
         resolution="hourly",
         start_date=start_date,
         end_date=end_date,

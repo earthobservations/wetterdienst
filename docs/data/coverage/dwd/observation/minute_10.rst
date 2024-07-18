@@ -60,7 +60,7 @@ pressure_air_site
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -80,7 +80,7 @@ temperature_air_mean_200
    * - constraints
      - :math:`None`
 
-temperature_air_mean_005
+temperature_air_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -120,7 +120,7 @@ humidity
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -164,7 +164,7 @@ Metadata
 Parameters
 ----------
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -184,7 +184,7 @@ temperature_air_max_200
    * - constraints
      - :math:`None`
 
-temperature_air_max_005
+temperature_air_max_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -204,7 +204,7 @@ temperature_air_max_005
    * - constraints
      - :math:`None`
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -224,7 +224,7 @@ temperature_air_min_200
    * - constraints
      - :math:`None`
 
-temperature_air_min_005
+temperature_air_min_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

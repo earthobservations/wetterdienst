@@ -242,7 +242,7 @@ pressure_air_site
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -282,7 +282,7 @@ humidity
    * - constraints
      - :math:`\geq{0}, \leq{100}`
 
-temperature_air_max_200
+temperature_air_max_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -302,7 +302,7 @@ temperature_air_max_200
    * - constraints
      - none
 
-temperature_air_min_200
+temperature_air_min_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -322,7 +322,7 @@ temperature_air_min_200
    * - constraints
      - none
 
-temperature_air_min_005
+temperature_air_min_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -596,7 +596,7 @@ Metadata
 Parameters
 ----------
 
-temperature_soil_mean_002
+temperature_soil_mean_0_02m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -616,7 +616,7 @@ temperature_soil_mean_002
    * - constraints
      - none
 
-temperature_soil_mean_005
+temperature_soil_mean_0_05m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -636,7 +636,7 @@ temperature_soil_mean_005
    * - constraints
      - none
 
-temperature_soil_mean_010
+temperature_soil_mean_0_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -656,7 +656,7 @@ temperature_soil_mean_010
    * - constraints
      - none
 
-temperature_soil_mean_020
+temperature_soil_mean_0_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -676,7 +676,7 @@ temperature_soil_mean_020
    * - constraints
      - none
 
-temperature_soil_mean_050
+temperature_soil_mean_0_5m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -696,7 +696,7 @@ temperature_soil_mean_050
    * - constraints
      - none
 
-temperature_soil_mean_100
+temperature_soil_mean_1m
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::

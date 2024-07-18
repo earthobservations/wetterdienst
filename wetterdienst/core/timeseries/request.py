@@ -193,11 +193,11 @@ class TimeseriesRequest(Core):
     )
 
     #   - heterogeneous parameters such as precipitation_height
-    #   - homogeneous parameters such as temperature_air_200
+    #   - homogeneous parameters such as temperature_air_2m
     interpolatable_parameters = [
-        Parameter.TEMPERATURE_AIR_MEAN_200.name,
-        Parameter.TEMPERATURE_AIR_MAX_200.name,
-        Parameter.TEMPERATURE_AIR_MIN_200.name,
+        Parameter.TEMPERATURE_AIR_MEAN_2M.name,
+        Parameter.TEMPERATURE_AIR_MAX_2M.name,
+        Parameter.TEMPERATURE_AIR_MIN_2M.name,
         Parameter.WIND_SPEED.name,
         Parameter.PRECIPITATION_HEIGHT.name,
     ]

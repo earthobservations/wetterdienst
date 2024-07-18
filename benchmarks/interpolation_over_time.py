@@ -82,7 +82,7 @@ def visualize(parameter: str, unit: str, regular_df: pl.DataFrame, interpolated_
 
 
 def main():
-    parameter = Parameter.TEMPERATURE_AIR_MEAN_200.name
+    parameter = Parameter.TEMPERATURE_AIR_MEAN_2M.name
     unit = "K"
     start_date = datetime(2022, 3, 1)
     end_date = datetime(2022, 3, 31)

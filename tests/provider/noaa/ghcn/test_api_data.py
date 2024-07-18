@@ -20,7 +20,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnParameter, NoaaGhcnRequest
 )
 def test_api_amsterdam(start_date, end_date, default_settings):
     request = NoaaGhcnRequest(
-        parameter=[NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_200],
+        parameter=[NoaaGhcnParameter.DAILY.TEMPERATURE_AIR_MEAN_2M],
         resolution="daily",
         start_date=start_date,
         end_date=end_date,
@@ -31,7 +31,7 @@ def test_api_amsterdam(start_date, end_date, default_settings):
         {
             "station_id": ["NLM00006260"],
             "dataset": ["daily"],
-            "parameter": ["temperature_air_mean_200"],
+            "parameter": ["temperature_air_mean_2m"],
             "date": [dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC"))],
             "value": [276.84999999999997],
             "quality": [None],

@@ -358,7 +358,7 @@ snow_depth
    * - constraints
      - :math:`\geq{0}`
 
-temperature_air_mean_200
+temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -376,7 +376,7 @@ temperature_air_mean_200
    * - SI unit
      - :math:`K`
 
-temperature_dew_point_mean_200
+temperature_dew_point_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
@@ -394,7 +394,7 @@ temperature_dew_point_mean_200
    * - SI unit
      - :math:`K`
 
-temperature_wet_mean_200
+temperature_wet_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
