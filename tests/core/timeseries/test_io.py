@@ -687,7 +687,7 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
     assert len(df) == 366
     first_record = df.head(1).to_dicts()[0]
     assert first_record == {
-        "station_id": 1048,
+        "station_id": "01048",
         "dataset": "climate_summary",
         "date": "2019-01-01T00:00:00+00:00",
         "wind_gust_max": 19.9,
@@ -696,9 +696,9 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
         "qn_wind_speed": 10,
         "precipitation_height": 0.9,
         "qn_precipitation_height": 10,
-        "precipitation_form": 8,
+        "precipitation_form": 8.0,
         "qn_precipitation_form": 10,
-        "sunshine_duration": 0,
+        "sunshine_duration": 0.0,
         "qn_sunshine_duration": 10,
         "snow_depth": 0,
         "qn_snow_depth": 10,
@@ -714,21 +714,21 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
         "qn_humidity": 10,
         "temperature_air_max_2m": 7.5,
         "qn_temperature_air_max_2m": 10,
-        "temperature_air_min_2m": 2,
+        "temperature_air_min_2m": 2.0,
         "qn_temperature_air_min_2m": 10,
         "temperature_air_min_0_05m": 1.5,
         "qn_temperature_air_min_0_05m": 10,
     }
     last_record = df.tail(1).to_dicts()[0]
     assert last_record == {
-        "station_id": 1048,
+        "station_id": "01048",
         "dataset": "climate_summary",
         "date": "2020-01-01T00:00:00+00:00",
         "wind_gust_max": 6.9,
         "qn_wind_gust_max": 10,
         "wind_speed": 3.2,
         "qn_wind_speed": 10,
-        "precipitation_height": 0,
+        "precipitation_height": 0.0,
         "qn_precipitation_height": 10,
         "precipitation_form": 0,
         "qn_precipitation_form": 10,
