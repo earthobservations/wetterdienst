@@ -12,6 +12,7 @@ Observation
 Get available parameters for daily historical data of DWD:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -33,6 +34,7 @@ Get available parameters for daily historical data of DWD:
 Get stations for daily historical precipitation:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset
@@ -48,6 +50,7 @@ Get stations for daily historical precipitation:
 Get data for a dataset:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset
@@ -63,6 +66,7 @@ Get data for a dataset:
 Get data for a parameter:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationParameter
@@ -78,6 +82,7 @@ Get data for a parameter:
 Get data for a parameter from another dataset:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -96,6 +101,7 @@ Mosmix
 Get stations for MOSMIX-SMALL:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
@@ -107,6 +113,7 @@ Get stations for MOSMIX-SMALL:
 Get data for MOSMIX-LARGE:
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst import Resolution, Period
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
@@ -126,6 +133,7 @@ Sites
 Retrieve information about all OPERA radar sites.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
@@ -140,6 +148,7 @@ Retrieve information about all OPERA radar sites.
 Retrieve information about the DWD radar sites.
 
 .. ipython:: python
+    :okwarning:
 
     from wetterdienst.provider.dwd.radar.api import DwdRadarSites
 

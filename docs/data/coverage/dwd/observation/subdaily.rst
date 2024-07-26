@@ -43,7 +43,7 @@ Parameters
 ----------
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -250,7 +250,7 @@ pressure_vapor
      - :math:`\geq{0}`
 
 temperature_air_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -270,7 +270,7 @@ temperature_air_mean_0_05m
      - none
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -375,7 +375,7 @@ Parameters
 ----------
 
 temperature_soil_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -417,7 +417,7 @@ Parameters
 ----------
 
 temperature_soil_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

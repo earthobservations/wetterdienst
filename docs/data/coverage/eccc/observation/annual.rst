@@ -141,7 +141,7 @@ snow_depth_new_max
      - :math:`\geq{0}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -161,7 +161,7 @@ temperature_air_max_2m
      - none
 
 temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -181,7 +181,7 @@ temperature_air_max_2m_mean
      - none
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -201,7 +201,7 @@ temperature_air_min_2m
      - none
 
 temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

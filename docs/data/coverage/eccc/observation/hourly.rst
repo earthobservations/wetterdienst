@@ -102,7 +102,7 @@ pressure_air_site
      - :math:`\geq{0}`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -122,7 +122,7 @@ temperature_air_mean_2m
      - :math:`None`
 
 temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

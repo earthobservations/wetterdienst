@@ -61,7 +61,7 @@ pressure_air_site
      - :math:`\geq{0}`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -81,7 +81,7 @@ temperature_air_mean_2m
      - :math:`None`
 
 temperature_air_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -121,7 +121,7 @@ humidity
      - :math:`\geq{0}, \leq{100}`
 
 temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -165,7 +165,7 @@ Parameters
 ----------
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -185,7 +185,7 @@ temperature_air_max_2m
      - :math:`None`
 
 temperature_air_max_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -205,7 +205,7 @@ temperature_air_max_0_05m
      - :math:`None`
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -225,7 +225,7 @@ temperature_air_min_2m
      - :math:`None`
 
 temperature_air_min_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
