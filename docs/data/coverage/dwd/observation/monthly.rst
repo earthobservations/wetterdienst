@@ -61,7 +61,7 @@ cloud_cover_total
      - :math:`\geq{0}, \leq{8}`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -81,7 +81,7 @@ temperature_air_mean_2m
      - none
 
 temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -101,7 +101,7 @@ temperature_air_max_2m_mean
      - none
 
 temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -161,7 +161,7 @@ wind_force_beaufort
      - :math:`\geq{0}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -201,7 +201,7 @@ wind_gust_max
      - :math:`\geq{0}`
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

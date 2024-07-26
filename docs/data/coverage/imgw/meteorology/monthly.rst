@@ -143,7 +143,7 @@ snow_depth_max
      - :math:`\geq{0}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -163,7 +163,7 @@ temperature_air_max_2m
      - :math:`None`
 
 temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -183,7 +183,7 @@ temperature_air_max_2m_mean
      - :math:`None`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -203,7 +203,7 @@ temperature_air_mean_2m
      - :math:`None`
 
 temperature_air_min_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -223,7 +223,7 @@ temperature_air_min_0_05m
      - :math:`None`
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -243,7 +243,7 @@ temperature_air_min_2m
      - :math:`None`
 
 temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -571,7 +571,7 @@ snow_depth_max
      - :math:`\geq{0}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -591,7 +591,7 @@ temperature_air_max_2m
      - :math:`None`
 
 temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -611,7 +611,7 @@ temperature_air_max_2m_mean
      - :math:`None`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -631,7 +631,7 @@ temperature_air_mean_2m
      - :math:`None`
 
 temperature_air_min_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -651,7 +651,7 @@ temperature_air_min_0_05m
      - :math:`None`
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -671,7 +671,7 @@ temperature_air_min_2m
      - :math:`None`
 
 temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

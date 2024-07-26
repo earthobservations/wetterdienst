@@ -61,7 +61,7 @@ cloud_base_convective
      - :math:`\geq{0}`
 
 cloud_cover_above_7km
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -81,7 +81,7 @@ cloud_cover_above_7km
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_below_500ft
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -101,7 +101,7 @@ cloud_cover_below_500ft
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_below_1000ft
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -121,7 +121,7 @@ cloud_cover_below_1000ft
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_below_7km
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -141,7 +141,7 @@ cloud_cover_below_7km
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_between_2km_to_7km
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -321,7 +321,7 @@ probability_fog_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_0mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -341,7 +341,7 @@ probability_precipitation_height_gt_0_0mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -361,7 +361,7 @@ probability_precipitation_height_gt_0_2mm_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -381,7 +381,7 @@ probability_precipitation_height_gt_0_2mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -401,7 +401,7 @@ probability_precipitation_height_gt_0_2mm_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_1mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -421,7 +421,7 @@ probability_precipitation_height_gt_1mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -441,7 +441,7 @@ probability_precipitation_height_gt_5mm_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -461,7 +461,7 @@ probability_precipitation_height_gt_5mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -481,7 +481,7 @@ probability_precipitation_height_gt_5mm_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_25kn_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -501,7 +501,7 @@ probability_wind_gust_ge_25kn_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_40kn_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -521,7 +521,7 @@ probability_wind_gust_ge_40kn_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_55kn_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -581,7 +581,7 @@ sunshine_duration
      - :math:`\geq{0}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -601,7 +601,7 @@ temperature_air_max_2m
      - none
 
 temperature_air_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -621,7 +621,7 @@ temperature_air_mean_0_05m
      - none
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -641,7 +641,7 @@ temperature_air_mean_2m
      - none
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -661,7 +661,7 @@ temperature_air_min_2m
      - none
 
 temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -903,7 +903,7 @@ Parameters
 ----------
 
 cloud_cover_above_7km
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -923,7 +923,7 @@ cloud_cover_above_7km
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_below_500ft
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -943,7 +943,7 @@ cloud_cover_below_500ft
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_below_1000ft
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -963,7 +963,7 @@ cloud_cover_below_1000ft
      - :math:`\geq{0}, \leq{100}`
 
 cloud_cover_between_2km_to_7km
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1043,7 +1043,7 @@ error_absolute_pressure_air_site
      - none
 
 error_absolute_temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1063,7 +1063,7 @@ error_absolute_temperature_air_mean_2m
      - none
 
 error_absolute_temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1663,7 +1663,7 @@ probability_precipitation_freezing_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_0mm_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1683,7 +1683,7 @@ probability_precipitation_height_gt_0_0mm_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_0mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1703,7 +1703,7 @@ probability_precipitation_height_gt_0_0mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_0mm_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1723,7 +1723,7 @@ probability_precipitation_height_gt_0_0mm_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_1mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1743,7 +1743,7 @@ probability_precipitation_height_gt_0_1mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1763,7 +1763,7 @@ probability_precipitation_height_gt_0_2mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1783,7 +1783,7 @@ probability_precipitation_height_gt_0_2mm_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1803,7 +1803,7 @@ probability_precipitation_height_gt_0_2mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_2mm_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1823,7 +1823,7 @@ probability_precipitation_height_gt_0_2mm_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_3mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1843,7 +1843,7 @@ probability_precipitation_height_gt_0_3mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_5mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1863,7 +1863,7 @@ probability_precipitation_height_gt_0_5mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_0_7mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1883,7 +1883,7 @@ probability_precipitation_height_gt_0_7mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_1mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1903,7 +1903,7 @@ probability_precipitation_height_gt_1mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_1mm_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1923,7 +1923,7 @@ probability_precipitation_height_gt_1mm_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_1mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1943,7 +1943,7 @@ probability_precipitation_height_gt_1mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_1mm_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1963,7 +1963,7 @@ probability_precipitation_height_gt_1mm_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_2mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -1983,7 +1983,7 @@ probability_precipitation_height_gt_2mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_3mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2003,7 +2003,7 @@ probability_precipitation_height_gt_3mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2023,7 +2023,7 @@ probability_precipitation_height_gt_5mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2043,7 +2043,7 @@ probability_precipitation_height_gt_5mm_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2063,7 +2063,7 @@ probability_precipitation_height_gt_5mm_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_5mm_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2083,7 +2083,7 @@ probability_precipitation_height_gt_5mm_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_10mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2103,7 +2103,7 @@ probability_precipitation_height_gt_10mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_15mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2123,7 +2123,7 @@ probability_precipitation_height_gt_15mm_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_precipitation_height_gt_25mm_last_1h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2403,7 +2403,7 @@ probability_radiation_global_last_1h
      - :math:`\geq{0}, \leq{100}`
 
 probability_sunshine_duration_relative_gt_0pct_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2423,7 +2423,7 @@ probability_sunshine_duration_relative_gt_0pct_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_sunshine_duration_relative_gt_30pct_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2443,7 +2443,7 @@ probability_sunshine_duration_relative_gt_30pct_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_sunshine_duration_relative_gt_60pct_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2543,7 +2543,7 @@ probability_thunder_last_24h
      - :math:`\geq{0}, \leq{100}`
 
 probability_visibility_below_1000m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2563,7 +2563,7 @@ probability_visibility_below_1000m
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_25kn_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2583,7 +2583,7 @@ probability_wind_gust_ge_25kn_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_25kn_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2603,7 +2603,7 @@ probability_wind_gust_ge_25kn_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_40kn_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2623,7 +2623,7 @@ probability_wind_gust_ge_40kn_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_40kn_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2643,7 +2643,7 @@ probability_wind_gust_ge_40kn_last_12h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_55kn_last_6h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2663,7 +2663,7 @@ probability_wind_gust_ge_55kn_last_6h
      - :math:`\geq{0}, \leq{100}`
 
 probability_wind_gust_ge_55kn_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2823,7 +2823,7 @@ sunshine_duration_yesterday
      - :math:`\geq{0}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2843,7 +2843,7 @@ temperature_air_max_2m
      - none
 
 temperature_air_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2863,7 +2863,7 @@ temperature_air_mean_0_05m
      - none
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2883,7 +2883,7 @@ temperature_air_mean_2m
      - none
 
 temperature_air_mean_2m_last_24h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2904,7 +2904,7 @@ temperature_air_mean_2m_last_24h
 
 
 temperature_air_min_0_05m_last_12h
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2924,7 +2924,7 @@ temperature_air_min_0_05m_last_12h
      - none
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -2944,7 +2944,7 @@ temperature_air_min_2m
      - none
 
 temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

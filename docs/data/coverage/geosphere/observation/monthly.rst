@@ -301,7 +301,7 @@ sunshine_duration_relative
      - :math:`\geq{0},\leq{100}`
 
 temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -321,7 +321,7 @@ temperature_air_max_2m
      - :math:`None`
 
 temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -341,7 +341,7 @@ temperature_air_max_2m_mean
      - :math:`None`
 
 temperature_air_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -361,7 +361,7 @@ temperature_air_mean_0_05m
      - :math:`None`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -381,7 +381,7 @@ temperature_air_mean_2m
      - :math:`None`
 
 temperature_air_min_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -401,7 +401,7 @@ temperature_air_min_0_05m
      - :math:`None`
 
 temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -421,7 +421,7 @@ temperature_air_min_2m
      - :math:`None`
 
 temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -441,7 +441,7 @@ temperature_air_min_2m_mean
      - :math:`None`
 
 temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -461,7 +461,7 @@ temperature_dew_point_mean_2m
      - :math:`None`
 
 temperature_soil_max_0_1m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -481,7 +481,7 @@ temperature_soil_max_0_1m
      - :math:`None`
 
 temperature_soil_max_0_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -500,8 +500,8 @@ temperature_soil_max_0_2m
    * - constraints
      - :math:`None`
 
-TEMPERATURE_SOIL_MAX_0_5M
-^^^^^^^^^^^^^^^^^^^^^^^^
+temperature_soil_max_0_5m
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -521,7 +521,7 @@ TEMPERATURE_SOIL_MAX_0_5M
      - :math:`None`
 
 temperature_soil_max_1m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -541,7 +541,7 @@ temperature_soil_max_1m
      - :math:`None`
 
 temperature_soil_max_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -561,7 +561,7 @@ temperature_soil_max_2m
      - :math:`None`
 
 temperature_soil_mean_0_1m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -581,7 +581,7 @@ temperature_soil_mean_0_1m
      - :math:`None`
 
 temperature_soil_mean_0_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -600,8 +600,8 @@ temperature_soil_mean_0_2m
    * - constraints
      - :math:`None`
 
-temperature_soil_mean__0_5m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+temperature_soil_mean_0_5m
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -621,7 +621,7 @@ temperature_soil_mean__0_5m
      - :math:`None`
 
 temperature_soil_mean_1m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -641,7 +641,7 @@ temperature_soil_mean_1m
      - :math:`None`
 
 temperature_soil_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -661,7 +661,7 @@ temperature_soil_mean_2m
      - :math:`None`
 
 temperature_soil_min_0_1m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -681,7 +681,7 @@ temperature_soil_min_0_1m
      - :math:`None`
 
 temperature_soil_min_0_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -700,8 +700,8 @@ temperature_soil_min_0_2m
    * - constraints
      - :math:`None`
 
-temperature_soil_min__0_5m
-^^^^^^^^^^^^^^^^^^^^^^^^
+temperature_soil_min_0_5m
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -721,7 +721,7 @@ temperature_soil_min__0_5m
      - :math:`None`
 
 temperature_soil_min_1m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -741,7 +741,7 @@ temperature_soil_min_1m
      - :math:`None`
 
 temperature_soil_min_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80

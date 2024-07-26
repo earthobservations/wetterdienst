@@ -263,7 +263,7 @@ sunshine_duration
      - :math:`\geq{0}`
 
 temperature_air_mean_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -283,7 +283,7 @@ temperature_air_mean_0_05m
      - :math:`None`
 
 temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -303,7 +303,7 @@ temperature_air_mean_2m
      - :math:`None`
 
 temperature_soil_mean_0_1m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -323,7 +323,7 @@ temperature_soil_mean_0_1m
      - :math:`None`
 
 temperature_soil_mean_0_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -343,7 +343,7 @@ temperature_soil_mean_0_2m
      - :math:`None`
 
 temperature_soil_mean_0_5m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -363,7 +363,7 @@ temperature_soil_mean_0_5m
      - :math:`None`
 
 temperature_soil_mean_1m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -383,7 +383,7 @@ temperature_soil_mean_1m
      - :math:`None`
 
 temperature_soil_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
@@ -403,7 +403,7 @@ temperature_soil_mean_2m
      - :math:`None`
 
 temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :widths: 20 80
