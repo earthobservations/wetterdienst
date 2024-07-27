@@ -40,7 +40,7 @@ EA
 Hydrology
 =========
 
-.. autoclass:: wetterdienst.provider.ea.hydrology.api.EaHydrologyRequest
+.. autoclass:: wetterdienst.provider.ea.hydrology.api.EAHydrologyRequest
     :members:
 
 Eaufrance

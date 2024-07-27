@@ -12,8 +12,8 @@ from wetterdienst.provider.dwd.observation.metadata.parameter import (
 from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
 from wetterdienst.provider.dwd.road.api import DwdRoadParameter, DwdRoadUnit
 from wetterdienst.provider.ea.hydrology.api import (
-    EaHydrologyParameter,
-    EaHydrologyUnit,
+    EAHydrologyParameter,
+    EAHydrologyUnit,
 )
 from wetterdienst.provider.eaufrance.hubeau import HubeauParameter
 from wetterdienst.provider.eaufrance.hubeau.api import HubeauUnit
@@ -46,8 +46,8 @@ SI_UNITS = [unit.value for unit in SIUnit]
         DwdMosmixUnit,
         DwdRoadParameter,
         DwdRoadUnit,
-        EaHydrologyParameter,
-        EaHydrologyUnit,
+        EAHydrologyParameter,
+        EAHydrologyUnit,
         EcccObservationParameter,
         EcccObservationUnit,
         GeosphereObservationParameter,
@@ -104,7 +104,7 @@ def test_parameter_names(parameter_enum):
         (DwdObservationParameter, DwdObservationUnit),
         (DwdMosmixParameter, DwdMosmixUnit),
         (DwdRoadParameter, DwdRoadUnit),
-        (EaHydrologyParameter, EaHydrologyUnit),
+        (EAHydrologyParameter, EAHydrologyUnit),
         (EcccObservationParameter, EcccObservationUnit),
         (GeosphereObservationParameter, GeosphereObservationUnit),
         (HubeauParameter, HubeauUnit),

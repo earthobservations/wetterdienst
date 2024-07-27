@@ -8,7 +8,7 @@ from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.road import DwdRoadRequest
-from wetterdienst.provider.ea.hydrology import EaHydrologyRequest
+from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
@@ -188,7 +188,7 @@ def test_api_wsv_pegel(settings_si_true):
 
 
 def test_api_ea_hydrology(settings_si_true):
-    request = EaHydrologyRequest(parameter="discharge", resolution="daily", settings=settings_si_true).all()
+    request = EAHydrologyRequest(parameter="discharge", resolution="daily", settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_date = request.df.get_column("start_date").to_list()[0]
