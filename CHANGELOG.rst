@@ -11,6 +11,7 @@ Development
 - Bump pyarrow version to <18
 - Fix EaHydrology station list parsing
 - Rename `EaHydrology` to `EAHydrology`
+- Fix propagation of settings through `EAHydrology` values
 
 0.91.0 (14.07.2024)
 *******************
