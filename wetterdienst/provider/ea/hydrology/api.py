@@ -89,7 +89,7 @@ class EAHydrologyPeriod(Enum):
 
 
 class EAHydrologyValues(TimeseriesValues):
-    _base_url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
+    _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
     _data_tz = Timezone.UK
 
     def _collect_station_parameter(
@@ -98,12 +98,12 @@ class EAHydrologyValues(TimeseriesValues):
         parameter: Enum,
         dataset: Enum,  # noqa: ARG002
     ) -> pl.DataFrame:
-        endpoint = self._base_url.format(station_id=station_id)
-        log.info(f"Downloading file {endpoint}.")
-        payload = download_file(endpoint, self.sr.stations.settings, CacheExpiry.NO_CACHE)
-        measures_list = json.load(payload)["items"][0]["measures"]
-        measures_list = pl.Series(name="measure", values=measures_list).to_frame()
-        measures_list = measures_list.filter(
+        url = self._url.format(station_id=station_id)
+        log.info(f"Downloading file {url}.")
+        payload = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.NO_CACHE)
+        measures_data = json.load(payload)["items"][0]["measures"]
+        s_measures = pl.Series(name="measure", values=measures_data).to_frame()
+        s_measures = s_measures.filter(
             pl.col("measure")
             .map_elements(lambda measure: measure["parameterName"])
             .str.to_lowercase()
@@ -111,14 +111,14 @@ class EAHydrologyValues(TimeseriesValues):
             .eq(parameter.value.lower().replace("_", "")),
         )
         try:
-            measure_dict = measures_list.get_column("measure")[0]
+            measure_dict = s_measures.get_column("measure")[0]
         except IndexError:
             return pl.DataFrame()
-        values_endpoint = f"{measure_dict['@id']}/readings.json"
-        log.info(f"Downloading file {values_endpoint}.")
-        payload = download_file(values_endpoint, CacheExpiry.FIVE_MINUTES)
-        readings = json.loads(payload.read())["items"]
-        df = pl.from_dicts(readings)
+        readings_url = f"{measure_dict['@id']}/readings.json"
+        log.info(f"Downloading file {readings_url}.")
+        payload = download_file(url=readings_url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
+        data = json.loads(payload.read())["items"]
+        df = pl.from_dicts(data)
         df = df.select(pl.lit(parameter.value).alias("parameter"), pl.col("dateTime"), pl.col("value"))
         df = df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
         return df.with_columns(pl.col(Columns.DATE.value).str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
@@ -138,7 +138,7 @@ class EAHydrologyRequest(TimeseriesRequest):
     _data_range = DataRange.FIXED
     _values = EAHydrologyValues
 
-    endpoint = "https://environment.data.gov.uk/hydrology/id/stations.json"
+    _url = "https://environment.data.gov.uk/hydrology/id/stations.json"
 
     def __init__(
         self,
@@ -169,9 +169,9 @@ class EAHydrologyRequest(TimeseriesRequest):
         Get stations listing UK environment agency data
         :return:
         """
-        log.info(f"Acquiring station listing from {self.endpoint}")
-        response = download_file(self.endpoint, self.settings, CacheExpiry.FIVE_MINUTES)
-        data = json.load(response)["items"]
+        log.info(f"Acquiring station listing from {self._url}")
+        payload = download_file(self._url, self.settings, CacheExpiry.FIVE_MINUTES)
+        data = json.load(payload)["items"]
         for station in data:
             self._transform_station(station)
         df = pl.from_dicts(data)
