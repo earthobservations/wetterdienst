@@ -171,8 +171,10 @@ class EaHydrologyRequest(TimeseriesRequest):
         """
         log.info(f"Acquiring station listing from {self.endpoint}")
         response = download_file(self.endpoint, self.settings, CacheExpiry.FIVE_MINUTES)
-        payload = json.load(response)["items"]
-        df = pl.DataFrame(payload)
+        data = json.load(response)["items"]
+        for station in data:
+            self._transform_station(station)
+        df = pl.from_dicts(data)
         # filter for stations that have wanted resolution and parameter combinations
         df_measures = (
             df.select(pl.col("notation"), pl.col("measures"))
@@ -198,3 +200,15 @@ class EaHydrologyRequest(TimeseriesRequest):
             pl.col("end_date").str.to_datetime(format="%Y-%m-%d"),
         )
         return df.lazy()
+
+    @staticmethod
+    def _transform_station(station: dict) -> None:
+        """Reduce station dictionary to required keys and format dateOpened and dateClosed."""
+        required_keys = ["label", "notation", "lat", "long", "dateOpened", "dateClosed", "measures"]
+        for key in list(station.keys()):
+            if key not in required_keys:
+                del station[key]
+        if isinstance(station["dateOpened"], list):
+            station["dateOpened"] = station["dateOpened"][1]
+        if "dateClosed" not in station:
+            station["dateClosed"] = None
