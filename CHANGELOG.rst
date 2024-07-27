@@ -9,6 +9,7 @@ Development
   - temperature parameters now use meter instead of cm and also have a unit
   - e.g. TEMPERATURE_AIR_MEAN_2M, CLOUD_COVER_BETWEEN_2KM_TO_7KM, PROBABILITY_PRECIPITATION_HEIGHT_GT_0_0MM_LAST_6H
 - Bump pyarrow version to <18
+- Fix EaHydrology station list parsing
 
 0.91.0 (14.07.2024)
 *******************
