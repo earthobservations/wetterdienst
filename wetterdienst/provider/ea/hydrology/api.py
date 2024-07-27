@@ -32,13 +32,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__file__)
 
 
-class EaHydrologyResolution(Enum):
+class EAHydrologyResolution(Enum):
     MINUTE_15 = Resolution.MINUTE_15.value
     HOUR_6 = Resolution.HOUR_6.value
     DAILY = Resolution.DAILY.value
 
 
-class EaHydrologyParameter(DatasetTreeCore):
+class EAHydrologyParameter(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
         class MINUTE_15(Enum):
             DISCHARGE = "flow"
@@ -67,7 +67,7 @@ class EaHydrologyParameter(DatasetTreeCore):
 PARAMETER_MAPPING = {"discharge": "Water Flow", "groundwater_level": "Groundwater level"}
 
 
-class EaHydrologyUnit(DatasetTreeCore):
+class EAHydrologyUnit(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
         class MINUTE_15(UnitEnum):
             DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
@@ -84,11 +84,11 @@ class EaHydrologyUnit(DatasetTreeCore):
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
 
-class EaHydrologyPeriod(Enum):
+class EAHydrologyPeriod(Enum):
     HISTORICAL = Period.HISTORICAL.value
 
 
-class EaHydrologyValues(TimeseriesValues):
+class EAHydrologyValues(TimeseriesValues):
     _base_url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
     _data_tz = Timezone.UK
 
@@ -124,26 +124,26 @@ class EaHydrologyValues(TimeseriesValues):
         return df.with_columns(pl.col(Columns.DATE.value).str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 
 
-class EaHydrologyRequest(TimeseriesRequest):
+class EAHydrologyRequest(TimeseriesRequest):
     _provider = Provider.EA
     _kind = Kind.OBSERVATION
     _tz = Timezone.UK
-    _parameter_base = EaHydrologyParameter
-    _unit_base = EaHydrologyUnit
-    _resolution_base = EaHydrologyResolution
+    _parameter_base = EAHydrologyParameter
+    _unit_base = EAHydrologyUnit
+    _resolution_base = EAHydrologyResolution
     _resolution_type = ResolutionType.MULTI
     _period_type = PeriodType.FIXED
-    _period_base = EaHydrologyPeriod
+    _period_base = EAHydrologyPeriod
     _has_datasets = False
     _data_range = DataRange.FIXED
-    _values = EaHydrologyValues
+    _values = EAHydrologyValues
 
     endpoint = "https://environment.data.gov.uk/hydrology/id/stations.json"
 
     def __init__(
         self,
-        parameter: list[str | EaHydrologyParameter | Parameter],
-        resolution: str | EaHydrologyResolution | Resolution,
+        parameter: list[str | EAHydrologyParameter | Parameter],
+        resolution: str | EAHydrologyResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,

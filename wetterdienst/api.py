@@ -97,12 +97,12 @@ class RequestRegistry(DatasetTreeCore):
     class EA(DatasetTreeCore):
         class HYDROLOGY(DatasetTreeCore):
             @staticmethod
-            def load() -> "EaHydrologyRequest":  # noqa: F821
+            def load() -> "EAHydrologyRequest":  # noqa: F821
                 from wetterdienst.provider.ea.hydrology import (
-                    EaHydrologyRequest,
+                    EAHydrologyRequest,
                 )
 
-                return EaHydrologyRequest
+                return EAHydrologyRequest
 
     class NWS(DatasetTreeCore):
         class OBSERVATION(DatasetTreeCore):
