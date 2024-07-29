@@ -351,7 +351,7 @@ class GeosphereObservationUnit(DatasetTreeCore):
             TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_CONCRETE_MEAN_0M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_AIR_MIN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_CONCRETE_MIN_0M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value            
+            TEMPERATURE_CONCRETE_MIN_0M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_SOIL_MAX_0_1M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_SOIL_MAX_0_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             TEMPERATURE_SOIL_MAX_0_5M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
