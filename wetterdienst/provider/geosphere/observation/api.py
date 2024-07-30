@@ -268,10 +268,10 @@ class GeosphereObservationUnit(DatasetTreeCore):
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value  # Niederschlag
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SEA_LEVEL = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            RADIATION_GLOBAL = OriginUnit.WATT_PER_SQUARE_METER.value, SIUnit.WATT_PER_SQUARE_METER.value
+            RADIATION_GLOBAL = OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value, SIUnit.JOULE_PER_SQUARE_METER.value
             RADIATION_SKY_SHORT_WAVE_DIFFUSE = (
-                OriginUnit.WATT_PER_SQUARE_METER.value,
-                SIUnit.WATT_PER_SQUARE_METER.value,
+                OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value,
+                SIUnit.JOULE_PER_SQUARE_METER.value,
             )
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             SUNSHINE_DURATION = OriginUnit.SECOND.value, SIUnit.SECOND.value
@@ -296,7 +296,7 @@ class GeosphereObservationUnit(DatasetTreeCore):
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             PRESSURE_AIR_SEA_LEVEL = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
-            RADIATION_GLOBAL = OriginUnit.WATT_PER_SQUARE_METER.value, SIUnit.WATT_PER_SQUARE_METER.value
+            RADIATION_GLOBAL = OriginUnit.JOULE_PER_SQUARE_CENTIMETER.value, SIUnit.JOULE_PER_SQUARE_METER.value
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             SUNSHINE_DURATION = OriginUnit.HOUR.value, SIUnit.SECOND.value
             TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
@@ -415,10 +415,18 @@ class GeosphereObservationValues(TimeseriesValues):
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
+        # adjust units for radiation parameters of 10 minute/hourly resolution from W / m² to J / cm²
         if self.sr.resolution == Resolution.MINUTE_10:
             df = df.with_columns(
-                pl.when(pl.col(Columns.PARAMETER.value).is_in(["GSX", "HSX"]))
-                .then(pl.col(Columns.VALUE.value) * 600)
+                pl.when(pl.col(Columns.PARAMETER.value).is_in(["cglo", "chim"]))
+                .then(pl.col(Columns.VALUE.value) * 600 / 10000)
+                .otherwise(pl.col(Columns.VALUE.value))
+                .alias(Columns.VALUE.value),
+            )
+        elif self.sr.resolution == Resolution.HOURLY:
+            df = df.with_columns(
+                pl.when(pl.col(Columns.PARAMETER.value).eq("cglo"))
+                .then(pl.col(Columns.VALUE.value) * 3600 / 10000)
                 .otherwise(pl.col(Columns.VALUE.value))
                 .alias(Columns.VALUE.value),
             )

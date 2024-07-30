@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+from dirty_equals import IsNumeric
 
 from wetterdienst import Parameter
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, GeosphereObservationResolution
@@ -39,4 +40,5 @@ def test_geopshere_observation_api_radiation(resolution):
     )
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df
-    assert df.get_column("value").sum() in (49710600, 49720000)
+    # the result is slightly different for each resolution
+    assert df.get_column("value").sum() == IsNumeric(ge=49662000, le=49720000)
