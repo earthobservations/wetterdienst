@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.92.0 (31.07.2024)
+*******************
+
 - Rename parameters
   - units in parameter names are now directly following the number
   - temperature parameters now use meter instead of cm and also have a unit
