@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from itertools import repeat
+from typing import TYPE_CHECKING
 
 import polars as pl
 import portion as P
@@ -51,6 +52,9 @@ from wetterdienst.provider.dwd.observation.util.parameter import (
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 log = logging.getLogger(__name__)
 
@@ -447,9 +451,9 @@ class DwdObservationRequest(TimeseriesRequest):
         parameter: str
         | DwdObservationDataset
         | DwdObservationParameter
-        | list[str | DwdObservationDataset | DwdObservationParameter],
+        | Sequence[str | DwdObservationDataset | DwdObservationParameter],
         resolution: str | Resolution | DwdObservationResolution,
-        period: str | Period | DwdObservationPeriod | list[str | Period | DwdObservationPeriod] = None,
+        period: str | Period | DwdObservationPeriod | Sequence[str | Period | DwdObservationPeriod] = None,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,
