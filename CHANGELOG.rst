@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix multiple Geosphere parameter and unit enums
+
 0.92.0 (31.07.2024)
 *******************
 

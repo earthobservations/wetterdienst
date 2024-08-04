@@ -68,7 +68,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
             WIND_DIRECTION_GUST_MAX = "ddx"  # Windrichtung zum Böenspitzenwert °
             WIND_GUST_MAX = "ffx"  # maximale Windgeschwindigkeit m/s
             WIND_SPEED = "ff"  # vektorielle Windgeschwindigkeit m/s
-            WIND_SPEED_MEAN_10M = "ffam"  # vektorielle Windgeschwindigkeit in 10m Höhe m/s
+            WIND_SPEED_ARITHMETIC = "ffam"  # vektorielle Windgeschwindigkeit in 10m Höhe m/s
             # Not (yet) implemented parameters:
             # Check dataset description and metadeta for more details (https://data.hub.geosphere.at/dataset/klima-v2-10min)
 
@@ -94,7 +94,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
         WIND_DIRECTION_GUST_MAX = MINUTE_10.WIND_DIRECTION_GUST_MAX
         WIND_GUST_MAX = MINUTE_10.WIND_GUST_MAX
         WIND_SPEED = MINUTE_10.WIND_SPEED
-        WIND_SPEED_MEAN_10M = MINUTE_10.WIND_SPEED_MEAN_10M
+        WIND_SPEED_ARITHMETIC = MINUTE_10.WIND_SPEED_ARITHMETIC
 
     class HOURLY(DatasetTreeCore):
         class HOURLY(Enum):
@@ -198,7 +198,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
             SUNSHINE_DURATION_RELATIVE = (
                 "so_r"  # Anteil der Sonnenscheindauer zur effektiv möglichen Sonnenscheindauer %
             )
-            TEMPERATURE_AIR_MAX_2 = "tlmax"  # Lufttemperatur 2m Monatsmaximum °C
+            TEMPERATURE_AIR_MAX_2M = "tlmax"  # Lufttemperatur 2m Monatsmaximum °C
             TEMPERATURE_CONCRETE_MAX_0M = "bet0_max"  # Lufttemperatur Beton 0cm Monatsmaximal °C
             TEMPERATURE_AIR_MEAN_2M = "tl_mittel"  # Lufttemperatur 2m Monatsmittel °C
             TEMPERATURE_CONCRETE_MEAN_0M = "bet0"  # Lufttemperatur Beton 0cm Monatsmittel °C
@@ -237,7 +237,7 @@ class GeosphereObservationParameter(DatasetTreeCore):
         SNOW_DEPTH_MAX = MONTHLY.SNOW_DEPTH_MAX
         SUNSHINE_DURATION = MONTHLY.SUNSHINE_DURATION
         SUNSHINE_DURATION_RELATIVE = MONTHLY.SUNSHINE_DURATION_RELATIVE
-        TEMPERATURE_AIR_MAX_2M = MONTHLY.TEMPERATURE_AIR_MAX_2
+        TEMPERATURE_AIR_MAX_2M = MONTHLY.TEMPERATURE_AIR_MAX_2M
         TEMPERATURE_CONCRETE_MAX_0M = MONTHLY.TEMPERATURE_CONCRETE_MAX_0M
         TEMPERATURE_AIR_MEAN_2M = MONTHLY.TEMPERATURE_AIR_MEAN_2M
         TEMPERATURE_CONCRETE_MEAN_0M = MONTHLY.TEMPERATURE_CONCRETE_MEAN_0M
@@ -265,6 +265,7 @@ class GeosphereObservationUnit(DatasetTreeCore):
     class MINUTE_10(DatasetTreeCore):
         class MINUTE_10(UnitEnum):
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
+            PRECIPITATION_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value  # Niederschlag
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
             PRESSURE_AIR_SEA_LEVEL = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
@@ -288,6 +289,7 @@ class GeosphereObservationUnit(DatasetTreeCore):
             WIND_DIRECTION_GUST_MAX = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
             WIND_GUST_MAX = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
+            WIND_SPEED_ARITHMETIC = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
     class HOURLY(DatasetTreeCore):
         class HOURLY(UnitEnum):
