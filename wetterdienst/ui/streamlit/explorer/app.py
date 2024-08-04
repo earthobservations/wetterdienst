@@ -176,7 +176,7 @@ period = st.multiselect(
 )
 
 request_kwargs = {
-    "parameter": (parameter, dataset),
+    "parameter": [(parameter, dataset)],
     "resolution": resolution,
     "settings": settings,
 }
