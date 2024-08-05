@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.93.0 (06.08.2024)
+*******************
+
 - Fix multiple Geosphere parameter and unit enums
 - Explorer: Fix wrap `(parameter, dataset)` in iterator
 - Adjust parameter typing of apis
