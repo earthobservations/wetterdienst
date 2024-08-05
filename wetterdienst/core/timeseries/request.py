@@ -39,6 +39,8 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst.metadata.datarange import DataRange
     from wetterdienst.metadata.kind import Kind
     from wetterdienst.metadata.provider import Provider
@@ -350,7 +352,7 @@ class TimeseriesRequest(Core):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE | tuple[_PARAMETER_TYPE] | list[_PARAMETER_TYPE],
+        parameter: str | Parameter | Sequence[str | Parameter],
         resolution: str | Resolution,
         period: str | Period,
         start_date: str | dt.datetime | None = None,

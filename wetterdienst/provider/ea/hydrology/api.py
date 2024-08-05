@@ -25,6 +25,7 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Sequence
 
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
@@ -142,7 +143,7 @@ class EAHydrologyRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | EAHydrologyParameter | Parameter],
+        parameter: str | EAHydrologyParameter | Parameter | Sequence[str | EAHydrologyParameter | Parameter],
         resolution: str | EAHydrologyResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,

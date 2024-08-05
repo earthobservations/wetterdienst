@@ -29,6 +29,8 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 
@@ -435,7 +437,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | NoaaGhcnParameter | Parameter],
+        parameter: str | NoaaGhcnParameter | Parameter | Sequence[str | NoaaGhcnParameter | Parameter],
         resolution: str | NoaaGhcnResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,

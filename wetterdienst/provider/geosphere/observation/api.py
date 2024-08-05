@@ -27,6 +27,8 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst import Parameter, Settings
 
 log = logging.getLogger(__name__)
@@ -467,7 +469,10 @@ class GeosphereObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | GeosphereObservationParameter | Parameter],
+        parameter: str
+        | GeosphereObservationParameter
+        | Parameter
+        | Sequence[str | GeosphereObservationParameter | Parameter],
         resolution: str | GeosphereObservationResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,

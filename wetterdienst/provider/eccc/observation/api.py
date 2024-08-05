@@ -32,7 +32,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
@@ -284,7 +284,7 @@ class EcccObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | EcccObservationParameter | Parameter],
+        parameter: str | EcccObservationParameter | Parameter | Sequence[str | EcccObservationParameter | Parameter],
         resolution: str | EcccObservationResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,

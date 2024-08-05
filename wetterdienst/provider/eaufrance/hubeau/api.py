@@ -27,7 +27,7 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
@@ -203,7 +203,7 @@ class HubeauRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | Enum | Parameter],
+        parameter: str | HubeauParameter | Parameter | Sequence[str | HubeauParameter | Parameter],
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,

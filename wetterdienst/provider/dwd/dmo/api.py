@@ -33,7 +33,7 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -1376,7 +1376,7 @@ class DwdDmoRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | DwdDmoParameter | Parameter] | None,
+        parameter: str | DwdDmoParameter | Parameter | Sequence[str | DwdDmoParameter | Parameter],
         dmo_type: str | DwdDmoType,
         start_issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
         end_issue: str | dt.datetime | None = None,

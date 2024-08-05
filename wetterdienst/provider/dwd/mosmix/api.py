@@ -35,7 +35,7 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
@@ -1326,7 +1326,7 @@ class DwdMosmixRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | DwdMosmixParameter | Parameter] | None,
+        parameter: str | DwdMosmixParameter | Parameter | Sequence[str | DwdMosmixParameter | Parameter],
         mosmix_type: str | DwdMosmixType,
         start_issue: str | dt.datetime | DwdForecastDate | None = DwdForecastDate.LATEST,
         end_issue: str | dt.datetime | None = None,

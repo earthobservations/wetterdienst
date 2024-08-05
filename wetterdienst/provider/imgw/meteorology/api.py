@@ -6,6 +6,7 @@ import datetime as dt
 import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -13,7 +14,7 @@ import portion as P
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
-from wetterdienst import Kind, Period, Provider, Resolution, Settings
+from wetterdienst import Kind, Parameter, Period, Provider, Resolution, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
@@ -26,6 +27,9 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class ImgwMeteorologyParameter(DatasetTreeCore):
@@ -522,8 +526,8 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter,
-        resolution,
+        parameter: str | ImgwMeteorologyParameter | Parameter | Sequence[str | ImgwMeteorologyParameter | Parameter],
+        resolution: str | ImgwMeteorologyResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,

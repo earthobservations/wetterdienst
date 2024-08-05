@@ -6,6 +6,7 @@ Development
 
 - Fix multiple Geosphere parameter and unit enums
 - Explorer: Fix wrap `(parameter, dataset)` in iterator
+- Adjust parameter typing of apis
 
 0.92.0 (31.07.2024)
 *******************

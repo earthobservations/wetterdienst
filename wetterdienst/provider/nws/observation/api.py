@@ -25,6 +25,8 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 
@@ -228,7 +230,7 @@ class NwsObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | NwsObservationParameter | Parameter],
+        parameter: str | NwsObservationParameter | Parameter | Sequence[str | NwsObservationParameter | Parameter],
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,

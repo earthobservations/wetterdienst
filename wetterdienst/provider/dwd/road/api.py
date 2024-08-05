@@ -28,6 +28,7 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Sequence
     from io import BytesIO
 
     from wetterdienst.core.timeseries.result import StationsResult
@@ -400,7 +401,7 @@ class DwdRoadRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: list[str | Enum | Parameter],
+        parameter: str | DwdRoadParameter | Parameter | Sequence[str | DwdRoadParameter | Parameter],
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,

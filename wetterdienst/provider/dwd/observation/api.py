@@ -451,9 +451,14 @@ class DwdObservationRequest(TimeseriesRequest):
         parameter: str
         | DwdObservationDataset
         | DwdObservationParameter
-        | Sequence[str | DwdObservationDataset | DwdObservationParameter],
-        resolution: str | Resolution | DwdObservationResolution,
-        period: str | Period | DwdObservationPeriod | Sequence[str | Period | DwdObservationPeriod] = None,
+        | Sequence[
+            str
+            | DwdObservationDataset
+            | DwdObservationParameter
+            | tuple[str | DwdObservationParameter, str | DwdObservationDataset]
+        ],
+        resolution: str | DwdObservationResolution | Resolution,
+        period: str | DwdObservationPeriod | Period | Sequence[str | DwdObservationPeriod | Period] = None,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,
