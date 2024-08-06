@@ -95,7 +95,7 @@ dependencies = [
   "fsspec>=2023.1,<2024.3",
   "lxml>=4.9.1,<6",
   "measurement>=3.2,<4",
-  "numpy>=1.22,<1.27",
+  "numpy>=1.22,<3",
   "pillow>=10.3",
   "pint>=0.17,<0.24",
   "platformdirs<5",
@@ -107,7 +107,7 @@ dependencies = [
   "python-dateutil<3",
   "rapidfuzz>=3.1,<4",
   "requests>=2.20,<3",
-  "scikit-learn>=1.0.2,<1.6",
+  "scikit-learn>=1.0.2,<2",
   "stamina>=23,<25",
   "tabulate>=0.8,<0.10",
   "tqdm>=4,<5",
@@ -161,7 +161,7 @@ influxdb = [
   "influxdb3-python>=0.3,<1",
 ]
 interpolation = [
-  "scipy>=1.9,<1.13",
+  "scipy>=1.9,<2",
   "shapely>=2,<3",
   "utm>=0.7,<1",
 ]
