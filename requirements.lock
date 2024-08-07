@@ -95,7 +95,7 @@ python-dateutil==2.9.0.post0
     # via wetterdienst
 python-dotenv==1.0.1
     # via environs
-rapidfuzz==3.9.5
+rapidfuzz==3.9.6
     # via wetterdienst
 requests==2.32.3
     # via wetterdienst

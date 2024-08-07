@@ -46,7 +46,7 @@ cachetools==5.4.0
     # via wetterdienst
 certifi==2024.7.4
     # via requests
-cffi==1.16.0
+cffi==1.17.0
     # via argon2-cffi-bindings
 charset-normalizer==3.3.2
     # via requests
@@ -236,12 +236,12 @@ python-json-logger==2.0.7
     # via jupyter-events
 pytz==2024.1
     # via dirty-equals
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via jupyter-events
 pyzmq==26.1.0
     # via jupyter-client
     # via jupyter-server
-rapidfuzz==3.9.5
+rapidfuzz==3.9.6
     # via wetterdienst
 referencing==0.35.1
     # via jsonschema
@@ -256,7 +256,7 @@ rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
     # via jsonschema
     # via jupyter-events
-rpds-py==0.19.1
+rpds-py==0.20.0
     # via jsonschema
     # via referencing
 ruff==0.5.6
