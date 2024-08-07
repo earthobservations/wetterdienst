@@ -95,7 +95,7 @@ dependencies = [
   "fsspec>=2023.1,<2024.3",
   "lxml>=4.9.1,<6",
   "measurement>=3.2,<4",
-  "numpy>=1.22,<1.27",
+  "numpy>=1.22,<3",
   "pillow>=10.3",
   "pint>=0.17,<0.24",
   "platformdirs<5",
