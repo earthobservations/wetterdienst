@@ -32,7 +32,7 @@ def dwd_road_weather_example():
         start_date=start_date,
         end_date=end_date,
     ).filter_by_station_id("A006")
-    print(drw_request)
+    print(drw_request.df)
     df_drw = drw_request.values.all().df.drop_nulls(subset="value")
     print(df_drw)
 

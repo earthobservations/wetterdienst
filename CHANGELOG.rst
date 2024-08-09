@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+- DWD Road: Add new station groups, log warning if no data is available, especially if the station group is one of the
+  temporarily unavailable ones
+
 0.93.0 (06.08.2024)
 *******************
 
