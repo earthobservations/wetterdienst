@@ -132,6 +132,8 @@ class DwdRoadStationGroup(Enum):
     HS = "HS"
     HV = "HV"
     JA = "JA"
+    JH = "JH"
+    JS = "JS"
     KK = "KK"
     KM = "KM"
     KO = "KO"
@@ -147,6 +149,15 @@ class DwdRoadStationGroup(Enum):
     SP = "SP"
     WW = "WW"
     XX = "XX"
+
+
+# TODO: it seems that the following station groups are temporarily unavailable
+TEMPORARILY_UNAVAILABLE_STATION_GROUPS = [
+    DwdRoadStationGroup.DF,
+    DwdRoadStationGroup.LF,
+    DwdRoadStationGroup.SF,
+    DwdRoadStationGroup.XX,
+]
 
 
 class DwdRoadValues(TimeseriesValues):
@@ -197,7 +208,11 @@ class DwdRoadValues(TimeseriesValues):
             ),
             settings=self.sr.settings,
         )
-        df = pl.DataFrame({Columns.FILENAME.value: files})
+        if not files:
+            log.info(f"No files found for {road_weather_station_group.value}.")
+            if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
+                log.info(f"Station group {road_weather_station_group.value} may be temporarily unavailable.")
+        df = pl.DataFrame({Columns.FILENAME.value: files}, schema={Columns.FILENAME.value: pl.String})
         return df.with_columns(
             pl.col(Columns.FILENAME.value)
             .str.split("/")
