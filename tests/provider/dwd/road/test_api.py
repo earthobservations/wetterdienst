@@ -1,8 +1,11 @@
 import polars as pl
 import pytest
 
-from wetterdienst.provider.dwd.road.api import DwdRoadRequest
+from wetterdienst import Settings
+from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
+from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.eccodes import ensure_eccodes, ensure_pdbufr
+from wetterdienst.util.network import list_remote_files_fsspec
 
 
 @pytest.mark.skipif(not ensure_eccodes() or not ensure_pdbufr(), reason="eccodes and/or pdbufr not installed")
@@ -31,3 +34,17 @@ def test_dwd_road_weather(parameter):
         request.values.all().df.drop_nulls(subset="value").filter(pl.col("parameter").eq("temperature_air_mean_2m"))
     )
     assert 230 <= values.get_column("value").min() <= 313  # approx. -+40 K
+
+
+@pytest.mark.xfail(reason="number of station groups may change")
+def test_dwd_road_weather_station_groups():
+    url = "https://opendata.dwd.de/weather/weather_reports/road_weather_stations/"
+    files = list_remote_files_fsspec(
+        url=url,
+        settings=Settings.default(),
+        ttl=CacheExpiry.METAINDEX,
+    )
+    files = {file[len(url) :].split("/")[0] for file in files}
+    if "quality-assured" in files:
+        files.remove("quality-assured")
+    assert files == {group.value for group in DwdRoadStationGroup}
