@@ -81,7 +81,7 @@ classifiers = [
 requires-python = ">=3.9,<4.0"
 dependencies = [
   "aenum>=3,<3.2",
-  "aiohttp>=3.8,<3.10",
+  "aiohttp>=3.8,<3.11",
   "backports-datetime-fromisoformat>=2,<3; python_version<'3.11'",
   "beautifulsoup4>=4.9,<5",
   "cachetools>=5.2,<6",
