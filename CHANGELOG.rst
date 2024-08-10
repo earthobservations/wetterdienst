@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.94.0 (10.08.2024)
+*******************
+
 - DWD Road: Add new station groups, log warning if no data is available, especially if the station group is one of the
   temporarily unavailable ones
 - Explorer: Fix DWD Mosmix request kwargs setup
