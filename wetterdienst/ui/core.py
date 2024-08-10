@@ -121,6 +121,7 @@ def _get_stations_request(
     # DWD Mosmix has fixed resolution and rather uses SMALL
     # and large for the different datasets
 
+    # TODO: replace this with a general request kwargs resolver
     kwargs = {
         "parameter": unpack_parameters(parameter),
         "start_date": start_date,
