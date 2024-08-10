@@ -12,6 +12,9 @@ import streamlit as st
 from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.api import RequestRegistry
 from wetterdienst.metadata.period import PeriodType
+from wetterdienst.metadata.resolution import ResolutionType
+from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -174,13 +177,19 @@ else:
 period = st.multiselect(
     "Select period", options=period_options, default=period_options, disabled=len(period_options) == 1
 )
-
+# TODO: replace this with a general request kwargs resolver
 request_kwargs = {
     "parameter": [(parameter, dataset)],
-    "resolution": resolution,
     "settings": settings,
 }
-if api._period_type != PeriodType.FIXED:
+if issubclass(api, DwdMosmixRequest):
+    request_kwargs["mosmix_type"] = resolution
+elif issubclass(api, DwdDmoRequest):
+    request_kwargs["dmo_type"] = resolution
+elif api._resolution_type == ResolutionType.MULTI:
+    request_kwargs["resolution"] = resolution
+
+if api._period_type == PeriodType.MULTI:
     request_kwargs["period"] = period
 
 df_stations = get_stations(provider, network, request_kwargs).df
