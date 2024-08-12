@@ -592,7 +592,7 @@ class TimeseriesRequest(Core):
         ]
 
     @staticmethod
-    def _coerce_meta_fields(df: pl.LazyFrame) -> pl.LazyFrame:
+    def _coerce_meta_fields(df: pl.DataFrame) -> pl.DataFrame:
         """
         Method for metadata column coercion.
 
@@ -628,11 +628,14 @@ class TimeseriesRequest(Core):
         """
         df = self._all()
 
-        df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
+        df = df.collect()
+
+        if not df.is_empty():
+            df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
+        else:
+            df = pl.DataFrame(schema={col: pl.Utf8 for col in self._base_columns})
 
         df = self._coerce_meta_fields(df)
-
-        df = df.collect()
 
         return StationsResult(
             stations=self,
