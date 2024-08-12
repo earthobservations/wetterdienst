@@ -77,6 +77,8 @@ environs==11.0.0
     # via wetterdienst
 execnet==2.1.1
     # via pytest-xdist
+fastexcel==0.11.5
+    # via wetterdienst
 fastjsonschema==2.20.0
     # via nbformat
 fqdn==1.5.1
@@ -202,6 +204,7 @@ prometheus-client==0.20.0
 ptyprocess==0.7.0
     # via terminado
 pyarrow==17.0.0
+    # via fastexcel
     # via wetterdienst
 pybufrkit==0.2.22
 pycparser==2.22

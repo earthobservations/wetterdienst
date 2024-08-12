@@ -221,8 +221,8 @@ df_stats = (
 )
 df_stats = df_stats.sort("parameter")
 df_stats = df_stats.with_columns(
-    pl.col("min_date").map_elements(lambda d: d.isoformat()).alias("min_date"),
-    pl.col("max_date").map_elements(lambda d: d.isoformat()).alias("max_date"),
+    pl.col("min_date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String).alias("min_date"),
+    pl.col("max_date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String).alias("max_date"),
 )
 values_summary = df_stats.to_dicts()
 with st.expander("Stats JSON", expanded=False):

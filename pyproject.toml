@@ -92,6 +92,7 @@ dependencies = [
   "diskcache>=5.4,<6",
   "environs>=9.4,<12",
   "eval-type-backport>=0.1.3; python_version<'3.10'",
+  "fastexcel>=0.10.4",
   "fsspec>=2023.1,<2024.3",
   "lxml>=4.9.1,<6",
   "measurement>=3.2,<4",
@@ -151,9 +152,6 @@ export_without_zarr = [
   "sqlalchemy>=2,<2.1",
   "xarray>=2023.1,<2024.3",
   "xlsxwriter>=3.0.9,<3.3",
-]
-import = [
-  "fastexcel>=0.10.4",
 ]
 influxdb = [
   "influxdb>=5.3,<6",
@@ -246,7 +244,7 @@ dev-dependencies = [
 ]
 
 [tool.rye.scripts]
-install-dev = { cmd = "uv pip install .[bufr,cratedb,duckdb,explorer,export,import,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
+install-dev = { cmd = "uv pip install .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
 # Formatting and linting
 "format:fmt" = { cmd = "rye run ruff format" }
 "format:lint" = { cmd = "rye run ruff check --fix" }

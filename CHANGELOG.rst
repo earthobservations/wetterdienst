@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Make fastexcel non-optional
+
 0.94.0 (10.08.2024)
 *******************
 
