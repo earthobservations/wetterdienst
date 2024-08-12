@@ -193,6 +193,9 @@ if api._period_type == PeriodType.MULTI:
     request_kwargs["period"] = period
 
 df_stations = get_stations(provider, network, request_kwargs).df
+if df_stations.is_empty():
+    st.warning("No stations found. Please adjust your request.")
+    st.stop()
 with st.expander("Map of all stations", expanded=False):
     st.map(df_stations, latitude="latitude", longitude="longitude")
 
