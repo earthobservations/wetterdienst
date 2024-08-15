@@ -80,133 +80,133 @@ classifiers = [
 ]
 requires-python = ">=3.9,<4.0"
 dependencies = [
-  "aenum>=3,<3.2",
-  "aiohttp>=3.8,<3.11",
-  "backports-datetime-fromisoformat>=2,<3; python_version<'3.11'",
-  "beautifulsoup4>=4.9,<5",
-  "cachetools>=5.2,<6",
-  "click>=8,<9",
-  "click-params>=0.4.1,<5",
-  "cloup>=3.0.1,<4",
-  "deprecation>=2.1,<3",
-  "diskcache>=5.4,<6",
-  "environs>=9.4,<12",
+  "aenum>=3",
+  "aiohttp>=3.8",
+  "backports-datetime-fromisoformat>=2; python_version<'3.11'",
+  "beautifulsoup4>=4.9",
+  "cachetools>=5.2",
+  "click>=8",
+  "click-params>=0.4.1",
+  "cloup>=3.0.1",
+  "deprecation>=2.1",
+  "diskcache>=5.4",
+  "environs>=9.4",
   "eval-type-backport>=0.1.3; python_version<'3.10'",
   "fastexcel>=0.10.4",
-  "fsspec>=2023.1,<2024.3",
-  "lxml>=4.9.1,<6",
-  "measurement>=3.2,<4",
-  "numpy>=1.22,<1.27",
+  "fsspec>=2023.1",
+  "lxml>=4.9.1",
+  "measurement>=3.2",
+  "numpy>=1.22",
   "pillow>=10.3",
-  "pint>=0.17,<0.24",
-  "platformdirs<5",
+  "pint>=0.17",
+  "platformdirs",
   "polars>=0.20.10",
   "portion>=2.4.2",
-  "pyarrow>=13,<18",
+  "pyarrow>=13",
   "pydantic>=2.7.3",
-  "pypdf>=3.12.1,<4.1",
-  "python-dateutil<3",
-  "rapidfuzz>=3.1,<4",
-  "requests>=2.20,<3",
-  "scikit-learn>=1.0.2,<1.6",
-  "stamina>=23,<25",
-  "tabulate>=0.8,<0.10",
-  "tqdm>=4,<5",
-  "tzfpy>=0.15.2,<1",
+  "pypdf>=3.12.1",
+  "python-dateutil",
+  "rapidfuzz>=3.1",
+  "requests>=2.20",
+  "scikit-learn>=1.0.2",
+  "stamina>=23",
+  "tabulate>=0.8",
+  "tqdm>=4",
+  "tzfpy>=0.15.2",
 ]
 
 [project.optional-dependencies]
 bufr = [
-  "pdbufr>=0.10.2,<0.12",
-  "pybufrkit>=0.2,<0.3",
+  "pdbufr>=0.10.2",
+  "pybufrkit>=0.2",
 ]
 cratedb = [
-  "pandas>=2,<2.3",
-  "sqlalchemy-cratedb<1",
+  "pandas>=2",
+  "sqlalchemy-cratedb",
 ]
 duckdb = [
   "duckdb>=0.9",
-  "pandas>=2,<2.3",
+  "pandas>=2",
 ]
 eccodes = [
-  "eccodes>=1.5.2,<1.8",
+  "eccodes>=1.5.2",
 ]
 excel = [
-  "xlsxwriter>=3.0.9,<3.3",
+  "xlsxwriter>=3.0.9",
 ]
 explorer = [
   "duckdb>=0.9",
-  "plotly>=5.11,<6",
+  "plotly>=5.11",
   "statsmodels>=0.14.1",
-  "streamlit>=1.27,<2",
+  "streamlit>=1.27",
 ]
 export = [
-  "pandas>=2,<2.3",
-  "sqlalchemy>=2,<2.1",
-  "xarray>=2023.1,<2024.3",
-  "xlsxwriter>=3.0.9,<3.3",
-  "zarr>=2.13,<3",
+  "pandas>=2",
+  "sqlalchemy>=2",
+  "xarray>=2023.1",
+  "xlsxwriter>=3.0.9",
+  "zarr>=2.13",
 ]
 export_without_zarr = [
-  "pandas>=2,<2.3",
-  "sqlalchemy>=2,<2.1",
-  "xarray>=2023.1,<2024.3",
-  "xlsxwriter>=3.0.9,<3.3",
+  "pandas>=2",
+  "sqlalchemy>=2",
+  "xarray>=2023.1",
+  "xlsxwriter>=3.0.9",
 ]
 influxdb = [
-  "influxdb>=5.3,<6",
-  "influxdb-client>=1.18,<2",
-  "influxdb3-python>=0.3,<1",
+  "influxdb>=5.3",
+  "influxdb-client>=1.18",
+  "influxdb3-python>=0.3",
 ]
 interpolation = [
-  "scipy>=1.9,<1.13",
-  "shapely>=2,<3",
-  "utm>=0.7,<1",
+  "scipy>=1.9",
+  "shapely>=2",
+  "utm>=0.7",
 ]
 ipython = [
-  "ipython>=8.5,<9",
-  "matplotlib>=3.3,<3.9",
+  "ipython>=8.5",
+  "matplotlib>=3.3",
 ]
 mpl = [
-  "matplotlib>=3.3,<3.9",
+  "matplotlib>=3.3",
 ]
 mysql = [
-  "mysqlclient>=2,<3",
-  "pandas>=2,<2.3",
+  "mysqlclient>=2",
+  "pandas>=2",
 ]
 postgresql = [
-  "psycopg2-binary>=2,<3",
+  "psycopg2-binary>=2",
 ]
 radar = [
-  "h5py>=3.1,<4",
+  "h5py>=3.1",
 ]
 radarplus = [
-  "pybufrkit>=0.2,<0.3",
-  "wradlib>=2.0.1,<3",
-  "xradar>=0.2,<0.5",
+  "pybufrkit>=0.2",
+  "wradlib>=2.0.1",
+  "xradar>=0.2",
 ]
 restapi = [
-  "fastapi>=0.95.1,<0.111",
-  "httpx>=0.24,<0.28",
-  "uvicorn>=0.14,<1",
+  "fastapi>=0.95.1",
+  "httpx>=0.24",
+  "uvicorn>=0.14",
 ]
 sql = [
   "duckdb>=0.9",
 ]
 # docs
 docs = [
-  "docformatter>=1.4,<1.8",
-  "furo>=2023.3,<2024.2",
-  "ipython>=8.5,<9",
-  "matplotlib>=3.3,<3.9",
+  "docformatter>=1.4",
+  "furo>=2023.3",
+  "ipython>=8.5",
+  "matplotlib>=3.3",
   "pickleshare==0.7.5",
-  "pyyaml>=6,<7",
-  "sphinx>=7,<8",
-  "sphinx-autodoc-typehints>=1.11,<3",
-  "sphinx-autobuild>=2020.9,<2024.3",
-  "sphinx_design>=0.5,<1",
-  "sphinxcontrib-svg2pdfconverter>=1.1,<2",
-  "tomlkit>=0.7,<1",
+  "pyyaml>=6",
+  "sphinx>=7",
+  "sphinx-autodoc-typehints>=1.11",
+  "sphinx-autobuild>=2020.9",
+  "sphinx_design>=0.5",
+  "sphinxcontrib-svg2pdfconverter>=1.1",
+  "tomlkit>=0.7",
 ]
 
 [project.urls]
@@ -225,19 +225,19 @@ wetterdienst = "wetterdienst.ui.cli:cli"
 [tool.rye]
 dev-dependencies = [
   # general
-  "coverage[toml]>=7.3,<8",
-  "dirty-equals>=0.5,<1",
-  "freezegun>=1.2,<2",
-  "h5py>=3.1,<3.11",
-  "jsonschema[format-nongpl]>=4.17.3,<5",
-  "lmfit>=1.1.0,<1.3",
-  "pybufrkit>=0.2,<0.3",
-  "pytest>=7.2,<9",
-  "pytest-cov>=4,<5",
-  "pytest-dictsdiff>=0.5,<0.6",
+  "coverage[toml]>=7.3",
+  "dirty-equals>=0.5",
+  "freezegun>=1.2",
+  "h5py>=3.1",
+  "jsonschema[format-nongpl]>=4.17.3",
+  "lmfit>=1.1.0",
+  "pybufrkit>=0.2",
+  "pytest>=7.2",
+  "pytest-cov>=4",
+  "pytest-dictsdiff>=0.5",
   "pytest-notebook>=0.10",
-  "pytest-rerunfailures<14",
-  "pytest-xdist>=3,<4",
+  "pytest-rerunfailures",
+  "pytest-xdist>=3",
   "surrogate==0.1",
   # formatting and linting
   "ruff>=0.3.3"
