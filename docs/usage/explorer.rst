@@ -15,10 +15,7 @@ easily be self-hosted. A hosted version is available `here <https://wetterdienst
 Screenshot
 **********
 
-.. figure:: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/wetterdienst_explorer.png
-    :name: Wetterdienst Explorer UI screenshot
-    :target: https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/wetterdienst_explorer.png
-
+.. image:: ../img/wetterdienst_explorer.png
 
 Features
 ********

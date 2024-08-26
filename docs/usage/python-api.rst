@@ -364,7 +364,7 @@ The graphic below shows values of the parameter ``temperature_air_mean_2m`` from
 The blue points represent the position of a station and includes the measured value.
 The red point represents the position of the interpolation and includes the interpolated value.
 
-.. image:: docs/img/interpolation.png
+.. image:: ../img/interpolation.png
    :width: 600
 
 Values represented as a table:
