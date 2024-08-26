@@ -469,7 +469,12 @@ Summary
 =======
 
 Similar to interpolation you may sometimes want to combine multiple stations to get a complete list of data. For that
-reason you can use `.summary(latlon)`, which goes through nearest stations and combines data from them meaningful.
+reason you can use `.summary(latlon)`, which goes through nearest stations and combines data from them meaningful. The
+following figure visualizes how summary works. The first graph shows the summarized values of the parameter
+``temperature_air_mean_2m`` from multiple stations.
+
+.. image:: ../img/summary.png
+   :width: 600
 
 The code to execute the summary is given below. It currently only works for ``DwdObservationRequest`` and individual parameters.
 Currently the following parameters are supported (more will be added if useful): ``temperature_air_mean_2m``, ``wind_speed``, ``precipitation_height``.

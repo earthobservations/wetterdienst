@@ -12,8 +12,6 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-plt.style.use("ggplot")
-
 
 def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pl.DataFrame:
     stations = DwdObservationRequest(
@@ -55,7 +53,7 @@ def main():
     regular_df_01051 = get_regular_df(start_date, end_date, "01051")
     regular_df_05282 = get_regular_df(start_date, end_date, "05282")
 
-    fig, ax = plt.subplots(nrows=5, tight_layout=True, sharex=True)
+    fig, ax = plt.subplots(nrows=5, tight_layout=True, sharex=True, sharey=True)
 
     summarized_df.to_pandas().plot("date", "value", c="color", label="summarized", kind="scatter", ax=ax[0], s=5)
     regular_df_01050.to_pandas().plot("date", "value", color="yellow", label="01050", ax=ax[1])
@@ -65,7 +63,7 @@ def main():
 
     ax[0].set_ylabel(None)
 
-    title = "Comparison of summarized values and single stations"
+    title = "Comparison of summarized values and single stations for\ntemperature_air_mean_2m"
     plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
