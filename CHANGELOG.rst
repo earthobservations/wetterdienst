@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.95.0 (27.08.2024)
+*******************
+
 - Make fastexcel non-optional
 - Remove upper dependency bounds
 
