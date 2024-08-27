@@ -33,19 +33,17 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Rye
-        uses: eifinger/setup-rye@v4
-        with:
-          enable-cache: true
+      - name: Install uv
+        run: pipx install uv
 
       - name: Pin python version
-        run: rye pin 3.12
+        run: uv python pin 3.12
 
       - name: Install project
-        run: rye sync
+        run: uv sync
 
       - name: Build wheel package
-        run: rye build --wheel
+        run: uvx --from build pyproject-build --installer uv
 
       - name: Upload wheel package
         uses: actions/upload-artifact@v4
