@@ -21,19 +21,14 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Rye
-        uses: eifinger/setup-rye@v4
-        with:
-          enable-cache: true
-
       - name: Install uv
-        run: rye install uv
+        run: pipx install uv
 
       - name: Pin python version
-        run: rye pin 3.12
+        run: uv python pin 3.12
 
       - name: Install project
-        run: rye sync
+        run: uv sync
 
       - name: Run code-style checks
-        run: rye run lint
+        run: uv run poe lint

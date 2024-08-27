@@ -9,25 +9,20 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Rye
-        uses: eifinger/setup-rye@v4
-        with:
-          enable-cache: true
-
       - name: Install uv
-        run: rye install uv
+        run: pipx install uv
 
       - name: Pin python version
-        run: rye pin 3.12
+        run: uv python pin 3.12
 
       - name: Install project
-        run: rye sync
+        run: uv sync
 
       - name: Install project
         run: .github/workflows/install.sh testing
 
       - name: Build
-        run: rye build
+        run: uvx --from build pyproject-build --installer uv
 
       - name: Publish
-        run: rye publish --username=__token__ --token=${{ secrets.PYPI_TOKEN }} --yes
+        run: uvx twine upload --username=__token__ --token=${{ secrets.PYPI_TOKEN }} --yes

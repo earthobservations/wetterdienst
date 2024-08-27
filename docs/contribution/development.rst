@@ -28,25 +28,23 @@ Acquire sources and prerequisites
     cd wetterdienst
 
     # Prerequisites
-    brew install git python rye
+    brew install git python uv
 
     # Other OS
     # You can also get installers and/or release archives for Linux, macOS
     # and Windows at
     #
-    # - https://rye.astral.sh/
+    # - https://github.com/astral-sh/uv/releases
 
 
-************
-Using Poetry
-************
+********
+Using uv
+********
 
 .. code-block:: bash
 
-    rye pin 3.12
-    rye install --with=test,dev,docs --extras=sql --extras=export --extras=restapi --extras=explorer --extras=interpolation
-    poetry shell
-
+    uv sync
+    uv run poe install-dev
 
 *********
 Using pip
@@ -68,20 +66,20 @@ Run tests
 For running the whole test suite, you will need to have Firefox and
 geckodriver installed on your machine::
 
-    poe test
+    uv run poe test
 
 If this does not work for some reason and you would like to skip ui-related
 tests on your machine, please invoke the test suite with::
 
-   poe test -m "not ui"
+    uv run poe test -m "not ui"
 
 In order to run only specific tests, invoke::
 
     # Run tests by module name or function name.
-    poe test -k test_cli
+    uv run poe test -k test_cli
 
     # Run tests by tags.
-    poe test -m "not (remote or slow)"
+    uv run poe test -m "not (remote or slow)"
 
 
 ****************
@@ -133,9 +131,8 @@ Contributing
 
    .. code-block:: bash
 
-       poe format  # black code formatting
-       poe lint    # lint checking
-       poe export  # export of requirements (for Github Dependency Graph)
+       uv run poe format  # black code formatting
+       uv run poe lint    # lint checking
 
 2. Push your changes and submit them as pull request.
 

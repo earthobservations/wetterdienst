@@ -44,19 +44,14 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Rye
-        uses: eifinger/setup-rye@v4
-        with:
-          enable-cache: true
-
       - name: Install uv
-        run: rye install uv
+        run: pipx install uv
 
       - name: Pin python version
-        run: rye pin ${{ matrix.python-version }}
+        run: uv python pin ${{ matrix.python-version }}
 
       - name: Install project
-        run: rye sync
+        run: uv sync
 
       - name: Install eccodes (Mac only)
         if: ${{ startsWith(matrix.os, 'macos-') }}
@@ -69,4 +64,4 @@ jobs:
 
       - name: Run tests
         run: |
-          rye run test
+          uv run poe test

@@ -25,27 +25,22 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install Rye
-        uses: eifinger/setup-rye@v4
-        with:
-          enable-cache: true
-
       - name: Install uv
-        run: rye install uv
+        run: pipx install uv
 
       - name: Pin python version
-        run: rye pin 3.12
+        run: uv python pin 3.12
 
       - name: Install project
-        run: rye sync
+        run: uv sync
 
       - name: Install project
         run: .github/workflows/install.sh testing
 
       - name: Run tests, with coverage
         run: |
-          rye run pytest --cov=wetterdienst tests/
-          rye run coverage xml
+          uv run pytest --cov=wetterdienst tests/
+          uv run coverage xml
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4

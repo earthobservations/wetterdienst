@@ -222,7 +222,7 @@ Stripes = "https://stripes.streamlit.app/"
 wddump = "wetterdienst.provider.dwd.radar.cli:wddump"
 wetterdienst = "wetterdienst.ui.cli:cli"
 
-[tool.rye]
+[tool.uv]
 dev-dependencies = [
   # general
   "coverage[toml]>=7.3",
@@ -240,29 +240,30 @@ dev-dependencies = [
   "pytest-xdist>=3",
   "surrogate==0.1",
   # formatting and linting
-  "ruff>=0.3.3"
+  "ruff>=0.3.3",
+  "poethepoet>=0.27.0",
 ]
 
-[tool.rye.scripts]
+[tool.poe.tasks]
 install-dev = { cmd = "uv pip install .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
 # Formatting and linting
-"format:fmt" = { cmd = "rye run ruff format" }
-"format:lint" = { cmd = "rye run ruff check --fix" }
-format = { chain = [ "format:fmt", "format:lint" ] }
-"lint:fmt" = { cmd = "rye run ruff format --check" }
-"lint:lint" = { cmd = "rye run ruff check" }
-lint = { chain = [ "lint:fmt", "lint:lint" ] }
+"format:fmt" = "uv run ruff format"
+"format:lint" = "uv run ruff check --fix"
+format = [ "format:fmt", "format:lint" ]
+"lint:fmt" = "uv run ruff format --check"
+"lint:lint" = "uv run ruff check"
+lint = [ "lint:fmt", "lint:lint" ]
 # docs
-docs = { cmd = "cd docs && make html" }
-"test:parallel" = { cmd = "rye run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'" }
-"test:cflakes" = { cmd = "rye run pytest -vvv -m cflake" }
-test = { chain = [ "test:parallel", "test:cflakes" ] }
+docs = "cd docs && make html"
+"test:parallel" = "uv run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'"
+"test:cflakes" = "uv run pytest -vvv -m cflake"
+test = [ "test:parallel", "test:cflakes" ]
 # For Windows CI
-test-slow = { cmd = "rye run pytest" }
-coverage = { cmd = "rye run pytest --cov=wetterdienst" }
-coverage-parallel = { cmd = "rye run pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'" }
-sync = { cmd = "rye sync" }
-lock = { cmd = "rye lock" }
+test-slow = "uv run pytest"
+coverage = "uv run pytest --cov=wetterdienst"
+coverage-parallel = "uv run pytest --cov=wetterdienst --numprocesses=auto -m 'not (explorer or cflake)'"
+sync = "uv sync"
+lock = "uv lock"
 
 [tool.ruff]
 target-version = "py39"
