@@ -25,4 +25,4 @@ jobs:
         run: uvx --from build pyproject-build --installer uv
 
       - name: Publish
-        run: uvx twine upload --username=__token__ --token=${{ secrets.PYPI_TOKEN }} --yes
+        run: uvx twine upload dist/* --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
