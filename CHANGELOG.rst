@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Fix `state` column in station list creation for DWD Observation
+
 0.95.0 (27.08.2024)
 *******************
 

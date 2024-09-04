@@ -189,8 +189,12 @@ def _read_meta_df(file: BytesIO) -> pl.LazyFrame:
         # Skip first line if it contains a header
         lines = lines[1:]
     lines = [line.decode("latin-1") for line in lines]
-    lines = [_create_csv_line(line.split()) for line in lines]
-    text = "\n".join(lines)
+    lines_split = [line.split() for line in lines]
+    # TODO: check if this is still necessary
+    # drop last column if "Frei"
+    lines_split = [line[:-1] if line[-1] == "Frei" else line for line in lines_split]
+    lines_csv = [_create_csv_line(line) for line in lines_split]
+    text = "\n".join(lines_csv)
     df = pl.read_csv(StringIO(text), has_header=False, infer_schema_length=0)
     return df.rename(mapping=lambda col: DWD_COLUMN_NAMES_MAPPING.get(col, col)).lazy()
 
