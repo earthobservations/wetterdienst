@@ -1006,8 +1006,8 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     df = df.with_columns(
         [
             pl.lit(year).alias("year"),
-            pl.col("date_str").map_elements(lambda s: s[:2]).cast(int).alias("day"),
-            pl.col("date_str").map_elements(lambda s: s[2:4]).cast(int).alias("hour"),
+            pl.col("date_str").str.slice(offset=0, length=2).cast(int).alias("day"),
+            pl.col("date_str").str.slice(offset=2, length=2).cast(int).alias("hour"),
         ],
     )
     days_difference = df.get_column("day").max() - df.get_column("day").min()
@@ -1026,7 +1026,7 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
         [
             pl.all().exclude(["year", "month", "day", "hour"]),
             pl.struct(["year", "month", "day", "hour"])
-            .map_elements(lambda s: dt.datetime(s["year"], s["month"], s["day"], s["hour"]))
+            .map_elements(lambda s: dt.datetime(s["year"], s["month"], s["day"], s["hour"]), return_dtype=pl.Datetime)
             .alias("date"),
         ],
     )
@@ -1178,8 +1178,8 @@ class DwdDmoValues(TimeseriesValues):
         :param dataset: enum of dataset, used for writing dataset in pandas DataFrame
         :return: tidied pandas DataFrame
         """
-        df = df.melt(
-            id_vars=[
+        df = df.unpivot(
+            index=[
                 Columns.STATION_ID.value,
                 Columns.DATE.value,
             ],
@@ -1289,7 +1289,7 @@ class DwdDmoValues(TimeseriesValues):
             .list.last()
             .str.split("_")
             .list.last()
-            .map_elements(lambda s: s[:-4])
+            .map_elements(lambda s: s[:-4], return_dtype=pl.String)
             .alias("date_str"),
         )
         df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
@@ -1556,10 +1556,10 @@ class DwdDmoRequest(TimeseriesRequest):
         df = pl.concat([df, self._station_patches])
         df = df.lazy()
         return df.with_columns(
-            pl.col(Columns.ICAO_ID.value).replace({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
-            pl.col(Columns.LATITUDE.value).str.replace(" ", "").cast(float),
-            pl.col(Columns.LONGITUDE.value).str.replace(" ", "").cast(float),
+            pl.col(Columns.ICAO_ID.value).replace("----", None),
+            pl.col(Columns.LATITUDE.value).str.replace(" ", "").cast(pl.Float64),
+            pl.col(Columns.LONGITUDE.value).str.replace(" ", "").cast(pl.Float64),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
-            pl.lit(None, pl.Utf8).alias(Columns.STATE.value),
+            pl.lit(None, pl.String).alias(Columns.STATE.value),
         )

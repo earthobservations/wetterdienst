@@ -165,7 +165,7 @@ def _create_file_index_for_dwd_server(
     if not files_server:
         raise FileNotFoundError(f"url {url} does not have a list of files")
 
-    return pl.DataFrame(files_server, schema={"filename": pl.Utf8}).lazy()
+    return pl.DataFrame(files_server, schema={"filename": pl.String}).lazy()
 
 
 def build_path_to_parameter(

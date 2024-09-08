@@ -52,13 +52,13 @@ def expected_stations_df():
             ),
         ],
         schema={
-            "station_id": pl.Utf8,
+            "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "height": pl.Float64,
-            "name": pl.Utf8,
-            "state": pl.Utf8,
+            "name": pl.String,
+            "state": pl.String,
             "distance": pl.Float64,
         },
     )

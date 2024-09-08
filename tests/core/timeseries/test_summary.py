@@ -57,12 +57,12 @@ def test_not_summarizable_dataset(default_settings):
     assert given_df.drop_nulls().shape[0] == 0
     expected_df = pl.DataFrame(
         schema={
-            Columns.STATION_ID.value: pl.Utf8,
-            Columns.PARAMETER.value: pl.Utf8,
+            Columns.STATION_ID.value: pl.String,
+            Columns.PARAMETER.value: pl.String,
             Columns.DATE.value: pl.Datetime(time_zone="UTC"),
             Columns.VALUE.value: pl.Float64,
             Columns.DISTANCE.value: pl.Float64,
-            Columns.TAKEN_STATION_ID.value: pl.Utf8,
+            Columns.TAKEN_STATION_ID.value: pl.String,
         },
     )
     assert_frame_equal(

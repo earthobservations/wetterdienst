@@ -124,8 +124,8 @@ class NwsObservationValues(TimeseriesValues):
         df = pl.from_dicts(
             data,
             schema={
-                "station": pl.Utf8,
-                "timestamp": pl.Utf8,
+                "station": pl.String,
+                "timestamp": pl.String,
                 "temperature": pl.Struct(
                     [
                         pl.Field("value", pl.Float64),
@@ -199,15 +199,17 @@ class NwsObservationValues(TimeseriesValues):
         df = df.rename(mapping=lambda col: col.lower())
         df = df.rename(mapping={"station": Columns.STATION_ID.value, "timestamp": Columns.DATE.value})
 
-        df = df.melt(
-            id_vars=[Columns.STATION_ID.value, Columns.DATE.value],
+        df = df.unpivot(
+            index=[Columns.STATION_ID.value, Columns.DATE.value],
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
         df = df.filter(pl.col("parameter").ne("cloudlayers"))
         return df.with_columns(
-            pl.col("date").map_elements(dt.datetime.fromisoformat).cast(pl.Datetime(time_zone="UTC")),
-            pl.col("value").map_elements(lambda value: value["value"]).cast(pl.Float64),
+            pl.col("date")
+            .map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime)
+            .cast(pl.Datetime(time_zone="UTC")),
+            pl.col("value").struct.field("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 

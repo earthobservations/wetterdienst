@@ -519,7 +519,9 @@ def _plot_stripes(
         ),
         pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
-    df = df.with_columns(pl.col("value_scaled").map_elements(color_map).alias("color"))
+    df = df.with_columns(
+        pl.col("value_scaled").map_elements(color_map, return_dtype=pl.List(pl.Float64)).alias("color")
+    )
 
     if start_year:
         df = df.filter(pl.col("date").dt.year().ge(start_year))
@@ -531,11 +533,13 @@ def _plot_stripes(
 
     fig, ax = plt.subplots(tight_layout=True)
 
+    df_without_nulls = df.drop_nulls("value")
+
     ax.bar(
-        df.drop_nulls("value").get_column("date").dt.year(),
+        df_without_nulls.get_column("date").dt.year(),
         1.0,
         width=1.0,
-        color=df.drop_nulls("value").get_column("color"),
+        color=df_without_nulls.get_column("color"),
     )
     ax.set_axis_off()
     if show_data_availability:

@@ -153,9 +153,9 @@ def df_values():
             },
         ],
         schema={
-            "station_id": pl.Utf8,
-            "dataset": pl.Utf8,
-            "parameter": pl.Utf8,
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -177,12 +177,12 @@ def df_interpolated_values():
             },
         ],
         schema={
-            "station_id": pl.Utf8,
-            "parameter": pl.Utf8,
+            "station_id": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance_mean": pl.Float64,
-            "taken_station_ids": pl.List(pl.Utf8),
+            "taken_station_ids": pl.List(pl.String),
         },
     )
 
@@ -201,12 +201,12 @@ def df_summarized_values():
             },
         ],
         schema={
-            "station_id": pl.Utf8,
-            "parameter": pl.Utf8,
+            "station_id": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance": pl.Float64,
-            "taken_station_id": pl.Utf8,
+            "taken_station_id": pl.String,
         },
     )
 

@@ -190,7 +190,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         date_range = pl.datetime_range(start_date, end_date, interval=self.sr.frequency.value, eager=True)
         if self.sr.resolution not in DAILY_AT_MOST:
-            date_range = date_range.map_elements(lambda date: date.replace(day=1).isoformat())
+            date_range = date_range.map_elements(lambda date: date.replace(day=1).isoformat(), return_dtype=pl.String)
             date_range = date_range.str.to_datetime()
         date_range = date_range.dt.cast_time_unit("us")
         return date_range.dt.convert_time_zone("UTC")
@@ -343,7 +343,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         df = pl.concat(data)
 
         return df.with_columns(
-            pl.lit(value=station_id, dtype=pl.Utf8).alias(Columns.STATION_ID.value),
+            pl.lit(value=station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.VALUE.value),
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
@@ -542,9 +542,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         if df.get_column(Columns.DATASET.value).unique().len() > 1:
             df = df.with_columns(
                 pl.struct([pl.col(Columns.DATASET.value), pl.col(Columns.PARAMETER.value)])
-                .map_elements(
-                    lambda x: f"""{x["dataset"]}_{x["parameter"]}""",
-                )
+                .map_elements(lambda x: f"""{x["dataset"]}_{x["parameter"]}""", return_dtype=pl.String)
                 .alias(Columns.PARAMETER.value),
             )
         df_wide = df.select(
@@ -633,7 +631,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         )
         missing = pl.DataFrame(
             [{"parameter": par, "perc": 0.0} for par in parameters if par not in percentage.get_column("parameter")],
-            schema={"parameter": pl.Utf8, "perc": pl.Float64},
+            schema={"parameter": pl.String, "perc": pl.Float64},
         )
         percentage = pl.concat([percentage, missing])
         if self.sr.settings.ts_skip_criteria == "min":

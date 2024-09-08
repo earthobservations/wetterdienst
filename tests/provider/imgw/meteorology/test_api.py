@@ -29,14 +29,14 @@ def test_imgw_meteorology_api_daily():
             "state": "Drawa",
         },
         schema={
-            "station_id": pl.Utf8,
+            "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "height": pl.Float64,
-            "name": pl.Utf8,
-            "state": pl.Utf8,
+            "name": pl.String,
+            "state": pl.String,
         },
     )
     assert_frame_equal(request.df, df_expected_station)
@@ -117,9 +117,9 @@ def test_imgw_meteorology_api_daily():
             },
         ],
         schema={
-            "station_id": pl.Utf8,
-            "dataset": pl.Utf8,
-            "parameter": pl.Utf8,
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -147,14 +147,14 @@ def test_imgw_meteorology_api_monthly():
             "state": "Bia³a",
         },
         schema={
-            "station_id": pl.Utf8,
+            "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "height": pl.Float64,
-            "name": pl.Utf8,
-            "state": pl.Utf8,
+            "name": pl.String,
+            "state": pl.String,
         },
     )
     assert_frame_equal(request.df, df_expected_station)
@@ -299,9 +299,9 @@ def test_imgw_meteorology_api_monthly():
             },
         ],
         schema={
-            "station_id": pl.Utf8,
-            "dataset": pl.Utf8,
-            "parameter": pl.Utf8,
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,

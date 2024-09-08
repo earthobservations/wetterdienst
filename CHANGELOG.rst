@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Bump polars to `>=1.0.0`
+
 0.95.1 (04.09.2024)
 *******************
 

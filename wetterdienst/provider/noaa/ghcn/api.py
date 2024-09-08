@@ -326,9 +326,9 @@ class NoaaGhcnValues(TimeseriesValues):
             *parameter,
         )
         df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
-        df = df.melt(
-            id_vars=["station_id", "date"],
-            value_vars=parameter,
+        df = df.unpivot(
+            index=["station_id", "date"],
+            on=parameter,
             variable_name="parameter",
             value_name="value",
         )
@@ -378,6 +378,7 @@ class NoaaGhcnValues(TimeseriesValues):
                 lambda date: dt.datetime.strptime(date, "%Y%m%d")
                 .replace(tzinfo=ZoneInfo(time_zone))
                 .astimezone(ZoneInfo("UTC")),
+                return_dtype=pl.Datetime,
             ),
             pl.col(Columns.PARAMETER.value).str.to_lowercase(),
             pl.col(Columns.VALUE.value).cast(float),

@@ -14,7 +14,7 @@ import numpy as np
 import polars as pl
 from measurement.measures import Distance
 from measurement.utils import guess
-from polars import NoDataError
+from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
@@ -348,7 +348,7 @@ class TimeseriesRequest(Core):
         :param series:
         :return:
         """
-        return series.cast(pl.Utf8)
+        return series.cast(pl.String)
 
     def __init__(
         self,
@@ -600,12 +600,12 @@ class TimeseriesRequest(Core):
         :return: DataFrame with columns coerced to date etc.
         """
         return df.with_columns(
-            pl.col(Columns.STATION_ID.value).cast(pl.Utf8),
+            pl.col(Columns.STATION_ID.value).cast(pl.String),
             pl.col(Columns.HEIGHT.value).cast(pl.Float64),
             pl.col(Columns.LATITUDE.value).cast(pl.Float64),
             pl.col(Columns.LONGITUDE.value).cast(pl.Float64),
-            pl.col(Columns.NAME.value).cast(pl.Utf8),
-            pl.col(Columns.STATE.value).cast(pl.Utf8),
+            pl.col(Columns.NAME.value).cast(pl.String),
+            pl.col(Columns.STATE.value).cast(pl.String),
             pl.col(Columns.START_DATE.value).cast(pl.Datetime(time_zone="UTC")),
             pl.col(Columns.END_DATE.value).cast(pl.Datetime(time_zone="UTC")),
         )
@@ -633,7 +633,7 @@ class TimeseriesRequest(Core):
         if not df.is_empty():
             df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
         else:
-            df = pl.DataFrame(schema={col: pl.Utf8 for col in self._base_columns})
+            df = pl.DataFrame(schema={col: pl.String for col in self._base_columns})
 
         df = self._coerce_meta_fields(df)
 

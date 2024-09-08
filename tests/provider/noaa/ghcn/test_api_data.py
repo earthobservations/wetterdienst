@@ -37,9 +37,9 @@ def test_api_amsterdam(start_date, end_date, default_settings):
             "quality": [None],
         },
         schema={
-            "station_id": pl.Utf8,
-            "dataset": pl.Utf8,
-            "parameter": pl.Utf8,
+            "station_id": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "date": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,

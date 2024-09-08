@@ -75,7 +75,7 @@ def create_plotly_fig(
     if "unit" in df.columns:
         df = df.with_columns(
             pl.struct(["parameter", "unit"])
-            .map_elements(lambda s: f"{s['parameter']} ({s['unit']})")
+            .map_elements(lambda s: f"{s['parameter']} ({s['unit']})", return_dtype=pl.String)
             .alias("parameter"),
         )
     fig = px.scatter(
@@ -220,7 +220,7 @@ st.subheader("Values")
 df_stats = (
     df.drop_nulls(["value"])
     .group_by(["parameter"])
-    .agg(pl.count("value").alias("count"), pl.min("date").alias("min_date"), pl.max("date").alias("max_date"))
+    .agg(pl.len().alias("count"), pl.min("date").alias("min_date"), pl.max("date").alias("max_date"))
 )
 df_stats = df_stats.sort("parameter")
 df_stats = df_stats.with_columns(
@@ -249,7 +249,9 @@ if station:
     st.dataframe(df, hide_index=True, use_container_width=True)
     data_csv = df.write_csv()
     st.download_button("Download CSV", data_csv, "data.csv", "text/csv")
-    data_json = df.with_columns(pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.Utf8)).write_json()
+    data_json = df.with_columns(
+        pl.col("date").map_elements(lambda d: d.isoformat(), return_dtype=pl.String)
+    ).write_json()
     st.download_button(
         "Download JSON",
         data_json,

@@ -39,63 +39,63 @@ def test_explorer():
     assert stats == [
         {
             "parameter": "cloud_cover_total",
-            "count": 34696,
+            "count": 17348,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "humidity",
-            "count": 22584,
+            "count": 11292,
             "min_date": "1955-08-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "precipitation_form",
-            "count": 34694,
+            "count": 17347,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "precipitation_height",
-            "count": 34694,
+            "count": 17347,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "pressure_vapor",
-            "count": 22584,
+            "count": 11292,
             "min_date": "1955-08-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "snow_depth",
-            "count": 34696,
+            "count": 17348,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "temperature_air_max_2m",
-            "count": 34696,
+            "count": 17348,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "temperature_air_mean_2m",
-            "count": 34696,
+            "count": 17348,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
         {
             "parameter": "temperature_air_min_0_05m",
-            "count": 22524,
+            "count": 11262,
             "min_date": "1955-08-01T00:00:00+00:00",
             "max_date": "1986-05-31T00:00:00+00:00",
         },
         {
             "parameter": "temperature_air_min_2m",
-            "count": 34696,
+            "count": 17348,
             "min_date": "1937-01-01T00:00:00+00:00",
             "max_date": "1986-06-30T00:00:00+00:00",
         },
     ]
-    assert len(app_test.dataframe[0].value) > 300_000
+    assert len(app_test.dataframe[0].value) > 150_000

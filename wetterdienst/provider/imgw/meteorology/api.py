@@ -442,7 +442,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             exp1 = pl.all().exclude(["year", "month"])
             exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
         df = df.select(exp1, exp2)
-        df = df.melt(id_vars=["station_id", "date"], variable_name="parameter", value_name="value")
+        df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
     def _get_urls(self, dataset: Enum) -> pl.Series:
@@ -487,7 +487,8 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     .otherwise(
                         pl.col("file")
                         .str.split("_")
-                        .map_elements(lambda s: "_".join(s[:2]))
+                        .list.slice(0, 2)
+                        .list.join("_")
                         .str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
                         .map_elements(lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)]),
                     )

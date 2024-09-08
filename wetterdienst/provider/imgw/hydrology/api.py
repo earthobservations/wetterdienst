@@ -239,11 +239,11 @@ class ImgwHydrologyValues(TimeseriesValues):
             exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
         df = df.select(exp1, exp2)
         if self.sr.resolution == Resolution.DAILY:
-            id_vars = ["station_id", "date"]
+            index = ["station_id", "date"]
         else:
             # monthly data includes extrimity column (1: min, 2: mean, 3: max)
-            id_vars = ["station_id", "date", "extremity"]
-        df = df.melt(id_vars=id_vars, variable_name="parameter", value_name="value")
+            index = ["station_id", "date", "extremity"]
+        df = df.unpivot(index=index, variable_name="parameter", value_name="value")
         df = df.with_columns(pl.col("value").cast(pl.Float64))
         if self.sr.resolution == Resolution.MONTHLY:
             df = df.select(
@@ -296,6 +296,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                             dt.datetime(x["year"], x["month"], 1),
                             dt.datetime(x["year"], x["month"], 1) + relativedelta(months=1) - relativedelta(days=1),
                         ],
+                        return_dtype=pl.Array(pl.Datetime, 2),
                     )
                     .alias("date_range"),
                 )
@@ -308,6 +309,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                     .str.to_datetime("%Y", time_zone="UTC", strict=False)
                     .map_elements(
                         lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
+                        return_dtype=pl.Array(pl.Datetime, 2),
                     )
                     .alias("date_range"),
                 )
@@ -318,7 +320,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
-                .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]))
+                .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]), return_dtype=pl.Object)
                 .alias("interval"),
             )
             df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))

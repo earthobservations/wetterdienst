@@ -89,7 +89,7 @@ def create_fileindex_radar(
     )
     url = f"https://opendata.dwd.de/{parameter_path}"
     files_serv = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.NO_CACHE)
-    df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.Utf8})
+    df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.String})
 
     # Some directories have both "---bin" and "---bufr" files within the same directory,
     # so we need to filter here by designated RadarDataFormat. Example:
@@ -119,6 +119,7 @@ def create_fileindex_radar(
             pl.col("filename")
             .map_elements(
                 lambda fn: get_date_from_filename(filename=fn, pattern=RADAR_DT_PATTERN, formats=formats),
+                return_dtype=pl.Datetime,
             )
             .alias("datetime"),
         )
@@ -162,6 +163,7 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
         pl.col("filename")
         .map_elements(
             lambda fn: get_date_from_filename(filename=fn, pattern=RADOLAN_DT_PATTERN, formats=formats),
+            return_dtype=pl.Datetime,
         )
         .alias("datetime"),
     )

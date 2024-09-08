@@ -101,10 +101,10 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
         pl.DataFrame(
             schema={
                 Columns.DATE.value: pl.Datetime(time_zone="UTC"),
-                Columns.PARAMETER.value: pl.Utf8,
+                Columns.PARAMETER.value: pl.String,
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE.value: pl.Float64,
-                Columns.TAKEN_STATION_ID.value: pl.Utf8,
+                Columns.TAKEN_STATION_ID.value: pl.String,
             },
         ),
     ]
@@ -116,10 +116,10 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
         results = pl.DataFrame(
             results,
             schema={
-                Columns.PARAMETER.value: pl.Utf8,
+                Columns.PARAMETER.value: pl.String,
                 Columns.VALUE.value: pl.Float64,
                 Columns.DISTANCE.value: pl.Float64,
-                Columns.TAKEN_STATION_ID.value: pl.Utf8,
+                Columns.TAKEN_STATION_ID.value: pl.String,
             },
         )
         param_df = pl.concat([param_df, results], how="horizontal")

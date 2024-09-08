@@ -262,11 +262,11 @@ class StationsResult(ExportMixin):
                 [
                     pl.col("start_date").map_elements(
                         lambda date: date.isoformat() if date else None,
-                        return_dtype=pl.Utf8,
+                        return_dtype=pl.String,
                     ),
                     pl.col("end_date").map_elements(
                         lambda date: date.isoformat() if date else None,
-                        return_dtype=pl.Utf8,
+                        return_dtype=pl.String,
                     ),
                 ],
             )
@@ -361,7 +361,7 @@ class _ValuesResult(ExportMixin):
         """
         if not df.is_empty():
             df = df.with_columns(
-                pl.col("date").map_elements(lambda date: date.isoformat(), return_dtype=pl.Utf8),
+                pl.col("date").map_elements(lambda date: date.isoformat(), return_dtype=pl.String),
             )
         return df.to_dicts()
 
