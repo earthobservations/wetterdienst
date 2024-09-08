@@ -331,11 +331,11 @@ class DwdRoadValues(TimeseriesValues):
             pl.col("shortStationName"),
             pl.concat_str(
                 exprs=[
-                    pl.col("year").cast(pl.Utf8),
-                    pl.col("month").cast(pl.Utf8).str.pad_start(2, "0"),
-                    pl.col("day").cast(pl.Utf8).str.pad_start(2, "0"),
-                    pl.col("hour").cast(pl.Utf8).str.pad_start(2, "0"),
-                    pl.col("minute").cast(pl.Utf8).str.pad_start(2, "0"),
+                    pl.col("year").cast(pl.String),
+                    pl.col("month").cast(pl.String).str.pad_start(2, "0"),
+                    pl.col("day").cast(pl.String).str.pad_start(2, "0"),
+                    pl.col("hour").cast(pl.String).str.pad_start(2, "0"),
+                    pl.col("minute").cast(pl.String).str.pad_start(2, "0"),
                 ],
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
@@ -343,8 +343,8 @@ class DwdRoadValues(TimeseriesValues):
             *parameters,
         )
         df = df.rename(mapping=lambda col: col.lower())
-        df = df.melt(
-            id_vars=["shortstationname", "timestamp"],
+        df = df.unpivot(
+            index=["shortstationname", "timestamp"],
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
@@ -399,10 +399,10 @@ class DwdRoadRequest(TimeseriesRequest):
         "außer Betrieb (gemeldet)": Columns.HAS_FILE.value,
     }
     _dtypes = {
-        Columns.STATION_ID.value: pl.Utf8,
-        Columns.NAME.value: pl.Utf8,
-        Columns.STATE.value: pl.Utf8,
-        Columns.ROAD_NAME.value: pl.Utf8,
+        Columns.STATION_ID.value: pl.String,
+        Columns.NAME.value: pl.String,
+        Columns.STATE.value: pl.String,
+        Columns.ROAD_NAME.value: pl.String,
         Columns.ROAD_SECTOR.value: pl.Utf8,
         Columns.ROAD_TYPE.value: pl.Int64,
         Columns.ROAD_SURROUNDINGS_TYPE.value: pl.Int64,

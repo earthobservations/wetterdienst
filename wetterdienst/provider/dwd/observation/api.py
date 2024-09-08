@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 import portion as P
-from polars import ColumnNotFoundError
+from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -228,7 +228,7 @@ class DwdObservationValues(TimeseriesValues):
         ]
 
         # Drop string columns, can't be coerced to float
-        df = df.drop(col for col in droppable_columns if col in df.columns)
+        df = df.drop(*droppable_columns, strict=False)
 
         df = df.select(
             pl.col(Columns.STATION_ID.value),
@@ -293,17 +293,17 @@ class DwdObservationValues(TimeseriesValues):
             quality = pl.Series(values=repeat(df.get_column(df.columns[2]), times=n)).list.explode()
             df = df.drop(df.columns[2])
 
-        possible_id_vars = (
+        possible_index_variables = (
             Columns.STATION_ID.value,
             Columns.DATE.value,
             Columns.START_DATE.value,
             Columns.END_DATE.value,
         )
 
-        id_vars = list(set(df.columns).intersection(possible_id_vars))
+        index = list(set(df.columns).intersection(possible_index_variables))
 
-        df = df.melt(
-            id_vars=id_vars,
+        df = df.unpivot(
+            index=index,
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
@@ -444,7 +444,7 @@ class DwdObservationRequest(TimeseriesRequest):
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
-        return series.cast(pl.Utf8).str.pad_start(5, "0")
+        return series.cast(pl.String).str.pad_start(5, "0")
 
     def __init__(
         self,

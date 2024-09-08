@@ -24,12 +24,12 @@ pytestmark = pytest.mark.slow
 def df_interpolated_empty():
     return pl.DataFrame(
         schema={
-            Columns.STATION_ID.value: pl.Utf8,
-            Columns.PARAMETER.value: pl.Utf8,
+            Columns.STATION_ID.value: pl.String,
+            Columns.PARAMETER.value: pl.String,
             Columns.DATE.value: pl.Datetime(time_zone="UTC"),
             Columns.VALUE.value: pl.Float64,
             Columns.DISTANCE_MEAN.value: pl.Float64,
-            Columns.TAKEN_STATION_IDS.value: pl.List(pl.Utf8),
+            Columns.TAKEN_STATION_IDS.value: pl.List(pl.String),
         },
     )
 

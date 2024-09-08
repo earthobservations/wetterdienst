@@ -92,8 +92,8 @@ class EcccObservationValues(TimeseriesValues):
             df_parameter = df.select(
                 pl.col(Columns.DATE.value),
                 pl.lit(parameter_column).alias(Columns.PARAMETER.value),
-                pl.col(parameter_column).map_elements(lambda v: v if v != "" else None).alias(Columns.VALUE.value),
-                pl.col(quality_column).map_elements(lambda v: v if v != "" else None).alias(Columns.QUALITY.value),
+                pl.col(parameter_column).replace("", None).alias(Columns.VALUE.value),
+                pl.col(quality_column).replace("", None).alias(Columns.QUALITY.value),
             )
             data.append(df_parameter)
 
@@ -159,16 +159,16 @@ class EcccObservationValues(TimeseriesValues):
                     "time (lst)",
                     "data quality",
                 ]
-                df = df.drop(col for col in droppable_columns if col in df.columns)
+                df = df.drop(*droppable_columns, strict=False)
                 data.append(df)
 
         try:
             df = pl.concat(data)
         except ValueError:
             df = pl.LazyFrame()
-
+        mapping = {"date/time (lst)": Columns.DATE.value, "date/time": Columns.DATE.value}
         df = df.rename(
-            mapping={col: Columns.DATE.value for col in ["date/time (lst)", "date/time"] if col in df.columns},
+            mapping=lambda col: mapping.get(col, col),
         )
 
         df = self._tidy_up_df(df)
@@ -337,7 +337,7 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col(Columns.END_DATE.value)
             .cast(int)
             .add(1)
-            .map_elements(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1)),
+            .map_elements(lambda v: dt.datetime(v, 1, 1) - dt.timedelta(days=1), return_dtype=pl.Datetime),
         )
 
         return df.filter(pl.col(Columns.LATITUDE.value).ne("") & pl.col(Columns.LONGITUDE.value).ne(""))

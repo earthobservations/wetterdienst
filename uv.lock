@@ -4775,7 +4775,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.95.0"
+version = "0.95.1"
 source = { editable = "." }
 dependencies = [
     { name = "aenum" },
@@ -4974,7 +4974,7 @@ requires-dist = [
     { name = "pint", specifier = ">=0.17" },
     { name = "platformdirs" },
     { name = "plotly", marker = "extra == 'explorer'", specifier = ">=5.11" },
-    { name = "polars", specifier = ">=0.20.10" },
+    { name = "polars", specifier = ">=1.0.0" },
     { name = "portion", specifier = ">=2.4.2" },
     { name = "psycopg2-binary", marker = "extra == 'postgresql'", specifier = ">=2" },
     { name = "pyarrow", specifier = ">=13" },

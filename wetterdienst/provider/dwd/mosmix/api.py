@@ -1125,8 +1125,8 @@ class DwdMosmixValues(TimeseriesValues):
         :param dataset: enum of dataset, used for writing dataset in pandas DataFrame
         :return: tidied pandas DataFrame
         """
-        df = df.melt(
-            id_vars=[
+        df = df.unpivot(
+            index=[
                 Columns.STATION_ID.value,
                 Columns.DATE.value,
             ],
@@ -1240,7 +1240,9 @@ class DwdMosmixValues(TimeseriesValues):
         df = df.filter(pl.col("date").ne("LATEST"))
 
         df = df.with_columns(
-            pl.col("date").map_elements(lambda d: f"{d}00").str.to_datetime(DatetimeFormat.YMDHM.value),
+            pl.col("date")
+            .map_elements(lambda d: f"{d}00", return_dtype=pl.String)
+            .str.to_datetime(DatetimeFormat.YMDHM.value),
         )
 
         df = df.filter(pl.col("date").eq(date))
@@ -1438,13 +1440,13 @@ class DwdMosmixRequest(TimeseriesRequest):
         ]
         df = df.select(
             pl.col(Columns.STATION_ID.value),
-            pl.col(Columns.ICAO_ID.value).replace({"----": None}, default=pl.col(Columns.ICAO_ID.value)),
+            pl.col(Columns.ICAO_ID.value).replace("----", None),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.START_DATE.value),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias(Columns.END_DATE.value),
             pl.col(Columns.LATITUDE.value).cast(float).map_batches(convert_dm_to_dd),
             pl.col(Columns.LONGITUDE.value).cast(float).map_batches(convert_dm_to_dd),
             pl.col(Columns.HEIGHT.value).cast(int),
             pl.col(Columns.NAME.value),
-            pl.lit(None, pl.Utf8).alias(Columns.STATE.value),
+            pl.lit(None, pl.String).alias(Columns.STATE.value),
         )
         return df.lazy()

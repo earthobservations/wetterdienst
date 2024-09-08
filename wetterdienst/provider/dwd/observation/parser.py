@@ -100,7 +100,7 @@ def parse_climate_observations_data(
         ]
         try:
             df1, df2 = data
-            df = df1.join(df2, on=["station_id", "date"], how="outer_coalesce")
+            df = df1.join(df2, on=["station_id", "date"], how="full", coalesce=True)
             return df.lazy()
         except ValueError:
             return data[0]
@@ -148,7 +148,7 @@ def _parse_climate_observations_data(
     df = df.rename(mapping=lambda col: col.strip().lower())
 
     # End of record (EOR) has no value, so drop it right away.
-    df = df.drop(col for col in DROPPABLE_PARAMETERS if col in df.columns)
+    df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
 
     if resolution == Resolution.MINUTE_1:
         if dataset == DwdObservationDataset.PRECIPITATION:
@@ -172,7 +172,7 @@ def _parse_climate_observations_data(
                 df = df.explode("mess_datum")
             else:
                 df = df.with_columns(
-                    [pl.all(), *[pl.lit(None, pl.Utf8).alias(par) for par in PRECIPITATION_PARAMETERS]],
+                    [pl.all(), *[pl.lit(None, pl.String).alias(par) for par in PRECIPITATION_PARAMETERS]],
                 )
                 df = df.with_columns(
                     pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
@@ -186,19 +186,19 @@ def _parse_climate_observations_data(
             columns.append(parameter.value)
 
         df = df.select(
-            pl.lit(None, dtype=pl.Utf8).alias(col) if col not in df.columns else pl.col(col) for col in columns
+            pl.lit(None, dtype=pl.String).alias(col) if col not in df.collect_schema().names() else pl.col(col)
+            for col in columns
         )
 
     # Special handling for hourly solar data, as it has more date columns
     if resolution == Resolution.HOURLY:
         if dataset == DwdObservationDataset.SOLAR:
             # Fix real date column by cutting of minutes
-            df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3]))
+            df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3], return_dtype=pl.String))
 
     if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
-        df = df.drop(col for col in ["bis_datum", "mess_datum_ende"] if col in df.columns).rename(
-            mapping={"mess_datum_beginn": "mess_datum"},
-        )
+        df = df.drop("bis_datum", "mess_datum_ende", strict=False)
+        df = df.rename(mapping={"mess_datum_beginn": "mess_datum"})
 
     if resolution == Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
         df = df.select(

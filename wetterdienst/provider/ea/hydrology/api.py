@@ -106,7 +106,7 @@ class EAHydrologyValues(TimeseriesValues):
         s_measures = pl.Series(name="measure", values=measures_data).to_frame()
         s_measures = s_measures.filter(
             pl.col("measure")
-            .map_elements(lambda measure: measure["parameterName"])
+            .struct.field("parameterName")
             .str.to_lowercase()
             .str.replace(" ", "")
             .eq(parameter.value.lower().replace("_", "")),
@@ -180,11 +180,13 @@ class EAHydrologyRequest(TimeseriesRequest):
         df_measures = (
             df.select(pl.col("notation"), pl.col("measures"))
             .explode("measures")
-            .with_columns(pl.col("measures").map_elements(lambda measure: measure["parameter"]))
-            .group_by(["notation"])
-            .agg(pl.col("measures").is_in(["flow", "level"]).any().alias("has_measures"))
+            .with_columns(pl.col("measures").struct.field("parameter"))
         )
-        df = df.join(df_measures.filter(pl.col("has_measures")), how="inner", on="notation")
+        df_measures = df_measures.group_by(["notation"]).agg(
+            (pl.col("parameter").list.set_intersection(["flow", "level"]).len() > 0).alias("has_measures")
+        )
+        df_measures = df_measures.filter("has_measures").select("notation")
+        df = df.join(df_measures, how="inner", on="notation")
         df = df.rename(mapping=lambda col: col.lower())
         df = df.rename(
             mapping={
@@ -192,8 +194,8 @@ class EAHydrologyRequest(TimeseriesRequest):
                 "lat": Columns.LATITUDE.value,
                 "long": Columns.LONGITUDE.value,
                 "notation": Columns.STATION_ID.value,
-                "dateopened": "start_date",
-                "dateclosed": "end_date",
+                "dateopened": Columns.START_DATE.value,
+                "dateclosed": Columns.END_DATE.value,
             },
         )
         df = df.with_columns(

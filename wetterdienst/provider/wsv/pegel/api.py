@@ -154,7 +154,9 @@ class WsvPegelValues(TimeseriesValues):
 
         df = pl.read_json(response)
         df = df.rename(mapping={"timestamp": Columns.DATE.value, "value": Columns.VALUE.value})
-        df = df.with_columns(pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat))
+        df = df.with_columns(
+            pl.col(Columns.DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime)
+        )
         return df.with_columns(
             pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),
             pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value),
@@ -289,14 +291,16 @@ class WsvPegelRequest(TimeseriesRequest):
 
         df = pl.read_json(response).lazy()
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
-        df = df.with_columns(pl.col("water").map_elements(lambda value: value["shortname"]))
+        df = df.with_columns(pl.col("water").struct.field("shortname"))
         df = df.select(
             pl.all(),
-            pl.col("timeseries").map_elements(lambda ts_list: {t["shortname"].lower() for t in ts_list}).alias("ts"),
+            pl.col("timeseries")
+            .map_elements(lambda ts_list: {t["shortname"].lower() for t in ts_list}, return_dtype=pl.List(pl.String))
+            .alias("ts"),
         )
         parameters = {par.value.lower() for par, ds in self.parameter}
-        df = df.filter(pl.col("ts").map_elements(lambda par: bool(par.intersection(parameters))))
-        df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts))
+        df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
+        df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts, return_dtype=pl.Array(pl.Float64, 9)))
         return df.select(
             pl.all().exclude(["timeseries", "ts"]),
             pl.col("timeseries").list.get(0).alias("gauge_datum"),

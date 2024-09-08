@@ -155,14 +155,14 @@ class HubeauValues(TimeseriesValues):
         except ValueError:
             df = pl.DataFrame(
                 schema={
-                    Columns.STATION_ID.value: pl.Utf8,
+                    Columns.STATION_ID.value: pl.String,
                     Columns.DATE.value: pl.Datetime(time_zone="UTC"),
                     Columns.VALUE.value: pl.Float64,
                     Columns.QUALITY.value: pl.Float64,
                 },
             )
         else:
-            df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat))
+            df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime))
             df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
 
         df = df.with_columns(pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value))
@@ -247,11 +247,15 @@ class HubeauRequest(TimeseriesRequest):
         )
 
         df = df.with_columns(
-            pl.col(Columns.START_DATE.value).map_elements(dt.datetime.fromisoformat),
+            pl.col(Columns.START_DATE.value).map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime),
             pl.when(pl.col(Columns.END_DATE.value).is_null())
             .then(dt.date.today())
             .alias(Columns.END_DATE.value)
             .cast(pl.Datetime),
         )
 
-        return df.filter(pl.col(Columns.STATION_ID.value).map_elements(lambda v: v[0].isalpha()))
+        return df.filter(
+            pl.col(Columns.STATION_ID.value)
+            .str.slice(offset=0, length=1)
+            .map_elements(str.isalpha, return_dtype=pl.Boolean)
+        )
