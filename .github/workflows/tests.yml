@@ -44,8 +44,9 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - name: Install uv
-        run: pipx install uv
+      - uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
 
       - name: Pin python version
         run: uv python pin ${{ matrix.python-version }}
