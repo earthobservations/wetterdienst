@@ -1386,10 +1386,14 @@ class DwdMosmixRequest(TimeseriesRequest):
                 start_issue = end_issue
             if isinstance(start_issue, str):
                 start_issue = dt.datetime.fromisoformat(start_issue)
-            start_issue = dt.datetime(start_issue.year, start_issue.month, start_issue.day, start_issue.hour)
+            start_issue = dt.datetime(
+                start_issue.year, start_issue.month, start_issue.day, start_issue.hour, tzinfo=start_issue.tzinfo
+            )
             if isinstance(end_issue, str):
                 end_issue = dt.datetime.fromisoformat(end_issue)
-            end_issue = dt.datetime(end_issue.year, end_issue.month, end_issue.day, end_issue.hour)
+            end_issue = dt.datetime(
+                end_issue.year, end_issue.month, end_issue.day, end_issue.hour, tzinfo=end_issue.tzinfo
+            )
 
             # Shift start date and end date to 3, 9, 15, 21 hour format
             if mosmix_type == DwdMosmixType.LARGE:

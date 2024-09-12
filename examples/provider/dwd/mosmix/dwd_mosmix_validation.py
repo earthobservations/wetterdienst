@@ -2,6 +2,7 @@
 a numerical weather prediction model of the DWD. The observation data is provided by the DWD as well."""
 
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 from matplotlib import pyplot as plt
 
@@ -24,7 +25,7 @@ def find_observation_id(string: str) -> str:
 
 def get_earliest_start_issue() -> dt.datetime:
     """Get the earliest start issue for the mosmix request."""
-    start_issue = dt.datetime.now() - dt.timedelta(days=2)
+    start_issue = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(days=2)
     if start_issue.hour < 3:
         start_issue = start_issue.replace(hour=3)
     elif start_issue.hour < 9:
@@ -35,7 +36,7 @@ def get_earliest_start_issue() -> dt.datetime:
         start_issue = start_issue.replace(hour=21)
     else:
         start_issue = start_issue.replace(hour=3) + dt.timedelta(days=1)
-    return start_issue + dt.timedelta(hours=1)
+    return start_issue
 
 
 def main(obs_id: str, for_id: str) -> None:
