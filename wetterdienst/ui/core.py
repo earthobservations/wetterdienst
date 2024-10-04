@@ -129,10 +129,10 @@ def _get_stations_request(
     }
     if issubclass(api, DwdMosmixRequest):
         kwargs["mosmix_type"] = resolution
-        kwargs["start_issue"] = issue
+        kwargs["issue"] = issue
     elif issubclass(api, DwdDmoRequest):
         kwargs["dmo_type"] = resolution
-        kwargs["start_issue"] = issue
+        kwargs["issue"] = issue
         kwargs["lead_time"] = lead_time
     elif api._resolution_type == ResolutionType.MULTI:
         kwargs["resolution"] = resolution

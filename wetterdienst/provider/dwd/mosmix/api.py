@@ -10,10 +10,8 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import polars as pl
-from requests import HTTPError
 
 from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
@@ -35,8 +33,9 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Sequence
 
+    from wetterdienst.core.timeseries.result import StationsResult
     from wetterdienst.metadata.parameter import Parameter
     from wetterdienst.settings import Settings
 
@@ -1039,104 +1038,29 @@ class DwdMosmixValues(TimeseriesValues):
         """
         return self.sr.df
 
-    def query(self) -> Iterator[ValuesResult]:
-        """
-        Replace collect data method as all information is read once from kml file
-
-        :return:
-        """
-        hpm = self._create_humanized_parameters_mapping()
-        self.stations_counter = 0
-        self.stations_collected = []
-
-        parameter_base = self.sr.stations._parameter_base
-        dataset_accessor = self.sr.stations._dataset_accessor
-
-        parameter_names = set()
-        for parameter, dataset in self.sr.parameter:
-            if parameter == dataset:
-                parameter = [par.value for par in parameter_base[dataset_accessor][dataset_accessor]]
-                parameter_names.update(parameter)
-            else:
-                parameter_names.add(parameter.value)
-
-        for df in self._collect_station_parameter():
-            df = self._tidy_up_df(df)
-            station_id = df.get_column(Columns.STATION_ID.value).gather(0).item()
-            df = self._organize_df_columns(df, station_id, self.sr.stations.mosmix_type)
-            df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
-
-            if self.sr.humanize:
-                df = self._humanize(df, hpm)
-
-            # Filter for dates range if start_date and end_date are defined
-            if not df.is_empty() and self.sr.start_date and self.sr.start_date != DwdForecastDate.LATEST:
-                df = df.filter(pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date))
-
-            if self.sr.dropna:
-                df = df.drop_nulls(subset="value")
-
-            if not self.sr.tidy:
-                df = self._widen_df(df)
-
-            self.stations_counter += 1
-            self.stations_collected.append(station_id)
-
-            if self.sr.tidy:
-                sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
-            else:
-                sort_columns = [Columns.DATASET.value, Columns.DATE.value]
-            df = df.sort(sort_columns)
-
-            yield ValuesResult(stations=self.sr, values=self, df=df)
-
-            if self.stations_counter == self.sr.rank:
-                return
-
-    def _collect_station_parameter(self) -> Iterator[pl.DataFrame]:
+    def _collect_station_parameter(self, station_id: str, parameter: str, dataset: str) -> pl.DataFrame:  # noqa: ARG002
         """
         Wrapper of read_mosmix to collect mosmix data (either latest or for
         defined dates)
 
         :return: pandas DataFrame with data corresponding to station id and parameter
         """
-        if self.sr.start_issue == DwdForecastDate.LATEST:
-            for df in self.read_mosmix(self.sr.stations.start_issue):
-                yield df
-        else:
-            for date in pl.datetime_range(
-                self.sr.stations.start_issue,
-                self.sr.stations.end_issue,
-                interval=self.sr.frequency.value,
-                eager=True,
-            ):
-                try:
-                    for df in self.read_mosmix(date):
-                        yield df
-                except IndexError as e:
-                    log.warning(e)
-                    continue
-
-    @staticmethod
-    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
-        """
-
-        :param df: pandas DataFrame that is being tidied
-        :param dataset: enum of dataset, used for writing dataset in pandas DataFrame
-        :return: tidied pandas DataFrame
-        """
+        df = self.read_mosmix(station_id, self.sr.stations.issue)
+        if df.is_empty():
+            return df
         df = df.unpivot(
             index=[
-                Columns.STATION_ID.value,
                 Columns.DATE.value,
             ],
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
+        return df.with_columns(
+            pl.lit(station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
+            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        )
 
-        return df.with_columns(pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value))
-
-    def read_mosmix(self, date: dt.datetime | DwdForecastDate) -> Iterator[pl.DataFrame]:
+    def read_mosmix(self, station_id: str, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
         """
         Manage data acquisition for a given date that is used to filter the found files
         on the MOSMIX path of the DWD server.
@@ -1144,73 +1068,31 @@ class DwdMosmixValues(TimeseriesValues):
         :param date: datetime or enumeration for latest MOSMIX mosmix
         :return: pandas DataFrame with gathered information
         """
-        for df_forecast in self._read_mosmix(date):
-            df_forecast = df_forecast.rename(
-                mapping={
-                    "datetime": Columns.DATE.value,
-                },
-            )
-
-            yield df_forecast
-
-    def _read_mosmix(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
-        """
-        Wrapper that either calls read_mosmix_s or read_mosmix_l depending on
-        defined period type
-
-        :param date: datetime or enumeration for latest MOSMIX mosmix
-        :return: pandas DataFrame
-        """
         if self.sr.stations.mosmix_type == DwdMosmixType.SMALL:
-            yield from self.read_mosmix_small(date)
+            return self.read_mosmix_small(station_id, date)
         else:
-            yield from self.read_mosmix_large(date)
+            return self.read_mosmix_large(station_id, date)
 
-    def read_mosmix_small(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
-        """
-        Reads single MOSMIX-S file with all stations_result and returns every mosmix that
-        matches with one of the defined station ids.
-
-        :param date: datetime or enumeration for latest MOSMIX mosmix
-        :return: pandas DataFrame with data
-        """
+    def read_mosmix_small(self, station_id, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
+        """Reads single MOSMIX-S file for all stations."""
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_S_PATH)
         file_url = self.get_url_for_date(url, date)
         self.kml.read(file_url)
-        yield from self.kml.get_forecasts()
+        return self.kml.get_station_forecast(station_id)
 
     def read_mosmix_large(
         self,
+        station_id: str,
         date: DwdForecastDate | dt.datetime,
-    ) -> Iterator[tuple[pl.DataFrame, pl.DataFrame]]:
-        """
-        Reads multiple MOSMIX-L files with one per each station and returns a
-        mosmix per file.
-
-        :param date:
-        :return:
-        """
+    ) -> pl.DataFrame:
+        """Reads either a large MOSMIX-L file with all stations or a small MOSMIX-L file for a single station."""
         if self.sr.stations.station_group == DwdMosmixStationGroup.ALL_STATIONS:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_PATH)
-
-            file_url = self.get_url_for_date(url, date)
-
-            self.kml.read(file_url)
-
-            yield from self.kml.get_forecasts()
         else:
-            for station_id in self.sr.station_id:
-                station_url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
-
-                try:
-                    file_url = self.get_url_for_date(station_url, date)
-                except HTTPError:
-                    log.warning(f"Files for {station_id} do not exist on the server")
-                    continue
-
-                self.kml.read(file_url)
-
-                yield next(self.kml.get_forecasts())
+            url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH).format(station_id=station_id)
+        file_url = self.get_url_for_date(url, date)
+        self.kml.read(file_url)
+        return self.kml.get_station_forecast(station_id)
 
     def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
         """
@@ -1330,10 +1212,9 @@ class DwdMosmixRequest(TimeseriesRequest):
         self,
         parameter: str | DwdMosmixParameter | Parameter | Sequence[str | DwdMosmixParameter | Parameter],
         mosmix_type: str | DwdMosmixType,
-        start_issue: str | dt.datetime | DwdForecastDate | None = DwdForecastDate.LATEST,
-        end_issue: str | dt.datetime | None = None,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
+        issue: str | dt.datetime | DwdForecastDate | None = DwdForecastDate.LATEST,
         station_group: DwdMosmixStationGroup | None = None,
         settings: Settings | None = None,
     ) -> None:
@@ -1341,10 +1222,9 @@ class DwdMosmixRequest(TimeseriesRequest):
 
         :param parameter: parameter(s) to be collected
         :param mosmix_type: mosmix type, either small or large
-        :param start_issue: start of issue of mosmix which should be caught (Mosmix run at time XX:YY)
-        :param end_issue: end of issue
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
+        :param issue: start of issue of mosmix which should be caught (Mosmix run at time XX:YY)
         """
         self.mosmix_type = parse_enumeration_from_template(mosmix_type, DwdMosmixType)
 
@@ -1365,40 +1245,21 @@ class DwdMosmixRequest(TimeseriesRequest):
             settings=settings,
         )
 
-        if not start_issue:
-            start_issue = DwdForecastDate.LATEST
+        if not issue:
+            issue = DwdForecastDate.LATEST
 
         try:
-            start_issue = parse_enumeration_from_template(start_issue, DwdForecastDate)
+            issue = parse_enumeration_from_template(issue, DwdForecastDate)
         except InvalidEnumerationError:
             pass
 
-        # Parse issue date if not set to fixed "latest" string
-        if start_issue is DwdForecastDate.LATEST and end_issue:
-            log.info("end_issue will be ignored as 'latest' was selected for issue date")
-
-        if start_issue is not DwdForecastDate.LATEST:
-            if not start_issue and not end_issue:
-                start_issue = DwdForecastDate.LATEST
-            elif not end_issue:
-                end_issue = start_issue
-            elif not start_issue:
-                start_issue = end_issue
-            if isinstance(start_issue, str):
-                start_issue = dt.datetime.fromisoformat(start_issue)
-            start_issue = dt.datetime(
-                start_issue.year, start_issue.month, start_issue.day, start_issue.hour, tzinfo=start_issue.tzinfo
-            )
-            if isinstance(end_issue, str):
-                end_issue = dt.datetime.fromisoformat(end_issue)
-            end_issue = dt.datetime(
-                end_issue.year, end_issue.month, end_issue.day, end_issue.hour, tzinfo=end_issue.tzinfo
-            )
-
-            # Shift start date and end date to 3, 9, 15, 21 hour format
+        if issue is not DwdForecastDate.LATEST:
+            if isinstance(issue, str):
+                issue = dt.datetime.fromisoformat(issue)
+            issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=issue.tzinfo)
+            # Shift issue date to 3, 9, 15, 21 hour format
             if mosmix_type == DwdMosmixType.LARGE:
-                start_issue = self.adjust_datetime(start_issue)
-                end_issue = self.adjust_datetime(end_issue)
+                issue = self.adjust_datetime(issue)
 
         # TODO: this should be replaced by the freq property in the main class
         if self.mosmix_type == DwdMosmixType.SMALL:
@@ -1406,18 +1267,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         else:
             self.resolution = Resolution.HOUR_6
 
-        self.start_issue = start_issue
-        self.end_issue = end_issue
-
-    @property
-    def issue_start(self):
-        """Required for typing"""
-        return self.issue_start
-
-    @property
-    def issue_end(self):
-        """Required for typing"""
-        return self.issue_end
+        self.issue = issue
 
     def _all(self) -> pl.LazyFrame:
         """

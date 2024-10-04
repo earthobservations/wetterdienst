@@ -29,7 +29,7 @@ def mosmix_example():
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],
-        start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
+        issue=DwdForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DwdMosmixType.LARGE,
         settings=settings,
     )
@@ -50,7 +50,7 @@ def mosmix_example():
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],
-        start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
+        issue=DwdForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DwdMosmixType.LARGE,
         station_group="all_stations",
     )
@@ -69,7 +69,7 @@ def mosmix_example():
 
     request = DwdMosmixRequest(
         parameter=["DD", "ww"],
-        start_issue=DwdForecastDate.LATEST,  # automatically set if left empty
+        issue=DwdForecastDate.LATEST,  # automatically set if left empty
         mosmix_type=DwdMosmixType.SMALL,
     )
 

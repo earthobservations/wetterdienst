@@ -285,6 +285,8 @@ class TimeseriesValues(metaclass=ABCMeta):
             # for water with density 1 g / cm³
             if origin_unit == OriginUnit.MILLIMETER.value:
                 return operator.mul, 1
+            elif origin_unit == si_unit:
+                return operator.mul, 1
             else:
                 raise ValueError("manually set conversion factor for precipitation unit")
         elif si_unit == SIUnit.DEGREE_KELVIN.value:
@@ -494,10 +496,10 @@ class TimeseriesValues(metaclass=ABCMeta):
                     sort_columns = [Columns.DATASET.value, Columns.DATE.value]
                 station_df = station_df.sort(sort_columns)
 
-            yield ValuesResult(stations=self.sr, values=self, df=station_df)
-
             self.stations_counter += 1
             self.stations_collected.append(station_id)
+
+            yield ValuesResult(stations=self.sr, values=self, df=station_df)
 
     @abstractmethod
     def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
