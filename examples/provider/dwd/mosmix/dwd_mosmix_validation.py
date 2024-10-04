@@ -23,20 +23,20 @@ def find_observation_id(string: str) -> str:
     return input(f"Select the observation id from {observation_request.df.get_column('station_id')}")  # noqa: S608
 
 
-def get_earliest_start_issue() -> dt.datetime:
+def get_earliest_issue() -> dt.datetime:
     """Get the earliest start issue for the mosmix request."""
-    start_issue = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(days=2)
-    if start_issue.hour < 3:
-        start_issue = start_issue.replace(hour=3)
-    elif start_issue.hour < 9:
-        start_issue = start_issue.replace(hour=9)
-    elif start_issue.hour < 15:
-        start_issue = start_issue.replace(hour=15)
-    elif start_issue.hour < 21:
-        start_issue = start_issue.replace(hour=21)
+    issue = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(days=2)
+    if issue.hour < 3:
+        issue = issue.replace(hour=3)
+    elif issue.hour < 9:
+        issue = issue.replace(hour=9)
+    elif issue.hour < 15:
+        issue = issue.replace(hour=15)
+    elif issue.hour < 21:
+        issue = issue.replace(hour=21)
     else:
-        start_issue = start_issue.replace(hour=3) + dt.timedelta(days=1)
-    return start_issue
+        issue = issue.replace(hour=3) + dt.timedelta(days=1)
+    return issue
 
 
 def main(obs_id: str, for_id: str) -> None:
@@ -44,9 +44,9 @@ def main(obs_id: str, for_id: str) -> None:
     forecast_request = DwdMosmixRequest(
         parameter="temperature_air_mean_2m",
         mosmix_type="large",
-        start_issue=get_earliest_start_issue(),
         start_date=dt.datetime.now() - dt.timedelta(days=2),
         end_date=dt.datetime.now(),
+        issue=get_earliest_issue(),
     ).filter_by_station_id(station_id=for_id)
     print(forecast_request.df)
     forecast_values = forecast_request.values.all()

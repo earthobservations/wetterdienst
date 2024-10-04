@@ -172,14 +172,6 @@ class StationsResult(ExportMixin):
         return self.stations.end_date
 
     @property
-    def start_issue(self) -> datetime:
-        return self.stations.start_issue
-
-    @property
-    def end_issue(self) -> datetime:
-        return self.stations.end_issue
-
-    @property
     def tidy(self) -> bool:
         return self.stations.tidy
 

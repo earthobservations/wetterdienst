@@ -15,14 +15,13 @@ from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse  # noqa: S410
 from tqdm import tqdm
 
+from wetterdienst.metadata.columns import Columns
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from wetterdienst.settings import Settings
 
 try:
@@ -146,9 +145,7 @@ class KMLReader:
                     clear = False
             elif event == "end":
                 if element.tag == placemark_tag:
-                    station_id = element.find("kml:name", self.nsmap).text
-                    if (self.station_ids is None) or station_id in self.station_ids:
-                        yield element
+                    yield element
                     clear = True
                 if clear:
                     element.clear()
@@ -157,24 +154,20 @@ class KMLReader:
         """Get metadata as DataFrame."""
         return pl.DataFrame([self.metadata])
 
-    def get_forecasts(self) -> Iterator[pl.DataFrame]:
+    def get_station_forecast(self, station_id: str) -> pl.DataFrame:
         """Get forecasts as DataFrame."""
         for station_forecast in self.iter_items():
-            station_ids = station_forecast.find("kml:name", self.nsmap).text
-
+            if station_forecast.find("kml:name", self.nsmap).text != station_id:
+                continue
             measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", self.nsmap)
-
-            data_dict = {"station_id": station_ids, "datetime": self.timesteps}
-
+            data_dict = {Columns.DATE.value: self.timesteps}
             for measurement_item in measurement_list:
                 measurement_parameter = measurement_item.get(f"{{{self.nsmap['dwd']}}}elementName")
                 measurement_string = measurement_item.getchildren()[0].text
                 measurement_values = " ".join(measurement_string.split()).split(" ")
                 measurement_values = [None if i == "-" else float(i) for i in measurement_values]
-                assert len(measurement_values) == len(  # noqa:S101
-                    self.timesteps,
-                ), "Number of time steps does not match number of measurement values"
                 data_dict[measurement_parameter.lower()] = measurement_values
-
             station_forecast.clear()
-            yield pl.DataFrame(data_dict)
+            return pl.DataFrame(data_dict)
+        else:
+            raise IndexError(f"Station {station_id} not found in KML file")

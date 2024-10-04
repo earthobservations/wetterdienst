@@ -7,7 +7,6 @@ import logging
 from enum import Enum
 from io import StringIO
 from typing import TYPE_CHECKING
-from urllib.error import HTTPError
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -15,7 +14,6 @@ import polars as pl
 
 from wetterdienst import Kind, Parameter, Period, Provider, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
-from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError, NoParametersFoundError
 from wetterdienst.metadata.columns import Columns
@@ -33,7 +31,9 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Sequence
+
+    from wetterdienst.core.timeseries.result import StationsResult
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -1092,184 +1092,46 @@ class DwdDmoValues(TimeseriesValues):
         """
         return self.sr.df
 
-    def query(self) -> Iterator[ValuesResult]:
-        """
-        Replace collect data method as all information is read once from kml file
-
-        :return:
-        """
-        hpm = self._create_humanized_parameters_mapping()
-        self.stations_counter = 0
-        self.stations_collected = []
-
-        parameter_base = self.sr.stations._parameter_base
-        dataset_accessor = self.sr.stations._dataset_accessor
-
-        parameter_names = set()
-        for parameter, dataset in self.sr.parameter:
-            if parameter == dataset:
-                parameter = [par.value for par in parameter_base[dataset_accessor][dataset_accessor]]
-                parameter_names.update(parameter)
-            else:
-                parameter_names.add(parameter.value)
-
-        for df in self._collect_station_parameter():
-            df = self._tidy_up_df(df)
-            station_id = df.get_column(Columns.STATION_ID.value).gather(0).item()
-            df = self._organize_df_columns(df, station_id, self.sr.stations.dmo_type)
-            df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
-
-            if self.sr.humanize:
-                df = self._humanize(df, hpm)
-
-            # Filter for dates range if start_date and end_date are defined
-            if not df.is_empty() and self.sr.start_date and self.sr.start_date != DwdForecastDate.LATEST:
-                df = df.filter(pl.col(Columns.DATE.value).is_between(self.sr.start_date, self.sr.end_date))
-
-            if self.sr.dropna:
-                df = df.drop_nulls(subset="value")
-
-            if not self.sr.tidy:
-                df = self._widen_df(df)
-
-            self.stations_counter += 1
-            self.stations_collected.append(station_id)
-
-            if self.sr.tidy:
-                sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
-            else:
-                sort_columns = [Columns.DATASET.value, Columns.DATE.value]
-            df = df.sort(sort_columns)
-
-            yield ValuesResult(stations=self.sr, values=self, df=df)
-
-            if self.stations_counter == self.sr.rank:
-                return
-
-    def _collect_station_parameter(self) -> Iterator[pl.DataFrame]:
-        """
-        Wrapper of read_dmo to collect dmo data (either latest or for
-        defined dates)
-
-        :return: pandas DataFrame with data corresponding to station id and parameter
-        """
-        if self.sr.start_issue == DwdForecastDate.LATEST:
-            for df in self.read_dmo(self.sr.stations.start_issue):
-                yield df
-        else:
-            for date in pl.datetime_range(
-                self.sr.stations.start_issue,
-                self.sr.stations.end_issue,
-                interval=self.sr.frequency.value,
-                eager=True,
-            ):
-                try:
-                    for df in self.read_dmo(date):
-                        yield df
-                except IndexError as e:
-                    log.warning(e)
-                    continue
-
-    @staticmethod
-    def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
-        """
-
-        :param df: pandas DataFrame that is being tidied
-        :param dataset: enum of dataset, used for writing dataset in pandas DataFrame
-        :return: tidied pandas DataFrame
-        """
+    def _collect_station_parameter(self, station_id: str, parameter, dataset) -> pl.DataFrame:  # noqa: ARG002
+        df = self.read_dmo(station_id, self.sr.stations.issue)
+        if df.is_empty():
+            return df
         df = df.unpivot(
             index=[
-                Columns.STATION_ID.value,
                 Columns.DATE.value,
             ],
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
+        return df.with_columns(
+            pl.lit(station_id, dtype=pl.String).alias(Columns.STATION_ID.value),
+            pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
+        )
 
-        return df.with_columns(pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value))
-
-    def read_dmo(self, date: dt.datetime | DwdForecastDate) -> Iterator[pl.DataFrame]:
-        """
-        Manage data acquisition for a given date that is used to filter the found files
-        on the DMO path of the DWD server.
-
-        :param date: datetime
-        :return: pandas DataFrame with gathered information
-        """
-        for df_forecast in self._read_dmo(date):
-            df_forecast = df_forecast.rename(
-                mapping={
-                    "datetime": Columns.DATE.value,
-                },
-            )
-
-            yield df_forecast
-
-    def _read_dmo(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
-        """
-        Wrapper that either calls read_icon_eu or read_icon depending on
-        defined period type
-
-        :param date: datetime
-        :return: pandas DataFrame
-        """
+    def read_dmo(self, station_id: str, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
         if self.sr.stations.dmo_type == DwdDmoType.ICON_EU:
-            yield from self.read_icon_eu(date)
+            return self.read_icon_eu(station_id, date)
         else:
-            yield from self.read_icon(date)
+            return self.read_icon(station_id, date)
 
-    def read_icon_eu(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
-        """
-        Reads single icon_eu file with all stations_result and returns every chunk that
-        matches with one of the defined station ids.
+    def read_icon_eu(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
+        """Reads large icon_eu file with all stations."""
+        dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU)
+        url = urljoin("https://opendata.dwd.de", dmo_path)
+        file_url = self.get_url_for_date(url, date)
+        self.kml.read(file_url)
+        return self.kml.get_station_forecast(station_id)
 
-        :param date: datetime
-        :return: pandas DataFrame with data
-        """
-        if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
-            dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU)
-            url = urljoin("https://opendata.dwd.de", dmo_path)
-            file_url = self.get_url_for_date(url, date)
-            self.kml.read(file_url)
-            yield from self.kml.get_forecasts()
-        else:
-            for station_id in self.sr.station_id:
-                dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU, station_id=station_id)
-                station_url = urljoin("https://opendata.dwd.de", dmo_path)
-                try:
-                    file_url = self.get_url_for_date(station_url, date)
-                except HTTPError:
-                    log.warning(f"Files for {station_id} do not exist on the server")
-                    continue
-                self.kml.read(file_url)
-                yield next(self.kml.get_forecasts())
-
-    def read_icon(self, date: DwdForecastDate | dt.datetime) -> Iterator[pl.DataFrame]:
-        """
-        Reads multiple icon files with one per each station and returns a
-        chunk per file.
-
-        :param date:
-        :return:
-        """
+    def read_icon(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
+        """Reads either large icon file with all stations or small single station file."""
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
             dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON)
-            url = urljoin("https://opendata.dwd.de", dmo_path)
-            file_url = self.get_url_for_date(url, date)
-            self.kml.read(file_url)
-            yield from self.kml.get_forecasts()
         else:
-            for station_id in self.sr.station_id:
-                dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON, station_id=station_id)
-                station_url = urljoin("https://opendata.dwd.de", dmo_path)
-                try:
-                    file_url = self.get_url_for_date(station_url, date)
-                except HTTPError:
-                    log.warning(f"Files for {station_id} do not exist on the server")
-                    continue
-                self.kml.read(file_url)
-                yield next(self.kml.get_forecasts())
+            dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON, station_id=station_id)
+        url = urljoin("https://opendata.dwd.de", dmo_path)
+        file_url = self.get_url_for_date(url, date)
+        self.kml.read(file_url)
+        return self.kml.get_station_forecast(station_id)
 
     def get_url_for_date(self, url: str, date: dt.datetime | DwdForecastDate) -> str:
         """
@@ -1378,10 +1240,9 @@ class DwdDmoRequest(TimeseriesRequest):
         self,
         parameter: str | DwdDmoParameter | Parameter | Sequence[str | DwdDmoParameter | Parameter],
         dmo_type: str | DwdDmoType,
-        start_issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
-        end_issue: str | dt.datetime | None = None,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
+        issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
         station_group: str | DwdDmoStationGroup | None = None,
         lead_time: str | DwdDmoLeadTime | None = None,
         settings: Settings | None = None,
@@ -1390,10 +1251,9 @@ class DwdDmoRequest(TimeseriesRequest):
 
         :param parameter: parameter(s) to be collected
         :param dmo_type: dmo type, either small or large
-        :param start_issue: start of issue of dmo which should be caught (DMO run at time XX:YY)
-        :param end_issue: end of issue
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
+        :param issue: issue of dmo which should be caught (DMO run at time XX:YY)
         """
         try:
             self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType)
@@ -1422,31 +1282,20 @@ class DwdDmoRequest(TimeseriesRequest):
             settings=settings,
         )
 
-        if not start_issue:
-            start_issue = DwdForecastDate.LATEST
+        if not issue:
+            issue = DwdForecastDate.LATEST
 
         try:
-            start_issue = parse_enumeration_from_template(start_issue, DwdForecastDate)
+            issue = parse_enumeration_from_template(issue, DwdForecastDate)
         except InvalidEnumerationError:
             pass
 
-        if start_issue is not DwdForecastDate.LATEST:
-            if not start_issue and not end_issue:
-                start_issue = DwdForecastDate.LATEST
-            elif not end_issue:
-                end_issue = start_issue
-            elif not start_issue:
-                start_issue = end_issue
-            if isinstance(start_issue, str):
-                start_issue = dt.datetime.fromisoformat(start_issue)
-            start_issue = dt.datetime(start_issue.year, start_issue.month, start_issue.day, start_issue.hour)
-            if isinstance(end_issue, str):
-                end_issue = dt.datetime.fromisoformat(end_issue)
-            end_issue = dt.datetime(end_issue.year, end_issue.month, end_issue.day, end_issue.hour)
-
-            # Shift start date and end date to 0, 12 hour format
-            start_issue = self.adjust_datetime(start_issue)
-            end_issue = self.adjust_datetime(end_issue)
+        if issue is not DwdForecastDate.LATEST:
+            if isinstance(issue, str):
+                issue = dt.datetime.fromisoformat(issue)
+            issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour)
+            # Shift issue date to 0, 12 hour format
+            issue = self.adjust_datetime(issue)
 
         # TODO: this should be replaced by the freq property in the main class
         if self.dmo_type == DwdDmoType.ICON_EU:
@@ -1454,18 +1303,7 @@ class DwdDmoRequest(TimeseriesRequest):
         else:
             self.resolution = Resolution.HOUR_6
 
-        self.start_issue = start_issue
-        self.end_issue = end_issue
-
-    @property
-    def issue_start(self):
-        """Required for typing"""
-        return self.issue_start
-
-    @property
-    def issue_end(self):
-        """Required for typing"""
-        return self.issue_end
+        self.issue = issue
 
     # required patches for stations as data is corrupted for these at least atm
     _station_patches = pl.DataFrame(

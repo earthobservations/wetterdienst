@@ -5,6 +5,8 @@ Development
 ***********
 
 - Bump polars to `>=1.0.0`
+- Change `DWDMosmixValues` and `DWDDmoValues` to follow the core `_collect_station_parameter` method
+- Allow only single issue retrieving with `DWDMosmixRequest` and `DWDDmoRequest`
 
 0.95.1 (04.09.2024)
 *******************
