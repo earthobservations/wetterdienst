@@ -55,7 +55,7 @@ def test_dwd_observations_urban_stations(default_settings):
         period="historical",
         settings=default_settings,
     ).all()
-    assert request.station_id.to_list() == ["00399", "13667", "15811", "15818", "19711"]
+    assert request.station_id.to_list() == ["00399", "13667", "15811", "15818", "19711", "19844"]
 
 
 @pytest.mark.remote
