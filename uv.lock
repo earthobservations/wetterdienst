@@ -4756,7 +4756,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.96.0"
+version = "0.97.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aenum" },

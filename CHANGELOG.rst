@@ -4,9 +4,12 @@ Changelog
 Development
 ***********
 
+0.97.0 (06.10.2024)
+*******************
+
 - DWD Road: Use correct 15 minute resolution
 
-0.96.0 (05.10.2024)
+0.96.0 (04.10.2024)
 *******************
 
 - Bump polars to `>=1.0.0`
