@@ -4,6 +4,11 @@ Changelog
 Development
 ***********
 
+- DWD Road: Use correct 15 minute resolution
+
+0.96.0 (05.10.2024)
+*******************
+
 - Bump polars to `>=1.0.0`
 - Change `DWDMosmixValues` and `DWDDmoValues` to follow the core `_collect_station_parameter` method
 - Allow only single issue retrieving with `DWDMosmixRequest` and `DWDDmoRequest`

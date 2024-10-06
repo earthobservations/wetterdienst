@@ -45,8 +45,8 @@ class DwdRoadParameter(DatasetTreeCore):
     measured by dwd road weather stations
     """
 
-    class MINUTE_10(DatasetTreeCore):
-        class MINUTE_10(Enum):
+    class MINUTE_15(DatasetTreeCore):
+        class MINUTE_15(Enum):
             # class ROAD_WEATHER(Enum):
             HUMIDITY = "relativeHumidity"
             PRECIPITATION_FORM = "precipitationType"
@@ -64,21 +64,21 @@ class DwdRoadParameter(DatasetTreeCore):
             WIND_SPEED = "windSpeed"
             # INTENSITY_OF_PHENOMENA = "intensityOfPhenomena"  # noqa: ERA001
 
-        HUMIDITY = MINUTE_10.HUMIDITY
-        PRECIPITATION_FORM = MINUTE_10.PRECIPITATION_FORM
-        PRECIPITATION_HEIGHT = MINUTE_10.PRECIPITATION_HEIGHT
-        PRECIPITATION_INTENSITY = MINUTE_10.PRECIPITATION_INTENSITY
-        ROAD_SURFACE_CONDITION = MINUTE_10.ROAD_SURFACE_CONDITION
-        TEMPERATURE_AIR_MEAN_2M = MINUTE_10.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_DEW_POINT_MEAN_2M = MINUTE_10.TEMPERATURE_DEW_POINT_MEAN_2M
-        TEMPERATURE_SURFACE_MEAN = MINUTE_10.TEMPERATURE_SURFACE_MEAN
-        VISIBILITY_RANGE = MINUTE_10.VISIBILITY_RANGE
-        WATER_FILM_THICKNESS = MINUTE_10.WATER_FILM_THICKNESS
-        WIND_DIRECTION = MINUTE_10.WIND_DIRECTION
-        WIND_DIRECTION_GUST_MAX = MINUTE_10.WIND_DIRECTION_GUST_MAX
-        WIND_GUST_MAX = MINUTE_10.WIND_GUST_MAX
-        WIND_SPEED = MINUTE_10.WIND_SPEED
-        # INTENSITY_OF_PHENOMENA = MINUTE_10.INTENSITY_OF_PHENOMENA  # noqa: ERA001
+        HUMIDITY = MINUTE_15.HUMIDITY
+        PRECIPITATION_FORM = MINUTE_15.PRECIPITATION_FORM
+        PRECIPITATION_HEIGHT = MINUTE_15.PRECIPITATION_HEIGHT
+        PRECIPITATION_INTENSITY = MINUTE_15.PRECIPITATION_INTENSITY
+        ROAD_SURFACE_CONDITION = MINUTE_15.ROAD_SURFACE_CONDITION
+        TEMPERATURE_AIR_MEAN_2M = MINUTE_15.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_DEW_POINT_MEAN_2M = MINUTE_15.TEMPERATURE_DEW_POINT_MEAN_2M
+        TEMPERATURE_SURFACE_MEAN = MINUTE_15.TEMPERATURE_SURFACE_MEAN
+        VISIBILITY_RANGE = MINUTE_15.VISIBILITY_RANGE
+        WATER_FILM_THICKNESS = MINUTE_15.WATER_FILM_THICKNESS
+        WIND_DIRECTION = MINUTE_15.WIND_DIRECTION
+        WIND_DIRECTION_GUST_MAX = MINUTE_15.WIND_DIRECTION_GUST_MAX
+        WIND_GUST_MAX = MINUTE_15.WIND_GUST_MAX
+        WIND_SPEED = MINUTE_15.WIND_SPEED
+        # INTENSITY_OF_PHENOMENA = MINUTE_15.INTENSITY_OF_PHENOMENA  # noqa: ERA001
 
 
 class DwdRoadUnit(DatasetTreeCore):
@@ -87,8 +87,8 @@ class DwdRoadUnit(DatasetTreeCore):
     measured by dwd road weather stations
     """
 
-    class MINUTE_10(DatasetTreeCore):
-        class MINUTE_10(UnitEnum):
+    class MINUTE_15(DatasetTreeCore):
+        class MINUTE_15(UnitEnum):
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
             PRECIPITATION_FORM = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
@@ -107,7 +107,7 @@ class DwdRoadUnit(DatasetTreeCore):
 
 
 class DwdRoadResolution(Enum):
-    MINUTE_10 = Resolution.MINUTE_10.value
+    MINUTE_15 = Resolution.MINUTE_15.value
 
 
 class DwdRoadPeriod(Enum):
@@ -115,7 +115,7 @@ class DwdRoadPeriod(Enum):
 
 
 class DwdRoadDataset(Enum):
-    MINUTE_10 = Resolution.MINUTE_10.value
+    MINUTE_15 = Resolution.MINUTE_15.value
 
 
 class DwdRoadStationGroup(Enum):
@@ -181,7 +181,7 @@ class DwdRoadValues(TimeseriesValues):
         )
         station_group = DwdRoadStationGroup(station_group)
         if parameter == dataset:
-            parameters = [par.value for par in DwdRoadParameter.MINUTE_10 if hasattr(par, "name")]
+            parameters = [par.value for par in DwdRoadParameter.MINUTE_15 if hasattr(par, "name")]
         else:
             parameters = [parameter.value]
         try:
@@ -423,7 +423,7 @@ class DwdRoadRequest(TimeseriesRequest):
     ):
         super().__init__(
             parameter=parameter,
-            resolution=Resolution.MINUTE_10,
+            resolution=Resolution.MINUTE_15,
             period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
