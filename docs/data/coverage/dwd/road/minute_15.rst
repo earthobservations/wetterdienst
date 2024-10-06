@@ -1,4 +1,4 @@
-Minute_10
+Minute_15
 #########
 
 Metadata
@@ -9,14 +9,14 @@ Metadata
    :stub-columns: 1
 
    * - original name
-     - 10_minutes
+     - 15_minutes
    * - url
      - `here <https://opendata.dwd.de/weather/weather_reports/road_weather_stations/>`_
 
 Datasets
 ********
 
-Minute_10
+Minute_15
 =========
 
 Metadata
@@ -27,13 +27,13 @@ Metadata
    :stub-columns: 1
 
    * - original name
-     - minute_10
+     - minute_15
    * - url
      - `here <https://opendata.dwd.de/weather/weather_reports/road_weather_stations/>`_
    * - description file
      - missing
    * - description
-     - 10 minute road weather data from DWD
+     - 15 minute road weather data from DWD
 
 Parameters
 ----------

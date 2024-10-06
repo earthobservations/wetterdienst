@@ -5,7 +5,7 @@ Overview
 ********
 
 - weather data from German highway "road" stations.
-- 10 minute resolution
+- 15 minute resolution
 - historical period
 
 Structure
@@ -14,4 +14,4 @@ Structure
 .. toctree::
    :maxdepth: 1
 
-   road/minute_10
+   road/minute_15
