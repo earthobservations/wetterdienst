@@ -17,10 +17,10 @@ from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.fileindex import build_path_to_parameter
-from wetterdienst.provider.dwd.observation.metadata.dataset import (
-    DWD_URBAN_DATASETS,
-    DwdObservationDataset,
-)
+# from wetterdienst.provider.dwd.observation.metadata.dataset import (
+#     DWD_URBAN_DATASETS,
+#     DwdObservationDataset,
+# )
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 

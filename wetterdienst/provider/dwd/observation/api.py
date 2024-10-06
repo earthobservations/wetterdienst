@@ -17,6 +17,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.metadata_model import MetadataModel
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -29,19 +30,19 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
 )
-from wetterdienst.provider.dwd.observation.metadata.dataset import (
-    DwdObservationDataset,
+from wetterdienst.provider.dwd.observation.metadata import (
+    DwdObservationMetadata,
 )
-from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationParameter,
-)
-from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
-from wetterdienst.provider.dwd.observation.metadata.resolution import (
-    HIGH_RESOLUTIONS,
-    RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
-    DwdObservationResolution,
-)
-from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
+# from wetterdienst.provider.dwd.observation.metadata.parameter import (
+#     DwdObservationParameter,
+# )
+# from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
+# from wetterdienst.provider.dwd.observation.metadata.resolution import (
+#     HIGH_RESOLUTIONS,
+#     RESOLUTION_TO_DATETIME_FORMAT_MAPPING,
+#     DwdObservationResolution,
+# )
+# from wetterdienst.provider.dwd.observation.metadata.unit import DwdObservationUnit
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
@@ -70,7 +71,7 @@ class DwdObservationValues(TimeseriesValues):
     _resolution_type = ResolutionType.MULTI
     _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
-    _period_base = DwdObservationPeriod
+    # _period_base = DwdObservationPeriod
 
     @property
     def _datetime_format(self):
@@ -359,13 +360,14 @@ class DwdObservationRequest(TimeseriesRequest):
     _provider = Provider.DWD
     _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
-    _dataset_base = DwdObservationDataset
-    _parameter_base = DwdObservationParameter
-    _unit_base = DwdObservationUnit
+    # _dataset_base = DwdObservationDataset
+    # _parameter_base = DwdObservationParameter
+    # _unit_base = DwdObservationUnit
+    _metadata = DwdObservationMetadata
     _resolution_type = ResolutionType.MULTI
     _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
-    _period_base = DwdObservationPeriod
+    # _period_base = DwdObservationPeriod
     _has_datasets = True
     _unique_dataset = False
     _data_range = DataRange.FIXED
@@ -449,13 +451,18 @@ class DwdObservationRequest(TimeseriesRequest):
     def __init__(
         self,
         parameter: str
-        | DwdObservationDataset
-        | DwdObservationParameter
+        # | DwdObservationDataset
+        # | DwdObservationParameter
+        | MetadataModel
+        | tuple[str, str]
+        | tuple[str, str, str]
         | Sequence[
             str
-            | DwdObservationDataset
-            | DwdObservationParameter
-            | tuple[str | DwdObservationParameter, str | DwdObservationDataset]
+            # | DwdObservationDataset
+            # | DwdObservationParameter
+            | MetadataModel
+            | tuple[str, str]
+            | tuple[str, str, str]
         ],
         resolution: str | DwdObservationResolution | Resolution,
         period: str | DwdObservationPeriod | Period | Sequence[str | DwdObservationPeriod | Period] = None,

@@ -12,11 +12,11 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.provider.dwd.observation.metadata.dataset import (
-    DWD_URBAN_DATASETS,
-    DwdObservationDataset,
-)
-from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
+# from wetterdienst.provider.dwd.observation.metadata.dataset import (
+#     DWD_URBAN_DATASETS,
+#     DwdObservationDataset,
+# )
+# from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
