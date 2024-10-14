@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.13-slim-bookworm AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TERM=linux
@@ -44,7 +44,7 @@ RUN WHEEL=$(ls -r /tmp/wetterdienst-*-py3-none-any.whl | head -n 1) && \
 
 
 # Final stage
-FROM python:3.12-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 # Install h5py
 RUN apt-get update \
