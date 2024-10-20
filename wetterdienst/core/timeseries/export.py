@@ -199,7 +199,7 @@ class ExportMixin:
                 df = df.to_pandas()
 
                 # Convert pandas DataFrame to xarray Dataset.
-                dataset = xarray.Dataset.from_dataframe(df)
+                dataset = xarray.DatasetModel.from_dataframe(df)
                 log.info(f"Converted to xarray Dataset. Size={dataset.sizes}")
 
                 # Export to Zarr format.

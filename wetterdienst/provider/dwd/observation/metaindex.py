@@ -14,9 +14,12 @@ from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.metadata_model import DatasetModel
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.fileindex import build_path_to_parameter
+from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
+
 # from wetterdienst.provider.dwd.observation.metadata.dataset import (
 #     DWD_URBAN_DATASETS,
 #     DwdObservationDataset,
@@ -55,8 +58,7 @@ STATION_ID_REGEX = r"(?<!\d)\d{5}(?!\d)"
 
 
 def create_meta_index_for_climate_observations(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
@@ -73,29 +75,23 @@ def create_meta_index_for_climate_observations(
     Returns:
         pandas.DataFrame with meta index for the selected set of arguments
     """
-    cond1 = (
-        resolution == Resolution.MINUTE_1
-        and period == Period.HISTORICAL
-        and dataset == DwdObservationDataset.PRECIPITATION
-    )
-
-    cond2 = resolution == Resolution.SUBDAILY and dataset == DwdObservationDataset.WIND_EXTREME
+    cond1 = dataset == DwdObservationMetadata["minute_1"]["precipitation"] and period == Period.HISTORICAL
+    cond2 = dataset == DwdObservationMetadata["subdaily"]["wind_extreme"]
     cond3 = dataset in DWD_URBAN_DATASETS
     if cond1:
         meta_index = _create_meta_index_for_1minute_historical_precipitation(settings)
     elif cond2:
         meta_index = _create_meta_index_for_subdaily_extreme_wind(period, settings)
     elif cond3:
-        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, Period.RECENT, settings)
+        meta_index = _create_meta_index_for_climate_observations(dataset, Period.RECENT, settings)
     else:
-        meta_index = _create_meta_index_for_climate_observations(dataset, resolution, period, settings)
+        meta_index = _create_meta_index_for_climate_observations(dataset, period, settings)
 
     # If no state column available, take state information from daily historical
     # precipitation
     if cond1:
         mdp = _create_meta_index_for_climate_observations(
-            DwdObservationDataset.PRECIPITATION_MORE,
-            Resolution.DAILY,
+            DwdObservationMetadata["daily"]["precipitation_more"],
             Period.HISTORICAL,
             settings=settings,
         )
@@ -118,8 +114,7 @@ def create_meta_index_for_climate_observations(
 
 
 def _create_meta_index_for_climate_observations(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
@@ -136,7 +131,7 @@ def _create_meta_index_for_climate_observations(
         not checked.
 
     """
-    parameter_path = build_path_to_parameter(dataset, resolution, period)
+    parameter_path = build_path_to_parameter(dataset, period)
     if dataset in DWD_URBAN_DATASETS:
         dwd_cdc_base = "observations_germany/climate_urban/"
     else:
@@ -145,9 +140,7 @@ def _create_meta_index_for_climate_observations(
     remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # TODO: remove workaround once station list at https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/historical/2022/ is removed  # noqa: E501
     if (
-        period == Period.HISTORICAL
-        and resolution == Resolution.MINUTE_5
-        and dataset == DwdObservationDataset.PRECIPITATION
+        dataset == DwdObservationMetadata.minute_5.precipitation and period == Period.HISTORICAL
     ):
         remote_files = [file for file in remote_files if file.split("/")[-2] != "2022"]
     # Find the one meta file from the files listed on the server

@@ -1,34 +1,36 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Optional
 
-import jsonref
-from pydantic import BaseModel, field_validator, RootModel, model_validator, ValidationError
+from lxml.objectify import NoneElement
+from pydantic import BaseModel, RootModel, field_validator, model_validator, SkipValidation, Field
+
+from wetterdienst import Period, Resolution
 
 
-class Parameter(BaseModel):
+class ParameterModel(BaseModel):
     name: str
     original: str
-    resolution: str
-    dataset: str
+    unit: str
+    unit_original: str
+    dataset: SkipValidation["DatasetModel"] = Field(default=None, exclude=True, repr=False)
 
 
-class Dataset(BaseModel):
+
+class DatasetModel(BaseModel):
+    __name__ = "Dataset"
     name: str
-    resolution: str
-    parameters: list[Parameter]
+    name_original: str
+    parameters: list[ParameterModel]
+    periods: list[Period] | None = None
+    resolution: SkipValidation["ResolutionModel"] = Field(default=None, exclude=True, repr=False)
 
-    @field_validator("parameters", mode="before")
-    @classmethod
-    def validate_parameters(cls, v, validation_info):
-        resolution_name = validation_info.data["resolution"]
-        dataset_name = validation_info.data["name"]
-        for parameter in v:
-            parameter["resolution"] = resolution_name
-            parameter["dataset"] = dataset_name
-        return v
+    def __init__(self, **data):
+        super().__init__(**data)
+        for parameter in self.parameters:
+            parameter.dataset = self
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -44,14 +46,14 @@ class Dataset(BaseModel):
                 return parameter
         raise AttributeError(item)
 
-    def __iter__(self) -> Iterator[Parameter]:
+    def __iter__(self) -> Iterator[ParameterModel]:
         return iter(self.parameters)
 
-    def __str__(self):
-        return f"name='{self.name}' resolution='{self.resolution}' parameters={self.parameters}"
-
-    def __repr__(self):
-        return f"Dataset({self.__str__()})"
+    # def __str__(self):
+    #     return f"name='{self.name}' resolution='{self.resolution}' parameters={self.parameters}"
+    #
+    # def __repr__(self):
+    #     return f"Dataset({self.__str__()})"
 
 
 # parameter reference $ref which consists of "dataset/parameter"
@@ -68,18 +70,11 @@ class ParameterRef(BaseModel):
         return {"dataset": dataset, "parameter": parameter}
 
 
-class Resolution(BaseModel):
-    name: str
-    datasets: list[Dataset]
-    parameters: list[Parameter]
-
-    @field_validator("datasets", mode="before")
-    @classmethod
-    def validate_datasets(cls, v, validation_info):
-        resolution_name = validation_info.data["name"]
-        for dataset in v:
-            dataset["resolution"] = resolution_name
-        return v
+class ResolutionModel(BaseModel):
+    value: Resolution
+    datasets: list[DatasetModel]
+    parameters: SkipValidation[list[ParameterModel]]
+    periods: list[Period] | None = None
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -101,6 +96,13 @@ class Resolution(BaseModel):
                 raise KeyError(parameter_ref)
         return resolved_parameters
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        for dataset in self.datasets:
+            dataset.resolution = self
+            # propagate periods to dataset
+            dataset.periods = dataset.periods or self.periods
+
     def __getitem__(self, item):
         if isinstance(item, int):
             return self.datasets[item]
@@ -121,35 +123,28 @@ class Resolution(BaseModel):
                 return parameter
         raise AttributeError(item)
 
-    def __iter__(self) -> Iterator[Dataset]:
+    def __iter__(self) -> Iterator[DatasetModel]:
         return iter(self.datasets)
-
-    def __str__(self):
-        return f"name='{self.name}' datasets={self.datasets} parameters={self.parameters}"
-
-    def __repr__(self):
-        return f"Resolution({self.__str__()})"
 
 
 class MetadataModel(RootModel):
-    root: list[Resolution]
+    root: list[ResolutionModel]
 
     def __getitem__(self, item):
         if isinstance(item, int):
             return self.root[item]
         for resolution in self.root:
-            if resolution.name == item:
+            if resolution.value.name.lower() == item or resolution.value.value == item:
                 return resolution
         raise KeyError(item)
 
     def __getattr__(self, item):
         for resolution in self.root:
-            if resolution.name == item:
+            if resolution.value.name.lower() == item or resolution.value.value == item:
                 return resolution
         raise AttributeError(item)
 
-
-    def __iter__(self) -> Iterator[Resolution]:
+    def __iter__(self) -> Iterator[ResolutionModel]:
         return iter(self.root)
 
     def __str__(self):
@@ -158,22 +153,23 @@ class MetadataModel(RootModel):
     def __repr__(self):
         return f"Metadata({self.__str__()})"
 
-    def search_parameter(self, parameter_search: "ParameterTemplate") -> list[Parameter]:
+    def search_parameter(self, parameter_search: ParameterTemplate) -> list[ParameterModel]:
         for resolution in self:
-            if resolution.name == parameter_search.resolution:
+            if resolution.value.name.lower() == parameter_search.resolution or resolution.value.value == parameter_search.resolution:
                 break
         else:
             raise KeyError(parameter_search.resolution)
         for dataset in resolution:
-            if dataset.name == parameter_search.dataset:
+            if dataset.name == parameter_search.dataset or dataset.name_original == parameter_search.dataset:
                 break
         else:
             raise KeyError(parameter_search.dataset)
-        if parameter_search.parameter is None:
+        if not parameter_search.parameter:
             return [*dataset]
         for parameter in dataset:
             if parameter.name == parameter_search.parameter:
                 return [parameter]
+
 
 @dataclass
 class ParameterTemplate:
@@ -182,14 +178,14 @@ class ParameterTemplate:
     parameter: str | None
 
     @classmethod
-    def parse(cls, value: str | Iterable[str]) -> "ParameterTemplate":
+    def parse(cls, value: str | Iterable[str]) -> ParameterTemplate:
         resolution = None
         dataset = None
         parameter = None
         if isinstance(value, str):
             if value.count("/") == 0:
                 raise ValueError("expected 'resolution/dataset/parameter' or 'resolution/dataset'")
-            value =  value.split("/")
+            value = value.split("/")
         try:
             resolution, dataset, parameter = value
         except ValueError:

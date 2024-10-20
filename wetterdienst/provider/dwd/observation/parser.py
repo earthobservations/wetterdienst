@@ -8,12 +8,14 @@ from io import BytesIO, StringIO
 import polars as pl
 
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.metadata_model import ParameterModel, DatasetModel
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
-from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationParameter,
+
+# from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
+from wetterdienst.provider.dwd.observation.metadata import (
+    DwdObservationMetadata,
 )
 
 log = logging.getLogger(__name__)
@@ -21,11 +23,11 @@ log = logging.getLogger(__name__)
 # Parameter names used to create full 1 minute precipitation dataset wherever those
 # columns are missing (which is the case for non historical data)
 PRECIPITATION_PARAMETERS = (
-    DwdObservationParameter.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_DROPLET.value,
-    DwdObservationParameter.MINUTE_1.PRECIPITATION.PRECIPITATION_HEIGHT_ROCKER.value,
+    DwdObservationMetadata.minute_1.precipitation.precipitation_height_droplet.original,
+    DwdObservationMetadata.minute_1.precipitation.precipitation_height_rocker.original,
 )
 
-PRECIPITATION_MINUTE_1_QUALITY = DwdObservationParameter.MINUTE_1.PRECIPITATION.QUALITY
+PRECIPITATION_MINUTE_1_QUALITY = DwdObservationMetadata.minute_1.precipitation.quality
 
 DROPPABLE_PARAMETERS = {
     # EOR
@@ -34,18 +36,18 @@ DROPPABLE_PARAMETERS = {
     # STRING_PARAMETERS
     # hourly
     # cloud_type
-    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_COVER_TOTAL_INDEX.value,
-    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER1_ABBREVIATION.value,
-    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER2_ABBREVIATION.value,
-    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER3_ABBREVIATION.value,
-    DwdObservationParameter.HOURLY.CLOUD_TYPE.CLOUD_TYPE_LAYER4_ABBREVIATION.value,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_index.original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.original,
     # cloudiness
-    DwdObservationParameter.HOURLY.CLOUDINESS.CLOUD_COVER_TOTAL_INDEX.value,
+    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.original,
     # visibility
-    DwdObservationParameter.HOURLY.VISIBILITY.VISIBILITY_RANGE_INDEX.value,
+    DwdObservationMetadata.hourly.visibility.visibility_range_index.original,
     # DATE_PARAMETERS_IRREGULAR
-    DwdObservationParameter.HOURLY.SOLAR.TRUE_LOCAL_TIME.value,
-    DwdObservationParameter.HOURLY.SOLAR.END_OF_INTERVAL.value,
+    DwdObservationMetadata.hourly.solar.true_local_time.original,
+    DwdObservationMetadata.hourly.solar.end_of_interval.original,
     # URBAN_TEMPERATURE_AIR
     "strahlungstemperatur",
 }
@@ -75,8 +77,8 @@ DWD_TO_ENGLISH_COLUMNS_MAPPING = {
 
 def parse_climate_observations_data(
     filenames_and_files: list[tuple[str, BytesIO]],
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
+    # resolution: Resolution,
     period: Period,
 ) -> pl.LazyFrame:
     """
@@ -93,9 +95,12 @@ def parse_climate_observations_data(
         polars.LazyFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
-    if resolution is Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
+    if dataset.resolution is Resolution.SUBDAILY and dataset is DwdObservationMetadata.subdaily.wind_extreme:
         data = [
-            _parse_climate_observations_data(filename_and_file, dataset, resolution, period)
+            _parse_climate_observations_data(filename_and_file,
+                                             dataset,
+                                             # dataset, resolution,
+                                             period)
             for filename_and_file in filenames_and_files
         ]
         try:
@@ -107,13 +112,16 @@ def parse_climate_observations_data(
     else:
         if len(filenames_and_files) > 1:
             raise ValueError("only one file expected")
-        return _parse_climate_observations_data(filenames_and_files[0], dataset, resolution, period)
+        return _parse_climate_observations_data(filenames_and_files[0],
+                                                dataset,
+                                                # dataset, resolution,
+                                                period)
 
 
 def _parse_climate_observations_data(
     filename_and_file: tuple[str, BytesIO],
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
+    # resolution: Resolution,
     period: Period,
 ) -> pl.LazyFrame:
     """
@@ -150,8 +158,8 @@ def _parse_climate_observations_data(
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
 
-    if resolution == Resolution.MINUTE_1:
-        if dataset == DwdObservationDataset.PRECIPITATION:
+    if dataset.resolution == Resolution.MINUTE_1:
+        if dataset == DwdObservationMetadata.minute_1.precipitation.name:
             # Need to unfold historical data, as it is encoded in its run length e.g.
             # from time X to time Y precipitation is 0
             if period == Period.HISTORICAL:
@@ -177,12 +185,12 @@ def _parse_climate_observations_data(
                 df = df.with_columns(
                     pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
                 )
-    if resolution == Resolution.MINUTE_5 and dataset == DwdObservationDataset.PRECIPITATION:
+    if dataset.resolution == Resolution.MINUTE_5 and dataset == DwdObservationMetadata.minute_5.precipitation.name:
         # apparently historical datasets differ from recent and now having all columns as described in the
         # parameter enumeration when recent and now datasets only have precipitation form and
         # precipitation height but not rocker and droplet information
         columns = ["stations_id", "mess_datum"]
-        for parameter in DwdObservationParameter[resolution.name][dataset.name]:
+        for parameter in dataset:
             columns.append(parameter.value)
 
         df = df.select(
@@ -191,39 +199,39 @@ def _parse_climate_observations_data(
         )
 
     # Special handling for hourly solar data, as it has more date columns
-    if resolution == Resolution.HOURLY:
-        if dataset == DwdObservationDataset.SOLAR:
+    if dataset.resolution == Resolution.HOURLY:
+        if dataset == DwdObservationMetadata.hourly.solar:
             # Fix real date column by cutting of minutes
             df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3], return_dtype=pl.String))
 
-    if resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
+    if dataset.resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop("bis_datum", "mess_datum_ende", strict=False)
         df = df.rename(mapping={"mess_datum_beginn": "mess_datum"})
 
-    if resolution == Resolution.SUBDAILY and dataset is DwdObservationDataset.WIND_EXTREME:
+    if dataset.resolution == Resolution.SUBDAILY and dataset is DwdObservationMetadata.subdaily.wind_extreme:
         df = df.select(
             pl.all().exclude("qn_8"),
             pl.col("qn_8").alias("qn_8_3" if "fx_911_3" in df.columns else "qn_8_6"),
         )
 
     fmt = None
-    if resolution == Resolution.MINUTE_5:
+    if dataset.resolution == Resolution.MINUTE_5:
         fmt = "%Y%m%d%H%M"
-    elif resolution == Resolution.MINUTE_10:
+    elif dataset.resolution == Resolution.MINUTE_10:
         fmt = "%Y%m%d%H%M"
-    elif resolution == Resolution.HOURLY:
+    elif dataset.resolution == Resolution.HOURLY:
         fmt = "%Y%m%d%H%M"
-    elif resolution == Resolution.SUBDAILY:
+    elif dataset.resolution == Resolution.SUBDAILY:
         fmt = "%Y%m%d%H%M"
-    elif resolution == Resolution.DAILY:
+    elif dataset.resolution == Resolution.DAILY:
         fmt = "%Y%m%d"
-    elif resolution == Resolution.MONTHLY:
+    elif dataset.resolution == Resolution.MONTHLY:
         fmt = "%Y%m%d"
-    elif resolution == Resolution.ANNUAL:
+    elif dataset.resolution == Resolution.ANNUAL:
         fmt = "%Y%m%d"
 
     if fmt:
-        if resolution in (Resolution.HOURLY, Resolution.SUBDAILY):
+        if dataset.resolution in (Resolution.HOURLY, Resolution.SUBDAILY):
             df = df.with_columns(pl.col("mess_datum") + "00")
         df = df.with_columns(
             pl.col("mess_datum").str.to_datetime(fmt, time_zone="UTC"),
