@@ -22,6 +22,7 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
+from wetterdienst.provider.dwd.observation._metadata.period import DwdObservationPeriod
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
 )
@@ -33,6 +34,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
+
 # from wetterdienst.provider.dwd.observation.metadata.parameter import (
 #     DwdObservationParameter,
 # )
@@ -47,9 +49,9 @@ from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
-from wetterdienst.provider.dwd.observation.util.parameter import (
-    check_dwd_observations_dataset,
-)
+# from wetterdienst.provider.dwd.observation.util.parameter import (
+#     check_dwd_observations_dataset,
+# )
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
@@ -69,17 +71,17 @@ class DwdObservationValues(TimeseriesValues):
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
     _resolution_type = ResolutionType.MULTI
-    _resolution_base = DwdObservationResolution
+    # _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
     # _period_base = DwdObservationPeriod
 
-    @property
-    def _datetime_format(self):
-        """
-
-        :return:
-        """
-        return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.sr.stations.resolution)
+    # @property
+    # def _datetime_format(self):
+    #     """
+    #
+    #     :return:
+    #     """
+    #     return RESOLUTION_TO_DATETIME_FORMAT_MAPPING.get(self.sr.stations.resolution)
 
     def __eq__(self, other):
         """
@@ -365,13 +367,14 @@ class DwdObservationRequest(TimeseriesRequest):
     # _unit_base = DwdObservationUnit
     _metadata = DwdObservationMetadata
     _resolution_type = ResolutionType.MULTI
-    _resolution_base = DwdObservationResolution
+    # _resolution_base = DwdObservationResolution
     _period_type = PeriodType.MULTI
     # _period_base = DwdObservationPeriod
     _has_datasets = True
     _unique_dataset = False
     _data_range = DataRange.FIXED
     _values = DwdObservationValues
+    metadata = DwdObservationMetadata
 
     @property
     def _interval(self) -> Interval | None:
@@ -448,6 +451,23 @@ class DwdObservationRequest(TimeseriesRequest):
     def _parse_station_id(series: pl.Series) -> pl.Series:
         return series.cast(pl.String).str.pad_start(5, "0")
 
+    def _parse_period(self, period: Period) -> list[Period] | None:
+        """
+        Method to parse period(s)
+
+        :param period:
+        :return:
+        """
+        if not period:
+            return None
+        else:
+            return sorted(
+                [
+                    parse_enumeration_from_template(p, intermediate=DwdObservationPeriod, base=Period)
+                    for p in to_list(period)
+                ],
+            )
+
     def __init__(
         self,
         parameter: str
@@ -464,7 +484,7 @@ class DwdObservationRequest(TimeseriesRequest):
             | tuple[str, str]
             | tuple[str, str, str]
         ],
-        resolution: str | DwdObservationResolution | Resolution,
+        # resolution: str | DwdObservationResolution | Resolution,
         period: str | DwdObservationPeriod | Period | Sequence[str | DwdObservationPeriod | Period] = None,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
@@ -480,15 +500,16 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         super().__init__(
             parameter=parameter,
-            resolution=resolution,
-            period=period,
+            # resolution=resolution,
+            # period=period,
             start_date=start_date,
             end_date=end_date,
             settings=settings,
         )
 
-        if self.start_date and self.period:
-            log.warning(f"start_date and end_date filtering limited to defined " f"periods {self.period}")
+        # if self.start_date and self.period:
+        #     log.warning(f"start_date and end_date filtering limited to defined " f"periods {self.period}")
+        self.period = self._parse_period(period)
 
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
@@ -496,7 +517,7 @@ class DwdObservationRequest(TimeseriesRequest):
             if self.start_date:
                 self.period = self._get_periods()
             else:
-                self.period = self._parse_period([*self._period_base])
+                self.period = self._parse_period([*DwdObservationPeriod])
 
     def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
         return super().filter_by_station_id(
@@ -546,24 +567,17 @@ class DwdObservationRequest(TimeseriesRequest):
         :return:
         """
         datasets = []
-        for _, dataset in self.parameter:
-            if dataset not in datasets:
-                datasets.append(dataset)
+        for parameter in self.parameter:
+            if parameter.dataset not in datasets:
+                datasets.append(parameter.dataset)
 
         stations = []
 
         for dataset in datasets:
-            # First "now" period as it has more updated end date up to the last "now"
-            # values
-            for period in reversed(self.period):
-                if not check_dwd_observations_dataset(dataset, self.resolution, period):
-                    log.warning(
-                        f"The combination of {dataset.value}, " f"{self.resolution.value}, {period.value} is invalid.",
-                    )
-
-                    continue
-                df = create_meta_index_for_climate_observations(dataset, self.resolution, period, self.settings)
-                file_index = create_file_index_for_climate_observations(dataset, self.resolution, period, self.settings)
+            periods = set(dataset.periods) & set(self.period) if self.period else dataset.periods
+            for period in reversed(list(periods)):
+                df = create_meta_index_for_climate_observations(dataset, period, self.settings)
+                file_index = create_file_index_for_climate_observations(dataset, period, self.settings)
                 df = df.join(
                     other=file_index.select(pl.col(Columns.STATION_ID.value)),
                     on=[pl.col(Columns.STATION_ID.value)],
