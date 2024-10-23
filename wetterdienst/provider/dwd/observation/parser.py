@@ -78,7 +78,6 @@ DWD_TO_ENGLISH_COLUMNS_MAPPING = {
 def parse_climate_observations_data(
     filenames_and_files: list[tuple[str, BytesIO]],
     dataset: DatasetModel,
-    # resolution: Resolution,
     period: Period,
 ) -> pl.LazyFrame:
     """
@@ -99,7 +98,6 @@ def parse_climate_observations_data(
         data = [
             _parse_climate_observations_data(filename_and_file,
                                              dataset,
-                                             # dataset, resolution,
                                              period)
             for filename_and_file in filenames_and_files
         ]
@@ -114,14 +112,12 @@ def parse_climate_observations_data(
             raise ValueError("only one file expected")
         return _parse_climate_observations_data(filenames_and_files[0],
                                                 dataset,
-                                                # dataset, resolution,
                                                 period)
 
 
 def _parse_climate_observations_data(
     filename_and_file: tuple[str, BytesIO],
     dataset: DatasetModel,
-    # resolution: Resolution,
     period: Period,
 ) -> pl.LazyFrame:
     """
@@ -158,34 +154,33 @@ def _parse_climate_observations_data(
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
 
-    if dataset.resolution == Resolution.MINUTE_1:
-        if dataset == DwdObservationMetadata.minute_1.precipitation.name:
-            # Need to unfold historical data, as it is encoded in its run length e.g.
-            # from time X to time Y precipitation is 0
-            if period == Period.HISTORICAL:
-                df = df.with_columns(
-                    pl.col("mess_datum_beginn").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
-                    pl.col("mess_datum_ende").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
-                )
-                df = df.with_columns(
-                    pl.datetime_ranges(pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m").alias(
-                        "mess_datum",
-                    ),
-                )
-                df = df.drop(
-                    "mess_datum_beginn",
-                    "mess_datum_ende",
-                )
-                # Expand dataframe over calculated date ranges -> one datetime per row
-                df = df.explode("mess_datum")
-            else:
-                df = df.with_columns(
-                    [pl.all(), *[pl.lit(None, pl.String).alias(par) for par in PRECIPITATION_PARAMETERS]],
-                )
-                df = df.with_columns(
-                    pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
-                )
-    if dataset.resolution == Resolution.MINUTE_5 and dataset == DwdObservationMetadata.minute_5.precipitation.name:
+    if dataset == DwdObservationMetadata.minute_1.precipitation:
+        # Need to unfold historical data, as it is encoded in its run length e.g.
+        # from time X to time Y precipitation is 0
+        if period == Period.HISTORICAL:
+            df = df.with_columns(
+                pl.col("mess_datum_beginn").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
+                pl.col("mess_datum_ende").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
+            )
+            df = df.with_columns(
+                pl.datetime_ranges(pl.col("mess_datum_beginn"), pl.col("mess_datum_ende"), interval="1m").alias(
+                    "mess_datum",
+                ),
+            )
+            df = df.drop(
+                "mess_datum_beginn",
+                "mess_datum_ende",
+            )
+            # Expand dataframe over calculated date ranges -> one datetime per row
+            df = df.explode("mess_datum")
+        else:
+            df = df.with_columns(
+                [pl.all(), *[pl.lit(None, pl.String).alias(par) for par in PRECIPITATION_PARAMETERS]],
+            )
+            df = df.with_columns(
+                pl.col("mess_datum").cast(str).str.to_datetime(DatetimeFormat.YMDHM.value, time_zone="UTC"),
+            )
+    elif dataset == DwdObservationMetadata.minute_5.precipitation:
         # apparently historical datasets differ from recent and now having all columns as described in the
         # parameter enumeration when recent and now datasets only have precipitation form and
         # precipitation height but not rocker and droplet information
@@ -197,41 +192,38 @@ def _parse_climate_observations_data(
             pl.lit(None, dtype=pl.String).alias(col) if col not in df.collect_schema().names() else pl.col(col)
             for col in columns
         )
-
     # Special handling for hourly solar data, as it has more date columns
-    if dataset.resolution == Resolution.HOURLY:
-        if dataset == DwdObservationMetadata.hourly.solar:
-            # Fix real date column by cutting of minutes
-            df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3], return_dtype=pl.String))
-
-    if dataset.resolution in (Resolution.MONTHLY, Resolution.ANNUAL):
-        df = df.drop("bis_datum", "mess_datum_ende", strict=False)
-        df = df.rename(mapping={"mess_datum_beginn": "mess_datum"})
-
-    if dataset.resolution == Resolution.SUBDAILY and dataset is DwdObservationMetadata.subdaily.wind_extreme:
+    elif dataset == DwdObservationMetadata.hourly.solar:
+        # Fix real date column by cutting of minutes
+        df = df.with_columns(pl.col("mess_datum").map_elements(lambda date: date[:-3], return_dtype=pl.String))
+    elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
         df = df.select(
             pl.all().exclude("qn_8"),
             pl.col("qn_8").alias("qn_8_3" if "fx_911_3" in df.columns else "qn_8_6"),
         )
 
+    if dataset.resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL):
+        df = df.drop("bis_datum", "mess_datum_ende", strict=False)
+        df = df.rename(mapping={"mess_datum_beginn": "mess_datum"})
+
     fmt = None
-    if dataset.resolution == Resolution.MINUTE_5:
+    if dataset.resolution.value == Resolution.MINUTE_5:
         fmt = "%Y%m%d%H%M"
-    elif dataset.resolution == Resolution.MINUTE_10:
+    elif dataset.resolution.value == Resolution.MINUTE_10:
         fmt = "%Y%m%d%H%M"
-    elif dataset.resolution == Resolution.HOURLY:
+    elif dataset.resolution.value == Resolution.HOURLY:
         fmt = "%Y%m%d%H%M"
-    elif dataset.resolution == Resolution.SUBDAILY:
+    elif dataset.resolution.value == Resolution.SUBDAILY:
         fmt = "%Y%m%d%H%M"
-    elif dataset.resolution == Resolution.DAILY:
+    elif dataset.resolution.value == Resolution.DAILY:
         fmt = "%Y%m%d"
-    elif dataset.resolution == Resolution.MONTHLY:
+    elif dataset.resolution.value == Resolution.MONTHLY:
         fmt = "%Y%m%d"
-    elif dataset.resolution == Resolution.ANNUAL:
+    elif dataset.resolution.value == Resolution.ANNUAL:
         fmt = "%Y%m%d"
 
     if fmt:
-        if dataset.resolution in (Resolution.HOURLY, Resolution.SUBDAILY):
+        if dataset.resolution.value in (Resolution.HOURLY, Resolution.SUBDAILY):
             df = df.with_columns(pl.col("mess_datum") + "00")
         df = df.with_columns(
             pl.col("mess_datum").str.to_datetime(fmt, time_zone="UTC"),

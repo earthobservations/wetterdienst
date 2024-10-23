@@ -33,8 +33,7 @@ DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
 
 def create_file_list_for_climate_observations(
     station_id: str,
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
     settings: Settings,
     date_range: str | None = None,
@@ -53,7 +52,7 @@ def create_file_list_for_climate_observations(
     Returns:
         List of path's to file
     """
-    file_index = create_file_index_for_climate_observations(dataset, resolution, period, settings)
+    file_index = create_file_index_for_climate_observations(dataset, period, settings)
 
     file_index = file_index.collect()
 

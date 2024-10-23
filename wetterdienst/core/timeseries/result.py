@@ -152,10 +152,6 @@ class StationsResult(ExportMixin):
         return self.stations._values.from_stations(self)
 
     @property
-    def resolution(self) -> Resolution:
-        return self.stations.resolution
-
-    @property
     def frequency(self) -> Frequency:
         return self.stations.frequency
 
