@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(data: xr.Dataset):
+def plot(data: xr.DatasetModel):
     """Plot radar data with prefixed settings."""
     # Georeference Data.
     swp0 = data.xradar.georeference()
