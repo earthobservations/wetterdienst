@@ -16,6 +16,7 @@ from tzfpy import get_tz
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.metadata_model import ParameterModel, DatasetModel
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
@@ -114,8 +115,7 @@ class TimeseriesValues(metaclass=ABCMeta):
     def _fetch_frequency(
         self,
         station_id,  # noqa: ARG002
-        parameter: Enum,  # noqa: ARG002
-        dataset: Enum,  # noqa: ARG002
+        parameter: ParameterModel,  # noqa: ARG002
     ) -> str:
         """
         Method used to fetch the dynamic frequency string from somewhere and then set it after download the
@@ -222,7 +222,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(start_date, end_date)})
 
-    def _convert_values_to_si(self, df: pl.DataFrame, dataset) -> pl.DataFrame:
+    def _convert_values_to_si(self, df: pl.DataFrame, parameter: ParameterModel) -> pl.DataFrame:
         """
         Function to convert values to metric units with help of conversion factors
 
@@ -233,14 +233,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         if df.is_empty():
             return df
 
-        conversion_factors = self._create_conversion_factors(dataset)
+        conversion_factors = self._create_conversion_factors(parameter.dataset)
 
         data = []
-        for (dataset, parameter), group in df.group_by(
-            [Columns.DATASET.value, Columns.PARAMETER.value],
+        for (parameter, ), group in df.group_by(
+            [Columns.PARAMETER.value],
             maintain_order=True,
         ):
-            op, factor = conversion_factors.get(dataset).get(parameter, (None, None))
+            op, factor = conversion_factors.get(parameter, (None, None))
             if op:
                 group = group.with_columns(pl.col(Columns.VALUE.value).map_batches(lambda s, o=op, f=factor: o(s, f)))
             data.append(group)
@@ -249,7 +249,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     def _create_conversion_factors(
         self,
-        datasets: list[str],
+        dataset: DatasetModel,
     ) -> dict[str, dict[str, tuple[operator.add | operator.mul, float]]]:
         """
         Function to create conversion factors based on a given dataset
@@ -257,22 +257,15 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param dataset: dataset for which conversion factors are created
         :return: dictionary with conversion factors for given parameter name
         """
-        dataset_accessor = self.sr._dataset_accessor
         conversion_factors = {}
-        for dataset in datasets:
-            conversion_factors[dataset] = {}
-            units = self.sr._unit_base[dataset_accessor][dataset.upper()]
-            for parameter in units:
-                parameter_name = self.sr._parameter_base[dataset_accessor][dataset.upper()][
-                    parameter.name
-                ].value.lower()
-                conversion_factors[dataset][parameter_name] = self._get_conversion_factor(*parameter.value)
+        for parameter in dataset:
+            conversion_factors[parameter.original] = self._get_conversion_factor(parameter.unit_original, parameter.unit)
         return conversion_factors
 
     @staticmethod
     def _get_conversion_factor(
-        origin_unit: Enum,
-        si_unit: Enum,
+        unit_original: str,
+        unit_si: str,
     ) -> tuple[operator.mul | operator.add | None, float | None]:
         """
         Method to get the conversion factor (flaot) for a specific parameter
@@ -280,6 +273,8 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param si_unit: si unit enumeration of parameter
         :return: conversion factor as float
         """
+        origin_unit = OriginUnit[unit_original.upper()].value
+        si_unit = SIUnit[unit_si.upper()].value
         if si_unit == SIUnit.KILOGRAM_PER_SQUARE_METER.value:
             # Fixed conversion factors to kg / m², as it only applies
             # for water with density 1 g / cm³
@@ -314,7 +309,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 pass
             return operator.mul, factor
 
-    def _create_empty_station_parameter_df(self, station_id: str, dataset: Enum) -> pl.DataFrame:
+    def _create_empty_station_parameter_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """
         Function to create an empty DataFrame
         :param station_id:
@@ -322,8 +317,6 @@ class TimeseriesValues(metaclass=ABCMeta):
         :return:
         """
         # if parameter is a whole dataset, take every parameter from the dataset instead
-        parameter = [*self.sr._parameter_base[self.sr.resolution.name][dataset.name]]
-
         if not self.sr.start_date:
             return pl.DataFrame(schema=self._meta_fields)
 
@@ -336,10 +329,10 @@ class TimeseriesValues(metaclass=ABCMeta):
         base_df = self._get_base_df(start_date, end_date)
 
         data = []
-        for par in pl.Series(parameter):
-            if par.name.startswith("QUALITY"):
+        for parameter in dataset:
+            if parameter.name.startswith("quality"):
                 continue
-            par_df = base_df.with_columns(pl.lit(par.value).alias(Columns.PARAMETER.value))
+            par_df = base_df.with_columns(pl.lit(parameter.original).alias(Columns.PARAMETER.value))
             data.append(par_df)
 
         df = pl.concat(data)
@@ -386,7 +379,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             data.append(par_df)
         return pl.concat(data)
 
-    def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: Enum) -> pl.DataFrame:
+    def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """
         Method to reorder index to always have the same order of columns
 
@@ -416,7 +409,6 @@ class TimeseriesValues(metaclass=ABCMeta):
         # mapping of original to humanized parameter names is always the same
         if self.sr.humanize:
             hpm = self._create_humanized_parameters_mapping()
-        datasets = [dataset.name.lower() for _, dataset in self.sr.parameter]
 
         for station_id in self.sr.station_id:
             if self.stations_counter == self.sr.rank:
@@ -426,31 +418,32 @@ class TimeseriesValues(metaclass=ABCMeta):
             #  station id not available
             station_data = []
 
-            for parameter, dataset in self.sr.parameter:
+            for parameter in self.sr.stations.parameter:
                 parameter_df = self._collect_station_parameter(
                     station_id=station_id,
                     parameter=parameter,
-                    dataset=dataset,
                 )
 
                 if parameter_df.is_empty():
-                    parameter_df = self._create_empty_station_parameter_df(station_id=station_id, dataset=dataset)
+                    parameter_df = self._create_empty_station_parameter_df(station_id=station_id, dataset=parameter.dataset)
 
-                if parameter != dataset:
-                    parameter_df = parameter_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.value.lower()))
+                parameter_df = parameter_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.original))
+
+                if self.sr.si_units:
+                    parameter_df = self._convert_values_to_si(parameter_df, parameter)
 
                 parameter_df = parameter_df.unique(
                     subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True
                 )
 
                 # set dynamic resolution for services that have no fixed resolutions
-                if self.sr.resolution == Resolution.DYNAMIC:
-                    self.sr.stations.dynamic_frequency = self._fetch_frequency(station_id, parameter, dataset)
+                if parameter.dataset.resolution.value == Resolution.DYNAMIC:
+                    self.sr.stations.dynamic_frequency = self._fetch_frequency(station_id, parameter)
 
                 if self.sr.start_date:
                     parameter_df = self._build_complete_df(parameter_df, station_id)
 
-                parameter_df = self._organize_df_columns(parameter_df, station_id, dataset)
+                parameter_df = self._organize_df_columns(parameter_df, station_id, parameter)
 
                 station_data.append(parameter_df)
 
@@ -481,9 +474,6 @@ class TimeseriesValues(metaclass=ABCMeta):
                 station_df = station_df.drop_nulls(subset="value")
 
             if not station_df.is_empty():
-                if self.sr.si_units:
-                    station_df = self._convert_values_to_si(station_df, datasets)
-
                 if self.sr.humanize:
                     station_df = self._humanize(df=station_df, humanized_parameters_mapping=hpm)
 
@@ -502,7 +492,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             yield ValuesResult(stations=self.sr, values=self, df=station_df)
 
     @abstractmethod
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter(self, station_id: str, parameter: ParameterModel) -> pl.DataFrame:
         """
         Implementation of data collection for a station id plus parameter from the
         specified weather service. Takes care of the gathering of the data and putting
@@ -600,18 +590,10 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         :return:
         """
-        hpm = {}
-        datasets = [
-            dataset for dataset in self.sr._parameter_base[self.sr.resolution.name] if hasattr(dataset, "__name__")
-        ]
-        for dataset in datasets:
-            for parameter in self.sr._parameter_base[self.sr.resolution.name][dataset.__name__]:
-                try:
-                    hpm[parameter.value.lower()] = parameter.name.lower()
-                except AttributeError:
-                    pass
-
-        return hpm
+        return {
+            parameter.original: parameter.name
+            for parameter in self.sr.stations.parameter
+        }
 
     def _get_actual_percentage(self, df: pl.DataFrame) -> float:
         """

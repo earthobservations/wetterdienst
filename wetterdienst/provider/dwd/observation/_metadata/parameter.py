@@ -497,7 +497,7 @@ class DwdObservationParameter(DatasetTreeCore):
 
         # water_equiv
         class WATER_EQUIVALENT(Enum):  # noqa
-            QN_6 = "qn_6"
+            QUALITY = "qn_6"
             SNOW_DEPTH_EXCELLED = "ash_6"  # int
             SNOW_DEPTH = "sh_tag"  # int
             WATER_EQUIVALENT_SNOW_DEPTH = "wash_6"
