@@ -12,14 +12,13 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst import Kind, Parameter, Period, Provider, Settings
+from wetterdienst import Kind, Parameter, Provider, Settings
 from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.exceptions import InvalidEnumerationError, NoParametersFoundError
+from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
@@ -28,7 +27,6 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.parameter import DatasetTreeCore
 from wetterdienst.util.polars_util import read_fwf_from_df
-from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -43,20 +41,6 @@ else:
     MonkeyPatch.patch_fromisoformat()
 
 log = logging.getLogger(__name__)
-
-
-class DwdDmoPeriod(Enum):
-    FUTURE = Period.FUTURE.value
-
-
-class DwdDmoDataset(Enum):
-    ICON_EU = "icon-eu"
-    ICON = "icon"
-
-
-class DwdDmoType(Enum):
-    ICON_EU = "icon-eu"
-    ICON = "icon"
 
 
 class DwdForecastDate(Enum):
@@ -781,8 +765,8 @@ class DwdDmoUnit(DatasetTreeCore):
             )
             SUNSHINE_DURATION_YESTERDAY = OriginUnit.SECOND.value, SIUnit.SECOND.value
             SUNSHINE_DURATION_RELATIVE_LAST_24H = (
-                OriginUnit.DIMENSIONLESS.value,
-                SIUnit.DIMENSIONLESS.value,
+                OriginUnit.PERCENT.value,
+                SIUnit.PERCENT.value,
             )
             PROBABILITY_SUNSHINE_DURATION_RELATIVE_GT_0PCT_LAST_24H = (
                 OriginUnit.PERCENT.value,
@@ -971,6 +955,1003 @@ class DwdDmoUnit(DatasetTreeCore):
             )
 
 
+DwdDmoMetadata = [
+    {
+        "value": "hourly",
+        "periods": ["future"],
+        "datasets": [
+            {
+                "name": "icon_eu",
+                "name_original": "icon_eu",
+                "grouped": True,
+                "parameters": [
+                    {
+                        "name": "cloud_cover_above_7km",
+                        "original": "nh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_below_500ft",
+                        "original": "n05",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_below_1000ft",
+                        "original": "nl",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_between_2km_to_7km",
+                        "original": "nm",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_effective",
+                        "original": "neff",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_total",
+                        "original": "n",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_1h",
+                        "original": "rr1c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_3h",
+                        "original": "rr3c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "pressure_air_site_reduced",
+                        "original": "pppp",
+                        "unit": "pascal",
+                        "unit_original": "pascal",
+                    },
+                    {
+                        "name": "probability_fog_last_1h",
+                        "original": "wwm",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_fog_last_6h",
+                        "original": "wwm6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_fog_last_12h",
+                        "original": "wwmh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_0mm_last_12h",
+                        "original": "rh00",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_6h",
+                        "original": "r602",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_12h",
+                        "original": "rh02",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_24h",
+                        "original": "rd02",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_1mm_last_12h",
+                        "original": "rh10",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_6h",
+                        "original": "r650",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_12h",
+                        "original": "rh50",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_24h",
+                        "original": "rd50",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_25kn_last_12h",
+                        "original": "fxh25",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_40kn_last_12h",
+                        "original": "fxh40",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_55kn_last_12h",
+                        "original": "fxh55",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "radiation_global",
+                        "original": "rad1h",
+                        "unit": "joule_per_square_meter",
+                        "unit_original": "kilojoule_per_square_meter",
+                    },
+                    {
+                        "name": "sunshine_duration",
+                        "original": "sund1",
+                        "unit": "second",
+                        "unit_original": "second",
+                    },
+                    {
+                        "name": "temperature_air_max_2m",
+                        "original": "tx",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_mean_0_05m",
+                        "original": "t5cm",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_mean_2m",
+                        "original": "ttt",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_min_2m",
+                        "original": "tn",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_dew_point_mean_2m",
+                        "original": "td",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "visibility_range",
+                        "original": "vv",
+                        "unit": "meter",
+                        "unit_original": "meter",
+                    },
+                    {
+                        "name": "water_equivalent_snow_depth_new_last_1h",
+                        "original": "rrs1c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "water_equivalent_snow_depth_new_last_3h",
+                        "original": "rrs3c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "weather_last_6h",
+                        "original": "w1w2",
+                        "unit": "dimensionless",
+                        "unit_original": "dimensionless",
+                    },
+                    {
+                        "name": "weather_significant",
+                        "original": "ww",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "wind_direction",
+                        "original": "dd",
+                        "unit": "degree",
+                        "unit_original": "degree",
+                    },
+                    {
+                        "name": "wind_gust_max_last_1h",
+                        "original": "fx1",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "wind_gust_max_last_3h",
+                        "original": "fx3",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "wind_gust_max_last_12h",
+                        "original": "fxh",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "wind_speed",
+                        "original": "ff",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                ],
+            },
+            {
+                "name": "icon",
+                "name_original": "icon",
+                "grouped": True,
+                "parameters": [
+                    {
+                        "name": "cloud_base_convective",
+                        "original": "h_bsc",
+                        "unit": "meter",
+                        "unit_original": "meter",
+                    },
+                    {
+                        "name": "cloud_cover_above_7km",
+                        "original": "nh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_below_500ft",
+                        "original": "n05",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_below_1000ft",
+                        "original": "nl",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_between_2km_to_7km",
+                        "original": "nm",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_below_7km",
+                        "original": "nlm",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_effective",
+                        "original": "neff",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "cloud_cover_total",
+                        "original": "n",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "error_absolute_pressure_air_site",
+                        "original": "e_ppp",
+                        "unit": "pascal",
+                        "unit_original": "pascal",
+                    },
+                    {
+                        "name": "error_absolute_temperature_air_mean_2m",
+                        "original": "e_ttt",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "error_absolute_temperature_dew_point_mean_2m",
+                        "original": "e_td",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "error_absolute_wind_direction",
+                        "original": "e_dd",
+                        "unit": "degree",
+                        "unit_original": "degree",
+                    },
+                    {
+                        "name": "error_absolute_wind_speed",
+                        "original": "e_ff",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "evapotranspiration_potential_last_24h",
+                        "original": "pevap",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_duration",
+                        "original": "drr1",
+                        "unit": "second",
+                        "unit_original": "second",
+                    },
+                    {
+                        "name": "precipitation_height_last_1h",
+                        "original": "rr1",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_last_3h",
+                        "original": "rr3",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_last_6h",
+                        "original": "rr6",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_last_12h",
+                        "original": "rrh",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_last_24h",
+                        "original": "rrd",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_liquid_significant_weather_last_1h",
+                        "original": "rrl1c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_1h",
+                        "original": "rr1c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_3h",
+                        "original": "rr3c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_6h",
+                        "original": "rr6c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_12h",
+                        "original": "rrhc",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "precipitation_height_significant_weather_last_24h",
+                        "original": "rrdc",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "pressure_air_site_reduced",
+                        "original": "pppp",
+                        "unit": "pascal",
+                        "unit_original": "pascal",
+                    },
+                    {
+                        "name": "probability_drizzle_last_1h",
+                        "original": "wwz",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_drizzle_last_6h",
+                        "original": "wwz6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_drizzle_last_12h",
+                        "original": "wwzh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_fog_last_1h",
+                        "original": "wwm",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_fog_last_6h",
+                        "original": "wwm6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_fog_last_12h",
+                        "original": "wwmh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_fog_last_24h",
+                        "original": "wwmd",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_convective_last_1h",
+                        "original": "wwc",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_convective_last_6h",
+                        "original": "wwc6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_convective_last_12h",
+                        "original": "wwch",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_freezing_last_1h",
+                        "original": "wwf",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_freezing_last_6h",
+                        "original": "wwf6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_freezing_last_12h",
+                        "original": "wwfh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_0mm_last_6h",
+                        "original": "r600",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_0mm_last_12h",
+                        "original": "rh00",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_0mm_last_24h",
+                        "original": "rd00",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_1mm_last_1h",
+                        "original": "r101",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_1h",
+                        "original": "r102",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_6h",
+                        "original": "r602",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_12h",
+                        "original": "rh02",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_2mm_last_24h",
+                        "original": "rd02",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_3mm_last_1h",
+                        "original": "r103",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_5mm_last_1h",
+                        "original": "r105",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_0_7mm_last_1h",
+                        "original": "r107",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_1mm_last_1h",
+                        "original": "r110",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_1mm_last_6h",
+                        "original": "r610",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_1mm_last_12h",
+                        "original": "rh10",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_1mm_last_24h",
+                        "original": "rd10",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_2mm_last_1h",
+                        "original": "r120",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_3mm_last_1h",
+                        "original": "r130",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_1h",
+                        "original": "r150",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_6h",
+                        "original": "r650",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_12h",
+                        "original": "rh50",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_5mm_last_24h",
+                        "original": "rd50",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_10mm_last_1h",
+                        "original": "rr1o1",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_15mm_last_1h",
+                        "original": "rr1w1",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_height_gt_25mm_last_1h",
+                        "original": "rr1u1",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_last_1h",
+                        "original": "wwp",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_last_6h",
+                        "original": "wwp6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_last_12h",
+                        "original": "wwph",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_last_24h",
+                        "original": "wwpd",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_liquid_last_1h",
+                        "original": "wwl",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_liquid_last_6h",
+                        "original": "wwl6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_liquid_last_12h",
+                        "original": "wwlh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_solid_last_1h",
+                        "original": "wws",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_solid_last_6h",
+                        "original": "wws6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_solid_last_12h",
+                        "original": "wwsh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_stratiform_last_1h",
+                        "original": "wwd",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_stratiform_last_6h",
+                        "original": "wwd6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_precipitation_stratiform_last_12h",
+                        "original": "wwdh",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_radiation_global_last_1h",
+                        "original": "rrad1",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_sunshine_duration_relative_gt_0pct_last_24h",
+                        "original": "psd00",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_sunshine_duration_relative_gt_30pct_last_24h",
+                        "original": "psd30",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_sunshine_duration_relative_gt_60pct_last_24h",
+                        "original": "psd60",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_thunder_last_1h",
+                        "original": "wwt",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_thunder_last_6h",
+                        "original": "wwt6",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_thunder_last_12h",
+                        "original": "wwth",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_thunder_last_24h",
+                        "original": "wwtd",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_visibility_below_1000m",
+                        "original": "vv10",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_25kn_last_6h",
+                        "original": "fx625",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_25kn_last_12h",
+                        "original": "fxh25",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_40kn_last_6h",
+                        "original": "fx640",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_40kn_last_12h",
+                        "original": "fxh40",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_55kn_last_6h",
+                        "original": "fx655",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "probability_wind_gust_ge_55kn_last_12h",
+                        "original": "fxh55",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "radiation_global",
+                        "original": "rad1h",
+                        "unit": "joule_per_square_meter",
+                        "unit_original": "kilojoule_per_square_meter",
+                    },
+                    {
+                        "name": "radiation_global_last_3h",
+                        "original": "rads3",
+                        "unit": "joule_per_square_meter",
+                        "unit_original": "kilojoule_per_square_meter",
+                    },
+                    {
+                        "name": "radiation_sky_long_wave_last_3h",
+                        "original": "radl3",
+                        "unit": "joule_per_square_meter",
+                        "unit_original": "kilojoule_per_square_meter",
+                    },
+                    {
+                        "name": "sunshine_duration",
+                        "original": "sund1",
+                        "unit": "second",
+                        "unit_original": "second",
+                    },
+                    {
+                        "name": "sunshine_duration_last_3h",
+                        "original": "sund3",
+                        "unit": "second",
+                        "unit_original": "second",
+                    },
+                    {
+                        "name": "sunshine_duration_relative_last_24h",
+                        "original": "rsund",
+                        "unit": "percent",
+                        "unit_original": "percent",
+                    },
+                    {
+                        "name": "sunshine_duration_yesterday",
+                        "original": "sund",
+                        "unit": "second",
+                        "unit_original": "second",
+                    },
+                    {
+                        "name": "temperature_air_max_2m",
+                        "original": "tx",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_mean_0_05m",
+                        "original": "t5cm",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_mean_2m",
+                        "original": "ttt",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_mean_2m_last_24h",
+                        "original": "tm",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_min_0_05m_last_12h",
+                        "original": "tg",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_air_min_2m",
+                        "original": "tn",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "temperature_dew_point_mean_2m",
+                        "original": "td",
+                        "unit": "degree_kelvin",
+                        "unit_original": "degree_kelvin",
+                    },
+                    {
+                        "name": "visibility_range",
+                        "original": "vv",
+                        "unit": "meter",
+                        "unit_original": "meter",
+                    },
+                    {
+                        "name": "water_equivalent_snow_depth_new_last_1h",
+                        "original": "rrs1c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "water_equivalent_snow_depth_new_last_3h",
+                        "original": "rrs3c",
+                        "unit": "kilogram_per_square_meter",
+                        "unit_original": "kilogram_per_square_meter",
+                    },
+                    {
+                        "name": "weather_last_6h",
+                        "original": "w1w2",
+                        "unit": "dimensionless",
+                        "unit_original": "dimensionless",
+                    },
+                    {
+                        "name": "weather_significant",
+                        "original": "ww",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "weather_significant_last_3h",
+                        "original": "ww3",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "weather_significant_optional_last_1h",
+                        "original": "wpc11",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "weather_significant_optional_last_3h",
+                        "original": "wpc31",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "weather_significant_optional_last_6h",
+                        "original": "wpc61",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "weather_significant_optional_last_12h",
+                        "original": "wpch1",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "weather_significant_optional_last_24h",
+                        "original": "wpcd1",
+                        "unit": "significant_weather",
+                        "unit_original": "significant_weather",
+                    },
+                    {
+                        "name": "wind_direction",
+                        "original": "dd",
+                        "unit": "degree",
+                        "unit_original": "degree",
+                    },
+                    {
+                        "name": "wind_gust_max_last_1h",
+                        "original": "fx1",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "wind_gust_max_last_3h",
+                        "original": "fx3",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "wind_gust_max_last_12h",
+                        "original": "fxh",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                    {
+                        "name": "wind_speed",
+                        "original": "ff",
+                        "unit": "meter_per_second",
+                        "unit_original": "meter_per_second",
+                    },
+                ],
+            },
+        ],
+    }
+]
+DwdDmoMetadata = MetadataModel.model_validate(DwdDmoMetadata)
+
+
 class DwdDmoStationGroup(Enum):
     SINGLE_STATIONS = "single_stations"
     ALL_STATIONS = "all_stations"
@@ -1051,20 +2032,6 @@ class DwdDmoValues(TimeseriesValues):
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
 
-    def _create_humanized_parameters_mapping(self) -> dict[str, str]:
-        """
-        Method for creation of parameter name mappings based on
-        self._parameter_base
-
-        :return:
-        """
-        return {
-            parameter.value: parameter.name.lower()
-            for parameter in self.sr.stations._parameter_base[self.sr.stations.dmo_type.name][
-                self.sr.stations.dmo_type.name
-            ]
-        }
-
     def __init__(self, stations_result: StationsResult) -> None:
         """
 
@@ -1077,8 +2044,8 @@ class DwdDmoValues(TimeseriesValues):
             settings=self.sr.stations.settings,
         )
 
-    def get_dwd_dmo_path(self, dataset: Enum, station_id: str | None = None) -> str:
-        path = f"weather/local_forecasts/dmo/{dataset.value}/{self.sr.stations.station_group.value}"
+    def get_dwd_dmo_path(self, dataset: DatasetModel, station_id: str | None = None) -> str:
+        path = f"weather/local_forecasts/dmo/{dataset.name_original}/{self.sr.stations.station_group.value}"
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
             return f"{path}/kmz"
         return f"{path}/{station_id}/kmz/"
@@ -1092,8 +2059,10 @@ class DwdDmoValues(TimeseriesValues):
         """
         return self.sr.df
 
-    def _collect_station_parameter(self, station_id: str, parameter, dataset) -> pl.DataFrame:  # noqa: ARG002
-        df = self.read_dmo(station_id, self.sr.stations.issue)
+    def _collect_station_parameter_or_dataset(
+        self, station_id: str, parameter_or_dataset: DatasetModel
+    ) -> pl.DataFrame:
+        df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=self.sr.stations.issue)
         if df.is_empty():
             return df
         df = df.unpivot(
@@ -1108,15 +2077,15 @@ class DwdDmoValues(TimeseriesValues):
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 
-    def read_dmo(self, station_id: str, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
-        if self.sr.stations.dmo_type == DwdDmoType.ICON_EU:
+    def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
+        if dataset == DwdDmoMetadata.hourly.icon_eu:
             return self.read_icon_eu(station_id, date)
         else:
             return self.read_icon(station_id, date)
 
     def read_icon_eu(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Reads large icon_eu file with all stations."""
-        dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON_EU)
+        dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu)
         url = urljoin("https://opendata.dwd.de", dmo_path)
         file_url = self.get_url_for_date(url, date)
         self.kml.read(file_url)
@@ -1125,9 +2094,9 @@ class DwdDmoValues(TimeseriesValues):
     def read_icon(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
         """Reads either large icon file with all stations or small single station file."""
         if self.sr.stations.station_group == DwdDmoStationGroup.ALL_STATIONS:
-            dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON)
+            dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon)
         else:
-            dmo_path = self.get_dwd_dmo_path(DwdDmoDataset.ICON, station_id=station_id)
+            dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon, station_id=station_id)
         url = urljoin("https://opendata.dwd.de", dmo_path)
         file_url = self.get_url_for_date(url, date)
         self.kml.read(file_url)
@@ -1169,15 +2138,7 @@ class DwdDmoRequest(TimeseriesRequest):
     _provider = Provider.DWD
     _kind = Kind.FORECAST
     _tz = Timezone.GERMANY
-    _dataset_base = DwdDmoDataset
-    _parameter_base = DwdDmoParameter
-    _unit_base = DwdDmoUnit
-    _resolution_type = ResolutionType.FIXED
-    _resolution_base = Resolution  # use general Resolution for fixed Resolution
-    _period_type = PeriodType.FIXED
-    _period_base = DwdDmoPeriod
-    _has_datasets = True
-    _unique_dataset = True
+    metadata = DwdDmoMetadata
     _data_range = DataRange.FIXED
     _values = DwdDmoValues
 
@@ -1185,29 +2146,6 @@ class DwdDmoRequest(TimeseriesRequest):
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
         "dmo_stationsliste_txt.asc?__blob=publicationFile&v=1"
     )
-
-    @property
-    def _dataset_accessor(self) -> str:
-        """
-        Implementation for tidying dmo data
-
-        :return:
-        """
-        return self.dmo_type.name
-
-    @classmethod
-    def _setup_resolution_filter(cls, resolution):
-        """
-        Use ICON_EU and ICON instead of resolution, which is fixed for DMO
-
-        :param resolution:
-        :return:
-        """
-        return (
-            [parse_enumeration_from_template(res, intermediate=cls._dataset_base) for res in to_list(resolution)]
-            if resolution
-            else [*cls._dataset_base]
-        )
 
     _base_columns = [
         Columns.STATION_ID.value,
@@ -1239,7 +2177,6 @@ class DwdDmoRequest(TimeseriesRequest):
     def __init__(
         self,
         parameter: str | DwdDmoParameter | Parameter | Sequence[str | DwdDmoParameter | Parameter],
-        dmo_type: str | DwdDmoType,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
@@ -1248,37 +2185,20 @@ class DwdDmoRequest(TimeseriesRequest):
         settings: Settings | None = None,
     ) -> None:
         """
-
         :param parameter: parameter(s) to be collected
-        :param dmo_type: dmo type, either small or large
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
         :param issue: issue of dmo which should be caught (DMO run at time XX:YY)
         """
-        try:
-            self.dmo_type = parse_enumeration_from_template(dmo_type, DwdDmoType)
-        except InvalidEnumerationError as e:
-            raise NoParametersFoundError("no valid parameters could be parsed from given argument") from e
-        try:
-            self.station_group = (
-                parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
-            )
-        except InvalidEnumerationError:
-            self.station_group = DwdDmoStationGroup.SINGLE_STATIONS
-        if self.dmo_type == DwdDmoType.ICON_EU:
-            self.lead_time = DwdDmoLeadTime.SHORT
-        else:
-            try:
-                self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
-            except InvalidEnumerationError as e:
-                raise NoParametersFoundError("no valid lead time could be parsed from given argument") from e
+        self.station_group = (
+            parse_enumeration_from_template(station_group, DwdDmoStationGroup) or DwdDmoStationGroup.SINGLE_STATIONS
+        )
+        self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
 
         super().__init__(
             parameter=parameter,
             start_date=start_date,
             end_date=end_date,
-            resolution=Resolution.HOURLY,
-            period=Period.FUTURE,
             settings=settings,
         )
 
@@ -1296,12 +2216,6 @@ class DwdDmoRequest(TimeseriesRequest):
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour)
             # Shift issue date to 0, 12 hour format
             issue = self.adjust_datetime(issue)
-
-        # TODO: this should be replaced by the freq property in the main class
-        if self.dmo_type == DwdDmoType.ICON_EU:
-            self.resolution = Resolution.HOURLY
-        else:
-            self.resolution = Resolution.HOUR_6
 
         self.issue = issue
 

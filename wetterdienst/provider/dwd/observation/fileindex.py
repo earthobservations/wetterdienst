@@ -9,22 +9,15 @@ import polars as pl
 
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.extension import Extension
-from wetterdienst.metadata.metadata_model import DatasetModel
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation._metadata.resolution import HIGH_RESOLUTIONS
-from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata, DWD_URBAN_DATASETS
-
-# from wetterdienst.provider.dwd.observation.metadata.dataset import (
-#     DWD_URBAN_DATASETS,
-#     DwdObservationDataset,
-# )
-# from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
+from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from wetterdienst.metadata.metadata_model import DatasetModel
     from wetterdienst.settings import Settings
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
@@ -168,7 +161,7 @@ def _create_file_index_for_dwd_server(
 
 
 def build_path_to_parameter(
-    dataset: DwdObservationMetadata,
+    dataset: DatasetModel,
     period: Period,
 ) -> str:
     """

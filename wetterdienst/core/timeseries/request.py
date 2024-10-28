@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from abc import abstractmethod
-from enum import Enum
 from hashlib import sha256
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -25,16 +24,14 @@ from wetterdienst.core.timeseries.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.exceptions import (
-    InvalidEnumerationError,
     NoParametersFoundError,
     StartDateEndDateError,
     StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import MetadataModel, ParameterTemplate, ParameterModel
+from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel, ParameterTemplate
 from wetterdienst.metadata.parameter import Parameter
-from wetterdienst.metadata.period import Period, PeriodType
-from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
@@ -75,47 +72,6 @@ class TimeseriesRequest(Core):
         """Optional enumeration for multiple resolutions"""
         pass
 
-    # @property
-    # @abstractmethod
-    # def _resolution_base(self) -> Resolution | None:
-    #     """Optional enumeration for multiple resolutions"""
-    #     pass
-
-    @property
-    @abstractmethod
-    def _resolution_type(self) -> ResolutionType:
-        """Resolution type, multi, fixed, ..."""
-        pass
-
-    @property
-    def frequency(self) -> Frequency:
-        """Frequency for the given resolution, used to create a full date range for
-        mering"""
-        if self.resolution == Resolution.DYNAMIC:
-            return self._dynamic_frequency
-        return Frequency[self.resolution.name]
-
-    @property
-    def dynamic_frequency(self) -> Frequency | None:
-        return self._dynamic_frequency
-
-    @dynamic_frequency.setter
-    def dynamic_frequency(self, df) -> None:
-        if df:
-            self._dynamic_frequency = parse_enumeration_from_template(df, Frequency)
-
-    @property
-    @abstractmethod
-    def _period_type(self) -> PeriodType:
-        """Period type, fixed, multi, ..."""
-        pass
-
-    # @property
-    # @abstractmethod
-    # def _period_base(self) -> Period | None:
-    #     """Period base enumeration from which a period string can be parsed"""
-    #     pass
-
     @property
     @abstractmethod
     def metadata(self) -> MetadataModel:
@@ -123,59 +79,12 @@ class TimeseriesRequest(Core):
         DWDObservationParameter"""
         pass
 
-    # @property
-    # @abstractmethod
-    # def _unit_base(self):
-    #     pass
-
     @property
     @abstractmethod
     def _data_range(self) -> DataRange:
         """State whether data from this provider is given in fixed data chunks
         or has to be defined over start and end date"""
         pass
-
-    @property
-    @abstractmethod
-    def _has_datasets(self) -> bool:
-        """Boolean if weather service has datasets (when multiple parameters are stored
-        in one table/file)"""
-        pass
-
-    # @property
-    # def _dataset_base(self) -> Enum | None:
-    #     """Dataset base that is used to differ between different datasets"""
-    #     if self._has_datasets:
-    #         raise NotImplementedError("implement _dataset_base enumeration that contains available datasets")
-    #
-    #     return self._resolution_base
-
-    # @property
-    # def _unique_dataset(self) -> bool:
-    #     """If ALL parameters are stored in one dataset e.g. all daily data is stored in
-    #     one file"""
-    #     if self._has_datasets:
-    #         raise NotImplementedError("define if only one big dataset is available")
-    #     return False
-    #
-    # @property
-    # def _dataset_accessor(self) -> str:
-    #     """Accessor for dataset, by default the resolution is used as we expect
-    #     datasets to be divided in resolutions but for some e.g. DWD Mosmix
-    #     datasets are divided in another way (SMALL/LARGE in this case)"""
-    #     return self.resolution.name
-    #
-    # @property
-    # def _parameter_to_dataset_mapping(self) -> dict:
-    #     """Mapping to go from a (flat) parameter to dataset"""
-    #     if not self._unique_dataset:
-    #         raise NotImplementedError("for non unique datasets implement a mapping from parameter to dataset")
-    #     return {}
-
-    # @property
-    # def datasets(self):
-    #     datasets = self._dataset_tree[self._dataset_accessor].__dict__.keys()
-    #     return [ds for ds in datasets if ds not in ("__module__", "__doc__")]
 
     @property
     @abstractmethod
@@ -205,26 +114,7 @@ class TimeseriesRequest(Core):
         Parameter.PRECIPITATION_HEIGHT.name,
     ]
 
-    # def _parse_period(self, period: Period) -> list[Period] | None:
-    #     """
-    #     Method to parse period(s)
-    #
-    #     :param period:
-    #     :return:
-    #     """
-    #     if not period:
-    #         return None
-    #     elif self._period_type == PeriodType.FIXED:
-    #         return [period]
-    #     else:
-    #         return sorted(
-    #             [
-    #                 parse_enumeration_from_template(p, intermediate=self._period_base, base=Period)
-    #                 for p in to_list(period)
-    #             ],
-    #         )
-
-    def _parse_parameter(self, parameter: list[str | Enum | None]) -> list[ParameterModel]:
+    def _parse_parameter(self, parameter: list[str | ParameterModel | DatasetModel]) -> list[ParameterModel]:
         """
         Method to parse parameters, either from string or enum. Case independent for
         strings.
@@ -243,114 +133,6 @@ class TimeseriesRequest(Core):
         if not len(unique_resolutions) == 1:
             raise ValueError(f"All parameters must have the same resolution. Found: {unique_resolutions}")
         return parameters_found
-        # # TODO: refactor this!
-        # # for logging
-        # enums = []
-        # if self._dataset_base:
-        #     enums.append(self._dataset_base)
-        #
-        # enums.append(self._parameter_base)
-        #
-        # parameters = []
-        #
-        # for par in to_list(parameter):
-        #     # Each parameter can either be
-        #     #  - a dataset : gets all data from the dataset
-        #     #  - a parameter : gets prefixed parameter from a resolution e.g.
-        #     #      precipitation height of daily values is taken from climate summary
-        #     #  - a tuple of parameter -> dataset : to decide from which dataset
-        #     #    the parameter is taken
-        #     try:
-        #         parameter, dataset = to_list(par)
-        #     except (ValueError, TypeError):
-        #         parameter, dataset = par, par
-        #
-        #     try:
-        #         parameter = parameter.name
-        #     except AttributeError:
-        #         pass
-        #
-        #     try:
-        #         dataset = dataset.name
-        #     except AttributeError:
-        #         pass
-        #
-        #     # Prefix return values
-        #     parameter_, dataset_ = self._parse_dataset_and_parameter(parameter, dataset)
-        #
-        #     if not (parameter_ and dataset_):
-        #         parameter_, dataset_ = self._parse_parameter_and_dataset(parameter)
-        #
-        #     if parameter_ and dataset_:
-        #         parameters.append((parameter_, dataset_))
-        #     else:
-        #         log.info(f"parameter {parameter} could not be parsed from ({enums})")
-        #
-        # return parameters
-
-    def _parse_dataset_and_parameter(self, parameter, dataset) -> tuple[Enum | None, Enum | None]:
-        """
-        Parse parameters for cases like
-            - parameter=("climate_summary", ) or
-            - parameter=(("precipitation_height", "climate_summary"))
-        :param self:
-        :param parameter:
-        :param dataset:
-        :return:
-        """
-        parameter_, dataset_ = None, None
-
-        try:
-            dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
-        except InvalidEnumerationError:
-            pass
-
-        if dataset_:
-            try:
-                self._parameter_base[self._dataset_accessor][dataset_.name]
-            except (KeyError, AttributeError):
-                log.warning(f"dataset {dataset_.name} is not a valid dataset for resolution {self._dataset_accessor}")
-                return None, None
-
-        if dataset_:
-            if parameter == dataset:
-                # Case 1: entire dataset e.g. parameter="climate_summary"
-                parameter_, dataset_ = dataset_, dataset_
-            else:
-                # Case 2: dataset and parameter e.g. (precipitation_height, climate_summary)
-                try:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter,
-                        self._parameter_base[self._dataset_accessor][dataset_.name],
-                    )
-                except (InvalidEnumerationError, TypeError):
-                    pass
-
-        return parameter_, dataset_
-
-    def _parse_parameter_and_dataset(self, parameter) -> tuple[Enum, Enum]:
-        """Try to parse dataset first e.g. when "climate_summary" or
-        "precipitation_height", "climate_summary" is requested
-
-        :param parameter:
-        :return:
-        """
-
-        parameter_, dataset_ = None, None
-
-        flat_parameters = {par for par in self._parameter_base[self._dataset_accessor] if hasattr(par, "name")}
-
-        for par in flat_parameters:
-            if par.name.lower() == parameter.lower() or par.value.lower() == parameter.lower():
-                parameter_ = par
-                break
-
-        if parameter_:
-            dataset_name = parameter_.__class__.__name__
-
-            dataset_ = parse_enumeration_from_template(dataset_name, self._dataset_base)
-
-        return parameter_, dataset_
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
@@ -365,8 +147,6 @@ class TimeseriesRequest(Core):
     def __init__(
         self,
         parameter: str | Parameter | Sequence[str | Parameter],
-        # resolution: str | Resolution,
-        # period: str | Period,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,
@@ -383,9 +163,6 @@ class TimeseriesRequest(Core):
         self.settings = Settings.model_validate(settings)
 
         super().__init__()
-
-        # self.resolution = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
-        # self.period = self._parse_period(period)
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
         self.parameter = self._parse_parameter(parameter)
@@ -413,41 +190,10 @@ class TimeseriesRequest(Core):
 
         if not self.tidy and settings.ts_dropna:
             log.info(
-                "option 'ts_dropna' is only available with option 'ts_shape' " "and is thus ignored in this request.",
+                "option 'ts_dropna' is only available with option 'ts_shape' and is thus ignored in this request.",
             )
 
-        # optional attribute for dynamic resolutions
-        # if self.resolution == Resolution.DYNAMIC:
-        #     self._dynamic_frequency = None
-
         log.info(f"Processing request {self.__repr__()}")
-
-    # def __repr__(self):
-    #     """Representation of request object"""
-    #     parameters_joined = ", ".join([f"({parameter.value}/{dataset.value})" for parameter, dataset in self.parameter])
-    #     periods_joined = self.period and ", ".join([period.value for period in self.period])
-    #
-    #     return (
-    #         f"{self.__class__.__name__}("
-    #         f"parameter=[{parameters_joined}], "
-    #         f"resolution={self.resolution.value}, "
-    #         f"period=[{periods_joined}], "
-    #         f"start_date={str(self.start_date)}, "
-    #         f"end_date={str(self.end_date)}, "
-    #         f"humanize={self.humanize}, "
-    #         f"format={self.shape}, "
-    #         f"si_units={self.si_units})"
-    #     )
-
-    # def __eq__(self, other) -> bool:
-    #     """Equal method of request object"""
-    #     return (
-    #         self.parameter == other.parameter
-    #         and self.resolution == other.resolution
-    #         and self.period == other.period
-    #         and self.start_date == other.start_date
-    #         and self.end_date == other.end_date
-    #     )
 
     @staticmethod
     def convert_timestamps(

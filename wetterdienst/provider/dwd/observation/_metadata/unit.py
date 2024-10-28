@@ -599,7 +599,7 @@ class DwdObservationUnit(DatasetTreeCore):
 
         # soil_temperature
         class TEMPERATURE_SOIL(UnitEnum):  # noqa
-            QUALITY = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DIMENSIONLESS.value
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             TEMPERATURE_SOIL_MEAN_0_02M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
@@ -644,7 +644,7 @@ class DwdObservationUnit(DatasetTreeCore):
 
         # water_equiv
         class WATER_EQUIVALENT(UnitEnum):  # noqa
-            QN_6 = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
+            QUALITY = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
             SNOW_DEPTH_EXCELLED = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             SNOW_DEPTH = OriginUnit.CENTIMETER.value, SIUnit.METER.value
             WATER_EQUIVALENT_SNOW_DEPTH = (

@@ -16,8 +16,8 @@ Metadata
 Datasets
 ********
 
-Minute_15
-=========
+Road_weather
+============
 
 Metadata
 --------
@@ -27,7 +27,7 @@ Metadata
    :stub-columns: 1
 
    * - original name
-     - minute_15
+     -
    * - url
      - `here <https://opendata.dwd.de/weather/weather_reports/road_weather_stations/>`_
    * - description file

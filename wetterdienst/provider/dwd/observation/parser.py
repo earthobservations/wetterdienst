@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import logging
 from io import BytesIO, StringIO
+from typing import TYPE_CHECKING
 
 import polars as pl
 
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import ParameterModel, DatasetModel
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-
-# from wetterdienst.provider.dwd.observation.metadata.dataset import DwdObservationDataset
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.metadata_model import DatasetModel
 
 log = logging.getLogger(__name__)
 
@@ -96,9 +97,7 @@ def parse_climate_observations_data(
     """
     if dataset.resolution is Resolution.SUBDAILY and dataset is DwdObservationMetadata.subdaily.wind_extreme:
         data = [
-            _parse_climate_observations_data(filename_and_file,
-                                             dataset,
-                                             period)
+            _parse_climate_observations_data(filename_and_file, dataset, period)
             for filename_and_file in filenames_and_files
         ]
         try:
@@ -110,9 +109,7 @@ def parse_climate_observations_data(
     else:
         if len(filenames_and_files) > 1:
             raise ValueError("only one file expected")
-        return _parse_climate_observations_data(filenames_and_files[0],
-                                                dataset,
-                                                period)
+        return _parse_climate_observations_data(filenames_and_files[0], dataset, period)
 
 
 def _parse_climate_observations_data(

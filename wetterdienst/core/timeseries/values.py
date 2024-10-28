@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import operator
 from abc import ABCMeta, abstractmethod
+from itertools import groupby
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -16,7 +17,6 @@ from tzfpy import get_tz
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import ParameterModel, DatasetModel
 from wetterdienst.metadata.resolution import DAILY_AT_MOST, Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
@@ -25,7 +25,8 @@ from wetterdienst.util.logging import TqdmToLogger
 if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Iterator
-    from enum import Enum
+
+    from wetterdienst.metadata.metadata_model import DatasetModel, ParameterModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -222,7 +223,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(start_date, end_date)})
 
-    def _convert_values_to_si(self, df: pl.DataFrame, parameter: ParameterModel) -> pl.DataFrame:
+    def _convert_values_to_si(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """
         Function to convert values to metric units with help of conversion factors
 
@@ -233,10 +234,10 @@ class TimeseriesValues(metaclass=ABCMeta):
         if df.is_empty():
             return df
 
-        conversion_factors = self._create_conversion_factors(parameter.dataset)
+        conversion_factors = self._create_conversion_factors(dataset)
 
         data = []
-        for (parameter, ), group in df.group_by(
+        for (parameter,), group in df.group_by(
             [Columns.PARAMETER.value],
             maintain_order=True,
         ):
@@ -259,7 +260,9 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         conversion_factors = {}
         for parameter in dataset:
-            conversion_factors[parameter.original] = self._get_conversion_factor(parameter.unit_original, parameter.unit)
+            conversion_factors[parameter.original] = self._get_conversion_factor(
+                parameter.unit_original, parameter.unit
+            )
         return conversion_factors
 
     @staticmethod
@@ -309,12 +312,9 @@ class TimeseriesValues(metaclass=ABCMeta):
                 pass
             return operator.mul, factor
 
-    def _create_empty_station_parameter_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
+    def _create_empty_station_df(self, station_id: str, parameters: list[ParameterModel]) -> pl.DataFrame:
         """
-        Function to create an empty DataFrame
-        :param station_id:
-        :param parameter:
-        :return:
+        Function to create an empty DataFrame for a station with all parameters
         """
         # if parameter is a whole dataset, take every parameter from the dataset instead
         if not self.sr.start_date:
@@ -329,7 +329,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         base_df = self._get_base_df(start_date, end_date)
 
         data = []
-        for parameter in dataset:
+        for parameter in parameters:
             if parameter.name.startswith("quality"):
                 continue
             par_df = base_df.with_columns(pl.lit(parameter.original).alias(Columns.PARAMETER.value))
@@ -414,46 +414,54 @@ class TimeseriesValues(metaclass=ABCMeta):
             if self.stations_counter == self.sr.rank:
                 break
 
-            # TODO: add method to return empty result with correct response string e.g.
-            #  station id not available
-            station_data = []
+            data = []
 
-            for parameter in self.sr.stations.parameter:
-                parameter_df = self._collect_station_parameter(
-                    station_id=station_id,
-                    parameter=parameter,
-                )
+            for dataset, parameters in groupby(self.sr.stations.parameter, key=lambda x: x.dataset):
+                if dataset.grouped:
+                    df = self._collect_station_parameter_or_dataset(
+                        station_id=station_id,
+                        parameter_or_dataset=dataset,
+                    )
+                    df = df.filter(
+                        pl.col(Columns.PARAMETER.value).is_in([parameter.original for parameter in parameters])
+                    )
+                else:
+                    dataset_data = []
+                    for parameter in parameters:
+                        df = self._collect_station_parameter_or_dataset(
+                            station_id=station_id,
+                            parameter_or_dataset=parameter,
+                        )
+                        data.append(df)
+                    df = pl.concat(dataset_data)
+                    del dataset_data
 
-                if parameter_df.is_empty():
-                    parameter_df = self._create_empty_station_parameter_df(station_id=station_id, dataset=parameter.dataset)
-
-                parameter_df = parameter_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.original))
+                if df.is_empty():
+                    df = self._create_empty_station_df(station_id=station_id, parameters=parameters)
 
                 if self.sr.si_units:
-                    parameter_df = self._convert_values_to_si(parameter_df, parameter)
+                    df = self._convert_values_to_si(df, dataset)
 
-                parameter_df = parameter_df.unique(
-                    subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True
-                )
+                df = df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True)
 
                 # set dynamic resolution for services that have no fixed resolutions
-                if parameter.dataset.resolution.value == Resolution.DYNAMIC:
+                if dataset.resolution.value == Resolution.DYNAMIC:
                     self.sr.stations.dynamic_frequency = self._fetch_frequency(station_id, parameter)
 
                 if self.sr.start_date:
-                    parameter_df = self._build_complete_df(parameter_df, station_id)
+                    df = self._build_complete_df(df, station_id)
 
-                parameter_df = self._organize_df_columns(parameter_df, station_id, parameter)
+                df = self._organize_df_columns(df, station_id, dataset)
 
-                station_data.append(parameter_df)
+                data.append(df)
 
             try:
-                station_df = pl.concat(station_data)
+                df = pl.concat(data)
             except ValueError:
-                station_df = pl.DataFrame()
+                df = pl.DataFrame()
 
             if self.sr.start_date:
-                station_df = station_df.filter(
+                df = df.filter(
                     pl.col(Columns.DATE.value).is_between(
                         self.sr.start_date,
                         self.sr.end_date,
@@ -462,7 +470,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 )
 
             if self.sr.skip_empty:
-                percentage = self._get_actual_percentage(df=station_df)
+                percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.skip_threshold:
                     log.info(
                         f"station {station_id} is skipped as percentage of actual values ({percentage}) "
@@ -471,38 +479,35 @@ class TimeseriesValues(metaclass=ABCMeta):
                     continue
 
             if self.sr.dropna:
-                station_df = station_df.drop_nulls(subset="value")
+                df = df.drop_nulls(subset="value")
 
-            if not station_df.is_empty():
+            if not df.is_empty():
                 if self.sr.humanize:
-                    station_df = self._humanize(df=station_df, humanized_parameters_mapping=hpm)
+                    df = self._humanize(df=df, humanized_parameters_mapping=hpm)
 
                 if not self.sr.tidy:
-                    station_df = self._widen_df(df=station_df)
+                    df = self._widen_df(df=df)
 
                 if self.sr.tidy:
                     sort_columns = [Columns.DATASET.value, Columns.PARAMETER.value, Columns.DATE.value]
                 else:
                     sort_columns = [Columns.DATASET.value, Columns.DATE.value]
-                station_df = station_df.sort(sort_columns)
+                df = df.sort(sort_columns)
 
             self.stations_counter += 1
             self.stations_collected.append(station_id)
 
-            yield ValuesResult(stations=self.sr, values=self, df=station_df)
+            yield ValuesResult(stations=self.sr, values=self, df=df)
 
     @abstractmethod
-    def _collect_station_parameter(self, station_id: str, parameter: ParameterModel) -> pl.DataFrame:
+    def _collect_station_parameter_or_dataset(
+        self, station_id: str, parameter_or_dataset: ParameterModel | DatasetModel
+    ) -> pl.DataFrame:
         """
         Implementation of data collection for a station id plus parameter from the
         specified weather service. Takes care of the gathering of the data and putting
         it in shape, either tabular with one parameter per column or tidied with a set
         of station id, date, parameter, value and quality in one row.
-
-        :param station_id: station id for which the data is being collected
-        :param parameter: parameter for which the data is collected
-        :param dataset: dataset for which the data is collected
-        :return: pandas.DataFrame with the data for given station id and parameter
         """
         pass
 
@@ -590,10 +595,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         :return:
         """
-        return {
-            parameter.original: parameter.name
-            for parameter in self.sr.stations.parameter
-        }
+        return {parameter.original: parameter.name for parameter in self.sr.stations.parameter}
 
     def _get_actual_percentage(self, df: pl.DataFrame) -> float:
         """

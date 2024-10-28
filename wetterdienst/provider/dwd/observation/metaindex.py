@@ -14,20 +14,14 @@ from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import DatasetModel
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.fileindex import build_path_to_parameter
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
-
-# from wetterdienst.provider.dwd.observation.metadata.dataset import (
-#     DWD_URBAN_DATASETS,
-#     DwdObservationDataset,
-# )
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from wetterdienst.metadata.metadata_model import DatasetModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -139,9 +133,7 @@ def _create_meta_index_for_climate_observations(
     url = f"https://opendata.dwd.de/climate_environment/CDC/{dwd_cdc_base}/{parameter_path}"
     remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # TODO: remove workaround once station list at https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/historical/2022/ is removed  # noqa: E501
-    if (
-        dataset == DwdObservationMetadata.minute_5.precipitation and period == Period.HISTORICAL
-    ):
+    if dataset == DwdObservationMetadata.minute_5.precipitation and period == Period.HISTORICAL:
         remote_files = [file for file in remote_files if file.split("/")[-2] != "2022"]
     # Find the one meta file from the files listed on the server
     meta_file = _find_meta_file(remote_files, url, ["beschreibung", "txt"])
@@ -217,7 +209,8 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     :param period: period for which metadata is acquired
     :return: pandas.DataFrame with combined information for both 3hourly (fx3) and 6hourly (fx6) wind extremes
     """
-    parameter_path = build_path_to_parameter(DwdObservationDataset.WIND_EXTREME, Resolution.SUBDAILY, period)
+    dataset = DwdObservationMetadata.subdaily.wind_extreme
+    parameter_path = build_path_to_parameter(dataset, period)
     url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}"
     remote_files = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     # Find the one meta file from the files listed on the server
@@ -243,7 +236,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     - especially for precipitation/1_minute/historical!
 
     """
-    parameter_path = f"{Resolution.MINUTE_1.value}/" f"{DwdObservationDataset.PRECIPITATION.value}/"
+    parameter_path = "1_minute/precipitation/"
     url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{parameter_path}/meta_data/"
     metadata_file_paths = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     station_ids = [re.findall(STATION_ID_REGEX, file).pop(0) for file in metadata_file_paths]

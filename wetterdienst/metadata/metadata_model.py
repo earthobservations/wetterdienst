@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from lxml.objectify import NoneElement
-from pydantic import BaseModel, RootModel, field_validator, model_validator, SkipValidation, Field
+from pydantic import BaseModel, Field, RootModel, SkipValidation
 
-from wetterdienst import Period, Resolution
+from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 
 class ParameterModel(BaseModel):
@@ -15,17 +16,17 @@ class ParameterModel(BaseModel):
     original: str
     unit: str
     unit_original: str
-    dataset: SkipValidation["DatasetModel"] = Field(default=None, exclude=True, repr=False)
-
+    dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
 
 
 class DatasetModel(BaseModel):
     __name__ = "Dataset"
     name: str
     name_original: str
-    parameters: list[ParameterModel]
+    grouped: bool  # if parameters are grouped together e.g. in one file
     periods: list[Period] | None = None
-    resolution: SkipValidation["ResolutionModel"] = Field(default=None, exclude=True, repr=False)
+    parameters: list[ParameterModel]
+    resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -49,52 +50,11 @@ class DatasetModel(BaseModel):
     def __iter__(self) -> Iterator[ParameterModel]:
         return iter(self.parameters)
 
-    # def __str__(self):
-    #     return f"name='{self.name}' resolution='{self.resolution}' parameters={self.parameters}"
-    #
-    # def __repr__(self):
-    #     return f"Dataset({self.__str__()})"
-
-
-# parameter reference $ref which consists of "dataset/parameter"
-# should be resolved into dataset and parameter before validation of pydanitc model
-class ParameterRef(BaseModel):
-    dataset: str
-    parameter: str
-
-    @model_validator(mode="before")
-    def resolve_ref(cls, v):
-        if v.keys() != {"$ref"}:
-            raise ValueError("Only $ref is allowed")
-        dataset, parameter = v["$ref"].split("/")
-        return {"dataset": dataset, "parameter": parameter}
-
 
 class ResolutionModel(BaseModel):
     value: Resolution
     datasets: list[DatasetModel]
-    parameters: SkipValidation[list[ParameterModel]]
     periods: list[Period] | None = None
-
-    @field_validator("parameters", mode="before")
-    @classmethod
-    def validate_parameters(cls, v, validation_info):
-        # resolve references
-        resolved_parameters = []
-        for parameter_ref in v:
-            parameter_ref = ParameterRef.model_validate(parameter_ref)
-            for dataset in validation_info.data["datasets"]:
-                if dataset.name == parameter_ref.dataset:
-                    for parameter in dataset.parameters:
-                        if parameter.name == parameter_ref.parameter:
-                            resolved_parameters.append(parameter)
-                            break
-                    else:
-                        raise KeyError(parameter_ref)
-                    break
-            else:
-                raise KeyError(parameter_ref)
-        return resolved_parameters
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -109,18 +69,12 @@ class ResolutionModel(BaseModel):
         for dataset in self.datasets:
             if dataset.name == item:
                 return dataset
-        for parameter in self.parameters:
-            if parameter.name == item:
-                return parameter
         raise KeyError(item)
 
     def __getattr__(self, item):
         for dataset in self.datasets:
             if dataset.name == item:
                 return dataset
-        for parameter in self.parameters:
-            if parameter.name == item:
-                return parameter
         raise AttributeError(item)
 
     def __iter__(self) -> Iterator[DatasetModel]:
@@ -155,7 +109,10 @@ class MetadataModel(RootModel):
 
     def search_parameter(self, parameter_search: ParameterTemplate) -> list[ParameterModel]:
         for resolution in self:
-            if resolution.value.name.lower() == parameter_search.resolution or resolution.value.value == parameter_search.resolution:
+            if (
+                resolution.value.name.lower() == parameter_search.resolution
+                or resolution.value.value == parameter_search.resolution
+            ):
                 break
         else:
             raise KeyError(parameter_search.resolution)
@@ -169,6 +126,7 @@ class MetadataModel(RootModel):
         for parameter in dataset:
             if parameter.name == parameter_search.parameter:
                 return [parameter]
+        raise KeyError(parameter_search.parameter)
 
 
 @dataclass
