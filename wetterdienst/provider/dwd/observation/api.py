@@ -329,11 +329,6 @@ class DwdObservationRequest(TimeseriesRequest):
     _provider = Provider.DWD
     _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
-    _metadata = DwdObservationMetadata
-    _resolution_type = ResolutionType.MULTI
-    _period_type = PeriodType.MULTI
-    _has_datasets = True
-    _unique_dataset = False
     _data_range = DataRange.FIXED
     _values = DwdObservationValues
     metadata = DwdObservationMetadata

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, RootModel, SkipValidation
+from pydantic import BaseModel, Field, SkipValidation
 
 from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
 
@@ -52,7 +52,9 @@ class DatasetModel(BaseModel):
 
 
 class ResolutionModel(BaseModel):
-    value: Resolution
+    name: Resolution
+    name_original: str
+    value: Resolution = Field(alias="name", exclude=True, repr=False)  # this is just to make the code more readable
     datasets: list[DatasetModel]
     periods: list[Period] | None = None
 
@@ -81,31 +83,25 @@ class ResolutionModel(BaseModel):
         return iter(self.datasets)
 
 
-class MetadataModel(RootModel):
-    root: list[ResolutionModel]
+class MetadataModel(BaseModel):
+    resolutions: list[ResolutionModel]
 
     def __getitem__(self, item):
         if isinstance(item, int):
-            return self.root[item]
-        for resolution in self.root:
+            return self.resolutions[item]
+        for resolution in self.resolutions:
             if resolution.value.name.lower() == item or resolution.value.value == item:
                 return resolution
         raise KeyError(item)
 
     def __getattr__(self, item):
-        for resolution in self.root:
+        for resolution in self.resolutions:
             if resolution.value.name.lower() == item or resolution.value.value == item:
                 return resolution
         raise AttributeError(item)
 
     def __iter__(self) -> Iterator[ResolutionModel]:
-        return iter(self.root)
-
-    def __str__(self):
-        return f"[{self.root}]"
-
-    def __repr__(self):
-        return f"Metadata({self.__str__()})"
+        return iter(self.resolutions)
 
     def search_parameter(self, parameter_search: ParameterTemplate) -> list[ParameterModel]:
         for resolution in self:

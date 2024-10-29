@@ -113,35 +113,18 @@ class TimeseriesValues(metaclass=ABCMeta):
         """Timezone enumeration of published data."""
         pass
 
-    def _fetch_frequency(
-        self,
-        station_id,  # noqa: ARG002
-        parameter: ParameterModel,  # noqa: ARG002
-    ) -> str:
-        """
-        Method used to fetch the dynamic frequency string from somewhere and then set it after download the
-        corresponding dataset. The fetch may either be an arbitrary algorithm that parses the frequency from the
-        downloaded data or simply get the frequency from elsewhere. This method has to be implemented only for
-        services that have dynamic resolutions.
-        :param station_id:
-        :param parameter:
-        :param dataset:
-        :return:
-        """
-        if self.sr.resolution == Resolution.DYNAMIC:
-            raise NotImplementedError("implement this method if the service has a dynamic resolution")
-
     def _adjust_start_end_date(
         self,
         start_date: dt.datetime,
         end_date: dt.datetime,
         tzinfo: ZoneInfo,
+        resolution: Resolution,
     ) -> tuple[dt.datetime, dt.datetime]:
         """Adjust start and end date to the resolution of the service. This is
         necessary for building a complete date range that matches the resolution.
         """
         # cut of everything smaller than day for daily or lower freq, same for monthly and annual
-        if self.sr.resolution in DAILY_AT_MOST:
+        if resolution in DAILY_AT_MOST:
             start_date = start_date.replace(
                 hour=0,
                 minute=0,
@@ -154,7 +137,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 second=0,
                 microsecond=0,
             )
-        elif self.sr.resolution == Resolution.MONTHLY:
+        elif resolution == Resolution.MONTHLY:
             start_date = start_date.replace(
                 day=1,
                 hour=0,
@@ -163,7 +146,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 microsecond=0,
             )
             end_date = end_date + relativedelta(months=1) - relativedelta(days=1)
-        elif self.sr.resolution == Resolution.ANNUAL:
+        elif resolution == Resolution.ANNUAL:
             start_date = start_date.replace(
                 month=1,
                 day=1,
@@ -312,7 +295,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                 pass
             return operator.mul, factor
 
-    def _create_empty_station_df(self, station_id: str, parameters: list[ParameterModel]) -> pl.DataFrame:
+    def _create_empty_station_df(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """
         Function to create an empty DataFrame for a station with all parameters
         """
@@ -324,12 +307,12 @@ class TimeseriesValues(metaclass=ABCMeta):
             tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
         else:
             tzinfo = ZoneInfo(self.data_tz)
-        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo)
+        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, dataset.resolution.value)
 
         base_df = self._get_base_df(start_date, end_date)
 
         data = []
-        for parameter in parameters:
+        for parameter in dataset.parameters:
             if parameter.name.startswith("quality"):
                 continue
             par_df = base_df.with_columns(pl.lit(parameter.original).alias(Columns.PARAMETER.value))
@@ -343,7 +326,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
 
-    def _build_complete_df(self, df: pl.DataFrame, station_id: str) -> pl.DataFrame:
+    def _build_complete_df(self, df: pl.DataFrame, station_id: str, resolution: Resolution) -> pl.DataFrame:
         """Method to build a complete df with all dates from start to end date included. For cases where requests
         are not defined by start and end date but rather by periods, use the returned df without modifications
         We may put a standard date range here if no data is found
@@ -360,7 +343,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
         else:
             tzinfo = ZoneInfo(self.data_tz)
-        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo)
+        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, resolution)
         base_df = self._get_base_df(start_date, end_date)
         data = []
         for (station_id, parameter), group in df.group_by(
@@ -437,19 +420,15 @@ class TimeseriesValues(metaclass=ABCMeta):
                     del dataset_data
 
                 if df.is_empty():
-                    df = self._create_empty_station_df(station_id=station_id, parameters=parameters)
+                    df = self._create_empty_station_df(station_id=station_id, dataset=dataset)
 
                 if self.sr.si_units:
                     df = self._convert_values_to_si(df, dataset)
 
                 df = df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True)
 
-                # set dynamic resolution for services that have no fixed resolutions
-                if dataset.resolution.value == Resolution.DYNAMIC:
-                    self.sr.stations.dynamic_frequency = self._fetch_frequency(station_id, parameter)
-
                 if self.sr.start_date:
-                    df = self._build_complete_df(df, station_id)
+                    df = self._build_complete_df(df, station_id, dataset.resolution.value)
 
                 df = self._organize_df_columns(df, station_id, dataset)
 

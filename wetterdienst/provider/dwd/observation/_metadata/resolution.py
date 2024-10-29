@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.datetime import DatetimeFormat
 
 HIGH_RESOLUTIONS = (
     Resolution.MINUTE_1,

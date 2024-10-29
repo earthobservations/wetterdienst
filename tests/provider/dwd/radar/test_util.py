@@ -6,7 +6,7 @@ from io import BytesIO
 import pytest
 import requests
 
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_from_filename, verify_hdf5
 
 

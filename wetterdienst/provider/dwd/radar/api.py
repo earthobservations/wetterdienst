@@ -19,7 +19,7 @@ from fsspec.implementations.tar import TarFileSystem
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,

@@ -17,6 +17,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.metadata_model import MetadataModel, ParameterModel
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -46,14 +47,6 @@ REQUIRED_ENTRIES = [
 ]
 
 
-class HubeauResolution(Enum):
-    DYNAMIC = Resolution.DYNAMIC.value
-
-
-class HubeauPeriod(Enum):
-    HISTORICAL = Period.HISTORICAL.value
-
-
 class HubeauParameter(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
         class DYNAMIC(Enum):
@@ -71,6 +64,39 @@ class HubeauUnit(DatasetTreeCore):
             STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
 
 
+HubeauMetadata = {
+    "resolutions": [
+        {
+            "name": "dynamic",
+            "name_original": "dynamic",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "observations",
+                    "name_original": "observations",
+                    "grouped": False,
+                    "parameters": [
+                        {
+                            "name": "discharge",
+                            "name_original": "discharge",
+                            "unit": "cubic_meter_per_second",
+                            "unit_original": "cubic_meter_per_second",
+                        },
+                        {
+                            "name": "stage",
+                            "name_original": "stage",
+                            "unit": "meter",
+                            "unit_original": "meter",
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+HubeauMetadata = MetadataModel.model_validate(HubeauMetadata)
+
+
 class HubeauValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
     _endpoint = (
@@ -82,13 +108,13 @@ class HubeauValues(TimeseriesValues):
         "grandeur_hydro={grandeur_hydro}&sort=asc&size=2"
     )
 
-    def _get_hubeau_dates(self, station_id, parameter, dataset) -> Iterator[tuple[dt.datetime, dt.datetime]]:
+    def _get_hubeau_dates(self, station_id, parameter: ParameterModel) -> Iterator[tuple[dt.datetime, dt.datetime]]:
         """
         Method to get the Hubeau interval, which is roughly today - 30 days. We'll add another day on
         each end as buffer.
         :return:
         """
-        freq, freq_unit = self._get_dynamic_frequency(station_id, parameter, dataset)
+        freq, freq_unit = self._get_dynamic_frequency(station_id, parameter)
         end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         start = end - dt.timedelta(days=30)
         delta = end - start
@@ -106,10 +132,9 @@ class HubeauValues(TimeseriesValues):
     def _get_dynamic_frequency(
         self,
         station_id,
-        parameter,
-        dataset,  # noqa: ARG002
+        parameter: ParameterModel,
     ) -> tuple[int, Literal["m", "H"]]:
-        url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.value)
+        url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.original)
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
         values_dict = json.load(response)["data"]
@@ -126,7 +151,9 @@ class HubeauValues(TimeseriesValues):
         freq, unit = self._get_dynamic_frequency(station_id, parameter, dataset)
         return f"{freq}{unit}"
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter_or_dataset(
+            self, station_id: str, parameter_or_dataset: ParameterModel
+    ) -> pl.DataFrame:
         """
         Method to collect data from Eaufrance Hubeau service. Requests are limited to 1000 units so eventually
         multiple requests have to be sent to get all data.
@@ -137,10 +164,10 @@ class HubeauValues(TimeseriesValues):
         :return:
         """
         data = []
-        for start_date, end_date in self._get_hubeau_dates(station_id=station_id, parameter=parameter, dataset=dataset):
+        for start_date, end_date in self._get_hubeau_dates(station_id=station_id, parameter=parameter_or_dataset):
             url = self._endpoint.format(
                 station_id=station_id,
-                grandeur_hydro=parameter.value,
+                grandeur_hydro=parameter_or_dataset.original,
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
@@ -165,7 +192,7 @@ class HubeauValues(TimeseriesValues):
             df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime))
             df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
 
-        df = df.with_columns(pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value))
+        df = df.with_columns(pl.lit(parameter_or_dataset.original.lower()).alias(Columns.PARAMETER.value))
 
         df = df.rename(
             mapping={
