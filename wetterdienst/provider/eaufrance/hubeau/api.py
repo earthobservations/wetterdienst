@@ -87,10 +87,10 @@ HubeauMetadata = {
                             "name_original": "stage",
                             "unit": "meter",
                             "unit_original": "meter",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         }
     ]
 }
@@ -134,7 +134,7 @@ class HubeauValues(TimeseriesValues):
         station_id,
         parameter: ParameterModel,
     ) -> tuple[int, Literal["m", "H"]]:
-        url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.original)
+        url = self._endpoint_freq.format(station_id=station_id, grandeur_hydro=parameter.name_original)
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.sr.stations.settings, ttl=CacheExpiry.METAINDEX)
         values_dict = json.load(response)["data"]
@@ -152,7 +152,7 @@ class HubeauValues(TimeseriesValues):
         return f"{freq}{unit}"
 
     def _collect_station_parameter_or_dataset(
-            self, station_id: str, parameter_or_dataset: ParameterModel
+        self, station_id: str, parameter_or_dataset: ParameterModel
     ) -> pl.DataFrame:
         """
         Method to collect data from Eaufrance Hubeau service. Requests are limited to 1000 units so eventually
@@ -167,7 +167,7 @@ class HubeauValues(TimeseriesValues):
         for start_date, end_date in self._get_hubeau_dates(station_id=station_id, parameter=parameter_or_dataset):
             url = self._endpoint.format(
                 station_id=station_id,
-                grandeur_hydro=parameter_or_dataset.original,
+                grandeur_hydro=parameter_or_dataset.name_original,
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
             )
@@ -192,7 +192,7 @@ class HubeauValues(TimeseriesValues):
             df = df.with_columns(pl.col("date_obs").map_elements(dt.datetime.fromisoformat, return_dtype=pl.Datetime))
             df = df.with_columns(pl.col("date_obs").dt.replace_time_zone("UTC"))
 
-        df = df.with_columns(pl.lit(parameter_or_dataset.original.lower()).alias(Columns.PARAMETER.value))
+        df = df.with_columns(pl.lit(parameter_or_dataset.name_original.lower()).alias(Columns.PARAMETER.value))
 
         df = df.rename(
             mapping={

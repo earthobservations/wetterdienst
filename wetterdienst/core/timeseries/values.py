@@ -243,7 +243,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         """
         conversion_factors = {}
         for parameter in dataset:
-            conversion_factors[parameter.original] = self._get_conversion_factor(
+            conversion_factors[parameter.name_original] = self._get_conversion_factor(
                 parameter.unit_original, parameter.unit
             )
         return conversion_factors
@@ -307,7 +307,9 @@ class TimeseriesValues(metaclass=ABCMeta):
             tzinfo = ZoneInfo(self._get_timezone_from_station(station_id))
         else:
             tzinfo = ZoneInfo(self.data_tz)
-        start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, dataset.resolution.value)
+        start_date, end_date = self._adjust_start_end_date(
+            self.sr.start_date, self.sr.end_date, tzinfo, dataset.resolution.value
+        )
 
         base_df = self._get_base_df(start_date, end_date)
 
@@ -315,7 +317,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         for parameter in dataset.parameters:
             if parameter.name.startswith("quality"):
                 continue
-            par_df = base_df.with_columns(pl.lit(parameter.original).alias(Columns.PARAMETER.value))
+            par_df = base_df.with_columns(pl.lit(parameter.name_original).alias(Columns.PARAMETER.value))
             data.append(par_df)
 
         df = pl.concat(data)
@@ -406,7 +408,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                         parameter_or_dataset=dataset,
                     )
                     df = df.filter(
-                        pl.col(Columns.PARAMETER.value).is_in([parameter.original for parameter in parameters])
+                        pl.col(Columns.PARAMETER.value).is_in([parameter.name_original for parameter in parameters])
                     )
                 else:
                     dataset_data = []
@@ -574,7 +576,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         :return:
         """
-        return {parameter.original: parameter.name for parameter in self.sr.stations.parameter}
+        return {parameter.name_original: parameter.name for parameter in self.sr.stations.parameter}
 
     def _get_actual_percentage(self, df: pl.DataFrame) -> float:
         """

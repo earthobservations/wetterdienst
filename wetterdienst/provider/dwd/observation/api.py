@@ -185,19 +185,19 @@ class DwdObservationValues(TimeseriesValues):
         droppable_columns = [
             # Hourly
             # Cloud type
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.original,
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.original,
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.original,
-            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.original,
+            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
+            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
+            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
+            DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
             # Cloudiness
-            DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.original,
+            DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.name_original,
             # Solar
-            DwdObservationMetadata.hourly.solar.end_of_interval.original,
-            DwdObservationMetadata.hourly.solar.true_local_time.original,
+            DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
+            DwdObservationMetadata.hourly.solar.true_local_time.name_original,
             # Visibility
-            DwdObservationMetadata.hourly.visibility.visibility_range_index.original,
+            DwdObservationMetadata.hourly.visibility.visibility_range_index.name_original,
             # Weather
-            DwdObservationMetadata.hourly.weather_phenomena.weather_text.original,
+            DwdObservationMetadata.hourly.weather_phenomena.weather_text.name_original,
         ]
 
         # Drop string columns, can't be coerced to float
@@ -210,8 +210,8 @@ class DwdObservationValues(TimeseriesValues):
         )
 
         if dataset == DwdObservationMetadata.daily.climate_summary:
-            quality_wind = df.get_column(dataset.quality_wind.original)
-            quality_general = df.get_column(dataset.quality_general.original)
+            quality_wind = df.get_column(dataset.quality_wind.name_original)
+            quality_general = df.get_column(dataset.quality_general.name_original)
             quality = pl.concat(
                 [
                     pl.Series(repeat(quality_wind, times=2)).list.explode(),
@@ -219,13 +219,13 @@ class DwdObservationValues(TimeseriesValues):
                 ],
             )
             df = df.drop(
-                dataset.quality_wind.original,
-                dataset.quality_general.original,
+                dataset.quality_wind.name_original,
+                dataset.quality_general.name_original,
             )
         elif dataset in (DwdObservationMetadata.monthly.climate_summary, DwdObservationMetadata.annual.climate_summary):
-            quality_general = df.get_column(dataset.quality_general.original)
+            quality_general = df.get_column(dataset.quality_general.name_original)
             quality_precipitation = df.get_column(
-                dataset.quality_precipitation.original,
+                dataset.quality_precipitation.name_original,
             )
 
             quality = pl.concat(
@@ -245,8 +245,8 @@ class DwdObservationValues(TimeseriesValues):
                 ],
             )
             df = df.drop(
-                dataset.quality_general.original,
-                dataset.quality_precipitation.original,
+                dataset.quality_general.name_original,
+                dataset.quality_precipitation.name_original,
             )
         elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
             quality = []

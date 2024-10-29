@@ -119,85 +119,85 @@ DwdRoadMetadata = {
                     "parameters": [
                         {
                             "name": "humidity",
-                            "original": "relativeHumidity",
+                            "name_original": "relativeHumidity",
                             "unit": "percent",
                             "unit_original": "percent",
                         },
                         {
                             "name": "precipitation_form",
-                            "original": "precipitationType",
+                            "name_original": "precipitationType",
                             "unit": "dimensionless",
                             "unit_original": "dimensionless",
                         },
                         {
                             "name": "precipitation_height",
-                            "original": "totalPrecipitationOrTotalWaterEquivalent",
+                            "name_original": "totalPrecipitationOrTotalWaterEquivalent",
                             "unit": "kilogram_per_square_meter",
                             "unit_original": "millimeter",
                         },
                         {
                             "name": "precipitation_intensity",
-                            "original": "intensityOfPrecipitation",
+                            "name_original": "intensityOfPrecipitation",
                             "unit": "millimeter_per_hour",
                             "unit_original": "millimeter_per_hour",
                         },
                         {
                             "name": "road_surface_condition",
-                            "original": "roadSurfaceCondition",
+                            "name_original": "roadSurfaceCondition",
                             "unit": "dimensionless",
                             "unit_original": "dimensionless",
                         },
                         {
                             "name": "temperature_air_mean_2m",
-                            "original": "airTemperature",
+                            "name_original": "airTemperature",
                             "unit": "degree_kelvin",
                             "unit_original": "degree_kelvin",
                         },
                         {
                             "name": "temperature_dew_point_mean_2m",
-                            "original": "dewpointTemperature",
+                            "name_original": "dewpointTemperature",
                             "unit": "degree_kelvin",
                             "unit_original": "degree_kelvin",
                         },
                         {
                             "name": "temperature_surface_mean",
-                            "original": "roadSurfaceTemperature",
+                            "name_original": "roadSurfaceTemperature",
                             "unit": "degree_kelvin",
                             "unit_original": "degree_kelvin",
                         },
                         {
                             "name": "visibility_range",
-                            "original": "horizontalVisibility",
+                            "name_original": "horizontalVisibility",
                             "unit": "meter",
                             "unit_original": "kilometer",
                         },
                         {
                             "name": "water_film_thickness",
-                            "original": "waterFilmThickness",
+                            "name_original": "waterFilmThickness",
                             "unit": "meter",
                             "unit_original": "centimeter",
                         },
                         {
                             "name": "wind_direction",
-                            "original": "windDirection",
+                            "name_original": "windDirection",
                             "unit": "degree",
                             "unit_original": "degree",
                         },
                         {
                             "name": "wind_direction_gust_max",
-                            "original": "maximumWindGustDirection",
+                            "name_original": "maximumWindGustDirection",
                             "unit": "degree",
                             "unit_original": "degree",
                         },
                         {
                             "name": "wind_gust_max",
-                            "original": "maximumWindGustSpeed",
+                            "name_original": "maximumWindGustSpeed",
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
                         },
                         {
                             "name": "wind_speed",
-                            "original": "windSpeed",
+                            "name_original": "windSpeed",
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
                         },
@@ -399,7 +399,7 @@ class DwdRoadValues(TimeseriesValues):
         tf = NamedTemporaryFile("w+b")
         tf.write(file.read())
         tf.seek(0)
-        parameter_names = [parameter.original for parameter in parameters]
+        parameter_names = [parameter.name_original for parameter in parameters]
         first_batch = parameter_names[:10]
         second_batch = parameter_names[10:]
         df = pdbufr.read_bufr(

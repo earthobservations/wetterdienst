@@ -43,28 +43,28 @@ class EAHydrologyResolution(Enum):
 
 class EAHydrologyParameter(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
-        class MINUTE_15(Enum):
+        class OBSERVATIONS(Enum):
             DISCHARGE = "flow"
             GROUNDWATER_LEVEL = "groundwater_level"
 
-        DISCHARGE = MINUTE_15.DISCHARGE
-        GROUNDWATER_LEVEL = MINUTE_15.GROUNDWATER_LEVEL
+        DISCHARGE = OBSERVATIONS.DISCHARGE
+        GROUNDWATER_LEVEL = OBSERVATIONS.GROUNDWATER_LEVEL
 
     class HOUR_6(DatasetTreeCore):
-        class HOUR_6(Enum):
+        class OBSERVATIONS(Enum):
             DISCHARGE = "flow"
             GROUNDWATER_LEVEL = "groundwater_level"
 
-        DISCHARGE = HOUR_6.DISCHARGE
-        GROUNDWATER_LEVEL = HOUR_6.GROUNDWATER_LEVEL
+        DISCHARGE = OBSERVATIONS.DISCHARGE
+        GROUNDWATER_LEVEL = OBSERVATIONS.GROUNDWATER_LEVEL
 
     class DAILY(DatasetTreeCore):
-        class DAILY(Enum):
+        class OBSERVATIONS(Enum):
             DISCHARGE = "flow"
             GROUNDWATER_LEVEL = "groundwater_level"
 
-        DISCHARGE = DAILY.DISCHARGE
-        GROUNDWATER_LEVEL = DAILY.GROUNDWATER_LEVEL
+        DISCHARGE = OBSERVATIONS.DISCHARGE
+        GROUNDWATER_LEVEL = OBSERVATIONS.GROUNDWATER_LEVEL
 
 
 PARAMETER_MAPPING = {"discharge": "Water Flow", "groundwater_level": "Groundwater level"}
@@ -72,19 +72,20 @@ PARAMETER_MAPPING = {"discharge": "Water Flow", "groundwater_level": "Groundwate
 
 class EAHydrologyUnit(DatasetTreeCore):
     class MINUTE_15(DatasetTreeCore):
-        class MINUTE_15(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
     class HOUR_6(DatasetTreeCore):
-        class HOUR_6(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
     class DAILY(DatasetTreeCore):
-        class DAILY(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
+
 
 EAHydrologyMetadata = {
     "resolutions": [
@@ -99,7 +100,7 @@ EAHydrologyMetadata = {
                     "grouped": False,
                     "parameters": [
                         {
-                            "name": "flow",
+                            "name": "discharge",
                             "name_original": "flow",
                             "unit": "cubic_meters_per_second",
                             "unit_original": "cubic_meters_per_second",
@@ -109,14 +110,14 @@ EAHydrologyMetadata = {
                             "name_original": "groundwater_level",
                             "unit": "meter",
                             "unit_original": "meter",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         },
         {
-            "name": "6_hours",
-            "name_original": "6_hours",
+            "name": "6_hour",
+            "name_original": "6_hour",
             "datasets": [
                 {
                     "name": "observations",
@@ -124,7 +125,7 @@ EAHydrologyMetadata = {
                     "grouped": False,
                     "parameters": [
                         {
-                            "name": "flow",
+                            "name": "discharge",
                             "name_original": "flow",
                             "unit": "cubic_meters_per_second",
                             "unit_original": "cubic_meters_per_second",
@@ -134,10 +135,10 @@ EAHydrologyMetadata = {
                             "name_original": "groundwater_level",
                             "unit": "meter",
                             "unit_original": "meter",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         },
         {
             "name": "daily",
@@ -150,7 +151,7 @@ EAHydrologyMetadata = {
                     "periods": ["historical"],
                     "parameters": [
                         {
-                            "name": "flow",
+                            "name": "discharge",
                             "name_original": "flow",
                             "unit": "cubic_meters_per_second",
                             "unit_original": "cubic_meters_per_second",
@@ -160,11 +161,11 @@ EAHydrologyMetadata = {
                             "name_original": "groundwater_level",
                             "unit": "meter",
                             "unit_original": "meter",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
-        }
+            ],
+        },
     ]
 }
 EAHydrologyMetadata = MetadataModel.model_validate(EAHydrologyMetadata)
@@ -189,7 +190,7 @@ class EAHydrologyValues(TimeseriesValues):
             .struct.field("parameterName")
             .str.to_lowercase()
             .str.replace(" ", "")
-            .eq(parameter_or_dataset.original.lower().replace("_", "")),
+            .eq(parameter_or_dataset.name_original.lower().replace("_", "")),
         )
         try:
             measure_dict = s_measures.get_column("measure")[0]
@@ -200,7 +201,9 @@ class EAHydrologyValues(TimeseriesValues):
         payload = download_file(url=readings_url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
         data = json.loads(payload.read())["items"]
         df = pl.from_dicts(data)
-        df = df.select(pl.lit(parameter_or_dataset.original).alias("parameter"), pl.col("dateTime"), pl.col("value"))
+        df = df.select(
+            pl.lit(parameter_or_dataset.name_original).alias("parameter"), pl.col("dateTime"), pl.col("value")
+        )
         df = df.rename(mapping={"dateTime": Columns.DATE.value, "value": Columns.VALUE.value})
         return df.with_columns(pl.col(Columns.DATE.value).str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
 

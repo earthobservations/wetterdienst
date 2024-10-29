@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 class ParameterModel(BaseModel):
     name: str
-    original: str
+    name_original: str
     unit: str
     unit_original: str
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
@@ -37,13 +37,13 @@ class DatasetModel(BaseModel):
         if isinstance(item, int):
             return self.parameters[item]
         for parameter in self.parameters:
-            if parameter.name == item or parameter.original == item:
+            if parameter.name == item or parameter.name_original == item:
                 return parameter
         raise KeyError(item)
 
     def __getattr__(self, item):
         for parameter in self.parameters:
-            if parameter.name == item or parameter.original == item:
+            if parameter.name == item or parameter.name_original == item:
                 return parameter
         raise AttributeError(item)
 

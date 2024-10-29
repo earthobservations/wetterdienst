@@ -11,7 +11,7 @@ import polars as pl
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -24,8 +24,8 @@ log = logging.getLogger(__name__)
 # Parameter names used to create full 1 minute precipitation dataset wherever those
 # columns are missing (which is the case for non historical data)
 PRECIPITATION_PARAMETERS = (
-    DwdObservationMetadata.minute_1.precipitation.precipitation_height_droplet.original,
-    DwdObservationMetadata.minute_1.precipitation.precipitation_height_rocker.original,
+    DwdObservationMetadata.minute_1.precipitation.precipitation_height_droplet.name_original,
+    DwdObservationMetadata.minute_1.precipitation.precipitation_height_rocker.name_original,
 )
 
 PRECIPITATION_MINUTE_1_QUALITY = DwdObservationMetadata.minute_1.precipitation.quality
@@ -37,18 +37,18 @@ DROPPABLE_PARAMETERS = {
     # STRING_PARAMETERS
     # hourly
     # cloud_type
-    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_index.original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.original,
-    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_index.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1_abbreviation.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2_abbreviation.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3_abbreviation.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4_abbreviation.name_original,
     # cloudiness
-    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.original,
+    DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_index.name_original,
     # visibility
-    DwdObservationMetadata.hourly.visibility.visibility_range_index.original,
+    DwdObservationMetadata.hourly.visibility.visibility_range_index.name_original,
     # DATE_PARAMETERS_IRREGULAR
-    DwdObservationMetadata.hourly.solar.true_local_time.original,
-    DwdObservationMetadata.hourly.solar.end_of_interval.original,
+    DwdObservationMetadata.hourly.solar.true_local_time.name_original,
+    DwdObservationMetadata.hourly.solar.end_of_interval.name_original,
     # URBAN_TEMPERATURE_AIR
     "strahlungstemperatur",
 }
