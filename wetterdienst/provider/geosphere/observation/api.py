@@ -16,6 +16,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
+from wetterdienst.metadata.metadata_model import MetadataModel
 from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
@@ -47,11 +48,11 @@ class GeosphereObservationPeriod(Enum):
 
 class GeosphereObservationParameter(DatasetTreeCore):
     class MINUTE_10(DatasetTreeCore):
-        class MINUTE_10(Enum):
+        class OBSERVATIONS(Enum):
             HUMIDITY = "rf"  # Relative Feuchte %
             PRECIPITATION_HEIGHT = "rr"  # Niederschlag mm
             PRECIPITATION_DURATION = "rrm"  # Niederschlagsdauer min
-            PRESSURE_AIR_SITE = "P"  # Luftdruck hPa
+            PRESSURE_AIR_SITE = "p"  # Luftdruck hPa
             PRESSURE_AIR_SEA_LEVEL = "pred"  # Reduzierter Luftdruck hPa
             RADIATION_GLOBAL = "cglo"  # Globalstrahlung Mittelwert W/m²
             RADIATION_SKY_SHORT_WAVE_DIFFUSE = "chim"  # Himmelsstrahlung/Diffusstrahlung Mittelwert in W/m²
@@ -74,32 +75,32 @@ class GeosphereObservationParameter(DatasetTreeCore):
             # Not (yet) implemented parameters:
             # Check dataset description and metadeta for more details (https://data.hub.geosphere.at/dataset/klima-v2-10min)
 
-        HUMIDITY = MINUTE_10.HUMIDITY
-        PRECIPITATION_HEIGHT = MINUTE_10.PRECIPITATION_HEIGHT
-        PRECIPITATION_DURATION = MINUTE_10.PRECIPITATION_DURATION
-        PRESSURE_AIR_SITE = MINUTE_10.PRESSURE_AIR_SITE
-        PRESSURE_AIR_SEA_LEVEL = MINUTE_10.PRESSURE_AIR_SEA_LEVEL
-        RADIATION_GLOBAL = MINUTE_10.RADIATION_GLOBAL
-        RADIATION_SKY_SHORT_WAVE_DIFFUSE = MINUTE_10.RADIATION_SKY_SHORT_WAVE_DIFFUSE
-        SNOW_DEPTH = MINUTE_10.SNOW_DEPTH
-        SUNSHINE_DURATION = MINUTE_10.SUNSHINE_DURATION
-        TEMPERATURE_AIR_MAX_0_05M = MINUTE_10.TEMPERATURE_AIR_MAX_0_05M
-        TEMPERATURE_AIR_MAX_2M = MINUTE_10.TEMPERATURE_AIR_MAX_2M
-        TEMPERATURE_AIR_MEAN_0_05M = MINUTE_10.TEMPERATURE_AIR_MEAN_0_05M
-        TEMPERATURE_AIR_MEAN_2M = MINUTE_10.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_AIR_MIN_0_05M = MINUTE_10.TEMPERATURE_AIR_MIN_0_05M
-        TEMPERATURE_AIR_MIN_2M = MINUTE_10.TEMPERATURE_AIR_MIN_2M
-        TEMPERATURE_SOIL_MEAN_0_1M = MINUTE_10.TEMPERATURE_SOIL_MEAN_0_1M
-        TEMPERATURE_SOIL_MEAN_0_2M = MINUTE_10.TEMPERATURE_SOIL_MEAN_0_2M
-        TEMPERATURE_SOIL_MEAN_0_5M = MINUTE_10.TEMPERATURE_SOIL_MEAN_0_5M
-        WIND_DIRECTION = MINUTE_10.WIND_DIRECTION
-        WIND_DIRECTION_GUST_MAX = MINUTE_10.WIND_DIRECTION_GUST_MAX
-        WIND_GUST_MAX = MINUTE_10.WIND_GUST_MAX
-        WIND_SPEED = MINUTE_10.WIND_SPEED
-        WIND_SPEED_ARITHMETIC = MINUTE_10.WIND_SPEED_ARITHMETIC
+        HUMIDITY = OBSERVATIONS.HUMIDITY
+        PRECIPITATION_HEIGHT = OBSERVATIONS.PRECIPITATION_HEIGHT
+        PRECIPITATION_DURATION = OBSERVATIONS.PRECIPITATION_DURATION
+        PRESSURE_AIR_SITE = OBSERVATIONS.PRESSURE_AIR_SITE
+        PRESSURE_AIR_SEA_LEVEL = OBSERVATIONS.PRESSURE_AIR_SEA_LEVEL
+        RADIATION_GLOBAL = OBSERVATIONS.RADIATION_GLOBAL
+        RADIATION_SKY_SHORT_WAVE_DIFFUSE = OBSERVATIONS.RADIATION_SKY_SHORT_WAVE_DIFFUSE
+        SNOW_DEPTH = OBSERVATIONS.SNOW_DEPTH
+        SUNSHINE_DURATION = OBSERVATIONS.SUNSHINE_DURATION
+        TEMPERATURE_AIR_MAX_0_05M = OBSERVATIONS.TEMPERATURE_AIR_MAX_0_05M
+        TEMPERATURE_AIR_MAX_2M = OBSERVATIONS.TEMPERATURE_AIR_MAX_2M
+        TEMPERATURE_AIR_MEAN_0_05M = OBSERVATIONS.TEMPERATURE_AIR_MEAN_0_05M
+        TEMPERATURE_AIR_MEAN_2M = OBSERVATIONS.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_AIR_MIN_0_05M = OBSERVATIONS.TEMPERATURE_AIR_MIN_0_05M
+        TEMPERATURE_AIR_MIN_2M = OBSERVATIONS.TEMPERATURE_AIR_MIN_2M
+        TEMPERATURE_SOIL_MEAN_0_1M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_1M
+        TEMPERATURE_SOIL_MEAN_0_2M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_2M
+        TEMPERATURE_SOIL_MEAN_0_5M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_5M
+        WIND_DIRECTION = OBSERVATIONS.WIND_DIRECTION
+        WIND_DIRECTION_GUST_MAX = OBSERVATIONS.WIND_DIRECTION_GUST_MAX
+        WIND_GUST_MAX = OBSERVATIONS.WIND_GUST_MAX
+        WIND_SPEED = OBSERVATIONS.WIND_SPEED
+        WIND_SPEED_ARITHMETIC = OBSERVATIONS.WIND_SPEED_ARITHMETIC
 
     class HOURLY(DatasetTreeCore):
-        class HOURLY(Enum):
+        class OBSERVATIONS(Enum):
             HUMIDITY = "rf"  # Relative Feuchte %
             PRECIPITATION_DURATION = "rrm"  # Niederschlagsdauer min
             PRECIPITATION_HEIGHT = "rr"  # Niederschlag mm
@@ -122,28 +123,28 @@ class GeosphereObservationParameter(DatasetTreeCore):
             # Not (yet) implemented parameters:
             # Check dataset description and metadeta for more details (https://data.hub.geosphere.at/dataset/klima-v2-1h)
 
-        HUMIDITY = HOURLY.HUMIDITY
-        PRECIPITATION_DURATION = HOURLY.PRECIPITATION_DURATION
-        PRECIPITATION_HEIGHT = HOURLY.PRECIPITATION_HEIGHT
-        PRESSURE_AIR_SEA_LEVEL = HOURLY.PRESSURE_AIR_SEA_LEVEL
-        PRESSURE_AIR_SITE = HOURLY.PRESSURE_AIR_SITE
-        RADIATION_GLOBAL = HOURLY.RADIATION_GLOBAL
-        SNOW_DEPTH = HOURLY.SNOW_DEPTH
-        SUNSHINE_DURATION = HOURLY.SUNSHINE_DURATION
-        TEMPERATURE_AIR_MEAN_2M = HOURLY.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_AIR_MIN_0_05M = HOURLY.TEMPERATURE_AIR_MIN_0_05M
-        TEMPERATURE_SOIL_MEAN_0_1M = HOURLY.TEMPERATURE_SOIL_MEAN_0_1M
-        TEMPERATURE_SOIL_MEAN_0_2M = HOURLY.TEMPERATURE_SOIL_MEAN_0_2M
-        TEMPERATURE_SOIL_MEAN_0_5M = HOURLY.TEMPERATURE_SOIL_MEAN_0_5M
-        TEMPERATURE_SOIL_MEAN_1M = HOURLY.TEMPERATURE_SOIL_MEAN_1M
-        TEMPERATURE_SOIL_MEAN_2M = HOURLY.TEMPERATURE_SOIL_MEAN_2M
-        WIND_DIRECTION = HOURLY.WIND_DIRECTION
-        WIND_DIRECTION_GUST_MAX = HOURLY.WIND_DIRECTION_GUST_MAX
-        WIND_GUST_MAX = HOURLY.WIND_GUST_MAX
-        WIND_SPEED = HOURLY.WIND_SPEED
+        HUMIDITY = OBSERVATIONS.HUMIDITY
+        PRECIPITATION_DURATION = OBSERVATIONS.PRECIPITATION_DURATION
+        PRECIPITATION_HEIGHT = OBSERVATIONS.PRECIPITATION_HEIGHT
+        PRESSURE_AIR_SEA_LEVEL = OBSERVATIONS.PRESSURE_AIR_SEA_LEVEL
+        PRESSURE_AIR_SITE = OBSERVATIONS.PRESSURE_AIR_SITE
+        RADIATION_GLOBAL = OBSERVATIONS.RADIATION_GLOBAL
+        SNOW_DEPTH = OBSERVATIONS.SNOW_DEPTH
+        SUNSHINE_DURATION = OBSERVATIONS.SUNSHINE_DURATION
+        TEMPERATURE_AIR_MEAN_2M = OBSERVATIONS.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_AIR_MIN_0_05M = OBSERVATIONS.TEMPERATURE_AIR_MIN_0_05M
+        TEMPERATURE_SOIL_MEAN_0_1M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_1M
+        TEMPERATURE_SOIL_MEAN_0_2M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_2M
+        TEMPERATURE_SOIL_MEAN_0_5M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_5M
+        TEMPERATURE_SOIL_MEAN_1M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_1M
+        TEMPERATURE_SOIL_MEAN_2M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_2M
+        WIND_DIRECTION = OBSERVATIONS.WIND_DIRECTION
+        WIND_DIRECTION_GUST_MAX = OBSERVATIONS.WIND_DIRECTION_GUST_MAX
+        WIND_GUST_MAX = OBSERVATIONS.WIND_GUST_MAX
+        WIND_SPEED = OBSERVATIONS.WIND_SPEED
 
     class DAILY(DatasetTreeCore):
-        class DAILY(Enum):
+        class OBSERVATIONS(Enum):
             CLOUD_COVER_TOTAL = (
                 "bewm_mittel"  # Bewölkungsmenge, Tagesmittelwert berechnet aus den Beobachtungsterminen I,II,III 1/100
             )
@@ -165,25 +166,25 @@ class GeosphereObservationParameter(DatasetTreeCore):
             # Not (yet) implemented parameters:
             # Check dataset description and metadeta for more details (https://data.hub.geosphere.at/dataset/klima-v2-1d)
 
-        CLOUD_COVER_TOTAL = DAILY.CLOUD_COVER_TOTAL
-        HUMIDITY = DAILY.HUMIDITY
-        PRECIPITATION_HEIGHT = DAILY.PRECIPITATION_HEIGHT
-        PRESSURE_AIR_SITE = DAILY.PRESSURE_AIR_SITE
-        PRESSURE_VAPOR = DAILY.PRESSURE_VAPOR
-        RADIATION_GLOBAL = DAILY.RADIATION_GLOBAL
-        SNOW_DEPTH = DAILY.SNOW_DEPTH
-        SNOW_DEPTH_MANUAL = DAILY.SNOW_DEPTH_MANUAL
-        SNOW_DEPTH_NEW = DAILY.SNOW_DEPTH_NEW
-        SUNSHINE_DURATION = DAILY.SUNSHINE_DURATION
-        TEMPERATURE_AIR_MAX_2M = DAILY.TEMPERATURE_AIR_MAX_2M
-        TEMPERATURE_AIR_MEAN_2M = DAILY.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_AIR_MIN_2M = DAILY.TEMPERATURE_AIR_MIN_2M
-        TEMPERATURE_AIR_MIN_0_05M = DAILY.TEMPERATURE_AIR_MIN_0_05M
-        WIND_GUST_MAX = DAILY.WIND_GUST_MAX
-        WIND_SPEED = DAILY.WIND_SPEED
+        CLOUD_COVER_TOTAL = OBSERVATIONS.CLOUD_COVER_TOTAL
+        HUMIDITY = OBSERVATIONS.HUMIDITY
+        PRECIPITATION_HEIGHT = OBSERVATIONS.PRECIPITATION_HEIGHT
+        PRESSURE_AIR_SITE = OBSERVATIONS.PRESSURE_AIR_SITE
+        PRESSURE_VAPOR = OBSERVATIONS.PRESSURE_VAPOR
+        RADIATION_GLOBAL = OBSERVATIONS.RADIATION_GLOBAL
+        SNOW_DEPTH = OBSERVATIONS.SNOW_DEPTH
+        SNOW_DEPTH_MANUAL = OBSERVATIONS.SNOW_DEPTH_MANUAL
+        SNOW_DEPTH_NEW = OBSERVATIONS.SNOW_DEPTH_NEW
+        SUNSHINE_DURATION = OBSERVATIONS.SUNSHINE_DURATION
+        TEMPERATURE_AIR_MAX_2M = OBSERVATIONS.TEMPERATURE_AIR_MAX_2M
+        TEMPERATURE_AIR_MEAN_2M = OBSERVATIONS.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_AIR_MIN_2M = OBSERVATIONS.TEMPERATURE_AIR_MIN_2M
+        TEMPERATURE_AIR_MIN_0_05M = OBSERVATIONS.TEMPERATURE_AIR_MIN_0_05M
+        WIND_GUST_MAX = OBSERVATIONS.WIND_GUST_MAX
+        WIND_SPEED = OBSERVATIONS.WIND_SPEED
 
     class MONTHLY(DatasetTreeCore):
-        class MONTHLY(Enum):
+        class OBSERVATIONS(Enum):
             CLOUD_COVER_TOTAL = "bewm_mittel"  # Bewölkungsmittel aller Beobachtungstermine
             HUMIDITY = "rf_mittel"  # Relative Feuchte Monatsmittel %
             PRECIPITATION_HEIGHT = "rr"  # Monatssumme des Niederschlags mm
@@ -225,47 +226,47 @@ class GeosphereObservationParameter(DatasetTreeCore):
             # Not (yet) implemented parameters:
             # Check the dataset description and metadeta for more details (https://data.hub.geosphere.at/dataset/klima-v2-1m)
 
-        CLOUD_COVER_TOTAL = MONTHLY.CLOUD_COVER_TOTAL
-        HUMIDITY = MONTHLY.HUMIDITY
-        PRECIPITATION_HEIGHT = MONTHLY.PRECIPITATION_HEIGHT
-        PRECIPITATION_HEIGHT_MAX = MONTHLY.PRECIPITATION_HEIGHT_MAX
-        PRESSURE_AIR_SITE = MONTHLY.PRESSURE_AIR_SITE
-        PRESSURE_AIR_SITE_MAX = MONTHLY.PRESSURE_AIR_SITE_MAX
-        PRESSURE_AIR_SITE_MIN = MONTHLY.PRESSURE_AIR_SITE_MIN
-        PRESSURE_VAPOR = MONTHLY.PRESSURE_VAPOR
-        RADIATION_GLOBAL = MONTHLY.RADIATION_GLOBAL
-        SNOW_DEPTH_NEW = MONTHLY.SNOW_DEPTH_NEW
-        SNOW_DEPTH_NEW_MAX = MONTHLY.SNOW_DEPTH_NEW_MAX
-        SNOW_DEPTH_MAX = MONTHLY.SNOW_DEPTH_MAX
-        SUNSHINE_DURATION = MONTHLY.SUNSHINE_DURATION
-        SUNSHINE_DURATION_RELATIVE = MONTHLY.SUNSHINE_DURATION_RELATIVE
-        TEMPERATURE_AIR_MAX_2M = MONTHLY.TEMPERATURE_AIR_MAX_2M
-        TEMPERATURE_CONCRETE_MAX_0M = MONTHLY.TEMPERATURE_CONCRETE_MAX_0M
-        TEMPERATURE_AIR_MEAN_2M = MONTHLY.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_CONCRETE_MEAN_0M = MONTHLY.TEMPERATURE_CONCRETE_MEAN_0M
-        TEMPERATURE_AIR_MIN_2M = MONTHLY.TEMPERATURE_AIR_MIN_2M
-        TEMPERATURE_CONCRETE_MIN_0M = MONTHLY.TEMPERATURE_CONCRETE_MIN_0M
-        TEMPERATURE_SOIL_MAX_0_1M = MONTHLY.TEMPERATURE_SOIL_MAX_0_1M
-        TEMPERATURE_SOIL_MAX_0_2M = MONTHLY.TEMPERATURE_SOIL_MAX_0_2M
-        TEMPERATURE_SOIL_MAX_0_5M = MONTHLY.TEMPERATURE_SOIL_MAX_0_5M
-        TEMPERATURE_SOIL_MAX_1M = MONTHLY.TEMPERATURE_SOIL_MAX_1M
-        TEMPERATURE_SOIL_MAX_2M = MONTHLY.TEMPERATURE_SOIL_MAX_2M
-        TEMPERATURE_SOIL_MEAN_0_1M = MONTHLY.TEMPERATURE_SOIL_MEAN_0_1M
-        TEMPERATURE_SOIL_MEAN_0_2M = MONTHLY.TEMPERATURE_SOIL_MEAN_0_2M
-        TEMPERATURE_SOIL_MEAN_0_5M = MONTHLY.TEMPERATURE_SOIL_MEAN_0_5M
-        TEMPERATURE_SOIL_MEAN_1M = MONTHLY.TEMPERATURE_SOIL_MEAN_1M
-        TEMPERATURE_SOIL_MEAN_2M = MONTHLY.TEMPERATURE_SOIL_MEAN_2M
-        TEMPERATURE_SOIL_MIN_0_1M = MONTHLY.TEMPERATURE_SOIL_MIN_0_1M
-        TEMPERATURE_SOIL_MIN_0_2M = MONTHLY.TEMPERATURE_SOIL_MIN_0_2M
-        TEMPERATURE_SOIL_MIN_0_5M = MONTHLY.TEMPERATURE_SOIL_MIN_0_5M
-        TEMPERATURE_SOIL_MIN_1M = MONTHLY.TEMPERATURE_SOIL_MIN_1M
-        TEMPERATURE_SOIL_MIN_2M = MONTHLY.TEMPERATURE_SOIL_MIN_2M
-        WIND_SPEED = MONTHLY.WIND_SPEED
+        CLOUD_COVER_TOTAL = OBSERVATIONS.CLOUD_COVER_TOTAL
+        HUMIDITY = OBSERVATIONS.HUMIDITY
+        PRECIPITATION_HEIGHT = OBSERVATIONS.PRECIPITATION_HEIGHT
+        PRECIPITATION_HEIGHT_MAX = OBSERVATIONS.PRECIPITATION_HEIGHT_MAX
+        PRESSURE_AIR_SITE = OBSERVATIONS.PRESSURE_AIR_SITE
+        PRESSURE_AIR_SITE_MAX = OBSERVATIONS.PRESSURE_AIR_SITE_MAX
+        PRESSURE_AIR_SITE_MIN = OBSERVATIONS.PRESSURE_AIR_SITE_MIN
+        PRESSURE_VAPOR = OBSERVATIONS.PRESSURE_VAPOR
+        RADIATION_GLOBAL = OBSERVATIONS.RADIATION_GLOBAL
+        SNOW_DEPTH_NEW = OBSERVATIONS.SNOW_DEPTH_NEW
+        SNOW_DEPTH_NEW_MAX = OBSERVATIONS.SNOW_DEPTH_NEW_MAX
+        SNOW_DEPTH_MAX = OBSERVATIONS.SNOW_DEPTH_MAX
+        SUNSHINE_DURATION = OBSERVATIONS.SUNSHINE_DURATION
+        SUNSHINE_DURATION_RELATIVE = OBSERVATIONS.SUNSHINE_DURATION_RELATIVE
+        TEMPERATURE_AIR_MAX_2M = OBSERVATIONS.TEMPERATURE_AIR_MAX_2M
+        TEMPERATURE_CONCRETE_MAX_0M = OBSERVATIONS.TEMPERATURE_CONCRETE_MAX_0M
+        TEMPERATURE_AIR_MEAN_2M = OBSERVATIONS.TEMPERATURE_AIR_MEAN_2M
+        TEMPERATURE_CONCRETE_MEAN_0M = OBSERVATIONS.TEMPERATURE_CONCRETE_MEAN_0M
+        TEMPERATURE_AIR_MIN_2M = OBSERVATIONS.TEMPERATURE_AIR_MIN_2M
+        TEMPERATURE_CONCRETE_MIN_0M = OBSERVATIONS.TEMPERATURE_CONCRETE_MIN_0M
+        TEMPERATURE_SOIL_MAX_0_1M = OBSERVATIONS.TEMPERATURE_SOIL_MAX_0_1M
+        TEMPERATURE_SOIL_MAX_0_2M = OBSERVATIONS.TEMPERATURE_SOIL_MAX_0_2M
+        TEMPERATURE_SOIL_MAX_0_5M = OBSERVATIONS.TEMPERATURE_SOIL_MAX_0_5M
+        TEMPERATURE_SOIL_MAX_1M = OBSERVATIONS.TEMPERATURE_SOIL_MAX_1M
+        TEMPERATURE_SOIL_MAX_2M = OBSERVATIONS.TEMPERATURE_SOIL_MAX_2M
+        TEMPERATURE_SOIL_MEAN_0_1M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_1M
+        TEMPERATURE_SOIL_MEAN_0_2M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_2M
+        TEMPERATURE_SOIL_MEAN_0_5M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_0_5M
+        TEMPERATURE_SOIL_MEAN_1M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_1M
+        TEMPERATURE_SOIL_MEAN_2M = OBSERVATIONS.TEMPERATURE_SOIL_MEAN_2M
+        TEMPERATURE_SOIL_MIN_0_1M = OBSERVATIONS.TEMPERATURE_SOIL_MIN_0_1M
+        TEMPERATURE_SOIL_MIN_0_2M = OBSERVATIONS.TEMPERATURE_SOIL_MIN_0_2M
+        TEMPERATURE_SOIL_MIN_0_5M = OBSERVATIONS.TEMPERATURE_SOIL_MIN_0_5M
+        TEMPERATURE_SOIL_MIN_1M = OBSERVATIONS.TEMPERATURE_SOIL_MIN_1M
+        TEMPERATURE_SOIL_MIN_2M = OBSERVATIONS.TEMPERATURE_SOIL_MIN_2M
+        WIND_SPEED = OBSERVATIONS.WIND_SPEED
 
 
 class GeosphereObservationUnit(DatasetTreeCore):
     class MINUTE_10(DatasetTreeCore):
-        class MINUTE_10(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
             PRECIPITATION_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value  # Niederschlag
@@ -294,7 +295,7 @@ class GeosphereObservationUnit(DatasetTreeCore):
             WIND_SPEED_ARITHMETIC = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
     class HOURLY(DatasetTreeCore):
-        class HOURLY(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
             PRECIPITATION_DURATION = OriginUnit.MINUTE.value, SIUnit.SECOND.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
@@ -316,8 +317,8 @@ class GeosphereObservationUnit(DatasetTreeCore):
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
     class DAILY(DatasetTreeCore):
-        class DAILY(UnitEnum):
-            CLOUD_COVER_TOTAL = OriginUnit.ONE_HUNDREDTH.value, SIUnit.ONE_HUNDREDTH.value
+        class OBSERVATIONS(UnitEnum):
+            CLOUD_COVER_TOTAL = OriginUnit.ONE_HUNDREDTH.value, SIUnit.PERCENT.value
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             PRESSURE_AIR_SITE = OriginUnit.HECTOPASCAL.value, SIUnit.PASCAL.value
@@ -335,8 +336,8 @@ class GeosphereObservationUnit(DatasetTreeCore):
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
     class MONTHLY(DatasetTreeCore):
-        class MONTHLY(UnitEnum):
-            CLOUD_COVER_TOTAL = OriginUnit.ONE_HUNDREDTH.value, SIUnit.ONE_HUNDREDTH.value
+        class OBSERVATIONS(UnitEnum):
+            CLOUD_COVER_TOTAL = OriginUnit.ONE_HUNDREDTH.value, SIUnit.PERCENT.value
             HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
             PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
             PRECIPITATION_HEIGHT_MAX = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
@@ -373,6 +374,632 @@ class GeosphereObservationUnit(DatasetTreeCore):
             TEMPERATURE_SOIL_MIN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
+
+GeosphereObservationMetadata = {
+    "resolutions": [
+        {
+            "name": "10_minutes",
+            "name_original": "10_minutes",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "observations",
+                    "name_original": "klima-v2-10min",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "humidity",
+                            "name_original": "rf",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_duration",
+                            "name_original": "rrm",
+                            "unit": "second",
+                            "unit_original": "minute",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "rr",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "pressure_air_sea_level",
+                            "name_original": "pred",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "p",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "radiation_global",
+                            "name_original": "cglo",
+                            "unit": "joule_per_square_meter",
+                            "unit_original": "joule_per_square_centimeter",
+                        },
+                        {
+                            "name": "radiation_sky_short_wave_diffuse",
+                            "name_original": "chim",
+                            "unit": "joule_per_square_meter",
+                            "unit_original": "joule_per_square_centimeter",
+                        },
+                        {
+                            "name": "snow_depth",
+                            "name_original": "sh",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "sunshine_duration",
+                            "name_original": "so",
+                            "unit": "second",
+                            "unit_original": "second",
+                        },
+                        {
+                            "name": "temperature_air_max_0_05m",
+                            "name_original": "tsmax",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "tlmax",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_0_05m",
+                            "name_original": "ts",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "tl",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "tsmin",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "tlmin",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_1m",
+                            "name_original": "tb10",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_2m",
+                            "name_original": "tb20",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_5m",
+                            "name_original": "tb50",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_direction",
+                            "name_original": "dd",
+                            "unit": "wind_direction",
+                            "unit_original": "wind_direction",
+                        },
+                        {
+                            "name": "wind_direction_gust_max",
+                            "name_original": "ddx",
+                            "unit": "wind_direction",
+                            "unit_original": "wind_direction",
+                        },
+                        {
+                            "name": "wind_gust_max",
+                            "name_original": "ffx",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "ff",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "wind_speed_arithmetic",
+                            "name_original": "ffam",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "hourly",
+            "name_original": "hourly",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "observations",
+                    "name_original": "klima-v2-1h",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "humidity",
+                            "name_original": "rf",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_duration",
+                            "name_original": "rrm",
+                            "unit": "second",
+                            "unit_original": "minute",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "rr",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "pressure_air_sea_level",
+                            "name_original": "pred",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "p",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "radiation_global",
+                            "name_original": "cglo",
+                            "unit": "joule_per_square_meter",
+                            "unit_original": "joule_per_square_centimeter",
+                        },
+                        {
+                            "name": "snow_depth",
+                            "name_original": "sh",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "sunshine_duration",
+                            "name_original": "so_h",
+                            "unit": "second",
+                            "unit_original": "hour",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "tl",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "tsmin",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_1m",
+                            "name_original": "tb10",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_2m",
+                            "name_original": "tb20",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_5m",
+                            "name_original": "tb50",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_1m",
+                            "name_original": "tb100",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_2m",
+                            "name_original": "tb200",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_direction",
+                            "name_original": "dd",
+                            "unit": "wind_direction",
+                            "unit_original": "wind_direction",
+                        },
+                        {
+                            "name": "wind_direction_gust_max",
+                            "name_original": "ddx",
+                            "unit": "wind_direction",
+                            "unit_original": "wind_direction",
+                        },
+                        {
+                            "name": "wind_gust_max",
+                            "name_original": "ffx",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "ff",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "daily",
+            "name_original": "daily",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "observations",
+                    "name_original": "klima-v2-1d",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "cloud_cover_total",
+                            "name_original": "bewm_mittel",
+                            "unit": "percent",
+                            "unit_original": "one_hundredth",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "rf_mittel",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "rr",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "p_mittel",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_vapor",
+                            "name_original": "dampf_mittel",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "radiation_global",
+                            "name_original": "cglo_j",
+                            "unit": "joule_per_square_meter",
+                            "unit_original": "joule_per_square_centimeter",
+                        },
+                        {
+                            "name": "snow_depth",
+                            "name_original": "sh",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "snow_depth_manual",
+                            "name_original": "sh_manu",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "snow_depth_new",
+                            "name_original": "shneu_manu",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "sunshine_duration",
+                            "name_original": "so_h",
+                            "unit": "second",
+                            "unit_original": "hour",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "tlmax",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "tl_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "tlmin",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "tsmin",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_gust_max",
+                            "name_original": "ffx",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "vv_mittel",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "monthly",
+            "name_original": "monthly",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "observations",
+                    "name_original": "klima-v2-1m",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "cloud_cover_total",
+                            "name_original": "bewm_mittel",
+                            "unit": "percent",
+                            "unit_original": "one_hundredth",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "rf_mittel",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "rr",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_max",
+                            "name_original": "rr_max",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "p",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_site_max",
+                            "name_original": "pmax",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_site_min",
+                            "name_original": "pmin",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_vapor",
+                            "name_original": "dampf_mittel",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "radiation_global",
+                            "name_original": "cglo_j",
+                            "unit": "joule_per_square_meter",
+                            "unit_original": "joule_per_square_centimeter",
+                        },
+                        {
+                            "name": "snow_depth_new",
+                            "name_original": "shneu_manu",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "snow_depth_new_max",
+                            "name_original": "shneu_manu_max",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "snow_depth_max",
+                            "name_original": "sh_manu_max",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "sunshine_duration",
+                            "name_original": "so_h",
+                            "unit": "second",
+                            "unit_original": "hour",
+                        },
+                        {
+                            "name": "sunshine_duration_relative",
+                            "name_original": "so_r",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "tlmax",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_concrete_max_0m",
+                            "name_original": "bet0_max",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "tl_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_concrete_mean_0m",
+                            "name_original": "bet0",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "tlmin",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_concrete_min_0m",
+                            "name_original": "bet0_min",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_max_0_1m",
+                            "name_original": "tb10_max",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_max_0_2m",
+                            "name_original": "tb20_max",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_max_0_5m",
+                            "name_original": "tb50_max",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_max_1m",
+                            "name_original": "tb100_max",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_max_2m",
+                            "name_original": "tb200_max",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_1m",
+                            "name_original": "tb10_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_2m",
+                            "name_original": "tb20_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_0_5m",
+                            "name_original": "tb50_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_1m",
+                            "name_original": "tb100_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_mean_2m",
+                            "name_original": "tb200_mittel",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_min_0_1m",
+                            "name_original": "tb10_min",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_min_0_2m",
+                            "name_original": "tb20_min",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_min_0_5m",
+                            "name_original": "tb50_min",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_min_1m",
+                            "name_original": "tb100_min",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_soil_min_2m",
+                            "name_original": "tb200_min",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "vv_mittel",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+GeosphereObservationMetadata = MetadataModel.model_validate(GeosphereObservationMetadata)
 
 class GeosphereObservationDataset(Enum):
     MINUTE_10 = "klima-v2-10min"

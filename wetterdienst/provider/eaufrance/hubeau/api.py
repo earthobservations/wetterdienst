@@ -49,17 +49,17 @@ REQUIRED_ENTRIES = [
 
 class HubeauParameter(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
-        class DYNAMIC(Enum):
+        class OBSERVATIONS(Enum):
             DISCHARGE = "Q"
             STAGE = "H"
 
-        DISCHARGE = DYNAMIC.DISCHARGE
-        STAGE = DYNAMIC.STAGE
+        DISCHARGE = OBSERVATIONS.DISCHARGE
+        STAGE = OBSERVATIONS.STAGE
 
 
 class HubeauUnit(DatasetTreeCore):
     class DYNAMIC(DatasetTreeCore):
-        class DYNAMIC(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             DISCHARGE = OriginUnit.LITERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
             STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
 
@@ -78,15 +78,15 @@ HubeauMetadata = {
                     "parameters": [
                         {
                             "name": "discharge",
-                            "name_original": "discharge",
-                            "unit": "cubic_meter_per_second",
-                            "unit_original": "cubic_meter_per_second",
+                            "name_original": "Q",
+                            "unit": "cubic_meters_per_second",
+                            "unit_original": "liters_per_second",
                         },
                         {
                             "name": "stage",
-                            "name_original": "stage",
+                            "name_original": "H",
                             "unit": "meter",
-                            "unit_original": "meter",
+                            "unit_original": "millimeter",
                         },
                     ],
                 }
@@ -146,10 +146,6 @@ class HubeauValues(TimeseriesValues):
         date_diff = dt.datetime.fromisoformat(second_date) - dt.datetime.fromisoformat(first_date)
         minutes = int(date_diff.seconds / 60)
         return minutes, "m"
-
-    def _fetch_frequency(self, station_id, parameter, dataset) -> str:
-        freq, unit = self._get_dynamic_frequency(station_id, parameter, dataset)
-        return f"{freq}{unit}"
 
     def _collect_station_parameter_or_dataset(
         self, station_id: str, parameter_or_dataset: ParameterModel
@@ -216,15 +212,9 @@ class HubeauRequest(TimeseriesRequest):
     _provider = Provider.EAUFRANCE
     _kind = Kind.OBSERVATION
     _tz = Timezone.FRANCE
-    _parameter_base = HubeauParameter
-    _unit_base = HubeauUnit
-    _resolution_type = ResolutionType.DYNAMIC
-    _resolution_base = HubeauResolution
-    _period_type = PeriodType.FIXED
-    _period_base = Period.HISTORICAL
-    _has_datasets = False
     _data_range = DataRange.FIXED
     _values = HubeauValues
+    metadata = HubeauMetadata
 
     _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"
 
@@ -237,8 +227,6 @@ class HubeauRequest(TimeseriesRequest):
     ):
         super().__init__(
             parameter=parameter,
-            resolution=Resolution.DYNAMIC,
-            period=Period.HISTORICAL,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

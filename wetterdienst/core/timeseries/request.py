@@ -122,7 +122,7 @@ class TimeseriesRequest(Core):
         :param parameter: parameters as strings or enumerations
         :return: list of parameter enumerations of type self._parameter_base
         """
-        parameter_templates = [ParameterTemplate.parse(parameter) for parameter in parameter]
+        parameter_templates = [ParameterTemplate.parse(parameter) for parameter in to_list(parameter)]
         parameters_found = []
         for parameter_template in parameter_templates:
             try:

@@ -6,7 +6,7 @@ from wetterdienst.util.parameter import DatasetTreeCore
 
 class EcccObservationUnit(DatasetTreeCore):
     class HOURLY(DatasetTreeCore):
-        class HOURLY(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             TEMPERATURE_AIR_MEAN_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
@@ -70,7 +70,7 @@ class EcccObservationUnit(DatasetTreeCore):
             WEATHER = OriginUnit.DIMENSIONLESS.value, SIUnit.DIMENSIONLESS.value
 
     class DAILY(DatasetTreeCore):
-        class DAILY(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             # Data Quality  quality of all variables?
             TEMPERATURE_AIR_MAX_2M = (
                 OriginUnit.DEGREE_CELSIUS.value,
@@ -97,16 +97,16 @@ class EcccObservationUnit(DatasetTreeCore):
                 SIUnit.DIMENSIONLESS.value,
             )
             COUNT_DAYS_HEATING_DEGREE = (
-                OriginUnit.DEGREE_CELSIUS.value,
-                SIUnit.DEGREE_KELVIN.value,
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
             )
             QUALITY_COUNT_DAYS_HEATING_DEGREE = (
                 OriginUnit.DIMENSIONLESS.value,
                 SIUnit.DIMENSIONLESS.value,
             )
             COUNT_DAYS_COOLING_DEGREE = (
-                OriginUnit.DEGREE_CELSIUS.value,
-                SIUnit.DEGREE_KELVIN.value,
+                OriginUnit.DIMENSIONLESS.value,
+                SIUnit.DIMENSIONLESS.value,
             )
             QUALITY_COUNT_DAYS_COOLING_DEGREE = (
                 OriginUnit.DIMENSIONLESS.value,
@@ -156,7 +156,7 @@ class EcccObservationUnit(DatasetTreeCore):
             )
 
     class MONTHLY(DatasetTreeCore):
-        class MONTHLY(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,
@@ -242,7 +242,7 @@ class EcccObservationUnit(DatasetTreeCore):
             )
 
     class ANNUAL(DatasetTreeCore):
-        class ANNUAL(UnitEnum):
+        class OBSERVATIONS(UnitEnum):
             TEMPERATURE_AIR_MAX_2M_MEAN = (
                 OriginUnit.DEGREE_CELSIUS.value,
                 SIUnit.DEGREE_KELVIN.value,

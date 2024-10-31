@@ -34,7 +34,7 @@ DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "qualit
 
 def test_api_dwd_observation(settings_si_true):
     request = DwdObservationRequest(
-        parameter="kl", resolution="daily", period="recent", settings=settings_si_true
+        parameter="daily/kl", period="recent", settings=settings_si_true
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)

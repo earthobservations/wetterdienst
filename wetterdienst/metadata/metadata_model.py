@@ -52,7 +52,7 @@ class DatasetModel(BaseModel):
 
 
 class ResolutionModel(BaseModel):
-    name: Resolution
+    name: str
     name_original: str
     value: Resolution = Field(alias="name", exclude=True, repr=False)  # this is just to make the code more readable
     datasets: list[DatasetModel]
