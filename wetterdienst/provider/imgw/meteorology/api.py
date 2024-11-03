@@ -19,6 +19,7 @@ from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
+from wetterdienst.metadata.metadata_model import MetadataModel, DatasetModel
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import ResolutionType
 from wetterdienst.metadata.timezone import Timezone
@@ -82,7 +83,7 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
             CLOUD_COVER_TOTAL = "średnie miesięczne zachmurzenie ogólne"
             HUMIDITY = "średnia miesięczna wilgotność względna"
             PRECIPITATION_HEIGHT = "miesieczna suma opadów"
-            PRECIPITATION_HEIGHT_MAX = "maksymalna dobowa suma opadóww"
+            PRECIPITATION_HEIGHT_MAX = "opad maksymalny"
             SNOW_DEPTH_MAX = "maksymalna wysokość pokrywy śnieżnej"
             TEMPERATURE_AIR_MAX_2M = "absolutna temperatura maksymalna"
             TEMPERATURE_AIR_MAX_2M_MEAN = "średnia temperatura maksymalna"
@@ -112,7 +113,7 @@ class ImgwMeteorologyParameter(DatasetTreeCore):
             TEMPERATURE_AIR_MEAN_2M = "średnia miesięczna temperatura"
             TEMPERATURE_AIR_MIN_0_05M = "minimalna temperatura przy gruncie"
             TEMPERATURE_AIR_MIN_2M = "absolutna temperatura minimalna"
-            TEMPERATURE_AIR_MIN_2M_MEAN = "średnia temperatura minimalnaj"
+            TEMPERATURE_AIR_MIN_2M_MEAN = "średnia temperatura minimalna"
             WIND_SPEED = "średnia miesięczna prędkość wiatru"
 
         CLOUD_COVER_TOTAL = SYNOP.CLOUD_COVER_TOTAL
@@ -203,19 +204,379 @@ class ImgwMeteorologyUnit(DatasetTreeCore):
             WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
 
 
-class ImgwMeteorologyDataset(Enum):
-    CLIMATE = "klimat"
-    PRECIPITATION = "opad"
-    SYNOP = "synop"
-
-
-class ImgwMeteorologyResolution(Enum):
-    DAILY = "dobowe"
-    MONTHLY = "miesieczne"
-
-
-class ImgwMeteorologyPeriod(Enum):
-    HISTORICAL = Period.HISTORICAL
+ImgwMeteorologyMetadata = {
+    "resolutions": [
+        {
+            "name": "daily",
+            "name_original": "dobowe",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "climate",
+                    "name_original": "klimat",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "cloud_cover_total",
+                            "name_original": "średnie dobowe zachmurzenie ogólne",
+                            "unit": "percent",
+                            "unit_original": "one_eighth",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "średnia dobowa wilgotność względna",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "suma dobowa opadów",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "snow_depth",
+                            "name_original": "wysokość pokrywy śnieżnej",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "maksymalna temperatura dobowa",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_0_05m",
+                            "name_original": "temperatura minimalna przy gruncie",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "średnia dobowa temperatura",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "minimalna temperatura dobowa",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "średnia dobowa prędkość wiatru",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                },
+                {
+                    "name": "precipitation",
+                    "name_original": "opad",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "suma dobowa opadów",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "snow_depth",
+                            "name_original": "wysokość pokrywy śnieżnej",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "snow_depth_new",
+                            "name_original": "wysokość świeżospałego śniegu",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        }
+                    ]
+                },
+                {
+                    "name": "synop",
+                    "name_original": "synop",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "cloud_cover_total",
+                            "name_original": "średnie dobowe zachmurzenie ogólne",
+                            "unit": "percent",
+                            "unit_original": "one_eighth",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "średnia dobowa wilgotność względna",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_height_day",
+                            "name_original": "suma opadu dzień",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_night",
+                            "name_original": "suma opadu noc",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "średnia dobowe ciśnienie na poziomie stacji",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_sea_level",
+                            "name_original": "średnie dobowe ciśnienie na pozimie morza",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_vapor",
+                            "name_original": "średnia dobowe ciśnienie pary wodnej",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "średnia dobowa temperatura",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "średnia dobowa prędkość wiatru",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                },
+            ]
+        },
+        {
+            "name": "monthly",
+            "name_original": "miesieczne",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "climate",
+                    "name_original": "klimat",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "cloud_cover_total",
+                            "name_original": "średnie miesięczne zachmurzenie ogólne",
+                            "unit": "percent",
+                            "unit_original": "one_eighth",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "średnia miesięczna wilgotność względna",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "miesieczna suma opadów",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_max",
+                            "name_original": "opad maksymalny",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "snow_depth_max",
+                            "name_original": "maksymalna wysokość pokrywy śnieżnej",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "absolutna temperatura maksymalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_max_2m_mean",
+                            "name_original": "średnia temperatura maksymalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "średnia miesięczna temperatura",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "minimalna temperatura przy gruncie",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "absolutna temperatura minimalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m_mean",
+                            "name_original": "średnia temperatura minimalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "średnia miesięczna prędkość wiatru",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                },
+                {
+                    "name": "precipitation",
+                    "name_original": "opad",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "miesięczna suma opadów",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_max",
+                            "name_original": "opad maksymalny",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        }
+                    ]
+                },
+                {
+                    "name": "synop",
+                    "name_original": "synop",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "cloud_cover_total",
+                            "name_original": "średnie miesięczne zachmurzenie ogólne",
+                            "unit": "percent",
+                            "unit_original": "one_eighth",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "średnia miesięczna wilgotność względna",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "miesięczna suma opadów",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_day",
+                            "name_original": "suma opadu dzień",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_max",
+                            "name_original": "maksymalna dobowa suma opadów",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_night",
+                            "name_original": "suma opadu noc",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "średnie miesięczne ciśnienie na poziomie stacji",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_air_sea_level",
+                            "name_original": "średnie miesięczne ciśnienie na pozimie morza",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "pressure_vapor",
+                            "name_original": "średnie miesięczne ciśnienie pary wodnej",
+                            "unit": "pascal",
+                            "unit_original": "hectopascal",
+                        },
+                        {
+                            "name": "snow_depth_max",
+                            "name_original": "maksymalna wysokość pokrywy śnieżnej",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "temperature_air_max_2m",
+                            "name_original": "absolutna temperatura maksymalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_max_2m_mean",
+                            "name_original": "średnia temperatura maksymalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m",
+                            "name_original": "absolutna temperatura minimalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m_mean",
+                            "name_original": "średnia temperatura minimalna",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "minimalna temperatura przy gruncie",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "średnia miesięczna temperatura",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "średnia miesięczna prędkość wiatru",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+ImgwMeteorologyMetadata = MetadataModel.model_validate(ImgwMeteorologyMetadata)
 
 
 class ImgwMeteorologyValues(TimeseriesValues):
@@ -358,11 +719,10 @@ class ImgwMeteorologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter(
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter: Enum,  # noqa: ARG002
-        dataset: Enum,
+        parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         """
 
@@ -371,7 +731,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         :param dataset:
         :return:
         """
-        urls = self._get_urls(dataset)
+        urls = self._get_urls(parameter_or_dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
                 lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES),
@@ -445,21 +805,20 @@ class ImgwMeteorologyValues(TimeseriesValues):
         df = df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name="value")
         return df.with_columns(pl.col("value").cast(pl.Float64))
 
-    def _get_urls(self, dataset: Enum) -> pl.Series:
+    def _get_urls(self, dataset: DatasetModel) -> pl.Series:
         """Get file urls from server
 
         :param dataset: dataset for which the filelist is retrieved
         :return:
         """
-        res = self.sr.stations._resolution_base[self.sr.resolution.name]
-        url = self._endpoint.format(resolution=res.value, dataset=dataset.value)
+        url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
         if self.sr.start_date:
             interval = P.closed(self.sr.start_date, self.sr.end_date)
-            if self.sr.resolution == Resolution.MONTHLY:
+            if dataset.resolution.value == Resolution.MONTHLY:
                 df_files = df_files.with_columns(
                     pl.when(pl.col("file").str.split("_").list.len() == 3)
                     .then(pl.col("file").str.split("_").list.first().map_elements(lambda y: [y, y]))
@@ -511,34 +870,23 @@ class ImgwMeteorologyValues(TimeseriesValues):
 class ImgwMeteorologyRequest(TimeseriesRequest):
     _provider = Provider.IMGW
     _kind = Kind.OBSERVATION
-    _parameter_base = ImgwMeteorologyParameter
-    _unit_base = ImgwMeteorologyUnit
-    _dataset_base = ImgwMeteorologyDataset
-    _has_datasets = True
-    _unique_dataset = True
-    _resolution_base = ImgwMeteorologyResolution
-    _resolution_type = ResolutionType.MULTI
-    _period_base = ImgwMeteorologyPeriod
-    _period_type = PeriodType.FIXED
     _tz = Timezone.POLAND
     _data_range = DataRange.FIXED
     _values = ImgwMeteorologyValues
+    metadata = ImgwMeteorologyMetadata
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Meteo/kody_stacji.csv"
 
     def __init__(
         self,
         parameter: str | ImgwMeteorologyParameter | Parameter | Sequence[str | ImgwMeteorologyParameter | Parameter],
-        resolution: str | ImgwMeteorologyResolution | Resolution,
         start_date: str | dt.datetime | None = None,
         end_date: str | dt.datetime | None = None,
         settings: Settings | None = None,
     ):
         super().__init__(
             parameter=parameter,
-            resolution=resolution,
             start_date=start_date,
             end_date=end_date,
-            period=Period.HISTORICAL,
             settings=settings,
         )
 

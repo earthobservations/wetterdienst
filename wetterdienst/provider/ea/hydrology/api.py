@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -20,7 +20,7 @@ from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
-from wetterdienst.provider.dwd.dmo.api import DwdDmoMetadata
+from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.parameter import DatasetTreeCore
@@ -33,58 +33,6 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__file__)
-
-
-class EAHydrologyResolution(Enum):
-    MINUTE_15 = Resolution.MINUTE_15.value
-    HOUR_6 = Resolution.HOUR_6.value
-    DAILY = Resolution.DAILY.value
-
-
-class EAHydrologyParameter(DatasetTreeCore):
-    class MINUTE_15(DatasetTreeCore):
-        class OBSERVATIONS(Enum):
-            DISCHARGE = "flow"
-            GROUNDWATER_LEVEL = "groundwater_level"
-
-        DISCHARGE = OBSERVATIONS.DISCHARGE
-        GROUNDWATER_LEVEL = OBSERVATIONS.GROUNDWATER_LEVEL
-
-    class HOUR_6(DatasetTreeCore):
-        class OBSERVATIONS(Enum):
-            DISCHARGE = "flow"
-            GROUNDWATER_LEVEL = "groundwater_level"
-
-        DISCHARGE = OBSERVATIONS.DISCHARGE
-        GROUNDWATER_LEVEL = OBSERVATIONS.GROUNDWATER_LEVEL
-
-    class DAILY(DatasetTreeCore):
-        class OBSERVATIONS(Enum):
-            DISCHARGE = "flow"
-            GROUNDWATER_LEVEL = "groundwater_level"
-
-        DISCHARGE = OBSERVATIONS.DISCHARGE
-        GROUNDWATER_LEVEL = OBSERVATIONS.GROUNDWATER_LEVEL
-
-
-PARAMETER_MAPPING = {"discharge": "Water Flow", "groundwater_level": "Groundwater level"}
-
-
-class EAHydrologyUnit(DatasetTreeCore):
-    class MINUTE_15(DatasetTreeCore):
-        class OBSERVATIONS(UnitEnum):
-            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
-
-    class HOUR_6(DatasetTreeCore):
-        class OBSERVATIONS(UnitEnum):
-            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
-
-    class DAILY(DatasetTreeCore):
-        class OBSERVATIONS(UnitEnum):
-            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
 
 
 EAHydrologyMetadata = {
@@ -209,21 +157,21 @@ class EAHydrologyValues(TimeseriesValues):
 
 
 class EAHydrologyRequest(TimeseriesRequest):
+    metadata = EAHydrologyMetadata
     _provider = Provider.EA
     _kind = Kind.OBSERVATION
     _tz = Timezone.UK
     _data_range = DataRange.FIXED
     _values = EAHydrologyValues
-    metadata = EAHydrologyMetadata
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations.json"
 
     def __init__(
         self,
-        parameter: str | EAHydrologyParameter | Parameter | Sequence[str | EAHydrologyParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
             parameter=parameter,

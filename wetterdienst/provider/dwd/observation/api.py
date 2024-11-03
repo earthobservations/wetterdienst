@@ -12,7 +12,7 @@ import portion as P
 from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -22,8 +22,8 @@ from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.dwd.observation._metadata.period import DwdObservationPeriod
-from wetterdienst.provider.dwd.observation._metadata.resolution import HIGH_RESOLUTIONS
+
+from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
 )
@@ -48,6 +48,22 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+HIGH_RESOLUTIONS = (
+    Resolution.MINUTE_1,
+    Resolution.MINUTE_5,
+    Resolution.MINUTE_10,
+)
+
+
+RESOLUTION_TO_DATETIME_FORMAT_MAPPING: dict[Resolution, str] = {
+    Resolution.MINUTE_1: DatetimeFormat.YMDHM.value,
+    Resolution.MINUTE_10: DatetimeFormat.YMDHM.value,
+    Resolution.HOURLY: DatetimeFormat.YMDHM.value,
+    Resolution.SUBDAILY: DatetimeFormat.YMDHM.value,
+    Resolution.DAILY: DatetimeFormat.YMD.value,
+    Resolution.MONTHLY: DatetimeFormat.YMD.value,
+    Resolution.ANNUAL: DatetimeFormat.YMD.value,
+}
 
 class DwdObservationValues(TimeseriesValues):
     """
@@ -57,33 +73,6 @@ class DwdObservationValues(TimeseriesValues):
 
     _tz = Timezone.GERMANY
     _data_tz = Timezone.UTC
-    _resolution_type = ResolutionType.MULTI
-    _period_type = PeriodType.MULTI
-
-    def __eq__(self, other):
-        """
-
-        :param other:
-        :return:
-        """
-        return super().__eq__(other) and (
-            self.sr.resolution == other.sr.resolution and self.sr.period == other.sr.period
-        )
-
-    def __str__(self):
-        """
-
-        :return:
-        """
-        periods_joined = "& ".join([period_type.value for period_type in self.sr.period])
-
-        return ", ".join(
-            [
-                super().__str__(),
-                f"resolution {self.sr.resolution.value}",
-                f"periods {periods_joined}",
-            ],
-        )
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -298,7 +287,6 @@ class DwdObservationValues(TimeseriesValues):
         """
         file_index = create_file_index_for_climate_observations(
             dataset,
-            self.sr.resolution,
             Period.HISTORICAL,
             settings,
         )
@@ -325,13 +313,13 @@ class DwdObservationRequest(TimeseriesRequest):
     The DWDObservationStations class represents a request for
     a station list as provided by the DWD service.
     """
-
+    metadata = DwdObservationMetadata
     _provider = Provider.DWD
     _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
     _data_range = DataRange.FIXED
     _values = DwdObservationValues
-    metadata = DwdObservationMetadata
+    _available_periods = {Period.HISTORICAL, Period.RECENT, Period.NOW}
 
     @property
     def _interval(self) -> Interval | None:
@@ -408,7 +396,7 @@ class DwdObservationRequest(TimeseriesRequest):
     def _parse_station_id(series: pl.Series) -> pl.Series:
         return series.cast(pl.String).str.pad_start(5, "0")
 
-    def _parse_period(self, period: Period) -> list[Period] | None:
+    def _parse_period(self, period: Period) -> set[Period] | None:
         """
         Method to parse period(s)
 
@@ -417,26 +405,19 @@ class DwdObservationRequest(TimeseriesRequest):
         """
         if not period:
             return None
-        else:
-            return sorted(
-                [
-                    parse_enumeration_from_template(p, intermediate=DwdObservationPeriod, base=Period)
-                    for p in to_list(period)
-                ],
-            )
+        periods_parsed = set()
+        for p in to_list(period):
+            periods_parsed.add(parse_enumeration_from_template(p, Period))
+        return periods_parsed & self._available_periods or None
+
 
     def __init__(
         self,
-        parameter: str
-        | tuple[str, str]
-        | tuple[str, str, str]
-        | ParameterModel
-        | DatasetModel
-        | Sequence[str | ParameterModel | DatasetModel | tuple[str, str] | tuple[str, str, str]],
-        period: str | DwdObservationPeriod | Period | Sequence[str | DwdObservationPeriod | Period] = None,
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        period: str | Period | Sequence[str | Period] = None,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         """
 
@@ -461,7 +442,7 @@ class DwdObservationRequest(TimeseriesRequest):
             if self.start_date:
                 self.period = self._get_periods()
             else:
-                self.period = self._parse_period([*DwdObservationPeriod])
+                self.period = self._available_periods
 
     def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
         return super().filter_by_station_id(
@@ -486,7 +467,9 @@ class DwdObservationRequest(TimeseriesRequest):
             raise KeyError("dataset must be a string, ParameterTemplate or DatasetModel")
 
         dataset = DwdObservationMetadata.search_parameter(parameter_template)[0].dataset
-        period = parse_enumeration_from_template(period, DwdObservationPeriod, Period)
+        period = parse_enumeration_from_template(period, Period)
+        if period not in dataset.periods or period not in cls._available_periods:
+            raise ValueError(f"Period {period} not available for dataset {dataset}")
 
         file_index = _create_file_index_for_dwd_server(
             dataset=dataset,

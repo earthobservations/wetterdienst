@@ -4,18 +4,26 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, SkipValidation
-
+import logging
 from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
+from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
+    from wetterdienst.core.timeseries.request import _PARAMETER_TYPE
+
+log = logging.getLogger(__name__)
+
+# for any provider that does not publish their data under a dedicated dataset name
+DATASET_NAME_DEFAULT = "observations"
 
 class ParameterModel(BaseModel):
     name: str
     name_original: str
     unit: str
     unit_original: str
+    description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
 
 
@@ -25,6 +33,7 @@ class DatasetModel(BaseModel):
     name_original: str
     grouped: bool  # if parameters are grouped together e.g. in one file
     periods: list[Period] | None = None
+    description: str | None = None
     parameters: list[ParameterModel]
     resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)
 
@@ -57,6 +66,7 @@ class ResolutionModel(BaseModel):
     value: Resolution = Field(alias="name", exclude=True, repr=False)  # this is just to make the code more readable
     datasets: list[DatasetModel]
     periods: list[Period] | None = None
+    description: str | None = None
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -129,7 +139,7 @@ class MetadataModel(BaseModel):
 class ParameterTemplate:
     resolution: str
     dataset: str
-    parameter: str | None
+    parameter: str | None = None
 
     @classmethod
     def parse(cls, value: str | Iterable[str]) -> ParameterTemplate:
@@ -148,3 +158,18 @@ class ParameterTemplate:
             except ValueError:
                 pass
         return ParameterTemplate(resolution, dataset, parameter)
+
+def parse_parameter(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
+    """Method to parse parameters, either from string or tuple or MetadataModel or sequence of those."""
+    parameter_templates = [ParameterTemplate.parse(parameter) for parameter in to_list(parameter)]
+    parameters_found = []
+    for parameter_template in parameter_templates:
+        try:
+            parameters_found.extend(metadata.search_parameter(parameter_template))
+        except KeyError:
+            log.warning(f"{parameter_template} not found in metadata")
+    unique_resolutions = set(parameter.dataset.resolution.value.value for parameter in parameters_found)
+    # TODO: for now we only support one resolution
+    if not len(unique_resolutions) == 1:
+        raise ValueError(f"All parameters must have the same resolution. Found: {unique_resolutions}")
+    return parameters_found

@@ -20,6 +20,7 @@ from wetterdienst.core.timeseries.request import TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
+from wetterdienst.metadata.metadata_model import MetadataModel, DatasetModel
 from wetterdienst.metadata.period import PeriodType
 from wetterdienst.metadata.resolution import ResolutionType
 from wetterdienst.metadata.timezone import Timezone
@@ -95,24 +96,117 @@ class ImgwHydrologyUnit(DatasetTreeCore):
             STAGE_MIN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
 
 
-class ImgwHydrologyDataset(Enum):
-    HYDROLOGY = "hydrology"
-
-
-class ImgwHydrologyResolution(Enum):
-    DAILY = "dobowe"
-    MONTHLY = "miesieczne"
-
-
-class ImgwHydrologyPeriod(Enum):
-    HISTORICAL = Period.HISTORICAL
-
+ImgwHydrologyMetadata = {
+    "resolutions": [
+        {
+            "name": "daily",
+            "name_original": "dobowe",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "hydrology",
+                    "name_original": "hydrology",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "discharge",
+                            "name_original": "przepływ",
+                            "unit": "cubic_meters_per_second",
+                            "unit_original": "cubic_meters_per_second",
+                        },
+                        {
+                            "name": "temperature_water",
+                            "name_original": "temperatura wody",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "stage",
+                            "name_original": "stan wody",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "monthly",
+            "name_original": "miesieczne",
+            "periods": ["historical"],
+            "datasets": [
+                {
+                    "name": "hydrology",
+                    "name_original": "hydrology",
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "discharge_max",
+                            "name_original": "maksymalna przepływ",
+                            "unit": "cubic_meters_per_second",
+                            "unit_original": "cubic_meters_per_second",
+                        },
+                        {
+                            "name": "discharge_mean",
+                            "name_original": "średnia przepływ",
+                            "unit": "cubic_meters_per_second",
+                            "unit_original": "cubic_meters_per_second",
+                        },
+                        {
+                            "name": "discharge_min",
+                            "name_original": "minimalna przepływ",
+                            "unit": "cubic_meters_per_second",
+                            "unit_original": "cubic_meters_per_second",
+                        },
+                        {
+                            "name": "temperature_water_max",
+                            "name_original": "maksymalna temperatura wody",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_water_mean",
+                            "name_original": "średnia temperatura wody",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_water_min",
+                            "name_original": "minimalna temperatura wody",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "stage_max",
+                            "name_original": "maksymalna stan wody",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "stage_mean",
+                            "name_original": "średnia stan wody",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "stage_min",
+                            "name_original": "minimalna stan wody",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+ImgwHydrologyMetadata = MetadataModel.model_validate(ImgwHydrologyMetadata)
 
 class ImgwHydrologyValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/{resolution}/"
     _file_schema = {
-        "daily": {
+        Resolution.DAILY: {
             "hydrology": {
                 "codz.*.csv": {
                     "column_1": "station_id",
@@ -125,7 +219,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                 },
             },
         },
-        "monthly": {
+        Resolution.MONTHLY: {
             "hydrology": {
                 "mies.*.csv": {
                     "column_1": "station_id",
@@ -140,11 +234,10 @@ class ImgwHydrologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter(
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter: Enum,  # noqa: ARG002
-        dataset: Enum,
+        parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         """
 
@@ -153,16 +246,16 @@ class ImgwHydrologyValues(TimeseriesValues):
         :param dataset:
         :return:
         """
-        urls = self._get_urls(dataset)
+        urls = self._get_urls(parameter_or_dataset)
         with ThreadPoolExecutor() as p:
             files_in_bytes = p.map(
                 lambda file: download_file(url=file, settings=self.sr.settings, ttl=CacheExpiry.FIVE_MINUTES),
                 urls,
             )
         data = []
-        file_schema = self._file_schema[self.sr.resolution.name.lower()][dataset.name.lower()]
+        file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
         for file_in_bytes in files_in_bytes:
-            df = self._parse_file(file_in_bytes=file_in_bytes, station_id=station_id, file_schema=file_schema)
+            df = self._parse_file(file_in_bytes=file_in_bytes, station_id=station_id, dataset=parameter_or_dataset, file_schema=file_schema)
             if not df.is_empty():
                 data.append(df)
         try:
@@ -177,7 +270,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
-    def _parse_file(self, file_in_bytes: bytes, station_id: str, file_schema: dict) -> pl.DataFrame:
+    def _parse_file(self, file_in_bytes: bytes, station_id: str, dataset: DatasetModel, file_schema: dict) -> pl.DataFrame:
         """Function to parse hydrological zip file, parses all files and combines
         them
 
@@ -194,7 +287,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                 if re.match(file_pattern, f):
                     file = f
                     break
-            df = self.__parse_file(file=zfs.read_bytes(file), station_id=station_id, schema=schema)
+            df = self.__parse_file(file=zfs.read_bytes(file), station_id=station_id, dataset=dataset, schema=schema)
             if not df.is_empty():
                 data.append(df)
         try:
@@ -205,7 +298,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             return pl.DataFrame()
         return df.unique(subset=["parameter", "date"], keep="first")
 
-    def __parse_file(self, file: bytes, station_id: str, schema: dict) -> pl.DataFrame:
+    def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Function to parse a single file out of the zip file
 
         :param file: unzipped file bytes
@@ -230,7 +323,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.when(pl.col("month") <= 2).then(pl.col("year") - 1).otherwise(pl.col("year")).alias("year"),
             pl.when(pl.col("month").add(10).gt(12)).then(pl.col("month").sub(2)).otherwise(pl.col("month").add(10)),
         )
-        if self.sr.resolution == Resolution.DAILY:
+        if dataset.resolution.value == Resolution.DAILY:
             df = df.with_columns(pl.col("day").cast(pl.Int64))
             exp1 = pl.all().exclude(["year", "month", "day"])
             exp2 = pl.datetime("year", "month", "day").alias(Columns.DATE.value)
@@ -238,14 +331,14 @@ class ImgwHydrologyValues(TimeseriesValues):
             exp1 = pl.all().exclude(["year", "month"])
             exp2 = pl.datetime("year", "month", 1).alias(Columns.DATE.value)
         df = df.select(exp1, exp2)
-        if self.sr.resolution == Resolution.DAILY:
+        if dataset.resolution.value == Resolution.DAILY:
             index = ["station_id", "date"]
         else:
             # monthly data includes extrimity column (1: min, 2: mean, 3: max)
             index = ["station_id", "date", "extremity"]
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
         df = df.with_columns(pl.col("value").cast(pl.Float64))
-        if self.sr.resolution == Resolution.MONTHLY:
+        if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(
                 pl.col("station_id"),
                 pl.col("date"),
@@ -260,21 +353,20 @@ class ImgwHydrologyValues(TimeseriesValues):
             )
         return df
 
-    def _get_urls(self, dataset: Enum) -> pl.Series:
+    def _get_urls(self, dataset: DatasetModel) -> pl.Series:
         """Get file urls from server
 
         :param dataset: dataset for which the filelist is retrieved
         :return:
         """
-        res = self.sr.stations._resolution_base[self.sr.resolution.name]
-        url = self._endpoint.format(resolution=res.value, dataset=dataset.value)
+        url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         files = list_remote_files_fsspec(url, self.sr.settings)
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
         if self.sr.start_date:
             interval = P.closed(self.sr.start_date, self.sr.end_date)
-            if self.sr.resolution == Resolution.DAILY:
+            if dataset.resolution.value == Resolution.DAILY:
                 df_files = df_files.with_columns(
                     pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
                 )
@@ -330,18 +422,10 @@ class ImgwHydrologyValues(TimeseriesValues):
 class ImgwHydrologyRequest(TimeseriesRequest):
     _provider = Provider.IMGW
     _kind = Kind.OBSERVATION
-    _parameter_base = ImgwHydrologyParameter
-    _unit_base = ImgwHydrologyUnit
-    _dataset_base = ImgwHydrologyDataset
-    _has_datasets = True
-    _unique_dataset = True
-    _resolution_base = ImgwHydrologyResolution
-    _resolution_type = ResolutionType.MULTI
-    _period_base = ImgwHydrologyPeriod
-    _period_type = PeriodType.FIXED
     _tz = Timezone.POLAND
     _data_range = DataRange.FIXED
     _values = ImgwHydrologyValues
+    metadata = ImgwHydrologyMetadata
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Hydro/kody_stacji.csv"
 
     def __init__(
@@ -354,10 +438,8 @@ class ImgwHydrologyRequest(TimeseriesRequest):
     ):
         super().__init__(
             parameter=parameter,
-            resolution=resolution,
             start_date=start_date,
             end_date=end_date,
-            period=Period.HISTORICAL,
             settings=settings,
         )
 

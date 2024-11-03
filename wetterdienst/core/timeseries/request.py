@@ -29,7 +29,8 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel, ParameterTemplate
+from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel, ParameterTemplate, \
+    parse_parameter, ResolutionModel
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
@@ -54,7 +55,15 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 
-_PARAMETER_TYPE = str | Enum | Parameter | tuple[str | Enum | Parameter, str | Enum | Parameter]
+# types
+# either of
+# str: "daily/kl" or "daily/kl/temperature_air_mean_2m"
+# tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")
+# Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]
+_PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel
+_PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
+_DATETIME_TYPE = str | dt.datetime | None
+_SETTINGS_TYPE = dict | Settings | None
 
 
 class TimeseriesRequest(Core):
@@ -114,26 +123,6 @@ class TimeseriesRequest(Core):
         Parameter.PRECIPITATION_HEIGHT.name,
     ]
 
-    def _parse_parameter(self, parameter: list[str | ParameterModel | DatasetModel]) -> list[ParameterModel]:
-        """
-        Method to parse parameters, either from string or enum. Case independent for
-        strings.
-
-        :param parameter: parameters as strings or enumerations
-        :return: list of parameter enumerations of type self._parameter_base
-        """
-        parameter_templates = [ParameterTemplate.parse(parameter) for parameter in to_list(parameter)]
-        parameters_found = []
-        for parameter_template in parameter_templates:
-            try:
-                parameters_found.extend(self.metadata.search_parameter(parameter_template))
-            except KeyError:
-                log.warning(f"{parameter_template} not found in metadata")
-        unique_resolutions = set(parameter.dataset.resolution.value.value for parameter in parameters_found)
-        if not len(unique_resolutions) == 1:
-            raise ValueError(f"All parameters must have the same resolution. Found: {unique_resolutions}")
-        return parameters_found
-
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
         """
@@ -146,10 +135,10 @@ class TimeseriesRequest(Core):
 
     def __init__(
         self,
-        parameter: str | Parameter | Sequence[str | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
 
@@ -165,7 +154,7 @@ class TimeseriesRequest(Core):
         super().__init__()
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
-        self.parameter = self._parse_parameter(parameter)
+        self.parameter = parse_parameter(parameter, self.metadata)
 
         if not self.parameter:
             raise NoParametersFoundError("no valid parameters could be parsed from given argument")
@@ -197,8 +186,8 @@ class TimeseriesRequest(Core):
 
     @staticmethod
     def convert_timestamps(
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
+        start_date: _DATETIME_TYPE,
+        end_date: _DATETIME_TYPE,
     ) -> tuple[None, None] | tuple[dt.datetime, dt.datetime]:
         """
         Sort out start_date vs. end_date, parse strings to datetime

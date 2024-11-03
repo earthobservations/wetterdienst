@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -45,23 +45,6 @@ REQUIRED_ENTRIES = [
     "date_ouverture_station",
     "date_fermeture_station",
 ]
-
-
-class HubeauParameter(DatasetTreeCore):
-    class DYNAMIC(DatasetTreeCore):
-        class OBSERVATIONS(Enum):
-            DISCHARGE = "Q"
-            STAGE = "H"
-
-        DISCHARGE = OBSERVATIONS.DISCHARGE
-        STAGE = OBSERVATIONS.STAGE
-
-
-class HubeauUnit(DatasetTreeCore):
-    class DYNAMIC(DatasetTreeCore):
-        class OBSERVATIONS(UnitEnum):
-            DISCHARGE = OriginUnit.LITERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            STAGE = OriginUnit.MILLIMETER.value, SIUnit.METER.value
 
 
 HubeauMetadata = {
@@ -209,21 +192,21 @@ class HubeauValues(TimeseriesValues):
 
 
 class HubeauRequest(TimeseriesRequest):
+    metadata = HubeauMetadata
     _provider = Provider.EAUFRANCE
     _kind = Kind.OBSERVATION
     _tz = Timezone.FRANCE
     _data_range = DataRange.FIXED
     _values = HubeauValues
-    metadata = HubeauMetadata
 
     _endpoint = "https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations?format=json&en_service=true"
 
     def __init__(
         self,
-        parameter: str | HubeauParameter | Parameter | Sequence[str | HubeauParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
             parameter=parameter,

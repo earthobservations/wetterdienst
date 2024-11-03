@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 import polars as pl
 
 from wetterdienst import Kind, Parameter, Provider, Settings
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
@@ -36,73 +36,6 @@ log = logging.getLogger(__name__)
 
 DATE_REGEX = r"-(\d{10,})-"
 TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
-
-
-class DwdRoadParameter(DatasetTreeCore):
-    """
-    enumeration for different parameter/variables
-    measured by dwd road weather stations
-    """
-
-    class MINUTE_15(DatasetTreeCore):
-        class ROAD_WEATHER(Enum):
-            # class ROAD_WEATHER(Enum):
-            HUMIDITY = "relativeHumidity"
-            PRECIPITATION_FORM = "precipitationType"
-            PRECIPITATION_HEIGHT = "totalPrecipitationOrTotalWaterEquivalent"
-            PRECIPITATION_INTENSITY = "intensityOfPrecipitation"
-            ROAD_SURFACE_CONDITION = "roadSurfaceCondition"
-            TEMPERATURE_AIR_MEAN_2M = "airTemperature"
-            TEMPERATURE_DEW_POINT_MEAN_2M = "dewpointTemperature"
-            TEMPERATURE_SURFACE_MEAN = "roadSurfaceTemperature"
-            VISIBILITY_RANGE = "horizontalVisibility"
-            WATER_FILM_THICKNESS = "waterFilmThickness"
-            WIND_DIRECTION = "windDirection"
-            WIND_DIRECTION_GUST_MAX = "maximumWindGustDirection"
-            WIND_GUST_MAX = "maximumWindGustSpeed"
-            WIND_SPEED = "windSpeed"
-            # INTENSITY_OF_PHENOMENA = "intensityOfPhenomena"  # noqa: ERA001
-
-        HUMIDITY = ROAD_WEATHER.HUMIDITY
-        PRECIPITATION_FORM = ROAD_WEATHER.PRECIPITATION_FORM
-        PRECIPITATION_HEIGHT = ROAD_WEATHER.PRECIPITATION_HEIGHT
-        PRECIPITATION_INTENSITY = ROAD_WEATHER.PRECIPITATION_INTENSITY
-        ROAD_SURFACE_CONDITION = ROAD_WEATHER.ROAD_SURFACE_CONDITION
-        TEMPERATURE_AIR_MEAN_2M = ROAD_WEATHER.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_DEW_POINT_MEAN_2M = ROAD_WEATHER.TEMPERATURE_DEW_POINT_MEAN_2M
-        TEMPERATURE_SURFACE_MEAN = ROAD_WEATHER.TEMPERATURE_SURFACE_MEAN
-        VISIBILITY_RANGE = ROAD_WEATHER.VISIBILITY_RANGE
-        WATER_FILM_THICKNESS = ROAD_WEATHER.WATER_FILM_THICKNESS
-        WIND_DIRECTION = ROAD_WEATHER.WIND_DIRECTION
-        WIND_DIRECTION_GUST_MAX = ROAD_WEATHER.WIND_DIRECTION_GUST_MAX
-        WIND_GUST_MAX = ROAD_WEATHER.WIND_GUST_MAX
-        WIND_SPEED = ROAD_WEATHER.WIND_SPEED
-        # INTENSITY_OF_PHENOMENA = MINUTE_15.INTENSITY_OF_PHENOMENA  # noqa: ERA001
-
-
-class DwdRoadUnit(DatasetTreeCore):
-    """
-    enumeration for different parameter/variables
-    measured by dwd road weather stations
-    """
-
-    class MINUTE_15(DatasetTreeCore):
-        class ROAD_WEATHER(UnitEnum):
-            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            PRECIPITATION_FORM = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
-            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-            PRECIPITATION_INTENSITY = OriginUnit.MILLIMETER_PER_HOUR.value, SIUnit.MILLIMETER_PER_HOUR.value
-            ROAD_SURFACE_CONDITION = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_KELVIN.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_DEW_POINT_MEAN_2M = OriginUnit.DEGREE_KELVIN.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_SURFACE_MEAN = OriginUnit.DEGREE_KELVIN.value, SIUnit.DEGREE_KELVIN.value
-            VISIBILITY_RANGE = OriginUnit.KILOMETER.value, SIUnit.METER.value
-            WATER_FILM_THICKNESS = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
-            WIND_DIRECTION_GUST_MAX = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
-            WIND_GUST_MAX = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-            WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-            # INTENSITY_OF_PHENOMENA = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value  # noqa: ERA001
 
 
 DwdRoadMetadata = {
@@ -449,10 +382,10 @@ class DwdRoadValues(TimeseriesValues):
 
 
 class DwdRoadRequest(TimeseriesRequest):
+    metadata = DwdRoadMetadata
     _provider = Provider.DWD
     _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
-    metadata = DwdRoadMetadata
     _values = DwdRoadValues
     _data_range = DataRange.FIXED
 
@@ -503,10 +436,10 @@ class DwdRoadRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: str | DwdRoadParameter | Parameter | Sequence[str | DwdRoadParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
             parameter=parameter,
