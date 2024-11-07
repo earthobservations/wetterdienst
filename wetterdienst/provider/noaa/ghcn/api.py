@@ -9,15 +9,13 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DatasetModel
-from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
@@ -28,25 +26,21 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
+    from wetterdienst.metadata.metadata_model import DatasetModel
 
 log = logging.getLogger(__name__)
-
 
 
 class NoaaGhcnValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
 
     def _collect_station_parameter_or_dataset(
-            self, station_id: str, parameter_or_dataset: DatasetModel
+        self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
         else:
-            return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
+            return self._collect_station_parameter_for_daily(station_id=station_id)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
@@ -326,7 +320,6 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_daily(
         self,
         station_id: str,
-        dataset: DatasetModel,
     ) -> pl.DataFrame:
         """
         Collection method for NOAA GHCN data. Parameter and dataset can be ignored as data
@@ -406,10 +399,10 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: str | NoaaGhcnParameter | Parameter | Sequence[str | NoaaGhcnParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
 

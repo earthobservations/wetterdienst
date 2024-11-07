@@ -11,13 +11,12 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DatasetModel
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
@@ -30,11 +29,8 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from wetterdienst.core.timeseries.result import StationsResult
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
+    from wetterdienst.metadata.metadata_model import DatasetModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -130,8 +126,9 @@ class DwdMosmixValues(TimeseriesValues):
         """
         # Shift issue date to 3, 9, 15, 21 hour format
         issue = self.sr.stations.issue
-        if parameter_or_dataset == DwdMosmixMetadata.hour_6:
-            issue = self.adjust_datetime(issue)
+        if issue is not DwdForecastDate.LATEST:
+            if parameter_or_dataset == DwdMosmixMetadata.hourly.large:
+                issue = self.adjust_datetime(issue)
         df = self.read_mosmix(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
@@ -157,7 +154,7 @@ class DwdMosmixValues(TimeseriesValues):
         """
         if dataset == DwdMosmixMetadata.hourly.small:
             return self.read_mosmix_small(station_id, date)
-        elif dataset == DwdMosmixMetadata.hour_6.large:
+        elif dataset == DwdMosmixMetadata.hourly.large:
             return self.read_mosmix_large(station_id, date)
         else:
             raise KeyError(f"Dataset {dataset} not supported")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import MetadataModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel
 
 EcccObservationMetadata = {
     "resolutions": [
@@ -10,8 +10,8 @@ EcccObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
                         {
@@ -138,8 +138,8 @@ EcccObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
                         {
@@ -284,8 +284,8 @@ EcccObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
                         {
@@ -430,8 +430,8 @@ EcccObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
                         {

@@ -6,32 +6,25 @@ import datetime as dt
 import json
 import logging
 import math
-from enum import Enum
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import MetadataModel, ParameterModel
-from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel, ParameterModel
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
-from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -55,8 +48,8 @@ HubeauMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
                     "parameters": [
                         {

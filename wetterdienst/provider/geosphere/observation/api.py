@@ -6,46 +6,32 @@ import datetime as dt
 import json
 import logging
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import MetadataModel, DatasetModel
-from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
-from wetterdienst.ui.streamlit.explorer.app import dataset
 from wetterdienst.util.cache import CacheExpiry
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from wetterdienst import Parameter, Settings
+    from wetterdienst.metadata.metadata_model import DatasetModel
 
 log = logging.getLogger(__name__)
-
-
-class GeosphereObservationDataset(Enum):
-    MINUTE_10 = "klima-v2-10min"
-    HOURLY = "klima-v2-1h"
-    DAILY = "klima-v2-1d"
-    MONTHLY = "klima-v2-1m"
 
 
 class GeosphereObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = (
-        "https://dataset.api.hub.geosphere.at/v1/station/historical/{resolution}?"
+        "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}?"
         "parameters={parameters}&"
         "start={start_date}&"
         "end={end_date}&"
@@ -54,16 +40,16 @@ class GeosphereObservationValues(TimeseriesValues):
     )
     # dates collected from ZAMG website, end date will be set to now if not given
     _default_start_dates = {
-        Resolution.MINUTE_10: "1992-05-20",
-        Resolution.HOURLY: "1880-03-31",
-        Resolution.DAILY: "1774-12-31",
-        Resolution.MONTHLY: "1767-11-30",
+        Resolution.MINUTE_10: dt.datetime(1992, 5, 20),
+        Resolution.HOURLY: dt.datetime(1880, 3, 31),
+        Resolution.DAILY: dt.datetime(1774, 12, 31),
+        Resolution.MONTHLY: dt.datetime(1767, 11, 30),
     }
 
     def _collect_station_parameter_or_dataset(
-            self, station_id: str, parameter_or_dataset: DatasetModel
+        self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
-        start_date = self.sr.start_date or self._default_start_dates[dataset.resolution.value]
+        start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.resolution.value]
         end_date = self.sr.end_date or datetime.now()
         # add buffers
         start_date = start_date - timedelta(days=1)
@@ -72,7 +58,7 @@ class GeosphereObservationValues(TimeseriesValues):
         url = self._endpoint.format(
             station_id=station_id,
             parameters=",".join(parameters),
-            resolution=parameter_or_dataset.resolution.name_original,
+            dataset=parameter_or_dataset.name_original,
             start_date=start_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
             end_date=end_date.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%m"),
         )
@@ -90,14 +76,14 @@ class GeosphereObservationValues(TimeseriesValues):
             value_name=Columns.VALUE.value,
         )
         # adjust units for radiation parameters of 10 minute/hourly resolution from W / m² to J / cm²
-        if dataset.resolution.value == Resolution.MINUTE_10:
+        if parameter_or_dataset.resolution.value == Resolution.MINUTE_10:
             df = df.with_columns(
                 pl.when(pl.col(Columns.PARAMETER.value).is_in(["cglo", "chim"]))
                 .then(pl.col(Columns.VALUE.value) * 600 / 10000)
                 .otherwise(pl.col(Columns.VALUE.value))
                 .alias(Columns.VALUE.value),
             )
-        elif dataset.resolution.value == Resolution.HOURLY:
+        elif parameter_or_dataset.resolution.value == Resolution.HOURLY:
             df = df.with_columns(
                 pl.when(pl.col(Columns.PARAMETER.value).eq("cglo"))
                 .then(pl.col(Columns.VALUE.value) * 3600 / 10000)

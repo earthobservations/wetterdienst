@@ -5,31 +5,19 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
-from enum import Enum
-from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import MetadataModel, DATASET_NAME_DEFAULT, ParameterModel, DatasetModel
-from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, DatasetModel, MetadataModel
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
-from wetterdienst.util.parameter import DatasetTreeCore
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -135,9 +123,9 @@ NwsObservationMetadata = {
                             "unit": "degree_kelvin",
                             "unit_original": "degree_celsius",
                         },
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
     ]
 }
@@ -151,7 +139,7 @@ class NwsObservationValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: DatasetModel
+        parameter_or_dataset: DatasetModel,  # noqa: ARG002
     ) -> pl.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")

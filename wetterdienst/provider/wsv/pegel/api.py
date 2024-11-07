@@ -3,121 +3,178 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
-from enum import Enum
-from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel, ParameterModel
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
-from wetterdienst.util.parameter import DatasetTreeCore
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
-
-FLOAT_9_TIMES = list[float | None]
-
-
-class WsvPegelParameter(DatasetTreeCore):
-    class DYNAMIC(DatasetTreeCore):
-        class DYNAMIC(Enum):
-            STAGE = "W"
-            DISCHARGE = "Q"
-            RUNOFF = DISCHARGE
-            TEMPERATURE_WATER = "WT"
-            ELECTRIC_CONDUCTIVITY = "LF"
-            CLEARANCE_HEIGHT = "DFH"
-            TEMPERATURE_AIR_MEAN_2M = "LT"
-            FLOW_SPEED = "VA"
-            GROUNDWATER_LEVEL = "GRU"
-            WIND_SPEED = "WG"
-            HUMIDITY = "HL"
-            OXYGEN_LEVEL = "O2"
-            TURBIDITY = "TR"
-            CURRENT = "R"
-            WIND_DIRECTION = "WR"
-            PRECIPITATION_HEIGHT = "NIEDERSCHLAG"
-            PRECIPITATION_INTENSITY = "NIEDERSCHLAGSINTENSITÄT"
-            WAVE_PERIOD = "TP"
-            WAVE_HEIGHT_SIGN = "SIGH"
-            WAVE_HEIGHT_MAX = "MAXH"
-            PH_VALUE = "PH"
-            CHLORID_CONCENTRATION = "CL"
-
-        STAGE = DYNAMIC.STAGE
-        DISCHARGE = DYNAMIC.DISCHARGE
-        RUNOFF = DYNAMIC.RUNOFF
-        TEMPERATURE_WATER = DYNAMIC.TEMPERATURE_WATER
-        ELECTRIC_CONDUCTIVITY = DYNAMIC.ELECTRIC_CONDUCTIVITY
-        CLEARANCE_HEIGHT = DYNAMIC.CLEARANCE_HEIGHT
-        TEMPERATURE_AIR_MEAN_2M = DYNAMIC.TEMPERATURE_AIR_MEAN_2M
-        FLOW_SPEED = DYNAMIC.FLOW_SPEED
-        GROUNDWATER_LEVEL = DYNAMIC.GROUNDWATER_LEVEL
-        WIND_SPEED = DYNAMIC.WIND_SPEED
-        HUMIDITY = DYNAMIC.HUMIDITY
-        OXYGEN_LEVEL = DYNAMIC.OXYGEN_LEVEL
-        TURBIDITY = DYNAMIC.TURBIDITY
-        CURRENT = DYNAMIC.CURRENT
-        WIND_DIRECTION = DYNAMIC.WIND_DIRECTION
-        PRECIPITATION_HEIGHT = DYNAMIC.PRECIPITATION_HEIGHT
-        PRECIPITATION_INTENSITY = DYNAMIC.PRECIPITATION_INTENSITY
-        WAVE_PERIOD = DYNAMIC.WAVE_PERIOD
-        WAVE_HEIGHT_SIGN = DYNAMIC.WAVE_HEIGHT_SIGN
-        WAVE_HEIGHT_MAX = DYNAMIC.WAVE_HEIGHT_MAX
-        PH_VALUE = DYNAMIC.PH_VALUE
-        CHLORID_CONCENTRATION = DYNAMIC.CHLORID_CONCENTRATION
+FLOAT_9_TIMES = tuple[
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+]
 
 
-class WsvPegelUnit(DatasetTreeCore):
-    class DYNAMIC(DatasetTreeCore):
-        class DYNAMIC(UnitEnum):
-            STAGE = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            TEMPERATURE_WATER = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            ELECTRIC_CONDUCTIVITY = OriginUnit.MICROSIEMENS_PER_CENTIMETER.value, SIUnit.SIEMENS_PER_METER.value
-            CLEARANCE_HEIGHT = OriginUnit.METER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            FLOW_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-            GROUNDWATER_LEVEL = OriginUnit.METER.value, SIUnit.METER.value
-            WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            OXYGEN_LEVEL = OriginUnit.MILLIGRAM_PER_LITER.value, SIUnit.MILLIGRAM_PER_LITER.value
-            TURBIDITY = OriginUnit.TURBIDITY.value, SIUnit.TURBIDITY.value
-            CURRENT = OriginUnit.MAGNETIC_FIELD_STRENGTH.value, SIUnit.MAGNETIC_FIELD_STRENGTH.value
-            WIND_DIRECTION = OriginUnit.WIND_DIRECTION.value, SIUnit.WIND_DIRECTION.value
-            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-            PRECIPITATION_INTENSITY = OriginUnit.MILLIMETER_PER_HOUR.value, SIUnit.MILLIMETER_PER_HOUR.value
-            WAVE_PERIOD = OriginUnit.WAVE_PERIOD.value, SIUnit.WAVE_PERIOD.value
-            WAVE_HEIGHT_SIGN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            WAVE_HEIGHT_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            PH_VALUE = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
-            CHLORID_CONCENTRATION = OriginUnit.MILLIGRAM_PER_LITER.value, OriginUnit.MILLIGRAM_PER_LITER.value
-
-
-class WsvPegelResolution(Enum):
-    DYNAMIC = Resolution.DYNAMIC.value
-
-
-class WsvPegelPeriod(Enum):
-    RECENT = Period.RECENT.value
-
-
-class WsvPegelDataset(Enum):
-    DYNAMIC = "DYNAMIC"
+WsvPegelMetadata = {
+    "resolutions": [
+        {
+            "name": "dynamic",
+            "name_original": "dynamic",
+            "periods": ["recent"],
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": False,
+                    "parameters": [
+                        {
+                            "name": "stage",
+                            "name_original": "W",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "discharge",
+                            "name_original": "Q",
+                            "unit": "cubic_meters_per_second",
+                            "unit_original": "cubic_meters_per_second",
+                        },
+                        {
+                            "name": "temperature_water",
+                            "name_original": "WT",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "electric_conductivity",
+                            "name_original": "LF",
+                            "unit": "siemens_per_meter",
+                            "unit_original": "microsiemens_per_centimeter",
+                        },
+                        {
+                            "name": "clearance_height",
+                            "name_original": "DFH",
+                            "unit": "meter",
+                            "unit_original": "meter",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "LT",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "flow_speed",
+                            "name_original": "VA",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "groundwater_level",
+                            "name_original": "GRU",
+                            "unit": "meter",
+                            "unit_original": "meter",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "WG",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "HL",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "oxygen_level",
+                            "name_original": "O2",
+                            "unit": "milligram_per_liter",
+                            "unit_original": "milligram_per_liter",
+                        },
+                        {
+                            "name": "turbidity",
+                            "name_original": "TR",
+                            "unit": "turbidity",
+                            "unit_original": "turbidity",
+                        },
+                        {
+                            "name": "current",
+                            "name_original": "R",
+                            "unit": "magnetic_field_strength",
+                            "unit_original": "magnetic_field_strength",
+                        },
+                        {
+                            "name": "wind_direction",
+                            "name_original": "WR",
+                            "unit": "wind_direction",
+                            "unit_original": "wind_direction",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "NIEDERSCHLAG",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_intensity",
+                            "name_original": "NIEDERSCHLAGSINTENSITÄT",
+                            "unit": "millimeter_per_hour",
+                            "unit_original": "millimeter_per_hour",
+                        },
+                        {
+                            "name": "wave_period",
+                            "name_original": "TP",
+                            "unit": "wave_period",
+                            "unit_original": "wave_period",
+                        },
+                        {
+                            "name": "wave_height_sign",
+                            "name_original": "SIGH",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "wave_height_max",
+                            "name_original": "MAXH",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "ph_value",
+                            "name_original": "PH",
+                            "unit": "dimensionless",
+                            "unit_original": "dimensionless",
+                        },
+                        {
+                            "name": "chlorid_concentration",
+                            "name_original": "CL",
+                            "unit": "milligram_per_liter",
+                            "unit_original": "milligram_per_liter",
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
+}
+WsvPegelMetadata = MetadataModel.model_validate(WsvPegelMetadata)
 
 
 class WsvPegelValues(TimeseriesValues):
@@ -131,11 +188,8 @@ class WsvPegelValues(TimeseriesValues):
     def _data_tz(self) -> Timezone:
         return Timezone.GERMANY
 
-    def _collect_station_parameter(
-        self,
-        station_id: str,
-        parameter: Enum,
-        dataset: Enum,  # noqa: ARG002
+    def _collect_station_parameter_or_dataset(
+        self, station_id: str, parameter_or_dataset: ParameterModel
     ) -> pl.DataFrame:
         """
         Method to collect data for station parameter from WSV Pegelonline following its open REST-API at
@@ -145,7 +199,7 @@ class WsvPegelValues(TimeseriesValues):
         :param dataset: dataset enumeration
         :return: pandas DataFrame with data
         """
-        url = self._endpoint.format(station_id=station_id, parameter=parameter.value)
+        url = self._endpoint.format(station_id=station_id, parameter=parameter_or_dataset.name_original)
 
         try:
             response = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
@@ -159,48 +213,19 @@ class WsvPegelValues(TimeseriesValues):
         )
         return df.with_columns(
             pl.col(Columns.DATE.value).dt.replace_time_zone(time_zone="UTC"),
-            pl.lit(parameter.value.lower()).alias(Columns.PARAMETER.value),
+            pl.lit(parameter_or_dataset.name_original.lower()).alias(Columns.PARAMETER.value),
             pl.lit(None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
-
-    def _fetch_frequency(
-        self,
-        station_id,
-        parameter: Enum,
-        dataset: Enum,  # noqa: ARG002
-    ) -> str:
-        """
-        Method to get the frequency string for a station and parameter from WSV Pegelonline. The frequency is given at
-        each station dict queried from the REST-API under "equidistance"
-        :param station_id: station_id string
-        :param parameter: parameter enumeration
-        :param dataset: dataset enumeration
-        :return: frequency as string e.g. "15min" -> Literal["1min", "5min", "15min", "60min"]
-        """
-        url = self._station_endpoint.format(station_id=station_id, parameter=parameter.value)
-
-        response = download_file(url, self.sr.stations.settings)
-
-        station_dict = json.load(response)
-
-        return f"{station_dict['equidistance']}m"
 
 
 class WsvPegelRequest(TimeseriesRequest):
     """Request class for WSV Pegelonline, a German river management facility and
     provider of river-based measurements for last 30 days"""
 
+    metadata = WsvPegelMetadata
     _provider = Provider.WSV
     _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
-    _dataset_base = WsvPegelDataset
-    _parameter_base = WsvPegelParameter
-    _unit_base = WsvPegelUnit
-    _resolution_type = ResolutionType.DYNAMIC
-    _resolution_base = WsvPegelResolution
-    _period_type = PeriodType.FIXED
-    _period_base = WsvPegelPeriod
-    _has_datasets = False
     _data_range = DataRange.FIXED
     _values = WsvPegelValues
 
@@ -227,15 +252,13 @@ class WsvPegelRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: str | WsvPegelParameter | Parameter | Sequence[str | WsvPegelParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
             parameter=parameter,
-            resolution=Resolution.DYNAMIC,
-            period=Period.RECENT,
             start_date=start_date,
             end_date=end_date,
             settings=settings,
@@ -265,7 +288,7 @@ class WsvPegelRequest(TimeseriesRequest):
                     break
 
             if not ts_water:
-                return [None, None, None, None, None, None, None, None, None]
+                return (None, None, None, None, None, None, None, None, None)
 
             gauge_datum = ts_water.get("gaugeZero", {}).get("value", None)
 
@@ -285,22 +308,21 @@ class WsvPegelRequest(TimeseriesRequest):
             hhw = characteristic_values.get("HHW", None)
             hsw = characteristic_values.get("HSW", None)
 
-            return [gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw]
+            return (gauge_datum, m_i, m_ii, m_iii, mnw, mw, mhw, hhw, hsw)
 
         response = download_file(self._endpoint, self.settings, CacheExpiry.ONE_HOUR)
 
         df = pl.read_json(response).lazy()
         df = df.rename(mapping={"number": "station_id", "shortname": "name", "km": "river_kilometer"})
-        df = df.with_columns(pl.col("water").struct.field("shortname"))
-        df = df.select(
-            pl.all(),
+        df = df.with_columns(
+            pl.col("water").struct.field("shortname"),
             pl.col("timeseries")
-            .map_elements(lambda ts_list: {t["shortname"].lower() for t in ts_list}, return_dtype=pl.List(pl.String))
+            .map_elements(lambda ts_list: [t["shortname"].lower() for t in ts_list], return_dtype=pl.List(pl.String))
             .alias("ts"),
         )
-        parameters = {par.value.lower() for par, ds in self.parameter}
+        parameters = {parameter.name_original.lower() for parameter in self.parameter}
         df = df.filter(pl.col("ts").list.set_intersection(list(parameters)).list.len() > 0)
-        df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts, return_dtype=pl.Array(pl.Float64, 9)))
+        df = df.with_columns(pl.col("timeseries").map_elements(_extract_ts, return_dtype=pl.List(pl.Float64)))
         return df.select(
             pl.all().exclude(["timeseries", "ts"]),
             pl.col("timeseries").list.get(0).alias("gauge_datum"),

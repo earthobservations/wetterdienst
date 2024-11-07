@@ -5,32 +5,27 @@ from __future__ import annotations
 import datetime as dt
 import gzip
 import logging
-from enum import Enum
 from io import BytesIO
 from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import MetadataModel, DatasetModel
-from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
-
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
+    from wetterdienst.metadata.metadata_model import DatasetModel
 
 log = logging.getLogger(__name__)
 
@@ -77,9 +72,7 @@ class EcccObservationValues(TimeseriesValues):
             return pl.LazyFrame()
 
     def _collect_station_parameter_or_dataset(
-        self,
-        station_id: str,
-        parameter_or_dataset: DatasetModel
+        self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         """
 
@@ -157,7 +150,9 @@ class EcccObservationValues(TimeseriesValues):
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         ).collect()
 
-    def _create_file_urls(self, station_id: str, resolution: Resolution, start_year: int, end_year: int) -> Iterator[str]:
+    def _create_file_urls(
+        self, station_id: str, resolution: Resolution, start_year: int, end_year: int
+    ) -> Iterator[str]:
         """
 
         :param station_id:
@@ -194,6 +189,7 @@ class EcccObservationRequest(TimeseriesRequest):
     - https://github.com/Zeitsperre/canada-climate-python
 
     """
+
     metadata = EcccObservationMetadata
     _provider = Provider.ECCC
     _kind = Kind.OBSERVATION

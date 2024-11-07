@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import MetadataModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel
 
 GeosphereObservationMetadata = {
     "resolutions": [
@@ -10,7 +10,7 @@ GeosphereObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
+                    "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-10min",
                     "grouped": True,
                     "parameters": [
@@ -152,9 +152,9 @@ GeosphereObservationMetadata = {
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
                         },
-                    ]
+                    ],
                 }
-            ]
+            ],
         },
         {
             "name": "hourly",
@@ -162,7 +162,7 @@ GeosphereObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
+                    "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-1h",
                     "grouped": True,
                     "parameters": [
@@ -279,10 +279,10 @@ GeosphereObservationMetadata = {
                             "name_original": "ff",
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         },
         {
             "name": "daily",
@@ -290,7 +290,7 @@ GeosphereObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
+                    "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-1d",
                     "grouped": True,
                     "parameters": [
@@ -389,10 +389,10 @@ GeosphereObservationMetadata = {
                             "name_original": "vv_mittel",
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         },
         {
             "name": "monthly",
@@ -400,7 +400,7 @@ GeosphereObservationMetadata = {
             "periods": ["historical"],
             "datasets": [
                 {
-                    "name": "observations",
+                    "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-1m",
                     "grouped": True,
                     "parameters": [
@@ -619,11 +619,11 @@ GeosphereObservationMetadata = {
                             "name_original": "vv_mittel",
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
-        }
+            ],
+        },
     ]
 }
 GeosphereObservationMetadata = MetadataModel.model_validate(GeosphereObservationMetadata)

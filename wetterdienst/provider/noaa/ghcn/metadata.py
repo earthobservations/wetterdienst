@@ -1,10 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from enum import Enum
-
-from wetterdienst.metadata.metadata_model import MetadataModel, DATASET_NAME_DEFAULT
-from wetterdienst.util.parameter import DatasetTreeCore
-
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel
 
 # translate the above enums to dictionary based model
 NoaaGhcnMetadata = {
@@ -19,15 +15,16 @@ NoaaGhcnMetadata = {
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
-                        # Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature (whole percent)
+                        # Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature
+                        # (whole percent)
                         {
                             "name": "humidity",
                             "name_original": "relative_humidity",
                             "unit": "percent",
                             "unit_original": "percent",
                         },
-                        # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement code column
-                        # indicates a trace amount of precipitation (millimeters)
+                        # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement
+                        # code column indicates a trace amount of precipitation (millimeters)
                         {
                             "name": "precipitation_height",
                             "name_original": "precipitation",
@@ -36,7 +33,8 @@ NoaaGhcnMetadata = {
                         },
                         # 3-hour total liquid precipitation (rain or melted snow) accumulation
                         # from FM12/SYNOP reports; a “T” in the measurement code column indicates a trace amount
-                        # of precipitation (millimeters); accumulations can be reported over 3,6,9,12,15,18,21 and 24 hours.
+                        # of precipitation (millimeters); accumulations can be reported over 3,6,9,12,15,18,21
+                        # and 24 hours.
                         {
                             "name": "precipitation_height_last_3h",
                             "name_original": "precipitation_3_hour",
@@ -85,17 +83,18 @@ NoaaGhcnMetadata = {
                             "unit": "kilogram_per_square_meter",
                             "unit_original": "millimeter",
                         },
-                        # reduction estimates the pressure that would exist at sea level at a point directly below the station
-                        # using a temperature profile based on temperatures that actually exist at the station (hPa)
+                        # reduction estimates the pressure that would exist at sea level at a point directly below
+                        # the station using a temperature profile based on temperatures that actually exist at the
+                        # station (hPa)  # noqa: ERA001
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "sea_level_pressure",
                             "unit": "pascal",
                             "unit_original": "hectopascal",
                         },
-                        # the pressure that is observed at a specific elevation and is the true barometric pressure of a location.
-                        # It is the pressure exerted by the atmosphere at a point as a result of gravity acting upon the "column" of
-                        # air that lies directly above the point. (hPa)
+                        # the pressure that is observed at a specific elevation and is the true barometric pressure
+                        # of a location. It is the pressure exerted by the atmosphere at a point as a result of
+                        # gravity acting upon the "column" of air that lies directly above the point. (hPa)
                         {
                             "name": "pressure_air_site",
                             "name_original": "station_level_pressure",
@@ -110,9 +109,9 @@ NoaaGhcnMetadata = {
                             "unit": "pascal",
                             "unit_original": "hectopascal",
                         },
-                        # the pressure "reduced" to mean sea level using the temperature profile of the "standard" atmosphere,
-                        # which is representative of average conditions over the United States at 40 degrees north
-                        # latitude (millibars/hPa)  # noqa
+                        # the pressure "reduced" to mean sea level using the temperature profile of the "standard"
+                        # atmosphere, which is representative of average conditions over the United States at 40
+                        # degrees north latitude (millibars/hPa)  # noqa
                         {
                             "name": "pressure_air_site_reduced",
                             "name_original": "altimeter",
@@ -154,7 +153,8 @@ NoaaGhcnMetadata = {
                             "unit": "meter",
                             "unit_original": "kilometer",
                         },
-                        # Wind Direction from true north using compass directions (e.g. 360=true north, 180=south, 270=west, etc.).
+                        # Wind Direction from true north using compass directions (e.g. 360=true north, 180=south,
+                        # 270=west, etc.).
                         # Note: A direction of “000” is given for calm winds. (whole degrees)
                         {
                             "name": "wind_direction",
@@ -162,8 +162,8 @@ NoaaGhcnMetadata = {
                             "unit": "wind_direction",
                             "unit_original": "wind_direction",
                         },
-                        # Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds the wind_speed
-                        # average
+                        # Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds the
+                        # wind_speed average
                         {
                             "name": "wind_gust_max",
                             "name_original": "wind_gust",
@@ -176,10 +176,10 @@ NoaaGhcnMetadata = {
                             "name_original": "wind_speed",
                             "unit": "meter_per_second",
                             "unit_original": "meter_per_second",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         },
         {
             "name": "daily",
@@ -250,7 +250,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "percent",
                         },
                         # Average cloudiness midnight to midnight from manual observation (percent)
-
                         {
                             "name": "cloud_cover_total_midnight_to_midnight_manual",
                             "name_original": "acmh",
@@ -258,7 +257,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "percent",
                         },
                         # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
-
                         {
                             "name": "cloud_cover_total_sunrise_to_sunset",
                             "name_original": "acsc",
@@ -266,7 +264,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "percent",
                         },
                         # Average cloudiness sunrise to sunset from manual observation (percent)
-
                         {
                             "name": "cloud_cover_total_sunrise_to_sunset_manual",
                             "name_original": "acsh",
@@ -274,7 +271,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "percent",
                         },
                         # Average daily wind speed (meters per second or miles per hour as per user preference)
-
                         {
                             "name": "wind_speed",
                             "name_original": "awnd",
@@ -282,7 +278,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "meter_per_second",
                         },
                         # Number of days included in the multiday evaporation total (MDEV)
-
                         {
                             "name": "count_days_multiday_evaporation",
                             "name_original": "daev",
@@ -290,7 +285,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "dimensionless",
                         },
                         # Number of days included in the multiday precipitation total (MDPR)
-
                         {
                             "name": "count_days_multiday_precipitation",
                             "name_original": "dapr",
@@ -298,7 +292,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "dimensionless",
                         },
                         # Number of days included in the multiday snowfall total (MDSF)
-
                         {
                             "name": "count_days_multiday_snow_depth_new",
                             "name_original": "dasf",
@@ -306,7 +299,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "dimensionless",
                         },
                         # Number of days included in the multiday minimum temperature (MDTN)
-
                         {
                             "name": "count_days_multiday_temperature_air_min_2m",
                             "name_original": "datn",
@@ -314,7 +306,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "dimensionless",
                         },
                         # Number of days included in the multiday maximum temperature (MDTX)
-
                         {
                             "name": "count_days_multiday_temperature_air_max_2m",
                             "name_original": "datx",
@@ -322,7 +313,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "dimensionless",
                         },
                         # Number of days included in the multiday wind movement (MDWM)
-
                         {
                             "name": "count_days_multiday_wind_movement",
                             "name_original": "dawm",
@@ -330,16 +320,14 @@ NoaaGhcnMetadata = {
                             "unit_original": "dimensionless",
                         },
                         # Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
-
                         {
                             "name": "count_days_multiday_precipitation_height_gt_0mm",
                             "name_original": "dwpr",
                             "unit": "dimensionless",
                             "unit_original": "dimensionless",
                         },
-                        # Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths of inches
-                        # on Daily Form pdf file)
-
+                        # Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths
+                        # of inches on Daily Form pdf file)
                         {
                             "name": "evaporation_height",
                             "name_original": "evap",
@@ -355,7 +343,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "centimeter",
                         },
                         # Top of frozen ground layer (cm or inches as per user preference)
-
                         {
                             "name": "frozen_ground_layer_top",
                             "name_original": "frgt",
@@ -363,7 +350,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "centimeter",
                         },
                         # Thickness of frozen ground layer (cm or inches as per user preference)
-
                         {
                             "name": "frozen_ground_layer_thickness",
                             "name_original": "frth",
@@ -371,7 +357,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "centimeter",
                         },
                         # Difference between river and gauge height (cm or inches as per user preference)
-
                         {
                             "name": "distance_river_gauge_height",
                             "name_original": "gaht",
@@ -379,15 +364,14 @@ NoaaGhcnMetadata = {
                             "unit_original": "centimeter",
                         },
                         # Multiday evaporation total (mm or inches as per user preference; use with DAEV)
-
                         {
                             "name": "evaporation_height_multiday",
                             "name_original": "mdev",
                             "unit": "kilogram_per_square_meter",
                             "unit_original": "millimeter",
                         },
-                        # Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR, if available)
-
+                        # Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR,
+                        # if available)
                         {
                             "name": "precipitation_height_multiday",
                             "name_original": "mdpr",
@@ -395,7 +379,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "millimeter",
                         },
                         # Multiday snowfall total (mm or inches as per user preference)
-
                         {
                             "name": "snow_depth_new_multiday",
                             "name_original": "mdsf",
@@ -403,7 +386,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "millimeter",
                         },
                         # Multiday minimum temperature (Fahrenheit or Celsius as per user preference ; use with DATN)
-
                         {
                             "name": "temperature_air_min_2m_multiday",
                             "name_original": "mdtn",
@@ -411,7 +393,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree_celsius",
                         },
                         # Multiday maximum temperature (Fahrenheit or Celsius as per user preference ; use with DATX)
-
                         {
                             "name": "temperature_air_max_2m_multiday",
                             "name_original": "mdtx",
@@ -419,23 +400,22 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree_celsius",
                         },
                         # Multiday wind movement (miles or km as per user preference)
-
                         {
                             "name": "wind_movement_multiday",
                             "name_original": "mdwm",
                             "unit": "meter",
                             "unit_original": "kilometer",
                         },
-                        # Daily minimum temperature of water in an evaporation pan (Fahrenheit or Celsius as per user preference)
-
+                        # Daily minimum temperature of water in an evaporation pan
+                        # (Fahrenheit or Celsius as per user preference)
                         {
                             "name": "temperature_water_evaporation_pan_min",
                             "name_original": "mnpn",
                             "unit": "degree_kelvin",
                             "unit_original": "degree_celsius",
                         },
-                        # Daily maximum temperature of water in an evaporation pan  (Fahrenheit or Celsius as per user preference)
-
+                        # Daily maximum temperature of water in an evaporation pan
+                        # (Fahrenheit or Celsius as per user preference)
                         {
                             "name": "temperature_water_evaporation_pan_max",
                             "name_original": "mxpn",
@@ -444,7 +424,6 @@ NoaaGhcnMetadata = {
                         },
                         # time_wind_gust_max (pgtm) is left out
                         # Daily percent of possible sunshine (percent)
-
                         {
                             "name": "sunshine_duration_relative",
                             "name_original": "psun",
@@ -1274,7 +1253,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree",
                         },
                         # Direction of fastest 1-minute wind (degrees)
-
                         {
                             "name": "wind_direction_gust_max_1min",
                             "name_original": "wdf1",
@@ -1289,7 +1267,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree",
                         },
                         # Direction of peak wind gust (degrees)
-
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "wdfg",
@@ -1297,7 +1274,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree",
                         },
                         # Direction of highest instantaneous wind (degrees)
-
                         {
                             "name": "wind_direction_gust_max_instant",
                             "name_original": "wdfi",
@@ -1305,7 +1281,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree",
                         },
                         # Fastest mile wind direction (degrees)
-
                         {
                             "name": "wind_direction_gust_max_1mile",
                             "name_original": "wdfm",
@@ -1313,7 +1288,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "degree",
                         },
                         # 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)
-
                         {
                             "name": "wind_movement_24h",
                             "name_original": "wdmv",
@@ -1321,7 +1295,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "kilometer",
                         },
                         # Water equivalent of snow on the ground (inches or mm as per user preference)
-
                         {
                             "name": "water_equivalent_snow_depth",
                             "name_original": "wesd",
@@ -1329,7 +1302,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "millimeter",
                         },
                         # Water equivalent of snowfall (inches or mm as per user preference)
-
                         {
                             "name": "water_equivalent_snow_depth_new",
                             "name_original": "wesf",
@@ -1337,7 +1309,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "millimeter",
                         },
                         # Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)
-
                         {
                             "name": "wind_gust_max_5sec",
                             "name_original": "wsf5",
@@ -1345,7 +1316,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "meter_per_second",
                         },
                         # Fastest 1-minute wind speed (miles per hour or  meters per second as per user preference)
-
                         {
                             "name": "wind_gust_max_1min",
                             "name_original": "wsf1",
@@ -1353,7 +1323,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "meter_per_second",
                         },
                         # Fastest 2-minute wind speed (miles per hour or  meters per second as per user preference)
-
                         {
                             "name": "wind_gust_max_2min",
                             "name_original": "wsf2",
@@ -1361,7 +1330,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "meter_per_second",
                         },
                         # Peak guest wind speed (miles per hour or  meters per second as per user preference)
-
                         {
                             "name": "wind_gust_max",
                             "name_original": "wsfg",
@@ -1369,7 +1337,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "meter_per_second",
                         },
                         # Highest instantaneous wind speed (miles per hour or  meters per second as per user preference)
-
                         {
                             "name": "wind_gust_max_instant",
                             "name_original": "wsfi",
@@ -1377,7 +1344,6 @@ NoaaGhcnMetadata = {
                             "unit_original": "meter_per_second",
                         },
                         # Fastest mile wind speed (miles per hour or  meters per second as per user preference)
-
                         {
                             "name": "wind_gust_max_1mile",
                             "name_original": "wsfm",
@@ -1569,172 +1535,172 @@ NoaaGhcnMetadata = {
                             "name_original": "wv20",
                             "unit": "dimensionless",
                             "unit_original": "dimensionless",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
-        }
+            ],
+        },
     ]
 }
 NoaaGhcnMetadata = MetadataModel.model_validate(NoaaGhcnMetadata)
 
 DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
-    NoaaGhcnMetadata.daily.observations.precipitation_height.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.precipitation_height_multiday.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_air_max_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_air_max_2m_multiday.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_air_min_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_air_min_2m_multiday.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_air_mean_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_speed.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.evaporation_height.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.evaporation_height_multiday.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_water_evaporation_pan_max.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_water_evaporation_pan_min.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_height.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_height_multiday.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_max_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_max_2m_multiday.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m_multiday.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_mean_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_height.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_height_multiday.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_max.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_min.name_original: 1 / 10,
     # height definition similar to temperature with three digits
     # 0 - unknown
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_unknown_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_unknown_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_unknown_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_unknown_1_8m.name_original: 1 / 10,
     # 1 - grass
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_1_8m.name_original: 1 / 10,
     # 2 - fallow
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_fallow_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_fallow_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_fallow_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_fallow_1_8m.name_original: 1 / 10,
     # 3 - bare ground
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_ground_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_ground_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_ground_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_ground_1_8m.name_original: 1 / 10,
     # 4 - brome grass
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_brome_grass_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_brome_grass_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_brome_grass_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_brome_grass_1_8m.name_original: 1 / 10,
     # 5 - sod
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_sod_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_sod_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_sod_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_sod_1_8m.name_original: 1 / 10,
     # 6 - straw mulch
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_straw_mulch_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_straw_mulch_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_straw_mulch_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_straw_mulch_1_8m.name_original: 1 / 10,
     # 7 - grass muck
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_grass_muck_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_grass_muck_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_grass_muck_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_grass_muck_1_8m.name_original: 1 / 10,
     # 8 - bare muck
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_min_bare_muck_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_0_05m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_0_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_0_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_0_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_1m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_1_5m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_soil_max_bare_muck_1_8m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.ice_on_water_thickness.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.temperature_air_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.water_equivalent_snow_depth.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.water_equivalent_snow_depth_new.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_gust_max_5sec.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_gust_max_1min.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_gust_max_2min.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_gust_max.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_gust_max_instant.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily.observations.wind_gust_max_1mile.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_min_bare_muck_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_0_05m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_0_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_0_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_0_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_1m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_1_5m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_soil_max_bare_muck_1_8m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].ice_on_water_thickness.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_2m.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].water_equivalent_snow_depth.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].water_equivalent_snow_depth_new.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_gust_max_5sec.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_gust_max_1min.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_gust_max_2min.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_gust_max.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_gust_max_instant.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_gust_max_1mile.name_original: 1 / 10,
 }

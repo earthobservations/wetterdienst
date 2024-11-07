@@ -407,9 +407,8 @@ class TimeseriesValues(metaclass=ABCMeta):
                         station_id=station_id,
                         parameter_or_dataset=dataset,
                     )
-                    df = df.filter(
-                        pl.col(Columns.PARAMETER.value).is_in([parameter.name_original for parameter in parameters])
-                    )
+                    parameter_names = {parameter.name_original for parameter in parameters}
+                    df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
                 else:
                     dataset_data = []
                     for parameter in parameters:
@@ -417,7 +416,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                             station_id=station_id,
                             parameter_or_dataset=parameter,
                         )
-                        data.append(df)
+                        dataset_data.append(df)
                     df = pl.concat(dataset_data)
                     del dataset_data
 

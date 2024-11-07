@@ -4,33 +4,19 @@ from __future__ import annotations
 
 import json
 import logging
-from enum import Enum
-from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import MetadataModel, ParameterModel
-from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel, ParameterModel
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
-from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
-from wetterdienst.util.parameter import DatasetTreeCore
-
-if TYPE_CHECKING:
-    import datetime as dt
-    from collections.abc import Sequence
-
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__file__)
 
@@ -93,8 +79,8 @@ EAHydrologyMetadata = {
             "name_original": "daily",
             "datasets": [
                 {
-                    "name": "observations",
-                    "name_original": "observations",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
                     "periods": ["historical"],
                     "parameters": [

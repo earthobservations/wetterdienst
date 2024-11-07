@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, SkipValidation
-import logging
+
 from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
 from wetterdienst.util.python import to_list
 
@@ -16,7 +17,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 # for any provider that does not publish their data under a dedicated dataset name
-DATASET_NAME_DEFAULT = "observations"
+DATASET_NAME_DEFAULT = "data"
+
 
 class ParameterModel(BaseModel):
     name: str
@@ -158,6 +160,7 @@ class ParameterTemplate:
             except ValueError:
                 pass
         return ParameterTemplate(resolution, dataset, parameter)
+
 
 def parse_parameter(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
     """Method to parse parameters, either from string or tuple or MetadataModel or sequence of those."""

@@ -6,94 +6,25 @@ import datetime as dt
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING
 
 import polars as pl
 import portion as P
 from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
-from wetterdienst import Kind, Parameter, Period, Provider, Resolution, Settings
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst import Kind, Provider, Resolution
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.metadata_model import MetadataModel, DatasetModel
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType
+from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.parameter import DatasetTreeCore
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 log = logging.getLogger(__name__)
-
-
-class ImgwHydrologyParameter(DatasetTreeCore):
-    class DAILY(DatasetTreeCore):
-        class HYDROLOGY(Enum):
-            DISCHARGE = "przepływ"
-            TEMPERATURE_WATER = "temperatura wody"
-            STAGE = "stan wody"
-
-        DISCHARGE = HYDROLOGY.DISCHARGE
-        TEMPERATURE_WATER = HYDROLOGY.TEMPERATURE_WATER
-        STAGE = HYDROLOGY.STAGE
-
-    class MONTHLY(DatasetTreeCore):
-        class HYDROLOGY(Enum):
-            DISCHARGE_MAX = "maksymalna przepływ"
-            DISCHARGE_MEAN = "średnia przepływ"
-            DISCHARGE_MIN = "minimalna przepływ"
-
-            TEMPERATURE_WATER_MAX = "maksymalna temperatura wody"
-            TEMPERATURE_WATER_MEAN = "średnia temperatura wody"
-            TEMPERATURE_WATER_MIN = "minimalna temperatura wody"
-
-            STAGE_MAX = "maksymalna stan wody"
-            STAGE_MEAN = "średnia stan wody"
-            STAGE_MIN = "minimalna stan wody"
-
-        DISCHARGE_MAX = HYDROLOGY.DISCHARGE_MAX
-        DISCHARGE_MEAN = HYDROLOGY.DISCHARGE_MEAN
-        DISCHARGE_MIN = HYDROLOGY.DISCHARGE_MIN
-
-        TEMPERATURE_WATER_MAX = HYDROLOGY.TEMPERATURE_WATER_MAX
-        TEMPERATURE_WATER_MEAN = HYDROLOGY.TEMPERATURE_WATER_MEAN
-        TEMPERATURE_WATER_MIN = HYDROLOGY.TEMPERATURE_WATER_MIN
-
-        STAGE_MAX = HYDROLOGY.STAGE_MAX
-        STAGE_MEAN = HYDROLOGY.STAGE_MEAN
-        STAGE_MIN = HYDROLOGY.STAGE_MIN
-
-
-class ImgwHydrologyUnit(DatasetTreeCore):
-    class DAILY(DatasetTreeCore):
-        class HYDROLOGY(UnitEnum):
-            DISCHARGE = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            TEMPERATURE_WATER = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            STAGE = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-
-    class MONTHLY(DatasetTreeCore):
-        class HYDROLOGY(UnitEnum):
-            DISCHARGE_MAX = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            DISCHARGE_MEAN = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-            DISCHARGE_MIN = OriginUnit.CUBIC_METERS_PER_SECOND.value, SIUnit.CUBIC_METERS_PER_SECOND.value
-
-            TEMPERATURE_WATER_MAX = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_WATER_MEAN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_WATER_MIN = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-
-            STAGE_MAX = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            STAGE_MEAN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            STAGE_MIN = OriginUnit.CENTIMETER.value, SIUnit.METER.value
 
 
 ImgwHydrologyMetadata = {
@@ -125,10 +56,10 @@ ImgwHydrologyMetadata = {
                             "name_original": "stan wody",
                             "unit": "meter",
                             "unit_original": "centimeter",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         },
         {
             "name": "monthly",
@@ -193,14 +124,15 @@ ImgwHydrologyMetadata = {
                             "name_original": "minimalna stan wody",
                             "unit": "meter",
                             "unit_original": "centimeter",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
-        }
+            ],
+        },
     ]
 }
 ImgwHydrologyMetadata = MetadataModel.model_validate(ImgwHydrologyMetadata)
+
 
 class ImgwHydrologyValues(TimeseriesValues):
     _data_tz = Timezone.UTC
@@ -235,9 +167,7 @@ class ImgwHydrologyValues(TimeseriesValues):
     }
 
     def _collect_station_parameter_or_dataset(
-        self,
-        station_id: str,
-        parameter_or_dataset: DatasetModel
+        self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         """
 
@@ -255,7 +185,12 @@ class ImgwHydrologyValues(TimeseriesValues):
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
         for file_in_bytes in files_in_bytes:
-            df = self._parse_file(file_in_bytes=file_in_bytes, station_id=station_id, dataset=parameter_or_dataset, file_schema=file_schema)
+            df = self._parse_file(
+                file_in_bytes=file_in_bytes,
+                station_id=station_id,
+                dataset=parameter_or_dataset,
+                file_schema=file_schema,
+            )
             if not df.is_empty():
                 data.append(df)
         try:
@@ -270,7 +205,9 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
-    def _parse_file(self, file_in_bytes: bytes, station_id: str, dataset: DatasetModel, file_schema: dict) -> pl.DataFrame:
+    def _parse_file(
+        self, file_in_bytes: bytes, station_id: str, dataset: DatasetModel, file_schema: dict
+    ) -> pl.DataFrame:
         """Function to parse hydrological zip file, parses all files and combines
         them
 
@@ -420,21 +357,20 @@ class ImgwHydrologyValues(TimeseriesValues):
 
 
 class ImgwHydrologyRequest(TimeseriesRequest):
+    metadata = ImgwHydrologyMetadata
     _provider = Provider.IMGW
     _kind = Kind.OBSERVATION
     _tz = Timezone.POLAND
     _data_range = DataRange.FIXED
     _values = ImgwHydrologyValues
-    metadata = ImgwHydrologyMetadata
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Hydro/kody_stacji.csv"
 
     def __init__(
         self,
-        parameter: str | ImgwHydrologyParameter | Parameter | Sequence[str | ImgwHydrologyParameter | Parameter],
-        resolution: str | ImgwHydrologyResolution | Resolution,
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameter: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
             parameter=parameter,

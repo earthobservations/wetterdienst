@@ -12,18 +12,16 @@ import portion as P
 from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DatasetModel, ParameterModel, ParameterTemplate
-from wetterdienst.metadata.period import Period, PeriodType
+from wetterdienst.metadata.metadata_model import DatasetModel, ParameterTemplate
+from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
-
-from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data_parallel,
 )
@@ -33,6 +31,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_list_for_climate_observations,
 )
 from wetterdienst.provider.dwd.observation.metadata import (
+    HIGH_RESOLUTIONS,
     DwdObservationMetadata,
 )
 from wetterdienst.provider.dwd.observation.metaindex import (
@@ -48,22 +47,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-HIGH_RESOLUTIONS = (
-    Resolution.MINUTE_1,
-    Resolution.MINUTE_5,
-    Resolution.MINUTE_10,
-)
-
-
-RESOLUTION_TO_DATETIME_FORMAT_MAPPING: dict[Resolution, str] = {
-    Resolution.MINUTE_1: DatetimeFormat.YMDHM.value,
-    Resolution.MINUTE_10: DatetimeFormat.YMDHM.value,
-    Resolution.HOURLY: DatetimeFormat.YMDHM.value,
-    Resolution.SUBDAILY: DatetimeFormat.YMDHM.value,
-    Resolution.DAILY: DatetimeFormat.YMD.value,
-    Resolution.MONTHLY: DatetimeFormat.YMD.value,
-    Resolution.ANNUAL: DatetimeFormat.YMD.value,
-}
 
 class DwdObservationValues(TimeseriesValues):
     """
@@ -313,6 +296,7 @@ class DwdObservationRequest(TimeseriesRequest):
     The DWDObservationStations class represents a request for
     a station list as provided by the DWD service.
     """
+
     metadata = DwdObservationMetadata
     _provider = Provider.DWD
     _kind = Kind.OBSERVATION
@@ -409,7 +393,6 @@ class DwdObservationRequest(TimeseriesRequest):
         for p in to_list(period):
             periods_parsed.add(parse_enumeration_from_template(p, Period))
         return periods_parsed & self._available_periods or None
-
 
     def __init__(
         self,

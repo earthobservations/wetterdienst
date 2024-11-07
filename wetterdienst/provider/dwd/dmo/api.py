@@ -12,27 +12,23 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst import Kind, Parameter, Provider, Settings
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst import Kind, Provider
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.parameter import DatasetTreeCore
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from wetterdienst.core.timeseries.result import StationsResult
+    from wetterdienst.metadata.metadata_model import DatasetModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch

@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from abc import abstractmethod
+from collections.abc import Sequence
 from hashlib import sha256
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -29,17 +30,17 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel, ParameterTemplate, \
-    parse_parameter, ResolutionModel
+from wetterdienst.metadata.metadata_model import (
+    MetadataModel,
+    ParameterModel,
+    parse_parameter,
+)
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from wetterdienst.metadata.datarange import DataRange
     from wetterdienst.metadata.kind import Kind
     from wetterdienst.metadata.provider import Provider
@@ -57,9 +58,9 @@ EARTH_RADIUS_KM = 6371
 
 # types
 # either of
-# str: "daily/kl" or "daily/kl/temperature_air_mean_2m"
-# tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")
-# Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]
+# str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
+# tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")  # noqa: ERA001
+# Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]  # noqa: E501, ERA001
 _PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
 _DATETIME_TYPE = str | dt.datetime | None
@@ -84,8 +85,7 @@ class TimeseriesRequest(Core):
     @property
     @abstractmethod
     def metadata(self) -> MetadataModel:
-        """parameter base enumeration from which parameters can be parsed e.g.
-        DWDObservationParameter"""
+        """metadata model"""
         pass
 
     @property
@@ -246,97 +246,25 @@ class TimeseriesRequest(Core):
         return unit_string
 
     @classmethod
-    def discover(cls, resolution=None, dataset=None, flatten: bool = True, with_units: bool = True) -> dict:
-        """
-        Function to print/discover available parameters
-
-        :param resolution:
-        :param dataset:
-        :param flatten:
-        :param with_units:
-        :return:
-        """
-        resolutions = cls._setup_resolution_filter(resolution)
-
-        if flatten:
-            if dataset:
-                log.info("dataset filter will be ignored due to 'flatten'")
-
-            parameters = {}
-
-            for resolution_item in resolutions:
-                resolution_name = resolution_item.name
-                parameters[resolution_name.lower()] = {}
-
-                for parameter in cls._parameter_base[resolution_name]:
-                    if not hasattr(parameter, "name"):
-                        continue
-
-                    origin_unit, si_unit = cls._unit_base[resolution_name][parameter.__class__.__name__][
-                        parameter.name
-                    ].value
-
-                    if with_units:
-                        slot = parameters[resolution_name.lower()][parameter.name.lower()] = {}
-                        slot["origin"] = cls._format_unit(origin_unit)
-                        slot["si"] = cls._format_unit(si_unit)
-
-            return parameters
-
-        has_datasets = cls._has_datasets
-
-        if dataset:
-            datasets_filter = [
-                parse_enumeration_from_template(ds, intermediate=cls._dataset_base) for ds in to_list(dataset)
-            ]
-        elif has_datasets:
-            datasets_filter = cls._dataset_base
-        else:
-            datasets_filter = cls._resolution_base
-
-        datasets_filter = [ds.name for ds in datasets_filter]
-
-        parameters = {}
-
-        for resolution_item in resolutions:
-            resolution_name = resolution_item.name
-            parameters[resolution_name.lower()] = {}
-
-            for dataset in cls._parameter_base[resolution_name]:
-                if hasattr(dataset, "name"):
-                    continue
-
-                dataset_name = dataset.__name__.lower()
-                if dataset_name.startswith("_") or dataset_name.upper() not in datasets_filter:
-                    continue
-
-                parameters[resolution_name.lower()][dataset_name] = {}
-
+    def discover(cls, with_units: bool = True) -> dict:
+        """Function to print/discover available parameters"""
+        data = {}
+        for resolution in cls.metadata:
+            data[resolution.name] = {}
+            for dataset in resolution:
+                data[resolution.name][dataset.name] = []
                 for parameter in dataset:
-                    origin_unit, si_unit = cls._unit_base[resolution_name][dataset_name.upper()][parameter.name].value
-
                     if with_units:
-                        slot = parameters[resolution_name.lower()][dataset_name][parameter.name.lower()] = {}
-                        slot["origin"] = cls._format_unit(origin_unit)
-                        slot["si"] = cls._format_unit(si_unit)
-
-        return parameters
-
-    @classmethod
-    def _setup_resolution_filter(cls, resolution) -> list:
-        """
-            Helper method to create resolution filter for discover method.
-
-        :param resolution: resolution label, like "recent" or "historical"
-        :return:
-        """
-        if not resolution:
-            resolution = [*cls._resolution_base]
-
-        return [
-            parse_enumeration_from_template(r, intermediate=cls._resolution_base, base=Resolution)
-            for r in to_list(resolution)
-        ]
+                        data[resolution.name][dataset.name].append(
+                            {
+                                "name": parameter.name,
+                                "unit": parameter.unit,
+                                "unit_original": parameter.unit_original,
+                            }
+                        )
+                    else:
+                        data[resolution.name][dataset.name].append(parameter.name)
+        return data
 
     @staticmethod
     def _coerce_meta_fields(df: pl.DataFrame) -> pl.DataFrame:

@@ -12,22 +12,18 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst import Kind, Parameter, Provider, Settings
-from wetterdienst.core.timeseries.request import TimeseriesRequest, _PARAMETER_TYPE, _DATETIME_TYPE, _SETTINGS_TYPE
+from wetterdienst import Kind, Provider
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, DatasetModel, MetadataModel, ParameterModel
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.eccodes import check_pdbufr
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
-    import datetime as dt
-    from collections.abc import Sequence
     from io import BytesIO
 
     from wetterdienst.core.timeseries.result import StationsResult
@@ -45,8 +41,8 @@ DwdRoadMetadata = {
             "name_original": "15_minutes",
             "datasets": [
                 {
-                    "name": "road_weather",
-                    "name_original": "road_weather",
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "periods": ["historical"],
                     "parameters": [
@@ -212,7 +208,6 @@ class DwdRoadValues(TimeseriesValues):
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
             return pl.DataFrame()
-        df = df.rename(mapping={"timestamp": Columns.DATE.value, "shortstationname": Columns.STATION_ID.value})
         return df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
 
     def _create_file_index_for_dwd_road_weather_station(
@@ -355,7 +350,7 @@ class DwdRoadValues(TimeseriesValues):
             df = df.merge(df2, on=TIME_COLUMNS + ("shortStationName",))
         df = pl.from_pandas(df)
         df = df.select(
-            pl.col("shortStationName"),
+            pl.col("shortStationName").alias(Columns.STATION_ID.value),
             pl.concat_str(
                 exprs=[
                     pl.col("year").cast(pl.String),
@@ -366,12 +361,11 @@ class DwdRoadValues(TimeseriesValues):
                 ],
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
-            .alias("timestamp"),
-            *parameters,
+            .alias(Columns.DATE.value),
+            *parameter_names,
         )
-        df = df.rename(mapping=lambda col: col.lower())
         df = df.unpivot(
-            index=["shortstationname", "timestamp"],
+            index=[Columns.STATION_ID.value, Columns.DATE.value],
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )

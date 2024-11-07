@@ -157,13 +157,13 @@ if LIVE:
         st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
         st.stop()
 
-dataset_options = list(api.discover(flatten=False)[resolution].keys())
+dataset_options = list(api.discover()[resolution].keys())
 dataset = st.selectbox(
     "Select dataset",
     options=dataset_options,
     index=dataset_options.index("climate_summary") if "climate_summary" in dataset_options else 0,
 )
-parameter_options = list(api.discover(flatten=False)[resolution][dataset].keys())
+parameter_options = list(api.discover()[resolution][dataset])
 parameter_options = [dataset] + parameter_options
 parameter = st.selectbox("Select parameter", options=parameter_options, index=0)
 
