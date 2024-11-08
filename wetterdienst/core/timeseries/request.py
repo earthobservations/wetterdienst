@@ -17,6 +17,7 @@ from measurement.utils import guess
 from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
+from build.lib.wetterdienst.metadata.metadata_model import DatasetModel
 from wetterdienst.core.core import Core
 from wetterdienst.core.timeseries.result import (
     InterpolatedValuesResult,
@@ -61,7 +62,7 @@ EARTH_RADIUS_KM = 6371
 # str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
 # tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")  # noqa: ERA001
 # Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]  # noqa: E501, ERA001
-_PARAMETER_TYPE_SINGULAR = Union[str, tuple[str, str], tuple[str, str, str], ParameterModel]
+_PARAMETER_TYPE_SINGULAR = Union[str, tuple[str, str], tuple[str, str, str], ParameterModel, DatasetModel]
 _PARAMETER_TYPE = Union[_PARAMETER_TYPE_SINGULAR, Sequence[_PARAMETER_TYPE_SINGULAR]]
 _DATETIME_TYPE = Union[str, dt.datetime, None]
 _SETTINGS_TYPE = Union[dict, Settings, None]

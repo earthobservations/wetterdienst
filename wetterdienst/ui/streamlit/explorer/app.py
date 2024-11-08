@@ -36,21 +36,18 @@ WHERE value IS NOT NULL
 """.strip()
 
 
-@st.cache_data
 def get_stations(provider: str, network: str, request_kwargs: dict):
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return Wetterdienst(provider, network)(**request_kwargs).all()
 
 
-@st.cache_data
 def get_station(provider: str, network: str, request_kwargs: dict, station_id: str):
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
     return Wetterdienst(provider, network)(**request_kwargs).filter_by_station_id(station_id)
 
 
-@st.cache_data
 def get_values(provider: str, network: str, request_kwargs: dict, station_id: str):
     request_kwargs = request_kwargs.copy()
     settings = Settings(**request_kwargs["settings"])
@@ -145,11 +142,12 @@ network = st.selectbox(
 
 api = Wetterdienst(provider, network)
 
-resolution_options = list(api.discover().keys())
+resolution_options = [resolution.name for resolution in api.metadata]
 resolution = st.selectbox(
     "Select resolution",
     options=resolution_options,
     index=resolution_options.index("daily") if "daily" in resolution_options else 0,
+    disabled=len(resolution_options) == 1,
 )
 # for hosted app, we disallow higher resolutions as the machine might not be able to handle it
 if LIVE:
@@ -157,40 +155,31 @@ if LIVE:
         st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
         st.stop()
 
-dataset_options = list(api.discover()[resolution].keys())
+dataset_options = [dataset for dataset in api.metadata[resolution]]
 dataset = st.selectbox(
     "Select dataset",
     options=dataset_options,
     index=dataset_options.index("climate_summary") if "climate_summary" in dataset_options else 0,
+    disabled=len(dataset_options) == 1,
+    format_func=lambda x: x.name,
 )
-parameter_options = list(api.discover()[resolution][dataset])
-parameter_options = [dataset] + parameter_options
-parameter = st.selectbox("Select parameter", options=parameter_options, index=0)
 
-if api._period_type == PeriodType.FIXED:
-    period = list(api._period_base)[0]
-    period_options = [period.name]
-else:
-    period_options = []
-    for period in api._period_base:
-        period_options.append(period.name)
-period = st.multiselect(
-    "Select period", options=period_options, default=period_options, disabled=len(period_options) == 1
-)
+parameter_options = [parameter for parameter in api.metadata[resolution][dataset.name]]
+parameter_options = [dataset] + parameter_options
+parameter = st.selectbox("Select parameter", options=parameter_options, index=0, format_func=lambda x: x.name)
+
+period_options = dataset.periods
+# period = st.multiselect(
+#     "Select period", options=period_options, default=period_options, disabled=len(period_options) == 1,
+#     format_func=lambda x: x.value,
+# )
 # TODO: replace this with a general request kwargs resolver
 request_kwargs = {
-    "parameter": [(parameter, dataset)],
+    "parameter": parameter,
     "settings": settings,
 }
-if issubclass(api, DwdMosmixRequest):
-    request_kwargs["mosmix_type"] = resolution
-elif issubclass(api, DwdDmoRequest):
-    request_kwargs["dmo_type"] = resolution
-elif api._resolution_type == ResolutionType.MULTI:
-    request_kwargs["resolution"] = resolution
-
-if api._period_type == PeriodType.MULTI:
-    request_kwargs["period"] = period
+# if len(period) > 1:
+#     request_kwargs["period"] = period
 
 df_stations = get_stations(provider, network, request_kwargs).df
 if df_stations.is_empty():

@@ -144,7 +144,12 @@ class ParameterTemplate:
     parameter: str | None = None
 
     @classmethod
-    def parse(cls, value: str | Iterable[str]) -> ParameterTemplate:
+    def parse(cls, value: str | Iterable[str] | DatasetModel | ParameterModel) -> ParameterTemplate:
+        print(type(value))
+        if isinstance(value, DatasetModel):
+            return ParameterTemplate(value.resolution.name, value.name)
+        if isinstance(value, ParameterModel):
+            return ParameterTemplate(value.dataset.resolution.value.value, value.dataset.name, value.name)
         resolution = None
         dataset = None
         parameter = None
@@ -164,13 +169,14 @@ class ParameterTemplate:
 
 def parse_parameter(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
     """Method to parse parameters, either from string or tuple or MetadataModel or sequence of those."""
-    parameter_templates = [ParameterTemplate.parse(parameter) for parameter in to_list(parameter)]
     parameters_found = []
-    for parameter_template in parameter_templates:
+    for parameter in to_list(parameter):
+        print(parameter)
+        parameter_template = ParameterTemplate.parse(parameter)
         try:
             parameters_found.extend(metadata.search_parameter(parameter_template))
         except KeyError:
-            log.warning(f"{parameter_template} not found in metadata")
+            log.info(f"{parameter_template} not found in metadata")
     unique_resolutions = set(parameter.dataset.resolution.value.value for parameter in parameters_found)
     # TODO: for now we only support one resolution
     if not len(unique_resolutions) == 1:
