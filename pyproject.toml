@@ -245,7 +245,7 @@ dev-dependencies = [
 ]
 
 [tool.poe.tasks]
-install-dev = { cmd = "uv pip install .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
+install-dev = { cmd = "uv pip install -e .[bufr,cratedb,duckdb,explorer,export,influxdb,interpolation,mpl,mysql,ipython,radar,radarplus,restapi,postgresql,sql]" }
 # Formatting and linting
 "format:fmt" = "uv run ruff format"
 "format:lint" = "uv run ruff check --fix"
