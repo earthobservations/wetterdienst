@@ -25,6 +25,7 @@ concurrency:
 # The name for the produced image at ghcr.io.
 env:
   IMAGE_NAME: "${{ github.repository }}"
+  PYTHON: "3.13"
 
 jobs:
   build_and_test:
@@ -38,7 +39,7 @@ jobs:
           enable-cache: true
 
       - name: Pin python version
-        run: uv python pin 3.12
+        run: uv python pin ${{ env.PYTHON }}
 
       - name: Install project
         run: uv sync

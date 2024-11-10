@@ -4,6 +4,8 @@ Changelog
 Development
 ***********
 
+- Add support for Python 3.13 and deprecate Python 3.9
+
 0.97.0 (06.10.2024)
 *******************
 
