@@ -17,7 +17,6 @@ from measurement.utils import guess
 from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
-from build.lib.wetterdienst.metadata.metadata_model import DatasetModel
 from wetterdienst.core.core import Core
 from wetterdienst.core.timeseries.result import (
     InterpolatedValuesResult,
@@ -32,6 +31,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.metadata_model import (
+    DatasetModel,
     MetadataModel,
     ParameterModel,
     parse_parameter,

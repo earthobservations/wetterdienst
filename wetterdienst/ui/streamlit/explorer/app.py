@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 import duckdb
 import plotly.express as px
@@ -11,10 +12,9 @@ import streamlit as st
 
 from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.api import RequestRegistry
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType
-from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+
+if TYPE_CHECKING:
+    from wetterdienst.metadata.metadata_model import MetadataModel
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -36,16 +36,26 @@ WHERE value IS NOT NULL
 """.strip()
 
 
+@st.cache_resource
+def get_api(provider: str, network: str):
+    return Wetterdienst(provider, network)
+
+
+@st.cache_resource
+def get_metadata(api: Wetterdienst):
+    return api.metadata
+
+
 def get_stations(provider: str, network: str, request_kwargs: dict):
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
-    return Wetterdienst(provider, network)(**request_kwargs).all()
+    return get_api(provider, network)(**request_kwargs).all()
 
 
 def get_station(provider: str, network: str, request_kwargs: dict, station_id: str):
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
-    return Wetterdienst(provider, network)(**request_kwargs).filter_by_station_id(station_id)
+    return get_api(provider, network)(**request_kwargs).filter_by_station_id(station_id)
 
 
 def get_values(provider: str, network: str, request_kwargs: dict, station_id: str):
@@ -140,46 +150,45 @@ network = st.selectbox(
     index=network_options.index("OBSERVATION") if "OBSERVATION" in network_options else 0,
 )
 
-api = Wetterdienst(provider, network)
 
-resolution_options = [resolution.name for resolution in api.metadata]
-resolution = st.selectbox(
+api = get_api(provider, network)
+metadata: MetadataModel = api.metadata
+
+resolution_options = [resolution.name for resolution in metadata]
+resolution_choice = st.selectbox(
     "Select resolution",
     options=resolution_options,
     index=resolution_options.index("daily") if "daily" in resolution_options else 0,
     disabled=len(resolution_options) == 1,
 )
+resolution = metadata[resolution_choice]
+
 # for hosted app, we disallow higher resolutions as the machine might not be able to handle it
 if LIVE:
-    if resolution in SUBDAILY_AT_MOST:
+    if resolution.value in SUBDAILY_AT_MOST:
         st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
         st.stop()
 
-dataset_options = [dataset for dataset in api.metadata[resolution]]
-dataset = st.selectbox(
+dataset_options = [dataset.name for dataset in resolution]
+dataset_choice = st.selectbox(
     "Select dataset",
     options=dataset_options,
     index=dataset_options.index("climate_summary") if "climate_summary" in dataset_options else 0,
     disabled=len(dataset_options) == 1,
-    format_func=lambda x: x.name,
 )
+dataset = resolution[dataset_choice]
 
-parameter_options = [parameter for parameter in api.metadata[resolution][dataset.name]]
-parameter_options = [dataset] + parameter_options
-parameter = st.selectbox("Select parameter", options=parameter_options, index=0, format_func=lambda x: x.name)
+parameter_options = [parameter.name for parameter in dataset]
+parameter_options = [dataset_choice] + parameter_options
+parameter_choice = st.selectbox("Select parameter", options=parameter_options, index=0)
 
-period_options = dataset.periods
-# period = st.multiselect(
-#     "Select period", options=period_options, default=period_options, disabled=len(period_options) == 1,
-#     format_func=lambda x: x.value,
-# )
+parameter = dataset if parameter_choice == dataset_choice else dataset[parameter_choice]
+
 # TODO: replace this with a general request kwargs resolver
 request_kwargs = {
     "parameter": parameter,
     "settings": settings,
 }
-# if len(period) > 1:
-#     request_kwargs["period"] = period
 
 df_stations = get_stations(provider, network, request_kwargs).df
 if df_stations.is_empty():
