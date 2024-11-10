@@ -20,16 +20,16 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
         include:
           # arm64 (M1)
           - os: "macos-14"
-            python-version: "3.12"
+            python-version: "3.13"
           # x86 (Intel)
           - os: "macos-latest"
-            python-version: "3.12"
+            python-version: "3.13"
           - os: "windows-latest"
-            python-version: "3.12"
+            python-version: "3.13"
 
     env:
       OS: ${{ matrix.os }}

@@ -7,7 +7,7 @@ import logging
 from abc import abstractmethod
 from enum import Enum
 from hashlib import sha256
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -56,7 +56,7 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 
-_PARAMETER_TYPE = Union[Union[str, Enum, Parameter], tuple[Union[str, Enum, Parameter], Union[str, Enum, Parameter]]]
+_PARAMETER_TYPE = str | Enum | Parameter | tuple[str | Enum | Parameter, str | Enum | Parameter]
 
 
 class TimeseriesRequest(Core):

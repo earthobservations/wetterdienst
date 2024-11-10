@@ -14,13 +14,14 @@ concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.ref }}
 
+env:
+  OS: "ubuntu-latest"
+  PYTHON: "3.13"
+
 jobs:
   run:
     runs-on: ubuntu-latest
     name: Check code coverage
-    env:
-      OS: "ubuntu-latest"
-      PYTHON: "3.12"
     steps:
       - name: Acquire sources
         uses: actions/checkout@v4
@@ -30,7 +31,7 @@ jobs:
           enable-cache: true
 
       - name: Pin python version
-        run: uv python pin 3.12
+        run: uv python pin ${{ env.PYTHON }}
 
       - name: Install project
         run: uv sync

@@ -1,7 +1,12 @@
 name: Release
+
 on:
   release:
     types: [ published ]
+
+env:
+  PYTHON: "3.13"
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -14,7 +19,7 @@ jobs:
           enable-cache: true
 
       - name: Pin python version
-        run: uv python pin 3.12
+        run: uv python pin ${{ env.PYTHON }}
 
       - name: Install project
         run: uv sync
