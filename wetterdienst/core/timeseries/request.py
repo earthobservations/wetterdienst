@@ -7,7 +7,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Sequence
 from hashlib import sha256
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -62,10 +62,10 @@ EARTH_RADIUS_KM = 6371
 # str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
 # tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")  # noqa: ERA001
 # Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]  # noqa: E501, ERA001
-_PARAMETER_TYPE_SINGULAR = Union[str, tuple[str, str], tuple[str, str, str], ParameterModel, DatasetModel]
-_PARAMETER_TYPE = Union[_PARAMETER_TYPE_SINGULAR, Sequence[_PARAMETER_TYPE_SINGULAR]]
-_DATETIME_TYPE = Union[str, dt.datetime, None]
-_SETTINGS_TYPE = Union[dict, Settings, None]
+_PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel | DatasetModel
+_PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
+_DATETIME_TYPE = str | dt.datetime | None
+_SETTINGS_TYPE = dict | Settings | None
 
 
 class TimeseriesRequest(Core):
