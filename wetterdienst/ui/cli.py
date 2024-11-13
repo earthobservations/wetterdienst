@@ -673,10 +673,8 @@ def about():
         type=click.STRING,
     ),
 )
-@cloup.option("--dataset", type=comma_separated_list, default=None)
-@cloup.option("--resolution", type=click.STRING, default=None)
 @debug_opt
-def coverage(provider, network, dataset, resolution, debug):
+def coverage(provider, network, debug):
     set_logging_level(debug)
 
     if not provider or not network:
@@ -686,18 +684,10 @@ def coverage(provider, network, dataset, resolution, debug):
     api = get_api(provider=provider, network=network)
 
     cov = api.discover(
-        dataset=dataset,
-        resolution=resolution,
-        flatten=False,
         with_units=False,
     )
 
-    # Compute more compact representation.
-    result = OrderedDict()
-    for resolution, labels in cov.items():
-        result[resolution] = list(labels.keys())
-
-    print(json.dumps(result, indent=2))  # noqa: T201
+    print(json.dumps(cov, indent=2))  # noqa: T201
 
 
 @about.command("fields")

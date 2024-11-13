@@ -247,7 +247,10 @@ class TimeseriesRequest(Core):
         return unit_string
 
     @classmethod
-    def discover(cls, with_units: bool = True) -> dict:
+    def discover(
+        cls,
+        with_units: bool = True,
+    ) -> dict:
         """Function to print/discover available parameters"""
         data = {}
         for resolution in cls.metadata:

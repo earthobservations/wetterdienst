@@ -40,25 +40,14 @@ def test_cli_about_parameters():
     """Test cli coverage of dwd parameters"""
     runner = CliRunner()
     result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
+    # resolution
+    assert "1_minute" in result.output
+    # datasets
     assert "precipitation" in result.output
     assert "temperature_air" in result.output
     assert "weather_phenomena" in result.output
-
-
-def test_cli_about_resolutions():
-    """Test cli coverage of dwd resolutions"""
-    runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
-    assert "minute_1" in result.output
-    assert "hourly" in result.output
-    assert "annual" in result.output
-
-
-def test_cli_about_coverage():
-    runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
-    assert "minute_1" in result.output
-    assert "precipitation" in result.output
+    # parameters
+    assert "precipitation_height" in result.output
 
 
 def test_no_provider():
