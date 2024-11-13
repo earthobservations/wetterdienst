@@ -17,7 +17,7 @@ from tzfpy import get_tz
 
 from wetterdienst.core.timeseries.result import StationsResult, ValuesResult
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.resolution import DAILY_AT_MOST, Resolution
+from wetterdienst.metadata.resolution import DAILY_AT_MOST, Frequency, Resolution
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.metadata.unit import REGISTRY, OriginUnit, SIUnit
 from wetterdienst.util.logging import TqdmToLogger
@@ -166,14 +166,14 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         return start_date.replace(tzinfo=tzinfo), end_date.replace(tzinfo=tzinfo)
 
-    def _get_complete_dates(self, start_date: dt.datetime, end_date: dt.datetime) -> pl.Series:
+    def _get_complete_dates(self, start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> pl.Series:
         """
         Complete datetime index for the requested start and end date, used for
         building a complementary pandas DataFrame with the date column on which
         other DataFrames can be joined on
         """
-        date_range = pl.datetime_range(start_date, end_date, interval=self.sr.frequency.value, eager=True)
-        if self.sr.resolution not in DAILY_AT_MOST:
+        date_range = pl.datetime_range(start_date, end_date, interval=Frequency[resolution.name].value, eager=True)
+        if resolution not in DAILY_AT_MOST:
             date_range = date_range.map_elements(lambda date: date.replace(day=1).isoformat(), return_dtype=pl.String)
             date_range = date_range.str.to_datetime()
         date_range = date_range.dt.cast_time_unit("us")
@@ -197,14 +197,14 @@ class TimeseriesValues(metaclass=ABCMeta):
         )
         return get_tz(longitude, latitude)
 
-    def _get_base_df(self, start_date: dt.datetime, end_date: dt.datetime) -> pl.DataFrame:
+    def _get_base_df(self, start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> pl.DataFrame:
         """
         Base dataframe which is used for creating empty dataframes if no data is
         found or for merging other dataframes on the full dates
 
         :return: pandas DataFrame with a date column with complete dates
         """
-        return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(start_date, end_date)})
+        return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)})
 
     def _convert_values_to_si(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """
@@ -346,7 +346,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         else:
             tzinfo = ZoneInfo(self.data_tz)
         start_date, end_date = self._adjust_start_end_date(self.sr.start_date, self.sr.end_date, tzinfo, resolution)
-        base_df = self._get_base_df(start_date, end_date)
+        base_df = self._get_base_df(start_date, end_date, resolution)
         data = []
         for (station_id, parameter), group in df.group_by(
             [Columns.STATION_ID.value, Columns.PARAMETER.value],
@@ -427,8 +427,7 @@ class TimeseriesValues(metaclass=ABCMeta):
                     df = self._convert_values_to_si(df, dataset)
 
                 df = df.unique(subset=[Columns.DATE.value, Columns.PARAMETER.value], maintain_order=True)
-
-                if self.sr.start_date:
+                if self.sr.start_date and dataset.resolution.value != Resolution.DYNAMIC:
                     df = self._build_complete_df(df, station_id, dataset.resolution.value)
 
                 df = self._organize_df_columns(df, station_id, dataset)

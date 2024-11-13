@@ -20,8 +20,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
-    from wetterdienst.metadata.period import Period
-    from wetterdienst.metadata.resolution import Frequency
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -149,14 +147,6 @@ class StationsResult(ExportMixin):
     @property
     def values(self) -> TimeseriesValues:
         return self.stations._values.from_stations(self)
-
-    @property
-    def frequency(self) -> Frequency:
-        return self.stations.frequency
-
-    @property
-    def period(self) -> Period:
-        return self.stations.period
 
     @property
     def start_date(self) -> datetime:

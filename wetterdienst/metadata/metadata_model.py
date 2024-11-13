@@ -63,7 +63,7 @@ class DatasetModel(BaseModel):
             and self.grouped == other.grouped
             and self.periods == other.periods
             and self.description == other.description
-            and all(p1 == p2 for p1, p2 in zip(self.parameters, other.parameters))
+            and self.parameters == other.parameters
             # don't compare the resolution object itself because it'd be circular
             and self.resolution.name == other.resolution.name
         )
@@ -156,7 +156,7 @@ class MetadataModel(BaseModel):
         if not parameter_search.parameter:
             return [*dataset]
         for parameter in dataset:
-            if parameter.name == parameter_search.parameter:
+            if parameter.name == parameter_search.parameter or parameter.name_original == parameter_search.parameter:
                 return [parameter]
         raise KeyError(parameter_search.parameter)
 
@@ -201,6 +201,6 @@ def parse_parameter(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list
             log.info(f"{parameter_template} not found in {metadata.__class__}")
     unique_resolutions = set(parameter.dataset.resolution.value.value for parameter in parameters_found)
     # TODO: for now we only support one resolution
-    if not len(unique_resolutions) == 1:
+    if len(unique_resolutions) > 1:
         raise ValueError(f"All parameters must have the same resolution. Found: {unique_resolutions}")
     return parameters_found

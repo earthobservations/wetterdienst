@@ -117,11 +117,11 @@ class TimeseriesRequest(Core):
     #   - heterogeneous parameters such as precipitation_height
     #   - homogeneous parameters such as temperature_air_2m
     interpolatable_parameters = [
-        Parameter.TEMPERATURE_AIR_MEAN_2M.name,
-        Parameter.TEMPERATURE_AIR_MAX_2M.name,
-        Parameter.TEMPERATURE_AIR_MIN_2M.name,
-        Parameter.WIND_SPEED.name,
-        Parameter.PRECIPITATION_HEIGHT.name,
+        Parameter.TEMPERATURE_AIR_MEAN_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MAX_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_2M.name.lower(),
+        Parameter.WIND_SPEED.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT.name.lower(),
     ]
 
     @staticmethod
@@ -534,11 +534,9 @@ class TimeseriesRequest(Core):
         if not self.start_date:
             raise ValueError("start_date and end_date are required for interpolation")
 
-        if self.resolution in (
-            Resolution.MINUTE_1,
-            Resolution.MINUTE_5,
-            Resolution.MINUTE_10,
-        ):
+        resolutions = {parameter.dataset.resolution.value for parameter in self.parameter}
+
+        if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Interpolation might be slow for high resolutions due to mass of data")
 
         lat, lon = latlon
@@ -589,11 +587,9 @@ class TimeseriesRequest(Core):
         if not self.start_date:
             raise ValueError("start_date and end_date are required for summarization")
 
-        if self.resolution in (
-            Resolution.MINUTE_1,
-            Resolution.MINUTE_5,
-            Resolution.MINUTE_10,
-        ):
+        resolutions = {parameter.dataset.resolution.value for parameter in self.parameter}
+
+        if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
         lat, lon = latlon

@@ -18,6 +18,7 @@ from tqdm import tqdm
 from wetterdienst.core.timeseries.tools import _ParameterData, extract_station_values
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
+from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
@@ -74,10 +75,7 @@ def apply_station_values_per_parameter(
     station: dict,
     valid_station_groups_exists: bool,
 ) -> None:
-    for parameter, dataset in stations_ranked.stations.parameter:
-        if parameter == dataset:
-            log.info("only individual parameters can be interpolated")
-            continue
+    for parameter in stations_ranked.stations.parameter:
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
@@ -88,32 +86,32 @@ def apply_station_values_per_parameter(
         ):
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
-        parameter_name = parameter.name.lower()
-        if parameter_name in param_dict and param_dict[parameter_name].finished:
+        if parameter.name in param_dict and param_dict[parameter.name].finished:
             continue
         # Filter only for exact parameter
-        result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter_name))
+        result_series_param = result_df.filter(pl.col(Columns.PARAMETER.value).eq(parameter.name))
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        if parameter_name not in param_dict:
+        if parameter.name not in param_dict:
+            frequency = Frequency[parameter.dataset.resolution.value.name].value
             df = pl.DataFrame(
                 {
                     Columns.DATE.value: pl.datetime_range(
                         start=stations_ranked.stations.start_date,
                         end=stations_ranked.stations.end_date,
-                        interval=stations_ranked.frequency.value,
+                        interval=frequency,
                         time_zone="UTC",
                         eager=True,
-                    ).dt.round(stations_ranked.frequency.value),
+                    ).dt.round(frequency),
                 },
             )
-            param_dict[parameter_name] = _ParameterData(df)
+            param_dict[parameter.name] = _ParameterData(df)
         result_series_param = (
-            param_dict[parameter_name].values.select("date").join(result_series_param, on="date", how="left")
+            param_dict[parameter.name].values.select("date").join(result_series_param, on="date", how="left")
         )
         result_series_param = result_series_param.get_column(Columns.VALUE.value)
         result_series_param = result_series_param.rename(station["station_id"])
-        extract_station_values(param_dict[parameter_name], result_series_param, valid_station_groups_exists)
+        extract_station_values(param_dict[parameter.name], result_series_param, valid_station_groups_exists)
 
 
 def calculate_interpolation(
