@@ -14,7 +14,7 @@ from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.api import RequestRegistry
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import MetadataModel
+    from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -154,14 +154,15 @@ network = st.selectbox(
 api = get_api(provider, network)
 metadata: MetadataModel = api.metadata
 
-resolution_options = [resolution.name for resolution in metadata]
-resolution_choice = st.selectbox(
+resolution_options = list(metadata)
+resolution_names = [r.name for r in resolution_options]
+resolution: ResolutionModel = st.selectbox(
     "Select resolution",
     options=resolution_options,
-    index=resolution_options.index("daily") if "daily" in resolution_options else 0,
+    index=resolution_names.index("daily") if "daily" in resolution_names else 0,
     disabled=len(resolution_options) == 1,
+    format_func=lambda r: r.name,
 )
-resolution = metadata[resolution_choice]
 
 # for hosted app, we disallow higher resolutions as the machine might not be able to handle it
 if LIVE:
@@ -169,20 +170,23 @@ if LIVE:
         st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
         st.stop()
 
-dataset_options = [dataset.name for dataset in resolution]
-dataset_choice = st.selectbox(
+dataset_options = list(resolution)
+dataset_names = [d.name for d in dataset_options]
+dataset: DatasetModel = st.selectbox(
     "Select dataset",
     options=dataset_options,
-    index=dataset_options.index("climate_summary") if "climate_summary" in dataset_options else 0,
+    index=dataset_names.index("climate_summary") if "climate_summary" in dataset_names else 0,
     disabled=len(dataset_options) == 1,
+    format_func=lambda d: d.name,
 )
-dataset = resolution[dataset_choice]
 
-parameter_options = [parameter.name for parameter in dataset]
-parameter_options = [dataset_choice] + parameter_options
-parameter_choice = st.selectbox("Select parameter", options=parameter_options, index=0)
+parameter_options = list(dataset)
+parameter_options = [dataset] + parameter_options
+parameter: DatasetModel | ParameterModel = st.selectbox(
+    "Select parameter", options=parameter_options, index=0, format_func=lambda p: p.name
+)
 
-parameter = dataset if parameter_choice == dataset_choice else dataset[parameter_choice]
+parameter = dataset if parameter == dataset else parameter
 
 # TODO: replace this with a general request kwargs resolver
 request_kwargs = {

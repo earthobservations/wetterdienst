@@ -28,6 +28,18 @@ class ParameterModel(BaseModel):
     description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
 
+    def __eq__(self, other):
+        return (
+            self.name == other.name
+            and self.name_original == other.name_original
+            and self.unit == other.unit
+            and self.unit_original == other.unit_original
+            and self.description == other.description
+            # don't compare the dataset object itself because it'd be circular
+            and self.dataset.name == other.dataset.name
+            and self.dataset.resolution.name == other.dataset.resolution.name
+        )
+
 
 class DatasetModel(BaseModel):
     __name__ = "Dataset"
@@ -43,6 +55,18 @@ class DatasetModel(BaseModel):
         super().__init__(**data)
         for parameter in self.parameters:
             parameter.dataset = self
+
+    def __eq__(self, other):
+        return (
+            self.name == other.name
+            and self.name_original == other.name_original
+            and self.grouped == other.grouped
+            and self.periods == other.periods
+            and self.description == other.description
+            and all(p1 == p2 for p1, p2 in zip(self.parameters, other.parameters))
+            # don't compare the resolution object itself because it'd be circular
+            and self.resolution.name == other.resolution.name
+        )
 
     def __getitem__(self, item):
         if isinstance(item, int):
