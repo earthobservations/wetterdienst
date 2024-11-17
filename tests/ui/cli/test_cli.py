@@ -270,7 +270,7 @@ def test_cli_summarize():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameter=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:

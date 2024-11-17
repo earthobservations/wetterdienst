@@ -62,7 +62,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
 @pytest.mark.remote
 def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_settings):
     request = DwdObservationRequest(
-        parameter=[("hourly", "temperature_air", "temperature_air_mean_2m")],
+        parameter=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(1986, 10, 31),
         end_date=dt.datetime(1986, 11, 1),
         settings=default_settings,
