@@ -34,7 +34,7 @@ from wetterdienst.metadata.metadata_model import (
     DatasetModel,
     MetadataModel,
     ParameterModel,
-    parse_parameter,
+    parse_parameters,
 )
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
@@ -155,7 +155,7 @@ class TimeseriesRequest(Core):
         super().__init__()
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
-        self.parameter = parse_parameter(parameter, self.metadata)
+        self.parameter = parse_parameters(parameter, self.metadata)
 
         if not self.parameter:
             raise NoParametersFoundError("no valid parameters could be parsed from given argument")

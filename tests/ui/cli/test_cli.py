@@ -74,7 +74,7 @@ def test_cli_interpolate():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameter=daily/kl/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:

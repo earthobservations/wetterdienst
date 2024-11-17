@@ -7,7 +7,6 @@ import json
 import logging
 import subprocess
 import sys
-from collections import OrderedDict
 from pathlib import Path
 from pprint import pformat
 from typing import Literal
@@ -89,7 +88,6 @@ def station_options_core(command):
     """
     arguments = [
         cloup.option("--parameter", type=comma_separated_list, required=True),
-        cloup.option("--resolution", type=click.STRING, required=True),
         cloup.option("--period", type=comma_separated_list),
     ]
     return functools.reduce(lambda x, opt: opt(x), reversed(arguments), command)
@@ -748,7 +746,6 @@ def stations(
     provider: str,
     network: str,
     parameter: list[str],
-    resolution: str,
     period: list[str],
     all_: bool,
     station: list[str],
@@ -771,7 +768,6 @@ def stations(
     stations_ = get_stations(
         api=api,
         parameter=parameter,
-        resolution=resolution,
         period=period,
         lead_time="short",
         date=None,
@@ -843,7 +839,6 @@ def values(
     provider: str,
     network: str,
     parameter: list[str],
-    resolution: str,
     period: list[str],
     lead_time: Literal["short", "long"],
     date: str,
@@ -879,7 +874,6 @@ def values(
         values_ = get_values(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             period=period,
             lead_time=lead_time,
             date=date,
@@ -951,7 +945,6 @@ def interpolate(
     provider: str,
     network: str,
     parameter: list[str],
-    resolution: str,
     period: list[str],
     lead_time: Literal["short", "long"],
     use_nearby_station_distance: float,
@@ -977,7 +970,6 @@ def interpolate(
         values_ = get_interpolate(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             period=period,
             lead_time=lead_time,
             date=date,
@@ -1038,7 +1030,6 @@ def summarize(
     provider: str,
     network: str,
     parameter: list[str],
-    resolution: str,
     period: list[str],
     lead_time: Literal["short", "long"],
     date: str,
@@ -1063,7 +1054,6 @@ def summarize(
         values_ = get_summarize(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             period=period,
             lead_time=lead_time,
             date=date,

@@ -190,7 +190,7 @@ class ParameterTemplate:
         return ParameterTemplate(resolution, dataset, parameter)
 
 
-def parse_parameter(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
+def parse_parameters(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
     """Method to parse parameters, either from string or tuple or MetadataModel or sequence of those."""
     parameters_found = []
     for parameter in to_list(parameter):

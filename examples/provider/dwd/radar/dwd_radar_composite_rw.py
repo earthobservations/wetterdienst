@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def plot(ds: xr.DatasetModel):
+def plot(ds: xr.Dataset):
     """Plot RADOLAN data.
 
     Shamelessly stolen from the wradlib RADOLAN Product Showcase documentation.
