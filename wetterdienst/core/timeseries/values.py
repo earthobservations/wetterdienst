@@ -311,7 +311,7 @@ class TimeseriesValues(metaclass=ABCMeta):
             self.sr.start_date, self.sr.end_date, tzinfo, dataset.resolution.value
         )
 
-        base_df = self._get_base_df(start_date, end_date)
+        base_df = self._get_base_df(start_date, end_date, dataset.resolution.value)
 
         data = []
         for parameter in dataset.parameters:
@@ -407,8 +407,9 @@ class TimeseriesValues(metaclass=ABCMeta):
                         station_id=station_id,
                         parameter_or_dataset=dataset,
                     )
-                    parameter_names = {parameter.name_original for parameter in parameters}
-                    df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
+                    if not df.is_empty():
+                        parameter_names = {parameter.name_original for parameter in parameters}
+                        df = df.filter(pl.col(Columns.PARAMETER.value).is_in(parameter_names))
                 else:
                     dataset_data = []
                     for parameter in parameters:
