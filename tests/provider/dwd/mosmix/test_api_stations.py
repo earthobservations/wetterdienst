@@ -40,7 +40,7 @@ def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
     Verify full MOSMIX station list.
     """
     # Acquire data.
-    given_df = DwdMosmixRequest(parameter="large", mosmix_type="large", settings=default_settings).all().df
+    given_df = DwdMosmixRequest(parameter=[("hourly", "large")], settings=default_settings).all().df
     assert not given_df.is_empty()
     # Verify size of dataframe with all records.
     assert given_df.shape == IsTuple(IsInt(ge=5500), 9)
