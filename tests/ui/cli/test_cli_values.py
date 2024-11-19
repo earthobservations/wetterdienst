@@ -15,14 +15,14 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "observation",
-        "--resolution=daily --parameter=kl --date=2020-06-30",
+        "--parameter=daily/kl --date=2020-06-30",
         "01048",
         "Dresden-Klotzsche",
     ),
     (
         "dwd",
         "mosmix",
-        f"--parameter=large --resolution=large "
+        "--parameter=hourly/large "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
@@ -30,7 +30,7 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "dmo",
-        f"--parameter=icon --resolution=icon "
+        "--parameter=hourly/icon "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
@@ -38,7 +38,7 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "dmo",
-        f"--parameter=icon --resolution=icon --lead-time=long "
+        "--parameter=hourly/icon --lead-time=long "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
