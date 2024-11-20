@@ -3,17 +3,10 @@
 import polars as pl
 import pytest
 
-from wetterdienst import Resolution
-from wetterdienst.provider.dwd.observation import DwdObservationResolution
-from wetterdienst.provider.dwd.observation.metadata.dataset import (
-    RESOLUTION_DATASET_MAPPING,
-    DwdObservationDataset,
-)
-from wetterdienst.provider.dwd.observation.metadata.parameter import (
-    DwdObservationParameter,
+from wetterdienst.provider.dwd.observation.metadata import (
+    DwdObservationMetadata,
 )
 from wetterdienst.util.cache import CacheExpiry
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import HTTPFileSystem
 
 SKIP_DATASETS = (
@@ -56,7 +49,7 @@ def test_compare_available_dwd_datasets(default_settings):
         rd_pair = (resolution, dataset)
         if rd_pair in SKIP_DATASETS:
             continue
-        resolution = parse_enumeration_from_template(resolution, DwdObservationResolution, Resolution)
-        dataset = DwdObservationDataset(dataset)
-        assert dataset in RESOLUTION_DATASET_MAPPING[resolution].keys()
-        assert DwdObservationParameter[resolution.name][dataset.name]
+        try:
+            DwdObservationMetadata[resolution][dataset]
+        except KeyError:
+            assert False, f"Dataset {resolution}/{dataset} not available in DwdObservationMetadata"

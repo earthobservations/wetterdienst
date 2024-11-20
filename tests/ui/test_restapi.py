@@ -86,8 +86,7 @@ def test_dwd_stations_basic(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "kl",
-            "resolution": "daily",
+            "parameter": "daily/kl",
             "period": "recent",
             "all": "true",
         },
@@ -113,8 +112,7 @@ def test_dwd_stations_geo(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "kl",
-            "resolution": "daily",
+            "parameter": "daily/kl",
             "period": "recent",
             "coordinates": "45.54,10.10",
             "rank": 5,
@@ -142,8 +140,7 @@ def test_dwd_stations_sql(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "kl",
-            "resolution": "daily",
+            "parameter": "daily/kl",
             "period": "recent",
             "sql": "SELECT * FROM data WHERE lower(name) LIKE '%dresden%';",
         },
@@ -170,8 +167,7 @@ def test_dwd_values_success(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01359",
-            "parameter": "kl",
-            "resolution": "daily",
+            "parameter": "daily/kl",
             "period": "historical",
             "date": "1982-01-01",
         },
@@ -215,26 +211,11 @@ def test_dwd_values_no_parameter(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01048,4411",
-            "resolution": "daily",
             "period": "recent",
         },
     )
     assert response.status_code == 400
-    assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
-
-
-def test_dwd_values_no_resolution(client):
-    response = client.get(
-        "/api/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "parameter": "kl",
-            "period": "recent",
-        },
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query arguments 'parameter', 'resolution' and 'date' are required"}
+    assert response.json() == {"detail": "Query argument 'parameter' is required"}
 
 
 @pytest.mark.remote
@@ -246,8 +227,7 @@ def test_dwd_values_sql_tabular(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01048,4411",
-            "parameter": "kl",
-            "resolution": "daily",
+            "parameter": "daily/kl",
             "period": "historical",
             "date": "2020/2021",
             "sql-values": "SELECT * FROM data WHERE temperature_air_max_2m < 2.0",
@@ -303,8 +283,7 @@ def test_dwd_values_sql_long(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01048,4411",
-            "parameter": "kl",
-            "resolution": "daily",
+            "parameter": "daily/kl",
             "date": "2019-12-01/2019-12-31",
             "sql-values": "SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value < 1.5",
             "si-units": False,
@@ -329,8 +308,7 @@ def test_dwd_interpolate(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "temperature_air_mean_2m",
-            "resolution": "daily",
+            "parameter": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
             "date": "1986-10-31/1986-11-01",
         },
@@ -398,8 +376,7 @@ def test_api_values_missing_null(client):
             "provider": "dwd",
             "network": "mosmix",
             "station": "F660",
-            "parameter": "ttt",
-            "resolution": "small",
+            "parameter": "hourly/small/ttt",
         },
     )
     assert response.status_code == 200
@@ -414,8 +391,7 @@ def test_api_values_missing_empty(client):
             "provider": "dwd",
             "network": "observation",
             "station": "00011",
-            "parameter": "precipitation_height",
-            "resolution": "1_minute",
+            "parameter": "1_minute/precipitation/precipitation_height",
             "period": "recent",
         },
     )
@@ -430,8 +406,7 @@ def test_api_stations_missing_null(client):
         params={
             "provider": "dwd",
             "network": "mosmix",
-            "parameter": "ttt",
-            "resolution": "small",
+            "parameter": "hourly/small/ttt",
             "all": True,
         },
     )
@@ -457,8 +432,7 @@ def test_dwd_mosmix(client):
         params={
             "provider": "dwd",
             "network": "mosmix",
-            "parameter": "ttt",
-            "resolution": "small",
+            "parameter": "hourly/small/ttt",
             "station": "01025",
         },
     )
@@ -481,8 +455,7 @@ def test_dwd_dmo_lead_time_long(client):
         params={
             "provider": "dwd",
             "network": "dmo",
-            "parameter": "ttt",
-            "resolution": "icon",
+            "parameter": "hourly/icon/ttt",
             "station": "01025",
             "lead-time": "long",
         },

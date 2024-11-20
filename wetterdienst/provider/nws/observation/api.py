@@ -13,7 +13,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, DatasetModel, MetadataModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.cache import CacheExpiry
@@ -130,7 +130,7 @@ NwsObservationMetadata = {
         }
     ]
 }
-NwsObservationMetadata = MetadataModel.model_validate(NwsObservationMetadata)
+NwsObservationMetadata = build_metadata_model(NwsObservationMetadata, "NwsObservationMetadata")
 
 
 class NwsObservationValues(TimeseriesValues):

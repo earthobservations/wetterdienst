@@ -14,6 +14,13 @@ if TYPE_CHECKING:
 
     from wetterdienst.core.timeseries.request import _PARAMETER_TYPE
 
+from wetterdienst.metadata.parameter import Parameter
+from wetterdienst.metadata.unit import OriginUnit, SIUnit
+
+PARAMETER_NAMES = {parameter.name.lower() for parameter in Parameter}
+UNIT_NAMES = {unit.name.lower() for unit in SIUnit}
+UNIT_ORIGINAL_NAMES = {unit.name.lower() for unit in OriginUnit}
+
 log = logging.getLogger(__name__)
 
 # for any provider that does not publish their data under a dedicated dataset name
@@ -28,6 +35,29 @@ class ParameterModel(BaseModel):
     description: str | None = None
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)
 
+    @field_validator("name", mode="after")
+    @classmethod
+    def validate_name_original(cls, value):
+        if value.startswith("quality"):
+            return value
+        if value in PARAMETER_NAMES:
+            return value
+        raise ValueError(f"Parameter name '{value}' not in {PARAMETER_NAMES}")
+
+    @field_validator("unit", mode="after")
+    @classmethod
+    def validate_unit(cls, value):
+        if value in UNIT_NAMES:
+            return value
+        raise ValueError(f"Unit name '{value}' not in {UNIT_NAMES}")
+
+    @field_validator("unit_original", mode="after")
+    @classmethod
+    def validate_unit_original(cls, value):
+        if value in UNIT_ORIGINAL_NAMES:
+            return value
+        raise ValueError(f"Unit name '{value}' not in {UNIT_ORIGINAL_NAMES}")
+
     def __eq__(self, other):
         return (
             self.name == other.name
@@ -39,6 +69,7 @@ class ParameterModel(BaseModel):
             and self.dataset.name == other.dataset.name
             and self.dataset.resolution.name == other.dataset.resolution.name
         )
+
 
 
 class DatasetModel(BaseModel):
@@ -72,8 +103,9 @@ class DatasetModel(BaseModel):
     def __getitem__(self, item):
         if isinstance(item, int):
             return self.parameters[item]
+        item_search = item.strip().lower()
         for parameter in self.parameters:
-            if parameter.name == item or parameter.name_original == item:
+            if parameter.name == item_search or parameter.name_original == item_search:
                 return parameter
         raise KeyError(item)
 
@@ -97,6 +129,7 @@ class ResolutionModel(BaseModel):
     datasets: list[DatasetModel]
 
     @field_validator("datasets", mode="before")
+    @classmethod
     def validate_datasets(cls, v, validation_info):
         periods = validation_info.data["periods"]
         date_required = validation_info.data["date_required"]
@@ -115,17 +148,19 @@ class ResolutionModel(BaseModel):
         for dataset in self.datasets:
             dataset.resolution = self
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str | int) -> DatasetModel:
         if isinstance(item, int):
             return self.datasets[item]
+        item_search = item.strip().lower()
         for dataset in self.datasets:
-            if dataset.name == item:
+            if dataset.name == item_search or dataset.name_original == item_search:
                 return dataset
         raise KeyError(item)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> DatasetModel:
+        item_search = item.strip().lower()
         for dataset in self.datasets:
-            if dataset.name == item:
+            if dataset.name == item_search or dataset.name_original == item_search:
                 return dataset
         raise AttributeError(item)
 
@@ -136,19 +171,29 @@ class ResolutionModel(BaseModel):
 class MetadataModel(BaseModel):
     resolutions: list[ResolutionModel]
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str | int):
         if isinstance(item, int):
             return self.resolutions[item]
+        item_search = item.strip().lower()
         for resolution in self.resolutions:
-            if resolution.value.name.lower() == item or resolution.value.value == item:
+            if (
+                resolution.name == item_search
+                or resolution.name_original == item_search
+                or resolution.value.name.lower() == item_search
+            ):
                 return resolution
         raise KeyError(item)
 
     def __getattr__(self, item):
+        item_search = item.strip().lower()
         for resolution in self.resolutions:
-            if resolution.value.name.lower() == item or resolution.value.value == item:
+            if (
+                resolution.name == item_search
+                or resolution.name_original == item_search
+                or resolution.value.name.lower() == item_search
+            ):
                 return resolution
-        raise AttributeError(item)
+        return super().__getattr__(item)
 
     def __iter__(self) -> Iterator[ResolutionModel]:
         return iter(self.resolutions)
@@ -156,8 +201,9 @@ class MetadataModel(BaseModel):
     def search_parameter(self, parameter_search: ParameterTemplate) -> list[ParameterModel]:
         for resolution in self:
             if (
-                resolution.value.name.lower() == parameter_search.resolution
-                or resolution.value.value == parameter_search.resolution
+                resolution.name == parameter_search.resolution
+                or resolution.name_original == parameter_search.resolution
+                or resolution.value.name.lower() == parameter_search.resolution
             ):
                 break
         else:
@@ -173,6 +219,12 @@ class MetadataModel(BaseModel):
             if parameter.name == parameter_search.parameter or parameter.name_original == parameter_search.parameter:
                 return [parameter]
         raise KeyError(parameter_search.parameter)
+
+
+def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
+    metadata = MetadataModel.model_validate(metadata)
+    metadata.__name__ = name
+    return metadata
 
 
 @dataclass
@@ -203,6 +255,9 @@ class ParameterTemplate:
                 pass
         return ParameterTemplate(resolution, dataset, parameter)
 
+    def concat(self) -> str:
+        return "/".join(filter(None, [self.resolution, self.dataset, self.parameter]))
+
 
 def parse_parameters(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
     """Method to parse parameters, either from string or tuple or MetadataModel or sequence of those."""
@@ -212,7 +267,7 @@ def parse_parameters(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> lis
         try:
             parameters_found.extend(metadata.search_parameter(parameter_template))
         except KeyError:
-            log.info(f"{parameter_template} not found in {metadata.__class__}")
+            log.info(f"{parameter_template.concat()} not found in {metadata.__name__}")
     unique_resolutions = set(parameter.dataset.resolution.value.value for parameter in parameters_found)
     # TODO: for now we only support one resolution
     if len(unique_resolutions) > 1:

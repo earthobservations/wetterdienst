@@ -133,7 +133,7 @@ def test_not_interpolatable_parameter(default_settings, df_interpolated_empty):
 
 def test_not_interpolatable_dataset(default_settings, df_interpolated_empty):
     request = DwdObservationRequest(
-        parameter=[("hourly", "temperature", "temperature_air")],
+        parameter=[("daily", "climate_summary", "precipitation_form")],
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 2),
         settings=default_settings,

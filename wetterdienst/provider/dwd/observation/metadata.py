@@ -1,5 +1,5 @@
 from wetterdienst import Resolution
-from wetterdienst.metadata.metadata_model import MetadataModel
+from wetterdienst.metadata.metadata_model import build_metadata_model
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 
 DwdObservationMetadata = {
@@ -1953,7 +1953,7 @@ DwdObservationMetadata = {
         },
     ],
 }
-DwdObservationMetadata = MetadataModel.model_validate(DwdObservationMetadata)
+DwdObservationMetadata = build_metadata_model(DwdObservationMetadata, "DwdObservationMetadata")
 
 DWD_URBAN_DATASETS = [
     DwdObservationMetadata.hourly.urban_precipitation,

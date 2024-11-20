@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, build_metadata_model
 
 GeosphereObservationMetadata = {
     "resolutions": [
@@ -126,14 +126,14 @@ GeosphereObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "dd",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "ddx",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "wind_gust_max",
@@ -261,14 +261,14 @@ GeosphereObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "dd",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "ddx",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "wind_gust_max",
@@ -630,4 +630,4 @@ GeosphereObservationMetadata = {
         },
     ]
 }
-GeosphereObservationMetadata = MetadataModel.model_validate(GeosphereObservationMetadata)
+GeosphereObservationMetadata = build_metadata_model(GeosphereObservationMetadata, "GeosphereObservationMetadata")

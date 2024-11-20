@@ -185,6 +185,17 @@ class TimeseriesRequest(Core):
 
         log.info(f"Processing request {self.__repr__()}")
 
+    def __eq__(self, other):
+        if not isinstance(other, TimeseriesRequest):
+            return False
+
+        return (
+            self.parameter == other.parameter
+            and self.start_date == other.start_date
+            and self.end_date == other.end_date
+            and self.settings == other.settings
+        )
+
     @staticmethod
     def convert_timestamps(
         start_date: _DATETIME_TYPE,

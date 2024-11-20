@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, build_metadata_model
 
 EcccObservationMetadata = {
     "resolutions": [
@@ -54,8 +54,8 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "wind dir (10s deg)",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "quality_wind_direction",
@@ -255,8 +255,8 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "dir of max gust (10s deg)",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "quality_wind_direction_gust_max",
@@ -402,8 +402,8 @@ EcccObservationMetadata = {
                         {
                             "name": "wind_direction_gust_max",
                             "name_original": "dir of max gust (10s deg)",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "quality_wind_direction_gust_max",
@@ -498,4 +498,4 @@ EcccObservationMetadata = {
         },
     ]
 }
-EcccObservationMetadata = MetadataModel.model_validate(EcccObservationMetadata)
+EcccObservationMetadata = build_metadata_model(EcccObservationMetadata, "EcccObservationMetadata")

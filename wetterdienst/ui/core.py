@@ -15,6 +15,7 @@ from wetterdienst.metadata.metadata_model import parse_parameters
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings
+from wetterdienst.util.datetime import parse_date
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -95,13 +96,15 @@ def _get_stations_request(
             if date.count("/") >= 2:
                 raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
             start_date, end_date = date.split("/")
+            start_date = parse_date(start_date)
+            end_date = parse_date(end_date)
         else:
-            start_date = date
+            start_date = parse_date(date)
 
     parameters = parse_parameters(parameter, api.metadata)
 
-    any_single_period_dataset = any(len(parameter.dataset.periods) == 1 for parameter in parameters)
-    if any_single_period_dataset and (not start_date or not end_date):
+    any_date_required = any(parameter.dataset.date_required for parameter in parameters)
+    if any_date_required and (not start_date or not end_date):
         raise StartDateEndDateError("Start and end date required for single period datasets")
 
     any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)

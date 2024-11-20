@@ -214,7 +214,6 @@ def stations(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
     parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
     period: Annotated[Optional[str], Query()] = None,
     all_: Annotated[Optional[bool], Query(alias="all")] = None,
     station: Annotated[Optional[str], Query()] = None,
@@ -233,10 +232,10 @@ def stations(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameter is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' and 'period' are required",
+            detail="Query argument 'parameter' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -264,7 +263,6 @@ def stations(
         stations_ = get_stations(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             period=period,
             lead_time="short",
             date=None,
@@ -288,11 +286,10 @@ def stations(
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if not stations_.parameter or not stations_.resolution:
+    if not stations_.parameter:
         raise HTTPException(
             status_code=400,
-            detail=f"No parameter found for provider {provider}, network {network}, "
-            f"parameter(s) {parameter} and resolution {resolution}.",
+            detail=f"No parameter found for provider {provider}, network {network}, parameter(s) {parameter}.",
         )
 
     content = stations_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
@@ -314,7 +311,6 @@ def values(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
     parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
     period: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
     date: Annotated[Optional[str], Query()] = None,
@@ -344,10 +340,10 @@ def values(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameter is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' and 'date' are required",
+            detail="Query argument 'parameter' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -376,7 +372,6 @@ def values(
         values_ = get_values(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             date=date,
             issue=issue,
             period=period,
@@ -424,7 +419,6 @@ def interpolate(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
     parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
     period: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
     date: Annotated[Optional[str], Query()] = None,
@@ -445,10 +439,10 @@ def interpolate(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameter is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' and 'date' are required",
+            detail="Query argument 'parameter' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -477,7 +471,6 @@ def interpolate(
         values_ = get_interpolate(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             period=period,
             lead_time=lead_time,
             date=date,
@@ -512,7 +505,6 @@ def summarize(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
     parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
     period: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
     date: Annotated[Optional[str], Query()] = None,
@@ -532,10 +524,10 @@ def summarize(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameter is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' " "and 'date' are required",
+            detail="Query argument 'parameter' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -564,7 +556,6 @@ def summarize(
         values_ = get_summarize(
             api=api,
             parameter=parameter,
-            resolution=resolution,
             period=period,
             lead_time=lead_time,
             date=date,

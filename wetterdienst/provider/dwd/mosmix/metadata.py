@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import MetadataModel
+from wetterdienst.metadata.metadata_model import build_metadata_model
 
 DwdMosmixMetadata = {
     "resolutions": [
@@ -8,7 +8,7 @@ DwdMosmixMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["future"],
-            "date_required": True,
+            "date_required": False,
             "datasets": [
                 {
                     "name": "small",
@@ -1000,4 +1000,4 @@ DwdMosmixMetadata = {
         }
     ]
 }
-DwdMosmixMetadata = MetadataModel.model_validate(DwdMosmixMetadata)
+DwdMosmixMetadata = build_metadata_model(DwdMosmixMetadata, "DwdMosmixMetadata")

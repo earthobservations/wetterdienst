@@ -12,7 +12,11 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel, ParameterModel
+from wetterdienst.metadata.metadata_model import (
+    DATASET_NAME_DEFAULT,
+    ParameterModel,
+    build_metadata_model,
+)
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.cache import CacheExpiry
@@ -107,7 +111,7 @@ EAHydrologyMetadata = {
         },
     ]
 }
-EAHydrologyMetadata = MetadataModel.model_validate(EAHydrologyMetadata)
+EAHydrologyMetadata = build_metadata_model(EAHydrologyMetadata, "EAHydrologyMetadata")
 
 
 class EAHydrologyValues(TimeseriesValues):
@@ -188,11 +192,11 @@ class EAHydrologyRequest(TimeseriesRequest):
             .explode("measures")
             .with_columns(pl.col("measures").struct.field("parameter"))
         )
-        df_measures = df_measures.group_by(["notation"]).agg(
-            (pl.col("parameter").list.set_intersection(["flow", "level"]).len() > 0).alias("has_measures")
-        )
-        df_measures = df_measures.filter("has_measures").select("notation")
-        df = df.join(df_measures, how="inner", on="notation")
+        df_measures = df_measures.group_by(["notation"]).agg(pl.col("parameter").alias("parameters"))
+        df_notations = df_measures.filter(
+            pl.col("parameters").list.set_intersection(["flow", "level"]).len() > 0
+        ).select("notation")
+        df = df.join(df_notations, how="inner", on="notation")
         df = df.rename(mapping=lambda col: col.lower())
         df = df.rename(
             mapping={

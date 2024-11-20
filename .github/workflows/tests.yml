@@ -54,11 +54,11 @@ jobs:
       - name: Install project
         run: uv sync
 
-      - name: Install eccodes (Mac only)
-        if: ${{ startsWith(matrix.os, 'macos-') }}
-        run: |
-          brew install eccodes
-          export WD_ECCODES_DIR=$(brew --prefix eccodes)
+#      - name: Install eccodes (Mac only)
+#        if: ${{ startsWith(matrix.os, 'macos-') }}
+#        run: |
+#          brew install eccodes
+#          export WD_ECCODES_DIR=$(brew --prefix eccodes)
 
       - name: Install project
         run: .github/workflows/install.sh testing

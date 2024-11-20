@@ -8,11 +8,8 @@ from polars.testing import assert_frame_equal
 from wetterdienst import Period, Resolution
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationParameter,
-    DwdObservationPeriod,
+    DwdObservationMetadata,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
@@ -67,8 +64,7 @@ def expected_stations_df():
 @pytest.fixture
 def default_request(default_settings):
     return DwdObservationRequest(
-        parameter="temperature_air",
-        resolution="hourly",
+        parameter=[("hourly", "temperature_air")],
         period="historical",
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2020, 1, 20),
@@ -78,26 +74,17 @@ def default_request(default_settings):
 
 def test_dwd_observation_data_api(default_settings):
     request = DwdObservationRequest(
-        parameter=["precipitation_height"],
-        resolution="daily",
+        parameter=[("daily", "kl", "precipitation_height")],
         period=["recent", "historical"],
         settings=default_settings,
     )
 
     assert request == DwdObservationRequest(
-        parameter=[DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT],
-        resolution=Resolution.DAILY,
+        parameter=[DwdObservationMetadata.daily.kl.precipitation_height],
         period=[Period.HISTORICAL, Period.RECENT],
         start_date=None,
         end_date=None,
     )
-
-    assert request.parameter == [
-        (
-            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
-            DwdObservationDataset.CLIMATE_SUMMARY,
-        ),
-    ]
 
 
 @pytest.mark.remote

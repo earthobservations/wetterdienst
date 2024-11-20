@@ -427,6 +427,12 @@ class DwdObservationRequest(TimeseriesRequest):
             else:
                 self.period = self._available_periods
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and self.period == other.period
+        )
+
     def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
         return super().filter_by_station_id(
             pl.Series(name=Columns.STATION_ID.value, values=to_list(station_id)).cast(str).str.pad_start(5, "0"),

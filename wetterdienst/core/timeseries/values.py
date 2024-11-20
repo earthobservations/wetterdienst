@@ -585,18 +585,15 @@ class TimeseriesValues(metaclass=ABCMeta):
         :param df: pandas DataFrame with values
         :return: float of actual percentage of values
         """
-        parameters = []
-        for parameter, dataset in self.sr.parameter:
-            if parameter != dataset:
-                parameters.append(parameter.value)
-            else:
-                dataset_enum = self.sr.stations._parameter_base[self.sr.resolution.name][dataset.name]
-                parameters.extend([par.value for par in dataset_enum if not par.name.lower().startswith("quality")])
         percentage = df.group_by(["parameter"]).agg(
             (pl.col("value").drop_nulls().len() / pl.col("value").len()).cast(pl.Float64).alias("perc"),
         )
         missing = pl.DataFrame(
-            [{"parameter": par, "perc": 0.0} for par in parameters if par not in percentage.get_column("parameter")],
+            [
+                {"parameter": parameter.name_original, "perc": 0.0}
+                for parameter in self.sr.parameter
+                if parameter.name_original not in percentage.get_column("parameter")
+            ],
             schema={"parameter": pl.String, "perc": pl.Float64},
         )
         percentage = pl.concat([percentage, missing])

@@ -17,7 +17,12 @@ from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, DatasetModel, MetadataModel, ParameterModel
+from wetterdienst.metadata.metadata_model import (
+    DATASET_NAME_DEFAULT,
+    DatasetModel,
+    ParameterModel,
+    build_metadata_model,
+)
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.eccodes import check_pdbufr
@@ -137,7 +142,7 @@ DwdRoadMetadata = {
         }
     ]
 }
-DwdRoadMetadata = MetadataModel.model_validate(DwdRoadMetadata)
+DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
 
 
 class DwdRoadStationGroup(Enum):

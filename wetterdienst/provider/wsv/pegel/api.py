@@ -11,7 +11,7 @@ from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel, ParameterModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.cache import CacheExpiry
@@ -124,8 +124,8 @@ WsvPegelMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "WR",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         {
                             "name": "precipitation_height",
@@ -175,7 +175,7 @@ WsvPegelMetadata = {
         }
     ]
 }
-WsvPegelMetadata = MetadataModel.model_validate(WsvPegelMetadata)
+WsvPegelMetadata = build_metadata_model(WsvPegelMetadata, "WsvPegelMetadata")
 
 
 class WsvPegelValues(TimeseriesValues):

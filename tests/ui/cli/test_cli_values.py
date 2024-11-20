@@ -121,7 +121,7 @@ def test_cli_values_json_multiple_datasets():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl,more_precip --date=2020-06-30",
+        setting="--parameter=daily/kl,daily/more_precip --date=2020-06-30",
         station="01048",
         fmt="json",
     )
@@ -172,7 +172,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=historical",
+        setting="--parameter=daily/kl --period=historical",
         station="01047,01048",
         fmt="json",
         additional="--with-metadata=true --with-stations=true",
@@ -210,7 +210,7 @@ def test_cli_values_json_indent_false(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=recent",
+        setting="--parameter=daily/kl --period=recent",
         station="01048",
         fmt="json",
         additional="--pretty=false",
@@ -224,7 +224,7 @@ def test_cli_values_json_indent_true(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=recent",
+        setting="--parameter=daily/kl --period=recent",
         station="01048",
         fmt="json",
         additional="--pretty=true",
@@ -237,7 +237,7 @@ def test_cli_values_geojson():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=recent",
+        setting="--parameter=daily/kl --period=recent",
         station="01048",
         fmt="geojson",
     )
@@ -268,7 +268,7 @@ def test_cli_values_geojson_with_metadata(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=recent",
+        setting="--parameter=daily/kl --period=recent",
         station="01048",
         fmt="geojson",
         additional="--with-metadata=true",
@@ -284,7 +284,7 @@ def test_cli_values_geojson_pretty_false(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=recent",
+        setting="--parameter=daily/kl --period=recent",
         station="01048",
         fmt="geojson",
         additional="--pretty=false",
@@ -298,7 +298,7 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=recent",
+        setting="--parameter=daily/kl --period=recent",
         station="01048",
         fmt="geojson",
         additional="--pretty=true",

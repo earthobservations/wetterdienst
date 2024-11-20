@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import MetadataModel
+from wetterdienst.metadata.metadata_model import build_metadata_model
 
 DwdDmoMetadata = {
     "resolutions": [
@@ -8,7 +8,7 @@ DwdDmoMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["future"],
-            "date_required": True,
+            "date_required": False,
             "datasets": [
                 {
                     "name": "icon_eu",
@@ -1000,4 +1000,4 @@ DwdDmoMetadata = {
         }
     ]
 }
-DwdDmoMetadata = MetadataModel.model_validate(DwdDmoMetadata)
+DwdDmoMetadata = build_metadata_model(DwdDmoMetadata, "DwdDmoMetadata")

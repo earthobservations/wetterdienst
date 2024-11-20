@@ -17,7 +17,7 @@ from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel
+from wetterdienst.metadata.metadata_model import DatasetModel, build_metadata_model
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.geo import convert_dms_string_to_dd
@@ -184,6 +184,7 @@ ImgwMeteorologyMetadata = {
             "name": "monthly",
             "name_original": "miesieczne",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": "climate",
@@ -396,7 +397,7 @@ ImgwMeteorologyMetadata = {
         },
     ]
 }
-ImgwMeteorologyMetadata = MetadataModel.model_validate(ImgwMeteorologyMetadata)
+ImgwMeteorologyMetadata = build_metadata_model(ImgwMeteorologyMetadata, "ImgwMeteorologyMetadata")
 
 
 class ImgwMeteorologyValues(TimeseriesValues):

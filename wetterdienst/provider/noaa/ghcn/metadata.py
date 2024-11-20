@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, MetadataModel
+from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, build_metadata_model
 
 # translate the above enums to dictionary based model
 NoaaGhcnMetadata = {
@@ -160,8 +160,8 @@ NoaaGhcnMetadata = {
                         {
                             "name": "wind_direction",
                             "name_original": "wind_direction",
-                            "unit": "wind_direction",
-                            "unit_original": "wind_direction",
+                            "unit": "degree",
+                            "unit_original": "degree",
                         },
                         # Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds the
                         # wind_speed average
@@ -1544,7 +1544,7 @@ NoaaGhcnMetadata = {
         },
     ]
 }
-NoaaGhcnMetadata = MetadataModel.model_validate(NoaaGhcnMetadata)
+NoaaGhcnMetadata = build_metadata_model(NoaaGhcnMetadata, "NoaaGhcnMetadata")
 
 DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_height.name_original: 1 / 10,
