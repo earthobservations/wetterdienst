@@ -8,6 +8,7 @@ DwdDmoMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["future"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": "icon_eu",

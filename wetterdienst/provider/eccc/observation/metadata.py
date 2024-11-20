@@ -8,6 +8,7 @@ EcccObservationMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -136,6 +137,7 @@ EcccObservationMetadata = {
             "name": "daily",
             "name_original": "daily",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -282,6 +284,7 @@ EcccObservationMetadata = {
             "name": "monthly",
             "name_original": "monthly",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -428,6 +431,7 @@ EcccObservationMetadata = {
             "name": "annual",
             "name_original": "annual",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,

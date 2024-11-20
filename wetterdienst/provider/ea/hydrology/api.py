@@ -27,6 +27,7 @@ EAHydrologyMetadata = {
             "name": "15_minutes",
             "name_original": "15_minutes",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": "observations",
@@ -52,6 +53,8 @@ EAHydrologyMetadata = {
         {
             "name": "6_hour",
             "name_original": "6_hour",
+            "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": "observations",
@@ -77,6 +80,8 @@ EAHydrologyMetadata = {
         {
             "name": "daily",
             "name_original": "daily",
+            "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,

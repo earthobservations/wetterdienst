@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, SkipValidation
+from pydantic import BaseModel, Field, SkipValidation, field_validator
 
 from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
 from wetterdienst.util.python import to_list
@@ -46,8 +46,9 @@ class DatasetModel(BaseModel):
     name: str
     name_original: str
     grouped: bool  # if parameters are grouped together e.g. in one file
-    periods: list[Period] | None = None
+    periods: list[Period]
     description: str | None = None
+    date_required: bool
     parameters: list[ParameterModel]
     resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)
 
@@ -90,16 +91,29 @@ class ResolutionModel(BaseModel):
     name: str
     name_original: str
     value: Resolution = Field(alias="name", exclude=True, repr=False)  # this is just to make the code more readable
-    datasets: list[DatasetModel]
     periods: list[Period] | None = None
     description: str | None = None
+    date_required: bool | None = None
+    datasets: list[DatasetModel]
+
+    @field_validator("datasets", mode="before")
+    def validate_datasets(cls, v, validation_info):
+        periods = validation_info.data["periods"]
+        date_required = validation_info.data["date_required"]
+        if periods:
+            for dataset in v:
+                if not dataset.get("periods"):
+                    dataset["periods"] = periods
+        if date_required is not None:
+            for dataset in v:
+                if dataset.get("date_required") is None:
+                    dataset["date_required"] = date_required
+        return v
 
     def __init__(self, **data):
         super().__init__(**data)
         for dataset in self.datasets:
             dataset.resolution = self
-            # propagate periods to dataset
-            dataset.periods = dataset.periods or self.periods
 
     def __getitem__(self, item):
         if isinstance(item, int):

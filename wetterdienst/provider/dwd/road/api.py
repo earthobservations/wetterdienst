@@ -39,6 +39,7 @@ DwdRoadMetadata = {
         {
             "name": "15_minutes",
             "name_original": "15_minutes",
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,

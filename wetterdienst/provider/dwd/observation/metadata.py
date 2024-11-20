@@ -8,6 +8,7 @@ DwdObservationMetadata = {
             "name": "1_minute",
             "name_original": "1_minute",
             "periods": ["historical", "recent", "now"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "precipitation",
@@ -52,6 +53,7 @@ DwdObservationMetadata = {
             "name": "5_minutes",
             "name_original": "5_minutes",
             "periods": ["historical", "recent", "now"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "precipitation",
@@ -96,6 +98,7 @@ DwdObservationMetadata = {
             "name": "10_minutes",
             "name_original": "10_minutes",
             "periods": ["historical", "recent", "now"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "precipitation",
@@ -308,6 +311,7 @@ DwdObservationMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["historical", "recent"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "cloud_type",
@@ -1001,6 +1005,7 @@ DwdObservationMetadata = {
             "name": "subdaily",
             "name_original": "subdaily",
             "periods": ["historical", "recent"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "cloudiness",
@@ -1198,6 +1203,7 @@ DwdObservationMetadata = {
             "name": "daily",
             "name_original": "daily",
             "periods": ["historical", "recent"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "climate_summary",
@@ -1567,6 +1573,7 @@ DwdObservationMetadata = {
             "name": "monthly",
             "name_original": "monthly",
             "periods": ["historical", "recent"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "climate_summary",
@@ -1757,6 +1764,7 @@ DwdObservationMetadata = {
             "name": "annual",
             "name_original": "annual",
             "periods": ["historical", "recent"],
+            "date_required": False,
             "datasets": [
                 {
                     "name": "climate_summary",

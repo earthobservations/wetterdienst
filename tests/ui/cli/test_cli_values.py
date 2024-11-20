@@ -22,16 +22,14 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "mosmix",
-        "--parameter=hourly/large "
-        f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
+        "--parameter=hourly/large " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
     ),
     (
         "dwd",
         "dmo",
-        "--parameter=hourly/icon "
-        f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
+        "--parameter=hourly/icon " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
     ),

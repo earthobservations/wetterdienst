@@ -46,6 +46,7 @@ HubeauMetadata = {
             "name": "dynamic",
             "name_original": "dynamic",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,

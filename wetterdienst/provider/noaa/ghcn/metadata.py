@@ -9,6 +9,7 @@ NoaaGhcnMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -185,6 +186,7 @@ NoaaGhcnMetadata = {
             "name": "daily",
             "name_original": "daily",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,

@@ -8,6 +8,7 @@ GeosphereObservationMetadata = {
             "name": "10_minutes",
             "name_original": "10_minutes",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,

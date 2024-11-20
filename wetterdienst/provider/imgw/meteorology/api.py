@@ -29,6 +29,7 @@ ImgwMeteorologyMetadata = {
             "name": "daily",
             "name_original": "dobowe",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": "climate",

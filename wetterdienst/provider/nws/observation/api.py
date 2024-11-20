@@ -27,6 +27,7 @@ NwsObservationMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["recent"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
