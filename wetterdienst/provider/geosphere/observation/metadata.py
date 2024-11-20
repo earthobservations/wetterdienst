@@ -161,6 +161,7 @@ GeosphereObservationMetadata = {
             "name": "hourly",
             "name_original": "hourly",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -289,6 +290,7 @@ GeosphereObservationMetadata = {
             "name": "daily",
             "name_original": "daily",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
@@ -399,6 +401,7 @@ GeosphereObservationMetadata = {
             "name": "monthly",
             "name_original": "monthly",
             "periods": ["historical"],
+            "date_required": True,
             "datasets": [
                 {
                     "name": DATASET_NAME_DEFAULT,
