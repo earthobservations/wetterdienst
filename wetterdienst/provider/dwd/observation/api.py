@@ -146,7 +146,7 @@ class DwdObservationValues(TimeseriesValues):
         )
 
     @staticmethod
-    def _tidy_up_df(df: pl.DataFrame, dataset) -> pl.DataFrame:
+    def _tidy_up_df(df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """
         Implementation of _tidy_up_df for DWD Observations
 
@@ -428,10 +428,7 @@ class DwdObservationRequest(TimeseriesRequest):
                 self.period = self._available_periods
 
     def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and self.period == other.period
-        )
+        return super().__eq__(other) and self.period == other.period
 
     def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
         return super().filter_by_station_id(

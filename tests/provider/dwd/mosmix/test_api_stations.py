@@ -83,7 +83,7 @@ def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
     Verify MOSMIX station list filtering by station identifier.
     """
     # Acquire data.
-    stations = DwdMosmixRequest(parameter="large", mosmix_type="large", settings=default_settings)
+    stations = DwdMosmixRequest(parameter=[("hourly", "large")], settings=default_settings)
     given_df = stations.all().df
     assert not given_df.is_empty()
     assert given_df.select(pl.all().max()).to_dicts()[0] == {

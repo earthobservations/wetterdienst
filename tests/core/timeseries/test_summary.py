@@ -8,7 +8,8 @@ from polars.testing import assert_frame_equal
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationRequest, DwdObservationMetadata,
+    DwdObservationMetadata,
+    DwdObservationRequest,
 )
 
 

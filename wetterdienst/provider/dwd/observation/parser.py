@@ -95,7 +95,7 @@ def parse_climate_observations_data(
         polars.LazyFrame with requested data, for different station ids the data is
         still put into one DataFrame
     """
-    if dataset.resolution is Resolution.SUBDAILY and dataset is DwdObservationMetadata.subdaily.wind_extreme:
+    if dataset.resolution.value == Resolution.SUBDAILY and dataset == DwdObservationMetadata.subdaily.wind_extreme:
         data = [
             _parse_climate_observations_data(filename_and_file, dataset, period)
             for filename_and_file in filenames_and_files
@@ -183,7 +183,7 @@ def _parse_climate_observations_data(
         # precipitation height but not rocker and droplet information
         columns = ["stations_id", "mess_datum"]
         for parameter in dataset:
-            columns.append(parameter.value)
+            columns.append(parameter.name_original)
 
         df = df.select(
             pl.lit(None, dtype=pl.String).alias(col) if col not in df.collect_schema().names() else pl.col(col)

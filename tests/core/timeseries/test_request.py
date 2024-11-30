@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Period, Resolution
+from wetterdienst import Period
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -76,6 +76,7 @@ def test_dwd_observation_data_api_singe_parameter(default_settings):
     request = DwdObservationRequest(
         parameter=[("daily", "kl", "precipitation_height")],
         period=["recent", "historical"],
+        settings=default_settings,
     )
 
     assert request == DwdObservationRequest(
@@ -90,6 +91,7 @@ def test_dwd_observation_data_whole_dataset(default_settings):
     """Test parameters given as parameter - dataset pair"""
     given = DwdObservationRequest(
         parameter=[("daily", "climate_summary")],
+        settings=default_settings,
     )
     assert given.parameter == [
         DwdObservationMetadata.daily.climate_summary.wind_gust_max,
