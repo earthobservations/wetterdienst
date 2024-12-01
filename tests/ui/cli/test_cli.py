@@ -63,7 +63,7 @@ def test_no_network(caplog):
     runner = CliRunner()
     runner.invoke(
         cli,
-        "stations --provider=dwd --network=abc --parameter=precipitation_height --resolution=daily --all",
+        "stations --provider=dwd --network=abc --parameters=daily/climate_summary/precipitation_height --all",
     )
     assert "No API available for provider DWD and network abc" in caplog.text
 
@@ -74,7 +74,7 @@ def test_cli_interpolate():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=daily/kl/temperature_air_mean_2m "
+        "--parameters=daily/kl/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:
@@ -107,7 +107,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=daily/climate_summary/temperature_air_mean_2m "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json --with-metadata=true --with-stations=true",
     )
     if result.exit_code != 0:
@@ -175,7 +175,7 @@ def test_cli_interpolate_geojson():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=daily/climate_summary/temperature_air_mean_2m "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
     )
     if result.exit_code != 0:
@@ -270,7 +270,7 @@ def test_cli_summarize():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=daily/climate_summary/temperature_air_mean_2m "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:
@@ -303,7 +303,7 @@ def test_cli_summarize_geojson():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=daily/climate_summary/temperature_air_mean_2m "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
     )
     if result.exit_code != 0:

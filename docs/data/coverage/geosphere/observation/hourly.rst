@@ -18,8 +18,8 @@ Metadata
 Datasets
 ********
 
-Hourly
-======
+Data
+====
 
 Metadata
 --------
@@ -36,8 +36,6 @@ Metadata
      - 
    * - description
      - Historical hourly station observations of 2m air temperature and humidity for Germany
-
-.. _hourly dataset description:
 
 Parameters
 ----------

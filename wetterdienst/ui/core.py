@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
+from wetterdienst.core.timeseries.metadata import parse_parameters
 from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
-from wetterdienst.metadata.metadata_model import parse_parameters
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings
@@ -61,8 +61,8 @@ def unpack_parameters(parameter: str) -> list[str]:
 
 def _get_stations_request(
     api,
-    parameter: list[str],
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str | None,
     issue: str,
@@ -101,7 +101,7 @@ def _get_stations_request(
         else:
             start_date = parse_date(date)
 
-    parameters = parse_parameters(parameter, api.metadata)
+    parameters = parse_parameters(parameters, api.metadata)
 
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
     if any_date_required and (not start_date or not end_date):
@@ -110,12 +110,12 @@ def _get_stations_request(
     any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)
 
     kwargs = {
-        "parameter": parameters,
+        "parameters": parameters,
         "start_date": start_date,
         "end_date": end_date,
     }
     if any_multiple_period_dataset:
-        kwargs["period"] = period
+        kwargs["periods"] = periods
 
     if isinstance(api, DwdMosmixRequest):
         kwargs["issue"] = issue
@@ -128,8 +128,8 @@ def _get_stations_request(
 
 def get_stations(
     api,
-    parameter: list[str],
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str | None,
     issue: str | None,
@@ -152,8 +152,8 @@ def get_stations(
     """Core function for querying stations via cli and restapi"""
     r = _get_stations_request(
         api=api,
-        parameter=parameter,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -223,11 +223,11 @@ def get_stations(
 
 def get_values(
     api: TimeseriesRequest,
-    parameter: list[str],
+    parameters: list[str],
     lead_time: str,
     date: str,
     issue: str,
-    period: list[str],
+    periods: list[str],
     all_,
     station_id: list[str],
     name: str,
@@ -248,8 +248,8 @@ def get_values(
     """Core function for querying values via cli and restapi"""
     stations_ = get_stations(
         api=api,
-        parameter=parameter,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -291,8 +291,8 @@ def get_values(
 
 def get_interpolate(
     api: TimeseriesRequest,
-    parameter: list[str],
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str,
     issue: str,
@@ -306,8 +306,8 @@ def get_interpolate(
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
-        parameter=parameter,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -344,8 +344,8 @@ def get_interpolate(
 
 def get_summarize(
     api: TimeseriesRequest,
-    parameter: list[str],
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str,
     issue: str,
@@ -358,8 +358,8 @@ def get_summarize(
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
-        parameter=parameter,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -394,19 +394,19 @@ def get_summarize(
     return values_
 
 
-def _get_stripes_temperature_request(period: Period = Period.HISTORICAL):
+def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameter=[("annual", "climate_summary", "temperature_air_mean_2m")],
-        period=period,
+        parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
+        periods=periods,
     )
 
 
-def _get_stripes_precipitation_request(period: Period = Period.HISTORICAL):
+def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameter=[("annual", "precipitation_more", "precipitation_height")],
-        period=period,
+        parameters=[("annual", "precipitation_more", "precipitation_height")],
+        periods=periods,
     )
 
 
@@ -424,9 +424,9 @@ CLIMATE_STRIPES_CONFIG = {
 
 def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True):
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
-    stations = request(period=Period.HISTORICAL).all()
+    stations = request(periods=Period.HISTORICAL).all()
     if active:
-        station_ids_active = request(period=Period.RECENT).all().df.select("station_id")
+        station_ids_active = request(periods=Period.RECENT).all().df.select("station_id")
         stations.df = stations.df.join(station_ids_active, on="station_id")
     return stations
 

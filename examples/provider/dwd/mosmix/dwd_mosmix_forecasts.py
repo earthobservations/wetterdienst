@@ -17,7 +17,6 @@ from wetterdienst import Settings
 from wetterdienst.provider.dwd.mosmix import (
     DwdForecastDate,
     DwdMosmixRequest,
-    DwdMosmixType,
 )
 from wetterdienst.util.cli import setup_logging
 
@@ -28,9 +27,8 @@ def mosmix_example():
     settings = Settings(ts_shape="wide", ts_humanize=True)
 
     request = DwdMosmixRequest(
-        parameter=["DD", "ww"],
+        parameters=[("hourly", "large", "DD"), ("hourly", "large", "ww")],
         issue=DwdForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=DwdMosmixType.LARGE,
         settings=settings,
     )
 
@@ -49,9 +47,8 @@ def mosmix_example():
     Settings.humanize = True
 
     request = DwdMosmixRequest(
-        parameter=["DD", "ww"],
+        parameters=[("hourly", "large", "DD"), ("hourly", "large", "ww")],
         issue=DwdForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=DwdMosmixType.LARGE,
         station_group="all_stations",
     )
 
@@ -68,9 +65,8 @@ def mosmix_example():
     # C. MOSMIX-S -- All stations_result - specified stations_result are extracted.
 
     request = DwdMosmixRequest(
-        parameter=["DD", "ww"],
+        parameters=[("hourly", "small", "DD"), ("hourly", "small", "ww")],
         issue=DwdForecastDate.LATEST,  # automatically set if left empty
-        mosmix_type=DwdMosmixType.SMALL,
     )
 
     stations = request.filter_by_station_id(

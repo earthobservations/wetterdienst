@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, SkipValidation, field_validator
 
 from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
-from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterator
 
     from wetterdienst.core.timeseries.request import _PARAMETER_TYPE
 
@@ -22,6 +22,8 @@ UNIT_NAMES = {unit.name.lower() for unit in SIUnit}
 UNIT_ORIGINAL_NAMES = {unit.name.lower() for unit in OriginUnit}
 
 log = logging.getLogger(__name__)
+
+POSSIBLE_SEPARATORS = ("/", ".", ":")
 
 # for any provider that does not publish their data under a dedicated dataset name
 DATASET_NAME_DEFAULT = "data"
@@ -88,6 +90,8 @@ class DatasetModel(BaseModel):
             parameter.dataset = self
 
     def __eq__(self, other):
+        if not isinstance(other, DatasetModel):
+            return False
         return (
             self.name == other.name
             and self.name_original == other.name_original
@@ -106,13 +110,27 @@ class DatasetModel(BaseModel):
         for parameter in self.parameters:
             if parameter.name == item_search or parameter.name_original == item_search:
                 return parameter
-        raise KeyError(item)
+        else:
+            available_parameters = [
+                f"{parameter.name}/{parameter.name_original}"
+                if parameter.name != parameter.name_original
+                else parameter.name
+                for parameter in self.parameters
+            ]
+            raise KeyError(f"'{item}'. Available parameters: {', '.join(available_parameters)}")
 
     def __getattr__(self, item):
         for parameter in self.parameters:
             if parameter.name == item or parameter.name_original == item:
                 return parameter
-        raise AttributeError(item)
+        else:
+            available_parameters = [
+                f"{parameter.name}/{parameter.name_original}"
+                if parameter.name != parameter.name_original
+                else parameter.name
+                for parameter in self.parameters
+            ]
+            raise AttributeError(f"'{item}'. Available parameters: {', '.join(available_parameters)}")
 
     def __iter__(self) -> Iterator[ParameterModel]:
         return iter(parameter for parameter in self.parameters if not parameter.name.startswith("quality"))
@@ -154,14 +172,24 @@ class ResolutionModel(BaseModel):
         for dataset in self.datasets:
             if dataset.name == item_search or dataset.name_original == item_search:
                 return dataset
-        raise KeyError(item)
+        else:
+            available_datasets = [
+                f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
+                for dataset in self.datasets
+            ]
+            raise KeyError(f"'{item}'. Available datasets: {', '.join(available_datasets)}")
 
     def __getattr__(self, item: str) -> DatasetModel:
         item_search = item.strip().lower()
         for dataset in self.datasets:
             if dataset.name == item_search or dataset.name_original == item_search:
                 return dataset
-        raise AttributeError(item)
+        else:
+            available_datasets = [
+                f"{dataset.name}/{dataset.name_original}" if dataset.name != dataset.name_original else dataset.name
+                for dataset in self.datasets
+            ]
+            raise AttributeError(f"'{item}'. Available datasets: {', '.join(available_datasets)}")
 
     def __iter__(self) -> Iterator[DatasetModel]:
         return iter(self.datasets)
@@ -181,7 +209,14 @@ class MetadataModel(BaseModel):
                 or resolution.value.name.lower() == item_search
             ):
                 return resolution
-        raise KeyError(item)
+        else:
+            available_resolutions = [
+                f"{resolution.name}/{resolution.name_original}"
+                if resolution.name != resolution.name_original
+                else resolution.name
+                for resolution in self.resolutions
+            ]
+            raise KeyError(f"'{item}'. Available resolutions: {', '.join(available_resolutions)}")
 
     def __getattr__(self, item):
         item_search = item.strip().lower()
@@ -192,30 +227,40 @@ class MetadataModel(BaseModel):
                 or resolution.value.name.lower() == item_search
             ):
                 return resolution
-        return super().__getattr__(item)
+        else:
+            available_resolutions = [
+                f"{resolution.name}/{resolution.name_original}"
+                if resolution.name != resolution.name_original
+                else resolution.name
+                for resolution in self.resolutions
+            ]
+            raise AttributeError(f"'{item}'. Available resolutions: {', '.join(available_resolutions)}")
 
     def __iter__(self) -> Iterator[ResolutionModel]:
         return iter(self.resolutions)
 
-    def search_parameter(self, parameter_search: ParameterTemplate) -> list[ParameterModel]:
+    def search_parameter(self, parameter_search: ParameterSearch) -> list[ParameterModel]:
         for resolution in self:
             if (
                 resolution.name == parameter_search.resolution
-                or resolution.name_original == parameter_search.resolution
+                or resolution.name_original.lower() == parameter_search.resolution
                 or resolution.value.name.lower() == parameter_search.resolution
             ):
                 break
         else:
             raise KeyError(parameter_search.resolution)
         for dataset in resolution:
-            if dataset.name == parameter_search.dataset or dataset.name_original == parameter_search.dataset:
+            if dataset.name == parameter_search.dataset or dataset.name_original.lower() == parameter_search.dataset:
                 break
         else:
             raise KeyError(parameter_search.dataset)
         if not parameter_search.parameter:
             return [*dataset]
         for parameter in dataset:
-            if parameter.name == parameter_search.parameter or parameter.name_original == parameter_search.parameter:
+            if (
+                parameter.name == parameter_search.parameter
+                or parameter.name_original.lower() == parameter_search.parameter
+            ):
                 return [parameter]
         raise KeyError(parameter_search.parameter)
 
@@ -227,23 +272,29 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
 
 
 @dataclass
-class ParameterTemplate:
+class ParameterSearch:
     resolution: str
     dataset: str
     parameter: str | None = None
 
     @classmethod
-    def parse(cls, value: str | Iterable[str] | DatasetModel | ParameterModel) -> ParameterTemplate:
+    def parse(cls, value: str | Iterable[str] | DatasetModel | ParameterModel) -> ParameterSearch:
         if isinstance(value, DatasetModel):
-            return ParameterTemplate(value.resolution.name, value.name)
+            return ParameterSearch(value.resolution.name, value.name)
         if isinstance(value, ParameterModel):
-            return ParameterTemplate(value.dataset.resolution.name, value.dataset.name, value.name)
+            return ParameterSearch(value.dataset.resolution.name, value.dataset.name, value.name)
         resolution = None
         dataset = None
         parameter = None
         if isinstance(value, str):
-            if value.count("/") == 0:
-                raise ValueError("expected 'resolution/dataset/parameter' or 'resolution/dataset'")
+            if all(value.count(sep) == 0 for sep in POSSIBLE_SEPARATORS):
+                raise ValueError(
+                    f"expected 'resolution/dataset' or 'resolution/dataset/parameter' "
+                    f"(separator any of {POSSIBLE_SEPARATORS})"
+                )
+            for sep in POSSIBLE_SEPARATORS:
+                if sep in value:
+                    value = value.replace(sep, "/")
             value = value.split("/")
         try:
             resolution, dataset, parameter = value
@@ -252,21 +303,37 @@ class ParameterTemplate:
                 resolution, dataset = value
             except ValueError:
                 pass
-        return ParameterTemplate(resolution, dataset, parameter)
+        resolution = resolution and resolution.strip().lower()
+        dataset = dataset and dataset.strip().lower()
+        parameter = parameter and parameter.strip().lower()
+        return ParameterSearch(resolution, dataset, parameter)
 
     def concat(self) -> str:
         return "/".join(filter(None, [self.resolution, self.dataset, self.parameter]))
 
 
-def parse_parameters(parameter: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
+def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
     """Method to parse parameters, either from string or tuple or MetadataModel or sequence of those."""
+    if isinstance(parameters, str | DatasetModel | ParameterModel):
+        # "daily/climate_summary" -> ["daily/climate_summary"]
+        parameters = [
+            parameters,
+        ]
+    elif isinstance(parameters, Iterable):
+        if all(isinstance(p, str) for p in parameters) and all(
+            all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters
+        ):
+            # ("daily", "climate_summary") -> [("daily", "climate_summary")]
+            parameters = [
+                parameters,
+            ]
     parameters_found = []
-    for parameter in to_list(parameter):
-        parameter_template = ParameterTemplate.parse(parameter)
+    for parameter in parameters:
+        parameter_search = ParameterSearch.parse(parameter)
         try:
-            parameters_found.extend(metadata.search_parameter(parameter_template))
+            parameters_found.extend(metadata.search_parameter(parameter_search))
         except KeyError:
-            log.info(f"{parameter_template.concat()} not found in {metadata.__name__}")
+            log.info(f"{parameter_search.concat()} not found in {metadata.__name__}")
     unique_resolutions = set(parameter.dataset.resolution.value.value for parameter in parameters_found)
     # TODO: for now we only support one resolution
     if len(unique_resolutions) > 1:

@@ -1,5 +1,5 @@
 from wetterdienst import Resolution
-from wetterdienst.metadata.metadata_model import build_metadata_model
+from wetterdienst.core.timeseries.metadata import build_metadata_model
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 
 DwdObservationMetadata = {

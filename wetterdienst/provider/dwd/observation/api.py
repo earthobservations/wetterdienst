@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from collections.abc import Iterable
 from itertools import repeat
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 import portion as P
 from polars.exceptions import ColumnNotFoundError
 from portion import Interval
 
+from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterSearch
 from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.metadata_model import DatasetModel, ParameterTemplate
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.provider import Provider
 from wetterdienst.metadata.resolution import Resolution
@@ -74,7 +75,7 @@ class DwdObservationValues(TimeseriesValues):
         """
         periods_and_date_ranges = []
 
-        for period in self.sr.stations.period:
+        for period in self.sr.stations.periods:
             if parameter_or_dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
                 date_ranges = self._get_historical_date_ranges(
                     station_id, parameter_or_dataset, self.sr.stations.settings
@@ -396,39 +397,39 @@ class DwdObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
-        period: str | Period | Sequence[str | Period] = None,
+        parameters: _PARAMETER_TYPE,
+        periods: str | Period | Sequence[str | Period] = None,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ):
         """
 
-        :param parameter: parameter set str/enumeration
+        :param parameters: parameter set str/enumeration
         :param resolution: resolution str/enumeration
         :param period: period str/enumeration
         :param start_date: start date to limit the stations_result
         :param end_date: end date to limit the stations_result
         """
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,
         )
 
-        self.period = self._parse_period(period)
+        self.periods = self._parse_period(periods)
 
         # Has to follow the super call as start date and end date are required for getting
         # automated periods from overlapping intervals
-        if not self.period:
+        if not self.periods:
             if self.start_date:
-                self.period = self._get_periods()
+                self.periods = self._get_periods()
             else:
-                self.period = self._available_periods
+                self.periods = self._available_periods
 
     def __eq__(self, other):
-        return super().__eq__(other) and self.period == other.period
+        return super().__eq__(other) and self.periods == other.periods
 
     def filter_by_station_id(self, station_id: str | int | tuple[str, ...] | tuple[int, ...] | list[str] | list[int]):
         return super().filter_by_station_id(
@@ -437,17 +438,20 @@ class DwdObservationRequest(TimeseriesRequest):
 
     @classmethod
     def describe_fields(
-        cls, dataset: str | ParameterTemplate | DatasetModel, period: Period, language: str = "en"
+        cls,
+        dataset: str | Sequence[str] | ParameterSearch | DatasetModel,
+        period: str | Period,
+        language: Literal["en", "de"] = "en",
     ) -> dict:
         from wetterdienst.provider.dwd.observation.fields import read_description
 
-        if isinstance(dataset, str):
-            parameter_template = ParameterTemplate.parse(dataset)
+        if isinstance(dataset, str) or isinstance(dataset, Iterable):
+            parameter_template = ParameterSearch.parse(dataset)
         elif isinstance(dataset, DatasetModel):
-            parameter_template = ParameterTemplate(
+            parameter_template = ParameterSearch(
                 resolution=dataset.resolution.value.value, dataset=dataset.name_original
             )
-        elif isinstance(dataset, ParameterTemplate):
+        elif isinstance(dataset, ParameterSearch):
             parameter_template = dataset
         else:
             raise KeyError("dataset must be a string, ParameterTemplate or DatasetModel")
@@ -483,14 +487,14 @@ class DwdObservationRequest(TimeseriesRequest):
         :return:
         """
         datasets = []
-        for parameter in self.parameter:
+        for parameter in self.parameters:
             if parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
 
         stations = []
 
         for dataset in datasets:
-            periods = set(dataset.periods) & set(self.period) if self.period else dataset.periods
+            periods = set(dataset.periods) & set(self.periods) if self.periods else dataset.periods
             for period in reversed(list(periods)):
                 df = create_meta_index_for_climate_observations(dataset, period, self.settings)
                 file_index = create_file_index_for_climate_observations(dataset, period, self.settings)

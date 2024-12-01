@@ -7,14 +7,13 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest, ImgwMeteorologyResolution
+from wetterdienst.provider.imgw.meteorology.api import ImgwMeteorologyRequest
 
 
 @pytest.mark.xfail
 def test_imgw_meteorology_api_daily():
     request = ImgwMeteorologyRequest(
-        parameter="klimat",
-        resolution=ImgwMeteorologyResolution.DAILY,
+        parameters=[("daily", "klimat")],
         start_date="2010-08-01",
     ).filter_by_station_id("253160090")
     df_expected_station = pl.DataFrame(
@@ -131,8 +130,7 @@ def test_imgw_meteorology_api_daily():
 @pytest.mark.xfail
 def test_imgw_meteorology_api_monthly():
     request = ImgwMeteorologyRequest(
-        parameter="synop",
-        resolution=ImgwMeteorologyResolution.MONTHLY,
+        parameters=[("monthly", "synop")],
         start_date="2010-08-01",
     ).filter_by_station_id("349190600")
     df_expected_station = pl.DataFrame(

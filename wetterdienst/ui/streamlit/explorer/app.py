@@ -14,7 +14,7 @@ from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.api import RequestRegistry
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -190,7 +190,7 @@ parameter = dataset if parameter == dataset else parameter
 
 # TODO: replace this with a general request kwargs resolver
 request_kwargs = {
-    "parameter": parameter,
+    "parameters": parameter,
     "settings": settings,
 }
 

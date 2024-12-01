@@ -9,10 +9,7 @@ from dirty_equals import IsDatetime, IsDict
 from polars.testing import assert_frame_equal
 
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationParameter,
-    DwdObservationPeriod,
-    DwdObservationResolution,
+    DwdObservationMetadata,
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
@@ -37,9 +34,8 @@ def expected_df():
 def test_dwd_observations_stations_filter(default_settings, expected_df):
     # Existing combination of parameters
     request = DwdObservationRequest(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.HISTORICAL,
+        parameters=("daily", "climate_summary"),
+        periods="historical",
         settings=default_settings,
     ).filter_by_station_id(station_id=("00001",))
     given_df = request.df
@@ -50,9 +46,8 @@ def test_dwd_observations_stations_filter(default_settings, expected_df):
 def test_dwd_observations_urban_stations(default_settings):
     """Test DWD Observation urban stations"""
     request = DwdObservationRequest(
-        parameter="urban_air_temperature",
-        resolution="hourly",
-        period="historical",
+        parameters=[("hourly", "urban_air_temperature")],
+        periods="historical",
         settings=default_settings,
     ).all()
     assert request.station_id.to_list() == ["00399", "13667", "15811", "15818", "19711", "19844"]
@@ -62,9 +57,8 @@ def test_dwd_observations_urban_stations(default_settings):
 def test_dwd_observations_stations_filter_name(default_settings, expected_df):
     # Existing combination of parameters
     request = DwdObservationRequest(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.HISTORICAL,
+        parameters=[("daily", "climate_summary")],
+        periods="historical",
         settings=default_settings,
     ).filter_by_name(name="Aach")
     given_df = request.df
@@ -76,9 +70,8 @@ def test_dwd_observations_stations_filter_name(default_settings, expected_df):
 def test_dwd_observations_stations_geojson(default_settings):
     # Existing combination of parameters
     request = DwdObservationRequest(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.HISTORICAL,
+        parameters=[("daily", "climate_summary")],
+        periods="historical",
         settings=default_settings,
     ).filter_by_station_id(station_id=("00001",))
     assert not request.df.is_empty()
@@ -103,9 +96,8 @@ def test_dwd_observations_stations_geojson(default_settings):
 def test_dwd_observations_stations_minute_1(default_settings):
     # Existing combination of parameters
     request = DwdObservationRequest(
-        DwdObservationDataset.PRECIPITATION,
-        DwdObservationResolution.MINUTE_1,
-        DwdObservationPeriod.HISTORICAL,
+        parameters=[("minute_1", "precipitation")],
+        periods="historical",
         settings=default_settings,
     ).filter_by_station_id("00003")
     given_df = request.df
@@ -127,9 +119,8 @@ def test_dwd_observations_stations_minute_1(default_settings):
 @pytest.mark.remote
 def test_dwd_observations_stations_name_with_comma():
     request = DwdObservationRequest(
-        parameter="kl",
-        resolution="monthly",
-        period="recent",
+        parameters=[("monthly", "kl")],
+        periods="recent",
     )
     stations = request.all()
     stations = stations.df.filter(pl.col("station_id").is_in(["00314", "03164", "06272"]))
@@ -173,20 +164,16 @@ def test_dwd_observations_stations_name_with_comma():
     ]
 
 
+@pytest.mark.remote
 def test_dwd_observation_stations():
+    skip_resolutions = [DwdObservationMetadata.minute_1]
     failed = []
-    for resolution in DwdObservationParameter:
-        resolution = resolution.name
-        datasets = []
-        for dataset in DwdObservationParameter[resolution]:
-            if not hasattr(dataset, "__name__"):
-                continue
-            if dataset.__name__ not in datasets:
-                datasets.append(dataset.__name__)
-        for dataset in datasets:
-            DwdObservationRequest(parameter=dataset, resolution=resolution).all()
+    for resolution in DwdObservationMetadata:
+        if resolution in skip_resolutions:
+            continue
+        for dataset in resolution:
             try:
-                DwdObservationRequest(parameter=dataset, resolution=resolution).all()
+                DwdObservationRequest(parameters=dataset).all()
             except Exception:
                 failed.append(f"{resolution} - {dataset}")
     assert not failed

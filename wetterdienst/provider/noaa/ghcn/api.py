@@ -26,7 +26,7 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import DatasetModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 
@@ -399,26 +399,26 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
 
-        :param parameter: list of parameter strings or parameter enums being queried
+        :param parameters: list of parameter strings or parameter enums being queried
         :param start_date: start date for request or None if all data is requested
         :param end_date: end date for request or None if all data is requested
         """
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,
         )
 
     def _all(self) -> pl.LazyFrame:
-        resolution = self.parameter[0].dataset.resolution.value
+        resolution = self.parameters[0].dataset.resolution.value
         if resolution == Resolution.HOURLY:
             return self._create_metaindex_for_ghcn_hourly()
         else:

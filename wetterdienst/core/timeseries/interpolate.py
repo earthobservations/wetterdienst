@@ -75,7 +75,7 @@ def apply_station_values_per_parameter(
     station: dict,
     valid_station_groups_exists: bool,
 ) -> None:
-    for parameter in stations_ranked.stations.parameter:
+    for parameter in stations_ranked.stations.parameters:
         if parameter.name not in stations_ranked.stations.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     end_date = datetime(2004, 12, 31)
 
     stations = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
+        parameters="temperature_air_mean_2m",
         resolution="hourly",
         start_date=start_date,
         end_date=end_date,

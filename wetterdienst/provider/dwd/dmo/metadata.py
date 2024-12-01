@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import build_metadata_model
+from wetterdienst.core.timeseries.metadata import build_metadata_model
 
 DwdDmoMetadata = {
     "resolutions": [

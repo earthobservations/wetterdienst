@@ -25,7 +25,7 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from wetterdienst.metadata.metadata_model import DatasetModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 
@@ -210,20 +210,20 @@ class EcccObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ):
         """
 
-        :param parameter: parameter or list of parameters that are being queried
+        :param parameters: parameter or list of parameters that are being queried
         :param resolution: resolution of data
         :param start_date: start date for values filtering
         :param end_date: end date for values filtering
         """
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

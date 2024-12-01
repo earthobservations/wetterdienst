@@ -27,8 +27,8 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.metadata import DatasetModel
     from wetterdienst.core.timeseries.result import StationsResult
-    from wetterdienst.metadata.metadata_model import DatasetModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -272,7 +272,7 @@ class DwdDmoRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST,
@@ -281,7 +281,7 @@ class DwdDmoRequest(TimeseriesRequest):
         settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
-        :param parameter: parameter(s) to be collected
+        :param parameters: parameter(s) to be collected
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
         :param issue: issue of dmo which should be caught (DMO run at time XX:YY)
@@ -292,7 +292,7 @@ class DwdDmoRequest(TimeseriesRequest):
         self.lead_time = parse_enumeration_from_template(lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
 
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

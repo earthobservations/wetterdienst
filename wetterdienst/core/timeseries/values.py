@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Iterator
 
-    from wetterdienst.metadata.metadata_model import DatasetModel, ParameterModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel, ParameterModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -58,9 +58,9 @@ class TimeseriesValues(metaclass=ABCMeta):
         """Representation of values object"""
         station_ids_joined = ", ".join(self.sr.station_id.to_list())
         parameters_joined = ", ".join(
-            [f"({parameter.value}/{dataset.value})" for parameter, dataset in self.sr.stations.parameter],
+            [f"({parameter.value}/{dataset.value})" for parameter, dataset in self.sr.stations.parameters],
         )
-        periods_joined = self.sr.stations.period and ", ".join([period.value for period in self.sr.stations.period])
+        periods_joined = self.sr.stations.periods and ", ".join([period.value for period in self.sr.stations.periods])
 
         return (
             f"{self.sr.stations.__class__.__name__}Values("
@@ -401,7 +401,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
             data = []
 
-            for dataset, parameters in groupby(self.sr.stations.parameter, key=lambda x: x.dataset):
+            for dataset, parameters in groupby(self.sr.stations.parameters, key=lambda x: x.dataset):
                 if dataset.grouped:
                     df = self._collect_station_parameter_or_dataset(
                         station_id=station_id,
@@ -575,7 +575,7 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         :return:
         """
-        return {parameter.name_original: parameter.name for parameter in self.sr.stations.parameter}
+        return {parameter.name_original: parameter.name for parameter in self.sr.stations.parameters}
 
     def _get_actual_percentage(self, df: pl.DataFrame) -> float:
         """
@@ -591,7 +591,7 @@ class TimeseriesValues(metaclass=ABCMeta):
         missing = pl.DataFrame(
             [
                 {"parameter": parameter.name_original, "perc": 0.0}
-                for parameter in self.sr.parameter
+                for parameter in self.sr.parameters
                 if parameter.name_original not in percentage.get_column("parameter")
             ],
             schema={"parameter": pl.String, "perc": pl.Float64},

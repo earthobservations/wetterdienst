@@ -24,7 +24,6 @@ from zoneinfo import ZoneInfo
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from datatree import DataTree
 
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
@@ -121,8 +120,7 @@ def radar_scan_volume():
         ds_list.append(ds)
 
     # Fill DataTree.
-    dtree = DataTree()
-    [DataTree(swp, parent=dtree, name=f"sweep_{i}") for i, swp in enumerate(ds_list)]
+    dtree = xr.DataTree(children={f"sweep_{i}": xr.DataTree(swp, name=f"sweep_{i}") for i, swp in enumerate(ds_list)})
 
     # Output debug information.
     print(dtree)

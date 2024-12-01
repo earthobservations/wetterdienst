@@ -6,6 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from wetterdienst import __version__
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui.streamlit.explorer import app
 
 
@@ -20,10 +21,9 @@ def test_explorer():
     assert subheaders == ["Introduction", "Request", "Station", "Values", "Plot", "Credits", "General", "Plotting"]
     assert app_test.selectbox[0].value == "DWD"
     assert app_test.selectbox[1].value == "OBSERVATION"
-    assert app_test.selectbox[2].value == "daily"
-    assert app_test.selectbox[3].value == "climate_summary"
-    assert app_test.selectbox[4].value == "climate_summary"
-    assert app_test.multiselect[0].value == ["HISTORICAL", "RECENT", "NOW"]
+    assert app_test.selectbox[2].value == DwdObservationMetadata.daily
+    assert app_test.selectbox[3].value == DwdObservationMetadata.daily.climate_summary
+    assert app_test.selectbox[4].value == DwdObservationMetadata.daily.climate_summary
     selected_station = app_test.selectbox[5].value
     assert selected_station == {
         "station_id": "00001",

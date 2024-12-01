@@ -13,16 +13,16 @@ from urllib.parse import urljoin
 import polars as pl
 
 from wetterdienst import Kind, Provider
-from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
-from wetterdienst.core.timeseries.values import TimeseriesValues
-from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.metadata_model import (
+from wetterdienst.core.timeseries.metadata import (
     DATASET_NAME_DEFAULT,
     DatasetModel,
     ParameterModel,
     build_metadata_model,
 )
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
+from wetterdienst.core.timeseries.values import TimeseriesValues
+from wetterdienst.metadata.columns import Columns
+from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.timezone import Timezone
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.eccodes import check_pdbufr
@@ -436,13 +436,13 @@ class DwdRoadRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

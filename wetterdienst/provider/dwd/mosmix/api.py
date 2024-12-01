@@ -29,8 +29,8 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.metadata import DatasetModel
     from wetterdienst.core.timeseries.result import StationsResult
-    from wetterdienst.metadata.metadata_model import DatasetModel
 
 try:
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -109,7 +109,7 @@ class DwdMosmixValues(TimeseriesValues):
         :param datetime_: datetime that is adjusted
         :return: adjusted datetime with floored hour
         """
-        regular_date = dt.datetime.fromordinal(datetime_.date().toordinal()).replace(hour=3)
+        regular_date = dt.datetime.fromordinal(datetime_.date().toordinal()).replace(hour=3, tzinfo=datetime_.tzinfo)
         if regular_date > datetime_:
             regular_date -= dt.timedelta(hours=6)
         delta_hours = (datetime_.hour - regular_date.hour) % 6
@@ -246,7 +246,7 @@ class DwdMosmixRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         issue: str | dt.datetime | DwdForecastDate | None = DwdForecastDate.LATEST,
@@ -254,7 +254,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
-        :param parameter: parameter(s) to be collected
+        :param parameters: parameter(s) to be collected
         :param start_date: start date for filtering returned dataframe
         :param end_date: end date
         :param issue: start of issue of mosmix which should be caught (Mosmix run at time XX:YY)
@@ -265,7 +265,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         )
 
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest, ImgwHydrologyResolution
+from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
 
 
 @pytest.fixture
@@ -37,8 +37,7 @@ def df_expected_station():
 @pytest.mark.xfail
 def test_imgw_hydrology_api_daily(df_expected_station):
     request = ImgwHydrologyRequest(
-        parameter="hydrology",
-        resolution=ImgwHydrologyResolution.DAILY,
+        parameters=[("daily", "hydrology")],
         start_date="2010-08-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, df_expected_station)
@@ -85,8 +84,7 @@ def test_imgw_hydrology_api_daily(df_expected_station):
 @pytest.mark.xfail
 def test_imgw_hydrology_api_monthly(df_expected_station):
     request = ImgwHydrologyRequest(
-        parameter="hydrology",
-        resolution=ImgwHydrologyResolution.MONTHLY,
+        parameters=[("monthly", "hydrology")],
         start_date="2010-06-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, df_expected_station)

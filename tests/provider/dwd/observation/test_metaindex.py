@@ -9,8 +9,7 @@ import pytest
 
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.observation import DwdObservationDataset
+from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.metaindex import (
     _create_csv_line,
     create_meta_index_for_climate_observations,
@@ -21,31 +20,18 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 def test_meta_index_creation_success(default_settings):
     # Existing combination of parameters
     meta_index = create_meta_index_for_climate_observations(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        Resolution.DAILY,
-        Period.HISTORICAL,
+        dataset=DwdObservationMetadata.daily.climate_summary,
+        period=Period.HISTORICAL,
         settings=default_settings,
     ).collect()
     assert not meta_index.is_empty()
 
 
 @pytest.mark.remote
-def test_meta_index_creation_failure(default_settings):
-    with pytest.raises(FileNotFoundError):
-        create_meta_index_for_climate_observations(
-            DwdObservationDataset.CLIMATE_SUMMARY,
-            Resolution.MINUTE_1,
-            Period.HISTORICAL,
-            settings=default_settings,
-        )
-
-
-@pytest.mark.remote
 def test_meta_index_1mph_creation(default_settings):
     meta_index_1mph = create_meta_index_for_climate_observations(
-        DwdObservationDataset.PRECIPITATION,
-        Resolution.MINUTE_1,
-        Period.HISTORICAL,
+        dataset=DwdObservationMetadata.minute_1.precipitation,
+        period=Period.HISTORICAL,
         settings=default_settings,
     ).collect()
     assert meta_index_1mph.filter(pl.col(Columns.STATION_ID.value).eq("00003")).row(0) == (

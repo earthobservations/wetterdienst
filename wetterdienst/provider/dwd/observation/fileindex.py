@@ -16,7 +16,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import DatasetModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 STATION_ID_REGEX = r"_(\d{3,5})_"

@@ -20,8 +20,8 @@ Metadata
 Datasets
 ********
 
-Daily
-=====
+Data
+====
 
 Metadata
 --------

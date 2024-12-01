@@ -18,6 +18,12 @@ from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
+from wetterdienst.core.timeseries.metadata import (
+    DatasetModel,
+    MetadataModel,
+    ParameterModel,
+    parse_parameters,
+)
 from wetterdienst.core.timeseries.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -30,12 +36,6 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
-from wetterdienst.metadata.metadata_model import (
-    DatasetModel,
-    MetadataModel,
-    ParameterModel,
-    parse_parameters,
-)
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
@@ -136,14 +136,14 @@ class TimeseriesRequest(Core):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
 
-        :param parameter: requested parameter(s)
+        :param parameters: requested parameter(s)
         :param resolution: requested resolution
         :param period: requested period(s)
         :param start_date: Start date for filtering stations_result for their available data
@@ -155,9 +155,9 @@ class TimeseriesRequest(Core):
         super().__init__()
 
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
-        self.parameter = parse_parameters(parameter, self.metadata)
+        self.parameters = parse_parameters(parameters, self.metadata)
 
-        if not self.parameter:
+        if not self.parameters:
             raise NoParametersFoundError("no valid parameters could be parsed from given argument")
 
         self.humanize = settings.ts_humanize
@@ -190,7 +190,7 @@ class TimeseriesRequest(Core):
             return False
 
         return (
-            self.parameter == other.parameter
+            self.parameters == other.parameters
             and self.start_date == other.start_date
             and self.end_date == other.end_date
             and self.settings == other.settings
@@ -548,7 +548,7 @@ class TimeseriesRequest(Core):
         if not self.start_date:
             raise ValueError("start_date and end_date are required for interpolation")
 
-        resolutions = {parameter.dataset.resolution.value for parameter in self.parameter}
+        resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
 
         if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Interpolation might be slow for high resolutions due to mass of data")
@@ -601,7 +601,7 @@ class TimeseriesRequest(Core):
         if not self.start_date:
             raise ValueError("start_date and end_date are required for summarization")
 
-        resolutions = {parameter.dataset.resolution.value for parameter in self.parameter}
+        resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
 
         if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Summary might be slow for high resolutions due to mass of data")

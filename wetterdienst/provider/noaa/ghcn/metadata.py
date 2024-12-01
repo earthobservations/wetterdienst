@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2021, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 # translate the above enums to dictionary based model
 NoaaGhcnMetadata = {

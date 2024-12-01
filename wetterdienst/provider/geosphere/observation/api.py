@@ -23,7 +23,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import DatasetModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 
@@ -110,20 +110,20 @@ class GeosphereObservationRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: _PARAMETER_TYPE,
+        parameters: _PARAMETER_TYPE,
         start_date: _DATETIME_TYPE = None,
         end_date: _DATETIME_TYPE = None,
         settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
-            parameter=parameter,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,
         )
 
     def _all(self) -> pl.LazyFrame:
-        dataset = self.parameter[0].dataset
+        dataset = self.parameters[0].dataset
         url = self._endpoint.format(dataset=dataset.name_original)
         log.info(f"Downloading file {url}.")
         response = download_file(url=url, settings=self.settings, ttl=CacheExpiry.METAINDEX)

@@ -15,28 +15,28 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "observation",
-        "--parameter=daily/kl --date=2020-06-30",
+        "--parameters=daily/kl --date=2020-06-30",
         "01048",
         "Dresden-Klotzsche",
     ),
     (
         "dwd",
         "mosmix",
-        "--parameter=hourly/large " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
+        "--parameters=hourly/large " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
     ),
     (
         "dwd",
         "dmo",
-        "--parameter=hourly/icon " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
+        "--parameters=hourly/icon " f"--date={datetime.strftime(datetime.today() + timedelta(days=2), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
     ),
     (
         "dwd",
         "dmo",
-        "--parameter=hourly/icon --lead-time=long "
+        "--parameters=hourly/icon --lead-time=long "
         f"--date={datetime.strftime(datetime.today() + timedelta(days=4), '%Y-%m-%d')}",
         "10488",
         "DRESDEN",
@@ -107,7 +107,7 @@ def test_cli_values_json_multiple_stations():
     result = invoke_wetterdienst_values_static_wide(
         provider="dwd",
         network="observation",
-        setting="--resolution=daily --parameter=kl --period=historical",
+        setting="--parameters=daily/kl --periods=historical",
         station="01047,01048",
         fmt="json",
     )
@@ -121,7 +121,7 @@ def test_cli_values_json_multiple_datasets():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl,daily/more_precip --date=2020-06-30",
+        setting="--parameters=daily/kl,daily/more_precip --date=2020-06-30",
         station="01048",
         fmt="json",
     )
@@ -172,7 +172,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=historical",
+        setting="--parameters=daily/kl --periods=historical",
         station="01047,01048",
         fmt="json",
         additional="--with-metadata=true --with-stations=true",
@@ -210,7 +210,7 @@ def test_cli_values_json_indent_false(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="json",
         additional="--pretty=false",
@@ -224,7 +224,7 @@ def test_cli_values_json_indent_true(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="json",
         additional="--pretty=true",
@@ -237,7 +237,7 @@ def test_cli_values_geojson():
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
     )
@@ -268,7 +268,7 @@ def test_cli_values_geojson_with_metadata(metadata):
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
         additional="--with-metadata=true",
@@ -284,7 +284,7 @@ def test_cli_values_geojson_pretty_false(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
         additional="--pretty=false",
@@ -298,7 +298,7 @@ def test_cli_values_geojson_pretty_true(json_dumps_mock):
     invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
         additional="--pretty=true",

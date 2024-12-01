@@ -137,12 +137,8 @@ class StationsResult(ExportMixin):
         return self.df.get_column(Columns.STATION_ID.value)
 
     @property
-    def parameter(self):
-        return self.stations.parameter
-
-    @property
-    def _resolution_type(self):
-        return self.stations._resolution_type
+    def parameters(self):
+        return self.stations.parameters
 
     @property
     def values(self) -> TimeseriesValues:

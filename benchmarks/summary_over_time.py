@@ -15,7 +15,7 @@ from wetterdienst.provider.dwd.observation import (
 
 def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
+        parameters=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,
@@ -25,7 +25,7 @@ def get_summarized_df(start_date: datetime, end_date: datetime, lat, lon) -> pl.
 
 def get_regular_df(start_date: datetime, end_date: datetime, station_id) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
+        parameters=Parameter.TEMPERATURE_AIR_MEAN_2M,
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,

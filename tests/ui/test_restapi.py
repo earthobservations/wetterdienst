@@ -36,9 +36,8 @@ def test_no_provider(client):
         params={
             "provider": "abc",
             "network": "abc",
-            "parameter": "kl",
-            "resolution": "daily",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
             "all": "true",
         },
     )
@@ -52,9 +51,8 @@ def test_no_network(client):
         params={
             "provider": "dwd",
             "network": "abc",
-            "parameter": "kl",
-            "resolution": "daily",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
             "all": "true",
         },
     )
@@ -68,9 +66,8 @@ def test_stations_wrong_format(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "kl",
-            "resolution": "daily",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
             "all": "true",
             "format": "abc",
         },
@@ -86,8 +83,8 @@ def test_dwd_stations_basic(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "daily/kl",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
             "all": "true",
         },
     )
@@ -112,8 +109,8 @@ def test_dwd_stations_geo(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "daily/kl",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
             "coordinates": "45.54,10.10",
             "rank": 5,
         },
@@ -140,8 +137,8 @@ def test_dwd_stations_sql(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "daily/kl",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
             "sql": "SELECT * FROM data WHERE lower(name) LIKE '%dresden%';",
         },
     )
@@ -167,8 +164,8 @@ def test_dwd_values_success(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01359",
-            "parameter": "daily/kl",
-            "period": "historical",
+            "parameters": "daily/kl",
+            "periods": "historical",
             "date": "1982-01-01",
         },
     )
@@ -190,9 +187,8 @@ def test_dwd_values_no_station(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "kl",
-            "resolution": "daily",
-            "period": "recent",
+            "parameters": "daily/kl",
+            "periods": "recent",
         },
     )
     assert response.status_code == 400
@@ -211,11 +207,11 @@ def test_dwd_values_no_parameter(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01048,4411",
-            "period": "recent",
+            "periods": "recent",
         },
     )
     assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'parameter' is required"}
+    assert response.json() == {"detail": "Query argument 'parameters' is required"}
 
 
 @pytest.mark.remote
@@ -227,8 +223,8 @@ def test_dwd_values_sql_tabular(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01048,4411",
-            "parameter": "daily/kl",
-            "period": "historical",
+            "parameters": "daily/kl",
+            "periods": "historical",
             "date": "2020/2021",
             "sql-values": "SELECT * FROM data WHERE temperature_air_max_2m < 2.0",
             "shape": "wide",
@@ -283,7 +279,7 @@ def test_dwd_values_sql_long(client):
             "provider": "dwd",
             "network": "observation",
             "station": "01048,4411",
-            "parameter": "daily/kl",
+            "parameters": "daily/kl",
             "date": "2019-12-01/2019-12-31",
             "sql-values": "SELECT * FROM data WHERE parameter='temperature_air_max_2m' AND value < 1.5",
             "si-units": False,
@@ -308,7 +304,7 @@ def test_dwd_interpolate(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "daily/kl/temperature_air_mean_2m",
+            "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
             "date": "1986-10-31/1986-11-01",
         },
@@ -341,8 +337,7 @@ def test_dwd_summarize(client):
         params={
             "provider": "dwd",
             "network": "observation",
-            "parameter": "temperature_air_mean_2m",
-            "resolution": "daily",
+            "parameters": "daily/climate_summary/temperature_air_mean_2m",
             "station": "00071",
             "date": "1986-10-31/1986-11-01",
         },
@@ -376,7 +371,7 @@ def test_api_values_missing_null(client):
             "provider": "dwd",
             "network": "mosmix",
             "station": "F660",
-            "parameter": "hourly/small/ttt",
+            "parameters": "hourly/small/ttt",
         },
     )
     assert response.status_code == 200
@@ -391,8 +386,8 @@ def test_api_values_missing_empty(client):
             "provider": "dwd",
             "network": "observation",
             "station": "00011",
-            "parameter": "1_minute/precipitation/precipitation_height",
-            "period": "recent",
+            "parameters": "1_minute/precipitation/precipitation_height",
+            "periods": "recent",
         },
     )
     assert response.status_code == 200
@@ -406,7 +401,7 @@ def test_api_stations_missing_null(client):
         params={
             "provider": "dwd",
             "network": "mosmix",
-            "parameter": "hourly/small/ttt",
+            "parameters": "hourly/small/ttt",
             "all": True,
         },
     )
@@ -432,7 +427,7 @@ def test_dwd_mosmix(client):
         params={
             "provider": "dwd",
             "network": "mosmix",
-            "parameter": "hourly/small/ttt",
+            "parameters": "hourly/small/ttt",
             "station": "01025",
         },
     )
@@ -455,7 +450,7 @@ def test_dwd_dmo_lead_time_long(client):
         params={
             "provider": "dwd",
             "network": "dmo",
-            "parameter": "hourly/icon/ttt",
+            "parameters": "hourly/icon/ttt",
             "station": "01025",
             "lead-time": "long",
         },

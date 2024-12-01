@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wetterdienst.metadata.metadata_model import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 GeosphereObservationMetadata = {
     "resolutions": [

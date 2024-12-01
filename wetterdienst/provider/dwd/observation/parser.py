@@ -17,7 +17,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
 )
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import DatasetModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
 

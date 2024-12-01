@@ -33,7 +33,7 @@ DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "qualit
 
 
 def test_api_dwd_observation(settings_si_true):
-    request = DwdObservationRequest(parameter=[("daily", "kl")], period="recent", settings=settings_si_true).all()
+    request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_start_date = request.df.get_column("start_date").to_list()[0]
@@ -47,7 +47,7 @@ def test_api_dwd_observation(settings_si_true):
 
 
 def test_api_dwd_mosmix(settings_si_true):
-    request = DwdMosmixRequest(parameter=[("hourly", "large")], settings=settings_si_true).all()
+    request = DwdMosmixRequest(parameters=[("hourly", "large")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_start_date = request.df.get_column("start_date").to_list()[0]
@@ -61,7 +61,7 @@ def test_api_dwd_mosmix(settings_si_true):
 
 
 def test_api_dwd_dmo(settings_si_true):
-    request = DwdDmoRequest(parameter=[("hourly", "icon")], settings=settings_si_true).all()
+    request = DwdDmoRequest(parameters=[("hourly", "icon")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_start_date = request.df.get_column("start_date").to_list()[0]
@@ -77,7 +77,7 @@ def test_api_dwd_dmo(settings_si_true):
 @pytest.mark.skipif(not ensure_eccodes(), reason="eccodes not installed")
 def test_api_dwd_road(settings_si_true):
     request = DwdRoadRequest(
-        parameter=[("15_minutes", "data", "temperature_air_mean_2m")], settings=settings_si_true
+        parameters=[("15_minutes", "data", "temperature_air_mean_2m")], settings=settings_si_true
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -93,7 +93,7 @@ def test_api_dwd_road(settings_si_true):
 
 @pytest.mark.xfail
 def test_api_eccc_observation(settings_si_true):
-    request = EcccObservationRequest(parameter=[("daily", "data")], settings=settings_si_true).all()
+    request = EcccObservationRequest(parameters=[("daily", "data")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_start_date = request.df.get_column("start_date").to_list()[0]
@@ -109,7 +109,7 @@ def test_api_eccc_observation(settings_si_true):
 @pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_hydrology(settings_si_true):
-    request = ImgwHydrologyRequest(parameter=[("daily", "hydrology")], settings=settings_si_true).all()
+    request = ImgwHydrologyRequest(parameters=[("daily", "hydrology")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_start_date = request.df.get_column("start_date").to_list()[0]
@@ -125,7 +125,7 @@ def test_api_imgw_hydrology(settings_si_true):
 @pytest.mark.xfail
 @pytest.mark.remote
 def test_api_imgw_meteorology(settings_si_true):
-    request = ImgwMeteorologyRequest(parameter=[("daily", "climate")], settings=settings_si_true).filter_by_station_id(
+    request = ImgwMeteorologyRequest(parameters=[("daily", "climate")], settings=settings_si_true).filter_by_station_id(
         "249200180"
     )
     assert not request.df.is_empty()
@@ -142,7 +142,7 @@ def test_api_imgw_meteorology(settings_si_true):
 
 def test_api_noaa_ghcn_hourly(settings_si_true):
     request = NoaaGhcnRequest(
-        parameter=[("hourly", "data", "precipitation_height")], settings=settings_si_true
+        parameters=[("hourly", "data", "precipitation_height")], settings=settings_si_true
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -158,7 +158,7 @@ def test_api_noaa_ghcn_hourly(settings_si_true):
 
 def test_api_noaa_ghcn_daily(settings_si_true):
     request = NoaaGhcnRequest(
-        parameter=[("daily", "data", "precipitation_height")], settings=settings_si_true
+        parameters=[("daily", "data", "precipitation_height")], settings=settings_si_true
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -174,7 +174,7 @@ def test_api_noaa_ghcn_daily(settings_si_true):
 
 @pytest.mark.xfail
 def test_api_wsv_pegel(settings_si_true):
-    request = WsvPegelRequest(parameter=[("dynamic", "data", "stage")], settings=settings_si_true).all()
+    request = WsvPegelRequest(parameters=[("dynamic", "data", "stage")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_date = request.df.get_column("start_date").to_list()[0]
@@ -188,7 +188,7 @@ def test_api_wsv_pegel(settings_si_true):
 
 
 def test_api_ea_hydrology(settings_si_true):
-    request = EAHydrologyRequest(parameter=[("daily", "data", "discharge")], settings=settings_si_true).all()
+    request = EAHydrologyRequest(parameters=[("daily", "data", "discharge")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_date = request.df.get_column("start_date").to_list()[0]
@@ -203,7 +203,7 @@ def test_api_ea_hydrology(settings_si_true):
 
 def test_api_nws_observation(settings_si_true):
     request = NwsObservationRequest(
-        parameter=[("hourly", "data", "temperature_air_mean_2m")], settings=settings_si_true
+        parameters=[("hourly", "data", "temperature_air_mean_2m")], settings=settings_si_true
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
@@ -218,7 +218,7 @@ def test_api_nws_observation(settings_si_true):
 
 
 def test_api_eaufrance_hubeau(settings_si_true):
-    request = HubeauRequest(parameter=[("dynamic", "data", "discharge")], settings=settings_si_true).all()
+    request = HubeauRequest(parameters=[("dynamic", "data", "discharge")], settings=settings_si_true).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     first_date = request.df.get_column("start_date").to_list()[0]
@@ -233,7 +233,7 @@ def test_api_eaufrance_hubeau(settings_si_true):
 
 def test_api_geosphere_observation(settings_si_true):
     request = GeosphereObservationRequest(
-        parameter=[("daily", "data", "precipitation_height")], settings=settings_si_true
+        parameters=[("daily", "data", "precipitation_height")], settings=settings_si_true
     ).filter_by_station_id("5882")
 
     assert not request.df.is_empty()

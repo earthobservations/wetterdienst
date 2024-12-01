@@ -50,7 +50,7 @@ def df_files_end_of_month():
 @pytest.mark.remote
 def test_dwd_dmo_stations(default_settings):
     # Acquire data.
-    stations = DwdDmoRequest(parameter=[("hourly", "icon")], settings=default_settings)
+    stations = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
     given_df = stations.all().df
     assert not given_df.is_empty()
     assert given_df.select(pl.all().max()).to_dicts()[0] == {

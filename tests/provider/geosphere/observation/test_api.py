@@ -3,16 +3,14 @@ from datetime import datetime
 import pytest
 from dirty_equals import IsNumeric
 
-from wetterdienst import Parameter
-from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, GeosphereObservationResolution
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 
 
 @pytest.mark.remote
 def test_geopshere_observation_api():
     """Test the correct parsing of data, especially the dates -> thanks @mhuber89 for the discovery and fix"""
     stations_at = GeosphereObservationRequest(
-        parameter=[Parameter.WIND_SPEED],
-        resolution=GeosphereObservationResolution.HOURLY,
+        parameters=[("hourly", "data", "wind_speed")],
         start_date=datetime(2022, 6, 1),
         end_date=datetime(2022, 6, 2),
     )
@@ -25,16 +23,15 @@ def test_geopshere_observation_api():
 @pytest.mark.parametrize(
     "resolution",
     [
-        GeosphereObservationResolution.MINUTE_10,
-        GeosphereObservationResolution.HOURLY,
-        GeosphereObservationResolution.DAILY,
+        "minute_10",
+        "hourly",
+        "daily",
     ],
 )
 def test_geopshere_observation_api_radiation(resolution):
     """Test correct radiation conversion (W / m² -> J / cm²), factor should be 0.06"""
     stations_at = GeosphereObservationRequest(
-        parameter=[Parameter.RADIATION_GLOBAL],
-        resolution=resolution,
+        parameters=[(resolution, "data", "radiation_global")],
         start_date=datetime(2022, 6, 1),
         end_date=datetime(2022, 6, 2, hour=23, minute=50),
     )

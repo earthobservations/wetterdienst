@@ -10,7 +10,7 @@ import polars as pl
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.dwd.datetime import DatetimeFormat
+from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_PARAMETERS_COMPOSITES,
     RADAR_PARAMETERS_RADOLAN,

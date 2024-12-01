@@ -14,7 +14,7 @@ SETTINGS_STATIONS = (
     (
         "dwd",
         "observation",
-        "--parameter=daily/kl --period=recent",
+        "--parameters=daily/kl --periods=recent",
         "01048",
         # expected dict
         {
@@ -34,7 +34,7 @@ SETTINGS_STATIONS = (
     (
         "dwd",
         "mosmix",
-        "--parameter=hourly/large",
+        "--parameters=hourly/large",
         "10488",
         {
             "station_id": "10488",
@@ -53,7 +53,7 @@ SETTINGS_STATIONS = (
     (
         "dwd",
         "dmo",
-        "--parameter=hourly/icon",
+        "--parameters=hourly/icon",
         "10488",
         {
             "station_id": "10488",
@@ -139,7 +139,7 @@ def test_cli_stations_json_with_metadata(metadata):
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="json",
         additional="--with-metadata=true",
@@ -192,7 +192,7 @@ def test_cli_stations_geojson_with_metadata(metadata):
     result = invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
         additional="--with-metadata=true",
@@ -286,7 +286,7 @@ def test_cli_stations_json_pretty_false(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="json",
         additional="--pretty=false",
@@ -300,7 +300,7 @@ def test_cli_stations_json_pretty_true(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="json",
         additional="--pretty=true",
@@ -314,7 +314,7 @@ def test_cli_stations_geojson_pretty_false(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
         additional="--pretty=false",
@@ -328,7 +328,7 @@ def test_cli_stations_geojson_pretty_true(json_dumps_mock):
     invoke_wetterdienst_stations_static(
         provider="dwd",
         network="observation",
-        setting="--parameter=daily/kl --period=recent",
+        setting="--parameters=daily/kl --periods=recent",
         station="01048",
         fmt="geojson",
         additional="--pretty=true",

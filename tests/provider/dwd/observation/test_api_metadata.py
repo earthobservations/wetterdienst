@@ -5,39 +5,43 @@ import json
 import pytest
 
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationPeriod,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
 def test_dwd_observation_metadata_discover_parameters():
-    metadata = DwdObservationRequest.discover(resolution="minute_1", flatten=True)
+    metadata = DwdObservationRequest.discover()
     expected = {
-        "minute_1": {
-            "precipitation_height": {"origin": "mm", "si": "kg / m ** 2"},
-            "precipitation_height_droplet": {
-                "origin": "mm",
-                "si": "kg / m ** 2",
-            },
-            "precipitation_height_rocker": {
-                "origin": "mm",
-                "si": "kg / m ** 2",
-            },
-            "precipitation_index": {"origin": "-", "si": "-"},
+        "1_minute": {
+            "precipitation": [
+                {
+                    "name": "precipitation_height",
+                    "unit": "kilogram_per_square_meter",
+                    "unit_original": "millimeter",
+                },
+                {
+                    "name": "precipitation_height_droplet",
+                    "unit": "kilogram_per_square_meter",
+                    "unit_original": "millimeter",
+                },
+                {
+                    "name": "precipitation_height_rocker",
+                    "unit": "kilogram_per_square_meter",
+                    "unit_original": "millimeter",
+                },
+                {"name": "precipitation_index", "unit": "dimensionless", "unit_original": "dimensionless"},
+            ]
         },
     }
-    assert json.dumps(expected) in json.dumps(metadata)
+    assert json.dumps(expected)[:-1] in json.dumps(metadata)
 
 
 @pytest.mark.xfail
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_english():
     metadata = DwdObservationRequest.describe_fields(
-        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        dataset=("daily", "climate_summary"),
+        period="recent",
     )
     assert list(metadata.keys()) == [
         "parameters",
@@ -69,22 +73,15 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_english():
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_kl_daily_german():
     metadata = DwdObservationRequest.describe_fields(
-        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        dataset=("daily", "climate_summary"),
+        period="recent",
+        language="de",
     )
     assert list(metadata.keys()) == [
         "parameters",
         "quality_information",
     ]
-    assert list(
-        DwdObservationRequest.describe_fields(
-            dataset=DwdObservationDataset.CLIMATE_SUMMARY,
-            resolution=DwdObservationResolution.DAILY,
-            period=DwdObservationPeriod.RECENT,
-            language="de",
-        )["parameters"].keys(),
-    ) == [
+    assert list(metadata["parameters"].keys()) == [
         "stations_id",
         "mess_datum",
         "qn_3",
@@ -110,9 +107,8 @@ def test_dwd_observation_metadata_describe_fields_kl_daily_german():
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_solar_hourly():
     metadata = DwdObservationRequest.describe_fields(
-        dataset=DwdObservationDataset.SOLAR,
-        resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
+        dataset=("hourly", "solar"),
+        period="recent",
         language="en",
     )
 
@@ -137,9 +133,8 @@ def test_dwd_observation_metadata_describe_fields_solar_hourly():
 @pytest.mark.remote
 def test_dwd_observation_metadata_describe_fields_temperature_10minutes():
     metadata = DwdObservationRequest.describe_fields(
-        dataset=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.MINUTE_10,
-        period=DwdObservationPeriod.RECENT,
+        dataset=("minute_10", "temperature_air"),
+        period="recent",
     )
 
     assert list(metadata.keys()) == [

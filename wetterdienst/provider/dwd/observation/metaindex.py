@@ -21,7 +21,7 @@ from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.metadata_model import DatasetModel
+    from wetterdienst.core.timeseries.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)

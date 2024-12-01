@@ -18,7 +18,7 @@ EXCLUDE_PROVIDER_NETWORKS = {
 }
 
 
-@pytest.mark.xfail
+@pytest.mark.remote
 def test_readme():
     readme_file = Path(__file__).parent.parent / "README.rst"
     failures, _ = doctest.testfile(

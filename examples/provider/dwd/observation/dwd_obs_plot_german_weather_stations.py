@@ -25,7 +25,7 @@ plt.style.use("ggplot")
 
 def plot_german_weather_stations():
     """Create map of DWD weather stations in Germany"""
-    stations = DwdObservationRequest("climate_summary", "daily", "historical")
+    stations = DwdObservationRequest(parameters=("daily", "climate_summary"), period="historical")
     stations_df = stations.all().df
     fig, ax = plt.subplots()
     quantiles = [0.0, 0.16666667, 0.33333333, 0.5, 0.66666667, 0.83333333, 1.0]

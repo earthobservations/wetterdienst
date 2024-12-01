@@ -157,7 +157,7 @@ class ExportMixin:
             elif target.endswith(".parquet"):
                 """
                 # Acquire data and store to Parquet file.
-                alias fetch="wetterdienst values --provider=dwd --network=observation --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --station=1048,4411 --parameters=daily/kl --periods=recent"
                 fetch --target="file://observations.parquet"
 
                 # Check Parquet file.
@@ -175,7 +175,7 @@ class ExportMixin:
             elif target.endswith(".zarr"):
                 """
                 # Acquire data and store to Zarr group.
-                alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent"
+                alias fetch="wetterdienst dwd observation values --station=1048,4411 --parameters=daily/kl --periods=recent"
                 fetch --target="file://observation.zarr"
 
                 # References
@@ -235,7 +235,7 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="duckdb:///dwd.duckdb?table=weather"
+                wetterdienst dwd observation values --station=1048,4411 --parameters=daily/kl --periods=recent --target="duckdb:///dwd.duckdb?table=weather"
 
             Example queries::
 
@@ -277,7 +277,7 @@ class ExportMixin:
 
             Acquire data::
 
-                alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
                 fetch --target="influxdb://localhost/?database=dwd&table=weather"
 
             Example queries::
@@ -304,7 +304,7 @@ class ExportMixin:
                 INFLUXDB_ORGANIZATION=acme
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
 
-                alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
                 fetch --target="influxdb2://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@localhost/?database=dwd&table=weather"
 
             Example queries::
@@ -326,7 +326,7 @@ class ExportMixin:
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
                 INFLUXDB_HOST="eu-central-1-1.aws.cloud2.influxdata.com"
 
-                alias fetch="wetterdienst values --provider=dwd --network=observation --parameter=kl --resolution=daily --period=recent --station=1048,4411"
+                alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
                 fetch --target="influxdb3://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@${INFLUXDB_HOST}/?database=dwd&table=weather"
 
             Example queries::
@@ -444,7 +444,7 @@ class ExportMixin:
 
             Acquire data::
 
-                wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily --period=recent --target="crate://crate@localhost/dwd?table=weather"
+                wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411 --target="crate://crate@localhost/dwd?table=weather"
 
             Example queries::
 
@@ -488,8 +488,8 @@ class ExportMixin:
             Examples::
 
                 # Prepare
-                alias fetch='wetterdienst dwd observation values --station=1048,4411 --parameter=kl --resolution=daily
-                --period=recent'
+                alias fetch='wetterdienst values --provider=dwd --network=observation --parameters=daily/kl
+                    --periods=recent --station=1048,4411'
 
                 # Acquire data.
                 fetch --target="sqlite:///dwd.sqlite?table=weather"

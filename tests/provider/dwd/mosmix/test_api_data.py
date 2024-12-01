@@ -14,7 +14,7 @@ def test_dwd_mosmix_l(settings_humanize_false):
     Test some details of a typical MOSMIX-L response.
     """
     request = DwdMosmixRequest(
-        parameter=[("hourly", "large")],
+        parameters=[("hourly", "large")],
         settings=settings_humanize_false,
     ).filter_by_station_id(
         station_id=["01001"],
@@ -167,7 +167,7 @@ def test_dwd_mosmix_l(settings_humanize_false):
 def test_dwd_mosmix_s(settings_humanize_false):
     """Test some details of a typical MOSMIX-S response."""
     request = DwdMosmixRequest(
-        parameter=[("hourly", "small")],
+        parameters=[("hourly", "small")],
         settings=settings_humanize_false,
     ).filter_by_station_id(
         station_id=["01028"],
@@ -239,7 +239,7 @@ def test_dwd_mosmix_s(settings_humanize_false):
 def test_mosmix_date_filter(default_settings):
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
-        parameter=[("hourly", "small")],
+        parameters=[("hourly", "small")],
         start_date=now - dt.timedelta(hours=1),
         end_date=now,
         issue=now - dt.timedelta(hours=5),
@@ -255,7 +255,7 @@ def test_mosmix_l_parameters(settings_humanize_false):
     Test some details of a MOSMIX-L response when queried for specific parameters.
     """
     request = DwdMosmixRequest(
-        parameter=[
+        parameters=[
             ("hourly", "large", "dd"),
             ("hourly", "large", "ww"),
         ],
