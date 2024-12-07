@@ -7,17 +7,11 @@ tested against it so that newly added parameters will be sorted and carefully ad
 `Parameter` enumeration can be used for requests as well, as internally the requested parameter is always translated
 to the provider specific parameter enumeration.
 
-Import the provider specific parameter enumeration like:
+Import the provider specific metadata model like:
 
 .. code-block:: python
 
-    from wetterdienst.provider.dwd.observation import DwdObservationParameter
-
-Import the core parameter enumeration like:
-
-.. code-block:: python
-
-    from wetterdienst import Parameter
+    from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 
 The amount of distinct parameters and a list of the parameter names:
 

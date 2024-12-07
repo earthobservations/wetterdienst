@@ -37,107 +37,102 @@ Wetterdienst API:
 Request arguments
 *****************
 
-Some of the `wetterdienst` request arguments e.g. ``parameter``, ``resolution``, ``period`` are based on enumerations.
-This allows the user to define them in three different ways:
+A request is typically defined by three arguments:
+
+- ``parameters``
+- ``start_date``
+- ``end_date``
+
+Parameters can be requested in different ways e.g.
+
+- using a tuple of resolution and dataset
+
+    .. code-block:: python
+
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+        request = DwdObservationRequest(
+            parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
+        )
+
+- using a tuple of resolution, dataset, parameter
+
+    .. code-block:: python
+
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+        request = DwdObservationRequest(
+            parameters=("daily", "climate_summary", "precipitation_height")
+        )
+
+- the same with the original names
+
+    .. code-block:: python
+
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+        request = DwdObservationRequest(
+            parameters=("daily", "kl", "rsk")
+        )
+
+- using the metadata model
+
+    .. code-block:: python
+
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
+
+        request = DwdObservationRequest(
+            parameters=DwdObservationMetadata.daily.kl  # will resolve to all parameters of kl
+        )
+
+- using a list of tuples
+
+    .. code-block:: python
+
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+        request = DwdObservationRequest(
+            parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")]
+        )
+
+- using a list of metadata
+
+    .. code-block:: python
+
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
+
+        request = DwdObservationRequest(
+            parameters=[DwdObservationMetadata.daily.kl, DwdObservationMetadata.daily.more_precip]
+        )
+
+
+For some weather service one can select which period of the data is request with ``periods``.
+Valid periods are ``historical``, ``recent`` and ``now``. ``periods`` can be given as a list or a single value.
+The value can be a string, the enumeration value or the enumeration name e.g.
 
 - by using the exact enumeration e.g.
     .. code-block:: python
 
-        Parameter.CLIMATE_SUMMARY
+        from wetterdienst.metadata.period import Period
 
-- by using the enumeration name (our proposed name) e.g.
+        Period.HISTORICAL
+
+- by using the enumeration name or value as string e.g.
     .. code-block:: python
 
-        "climate_summary" or "CLIMATE_SUMMARY"
+        "historical" or "HISTORICAL"
 
-- by using the enumeration value (most probably the original name) e.g.
-    .. code-block:: python
-
-        "kl"
-
-This leaves a lot of flexibility to the user defining the arguments either by what they
-know from the weather service or what they know from `wetterdienst` itself.
-
-Typical requests are defined by five arguments:
-
-- ``parameter``
-- ``resolution``
-- ``period``
-- ``start_date``
-- ``end_date``
-
-Only the parameter, start_date and end_date argument may be needed for a request, as the resolution and period of
-the data may be fixed (per station or for all data) within individual services. However if
-the period is not defined, it is assumed that the user wants data for all available
-periods and the request then is handled that way.
-
-Arguments start_date and end_date are possible replacements for the period argument if
-the period of a weather service is fixed. In case both arguments are given they are
-combined thus data is only taken from the given period and between the given time span.
-
-Enumerations for resolution and period arguments are given at the main level e.g.
-
-.. ipython:: python
-
-    from wetterdienst import Resolution, Period
-
-or at the domain specific level e.g.
-
-.. ipython:: python
-
-    from wetterdienst.provider.dwd.observation import DwdObservationResolution, DwdObservationPeriod
-
-Both enumerations can be used interchangeably however the weather services enumeration
-is limited to what resolutions and periods are actually available while the main level
-enumeration is a summation of all kinds of resolutions and periods found at the
-different weather services.
+If a weather service has periods, the period argument typically can be used as replacement
+for the start_date and end_date arguments. In case both arguments are given they are used
+as a filter for the data.
 
 Regarding the definition of requested parameters:
-
-Parameters can be requested in three different ways:
-
-1. Requesting an entire dataset e.g. climate_summary
-
-.. code-block:: python
-
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    request = DwdObservationRequest(
-        parameter="kl"
-    )
-
-
-2. Requesting one parameter of a specific resolution without defining the exact dataset.
-
-  For each offered resolution we have created a list of unique parameters which are drafted from the entire space of
-  all datasets e.g. when two datasets contain the somewhat similar parameter we do a pre-selection of the dataset from
-  which the parameter is taken.
-
-.. code-block:: python
-
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    request = DwdObservationRequest(
-        parameter="precipitation_height"
-    )
-
-3. Request a parameter-dataset tuple
-
-   This gives you entire freedom to request a unique parameter-dataset tuple just as you wish.
-
-.. code-block:: python
-
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    request = DwdObservationRequest(
-        parameter=[("precipitation_height", "more_precip"), ("temperature_air_mean_2m", "kl")]
-    )
 
 Data
 ****
 
-In case of the DWD, requests have to be defined by resolution and period (respectively
-``start_date`` and ``end_date``). Use ``DwdObservationRequest.discover()``
+In case of the DWD, requests can be defined by either of period or
+``start_date`` and ``end_date``. Use ``DwdObservationRequest.discover()``
 to discover available parameters based on the given filter arguments.
 
 Stations
@@ -146,18 +141,17 @@ Stations
 all stations
 ------------
 
-Get station information for a given *parameter/dataset*, *resolution* and
+Get station information for a given *dataset/parameter* and
 *period*.
 
 .. ipython:: python
     :okwarning:
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.PRECIPITATION_MORE,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.HISTORICAL
+        parameters=("daily", "precipitation_more"),
+        periods="historical"
     )
     stations = request.all()
     df = stations.df
@@ -171,12 +165,11 @@ filter by station id
 .. ipython:: python
     :okwarning:
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.PRECIPITATION_MORE,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.HISTORICAL
+        parameters=("daily", "precipitation_more"),
+        periods="historical"
     )
     stations = request.filter_by_station_id(station_id=("01048", ))
     df = stations.df
@@ -188,12 +181,11 @@ filter by name
 .. ipython:: python
     :okwarning:
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.PRECIPITATION_MORE,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.HISTORICAL
+        parameters=("daily", "precipitation_more"),
+        periods="historical"
     )
     stations = request.filter_by_name(name="Dresden-Klotzsche")
     df = stations.df
@@ -208,12 +200,11 @@ Distance in kilometers (default)
     :okwarning:
 
     import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     hamburg = (53.551086, 9.993682)
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air"),
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2020, 1, 20)
     )
