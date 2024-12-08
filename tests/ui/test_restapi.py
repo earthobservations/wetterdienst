@@ -3,6 +3,8 @@
 import pytest
 from dirty_equals import IsNumber, IsStr
 
+from wetterdienst.ui.restapi import REQUEST_EXAMPLES
+
 
 @pytest.fixture
 def client():
@@ -17,6 +19,12 @@ def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "wetterdienst - open weather data for humans" in response.text
+
+
+@pytest.mark.parametrize("url", REQUEST_EXAMPLES.values())
+def test_index_examples(client, url):
+    response = client.get(url)
+    assert response.status_code == 200
 
 
 def test_robots(client):
@@ -74,6 +82,62 @@ def test_stations_wrong_format(client):
     )
     assert response.status_code == 400
     assert "Query argument 'format' must be one of 'json', 'geojson' or 'csv'" in response.text
+
+
+@pytest.mark.remote
+def test_dwd_coverage(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "1_minute" in data
+    assert "precipitation" in data["1_minute"]
+    assert len(data["1_minute"]["precipitation"]) > 0
+    parameters = [item["name"] for item in data["1_minute"]["precipitation"]]
+    assert parameters == [
+        "precipitation_height",
+        "precipitation_height_droplet",
+        "precipitation_height_rocker",
+        "precipitation_index",
+    ]
+
+
+@pytest.mark.remote
+def test_dwd_coverage_resolution_1_minute(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "resolutions": "1_minute",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.keys() == {"1_minute"}
+
+
+@pytest.mark.remote
+def test_dwd_coverage_dataset_climate_summary(client):
+    response = client.get(
+        "/api/coverage",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "datasets": "climate_summary",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.keys() == {"daily", "monthly", "annual"}
+    assert data["daily"].keys() == {"climate_summary"}
+    assert data["monthly"].keys() == {"climate_summary"}
+    assert data["annual"].keys() == {"climate_summary"}
 
 
 @pytest.mark.remote

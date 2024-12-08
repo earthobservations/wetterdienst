@@ -6,6 +6,7 @@ import logging
 import operator
 from abc import ABCMeta, abstractmethod
 from itertools import groupby
+from textwrap import dedent
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -56,19 +57,20 @@ class TimeseriesValues(metaclass=ABCMeta):
 
     def __repr__(self):
         """Representation of values object"""
-        station_ids_joined = ", ".join(self.sr.station_id.to_list())
-        parameters_joined = ", ".join(
-            [f"({parameter.value}/{dataset.value})" for parameter, dataset in self.sr.stations.parameters],
+        parameters_joined = ",".join(
+            f"({parameter.dataset.resolution.name}/{parameter.dataset.name}/{parameter.name})"
+            for parameter in self.sr.stations.parameters
         )
-        periods_joined = self.sr.stations.periods and ", ".join([period.value for period in self.sr.stations.periods])
-
-        return (
-            f"{self.sr.stations.__class__.__name__}Values("
-            f"[{station_ids_joined}], "
-            f"[{parameters_joined}], "
-            f"[{periods_joined}], "
-            f"{str(self.sr.start_date)},"
-            f"{str(self.sr.end_date)})"
+        station_ids_joined = ", ".join(self.sr.station_id.to_list())
+        return dedent(
+            f"""
+            {self.sr.stations.__class__.__name__}Values(
+                parameters=[{parameters_joined}],
+                start_date={self.sr.start_date and self.sr.start_date.isoformat()},
+                end_date={self.sr.end_date and self.sr.end_date.isoformat()},
+                station_ids=[{station_ids_joined}],
+            )
+            """.strip()
         )
 
     # Fields for type coercion, needed for separation from fields with actual data

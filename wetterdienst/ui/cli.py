@@ -181,7 +181,7 @@ of this page.
 
 Coverage information:
 
-    wetterdienst about coverage --provider=<provider> --network=<network>
+    wetterdienst about coverage --provider=<provider> --network=<network>  [--resolutions=<resolutions>] [--datasets=<datasets>]
 
     wetterdienst about fields --provider=<provider> --network=<network> --dataset=<dataset> --period=<period>
         [--language=<language>]
@@ -460,8 +460,11 @@ Inquire metadata:
     # This can answer questions like ...
     wetterdienst about coverage --provider=dwd --network=observation
 
-    # Tell me all available resolutions and datasets with their parameters
-    wetterdienst about coverage --provider=dwd --network=observation
+    # Tell me all available datasets of resolution 1_minute
+    wetterdienst about coverage --provider=dwd --network=observation --resolutions=1_minute
+
+    # Tell me all available climate_summary datasets with their parameters
+    wetterdienst about coverage --provider=dwd --network=observation --datasets=climate_summary
 
 Export data to files:
 
@@ -661,8 +664,22 @@ def about():
         type=click.STRING,
     ),
 )
+@cloup.option_group(
+    "Resolutions",
+    click.option(
+        "--resolutions",
+        type=comma_separated_list,
+    ),
+)
+@cloup.option_group(
+    "Datasets",
+    click.option(
+        "--datasets",
+        type=comma_separated_list,
+    ),
+)
 @debug_opt
-def coverage(provider, network, debug):
+def coverage(provider, network, resolutions, datasets, debug):
     set_logging_level(debug)
 
     if not provider or not network:
@@ -672,7 +689,8 @@ def coverage(provider, network, debug):
     api = get_api(provider=provider, network=network)
 
     cov = api.discover(
-        with_units=False,
+        resolutions=resolutions,
+        datasets=datasets,
     )
 
     print(json.dumps(cov, indent=2))  # noqa: T201

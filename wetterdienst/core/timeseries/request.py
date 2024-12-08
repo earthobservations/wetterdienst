@@ -22,6 +22,7 @@ from wetterdienst.core.timeseries.metadata import (
     DatasetModel,
     MetadataModel,
     ParameterModel,
+    ResolutionModel,
     parse_parameters,
 )
 from wetterdienst.core.timeseries.result import (
@@ -260,25 +261,58 @@ class TimeseriesRequest(Core):
     @classmethod
     def discover(
         cls,
-        with_units: bool = True,
+        resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] = None,
+        datasets: str | DatasetModel | Sequence[str | DatasetModel] = None,
     ) -> dict:
         """Function to print/discover available parameters"""
+        if not resolutions:
+            resolutions = []
+        resolution_strings = []
+        for resolution in to_list(resolutions):
+            if isinstance(resolution, Resolution):
+                resolution = resolution.value
+            elif isinstance(resolution, ResolutionModel):
+                resolution = resolution.name
+            else:
+                resolution = str(resolution)
+            resolution_strings.append(resolution)
+        if not datasets:
+            datasets = []
+        dataset_strings = []
+        for dataset in to_list(datasets):
+            if isinstance(dataset, DatasetModel):
+                dataset = dataset.name
+            else:
+                dataset = str(dataset)
+            dataset_strings.append(dataset)
         data = {}
         for resolution in cls.metadata:
+            if (
+                resolution_strings
+                and resolution.name not in resolution_strings
+                and resolution.name_original not in resolution_strings
+            ):
+                continue
             data[resolution.name] = {}
             for dataset in resolution:
+                if (
+                    dataset_strings
+                    and dataset.name not in dataset_strings
+                    and dataset.name_original not in dataset_strings
+                ):
+                    continue
                 data[resolution.name][dataset.name] = []
                 for parameter in dataset:
-                    if with_units:
-                        data[resolution.name][dataset.name].append(
-                            {
-                                "name": parameter.name,
-                                "unit": parameter.unit,
-                                "unit_original": parameter.unit_original,
-                            }
-                        )
-                    else:
-                        data[resolution.name][dataset.name].append(parameter.name)
+                    data[resolution.name][dataset.name].append(
+                        {
+                            "name": parameter.name,
+                            "name_original": parameter.name_original,
+                            "unit": parameter.unit,
+                            "unit_original": parameter.unit_original,
+                        }
+                    )
+            if not data[resolution.name]:
+                del data[resolution.name]
         return data
 
     @staticmethod

@@ -39,7 +39,7 @@ class ParameterModel(BaseModel):
 
     @field_validator("name", mode="after")
     @classmethod
-    def validate_name_original(cls, value):
+    def validate_name(cls, value):
         if value.startswith("quality"):
             return value
         if value in PARAMETER_NAMES:

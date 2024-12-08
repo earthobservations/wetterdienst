@@ -16,20 +16,28 @@ def test_dwd_observation_metadata_discover_parameters():
             "precipitation": [
                 {
                     "name": "precipitation_height",
+                    "name_original": "rs_01",
                     "unit": "kilogram_per_square_meter",
                     "unit_original": "millimeter",
                 },
                 {
                     "name": "precipitation_height_droplet",
+                    "name_original": "rth_01",
                     "unit": "kilogram_per_square_meter",
                     "unit_original": "millimeter",
                 },
                 {
                     "name": "precipitation_height_rocker",
+                    "name_original": "rwh_01",
                     "unit": "kilogram_per_square_meter",
                     "unit_original": "millimeter",
                 },
-                {"name": "precipitation_index", "unit": "dimensionless", "unit_original": "dimensionless"},
+                {
+                    "name": "precipitation_index",
+                    "name_original": "rs_ind_01",
+                    "unit": "dimensionless",
+                    "unit_original": "dimensionless",
+                },
             ]
         },
     }

@@ -218,12 +218,11 @@ Distance in miles
     :okwarning:
 
     import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     hamburg = (53.551086, 9.993682)
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air"),
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2020, 1, 20)
     )
@@ -238,12 +237,11 @@ filter by rank
     :okwarning:
 
     import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     hamburg = (53.551086, 9.993682)
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air"),
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2020, 1, 20)
     )
@@ -258,12 +256,11 @@ filter by bbox
     :okwarning:
 
     import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     bbox = (8.9, 50.0, 8.91, 50.01)
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air"),
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2020, 1, 20)
     )
@@ -285,8 +282,7 @@ Values are just an extension of requests:
     # if no settings are provided, default settings are used which are
     # Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
     request = DwdObservationRequest(
-        parameter=["kl", "solar"],
-        resolution="daily",
+        parameters=[("daily", "kl"), ("daily", "solar")],
         start_date="1990-01-01",
         end_date="2020-01-01",
     )
@@ -326,8 +322,7 @@ achieve that:
     settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ignore_env=True)
     karlsruhe = (49.19780976647141, 8.135207205143768)
     request = DwdObservationRequest(
-        parameter=["kl", "solar"],
-        resolution="daily",
+        parameters=[("daily", "kl"), ("daily", "solar")],
         start_date="2021-01-01",
         end_date="2021-12-31",
         settings=settings,
@@ -402,11 +397,9 @@ The interpolated value looks like this:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=Resolution.HOURLY,
+        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
     )
@@ -422,11 +415,9 @@ getting a more complete dataset:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=Resolution.HOURLY,
+        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
     )
@@ -441,12 +432,11 @@ Increase maximum distance for interpolation:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    from wetterdienst import Parameter, Resolution, Settings
+    from wetterdienst import Settings
 
     settings = Settings(ts_interpolation_station_distance={"precipitation_height": 25.0})
     request = DwdObservationRequest(
-        parameter=Parameter.PRECIPITATION_HEIGHT,
-        resolution=Resolution.HOURLY,
+        parameters=("hourly", "precipitation", "precipitation_height"),
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
         settings=settings
@@ -475,11 +465,9 @@ Currently the following parameters are supported (more will be added if useful):
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=Resolution.HOURLY,
+        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
     )
@@ -495,11 +483,9 @@ getting a more complete dataset:
 
     import datetime as dt
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    from wetterdienst import Parameter, Resolution
 
     request = DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=Resolution.HOURLY,
+        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 20),
     )
@@ -519,8 +505,7 @@ To Dict
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
-        resolution="daily",
+        parameters=("daily", "kl", "temperature_air_mean_2m"),
         start_date="2020-01-01",
         end_date="2020-01-02"
     )
@@ -537,8 +522,7 @@ To Json
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
-        resolution="daily",
+        parameters=("daily", "kl", "temperature_air_mean_2m"),
         start_date="2020-01-01",
         end_date="2020-01-02"
     )
@@ -555,8 +539,7 @@ To Ogc Feature Collection
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
-        resolution="daily",
+        parameters=("daily", "kl", "temperature_air_mean_2m"),
         start_date="2020-01-01",
         end_date="2020-01-02"
     )
@@ -573,8 +556,7 @@ To GeoJson
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
-        resolution="daily",
+        parameters=("daily", "kl", "temperature_air_mean_2m"),
         start_date="2020-01-01",
         end_date="2020-01-02"
     )
@@ -591,8 +573,7 @@ To CSV
     from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
-        resolution="daily",
+        parameters=("daily", "kl", "temperature_air_mean_2m"),
         start_date="2020-01-01",
         end_date="2020-01-02"
     )
@@ -611,20 +592,19 @@ The result data is provided through a virtual table called ``data``.
 
 .. code-block:: python
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset, DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)  # defaults
     request = DwdObservationRequest(
-        parameter=[DwdObservationDataset.TEMPERATURE_AIR],
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings
     )
     stations = request.filter_by_station_id(station_id=[1048])
     values = stations.values.all()
-    df = values.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_2m' AND value < -7.0;")
+    df = values.filter_by_sql("SELECT * FROM data WHERE parameter='temperature_air_mean_2m' AND value < -7.0;")
     print(df.head())
 
 Export
@@ -642,14 +622,12 @@ Examples:
 
 .. code-block:: python
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationDataset,
-        DwdObservationPeriod, DwdObservationResolution
     from wetterdienst import Settings
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
     settings = Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)  # defaults
     request = DwdObservationRequest(
-        parameter=[DwdObservationDataset.TEMPERATURE_AIR],
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air"),
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings
@@ -697,8 +675,7 @@ FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
     settings = Settings(fsspec_client_kwargs={"trust_env": True})  # use proxy from environment variables
 
     stations = DwdObservationRequest(
-        parameter=[DwdObservationDataset.TEMPERATURE_AIR],
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=("hourly", "temperature_air"),
         settings=settings
     ).filter_by_station_id(station_id=[1048])
 

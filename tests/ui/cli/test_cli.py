@@ -68,6 +68,42 @@ def test_no_network(caplog):
     assert "No API available for provider DWD and network abc" in caplog.text
 
 
+def test_coverage():
+    runner = CliRunner()
+    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
+    assert result.exit_code == 0
+    response = json.loads(result.stdout)
+    assert "1_minute" in response
+    assert "precipitation" in response["1_minute"]
+    assert len(response["1_minute"]["precipitation"]) > 0
+    parameters = [p["name"] for p in response["1_minute"]["precipitation"]]
+    assert parameters == [
+        "precipitation_height",
+        "precipitation_height_droplet",
+        "precipitation_height_rocker",
+        "precipitation_index",
+    ]
+
+
+def test_coverage_resolution_1_minute():
+    runner = CliRunner()
+    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation --resolutions=1_minute")
+    assert result.exit_code == 0
+    response = json.loads(result.stdout)
+    assert response.keys() == {"1_minute"}
+
+
+def test_coverage_dataset_climate_summary():
+    runner = CliRunner()
+    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation --datasets=climate_summary")
+    assert result.exit_code == 0
+    response = json.loads(result.stdout)
+    assert response.keys() == {"daily", "monthly", "annual"}
+    assert response["daily"].keys() == {"climate_summary"}
+    assert response["monthly"].keys() == {"climate_summary"}
+    assert response["annual"].keys() == {"climate_summary"}
+
+
 @pytest.mark.remote
 def test_cli_interpolate():
     runner = CliRunner()
