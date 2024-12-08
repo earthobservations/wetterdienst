@@ -1828,6 +1828,7 @@ wheels = [
 name = "lat-lon-parser"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/58/879bcefdcec8ea62501270ac4475e75f72b54a32adb3a769c5ba5b10f535/lat_lon_parser-1.3.1.tar.gz", hash = "sha256:62b8191e72150a7bf5d55fe6a8dddf3e20dd4937a995130f74832cd7ede39e91", size = 14299 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/61/a4fda4c2dd7f84814647ce2124edc24dd2c313f4ac0aad786064d5ab9d82/lat_lon_parser-1.3.1-py3-none-any.whl", hash = "sha256:e2abfff8a81de4b4db2c11a02867c5cd8b057a978e7b03c178abdeaa627e8ba8", size = 11269 },
 ]
@@ -4632,7 +4633,7 @@ wheels = [
 [[package]]
 name = "wetterdienst"
 version = "0.97.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aenum" },
     { name = "aiohttp" },
