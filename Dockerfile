@@ -54,5 +54,5 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed pip packages from build stage
-COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=build /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
