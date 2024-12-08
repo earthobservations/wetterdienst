@@ -4,6 +4,9 @@ Changelog
 Development
 ***********
 
+0.98.0 (09.12.2024)
+*******************
+
 - Add support for Python 3.13 and deprecate Python 3.9
 - [Breaking] Add new metadata model: Requests now use `parameters` instead of `parameter` and `resolution` e.g.
   `parameters=[("daily", "kl")]` instead of `parameter="kl", resolution="daily"`
