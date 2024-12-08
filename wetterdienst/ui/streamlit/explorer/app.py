@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 import duckdb
 import plotly.express as px
@@ -11,10 +12,9 @@ import streamlit as st
 
 from wetterdienst import Resolution, Settings, Wetterdienst, __version__
 from wetterdienst.api import RequestRegistry
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType
-from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+
+if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
 
 # this env is set manually on streamlit.com
 LIVE = os.getenv("LIVE", "false").lower() == "true"
@@ -36,21 +36,28 @@ WHERE value IS NOT NULL
 """.strip()
 
 
-@st.cache_data
+@st.cache_resource
+def get_api(provider: str, network: str):
+    return Wetterdienst(provider, network)
+
+
+@st.cache_resource
+def get_metadata(api: Wetterdienst):
+    return api.metadata
+
+
 def get_stations(provider: str, network: str, request_kwargs: dict):
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
-    return Wetterdienst(provider, network)(**request_kwargs).all()
+    return get_api(provider, network)(**request_kwargs).all()
 
 
-@st.cache_data
 def get_station(provider: str, network: str, request_kwargs: dict, station_id: str):
     request_kwargs = request_kwargs.copy()
     request_kwargs["settings"] = Settings(**request_kwargs["settings"])
-    return Wetterdienst(provider, network)(**request_kwargs).filter_by_station_id(station_id)
+    return get_api(provider, network)(**request_kwargs).filter_by_station_id(station_id)
 
 
-@st.cache_data
 def get_values(provider: str, network: str, request_kwargs: dict, station_id: str):
     request_kwargs = request_kwargs.copy()
     settings = Settings(**request_kwargs["settings"])
@@ -143,54 +150,49 @@ network = st.selectbox(
     index=network_options.index("OBSERVATION") if "OBSERVATION" in network_options else 0,
 )
 
-api = Wetterdienst(provider, network)
 
-resolution_options = list(api.discover().keys())
-resolution = st.selectbox(
+api = get_api(provider, network)
+metadata: MetadataModel = api.metadata
+
+resolution_options = list(metadata)
+resolution_names = [r.name for r in resolution_options]
+resolution: ResolutionModel = st.selectbox(
     "Select resolution",
     options=resolution_options,
-    index=resolution_options.index("daily") if "daily" in resolution_options else 0,
+    index=resolution_names.index("daily") if "daily" in resolution_names else 0,
+    disabled=len(resolution_options) == 1,
+    format_func=lambda r: r.name,
 )
+
 # for hosted app, we disallow higher resolutions as the machine might not be able to handle it
 if LIVE:
-    if resolution in SUBDAILY_AT_MOST:
+    if resolution.value in SUBDAILY_AT_MOST:
         st.warning("Higher resolutions are disabled for hosted app. Choose at least daily resolution.")
         st.stop()
 
-dataset_options = list(api.discover(flatten=False)[resolution].keys())
-dataset = st.selectbox(
+dataset_options = list(resolution)
+dataset_names = [d.name for d in dataset_options]
+dataset: DatasetModel = st.selectbox(
     "Select dataset",
     options=dataset_options,
-    index=dataset_options.index("climate_summary") if "climate_summary" in dataset_options else 0,
+    index=dataset_names.index("climate_summary") if "climate_summary" in dataset_names else 0,
+    disabled=len(dataset_options) == 1,
+    format_func=lambda d: d.name,
 )
-parameter_options = list(api.discover(flatten=False)[resolution][dataset].keys())
-parameter_options = [dataset] + parameter_options
-parameter = st.selectbox("Select parameter", options=parameter_options, index=0)
 
-if api._period_type == PeriodType.FIXED:
-    period = list(api._period_base)[0]
-    period_options = [period.name]
-else:
-    period_options = []
-    for period in api._period_base:
-        period_options.append(period.name)
-period = st.multiselect(
-    "Select period", options=period_options, default=period_options, disabled=len(period_options) == 1
+parameter_options = list(dataset)
+parameter_options = [dataset] + parameter_options
+parameter: DatasetModel | ParameterModel = st.selectbox(
+    "Select parameter", options=parameter_options, index=0, format_func=lambda p: p.name
 )
+
+parameter = dataset if parameter == dataset else parameter
+
 # TODO: replace this with a general request kwargs resolver
 request_kwargs = {
-    "parameter": [(parameter, dataset)],
+    "parameters": parameter,
     "settings": settings,
 }
-if issubclass(api, DwdMosmixRequest):
-    request_kwargs["mosmix_type"] = resolution
-elif issubclass(api, DwdDmoRequest):
-    request_kwargs["dmo_type"] = resolution
-elif api._resolution_type == ResolutionType.MULTI:
-    request_kwargs["resolution"] = resolution
-
-if api._period_type == PeriodType.MULTI:
-    request_kwargs["period"] = period
 
 df_stations = get_stations(provider, network, request_kwargs).df
 if df_stations.is_empty():

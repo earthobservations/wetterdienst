@@ -18,8 +18,8 @@ Metadata
 Datasets
 ********
 
-Minute_10
-=========
+Data
+====
 
 Metadata
 --------
@@ -36,8 +36,6 @@ Metadata
      - 
    * - description
      - historical 10 minute data
-
-.. _minute_10 dataset description:
 
 Parameters
 ----------

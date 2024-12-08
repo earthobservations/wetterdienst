@@ -8,16 +8,13 @@ from polars.testing import assert_frame_equal
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
 def test_summary_temperature_air_mean_2m_daily(default_settings):
     request = DwdObservationRequest(
-        parameter="temperature_air_mean_2m",
-        resolution="daily",
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start_date=dt.datetime(1934, 1, 1),
         end_date=dt.datetime(1965, 12, 31),
         settings=default_settings,
@@ -43,10 +40,9 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
         assert_frame_equal(given_df, expected_df)
 
 
-def test_not_summarizable_dataset(default_settings):
+def test_not_summarizable_parameter(default_settings):
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.HOURLY,
+        parameters=[("daily", "kl", "precipitation_form")],
         start_date=dt.datetime(2022, 1, 1),
         end_date=dt.datetime(2022, 1, 2),
         settings=default_settings,
@@ -74,8 +70,7 @@ def test_not_summarizable_dataset(default_settings):
 @pytest.mark.remote
 def test_provider_dwd_mosmix(default_settings):
     request = DwdMosmixRequest(
-        parameter="temperature_air_mean_2m",
-        mosmix_type="small",
+        parameters=[("hourly", "small", "temperature_air_mean_2m")],
         start_date=dt.datetime.today() + dt.timedelta(days=1),
         end_date=dt.datetime.today() + dt.timedelta(days=8),
         settings=default_settings,
@@ -86,8 +81,7 @@ def test_provider_dwd_mosmix(default_settings):
 
 def test_summary_error_no_start_date():
     request = DwdObservationRequest(
-        parameter="precipitation_height",
-        resolution="hourly",
+        parameters=[("hourly", "precipitation", "precipitation_height")],
     )
     with pytest.raises(ValueError) as exec_info:
         request.summarize(latlon=(52.8, 12.9))

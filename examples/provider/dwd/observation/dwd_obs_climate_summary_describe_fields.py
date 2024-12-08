@@ -12,10 +12,7 @@ import logging
 from pprint import pprint
 
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationPeriod,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 log = logging.getLogger()
@@ -32,18 +29,16 @@ def fields_example():
     # Output in pretty-print format.
     pprint(
         DwdObservationRequest.describe_fields(
-            dataset=DwdObservationDataset.CLIMATE_SUMMARY,
-            resolution=DwdObservationResolution.DAILY,
-            period=DwdObservationPeriod.RECENT,
+            dataset=("daily", "climate_summary"),
+            period="recent",
             language="en",
         ),
     )
 
     pprint(
         DwdObservationRequest.describe_fields(
-            dataset=DwdObservationDataset.CLIMATE_SUMMARY,
-            resolution=DwdObservationResolution.DAILY,
-            period=DwdObservationPeriod.RECENT,
+            dataset=("daily", "climate_summary"),
+            period="recent",
             language="de",
         ),
     )

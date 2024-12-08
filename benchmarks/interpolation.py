@@ -55,7 +55,7 @@ def request_weather_data(
     end_date: dt.datetime,
 ):
     stations = DwdObservationRequest(
-        parameter=parameter,
+        parameters=parameter,
         resolution="hourly",
         start_date=start_date,
         end_date=end_date,

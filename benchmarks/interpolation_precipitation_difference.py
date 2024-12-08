@@ -15,7 +15,7 @@ LATLON = (52.52, 13.40)
 
 def get_interpolated_df(start_date: datetime, end_date: datetime) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameter=Parameter.PRECIPITATION_HEIGHT,
+        parameters=Parameter.PRECIPITATION_HEIGHT,
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,
@@ -25,7 +25,7 @@ def get_interpolated_df(start_date: datetime, end_date: datetime) -> pl.DataFram
 
 def get_regular_df(start_date: datetime, end_date: datetime, exclude_stations: list) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameter=Parameter.PRECIPITATION_HEIGHT.name,
+        parameters=Parameter.PRECIPITATION_HEIGHT.name,
         resolution=DwdObservationResolution.DAILY,
         start_date=start_date,
         end_date=end_date,

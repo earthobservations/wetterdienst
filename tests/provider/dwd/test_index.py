@@ -2,12 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 import pytest
 
+from wetterdienst import Period
 from wetterdienst.provider.dwd.observation.fileindex import _create_file_index_for_dwd_server, build_path_to_parameter
-from wetterdienst.provider.dwd.observation.metadata.dataset import (
-    DwdObservationDataset,
+from wetterdienst.provider.dwd.observation.metadata import (
+    DwdObservationMetadata,
 )
-from wetterdienst.provider.dwd.observation.metadata.period import DwdObservationPeriod
-from wetterdienst.provider.dwd.observation.metadata.resolution import DwdObservationResolution
 from wetterdienst.settings import Settings
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
@@ -15,9 +14,8 @@ from wetterdienst.util.network import list_remote_files_fsspec
 
 def test_build_index_path():
     path = build_path_to_parameter(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.HISTORICAL,
+        dataset=DwdObservationMetadata.daily.climate_summary,
+        period=Period.HISTORICAL,
     )
     assert path == "daily/kl/historical/"
 
@@ -38,10 +36,9 @@ def test_list_files_of_climate_observations():
 @pytest.mark.remote
 def test_fileindex(default_settings):
     file_index = _create_file_index_for_dwd_server(
-        DwdObservationDataset.CLIMATE_SUMMARY,
-        DwdObservationResolution.DAILY,
-        DwdObservationPeriod.RECENT,
-        "observations_germany/climate/",
+        dataset=DwdObservationMetadata.daily.climate_summary,
+        period=Period.RECENT,
+        cdc_base="observations_germany/climate/",
         settings=default_settings,
     ).collect()
     assert file_index.get_column("filename").str.contains("daily/kl/recent").all()

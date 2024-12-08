@@ -25,9 +25,7 @@ import polars as pl
 
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationParameter,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 if TYPE_CHECKING:
@@ -51,8 +49,7 @@ def station_example(start_date="2018-12-25", end_date="2022-12-25", name="Frankf
     """Retrieve stations_result of DWD that measure temperature."""
 
     stations = DwdObservationRequest(
-        parameter=DwdObservationParameter.DAILY.TEMPERATURE_AIR_MEAN_2M,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         start_date=start_date,
         end_date=end_date,
         settings=Settings(ts_si_units=False),

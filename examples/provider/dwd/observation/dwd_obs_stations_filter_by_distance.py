@@ -12,10 +12,7 @@ import logging
 from datetime import datetime
 
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationPeriod,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 log = logging.getLogger()
@@ -24,9 +21,8 @@ log = logging.getLogger()
 def stations_filter_by_distance_example():
     """Retrieve stations_result of DWD that measure temperature."""
     stations = DwdObservationRequest(
-        parameter=DwdObservationDataset.TEMPERATURE_AIR,
-        resolution=DwdObservationResolution.HOURLY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=("hourly", "temperature_air"),
+        period="recent",
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20),
     )

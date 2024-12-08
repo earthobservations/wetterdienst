@@ -12,7 +12,7 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 
 @pytest.mark.remote
 def test_noaa_ghcn_stations(default_settings):
-    df = NoaaGhcnRequest(parameter="daily", resolution="daily", settings=default_settings).all().df.head(5)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df.head(5)
     df_expected = pl.DataFrame(
         [
             {

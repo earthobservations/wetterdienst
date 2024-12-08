@@ -5,43 +5,29 @@ from __future__ import annotations
 import datetime as dt
 import gzip
 import logging
-from enum import Enum
 from io import BytesIO
 from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.eccc.observation.metadata.parameter import (
-    EcccObservationDataset,
-    EcccObservationParameter,
-)
-from wetterdienst.provider.eccc.observation.metadata.resolution import (
-    EcccObservationResolution,
-)
-from wetterdienst.provider.eccc.observation.metadata.unit import EcccObservationUnit
+from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
+    from wetterdienst.core.timeseries.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
-
-
-class EcccObservationPeriod(Enum):
-    HISTORICAL = Period.HISTORICAL.value
 
 
 class EcccObservationValues(TimeseriesValues):
@@ -59,23 +45,6 @@ class EcccObservationValues(TimeseriesValues):
         Resolution.MONTHLY: "3",
         Resolution.ANNUAL: "4",
     }
-
-    @property
-    def _timeframe(self) -> str:
-        """internal timeframe string for resolution"""
-        return self._timeframe_mapping.get(self.sr.stations.resolution)
-
-    _time_step_mapping = {
-        Resolution.HOURLY: "HLY",
-        Resolution.DAILY: "DLY",
-        Resolution.MONTHLY: "MLY",
-        Resolution.ANNUAL: "ANL",
-    }
-
-    @property
-    def _time_step(self):
-        """internal time step string for resolution"""
-        return self._time_step_mapping.get(self.sr.stations.resolution)
 
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -102,11 +71,8 @@ class EcccObservationValues(TimeseriesValues):
         except ValueError:
             return pl.LazyFrame()
 
-    def _collect_station_parameter(
-        self,
-        station_id: str,
-        parameter: EcccObservationParameter,  # noqa: ARG002
-        dataset: Enum,  # noqa: ARG002
+    def _collect_station_parameter_or_dataset(
+        self, station_id: str, parameter_or_dataset: DatasetModel
     ) -> pl.DataFrame:
         """
 
@@ -143,7 +109,7 @@ class EcccObservationValues(TimeseriesValues):
 
         # check that station has a first and last year value
         if start_year and end_year:
-            for url in self._create_file_urls(station_id, start_year, end_year):
+            for url in self._create_file_urls(station_id, parameter_or_dataset.resolution.value, start_year, end_year):
                 log.info(f"Acquiring file from {url}")
                 payload = download_file(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
                 df = pl.read_csv(payload, infer_schema_length=0).lazy()
@@ -184,7 +150,9 @@ class EcccObservationValues(TimeseriesValues):
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         ).collect()
 
-    def _create_file_urls(self, station_id: str, start_year: int, end_year: int) -> Iterator[str]:
+    def _create_file_urls(
+        self, station_id: str, resolution: Resolution, start_year: int, end_year: int
+    ) -> Iterator[str]:
         """
 
         :param station_id:
@@ -192,8 +160,6 @@ class EcccObservationValues(TimeseriesValues):
         :param end_year:
         :return:
         """
-        resolution = self.sr.stations.resolution
-
         freq = "1y"
         if resolution == Resolution.HOURLY:
             freq = "1mo"
@@ -206,7 +172,7 @@ class EcccObservationValues(TimeseriesValues):
             interval=freq,
             eager=True,
         ):
-            url = self._base_url.format(int(station_id), self._timeframe)
+            url = self._base_url.format(int(station_id), self._timeframe_mapping[resolution])
             url += f"&Year={date.year}"
             if resolution == Resolution.HOURLY:
                 url += f"&Month={date.month}"
@@ -224,83 +190,40 @@ class EcccObservationRequest(TimeseriesRequest):
 
     """
 
+    metadata = EcccObservationMetadata
     _provider = Provider.ECCC
     _kind = Kind.OBSERVATION
     _tz = Timezone.UTC
-    _dataset_base = EcccObservationDataset
-    _parameter_base = EcccObservationParameter  # replace with parameter enumeration
-    _unit_base = EcccObservationUnit
-    _resolution_type = ResolutionType.MULTI
-    _resolution_base = EcccObservationResolution
-    _period_type = PeriodType.FIXED
-    _period_base = EcccObservationPeriod
-    _has_datasets = True
-    _unique_dataset = True
     _data_range = DataRange.FIXED
     _values = EcccObservationValues
 
-    @property
-    def _columns_mapping(self) -> dict:
-        cm = self._base_columns_mapping
-
-        cm.update(self._dates_columns_mapping)
-
-        return cm
-
-    @property
-    def _dates_columns_mapping(self) -> dict:
-        dcm = {}
-
-        start_date, end_date = None, None
-        if self.resolution == Resolution.HOURLY:
-            start_date, end_date = "hly first year", "hly last year"
-        elif self.resolution == Resolution.DAILY:
-            start_date, end_date = "dly first year", "dly last year"
-        elif self.resolution == Resolution.MONTHLY:
-            start_date, end_date = "mly first year", "mly last year"
-        elif self.resolution == Resolution.ANNUAL:
-            start_date, end_date = "first year", "last year"
-
-        dcm.update(
-            {
-                start_date: Columns.START_DATE.value,
-                end_date: Columns.END_DATE.value,
-            },
-        )
-
-        return dcm
-
-    _base_columns_mapping: dict = {
+    _columns_mapping: dict = {
         "station id": Columns.STATION_ID.value,
         "name": Columns.NAME.value,
         "province": Columns.STATE.value,
-        # "CLIMATE_ID",
-        # "WMO_ID",
-        # "TC_ID",
         "latitude (decimal degrees)": Columns.LATITUDE.value,
         "longitude (decimal degrees)": Columns.LONGITUDE.value,
         "elevation (m)": Columns.HEIGHT.value,
+        "first year": Columns.START_DATE.value,
+        "last year": Columns.END_DATE.value,
     }
 
     def __init__(
         self,
-        parameter: str | EcccObservationParameter | Parameter | Sequence[str | EcccObservationParameter | Parameter],
-        resolution: str | EcccObservationResolution | Resolution,
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameters: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         """
 
-        :param parameter: parameter or list of parameters that are being queried
+        :param parameters: parameter or list of parameters that are being queried
         :param resolution: resolution of data
         :param start_date: start date for values filtering
         :param end_date: end date for values filtering
         """
         super().__init__(
-            parameter=parameter,
-            resolution=resolution,
-            period=Period.HISTORICAL,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

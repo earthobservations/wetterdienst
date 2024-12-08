@@ -20,11 +20,9 @@ from wetterdienst.core.timeseries.result import (
     SummarizedValuesResult,
     ValuesResult,
 )
+from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationPeriod,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
@@ -602,9 +600,8 @@ def test_filter_by_sql(df_values):
 def test_request(default_settings):
     """Test general data request"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=default_settings,
     ).filter_by_station_id(station_id=[1048])
     df = request.values.all().df
@@ -615,9 +612,8 @@ def test_request(default_settings):
 def test_export_unknown(default_settings):
     """Test export of DataFrame to unknown format"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=default_settings,
     ).filter_by_station_id(
         station_id=[1048],
@@ -635,8 +631,7 @@ def test_export_excel(tmp_path, settings_si_false_wide_shape):
 
     # 1. Request data and save to .xlsx file.
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary")],
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
@@ -761,8 +756,7 @@ def test_export_parquet(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     pq = pytest.importorskip("pyarrow.parquet")
     # Request data.
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary")],
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
@@ -794,8 +788,7 @@ def test_export_zarr(tmp_path, settings_si_false_wide_shape, dwd_climate_summary
     zarr = pytest.importorskip("zarr")
     # Request data.
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary")],
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
@@ -831,8 +824,7 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
     feather = pytest.importorskip("pyarrow.feather")
     # Request data
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary")],
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
@@ -862,8 +854,7 @@ def test_export_feather(tmp_path, settings_si_false_wide_shape, dwd_climate_summ
 def test_export_sqlite(tmp_path, settings_si_false_wide_shape):
     """Test export of DataFrame to sqlite db"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
+        parameters=[("daily", "climate_summary")],
         start_date="2019-01-01",
         end_date="2020-01-01",
         settings=settings_si_false_wide_shape,
@@ -957,9 +948,8 @@ def test_export_cratedb(
 ):
     """Test export of DataFrame to cratedb"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(
         station_id=[1048],
@@ -985,9 +975,8 @@ def test_export_duckdb(settings_si_false, tmp_path):
     import duckdb
 
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.HISTORICAL,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.HISTORICAL,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     filename = tmp_path.joinpath("test.duckdb")
@@ -1025,9 +1014,8 @@ def test_export_duckdb(settings_si_false, tmp_path):
 def test_export_influxdb1_tabular(settings_si_false_wide_shape):
     """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1093,9 +1081,8 @@ def test_export_influxdb1_tabular(settings_si_false_wide_shape):
 def test_export_influxdb1_tidy(settings_si_false):
     """Test export of DataFrame to influxdb v1"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1138,9 +1125,8 @@ def test_export_influxdb1_tidy(settings_si_false):
 def test_export_influxdb2_tabular(settings_si_false):
     """Test export of DataFrame to influxdb v2"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1165,9 +1151,8 @@ def test_export_influxdb2_tabular(settings_si_false):
 def test_export_influxdb2_tidy(settings_si_false):
     """Test export of DataFrame to influxdb v2"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1194,9 +1179,8 @@ def test_export_influxdb2_tidy(settings_si_false):
 def test_export_influxdb3_tabular(settings_si_false):
     """Test export of DataFrame to influxdb v3"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1238,9 +1222,8 @@ def test_export_influxdb3_tabular(settings_si_false):
 def test_export_influxdb3_tidy(settings_si_false):
     """Test export of DataFrame to influxdb v3"""
     request = DwdObservationRequest(
-        parameter=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=DwdObservationResolution.DAILY,
-        period=DwdObservationPeriod.RECENT,
+        parameters=[("daily", "climate_summary")],
+        periods=Period.RECENT,
         settings=settings_si_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()

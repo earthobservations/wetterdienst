@@ -4,63 +4,45 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from enum import Enum
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.provider.noaa.ghcn.parameter import (
+from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
-    NoaaGhcnParameter,
+    NoaaGhcnMetadata,
 )
-from wetterdienst.provider.noaa.ghcn.unit import NoaaGhcnUnit
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
+    from wetterdienst.core.timeseries.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
-
-
-class NoaaGhcnDataset(Enum):
-    HOURLY = "hourly"
-    DAILY = "daily"
-
-
-class NoaaGhcnResolution(Enum):
-    HOURLY = Resolution.HOURLY.value
-    DAILY = Resolution.DAILY.value
-
-
-class NoaaGhcnPeriod(Enum):
-    HISTORICAL = Period.HISTORICAL.value
 
 
 class NoaaGhcnValues(TimeseriesValues):
     _data_tz = Timezone.DYNAMIC
 
-    def _collect_station_parameter(self, station_id: str, parameter, dataset) -> pl.DataFrame:
-        if self.sr.resolution == Resolution.HOURLY:
-            return self._collect_station_parameter_for_hourly(station_id, parameter, dataset)
+    def _collect_station_parameter_or_dataset(
+        self, station_id: str, parameter_or_dataset: DatasetModel
+    ) -> pl.DataFrame:
+        if parameter_or_dataset.resolution.value == Resolution.HOURLY:
+            return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
         else:
-            return self._collect_station_parameter_for_daily(station_id, parameter, dataset)
+            return self._collect_station_parameter_for_daily(station_id=station_id)
 
-    def _collect_station_parameter_for_hourly(self, station_id: str, parameter, dataset) -> pl.DataFrame:
+    def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
         file = url.format(station_id=station_id)
         log.info(f"Downloading file {file}.")
@@ -310,10 +292,7 @@ class NoaaGhcnValues(TimeseriesValues):
             "remarks_source_code",
             "remarks_source_station_id",
         ]
-        if parameter == dataset:
-            parameter = [par.value for par in NoaaGhcnParameter.HOURLY.HOURLY]
-        else:
-            parameter = [parameter.value]
+        parameters = [parameter.name_original for parameter in dataset]
         df = df.select(
             "station_id",
             pl.concat_str(["year", "month", "day", "hour", "minute"], separator="-")
@@ -323,12 +302,12 @@ class NoaaGhcnValues(TimeseriesValues):
                 .astimezone(ZoneInfo("UTC")),
             )
             .alias("date"),
-            *parameter,
+            *parameters,
         )
         df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
         df = df.unpivot(
             index=["station_id", "date"],
-            on=parameter,
+            on=parameters,
             variable_name="parameter",
             value_name="value",
         )
@@ -341,8 +320,6 @@ class NoaaGhcnValues(TimeseriesValues):
     def _collect_station_parameter_for_daily(
         self,
         station_id: str,
-        parameter,  # noqa: ARG002
-        dataset,  # noqa: ARG002
     ) -> pl.DataFrame:
         """
         Collection method for NOAA GHCN data. Parameter and dataset can be ignored as data
@@ -385,14 +362,6 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.lit(value=None, dtype=pl.Float64).alias(Columns.QUALITY.value),
         )
         df = df.with_columns(pl.col(Columns.DATE.value).dt.replace_time_zone("UTC"))
-        df = df.filter(
-            ~pl.col(Columns.PARAMETER.value).is_in(
-                (
-                    NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX.value,
-                    NoaaGhcnParameter.DAILY.TIME_WIND_GUST_MAX_1MILE_OR_1MIN.value,
-                ),
-            ),
-        )
         df = self._apply_daily_factors(df)
         return df.select(
             pl.col(Columns.STATION_ID.value),
@@ -424,43 +393,33 @@ class NoaaGhcnRequest(TimeseriesRequest):
     _provider = Provider.NOAA
     _kind = Kind.OBSERVATION
     _tz = Timezone.USA
-    _dataset_base = NoaaGhcnDataset
-    _parameter_base = NoaaGhcnParameter
-    _unit_base = NoaaGhcnUnit
-    _resolution_type = ResolutionType.FIXED
-    _resolution_base = NoaaGhcnResolution
-    _period_type = PeriodType.FIXED
-    _period_base = NoaaGhcnPeriod
-    _has_datasets = True
-    _unique_dataset = True
     _data_range = DataRange.FIXED
     _values = NoaaGhcnValues
+    metadata = NoaaGhcnMetadata
 
     def __init__(
         self,
-        parameter: str | NoaaGhcnParameter | Parameter | Sequence[str | NoaaGhcnParameter | Parameter],
-        resolution: str | NoaaGhcnResolution | Resolution,
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameters: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
 
-        :param parameter: list of parameter strings or parameter enums being queried
+        :param parameters: list of parameter strings or parameter enums being queried
         :param start_date: start date for request or None if all data is requested
         :param end_date: end date for request or None if all data is requested
         """
         super().__init__(
-            parameter=parameter,
-            resolution=resolution,
-            period=Period.HISTORICAL,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,
         )
 
     def _all(self) -> pl.LazyFrame:
-        if self.resolution == Resolution.HOURLY:
+        resolution = self.parameters[0].dataset.resolution.value
+        if resolution == Resolution.HOURLY:
             return self._create_metaindex_for_ghcn_hourly()
         else:
             return self._create_metaindex_for_ghcn_daily()

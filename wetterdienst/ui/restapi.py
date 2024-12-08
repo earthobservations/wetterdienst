@@ -46,6 +46,16 @@ log = logging.getLogger(__name__)
 CommaSeparator = StringListParamType(",")
 
 
+REQUEST_EXAMPLES = {
+    "dwd_observation_daily_climate_stations": "api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true",  # noqa:E501
+    "dwd_observation_daily_climate_values": "api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011",  # noqa:E501
+    "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01",  # noqa:E501
+    "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01",  # noqa:E501
+    "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
+    "dwd_observation_daily_climate_stripes_values": "api/stripes/values?kind=temperature&station=1048",
+}
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     def _create_author_entry(author: Author):
@@ -143,12 +153,12 @@ def index():
                 </div>
                 <h2>Examples</h2>
                 <div class="list">
-                    <li><a href="api/stations?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&all=true" target="_blank" rel="noopener">DWD Obs Daily Climate Stations</a></li>
-                    <li><a href="api/values?provider=dwd&network=observation&parameter=kl&resolution=daily&period=recent&station=00011" target="_blank" rel="noopener">DWD Obs Daily Climate Values</a></li>
-                    <li><a href="api/interpolate?provider=dwd&network=observation&parameter=temperature_air_mean_2m&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Interpolation</a></li>
-                    <li><a href="api/summarize?provider=dwd&network=observation&parameter=temperature_air_mean_2m&resolution=daily&station=00071&date=1986-10-31/1986-11-01" target="_blank" rel="noopener">DWD Obs Daily Climate Summary</a></li>
-                    <li><a href="api/stripes/stations?kind=temperature" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Stations</a></li>
-                    <li><a href="api/stripes/values?kind=temperature&station=1048" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Values</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stations']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stations</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_values']}" target="_blank" rel="noopener">DWD Observation Daily Climate Values</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_interpolation']}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_summary']}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_stations']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_values']}" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Values</a></li>
                 </div>
                 <h2>Producer</h2>
                 <div class="List">
@@ -185,8 +195,8 @@ def coverage(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
     debug: Annotated[bool, Query()] = False,
-    dataset: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
+    resolutions: Annotated[Optional[str], Query()] = None,
+    datasets: Annotated[Optional[str], Query()] = None,
 ):
     set_logging_level(debug)
 
@@ -196,10 +206,15 @@ def coverage(
 
     api = get_api(provider=provider, network=network)
 
+    if resolutions:
+        resolutions = read_list(resolutions)
+
+    if datasets:
+        datasets = read_list(datasets)
+
     cov = api.discover(
-        dataset=dataset,
-        resolution=resolution,
-        flatten=False,
+        resolutions=resolutions,
+        datasets=datasets,
     )
 
     return Response(content=json.dumps(cov, indent=4), media_type="application/json")
@@ -213,9 +228,8 @@ def coverage(
 def stations(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
-    parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
-    period: Annotated[Optional[str], Query()] = None,
+    parameters: Annotated[Optional[str], Query()] = None,
+    periods: Annotated[Optional[str], Query()] = None,
     all_: Annotated[Optional[bool], Query(alias="all")] = None,
     station: Annotated[Optional[str], Query()] = None,
     name: Annotated[Optional[str], Query()] = None,
@@ -233,10 +247,10 @@ def stations(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameters is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' and 'period' are required",
+            detail="Query argument 'parameters' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -254,18 +268,17 @@ def stations(
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
         ) from e
 
-    parameter = read_list(parameter)
-    if period:
-        period = read_list(period)
+    parameters = read_list(parameters)
+    if periods:
+        periods = read_list(periods)
     if station:
         station = read_list(station)
 
     try:
         stations_ = get_stations(
             api=api,
-            parameter=parameter,
-            resolution=resolution,
-            period=period,
+            parameters=parameters,
+            periods=periods,
             lead_time="short",
             date=None,
             issue=None,
@@ -288,11 +301,10 @@ def stations(
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if not stations_.parameter or not stations_.resolution:
+    if not stations_.parameters:
         raise HTTPException(
             status_code=400,
-            detail=f"No parameter found for provider {provider}, network {network}, "
-            f"parameter(s) {parameter} and resolution {resolution}.",
+            detail=f"No parameter found for provider {provider}, network {network}, parameter(s) {parameters}.",
         )
 
     content = stations_.to_format(fmt=fmt, with_metadata=True, indent=pretty)
@@ -313,9 +325,8 @@ def stations(
 def values(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
-    parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
-    period: Annotated[Optional[str], Query()] = None,
+    parameters: Annotated[Optional[str], Query()] = None,
+    periods: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
     date: Annotated[Optional[str], Query()] = None,
     issue: Annotated[Optional[str], Query()] = None,
@@ -344,10 +355,10 @@ def values(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameters is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' and 'date' are required",
+            detail="Query argument 'parameters' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -366,20 +377,19 @@ def values(
             f"Choose provider and network from {Wetterdienst.discover()}",
         ) from e
 
-    parameter = read_list(parameter)
-    if period:
-        period = read_list(period)
+    parameters = read_list(parameters)
+    if periods:
+        periods = read_list(periods)
     if station:
         station = read_list(station)
 
     try:
         values_ = get_values(
             api=api,
-            parameter=parameter,
-            resolution=resolution,
+            parameters=parameters,
             date=date,
             issue=issue,
-            period=period,
+            periods=periods,
             lead_time=lead_time,
             all_=all_,
             station_id=station,
@@ -423,9 +433,8 @@ def values(
 def interpolate(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
-    parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
-    period: Annotated[Optional[str], Query()] = None,
+    parameters: Annotated[Optional[str], Query()] = None,
+    periods: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
     date: Annotated[Optional[str], Query()] = None,
     issue: Annotated[Optional[str], Query()] = None,
@@ -445,10 +454,10 @@ def interpolate(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameters is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' and 'date' are required",
+            detail="Query argument 'parameters' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -467,18 +476,17 @@ def interpolate(
             f"Choose provider and network from {Wetterdienst.discover()}",
         ) from e
 
-    parameter = read_list(parameter)
-    if period:
-        period = read_list(period)
+    parameters = read_list(parameters)
+    if periods:
+        periods = read_list(periods)
     if station:
         station = read_list(station)
 
     try:
         values_ = get_interpolate(
             api=api,
-            parameter=parameter,
-            resolution=resolution,
-            period=period,
+            parameters=parameters,
+            periods=periods,
             lead_time=lead_time,
             date=date,
             issue=issue,
@@ -511,9 +519,8 @@ def interpolate(
 def summarize(
     provider: Annotated[Optional[str], Query()] = None,
     network: Annotated[Optional[str], Query()] = None,
-    parameter: Annotated[Optional[str], Query()] = None,
-    resolution: Annotated[Optional[str], Query()] = None,
-    period: Annotated[Optional[str], Query()] = None,
+    parameters: Annotated[Optional[str], Query()] = None,
+    periods: Annotated[Optional[str], Query()] = None,
     lead_time: Annotated[Literal["short", "long"] | None, Query()] = None,
     date: Annotated[Optional[str], Query()] = None,
     issue: Annotated[Optional[str], Query()] = "latest",
@@ -532,10 +539,10 @@ def summarize(
             status_code=400,
             detail="Query arguments 'provider' and 'network' are required",
         )
-    if parameter is None or resolution is None:
+    if parameters is None:
         raise HTTPException(
             status_code=400,
-            detail="Query arguments 'parameter', 'resolution' " "and 'date' are required",
+            detail="Query argument 'parameters' is required",
         )
     if fmt not in ("json", "geojson", "csv"):
         raise HTTPException(
@@ -554,18 +561,17 @@ def summarize(
             f"Choose provider and network from {Wetterdienst.discover()}",
         ) from e
 
-    parameter = read_list(parameter)
-    if period:
-        period = read_list(period)
+    parameters = read_list(parameters)
+    if periods:
+        periods = read_list(periods)
     if station:
         station = read_list(station)
 
     try:
         values_ = get_summarize(
             api=api,
-            parameter=parameter,
-            resolution=resolution,
-            period=period,
+            parameters=parameters,
+            periods=periods,
             lead_time=lead_time,
             date=date,
             issue=issue,

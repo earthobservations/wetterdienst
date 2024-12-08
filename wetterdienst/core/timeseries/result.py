@@ -17,12 +17,9 @@ from wetterdienst.metadata.columns import Columns
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from enum import Enum
 
     from wetterdienst.core.timeseries.request import TimeseriesRequest
     from wetterdienst.core.timeseries.values import TimeseriesValues
-    from wetterdienst.metadata.period import Period
-    from wetterdienst.metadata.resolution import Frequency, Resolution
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -140,28 +137,12 @@ class StationsResult(ExportMixin):
         return self.df.get_column(Columns.STATION_ID.value)
 
     @property
-    def parameter(self):
-        return self.stations.parameter
-
-    @property
-    def _resolution_type(self):
-        return self.stations._resolution_type
+    def parameters(self):
+        return self.stations.parameters
 
     @property
     def values(self) -> TimeseriesValues:
         return self.stations._values.from_stations(self)
-
-    @property
-    def resolution(self) -> Resolution:
-        return self.stations.resolution
-
-    @property
-    def frequency(self) -> Frequency:
-        return self.stations.frequency
-
-    @property
-    def period(self) -> Period:
-        return self.stations.period
 
     @property
     def start_date(self) -> datetime:
@@ -198,22 +179,6 @@ class StationsResult(ExportMixin):
     @property
     def _dataset_accessor(self) -> str:
         return self.stations._dataset_accessor
-
-    @property
-    def _unique_dataset(self) -> bool:
-        return self.stations._unique_dataset
-
-    @property
-    def _has_datasets(self) -> bool:
-        return self.stations._has_datasets
-
-    @property
-    def _unit_base(self) -> bool:
-        return self.stations._unit_base
-
-    @property
-    def _parameter_base(self) -> Enum:
-        return self.stations._parameter_base
 
     def get_metadata(self) -> _Metadata:
         """

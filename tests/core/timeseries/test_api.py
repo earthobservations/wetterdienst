@@ -4,9 +4,8 @@ import pytest
 
 from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
+    DwdObservationMetadata,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
@@ -20,8 +19,7 @@ def test_api_skip_empty_stations(settings_skip_empty_true, ts_skip_criteria, exp
     settings_skip_empty_true.ts_skip_criteria = ts_skip_criteria
     settings_skip_empty_true.ts_skip_threshold = 0.6
     request = DwdObservationRequest(
-        parameter=["kl", "solar"],
-        resolution="daily",
+        parameters=[("daily", "kl"), ("daily", "solar")],
         start_date="2021-01-01",
         end_date="2021-12-31",
         settings=settings_skip_empty_true,
@@ -42,8 +40,7 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(s
     def _get_values(settings):
         return (
             DwdObservationRequest(
-                parameter=["sunshine_duration"],
-                resolution="daily",
+                parameters=[("daily", "climate_summary", "sunshine_duration")],
                 start_date="1990-01-01",
                 end_date="2021-12-31",
                 settings=settings,
@@ -74,11 +71,10 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(s
 @pytest.mark.remote
 def test_api_dropna(settings_dropna_true):
     request = DwdObservationRequest(
-        parameter=[
-            "temperature_air",
-            "precipitation",
+        parameters=[
+            ("minute_10", "temperature_air"),
+            ("minute_10", "precipitation"),
         ],
-        resolution="minute_10",
         start_date="2021-01-01",
         end_date="2021-12-31",
         settings=settings_dropna_true,
@@ -90,30 +86,23 @@ def test_api_dropna(settings_dropna_true):
 def test_api_no_valid_parameters(default_settings):
     with pytest.raises(NoParametersFoundError):
         DwdObservationRequest(
-            parameter=[
-                DwdObservationDataset.TEMPERATURE_AIR,
+            parameters=[
+                ("daily", "abc"),
             ],
-            resolution=DwdObservationResolution.DAILY,
             settings=default_settings,
         )
 
 
 def test_api_partly_valid_parameters(default_settings, caplog):
     request = DwdObservationRequest(
-        parameter=[
-            DwdObservationDataset.TEMPERATURE_AIR,
-            DwdObservationDataset.WIND,
-            DwdObservationDataset.PRECIPITATION,
-            DwdObservationDataset.SOLAR,
+        parameters=[
+            ("daily", "temperature_air"),
+            ("daily", "wind"),
+            ("daily", "precipitation"),
+            ("daily", "solar"),
         ],
-        resolution=DwdObservationResolution.DAILY,
         settings=default_settings,
     )
-    assert "dataset WIND is not a valid dataset for resolution DAILY" in caplog.text
-    assert "dataset PRECIPITATION is not a valid dataset for resolution DAILY" in caplog.text
-    assert request.parameter == [
-        (
-            DwdObservationDataset.SOLAR,
-            DwdObservationDataset.SOLAR,
-        ),
-    ]
+    assert "daily/wind not found in DwdObservationMetadata" in caplog.text
+    assert "daily/precipitation not found in DwdObservationMetadata" in caplog.text
+    assert request.parameters == [*DwdObservationMetadata.daily.solar]

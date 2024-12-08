@@ -5,14 +5,11 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Period, Resolution
+from wetterdienst import Period
 from wetterdienst.exceptions import StartDateEndDateError
 from wetterdienst.provider.dwd.observation import (
-    DwdObservationDataset,
-    DwdObservationParameter,
-    DwdObservationPeriod,
+    DwdObservationMetadata,
     DwdObservationRequest,
-    DwdObservationResolution,
 )
 
 
@@ -67,126 +64,50 @@ def expected_stations_df():
 @pytest.fixture
 def default_request(default_settings):
     return DwdObservationRequest(
-        parameter="temperature_air",
-        resolution="hourly",
-        period="historical",
+        parameters=[("hourly", "temperature_air")],
+        periods="historical",
         start_date=dt.datetime(2020, 1, 1),
         end_date=dt.datetime(2020, 1, 20),
         settings=default_settings,
     )
 
 
-def test_dwd_observation_data_api(default_settings):
+def test_dwd_observation_data_api_singe_parameter(default_settings):
     request = DwdObservationRequest(
-        parameter=["precipitation_height"],
-        resolution="daily",
-        period=["recent", "historical"],
+        parameters=[("daily", "kl", "precipitation_height")],
+        periods=["recent", "historical"],
         settings=default_settings,
     )
 
     assert request == DwdObservationRequest(
-        parameter=[DwdObservationParameter.DAILY.PRECIPITATION_HEIGHT],
-        resolution=Resolution.DAILY,
-        period=[Period.HISTORICAL, Period.RECENT],
+        parameters=[DwdObservationMetadata.daily.kl.precipitation_height],
+        periods=[Period.HISTORICAL, Period.RECENT],
         start_date=None,
         end_date=None,
     )
 
-    assert request.parameter == [
-        (
-            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
-            DwdObservationDataset.CLIMATE_SUMMARY,
-        ),
-    ]
 
-
-@pytest.mark.remote
-def test_dwd_observation_data_dataset(default_settings):
-    """Request a parameter set"""
-    given = DwdObservationRequest(
-        parameter=["kl"],
-        resolution="daily",
-        period=["recent", "historical"],
-        settings=default_settings,
-    ).filter_by_station_id(station_id=(1,))
-    expected = DwdObservationRequest(
-        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
-        resolution=DwdObservationResolution.DAILY,
-        period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
-        start_date=None,
-        end_date=None,
-    ).filter_by_station_id(
-        station_id=(1,),
-    )
-    assert given == expected
-    given = DwdObservationRequest(
-        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
-        resolution=DwdObservationResolution.DAILY,
-        period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
-    ).filter_by_station_id(
-        station_id=(1,),
-    )
-    expected = DwdObservationRequest(
-        parameter=[DwdObservationDataset.CLIMATE_SUMMARY],
-        resolution=DwdObservationResolution.DAILY,
-        period=[DwdObservationPeriod.HISTORICAL, DwdObservationPeriod.RECENT],
-        start_date=None,
-        end_date=None,
-    ).filter_by_station_id(
-        station_id=(1,),
-    )
-    assert given == expected
-    assert expected.parameter == [
-        (
-            DwdObservationDataset.CLIMATE_SUMMARY,
-            DwdObservationDataset.CLIMATE_SUMMARY,
-        ),
-    ]
-
-
-def test_dwd_observation_data_parameter(default_settings):
-    """Test parameter given as single value without dataset"""
-    given = DwdObservationRequest(
-        parameter=["precipitation_height"],
-        resolution="daily",
-        period=["recent", "historical"],
-        settings=default_settings,
-    )
-    assert given.parameter == [
-        (
-            DwdObservationParameter.DAILY.CLIMATE_SUMMARY.PRECIPITATION_HEIGHT,
-            DwdObservationDataset.CLIMATE_SUMMARY,
-        ),
-    ]
-    given = DwdObservationRequest(
-        parameter=["climate_summary"],
-        resolution="daily",
-        period=["recent", "historical"],
-        settings=default_settings,
-    )
-    assert given.parameter == [(DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)]
-
-
-def test_dwd_observation_data_parameter_dataset_pairs(default_settings):
+def test_dwd_observation_data_whole_dataset(default_settings):
     """Test parameters given as parameter - dataset pair"""
     given = DwdObservationRequest(
-        parameter=[("climate_summary", "climate_summary")],
-        resolution="daily",
-        period=["recent", "historical"],
+        parameters=[("daily", "climate_summary")],
         settings=default_settings,
     )
-    assert given.parameter == [(DwdObservationDataset.CLIMATE_SUMMARY, DwdObservationDataset.CLIMATE_SUMMARY)]
-    given = DwdObservationRequest(
-        parameter=[("precipitation_height", "precipitation_more")],
-        resolution="daily",
-        period=["recent", "historical"],
-        settings=default_settings,
-    )
-    assert given.parameter == [
-        (
-            DwdObservationParameter.DAILY.PRECIPITATION_MORE.PRECIPITATION_HEIGHT,
-            DwdObservationDataset.PRECIPITATION_MORE,
-        ),
+    assert given.parameters == [
+        DwdObservationMetadata.daily.climate_summary.wind_gust_max,
+        DwdObservationMetadata.daily.climate_summary.wind_speed,
+        DwdObservationMetadata.daily.climate_summary.precipitation_height,
+        DwdObservationMetadata.daily.climate_summary.precipitation_form,
+        DwdObservationMetadata.daily.climate_summary.sunshine_duration,
+        DwdObservationMetadata.daily.climate_summary.snow_depth,
+        DwdObservationMetadata.daily.climate_summary.cloud_cover_total,
+        DwdObservationMetadata.daily.climate_summary.pressure_vapor,
+        DwdObservationMetadata.daily.climate_summary.pressure_air_site,
+        DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m,
+        DwdObservationMetadata.daily.climate_summary.humidity,
+        DwdObservationMetadata.daily.climate_summary.temperature_air_max_2m,
+        DwdObservationMetadata.daily.climate_summary.temperature_air_min_2m,
+        DwdObservationMetadata.daily.climate_summary.temperature_air_min_0_05m,
     ]
 
 
@@ -195,8 +116,7 @@ def test_dwd_observation_wrong_start_date_end_date(default_settings):
     # station id
     with pytest.raises(StartDateEndDateError):
         DwdObservationRequest(
-            parameter=["abc"],
-            resolution=DwdObservationResolution.DAILY,
+            parameters=[("daily", "kl", "precipitation_height")],
             start_date="1971-01-01",
             end_date="1951-01-01",
             settings=default_settings,
@@ -206,79 +126,33 @@ def test_dwd_observation_wrong_start_date_end_date(default_settings):
 def test_dwd_observation_data_dates(default_settings):
     # time input
     request = DwdObservationRequest(
-        parameter=["climate_summary"],
-        resolution="daily",
+        parameters=[("daily", "climate_summary")],
         start_date="1971-01-01",
         settings=default_settings,
-    ).filter_by_station_id(
-        station_id=[1],
     )
-    assert request == DwdObservationRequest(
-        parameter=["climate_summary"],
-        resolution="daily",
-        period=[
-            DwdObservationPeriod.HISTORICAL,
-        ],
-        start_date=dt.datetime(1971, 1, 1),
-        end_date=dt.datetime(1971, 1, 1),
-        settings=default_settings,
-    ).filter_by_station_id(
-        station_id=[1],
-    )
-    request = DwdObservationRequest(
-        parameter=["climate_summary"],
-        resolution="daily",
-        period=["historical"],
-        end_date="1971-01-01",
-        settings=default_settings,
-    ).filter_by_station_id(
-        station_id=[1],
-    )
-
-    assert request == DwdObservationRequest(
-        parameter=["climate_summary"],
-        resolution="daily",
-        period=[
-            "historical",
-        ],
-        start_date=dt.datetime(1971, 1, 1),
-        end_date=dt.datetime(1971, 1, 1),
-        settings=default_settings,
-    ).filter_by_station_id(
-        station_id=[1],
-    )
-
-    with pytest.raises(StartDateEndDateError):
-        DwdObservationRequest(
-            parameter=["climate_summary"],
-            resolution="daily",
-            start_date="1971-01-01",
-            end_date="1951-01-01",
-            settings=default_settings,
-        )
+    assert request.start_date == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
+    assert request.end_date == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
+    assert request.periods == [Period.HISTORICAL]
 
 
 @pytest.mark.remote
 def test_dwd_observations_stations_filter_empty(default_request):
     # Existing combination of parameters
     request = default_request.filter_by_station_id(station_id=("FizzBuzz",))
-    given_df = request.df
-    assert given_df.is_empty()
+    assert request.df.is_empty()
 
 
 @pytest.mark.remote
 def test_dwd_observations_stations_filter_name_empty(default_request):
     # Existing combination of parameters
     request = default_request.filter_by_name(name="FizzBuzz")
-    given_df = request.df
-    assert given_df.is_empty()
+    assert request.df.is_empty()
 
 
 def test_dwd_observations_multiple_datasets_tidy(default_settings):
     request = DwdObservationRequest(
-        parameter=["climate_summary", "precipitation_more"],
-        resolution="daily",
-        period="historical",
+        parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
+        periods="historical",
         settings=default_settings,
     )
     assert request.tidy

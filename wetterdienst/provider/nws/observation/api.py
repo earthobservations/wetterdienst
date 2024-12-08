@@ -5,122 +5,151 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
-from enum import Enum
-from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst.core.timeseries.metadata import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
 from wetterdienst.metadata.kind import Kind
-from wetterdienst.metadata.period import Period, PeriodType
 from wetterdienst.metadata.provider import Provider
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import download_file
-from wetterdienst.util.parameter import DatasetTreeCore
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from wetterdienst.metadata.parameter import Parameter
-    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
-
-class NwsObservationParameter(DatasetTreeCore):
-    class HOURLY(DatasetTreeCore):
-        class HOURLY(Enum):
-            TEMPERATURE_AIR_MEAN_2M = "temperature"
-            TEMPERATURE_DEW_POINT_MEAN_2M = "dewpoint"
-            WIND_DIRECTION = "winddirection"
-            WIND_SPEED = "windspeed"
-            WIND_GUST_MAX = "windgust"
-            PRESSURE_AIR_SITE = "barometricpressure"
-            PRESSURE_AIR_SEA_LEVEL = "sealevelpressure"
-            VISIBILITY_RANGE = "visibility"
-            TEMPERATURE_AIR_MAX_2M_LAST_24H = "maxtemperaturelast24hours"
-            TEMPERATURE_AIR_MIN_2M_LAST_24H = "mintemperaturelast24hours"
-            PRECIPITATION_HEIGHT = "precipitationlasthour"
-            PRECIPITATION_HEIGHT_LAST_3H = "precipitationlast3hours"
-            PRECIPITATION_HEIGHT_LAST_6H = "precipitationlast6hours"
-            HUMIDITY = "relativehumidity"
-            TEMPERATURE_WIND_CHILL = "windchill"
-            # HEAT_INDEX = "heatIndex" noqa: E800
-            # cloudLayers group
-            # CLOUD_BASE = "cloudLayers" noqa: E800
-
-        TEMPERATURE_AIR_MEAN_2M = HOURLY.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_DEW_POINT_MEAN_2M = HOURLY.TEMPERATURE_DEW_POINT_MEAN_2M
-        WIND_DIRECTION = HOURLY.WIND_DIRECTION
-        WIND_SPEED = HOURLY.WIND_SPEED
-        WIND_GUST_MAX = HOURLY.WIND_GUST_MAX
-        PRESSURE_AIR_SITE = HOURLY.PRESSURE_AIR_SITE
-        PRESSURE_AIR_SEA_LEVEL = HOURLY.PRESSURE_AIR_SEA_LEVEL
-        VISIBILITY_RANGE = HOURLY.VISIBILITY_RANGE
-        TEMPERATURE_AIR_MAX_2M_LAST_24H = HOURLY.TEMPERATURE_AIR_MAX_2M_LAST_24H
-        TEMPERATURE_AIR_MIN_2M_LAST_24H = HOURLY.TEMPERATURE_AIR_MIN_2M_LAST_24H
-        PRECIPITATION_HEIGHT = HOURLY.PRECIPITATION_HEIGHT
-        PRECIPITATION_HEIGHT_LAST_3H = HOURLY.PRECIPITATION_HEIGHT_LAST_3H
-        PRECIPITATION_HEIGHT_LAST_6H = HOURLY.PRECIPITATION_HEIGHT_LAST_6H
-        HUMIDITY = HOURLY.HUMIDITY
-        TEMPERATURE_WIND_CHILL = HOURLY.TEMPERATURE_WIND_CHILL
-
-
-class NwsObservationUnit(DatasetTreeCore):
-    class HOURLY(DatasetTreeCore):
-        class HOURLY(UnitEnum):
-            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_DEW_POINT_MEAN_2M = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
-            WIND_SPEED = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
-            WIND_GUST_MAX = OriginUnit.KILOMETER_PER_HOUR.value, SIUnit.METER_PER_SECOND.value
-            PRESSURE_AIR_SITE = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
-            PRESSURE_AIR_SEA_LEVEL = OriginUnit.PASCAL.value, SIUnit.PASCAL.value
-            VISIBILITY_RANGE = OriginUnit.METER.value, SIUnit.METER.value
-            TEMPERATURE_AIR_MAX_2M_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_AIR_MIN_2M_LAST_24H = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-            PRECIPITATION_HEIGHT_LAST_3H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-            PRECIPITATION_HEIGHT_LAST_6H = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            TEMPERATURE_WIND_CHILL = OriginUnit.DEGREE_CELSIUS.value, SIUnit.DEGREE_KELVIN.value
-
-
-class NwsObservationResolution(Enum):
-    HOURLY = Resolution.HOURLY.value
-
-
-class NwsObservationPeriod(Enum):
-    RECENT = Period.RECENT.value
+NwsObservationMetadata = {
+    "resolutions": [
+        {
+            "name": "hourly",
+            "name_original": "hourly",
+            "periods": ["recent"],
+            "date_required": True,
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": True,
+                    "parameters": [
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "temperature",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_dew_point_mean_2m",
+                            "name_original": "dewpoint",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "wind_direction",
+                            "name_original": "winddirection",
+                            "unit": "degree",
+                            "unit_original": "degree",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "windspeed",
+                            "unit": "meter_per_second",
+                            "unit_original": "kilometer_per_hour",
+                        },
+                        {
+                            "name": "wind_gust_max",
+                            "name_original": "windgust",
+                            "unit": "meter_per_second",
+                            "unit_original": "kilometer_per_hour",
+                        },
+                        {
+                            "name": "pressure_air_site",
+                            "name_original": "barometricpressure",
+                            "unit": "pascal",
+                            "unit_original": "pascal",
+                        },
+                        {
+                            "name": "pressure_air_sea_level",
+                            "name_original": "sealevelpressure",
+                            "unit": "pascal",
+                            "unit_original": "pascal",
+                        },
+                        {
+                            "name": "visibility_range",
+                            "name_original": "visibility",
+                            "unit": "meter",
+                            "unit_original": "meter",
+                        },
+                        {
+                            "name": "temperature_air_max_2m_last_24h",
+                            "name_original": "maxtemperaturelast24hours",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "temperature_air_min_2m_last_24h",
+                            "name_original": "mintemperaturelast24hours",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "precipitationlasthour",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_last_3h",
+                            "name_original": "precipitationlast3hours",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_height_last_6h",
+                            "name_original": "precipitationlast6hours",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "humidity",
+                            "name_original": "relativehumidity",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "temperature_wind_chill",
+                            "name_original": "windchill",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_celsius",
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
+}
+NwsObservationMetadata = build_metadata_model(NwsObservationMetadata, "NwsObservationMetadata")
 
 
 class NwsObservationValues(TimeseriesValues):
     _data_tz = Timezone.UTC
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
 
-    def _collect_station_parameter(
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter: Enum,  # noqa: ARG002
-        dataset: Enum,  # noqa: ARG002
+        parameter_or_dataset: DatasetModel,  # noqa: ARG002
     ) -> pl.DataFrame:
         url = self._endpoint.format(station_id=station_id)
         log.info(f"acquiring data from {url}")
         response = download_file(url, settings=self.sr.stations.settings, ttl=CacheExpiry.FIVE_MINUTES)
-
         data = json.load(response)
-
         try:
             data = [feature["properties"] for feature in data["features"]]
         except KeyError:
             return pl.DataFrame()
-
         df = pl.from_dicts(
             data,
             schema={
@@ -195,10 +224,8 @@ class NwsObservationValues(TimeseriesValues):
                 ),
             },
         )
-
         df = df.rename(mapping=lambda col: col.lower())
         df = df.rename(mapping={"station": Columns.STATION_ID.value, "timestamp": Columns.DATE.value})
-
         df = df.unpivot(
             index=[Columns.STATION_ID.value, Columns.DATE.value],
             variable_name=Columns.PARAMETER.value,
@@ -218,29 +245,21 @@ class NwsObservationRequest(TimeseriesRequest):
     _provider = Provider.NWS
     _kind = Kind.OBSERVATION
     _tz = Timezone.USA
-    _parameter_base = NwsObservationParameter
-    _unit_base = NwsObservationUnit
-    _resolution_base = NwsObservationResolution
-    _resolution_type = ResolutionType.FIXED
-    _period_type = PeriodType.FIXED
-    _period_base = NwsObservationPeriod
-    _has_datasets = False
     _data_range = DataRange.FIXED
     _values = NwsObservationValues
+    metadata = NwsObservationMetadata
 
     _endpoint = "https://madis-data.ncep.noaa.gov/madisPublic1/data/stations/METARTable.txt"
 
     def __init__(
         self,
-        parameter: str | NwsObservationParameter | Parameter | Sequence[str | NwsObservationParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameters: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
-            parameter=parameter,
-            resolution=Resolution.HOURLY,
-            period=Period.RECENT,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

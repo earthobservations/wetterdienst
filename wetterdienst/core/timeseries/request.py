@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from abc import abstractmethod
-from enum import Enum
+from collections.abc import Sequence
 from hashlib import sha256
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -18,6 +18,13 @@ from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 
 from wetterdienst.core.core import Core
+from wetterdienst.core.timeseries.metadata import (
+    DatasetModel,
+    MetadataModel,
+    ParameterModel,
+    ResolutionModel,
+    parse_parameters,
+)
 from wetterdienst.core.timeseries.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -25,22 +32,17 @@ from wetterdienst.core.timeseries.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.exceptions import (
-    InvalidEnumerationError,
     NoParametersFoundError,
     StartDateEndDateError,
     StationNotFoundError,
 )
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.parameter import Parameter
-from wetterdienst.metadata.period import Period, PeriodType
-from wetterdienst.metadata.resolution import Frequency, Resolution, ResolutionType
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
-from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from wetterdienst.metadata.datarange import DataRange
     from wetterdienst.metadata.kind import Kind
     from wetterdienst.metadata.provider import Provider
@@ -56,7 +58,15 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 
-_PARAMETER_TYPE = str | Enum | Parameter | tuple[str | Enum | Parameter, str | Enum | Parameter]
+# types
+# either of
+# str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
+# tuple: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")  # noqa: ERA001
+# Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]  # noqa: E501, ERA001
+_PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel | DatasetModel
+_PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
+_DATETIME_TYPE = str | dt.datetime | None
+_SETTINGS_TYPE = dict | Settings | None
 
 
 class TimeseriesRequest(Core):
@@ -76,55 +86,8 @@ class TimeseriesRequest(Core):
 
     @property
     @abstractmethod
-    def _resolution_base(self) -> Resolution | None:
-        """Optional enumeration for multiple resolutions"""
-        pass
-
-    @property
-    @abstractmethod
-    def _resolution_type(self) -> ResolutionType:
-        """Resolution type, multi, fixed, ..."""
-        pass
-
-    @property
-    def frequency(self) -> Frequency:
-        """Frequency for the given resolution, used to create a full date range for
-        mering"""
-        if self.resolution == Resolution.DYNAMIC:
-            return self._dynamic_frequency
-        return Frequency[self.resolution.name]
-
-    @property
-    def dynamic_frequency(self) -> Frequency | None:
-        return self._dynamic_frequency
-
-    @dynamic_frequency.setter
-    def dynamic_frequency(self, df) -> None:
-        if df:
-            self._dynamic_frequency = parse_enumeration_from_template(df, Frequency)
-
-    @property
-    @abstractmethod
-    def _period_type(self) -> PeriodType:
-        """Period type, fixed, multi, ..."""
-        pass
-
-    @property
-    @abstractmethod
-    def _period_base(self) -> Period | None:
-        """Period base enumeration from which a period string can be parsed"""
-        pass
-
-    @property
-    @abstractmethod
-    def _parameter_base(self) -> Enum:
-        """parameter base enumeration from which parameters can be parsed e.g.
-        DWDObservationParameter"""
-        pass
-
-    @property
-    @abstractmethod
-    def _unit_base(self):
+    def metadata(self) -> MetadataModel:
+        """metadata model"""
         pass
 
     @property
@@ -133,48 +96,6 @@ class TimeseriesRequest(Core):
         """State whether data from this provider is given in fixed data chunks
         or has to be defined over start and end date"""
         pass
-
-    @property
-    @abstractmethod
-    def _has_datasets(self) -> bool:
-        """Boolean if weather service has datasets (when multiple parameters are stored
-        in one table/file)"""
-        pass
-
-    @property
-    def _dataset_base(self) -> Enum | None:
-        """Dataset base that is used to differ between different datasets"""
-        if self._has_datasets:
-            raise NotImplementedError("implement _dataset_base enumeration that contains available datasets")
-
-        return self._resolution_base
-
-    @property
-    def _unique_dataset(self) -> bool:
-        """If ALL parameters are stored in one dataset e.g. all daily data is stored in
-        one file"""
-        if self._has_datasets:
-            raise NotImplementedError("define if only one big dataset is available")
-        return False
-
-    @property
-    def _dataset_accessor(self) -> str:
-        """Accessor for dataset, by default the resolution is used as we expect
-        datasets to be divided in resolutions but for some e.g. DWD Mosmix
-        datasets are divided in another way (SMALL/LARGE in this case)"""
-        return self.resolution.name
-
-    @property
-    def _parameter_to_dataset_mapping(self) -> dict:
-        """Mapping to go from a (flat) parameter to dataset"""
-        if not self._unique_dataset:
-            raise NotImplementedError("for non unique datasets implement a mapping from parameter to dataset")
-        return {}
-
-    @property
-    def datasets(self):
-        datasets = self._dataset_tree[self._dataset_accessor].__dict__.keys()
-        return [ds for ds in datasets if ds not in ("__module__", "__doc__")]
 
     @property
     @abstractmethod
@@ -197,148 +118,12 @@ class TimeseriesRequest(Core):
     #   - heterogeneous parameters such as precipitation_height
     #   - homogeneous parameters such as temperature_air_2m
     interpolatable_parameters = [
-        Parameter.TEMPERATURE_AIR_MEAN_2M.name,
-        Parameter.TEMPERATURE_AIR_MAX_2M.name,
-        Parameter.TEMPERATURE_AIR_MIN_2M.name,
-        Parameter.WIND_SPEED.name,
-        Parameter.PRECIPITATION_HEIGHT.name,
+        Parameter.TEMPERATURE_AIR_MEAN_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MAX_2M.name.lower(),
+        Parameter.TEMPERATURE_AIR_MIN_2M.name.lower(),
+        Parameter.WIND_SPEED.name.lower(),
+        Parameter.PRECIPITATION_HEIGHT.name.lower(),
     ]
-
-    def _parse_period(self, period: Period) -> list[Period] | None:
-        """
-        Method to parse period(s)
-
-        :param period:
-        :return:
-        """
-        if not period:
-            return None
-        elif self._period_type == PeriodType.FIXED:
-            return [period]
-        else:
-            return sorted(
-                [
-                    parse_enumeration_from_template(p, intermediate=self._period_base, base=Period)
-                    for p in to_list(period)
-                ],
-            )
-
-    def _parse_parameter(self, parameter: list[str | Enum | None]) -> list[tuple[Enum, Enum]]:
-        """
-        Method to parse parameters, either from string or enum. Case independent for
-        strings.
-
-        :param parameter: parameters as strings or enumerations
-        :return: list of parameter enumerations of type self._parameter_base
-        """
-        # TODO: refactor this!
-        # for logging
-        enums = []
-        if self._dataset_base:
-            enums.append(self._dataset_base)
-
-        enums.append(self._parameter_base)
-
-        parameters = []
-
-        for par in to_list(parameter):
-            # Each parameter can either be
-            #  - a dataset : gets all data from the dataset
-            #  - a parameter : gets prefixed parameter from a resolution e.g.
-            #      precipitation height of daily values is taken from climate summary
-            #  - a tuple of parameter -> dataset : to decide from which dataset
-            #    the parameter is taken
-            try:
-                parameter, dataset = to_list(par)
-            except (ValueError, TypeError):
-                parameter, dataset = par, par
-
-            try:
-                parameter = parameter.name
-            except AttributeError:
-                pass
-
-            try:
-                dataset = dataset.name
-            except AttributeError:
-                pass
-
-            # Prefix return values
-            parameter_, dataset_ = self._parse_dataset_and_parameter(parameter, dataset)
-
-            if not (parameter_ and dataset_):
-                parameter_, dataset_ = self._parse_parameter_and_dataset(parameter)
-
-            if parameter_ and dataset_:
-                parameters.append((parameter_, dataset_))
-            else:
-                log.info(f"parameter {parameter} could not be parsed from ({enums})")
-
-        return parameters
-
-    def _parse_dataset_and_parameter(self, parameter, dataset) -> tuple[Enum | None, Enum | None]:
-        """
-        Parse parameters for cases like
-            - parameter=("climate_summary", ) or
-            - parameter=(("precipitation_height", "climate_summary"))
-        :param self:
-        :param parameter:
-        :param dataset:
-        :return:
-        """
-        parameter_, dataset_ = None, None
-
-        try:
-            dataset_ = parse_enumeration_from_template(dataset, self._dataset_base)
-        except InvalidEnumerationError:
-            pass
-
-        if dataset_:
-            try:
-                self._parameter_base[self._dataset_accessor][dataset_.name]
-            except (KeyError, AttributeError):
-                log.warning(f"dataset {dataset_.name} is not a valid dataset for resolution {self._dataset_accessor}")
-                return None, None
-
-        if dataset_:
-            if parameter == dataset:
-                # Case 1: entire dataset e.g. parameter="climate_summary"
-                parameter_, dataset_ = dataset_, dataset_
-            else:
-                # Case 2: dataset and parameter e.g. (precipitation_height, climate_summary)
-                try:
-                    parameter_ = parse_enumeration_from_template(
-                        parameter,
-                        self._parameter_base[self._dataset_accessor][dataset_.name],
-                    )
-                except (InvalidEnumerationError, TypeError):
-                    pass
-
-        return parameter_, dataset_
-
-    def _parse_parameter_and_dataset(self, parameter) -> tuple[Enum, Enum]:
-        """Try to parse dataset first e.g. when "climate_summary" or
-        "precipitation_height", "climate_summary" is requested
-
-        :param parameter:
-        :return:
-        """
-
-        parameter_, dataset_ = None, None
-
-        flat_parameters = {par for par in self._parameter_base[self._dataset_accessor] if hasattr(par, "name")}
-
-        for par in flat_parameters:
-            if par.name.lower() == parameter.lower() or par.value.lower() == parameter.lower():
-                parameter_ = par
-                break
-
-        if parameter_:
-            dataset_name = parameter_.__class__.__name__
-
-            dataset_ = parse_enumeration_from_template(dataset_name, self._dataset_base)
-
-        return parameter_, dataset_
 
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
@@ -352,16 +137,14 @@ class TimeseriesRequest(Core):
 
     def __init__(
         self,
-        parameter: str | Parameter | Sequence[str | Parameter],
-        resolution: str | Resolution,
-        period: str | Period,
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameters: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ) -> None:
         """
 
-        :param parameter: requested parameter(s)
+        :param parameters: requested parameter(s)
         :param resolution: requested resolution
         :param period: requested period(s)
         :param start_date: Start date for filtering stations_result for their available data
@@ -372,13 +155,10 @@ class TimeseriesRequest(Core):
 
         super().__init__()
 
-        self.resolution = parse_enumeration_from_template(resolution, self._resolution_base, Resolution)
-        self.period = self._parse_period(period)
-
         self.start_date, self.end_date = self.convert_timestamps(start_date, end_date)
-        self.parameter = self._parse_parameter(parameter)
+        self.parameters = parse_parameters(parameters, self.metadata)
 
-        if not self.parameter:
+        if not self.parameters:
             raise NoParametersFoundError("no valid parameters could be parsed from given argument")
 
         self.humanize = settings.ts_humanize
@@ -401,46 +181,26 @@ class TimeseriesRequest(Core):
 
         if not self.tidy and settings.ts_dropna:
             log.info(
-                "option 'ts_dropna' is only available with option 'ts_shape' " "and is thus ignored in this request.",
+                "option 'ts_dropna' is only available with option 'ts_shape' and is thus ignored in this request.",
             )
-
-        # optional attribute for dynamic resolutions
-        if self.resolution == Resolution.DYNAMIC:
-            self._dynamic_frequency = None
 
         log.info(f"Processing request {self.__repr__()}")
 
-    def __repr__(self):
-        """Representation of request object"""
-        parameters_joined = ", ".join([f"({parameter.value}/{dataset.value})" for parameter, dataset in self.parameter])
-        periods_joined = self.period and ", ".join([period.value for period in self.period])
+    def __eq__(self, other):
+        if not isinstance(other, TimeseriesRequest):
+            return False
 
         return (
-            f"{self.__class__.__name__}("
-            f"parameter=[{parameters_joined}], "
-            f"resolution={self.resolution.value}, "
-            f"period=[{periods_joined}], "
-            f"start_date={str(self.start_date)}, "
-            f"end_date={str(self.end_date)}, "
-            f"humanize={self.humanize}, "
-            f"format={self.shape}, "
-            f"si_units={self.si_units})"
-        )
-
-    def __eq__(self, other) -> bool:
-        """Equal method of request object"""
-        return (
-            self.parameter == other.parameter
-            and self.resolution == other.resolution
-            and self.period == other.period
+            self.parameters == other.parameters
             and self.start_date == other.start_date
             and self.end_date == other.end_date
+            and self.settings == other.settings
         )
 
     @staticmethod
     def convert_timestamps(
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
+        start_date: _DATETIME_TYPE,
+        end_date: _DATETIME_TYPE,
     ) -> tuple[None, None] | tuple[dt.datetime, dt.datetime]:
         """
         Sort out start_date vs. end_date, parse strings to datetime
@@ -499,97 +259,61 @@ class TimeseriesRequest(Core):
         return unit_string
 
     @classmethod
-    def discover(cls, resolution=None, dataset=None, flatten: bool = True, with_units: bool = True) -> dict:
-        """
-        Function to print/discover available parameters
-
-        :param resolution:
-        :param dataset:
-        :param flatten:
-        :param with_units:
-        :return:
-        """
-        resolutions = cls._setup_resolution_filter(resolution)
-
-        if flatten:
-            if dataset:
-                log.info("dataset filter will be ignored due to 'flatten'")
-
-            parameters = {}
-
-            for resolution_item in resolutions:
-                resolution_name = resolution_item.name
-                parameters[resolution_name.lower()] = {}
-
-                for parameter in cls._parameter_base[resolution_name]:
-                    if not hasattr(parameter, "name"):
-                        continue
-
-                    origin_unit, si_unit = cls._unit_base[resolution_name][parameter.__class__.__name__][
-                        parameter.name
-                    ].value
-
-                    if with_units:
-                        slot = parameters[resolution_name.lower()][parameter.name.lower()] = {}
-                        slot["origin"] = cls._format_unit(origin_unit)
-                        slot["si"] = cls._format_unit(si_unit)
-
-            return parameters
-
-        has_datasets = cls._has_datasets
-
-        if dataset:
-            datasets_filter = [
-                parse_enumeration_from_template(ds, intermediate=cls._dataset_base) for ds in to_list(dataset)
-            ]
-        elif has_datasets:
-            datasets_filter = cls._dataset_base
-        else:
-            datasets_filter = cls._resolution_base
-
-        datasets_filter = [ds.name for ds in datasets_filter]
-
-        parameters = {}
-
-        for resolution_item in resolutions:
-            resolution_name = resolution_item.name
-            parameters[resolution_name.lower()] = {}
-
-            for dataset in cls._parameter_base[resolution_name]:
-                if hasattr(dataset, "name"):
+    def discover(
+        cls,
+        resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] = None,
+        datasets: str | DatasetModel | Sequence[str | DatasetModel] = None,
+    ) -> dict:
+        """Function to print/discover available parameters"""
+        if not resolutions:
+            resolutions = []
+        resolution_strings = []
+        for resolution in to_list(resolutions):
+            if isinstance(resolution, Resolution):
+                resolution = resolution.value
+            elif isinstance(resolution, ResolutionModel):
+                resolution = resolution.name
+            else:
+                resolution = str(resolution)
+            resolution_strings.append(resolution)
+        if not datasets:
+            datasets = []
+        dataset_strings = []
+        for dataset in to_list(datasets):
+            if isinstance(dataset, DatasetModel):
+                dataset = dataset.name
+            else:
+                dataset = str(dataset)
+            dataset_strings.append(dataset)
+        data = {}
+        for resolution in cls.metadata:
+            if (
+                resolution_strings
+                and resolution.name not in resolution_strings
+                and resolution.name_original not in resolution_strings
+            ):
+                continue
+            data[resolution.name] = {}
+            for dataset in resolution:
+                if (
+                    dataset_strings
+                    and dataset.name not in dataset_strings
+                    and dataset.name_original not in dataset_strings
+                ):
                     continue
-
-                dataset_name = dataset.__name__.lower()
-                if dataset_name.startswith("_") or dataset_name.upper() not in datasets_filter:
-                    continue
-
-                parameters[resolution_name.lower()][dataset_name] = {}
-
+                data[resolution.name][dataset.name] = []
                 for parameter in dataset:
-                    origin_unit, si_unit = cls._unit_base[resolution_name][dataset_name.upper()][parameter.name].value
-
-                    if with_units:
-                        slot = parameters[resolution_name.lower()][dataset_name][parameter.name.lower()] = {}
-                        slot["origin"] = cls._format_unit(origin_unit)
-                        slot["si"] = cls._format_unit(si_unit)
-
-        return parameters
-
-    @classmethod
-    def _setup_resolution_filter(cls, resolution) -> list:
-        """
-            Helper method to create resolution filter for discover method.
-
-        :param resolution: resolution label, like "recent" or "historical"
-        :return:
-        """
-        if not resolution:
-            resolution = [*cls._resolution_base]
-
-        return [
-            parse_enumeration_from_template(r, intermediate=cls._resolution_base, base=Resolution)
-            for r in to_list(resolution)
-        ]
+                    data[resolution.name][dataset.name].append(
+                        {
+                            "name": parameter.name,
+                            "name_original": parameter.name_original,
+                            "unit": parameter.unit,
+                            "unit_original": parameter.unit_original,
+                        }
+                    )
+            if not data[resolution.name]:
+                del data[resolution.name]
+        return data
 
     @staticmethod
     def _coerce_meta_fields(df: pl.DataFrame) -> pl.DataFrame:
@@ -858,11 +582,9 @@ class TimeseriesRequest(Core):
         if not self.start_date:
             raise ValueError("start_date and end_date are required for interpolation")
 
-        if self.resolution in (
-            Resolution.MINUTE_1,
-            Resolution.MINUTE_5,
-            Resolution.MINUTE_10,
-        ):
+        resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
+
+        if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Interpolation might be slow for high resolutions due to mass of data")
 
         lat, lon = latlon
@@ -913,11 +635,9 @@ class TimeseriesRequest(Core):
         if not self.start_date:
             raise ValueError("start_date and end_date are required for summarization")
 
-        if self.resolution in (
-            Resolution.MINUTE_1,
-            Resolution.MINUTE_5,
-            Resolution.MINUTE_10,
-        ):
+        resolutions = {parameter.dataset.resolution.value for parameter in self.parameters}
+
+        if resolutions.intersection({Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10}):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
         lat, lon = latlon

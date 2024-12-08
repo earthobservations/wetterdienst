@@ -14,7 +14,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationRequest
 @pytest.mark.remote
 def test_eccc_api_stations(settings_si_false):
     request = EcccObservationRequest(
-        parameter="DAILY",
+        parameters="DAILY",
         resolution="DAILY",
         start_date="1990-01-01",
         end_date="1990-01-02",
@@ -40,7 +40,7 @@ def test_eccc_api_stations(settings_si_false):
 @pytest.mark.remote
 def test_eccc_api_values(settings_si_false):
     request = EcccObservationRequest(
-        parameter="daily",
+        parameters="daily",
         resolution="daily",
         start_date="1980-01-01",
         end_date="1980-01-02",

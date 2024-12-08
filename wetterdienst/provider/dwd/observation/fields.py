@@ -74,7 +74,7 @@ def parse_parameters(text):
 def read_description(url, language: str = "en") -> dict:
     if language == "en":
         sections = {
-            "parameters": "Parameters",
+            "parameters": "csv content description",
             "quality_information": "Quality information",
         }
     elif language == "de":

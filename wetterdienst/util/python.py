@@ -1,5 +1,7 @@
 import collections.abc as collections_abc
 
+from pydantic import BaseModel
+
 string_types = (str,)
 binary_types = (bytes,)
 
@@ -28,7 +30,11 @@ def to_list(x, default=None):
     """
     if x is None:
         return default
-    if not isinstance(x, collections_abc.Iterable) or isinstance(x, string_types + binary_types):
+    if (
+        not isinstance(x, collections_abc.Iterable)
+        or isinstance(x, string_types + binary_types)
+        or isinstance(x, BaseModel)
+    ):
         return [x]
     elif isinstance(x, list):
         return x

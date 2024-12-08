@@ -10,15 +10,12 @@ from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
-from wetterdienst import Parameter
-from wetterdienst.core.process import create_date_range
-from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.period import Period, PeriodType
-from wetterdienst.metadata.resolution import Resolution, ResolutionType
-from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+from wetterdienst.core.timeseries.metadata import parse_parameters
+from wetterdienst.exceptions import InvalidTimeIntervalError, StartDateEndDateError
+from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings
-from wetterdienst.util.enumeration import parse_enumeration_from_template
+from wetterdienst.util.datetime import parse_date
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.request import TimeseriesRequest
@@ -64,9 +61,8 @@ def unpack_parameters(parameter: str) -> list[str]:
 
 def _get_stations_request(
     api,
-    parameter: list[str],
-    resolution: str,
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str | None,
     issue: str,
@@ -79,7 +75,8 @@ def _get_stations_request(
     dropna: bool,
     use_nearby_station_distance: float,
 ):
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, DwdMosmixType
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
     settings = Settings(
         ts_si_units=si_units,
@@ -95,59 +92,44 @@ def _get_stations_request(
     # TODO: move this into Request core
     start_date, end_date = None, None
     if date:
-        if issubclass(api, DwdMosmixRequest):
-            mosmix_type = parse_enumeration_from_template(resolution, DwdMosmixType)
-
-            if mosmix_type == DwdMosmixType.SMALL:
-                res = Resolution.HOURLY
-            else:
-                res = Resolution.HOUR_6
-        elif issubclass(api, DwdDmoRequest):
-            res = Resolution.HOURLY
+        if "/" in date:
+            if date.count("/") >= 2:
+                raise InvalidTimeIntervalError("Invalid ISO 8601 time interval")
+            start_date, end_date = date.split("/")
+            start_date = parse_date(start_date)
+            end_date = parse_date(end_date)
         else:
-            res = parse_enumeration_from_template(resolution, api._resolution_base, Resolution)
+            start_date = parse_date(date)
 
-        # Split date string into start and end date string
-        start_date, end_date = create_date_range(date=date, resolution=res)
+    parameters = parse_parameters(parameters, api.metadata)
 
-    if api._data_range == DataRange.LOOSELY and not start_date and not end_date:
-        # TODO: use another property "network" on each class
-        raise TypeError(
-            f"Combination of provider {api._provider.name} and network {api._kind.name} requires start and end date",
-        )
+    any_date_required = any(parameter.dataset.date_required for parameter in parameters)
+    if any_date_required and (not start_date or not end_date):
+        raise StartDateEndDateError("Start and end date required for single period datasets")
 
-    # Todo: We may have to apply other measures to allow for
-    #  different request initializations
-    # DWD Mosmix has fixed resolution and rather uses SMALL
-    # and large for the different datasets
+    any_multiple_period_dataset = any(len(parameter.dataset.periods) > 1 for parameter in parameters)
 
-    # TODO: replace this with a general request kwargs resolver
     kwargs = {
-        "parameter": unpack_parameters(parameter),
+        "parameters": parameters,
         "start_date": start_date,
         "end_date": end_date,
     }
-    if issubclass(api, DwdMosmixRequest):
-        kwargs["mosmix_type"] = resolution
+    if any_multiple_period_dataset:
+        kwargs["periods"] = periods
+
+    if isinstance(api, DwdMosmixRequest):
         kwargs["issue"] = issue
-    elif issubclass(api, DwdDmoRequest):
-        kwargs["dmo_type"] = resolution
+    elif isinstance(api, DwdDmoRequest):
         kwargs["issue"] = issue
         kwargs["lead_time"] = lead_time
-    elif api._resolution_type == ResolutionType.MULTI:
-        kwargs["resolution"] = resolution
-
-    if api._period_type == PeriodType.MULTI:
-        kwargs["period"] = period
 
     return api(**kwargs, settings=settings)
 
 
 def get_stations(
     api,
-    parameter: list[str],
-    resolution: str,
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str | None,
     issue: str | None,
@@ -170,9 +152,8 @@ def get_stations(
     """Core function for querying stations via cli and restapi"""
     r = _get_stations_request(
         api=api,
-        parameter=parameter,
-        resolution=resolution,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -242,12 +223,11 @@ def get_stations(
 
 def get_values(
     api: TimeseriesRequest,
-    parameter: list[str],
-    resolution: str,
+    parameters: list[str],
     lead_time: str,
     date: str,
     issue: str,
-    period: list[str],
+    periods: list[str],
     all_,
     station_id: list[str],
     name: str,
@@ -268,9 +248,8 @@ def get_values(
     """Core function for querying values via cli and restapi"""
     stations_ = get_stations(
         api=api,
-        parameter=parameter,
-        resolution=resolution,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -312,9 +291,8 @@ def get_values(
 
 def get_interpolate(
     api: TimeseriesRequest,
-    parameter: list[str],
-    resolution: str,
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str,
     issue: str,
@@ -328,9 +306,8 @@ def get_interpolate(
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
-        parameter=parameter,
-        resolution=resolution,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -367,9 +344,8 @@ def get_interpolate(
 
 def get_summarize(
     api: TimeseriesRequest,
-    parameter: list[str],
-    resolution: str,
-    period: list[str],
+    parameters: list[str],
+    periods: list[str],
     lead_time: str,
     date: str,
     issue: str,
@@ -382,9 +358,8 @@ def get_summarize(
     """Core function for querying values via cli and restapi"""
     r = _get_stations_request(
         api=api,
-        parameter=parameter,
-        resolution=resolution,
-        period=period,
+        parameters=parameters,
+        periods=periods,
         lead_time=lead_time,
         date=date,
         issue=issue,
@@ -419,21 +394,19 @@ def get_summarize(
     return values_
 
 
-def _get_stripes_temperature_request(period: Period = Period.HISTORICAL):
+def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameter=Parameter.TEMPERATURE_AIR_MEAN_2M,
-        resolution=Resolution.ANNUAL,
-        period=period,
+        parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
+        periods=periods,
     )
 
 
-def _get_stripes_precipitation_request(period: Period = Period.HISTORICAL):
+def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL):
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameter=Parameter.PRECIPITATION_HEIGHT,
-        resolution=Resolution.ANNUAL,
-        period=period,
+        parameters=[("annual", "precipitation_more", "precipitation_height")],
+        periods=periods,
     )
 
 
@@ -451,9 +424,9 @@ CLIMATE_STRIPES_CONFIG = {
 
 def _get_stripes_stations(kind: Literal["temperature", "precipitation"], active: bool = True):
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
-    stations = request(period=Period.HISTORICAL).all()
+    stations = request(periods=Period.HISTORICAL).all()
     if active:
-        station_ids_active = request(period=Period.RECENT).all().df.select("station_id")
+        station_ids_active = request(periods=Period.RECENT).all().df.select("station_id")
         stations.df = stations.df.join(station_ids_active, on="station_id")
     return stations
 

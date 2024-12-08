@@ -10,17 +10,13 @@ import polars as pl
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.metadata.datetime import DatetimeFormat
-from wetterdienst.provider.dwd.observation.metadata.dataset import (
-    DWD_URBAN_DATASETS,
-    DwdObservationDataset,
-)
-from wetterdienst.provider.dwd.observation.metadata.resolution import HIGH_RESOLUTIONS
+from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, HIGH_RESOLUTIONS, DwdObservationMetadata
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from wetterdienst.core.timeseries.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
@@ -29,8 +25,7 @@ DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
 
 def create_file_list_for_climate_observations(
     station_id: str,
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
     settings: Settings,
     date_range: str | None = None,
@@ -49,7 +44,7 @@ def create_file_list_for_climate_observations(
     Returns:
         List of path's to file
     """
-    file_index = create_file_index_for_climate_observations(dataset, resolution, period, settings)
+    file_index = create_file_index_for_climate_observations(dataset, period, settings)
 
     file_index = file_index.collect()
 
@@ -62,8 +57,7 @@ def create_file_list_for_climate_observations(
 
 
 def create_file_index_for_climate_observations(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
     settings: Settings,
 ) -> pl.LazyFrame:
@@ -80,7 +74,6 @@ def create_file_index_for_climate_observations(
     if dataset in DWD_URBAN_DATASETS:
         file_index = _create_file_index_for_dwd_server(
             dataset,
-            resolution,
             Period.RECENT,
             "observations_germany/climate_urban",
             settings,
@@ -88,7 +81,6 @@ def create_file_index_for_climate_observations(
     else:
         file_index = _create_file_index_for_dwd_server(
             dataset,
-            resolution,
             period,
             "observations_germany/climate",
             settings,
@@ -107,7 +99,7 @@ def create_file_index_for_climate_observations(
 
     file_index = file_index.filter(pl.col("station_id").is_not_null() & pl.col("station_id").ne("00000"))
 
-    if resolution in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
+    if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
         file_index = file_index.with_columns(pl.col("filename").str.extract(DATE_RANGE_REGEX).alias("date_range"))
         file_index = file_index.with_columns(
@@ -139,8 +131,7 @@ def create_file_index_for_climate_observations(
 
 
 def _create_file_index_for_dwd_server(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
     cdc_base: str,
     settings: Settings,
@@ -156,7 +147,7 @@ def _create_file_index_for_dwd_server(
     Returns:
         file index in a pandas.DataFrame with sets of parameters and station id
     """
-    parameter_path = build_path_to_parameter(dataset, resolution, period)
+    parameter_path = build_path_to_parameter(dataset, period)
 
     url = f"https://opendata.dwd.de/climate_environment/CDC/{cdc_base}/{parameter_path}"
 
@@ -169,8 +160,7 @@ def _create_file_index_for_dwd_server(
 
 
 def build_path_to_parameter(
-    dataset: DwdObservationDataset,
-    resolution: Resolution,
+    dataset: DatasetModel,
     period: Period,
 ) -> str:
     """
@@ -183,12 +173,12 @@ def build_path_to_parameter(
     Returns:
         indexing file path relative to climate observation path
     """
-    if dataset == DwdObservationDataset.SOLAR and resolution in (
-        Resolution.HOURLY,
-        Resolution.DAILY,
+    if dataset in (
+        DwdObservationMetadata.hourly.solar,
+        DwdObservationMetadata.daily.solar,
     ):
-        return f"{resolution.value}/{dataset.value}/"
+        return f"{dataset.resolution.value.value}/{dataset.name_original}/"
     elif dataset in DWD_URBAN_DATASETS:
-        return f"{resolution.value}/{dataset.value[6:]}/{period.value}/"
+        return f"{dataset.resolution.value.value}/{dataset.name_original[6:]}/{period.value}/"
     else:
-        return f"{resolution.value}/{dataset.value}/{period.value}/"
+        return f"{dataset.resolution.value.value}/{dataset.name_original}/{period.value}/"

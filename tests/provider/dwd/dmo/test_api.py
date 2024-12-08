@@ -5,7 +5,6 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.dmo.api import add_date_from_filename
 
@@ -48,11 +47,10 @@ def df_files_end_of_month():
     )
 
 
-@pytest.mark.xfail(reason="polars min currently not working as expected with strings")
 @pytest.mark.remote
 def test_dwd_dmo_stations(default_settings):
     # Acquire data.
-    stations = DwdDmoRequest(parameter="icon", dmo_type="icon", settings=default_settings)
+    stations = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
     given_df = stations.all().df
     assert not given_df.is_empty()
     assert given_df.select(pl.all().max()).to_dicts()[0] == {
@@ -124,8 +122,3 @@ def test_add_date_from_filename_too_few_dates():
     )
     with pytest.raises(ValueError):
         add_date_from_filename(df, dt.datetime(2021, 1, 1, 1, 1, 1))
-
-
-def test_dwd_dmo_invalid_request():
-    with pytest.raises(NoParametersFoundError):
-        DwdDmoRequest(parameter="icon", dmo_type="hourly")

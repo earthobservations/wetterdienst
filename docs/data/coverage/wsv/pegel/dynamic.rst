@@ -16,8 +16,8 @@ Metadata
 Datasets
 ********
 
-Dynamic
-=======
+Data
+====
 
 Metadata
 --------

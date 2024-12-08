@@ -20,7 +20,7 @@ plt.style.use("ggplot")
 
 def get_interpolated_df(parameter: str, start_date: datetime, end_date: datetime) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameter=parameter,
+        parameters=parameter,
         resolution=DwdObservationResolution.HOURLY,
         start_date=start_date,
         end_date=end_date,
@@ -30,7 +30,7 @@ def get_interpolated_df(parameter: str, start_date: datetime, end_date: datetime
 
 def get_regular_df(parameter: str, start_date: datetime, end_date: datetime, exclude_stations: list) -> pl.DataFrame:
     stations = DwdObservationRequest(
-        parameter=parameter,
+        parameters=parameter,
         resolution=DwdObservationResolution.HOURLY,
         start_date=start_date,
         end_date=end_date,

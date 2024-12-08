@@ -222,14 +222,14 @@ class DwdRadarValues:
 
     def __eq__(self, other):
         return (
-            self.parameter == other.parameter
+            self.parameter == other.parameters
             and self.site == other.site
             and self.format == other.format
             and self.subset == other.subset
             and self.start_date == other.start_date
             and self.end_date == other.end_date
             and self.resolution == other.resolution
-            and self.period == other.period
+            and self.period == other.periods
         )
 
     def adjust_datetimes(self):

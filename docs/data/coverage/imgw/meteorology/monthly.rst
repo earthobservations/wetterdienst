@@ -18,8 +18,8 @@ Metadata
 Datasets
 ********
 
-Climate
-=======
+Data
+====
 
 Metadata
 --------

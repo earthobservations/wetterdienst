@@ -12,23 +12,23 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst import Kind, Parameter, Period, Provider, Resolution, Settings
-from wetterdienst.core.timeseries.request import TimeseriesRequest
+from wetterdienst import Kind, Provider
+from wetterdienst.core.timeseries.metadata import (
+    DATASET_NAME_DEFAULT,
+    DatasetModel,
+    ParameterModel,
+    build_metadata_model,
+)
+from wetterdienst.core.timeseries.request import _DATETIME_TYPE, _PARAMETER_TYPE, _SETTINGS_TYPE, TimeseriesRequest
 from wetterdienst.core.timeseries.values import TimeseriesValues
 from wetterdienst.metadata.columns import Columns
 from wetterdienst.metadata.datarange import DataRange
-from wetterdienst.metadata.period import PeriodType
-from wetterdienst.metadata.resolution import ResolutionType
 from wetterdienst.metadata.timezone import Timezone
-from wetterdienst.metadata.unit import OriginUnit, SIUnit, UnitEnum
 from wetterdienst.util.cache import CacheExpiry
 from wetterdienst.util.eccodes import check_pdbufr
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.parameter import DatasetTreeCore
 
 if TYPE_CHECKING:
-    import datetime as dt
-    from collections.abc import Sequence
     from io import BytesIO
 
     from wetterdienst.core.timeseries.result import StationsResult
@@ -39,83 +39,110 @@ DATE_REGEX = r"-(\d{10,})-"
 TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
 
 
-class DwdRoadParameter(DatasetTreeCore):
-    """
-    enumeration for different parameter/variables
-    measured by dwd road weather stations
-    """
-
-    class MINUTE_15(DatasetTreeCore):
-        class MINUTE_15(Enum):
-            # class ROAD_WEATHER(Enum):
-            HUMIDITY = "relativeHumidity"
-            PRECIPITATION_FORM = "precipitationType"
-            PRECIPITATION_HEIGHT = "totalPrecipitationOrTotalWaterEquivalent"
-            PRECIPITATION_INTENSITY = "intensityOfPrecipitation"
-            ROAD_SURFACE_CONDITION = "roadSurfaceCondition"
-            TEMPERATURE_AIR_MEAN_2M = "airTemperature"
-            TEMPERATURE_DEW_POINT_MEAN_2M = "dewpointTemperature"
-            TEMPERATURE_SURFACE_MEAN = "roadSurfaceTemperature"
-            VISIBILITY_RANGE = "horizontalVisibility"
-            WATER_FILM_THICKNESS = "waterFilmThickness"
-            WIND_DIRECTION = "windDirection"
-            WIND_DIRECTION_GUST_MAX = "maximumWindGustDirection"
-            WIND_GUST_MAX = "maximumWindGustSpeed"
-            WIND_SPEED = "windSpeed"
-            # INTENSITY_OF_PHENOMENA = "intensityOfPhenomena"  # noqa: ERA001
-
-        HUMIDITY = MINUTE_15.HUMIDITY
-        PRECIPITATION_FORM = MINUTE_15.PRECIPITATION_FORM
-        PRECIPITATION_HEIGHT = MINUTE_15.PRECIPITATION_HEIGHT
-        PRECIPITATION_INTENSITY = MINUTE_15.PRECIPITATION_INTENSITY
-        ROAD_SURFACE_CONDITION = MINUTE_15.ROAD_SURFACE_CONDITION
-        TEMPERATURE_AIR_MEAN_2M = MINUTE_15.TEMPERATURE_AIR_MEAN_2M
-        TEMPERATURE_DEW_POINT_MEAN_2M = MINUTE_15.TEMPERATURE_DEW_POINT_MEAN_2M
-        TEMPERATURE_SURFACE_MEAN = MINUTE_15.TEMPERATURE_SURFACE_MEAN
-        VISIBILITY_RANGE = MINUTE_15.VISIBILITY_RANGE
-        WATER_FILM_THICKNESS = MINUTE_15.WATER_FILM_THICKNESS
-        WIND_DIRECTION = MINUTE_15.WIND_DIRECTION
-        WIND_DIRECTION_GUST_MAX = MINUTE_15.WIND_DIRECTION_GUST_MAX
-        WIND_GUST_MAX = MINUTE_15.WIND_GUST_MAX
-        WIND_SPEED = MINUTE_15.WIND_SPEED
-        # INTENSITY_OF_PHENOMENA = MINUTE_15.INTENSITY_OF_PHENOMENA  # noqa: ERA001
-
-
-class DwdRoadUnit(DatasetTreeCore):
-    """
-    enumeration for different parameter/variables
-    measured by dwd road weather stations
-    """
-
-    class MINUTE_15(DatasetTreeCore):
-        class MINUTE_15(UnitEnum):
-            HUMIDITY = OriginUnit.PERCENT.value, SIUnit.PERCENT.value
-            PRECIPITATION_FORM = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
-            PRECIPITATION_HEIGHT = OriginUnit.MILLIMETER.value, SIUnit.KILOGRAM_PER_SQUARE_METER.value
-            PRECIPITATION_INTENSITY = OriginUnit.MILLIMETER_PER_HOUR.value, SIUnit.MILLIMETER_PER_HOUR.value
-            ROAD_SURFACE_CONDITION = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value
-            TEMPERATURE_AIR_MEAN_2M = OriginUnit.DEGREE_KELVIN.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_DEW_POINT_MEAN_2M = OriginUnit.DEGREE_KELVIN.value, SIUnit.DEGREE_KELVIN.value
-            TEMPERATURE_SURFACE_MEAN = OriginUnit.DEGREE_KELVIN.value, SIUnit.DEGREE_KELVIN.value
-            VISIBILITY_RANGE = OriginUnit.KILOMETER.value, SIUnit.METER.value
-            WATER_FILM_THICKNESS = OriginUnit.CENTIMETER.value, SIUnit.METER.value
-            WIND_DIRECTION = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
-            WIND_DIRECTION_GUST_MAX = OriginUnit.DEGREE.value, SIUnit.DEGREE.value
-            WIND_GUST_MAX = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-            WIND_SPEED = OriginUnit.METER_PER_SECOND.value, SIUnit.METER_PER_SECOND.value
-            # INTENSITY_OF_PHENOMENA = OriginUnit.DIMENSIONLESS.value, OriginUnit.DIMENSIONLESS.value  # noqa: ERA001
-
-
-class DwdRoadResolution(Enum):
-    MINUTE_15 = Resolution.MINUTE_15.value
-
-
-class DwdRoadPeriod(Enum):
-    HISTORICAL = Period.HISTORICAL.value
-
-
-class DwdRoadDataset(Enum):
-    MINUTE_15 = Resolution.MINUTE_15.value
+DwdRoadMetadata = {
+    "resolutions": [
+        {
+            "name": "15_minutes",
+            "name_original": "15_minutes",
+            "date_required": True,
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": True,
+                    "periods": ["historical"],
+                    "parameters": [
+                        {
+                            "name": "humidity",
+                            "name_original": "relativeHumidity",
+                            "unit": "percent",
+                            "unit_original": "percent",
+                        },
+                        {
+                            "name": "precipitation_form",
+                            "name_original": "precipitationType",
+                            "unit": "dimensionless",
+                            "unit_original": "dimensionless",
+                        },
+                        {
+                            "name": "precipitation_height",
+                            "name_original": "totalPrecipitationOrTotalWaterEquivalent",
+                            "unit": "kilogram_per_square_meter",
+                            "unit_original": "millimeter",
+                        },
+                        {
+                            "name": "precipitation_intensity",
+                            "name_original": "intensityOfPrecipitation",
+                            "unit": "millimeter_per_hour",
+                            "unit_original": "millimeter_per_hour",
+                        },
+                        {
+                            "name": "road_surface_condition",
+                            "name_original": "roadSurfaceCondition",
+                            "unit": "dimensionless",
+                            "unit_original": "dimensionless",
+                        },
+                        {
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "airTemperature",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_kelvin",
+                        },
+                        {
+                            "name": "temperature_dew_point_mean_2m",
+                            "name_original": "dewpointTemperature",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_kelvin",
+                        },
+                        {
+                            "name": "temperature_surface_mean",
+                            "name_original": "roadSurfaceTemperature",
+                            "unit": "degree_kelvin",
+                            "unit_original": "degree_kelvin",
+                        },
+                        {
+                            "name": "visibility_range",
+                            "name_original": "horizontalVisibility",
+                            "unit": "meter",
+                            "unit_original": "kilometer",
+                        },
+                        {
+                            "name": "water_film_thickness",
+                            "name_original": "waterFilmThickness",
+                            "unit": "meter",
+                            "unit_original": "centimeter",
+                        },
+                        {
+                            "name": "wind_direction",
+                            "name_original": "windDirection",
+                            "unit": "degree",
+                            "unit_original": "degree",
+                        },
+                        {
+                            "name": "wind_direction_gust_max",
+                            "name_original": "maximumWindGustDirection",
+                            "unit": "degree",
+                            "unit_original": "degree",
+                        },
+                        {
+                            "name": "wind_gust_max",
+                            "name_original": "maximumWindGustSpeed",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "windSpeed",
+                            "unit": "meter_per_second",
+                            "unit_original": "meter_per_second",
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
+}
+DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
 
 
 class DwdRoadStationGroup(Enum):
@@ -172,7 +199,9 @@ class DwdRoadValues(TimeseriesValues):
         check_pdbufr()
         super().__init__(stations_result)
 
-    def _collect_station_parameter(self, station_id: str, parameter: Enum, dataset: Enum) -> pl.DataFrame:
+    def _collect_station_parameter_or_dataset(
+        self, station_id: str, parameter_or_dataset: DatasetModel
+    ) -> pl.DataFrame:
         """Takes station_name to download and parse RoadWeather Station data"""
         station_group = (
             self.sr.df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
@@ -180,15 +209,11 @@ class DwdRoadValues(TimeseriesValues):
             .item()
         )
         station_group = DwdRoadStationGroup(station_group)
-        if parameter == dataset:
-            parameters = [par.value for par in DwdRoadParameter.MINUTE_15 if hasattr(par, "name")]
-        else:
-            parameters = [parameter.value]
+        parameters = [parameter for parameter in parameter_or_dataset]
         try:
             df = self._collect_data_by_station_group(station_group, parameters)
         except ValueError:
             return pl.DataFrame()
-        df = df.rename(mapping={"timestamp": Columns.DATE.value, "shortstationname": Columns.STATION_ID.value})
         return df.filter(pl.col(Columns.STATION_ID.value).eq(station_id))
 
     def _create_file_index_for_dwd_road_weather_station(
@@ -225,7 +250,7 @@ class DwdRoadValues(TimeseriesValues):
     def _collect_data_by_station_group(
         self,
         road_weather_station_group: DwdRoadStationGroup,
-        parameters: list[str],
+        parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """
         Method to collect data for one specified parameter. Manages restoring,
@@ -265,7 +290,7 @@ class DwdRoadValues(TimeseriesValues):
     def _parse_dwd_road_weather_data(
         self,
         filenames_and_files: list[tuple[str, BytesIO]],
-        parameters: list[str],
+        parameters: list[ParameterModel],
     ) -> pl.DataFrame:
         """
         This function is used to read the road weather station data from given bytes object.
@@ -287,7 +312,9 @@ class DwdRoadValues(TimeseriesValues):
         )
 
     @staticmethod
-    def __parse_dwd_road_weather_data(filename_and_file: tuple[str, BytesIO], parameters: list[str]) -> pl.DataFrame:
+    def __parse_dwd_road_weather_data(
+        filename_and_file: tuple[str, BytesIO], parameters: list[ParameterModel]
+    ) -> pl.DataFrame:
         """
         A wrapping function that only handles data for one station id. The files passed to
         it are thus related to this id. This is important for storing the data locally as
@@ -306,8 +333,9 @@ class DwdRoadValues(TimeseriesValues):
         tf = NamedTemporaryFile("w+b")
         tf.write(file.read())
         tf.seek(0)
-        first_batch = parameters[:10]
-        second_batch = parameters[10:]
+        parameter_names = [parameter.name_original for parameter in parameters]
+        first_batch = parameter_names[:10]
+        second_batch = parameter_names[10:]
         df = pdbufr.read_bufr(
             tf.name,
             columns=TIME_COLUMNS
@@ -328,7 +356,7 @@ class DwdRoadValues(TimeseriesValues):
             df = df.merge(df2, on=TIME_COLUMNS + ("shortStationName",))
         df = pl.from_pandas(df)
         df = df.select(
-            pl.col("shortStationName"),
+            pl.col("shortStationName").alias(Columns.STATION_ID.value),
             pl.concat_str(
                 exprs=[
                     pl.col("year").cast(pl.String),
@@ -339,12 +367,11 @@ class DwdRoadValues(TimeseriesValues):
                 ],
             )
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
-            .alias("timestamp"),
-            *parameters,
+            .alias(Columns.DATE.value),
+            *parameter_names,
         )
-        df = df.rename(mapping=lambda col: col.lower())
         df = df.unpivot(
-            index=["shortstationname", "timestamp"],
+            index=[Columns.STATION_ID.value, Columns.DATE.value],
             variable_name=Columns.PARAMETER.value,
             value_name=Columns.VALUE.value,
         )
@@ -355,20 +382,13 @@ class DwdRoadValues(TimeseriesValues):
 
 
 class DwdRoadRequest(TimeseriesRequest):
+    metadata = DwdRoadMetadata
     _provider = Provider.DWD
     _kind = Kind.OBSERVATION
     _tz = Timezone.GERMANY
     _values = DwdRoadValues
-    _has_datasets = True
-    _unique_dataset = True
     _data_range = DataRange.FIXED
-    _parameter_base = DwdRoadParameter
-    _unit_base = DwdRoadUnit
-    _resolution_base = DwdRoadResolution
-    _resolution_type = ResolutionType.FIXED
-    _period_base = DwdRoadPeriod
-    _period_type = PeriodType.FIXED
-    _dataset_base = DwdRoadDataset
+
     _base_columns = list(TimeseriesRequest._base_columns)
     _base_columns.extend(
         (
@@ -416,15 +436,13 @@ class DwdRoadRequest(TimeseriesRequest):
 
     def __init__(
         self,
-        parameter: str | DwdRoadParameter | Parameter | Sequence[str | DwdRoadParameter | Parameter],
-        start_date: str | dt.datetime | None = None,
-        end_date: str | dt.datetime | None = None,
-        settings: Settings | None = None,
+        parameters: _PARAMETER_TYPE,
+        start_date: _DATETIME_TYPE = None,
+        end_date: _DATETIME_TYPE = None,
+        settings: _SETTINGS_TYPE = None,
     ):
         super().__init__(
-            parameter=parameter,
-            resolution=Resolution.MINUTE_15,
-            period=Period.HISTORICAL,
+            parameters=parameters,
             start_date=start_date,
             end_date=end_date,
             settings=settings,

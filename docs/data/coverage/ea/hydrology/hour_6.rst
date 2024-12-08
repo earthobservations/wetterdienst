@@ -20,8 +20,8 @@ Metadata
 Datasets
 ********
 
-Hour_6
-======
+Data
+====
 
 Metadata
 --------

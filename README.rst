@@ -264,12 +264,13 @@ Library
     ...     ts_si_units=True  # convert values to SI units
     ... )
     >>> request = DwdObservationRequest(
-    ...    parameter="climate_summary",
-    ...    resolution="daily",
-    ...    start_date="1990-01-01",  # if not given timezone defaulted to UTC
-    ...    end_date="2020-01-01",  # if not given timezone defaulted to UTC
+    ...    parameters=[
+    ...       ("daily", "climate_summary", "precipitation_height"),
+    ...    ],
+    ...    start_date="2002-08-11",  # if not given timezone defaulted to UTC
+    ...    end_date="2002-08-13",  # if not given timezone defaulted to UTC
     ...    settings=settings
-    ... ).filter_by_station_id(station_id=(1048, 4411))
+    ... ).filter_by_station_id(station_id=(5779, ))
     >>> stations = request.df
     >>> stations.head()
     ┌────────────┬──────────────┬──────────────┬──────────┬───────────┬────────┬─────────────┬─────────┐
@@ -278,24 +279,20 @@ Library
     │ str        ┆ datetime[μs, ┆ datetime[μs, ┆ f64      ┆ f64       ┆ f64    ┆ str         ┆ str     │
     │            ┆ UTC]         ┆ UTC]         ┆          ┆           ┆        ┆             ┆         │
     ╞════════════╪══════════════╪══════════════╪══════════╪═══════════╪════════╪═════════════╪═════════╡
-    │ 01048      ┆ 1934-01-01   ┆ ...          ┆ 51.1278  ┆ 13.7543   ┆ 228.0  ┆ Dresden-Klo ┆ Sachsen │
-    │            ┆ 00:00:00 UTC ┆ 00:00:00 UTC ┆          ┆           ┆        ┆ tzsche      ┆         │
-    │ 04411      ┆ 1979-12-01   ┆ ...          ┆ 49.9195  ┆ 8.9672    ┆ 155.0  ┆ Schaafheim- ┆ Hessen  │
-    │            ┆ 00:00:00 UTC ┆ 00:00:00 UTC ┆          ┆           ┆        ┆ Schlierbach ┆         │
+    │ 05779      ┆ 1971-01-01   ┆ ...          ┆ 50.7313  ┆ 13.7516   ┆ 877.0  ┆ Zinnwald-Ge ┆ Sachsen │
+    │            ┆ 00:00:00 UTC ┆ 00:00:00 UTC ┆          ┆           ┆        ┆ orgenfeld   ┆         │
     └────────────┴──────────────┴──────────────┴──────────┴───────────┴────────┴─────────────┴─────────┘
     >>> values = request.values.all().df
     >>> values.head()
-    ┌────────────┬─────────────────┬───────────────────┬─────────────────────────┬───────┬─────────┐
-    │ station_id ┆ dataset         ┆ parameter         ┆ date                    ┆ value ┆ quality │
-    │ ---        ┆ ---             ┆ ---               ┆ ---                     ┆ ---   ┆ ---     │
-    │ str        ┆ str             ┆ str               ┆ datetime[μs, UTC]       ┆ f64   ┆ f64     │
-    ╞════════════╪═════════════════╪═══════════════════╪═════════════════════════╪═══════╪═════════╡
-    │ 01048      ┆ climate_summary ┆ cloud_cover_total ┆ 1990-01-01 00:00:00 UTC ┆ 100.0 ┆ 10.0    │
-    │ 01048      ┆ climate_summary ┆ cloud_cover_total ┆ 1990-01-02 00:00:00 UTC ┆ 100.0 ┆ 10.0    │
-    │ 01048      ┆ climate_summary ┆ cloud_cover_total ┆ 1990-01-03 00:00:00 UTC ┆ 91.25 ┆ 10.0    │
-    │ 01048      ┆ climate_summary ┆ cloud_cover_total ┆ 1990-01-04 00:00:00 UTC ┆ 28.75 ┆ 10.0    │
-    │ 01048      ┆ climate_summary ┆ cloud_cover_total ┆ 1990-01-05 00:00:00 UTC ┆ 91.25 ┆ 10.0    │
-    └────────────┴─────────────────┴───────────────────┴─────────────────────────┴───────┴─────────┘
+    ┌────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬─────────┐
+    │ station_id ┆ dataset         ┆ parameter            ┆ date                    ┆ value ┆ quality │
+    │ ---        ┆ ---             ┆ ---                  ┆ ---                     ┆ ---   ┆ ---     │
+    │ str        ┆ str             ┆ str                  ┆ datetime[μs, UTC]       ┆ f64   ┆ f64     │
+    ╞════════════╪═════════════════╪══════════════════════╪═════════════════════════╪═══════╪═════════╡
+    │ 05779      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10.0    │
+    │ 05779      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10.0    │
+    │ 05779      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-13 00:00:00 UTC ┆ 26.3  ┆ 10.0    │
+    └────────────┴─────────────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
 
 .. code-block:: python
 

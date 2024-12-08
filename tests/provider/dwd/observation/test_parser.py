@@ -10,8 +10,8 @@ import pytest
 import requests
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Period, Resolution
-from wetterdienst.provider.dwd.observation import DwdObservationDataset
+from wetterdienst import Period
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 
 
@@ -28,8 +28,7 @@ def test_parse_dwd_data():
     file = ZipFile(payload).read(filename)
     given_df = parse_climate_observations_data(
         filenames_and_files=[(filename, BytesIO(file))],
-        dataset=DwdObservationDataset.CLIMATE_SUMMARY,
-        resolution=Resolution.DAILY,
+        dataset=DwdObservationMetadata.daily.climate_summary,
         period=Period.HISTORICAL,
     ).collect()
     expected_df = pl.DataFrame(

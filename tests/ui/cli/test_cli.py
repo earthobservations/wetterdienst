@@ -40,25 +40,14 @@ def test_cli_about_parameters():
     """Test cli coverage of dwd parameters"""
     runner = CliRunner()
     result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
+    # resolution
+    assert "1_minute" in result.output
+    # datasets
     assert "precipitation" in result.output
     assert "temperature_air" in result.output
     assert "weather_phenomena" in result.output
-
-
-def test_cli_about_resolutions():
-    """Test cli coverage of dwd resolutions"""
-    runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
-    assert "minute_1" in result.output
-    assert "hourly" in result.output
-    assert "annual" in result.output
-
-
-def test_cli_about_coverage():
-    runner = CliRunner()
-    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
-    assert "minute_1" in result.output
-    assert "precipitation" in result.output
+    # parameters
+    assert "precipitation_height" in result.output
 
 
 def test_no_provider():
@@ -74,9 +63,45 @@ def test_no_network(caplog):
     runner = CliRunner()
     runner.invoke(
         cli,
-        "stations --provider=dwd --network=abc --parameter=precipitation_height --resolution=daily --all",
+        "stations --provider=dwd --network=abc --parameters=daily/climate_summary/precipitation_height --all",
     )
     assert "No API available for provider DWD and network abc" in caplog.text
+
+
+def test_coverage():
+    runner = CliRunner()
+    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation")
+    assert result.exit_code == 0
+    response = json.loads(result.stdout)
+    assert "1_minute" in response
+    assert "precipitation" in response["1_minute"]
+    assert len(response["1_minute"]["precipitation"]) > 0
+    parameters = [p["name"] for p in response["1_minute"]["precipitation"]]
+    assert parameters == [
+        "precipitation_height",
+        "precipitation_height_droplet",
+        "precipitation_height_rocker",
+        "precipitation_index",
+    ]
+
+
+def test_coverage_resolution_1_minute():
+    runner = CliRunner()
+    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation --resolutions=1_minute")
+    assert result.exit_code == 0
+    response = json.loads(result.stdout)
+    assert response.keys() == {"1_minute"}
+
+
+def test_coverage_dataset_climate_summary():
+    runner = CliRunner()
+    result = runner.invoke(cli, "about coverage --provider=dwd --network=observation --datasets=climate_summary")
+    assert result.exit_code == 0
+    response = json.loads(result.stdout)
+    assert response.keys() == {"daily", "monthly", "annual"}
+    assert response["daily"].keys() == {"climate_summary"}
+    assert response["monthly"].keys() == {"climate_summary"}
+    assert response["annual"].keys() == {"climate_summary"}
 
 
 @pytest.mark.remote
@@ -85,7 +110,7 @@ def test_cli_interpolate():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameters=daily/kl/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:
@@ -118,7 +143,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata):
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json --with-metadata=true --with-stations=true",
     )
     if result.exit_code != 0:
@@ -186,7 +211,7 @@ def test_cli_interpolate_geojson():
     result = runner.invoke(
         cli,
         "interpolate --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
     )
     if result.exit_code != 0:
@@ -281,7 +306,7 @@ def test_cli_summarize():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=json",
     )
     if result.exit_code != 0:
@@ -314,7 +339,7 @@ def test_cli_summarize_geojson():
     result = runner.invoke(
         cli,
         "summarize --provider=dwd --network=observation "
-        "--parameter=temperature_air_mean_2m --resolution=daily "
+        "--parameters=daily/climate_summary/temperature_air_mean_2m "
         "--station=00071 --date=1986-10-31/1986-11-01 --format=geojson",
     )
     if result.exit_code != 0:
