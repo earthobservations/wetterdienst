@@ -158,7 +158,7 @@ def index():
                     <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_interpolation']}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
                     <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_summary']}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
                     <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_stations']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
-                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_values']}" target="_blank" rel="noopener">DWD Obs Daily Climate Stripes Values</a></li>
+                    <li><a href="{REQUEST_EXAMPLES['dwd_observation_daily_climate_stripes_values']}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
                 </div>
                 <h2>Producer</h2>
                 <div class="List">
