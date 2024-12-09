@@ -1,11 +1,6 @@
-###################
-Development sandbox
-###################
+# Development sandbox
 
-
-************
-Introduction
-************
+## Introduction
 
 Whether you are working on an issue, trying to implement a new feature, or adding
 a new weather service, you'll need a proper sandbox environment. The following
@@ -17,47 +12,38 @@ dependencies required to run the whole test suite.
 If, for some reason, you are not available to install all the packages, just
 leave out some of the ``extras`` dependency groups.
 
+## Acquire sources and prerequisites
 
-*********************************
-Acquire sources and prerequisites
-*********************************
+```bash
+git clone https://github.com/earthobservations/wetterdienst
+cd wetterdienst
 
-.. code-block:: bash
+# Prerequisites
+brew install git python uv
 
-    git clone https://github.com/earthobservations/wetterdienst
-    cd wetterdienst
+# Other OS
+# You can also get installers and/or release archives for Linux, macOS
+# and Windows at
+#
+# - https://github.com/astral-sh/uv/releases
+```
 
-    # Prerequisites
-    brew install git python uv
+## Using uv
 
-    # Other OS
-    # You can also get installers and/or release archives for Linux, macOS
-    # and Windows at
-    #
-    # - https://github.com/astral-sh/uv/releases
+```bash
+uv sync
+uv run poe install-dev
+```
 
+## Using pip
 
-********
-Using uv
-********
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 
-.. code-block:: bash
-
-    uv sync
-    uv run poe install-dev
-
-*********
-Using pip
-*********
-
-.. code-block:: bash
-
-    python3 -m venv .venv
-    source .venv/bin/activate
-
-    # Install package in "editable" mode.
-    pip install --editable=".[sql,export,restapi,explorer,interpolation]"
-
+# Install package in "editable" mode.
+pip install --editable=".[sql,export,restapi,explorer,interpolation]"
+```
 
 *********
 Run tests

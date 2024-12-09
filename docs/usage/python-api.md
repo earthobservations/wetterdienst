@@ -1,41 +1,35 @@
-.. python-api:
+# Python API
 
-Python API
-##########
+## Introduction
 
-Introduction
-************
+The API offers access to different data products. They are outlined in more detail within the 
+[coverage](../data/coverage.md) chapter.
+Please also check out complete examples about how to use the API in the 
+[examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) folder. In order to explore all
+features interactively, you might want to try the [cli](cli.md). For managing general settings, please refer to the
+[settings](settings.md) chapter.
 
-The API offers access to different data products. They are outlined in more detail within the :ref:`coverage` chapter.
-Please also check out complete examples about how to use the API in the examples_ folder. In order to explore all
-features interactively, you might want to try the :ref:`cli`. For managing general settings, please refer to the
-:ref:`settings` chapter.
-
-.. _examples: https://github.com/earthobservations/wetterdienst/tree/main/examples
-
-Available APIs
-**************
+## Available APIs
 
 The available APIs can be accessed by the top-level API Wetterdienst. This API also
 allows the user to discover the available APIs of each service included:
 
-.. ipython:: python
+```python exec="on"
+from wetterdienst import Wetterdienst
 
-    from wetterdienst import Wetterdienst
-
-    Wetterdienst.discover()
+Wetterdienst.discover()
+```
 
 To load any of the available APIs pass the provider and the network of data to the
 Wetterdienst API:
 
-.. ipython:: python
+```python exec="on"
+from wetterdienst import Wetterdienst
 
-    from wetterdienst import Wetterdienst
+API = Wetterdienst(provider="dwd", network="observation")
+```
 
-    API = Wetterdienst(provider="dwd", network="observation")
-
-Request arguments
-*****************
+## Request arguments
 
 A request is typically defined by three arguments:
 
@@ -47,294 +41,271 @@ Parameters can be requested in different ways e.g.
 
 - using a tuple of resolution and dataset
 
-    .. code-block:: python
-
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-        request = DwdObservationRequest(
-            parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
-        )
+  ```python exec="on" source="above"
+  from wetterdienst.provider.dwd.observation import DwdObservationRequest
+  
+  request = DwdObservationRequest(
+      parameters=("daily", "climate_summary")  # will resolve to all parameters of kl
+  )
+  ```
 
 - using a tuple of resolution, dataset, parameter
 
-    .. code-block:: python
-
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-        request = DwdObservationRequest(
-            parameters=("daily", "climate_summary", "precipitation_height")
-        )
+  ```python exec="on" source="above"
+  from wetterdienst.provider.dwd.observation import DwdObservationRequest
+  
+  request = DwdObservationRequest(
+      parameters=("daily", "climate_summary", "precipitation_height")
+  )
+  ```
 
 - the same with the original names
 
-    .. code-block:: python
-
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-        request = DwdObservationRequest(
-            parameters=("daily", "kl", "rsk")
-        )
+  ```python exec="on" source="above"
+  from wetterdienst.provider.dwd.observation import DwdObservationRequest
+  
+  request = DwdObservationRequest(
+      parameters=("daily", "kl", "rsk")
+  )
+  ```
 
 - using the metadata model
 
-    .. code-block:: python
-
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
-
-        request = DwdObservationRequest(
-            parameters=DwdObservationMetadata.daily.kl  # will resolve to all parameters of kl
-        )
+  ```python exec="on" source="above"
+  from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
+  
+  request = DwdObservationRequest(
+      parameters=DwdObservationMetadata.daily.kl  # will resolve to all parameters of kl
+  )
+  ```
 
 - using a list of tuples
 
-    .. code-block:: python
-
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-        request = DwdObservationRequest(
-            parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")]
-        )
+  ```python exec="on" source="above"
+  from wetterdienst.provider.dwd.observation import DwdObservationRequest
+  
+  request = DwdObservationRequest(
+      parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")]
+  )
+  ```
 
 - using a list of metadata
 
-    .. code-block:: python
+  ```python exec="on" source="above"
+  from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
 
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
-
-        request = DwdObservationRequest(
-            parameters=[DwdObservationMetadata.daily.kl, DwdObservationMetadata.daily.more_precip]
-        )
-
+  request = DwdObservationRequest(
+      parameters=[DwdObservationMetadata.daily.kl, DwdObservationMetadata.daily.more_precip]
+  )
+  ```
 
 For some weather service one can select which period of the data is request with ``periods``.
 Valid periods are ``historical``, ``recent`` and ``now``. ``periods`` can be given as a list or a single value.
 The value can be a string, the enumeration value or the enumeration name e.g.
 
 - by using the exact enumeration e.g.
-    .. code-block:: python
+  ```python exec="on" source="above"
+  from wetterdienst.metadata.period import Period
 
-        from wetterdienst.metadata.period import Period
-
-        Period.HISTORICAL
+  Period.HISTORICAL
+  ```
 
 - by using the enumeration name or value as string e.g.
-    .. code-block:: python
-
-        "historical" or "HISTORICAL"
-
+  ```python
+  "historical" or "HISTORICAL"
+  ```
 If a weather service has periods, the period argument typically can be used as replacement
 for the start_date and end_date arguments. In case both arguments are given they are used
 as a filter for the data.
 
 Regarding the definition of requested parameters:
 
-Data
-****
+## Data
 
 In case of the DWD, requests can be defined by either of period or
 ``start_date`` and ``end_date``. Use ``DwdObservationRequest.discover()``
 to discover available parameters based on the given filter arguments.
 
-Stations
-========
+### Stations
 
-all stations
-------------
+#### all stations
 
 Get station information for a given *dataset/parameter* and
 *period*.
 
-.. ipython:: python
-    :okwarning:
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    request = DwdObservationRequest(
-        parameters=("daily", "precipitation_more"),
-        periods="historical"
-    )
-    stations = request.all()
-    df = stations.df
-    print(df.head())
+request = DwdObservationRequest(
+    parameters=("daily", "precipitation_more"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.all()
+df = stations.df
+print(df.head())
+```
 
 The function returns a Polars DataFrame with information about the available stations.
 
-filter by station id
---------------------
+#### filter by station id
 
-.. ipython:: python
-    :okwarning:
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+request = DwdObservationRequest(
+    parameters=("daily", "precipitation_more"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.filter_by_station_id(station_id=("01048", ))
+df = stations.df
+print(df.head())
+```
 
-    request = DwdObservationRequest(
-        parameters=("daily", "precipitation_more"),
-        periods="historical"
-    )
-    stations = request.filter_by_station_id(station_id=("01048", ))
-    df = stations.df
-    print(df.head())
+#### filter by name
 
-filter by name
---------------
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-.. ipython:: python
-    :okwarning:
+request = DwdObservationRequest(
+    parameters=("daily", "precipitation_more"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.filter_by_name(name="Dresden-Klotzsche")
+df = stations.df
+print(df.head())
+```
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    request = DwdObservationRequest(
-        parameters=("daily", "precipitation_more"),
-        periods="historical"
-    )
-    stations = request.filter_by_name(name="Dresden-Klotzsche")
-    df = stations.df
-    print(df.head())
-
-filter by distance
-------------------
+#### filter by distance
 
 Distance in kilometers (default)
 
-.. ipython:: python
-    :okwarning:
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    hamburg = (53.551086, 9.993682)
-    request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air"),
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2020, 1, 20)
-    )
-    stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="km")
-    df = stations.df
-    print(df.head())
+hamburg = (53.551086, 9.993682)
+request = DwdObservationRequest(
+    parameters=("hourly", "temperature_air"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="km")
+df = stations.df
+print(df.head())
+```
 
 Distance in miles
 
-.. ipython:: python
-    :okwarning:
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+hamburg = (53.551086, 9.993682)
+request = DwdObservationRequest(
+    parameters=("hourly", "temperature_air"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="mi")
+df = stations.df
+print(df.head())
+```
 
-    hamburg = (53.551086, 9.993682)
-    request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air"),
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2020, 1, 20)
-    )
-    stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="mi")
-    df = stations.df
-    print(df.head())
+#### filter by rank
 
-filter by rank
---------------
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-.. ipython:: python
-    :okwarning:
+hamburg = (53.551086, 9.993682)
+request = DwdObservationRequest(
+    parameters=("hourly", "temperature_air"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.filter_by_rank(latlon=hamburg, rank=5)
+df = stations.df
+print(df.head())
+```
 
-    import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+#### filter by bbox
 
-    hamburg = (53.551086, 9.993682)
-    request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air"),
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2020, 1, 20)
-    )
-    stations = request.filter_by_rank(latlon=hamburg, rank=5)
-    df = stations.df
-    print(df.head())
+```python exec="on"
+import datetime as dt
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-filter by bbox
---------------
+bbox = (8.9, 50.0, 8.91, 50.01)
+request = DwdObservationRequest(
+    parameters=("hourly", "temperature_air"),
+    start_date=dt.datetime(2020, 1, 1),
+    end_date=dt.datetime(2020, 1, 20)
+)
+stations = request.filter_by_bbox(*bbox)
+df = stations.df
+print(df.head())
+```
 
-.. ipython:: python
-    :okwarning:
-
-    import datetime as dt
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    bbox = (8.9, 50.0, 8.91, 50.01)
-    request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air"),
-        start_date=dt.datetime(2020, 1, 1),
-        end_date=dt.datetime(2020, 1, 20)
-    )
-    stations = request.filter_by_bbox(*bbox)
-    df = stations.df
-    print(df.head())
-
-Values
-======
+### Values
 
 Values are just an extension of requests:
 
-.. ipython:: python
-    :okwarning:
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst import Settings
 
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-    from wetterdienst import Settings
+# if no settings are provided, default settings are used which are
+# Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
+request = DwdObservationRequest(
+    parameters=[("daily", "kl"), ("daily", "solar")],
+    start_date="1990-01-01",
+    end_date="2020-01-01",
+)
+stations = request.filter_by_station_id(station_id=("00003", "01048"))
 
-    # if no settings are provided, default settings are used which are
-    # Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
-    request = DwdObservationRequest(
-        parameters=[("daily", "kl"), ("daily", "solar")],
-        start_date="1990-01-01",
-        end_date="2020-01-01",
-    )
-    stations = request.filter_by_station_id(station_id=("00003", "01048"))
+# From here you can query data by station
+for result in stations.values.query():
+    # analyse the station here
+    print(result.df.drop_nulls().head())
 
-From here you can query data by station:
-
-.. ipython:: python
-    :okwarning:
-
-    for result in stations.values.query():
-        # analyse the station here
-        print(result.df.drop_nulls().head())
-
-Query data all together:
-
-.. ipython:: python
-    :okwarning:
-
-    df = stations.values.all().df.drop_nulls()
-    print(df.head())
+# Query data all together
+df = stations.values.all().df.drop_nulls()
+print(df.head())
+```
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names. Instead of
 ``start_date`` and ``end_date`` you may as well want to use ``period`` to update your
 database once in a while with a fixed set of records.
 
-In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from :ref:`settings` to
-achieve that:
+In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from 
+[settings](settings.md) to achieve that:
 
-.. ipython:: python
-    :okwarning:
+```python
+from wetterdienst import Settings
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-    from wetterdienst import Settings
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ignore_env=True)
+karlsruhe = (49.19780976647141, 8.135207205143768)
+request = DwdObservationRequest(
+  parameters=[("daily", "kl"), ("daily", "solar")],
+  start_date="2021-01-01",
+  end_date="2021-12-31",
+  settings=settings,
+)
+stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
+values = stations.values.all()
+print(values.df.head())
+# df_stations has only stations that appear in the values
+print(values.df_stations.head())
+```
 
-    settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ignore_env=True)
-    karlsruhe = (49.19780976647141, 8.135207205143768)
-    request = DwdObservationRequest(
-        parameters=[("daily", "kl"), ("daily", "solar")],
-        start_date="2021-01-01",
-        end_date="2021-12-31",
-        settings=settings,
-    )
-    stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
-    values = stations.values.all()
-    print(values.df.head())
-    # df_stations has only stations that appear in the values
-    print(values.df_stations.head())
-
-Interpolation
-=============
+### Interpolation
 
 Occasionally, you may require data specific to your precise location rather than relying on values measured at a
 station's location. To address this need, we have introduced an interpolation feature, enabling you to interpolate data
@@ -350,34 +321,34 @@ The graphic below shows values of the parameter ``temperature_air_mean_2m`` from
 The blue points represent the position of a station and includes the measured value.
 The red point represents the position of the interpolation and includes the interpolated value.
 
-.. image:: ../img/interpolation.png
-   :width: 600
+![interpolation example](../img/interpolation.png)
 
 Values represented as a table:
 
-.. list-table:: Individual station values
-   :header-rows: 1
+```{list-table} Individual station values
+:header-rows: 1
 
-   * - station_id
-     - parameter
-     - date
-     - value
-   * - 02480
-     - temperature_air_mean_2m
-     - 2022-01-02 00:00:00+00:00
-     - 278.15
-   * - 04411
-     - temperature_air_mean_2m
-     - 2022-01-02 00:00:00+00:00
-     - 277.15
-   * - 07341
-     - temperature_air_mean_2m
-     - 2022-01-02 00:00:00+00:00
-     - 278.35
-   * - 00917
-     - temperature_air_mean_2m
-     - 2022-01-02 00:00:00+00:00
-     - 276.25
+* - station_id
+ - parameter
+ - date
+ - value
+* - 02480
+ - temperature_air_mean_2m
+ - 2022-01-02 00:00:00+00:00
+ - 278.15
+* - 04411
+ - temperature_air_mean_2m
+ - 2022-01-02 00:00:00+00:00
+ - 277.15
+* - 07341
+ - temperature_air_mean_2m
+ - 2022-01-02 00:00:00+00:00
+ - 278.35
+* - 00917
+ - temperature_air_mean_2m
+ - 2022-01-02 00:00:00+00:00
+ - 276.25
+```
 
 The interpolated value looks like this:
 

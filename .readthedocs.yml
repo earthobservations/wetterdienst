@@ -24,8 +24,8 @@ build:
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH .github/workflows/install.sh docs
 
 # Build documentation in the docs/ directory with Sphinx
-sphinx:
-  configuration: docs/conf.py
+mkdocs:
+  configuration: mkdocs.yml
 
 # Optionally build your docs in additional formats such as PDF
 formats:
