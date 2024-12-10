@@ -1,0 +1,49 @@
+site_name: Wetterdienst
+site_url: !ENV READTHEDOCS_CANONICAL_URL
+theme:
+  name: material
+  # https://squidfunk.github.io/mkdocs-material/customization/
+  custom_dir: docs/overrides
+extra_javascript:
+  - javascript/readthedocs.js
+markdown_extensions:
+  - markdown_include.include:
+      base_path: .
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: python
+          class: python
+          validator: !!python/name:markdown_exec.validator
+          format: !!python/name:markdown_exec.formatter
+plugins:
+  - mkdocstrings:
+      default_handler: python
+nav:
+  - Overview: index.md
+  - Data:
+    - /index.md
+  - Usage:
+    - usage/python-api.md
+    - usage/python-examples.md
+    - usage/cli.md
+    - usage/restapi.md
+    - usage/explorer.md
+    - usage/docker.md
+    - usage/settings.md
+  - Library:
+    - library/api.md
+    - library/machinery.md
+    - library/core.md
+  - License: license.md
+  - Contribution:
+    - contribution/development.md
+    - contribution/services.md
+  - known_issues.md
+  - changelog.md

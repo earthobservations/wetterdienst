@@ -6,8 +6,8 @@ authors = [
   { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
 ]
 description = "Open weather data for humans"
-readme = "README.rst"
-license = { file = "LICENSE" }
+readme = "README.md"
+license = { file = "LICENSE.md" }
 keywords = [
   # DWD
   "deutscher-wetterdienst",
@@ -195,17 +195,21 @@ sql = [
 # docs
 docs = [
   "docformatter>=1.4",
-  "furo>=2023.3",
+#  "furo>=2023.3",
   "ipython>=8.5",
   "matplotlib>=3.3",
   "pickleshare==0.7.5",
   "pyyaml>=6",
-  "sphinx>=7",
-  "sphinx-autodoc-typehints>=1.11",
-  "sphinx-autobuild>=2020.9",
-  "sphinx_design>=0.5",
-  "sphinxcontrib-svg2pdfconverter>=1.1",
-  "tomlkit>=0.7",
+#  "sphinx>=7",
+#  "sphinx-autodoc-typehints>=1.11",
+#  "sphinx-autobuild>=2020.9",
+#  "sphinx_design>=0.5",
+#  "sphinxcontrib-svg2pdfconverter>=1.1",
+#  "tomlkit>=0.7",
+  "mkdocs-material>=9.5.48",
+  "markdown-include>=0.8.1",
+  "mkdocstrings[python]>=0.18",
+  "markdown-exec[ansi]>=1.10.0",
 ]
 
 [project.urls]
