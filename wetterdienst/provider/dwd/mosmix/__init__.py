@@ -4,4 +4,5 @@ from wetterdienst.provider.dwd.mosmix.api import (
     DwdForecastDate,
     DwdMosmixRequest,
     DwdMosmixStationGroup,
+    DwdMosmixMetadata
 )
