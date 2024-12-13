@@ -3,7 +3,7 @@
 ## Introduction
 
 The API offers access to different data products. They are outlined in more detail within the 
-[coverage](../data/coverage.md) chapter.
+[data](../data/overview.md) chapter.
 Please also check out complete examples about how to use the API in the 
 [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) folder. In order to explore all
 features interactively, you might want to try the [cli](cli.md). For managing general settings, please refer to the
