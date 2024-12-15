@@ -2,10 +2,10 @@
 
 ## metadata
 
-| property      | value                                                                                          |
-|---------------|------------------------------------------------------------------------------------------------|
-| name          | 10_minutes                                                                                    |
-| original name | 10_minutes                                                                                     |
+| property      | value                                                                                            |
+|---------------|--------------------------------------------------------------------------------------------------|
+| name          | 10_minutes                                                                                       |
+| original name | 10_minutes                                                                                       |
 | url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/) |
 
 ## datasets
@@ -14,13 +14,12 @@
 
 #### metadata
 
-| property         | value                                                                                                                                                                   |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | precipitation                                                                                                                                                           |
-| original name    | precipitation                                                                                                                                                           |
-| description      | Historical 10-minute station observations of precipitation for Germany                                                                                                  |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/DESCRIPTION_obsgermany-climate-10min-precipitation_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/)                                                          |
+| property         | value                                                                                                                                                                                                                                    |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | precipitation                                                                                                                                                                                                                            |
+| original name    | precipitation                                                                                                                                                                                                                            |
+| description      | 10-minute station observations of precipitation for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/DESCRIPTION_obsgermany-climate-10min-precipitation_en.pdf)) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/)                                                                                                                           |
 
 #### parameters
 
@@ -42,13 +41,12 @@ Codes (precipitation_indicator_wr):
 
 #### metadata
 
-| property         | value                                                                                                                                                   |
-|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | solar                                                                                                                                                   |
-| original name    | solar                                                                                                                                                   |
-| description      | Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine duration for Germany                    |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/DESCRIPTION_obsgermany_climate_10min_solar_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/)                                                  |
+| property         | value                                                                                                                                                                                                                         |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | solar                                                                                                                                                                                                                         |
+| original name    | solar                                                                                                                                                                                                                         |
+| description      | 10-minute station observations of solar and sunshine for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/DESCRIPTION_obsgermany_climate_10min_solar_en.pdf)) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/)                                                                                                                        |
 
 #### parameters
 
@@ -63,13 +61,12 @@ Codes (precipitation_indicator_wr):
 
 #### metadata
 
-| property         | value                                                                                                                                                                       |
-|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | temperature_air                                                                                                                                                             |
-| original name    | air_temperature                                                                                                                                                             |
-| description      | Historical 10-minute station observations of pressure, air temperature (at 5cm and 2m height), humidity and dew point for Germany                                           |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/DESCRIPTION_obsgermany_climate_10min_air_temperature_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/)                                                            |
+| property         | value                                                                                                                                                                                                                                          |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | temperature_air                                                                                                                                                                                                                                |
+| original name    | air_temperature                                                                                                                                                                                                                                |
+| description      | 10-minute station observations of air temperature for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/DESCRIPTION_obsgermany_climate_10min_air_temperature_en.pdf)) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/)                                                                                                                               |
 
 #### parameters
 
@@ -85,13 +82,12 @@ Codes (precipitation_indicator_wr):
 
 #### metadata
 
-| property         | value                                                                                                                                                                               |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | temperature_extreme                                                                                                                                                                 |
-| original name    | extreme_temperature                                                                                                                                                                 |
-| description      | Historical 10-minute station observations of max/min temperature at 5cm and 2m height above ground for Germany                                                                      |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_temperature/DESCRIPTION_obsgermany_climate_10min_extreme_temperature_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_temperature/)                                                                |
+| property         | value                                                                                                                                                                                                                                                       |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | temperature_extreme                                                                                                                                                                                                                                         |
+| original name    | extreme_temperature                                                                                                                                                                                                                                         |
+| description      | 10-minute station observations of extreme temperatures for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_temperature/DESCRIPTION_obsgermany_climate_10min_extreme_temperature_en.pdf)) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_temperature/)                                                                                                                                        |
 
 #### parameters
 
@@ -106,13 +102,12 @@ Codes (precipitation_indicator_wr):
 
 #### metadata
 
-| property         | value                                                                                                                                                                         |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | wind                                                                                                                                                                          |
-| original name    | wind                                                                                                                                                                          |
-| description      | Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine duration for Germany                                          |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/)                                                                         |
+| property         | value                                                                                                                                                                                                         |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | wind                                                                                                                                                                                                          |
+| original name    | wind                                                                                                                                                                                                          |
+| description      | 10-minute station observations of wind for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/DESCRIPTION_obsgermany_climate_10min_wind_en.pdf)) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/)                                                                                                         |
 
 #### parameters
 
@@ -125,13 +120,12 @@ Codes (precipitation_indicator_wr):
 
 #### metadata
 
-| property         | value                                                                                                                                                                 |
-|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | wind_extreme                                                                                                                                                          |
-| original name    | extreme_wind                                                                                                                                                          |
-| description      | Historical 10-minute station observations of max/min - mean wind speed and wind gust for Germany                                                                      |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/DESCRIPTION_obsgermany_climate_10min_extreme_wind_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/)                                                         |
+| property      | value                                                                                                                                                                                                                                 |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | wind_extreme                                                                                                                                                                                                                          |
+| original name | extreme_wind                                                                                                                                                                                                                          |
+| description   | 10-minute station observations of extreme wind for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/DESCRIPTION_obsgermany_climate_10min_extreme_wind_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/)                                                                                                                         |
 
 #### parameters
 

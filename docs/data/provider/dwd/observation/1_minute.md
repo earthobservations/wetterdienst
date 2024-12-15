@@ -14,13 +14,12 @@
 
 #### metadata
 
-| property         | value                                                                                                                                                     |
-|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | precipitation                                                                                                                                             |
-| original name    | precipitation                                                                                                                                             |
-| description      | missing                                                                                                                                                   |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/DESCRIPTION_obsgermany-climate-1min-rr_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/)                                              |
+| property         | value                                                                                                                                                                                                                     |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | precipitation                                                                                                                                                                                                             |
+| original name    | precipitation                                                                                                                                                                                                             |
+| description      | 1-minute station observations of precipitation for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/DESCRIPTION_obsgermany-climate-1min-rr_en.pdf)) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/)                                                                                                              |
 
 #### parameters
 

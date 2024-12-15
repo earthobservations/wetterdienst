@@ -5,7 +5,7 @@
 | property      | value                                                                                        |
 |---------------|----------------------------------------------------------------------------------------------|
 | name          | hourly                                                                                       |
-| original_name | hourly                                                                                       |
+| original name | hourly                                                                                       |
 | url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/) |
 
 ## datasets
@@ -14,769 +14,147 @@
 
 #### metadata
 
-| property         | value                                                                                                                                                                    |
-|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | temperature_air                                                                                                                                                          |
-| original_name    | air_temperature                                                                                                                                                          |
-| description      | Historical hourly station observations of 2m air temperature and humidity for Germany                                                                                    |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/DESCRIPTION_obsgermany_climate_hourly_air_temperature_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/)                                                             |
+| property      | value                                                                                                                                                                                                                                                     |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | temperature_air                                                                                                                                                                                                                                           |
+| original name | air_temperature                                                                                                                                                                                                                                           |
+| description   | Hourly station observations of 2 m air temperature and humidity for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/DESCRIPTION_obsgermany_climate_hourly_air_temperature_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/)                                                                                                                                              |
 
 #### parameters
 
-| name                         | original name | description                                              | unit             | original unit | constraints           |
-|------------------------------|---------------|----------------------------------------------------------|------------------|---------------|-----------------------|
-| temperature_air_mean_2m
-
-temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - tt_tu
-   * - description file
-     - `air_temperature dataset description`_
-   * - description
-     - 2m air temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-humidity
-^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - rf_tu
-   * - description file
-     - `air_temperature dataset description`_
-   * - description
-     - 2m relative humidity
-   * - origin unit
-     - :math:`\%`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0}, \leq{100}`
-
-Cloud_type
-==========
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - air_temperature
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloud_type/>`_
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - Historical hourly station observations of cloud cover, cloud type and cloud height in up to 4 layers for Germany
-
-.. _cloud_type dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloud_type/historical/DESCRIPTION_obsgermany_climate_hourly_cloud_type_historical_en.pdf
-
-Parameters
-----------
-
-cloud_cover_total
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_n
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - total cloud cover
-   * - origin unit
-     - :math:`1 / 8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0}, \leq{8}`
-
-cloud_type_layer1
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s1_cs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud type of 1. layer
-
-       .. list-table::
-          :widths: 20 80
-          :stub-columns: 1
-
-          * - code
-            - cloud type
-          * - 0
-            - cirrus
-          * - 1
-            - cirrocumulus
-          * - 2
-            - cirrostratus
-          * - 3
-            - altocumulus
-          * - 4
-            - altostratus
-          * - 5
-            - nimbostratus
-          * - 6
-            - stratocumulus
-          * - 7
-            - stratus
-          * - 8
-            - cumulus
-          * - 9
-            - cumulonimbus
-          * - -1
-            - automated
-
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
-
-cloud_height_layer1
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s1_hhs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - height of 1.layer
-   * - origin unit
-     - :math:`m`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-cloud_cover_layer1
-^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s1_ns
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud cover of 1. layer
-   * - origin unit
-     - :math:`1 / 8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0}, \leq{8}`
-
-cloud_type_layer2
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s2_cs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud type of 2. layer
-
-       .. list-table::
-          :widths: 20 80
-          :stub-columns: 1
-
-          * - code
-            - cloud type
-          * - 0
-            - cirrus
-          * - 1
-            - cirrocumulus
-          * - 2
-            - cirrostratus
-          * - 3
-            - altocumulus
-          * - 4
-            - altostratus
-          * - 5
-            - nimbostratus
-          * - 6
-            - stratocumulus
-          * - 7
-            - stratus
-          * - 8
-            - cumulus
-          * - 9
-            - cumulonimbus
-          * - -1
-            - automated
-
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
-
-cloud_height_layer2
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s2_hhs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - height of 2.layer
-   * - origin unit
-     - :math:`m`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-cloud_cover_layer2
-^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s2_ns
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud cover of 2. layer
-   * - origin unit
-     - :math:`1 / 8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0}, \leq{8}`
-
-cloud_type_layer3
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s3_cs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud type of 3. layer
-
-       .. list-table::
-          :widths: 20 80
-          :stub-columns: 1
-
-          * - code
-            - cloud type
-          * - 0
-            - cirrus
-          * - 1
-            - cirrocumulus
-          * - 2
-            - cirrostratus
-          * - 3
-            - altocumulus
-          * - 4
-            - altostratus
-          * - 5
-            - nimbostratus
-          * - 6
-            - stratocumulus
-          * - 7
-            - stratus
-          * - 8
-            - cumulus
-          * - 9
-            - cumulonimbus
-          * - -1
-            - automated
-
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
-
-cloud_height_layer3
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s3_hhs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - height of 3.layer
-   * - origin unit
-     - :math:`m`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-cloud_cover_layer3
-^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s3_ns
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud cover of 3. layer
-   * - origin unit
-     - :math:`1 / 8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0}, \leq{8}`
-
-cloud_type_layer4
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s4_cs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud type of 4. layer
-
-       .. list-table::
-          :widths: 20 80
-          :stub-columns: 1
-
-          * - code
-            - cloud type
-          * - 0
-            - cirrus
-          * - 1
-            - cirrocumulus
-          * - 2
-            - cirrostratus
-          * - 3
-            - altocumulus
-          * - 4
-            - altostratus
-          * - 5
-            - nimbostratus
-          * - 6
-            - stratocumulus
-          * - 7
-            - stratus
-          * - 8
-            - cumulus
-          * - 9
-            - cumulonimbus
-          * - -1
-            - automated
-
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]`
-
-cloud_height_layer4
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s4_hhs
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - height of 4.layer
-   * - origin unit
-     - :math:`m`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-cloud_cover_layer4
-^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_s4_ns
-   * - description file
-     - `cloud_type dataset description`_
-   * - description
-     - cloud cover of 4. layer
-   * - origin unit
-     - :math:`1 / 8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0}, \leq{8}`
-
-Cloudiness
-==========
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - cloudiness
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/>`_
-   * - description file
-     - `cloudiness dataset description`_
-   * - description
-     - Historical hourly station observations of cloudiness for Germany
-
-.. _cloudiness dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/historical/DESCRIPTION_obsgermany_climate_hourly_cloudiness_historical_en.pdf
-
-Parameters
-----------
-
-cloud_cover_total_indicator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_n_i
-   * - description file
-     - `cloudiness dataset description`_
-   * - description
-     - index how measurement is taken
-
-       .. list-table::
-          :widths: 20 80
-          :stub-columns: 1
-
-          * - code
-            - meaning
-          * - P
-            - human person
-          * - I
-            - instrument
-
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\in [P, I]`
-
-cloud_cover_total
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - v_n
-   * - description file
-     - `cloudiness dataset description`_
-   * - description
-     - total cloud cover
-   * - origin unit
-     - :math:`1 / 8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, -1]`, -1: not determined
-
-Dew_point
-=========
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - dew_point
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/dew_point/>`_
-   * - description file
-     - `dew_point dataset description`_
-   * - description
-     - Historical hourly station observations of air and dew point temperature 2 m above ground in °C for Germany
-
-.. _dew_point dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/dew_point/historical/DESCRIPTION_obsgermany_climate_hourly_dew_point_historical_en.pdf
-
-Parameters
-----------
-
-temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - tt
-   * - description file
-     - `dew_point dataset description`_
-   * - description
-     - air temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - none
-
-temperature_dew_point_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - td
-   * - description file
-     - `dew_point dataset description`_
-   * - description
-     - dew point temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - none
-
-Wind_extreme
-============
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - extreme_wind
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/extreme_wind/>`_
-   * - description file
-     - missing, simple descriptions within `DWD parameter listing`_
-   * - description
-     - Historical hourly station observations of maximum wind speed in 10m height for Germany
-
-Parameters
-----------
-
-wind_gust_max
-^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - fx_911
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - maximum wind speed in 10m height
-   * - origin unit
-     - :math:`m / s`
-   * - SI unit
-     - :math:`m / s`
-   * - constraints
-     - :math:`\geq{0}`
-
-Moisture
-========
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - moisture
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/moisture/>`_
-   * - description file
-     - missing, simple descriptions within `DWD parameter listing`_
-   * - description
-     - Historical hourly station observations of humidity, absolute humidity, vapor pressure, air pressure,
-       wet temperature, air temperature and dew point temperature for Germany
-
-
-Parameters
-----------
-
-humidity_absolute
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - absf_std
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - absolute humidity
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\geq{0}, \leq{100}`
-
-pressure_vapor
-^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - vp_std
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - vapor pressure
-   * - origin unit
-     - :math:`hPa`
-   * - SI unit
-     - :math:`Pa`
-   * - constraints
-     - :math:`\geq{0}`
-
-temperature_wet_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - tf_std
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - wet temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - none
-
-pressure_air_site
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - p_std
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - air pressure at site level
-   * - origin unit
-     - :math:`hPa`
-   * - SI unit
-     - :math:`Pa`
-   * - constraints
-     - :math:`\geq{0}`
-
-temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - tt_std
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - air temperature at 2m height
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - none
+| name                    | original name | description          | unit       | original unit | constraints                |
+|-------------------------|---------------|----------------------|------------|---------------|----------------------------|
+| temperature_air_mean_2m | tt_tu         | 2m air temperature   | :math:`K`  | :math:`°C`    | :math:`None`               |
+| humidity                | rf_tu         | 2m relative humidity | :math:`\%` | :math:`\%`    | :math:`\geq{0}, \leq{100}` |
+
+### cloud_type
+
+#### metadata
+
+| property      | value                                                                                                                                                                                                                                                                     |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | cloud_type                                                                                                                                                                                                                                                                |
+| original name | cloud_type                                                                                                                                                                                                                                                                |
+| description   | Hourly station observations of cloud cover, cloud type and cloud height in up to 4 layers for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloud_type/DESCRIPTION_obsgermany_climate_hourly_cloud_type_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloud_type/)                                                                                                                                                                   |
+
+#### parameters
+
+| name                | original name | description              | unit       | original unit | constraints                                    |
+|---------------------|---------------|--------------------------|------------|---------------|------------------------------------------------|
+| cloud_cover_total   | v_n           | total cloud cover        | :math:`\%` | :math:`1 / 8` | :math:`\geq{0}, \leq{8}`                       |
+| cloud_type_layer1   | v_s1_cs       | cloud type of 1st layer  | -          | -             | :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]` |
+| cloud_height_layer1 | v_s1_hhs      | height of 1st layer      | :math:`m`  | :math:`m`     | :math:`\geq{0}`                                |
+| cloud_cover_layer1  | v_s1_ns       | cloud cover of 1st layer | :math:`\%` | :math:`1 / 8` | :math:`\geq{0}, \leq{8}`                       |
+| cloud_type_layer2   | v_s2_cs       | cloud type of 2nd layer  | -          | -             | :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]` |
+| cloud_height_layer2 | v_s2_hhs      | height of 2nd layer      | :math:`m`  | :math:`m`     | :math:`\geq{0}`                                |
+| cloud_cover_layer2  | v_s2_ns       | cloud cover of 2nd layer | :math:`\%` | :math:`1 / 8` | :math:`\geq{0}, \leq{8}`                       |
+| cloud_type_layer3   | v_s3_cs       | cloud type of 3rd layer  | -          | -             | :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]` |
+| cloud_height_layer3 | v_s3_hhs      | height of 3rd layer      | :math:`m`  | :math:`m`     | :math:`\geq{0}`                                |
+| cloud_cover_layer3  | v_s3_ns       | cloud cover of 3rd layer | :math:`\%` | :math:`1 / 8` | :math:`\geq{0}, \leq{8}`                       |
+| cloud_type_layer4   | v_s4_cs       | cloud type of 4th layer  | -          | -             | :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1]` |
+| cloud_height_layer4 | v_s4_hhs      | height of 4th layer      | :math:`m`  | :math:`m`     | :math:`\geq{0}`                                |
+| cloud_cover_layer4  | v_s4_ns       | cloud cover of 4th layer | :math:`\%` | :math:`1 / 8` | :math:`\geq{0}, \leq{8}`                       |
+
+Code (cloud_type_layer):
+
+| code | cloud type    |
+|------|---------------|
+| 0    | cirrus        |
+| 1    | cirrocumulus  |
+| 2    | cirrostratus  |
+| 3    | altocumulus   |
+| 4    | altostratus   |
+| 5    | nimbostratus  |
+| 6    | stratocumulus |
+| 7    | stratus       |
+| 8    | cumulus       |
+| 9    | cumulonimbus  |
+| -1   | automated     |
+
+### cloudiness
+
+#### metadata
+
+| property      | value                                                                                                                                                                                                                     |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | cloudiness                                                                                                                                                                                                                |
+| original name | cloudiness                                                                                                                                                                                                                |
+| description   | Hourly station observations of cloudiness for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/DESCRIPTION_obsgermany_climate_hourly_cloudiness_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/)                                                                                                                   |
+
+#### parameters
+
+| name                        | original name | description                    | unit       | original unit | constraints                                 |
+|-----------------------------|---------------|--------------------------------|------------|---------------|---------------------------------------------|
+| cloud_cover_total_indicator | v_n_i         | index how measurement is taken | -          | -             | :math:`\in [P, I]`                          |
+| cloud_cover_total           | v_n           | total cloud cover              | :math:`\%` | :math:`1 / 8` | :math:`\in [0, 1, 2, 3, 4, 5, 6, 7, 8, -1]` |
+
+Code (cloud_cover_total_indicator):
+
+| code | meaning      |
+|------|--------------|
+| P    | human person |
+| I    | instrument   |
+
+### dew_point
+
+#### metadata
+
+| property      | value                                                                                                                                                                                                                                      |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | dew_point                                                                                                                                                                                                                                  |
+| original name | dew_point                                                                                                                                                                                                                                  |
+| description   | Hourly station observations of air and dew point temperature for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/dew_point/DESCRIPTION_obsgermany_climate_hourly_dew_point_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/dew_point/)                                                                                                                                     |
+
+#### parameters
+
+| name                          | original name | description           | unit      | original unit | constraints  |
+|-------------------------------|---------------|-----------------------|-----------|---------------|--------------|
+| temperature_air_mean_2m       | tt            | air temperature       | :math:`K` | :math:`°C`    | :math:`None` |
+| temperature_dew_point_mean_2m | td            | dew point temperature | :math:`K` | :math:`°C`    | :math:`None` |
+
+### wind_extreme
+
+#### metadata
+
+| property      | value                                                                                                                                                                                                                                           |
+|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | wind_extreme                                                                                                                                                                                                                                    |
+| original name | extreme_wind                                                                                                                                                                                                                                    |
+| description   | Hourly maximum value from station observations of windspeed for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/extreme_wind/DESCRIPTION_obsgermany_climate_hourly_extreme_wind_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/extreme_wind/)                                                                                                                                       |
+
+#### parameters
+
+| name          | original name | description                      | unit          | original unit | constraints     |
+|---------------|---------------|----------------------------------|---------------|---------------|-----------------|
+| wind_gust_max | fx_911        | maximum wind speed in 10m height | :math:`m / s` | :math:`m / s` | :math:`\geq{0}` |
+
+### moisture
+
+#### metadata
+
+| property      | value                                                                                                                                                                                                                          |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | moisture                                                                                                                                                                                                                       |
+| original name | moisture                                                                                                                                                                                                                       |
+| description   | Hourly station observations of moisture parameters for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/moisture/DESCRIPTION_obsgermany_climate_hourly_moisture_en.pdf)) |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/moisture/)                                                                                                                          |
+
+#### parameters
+
+| name                        | original name | description                      | unit       | original unit | constraints           |
+|-----------------------------|---------------|----------------------------------|------------|---------------|-----------------------|
+| humidity_absolute | absf_std      | absolute humidity                | -          | -             | :math:`\geq{0}, \leq{100}` |
+| pressure_vapor              | vp_std        | vapor pressure                   | :math:`Pa` | :math:`hPa`   | :math:`\geq{0}`       |
+| temperature_wet_mean_2m     | tf_std        | wet temperature                  | :math:`K`  | :math:`°C`    | :math:`None`          |
+| pressure_air_site           | p_std         | air pressure at site level       | :math:`Pa` | :math:`hPa`   | :math:`\geq{0}`       |
+| temperature_air_mean_2m     | tt_std        | air temperature at 2m height     | :math:`K`  | :math:`°C`    | :math:`None`          |
+| humidity                    | rf_std        | humidity                         | :math:`\%` | :math:`\%`    | :math:`\geq{0}, \leq{100}` |
+| temperature_dew_point_mean_2m |
 
 humidity
 ^^^^^^^^
