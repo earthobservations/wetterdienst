@@ -1,135 +1,40 @@
-Minute_5
-########
+# 5_minutes
 
-Metadata
-********
+## metadata
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+| property      | value                                                                                           |
+|---------------|-------------------------------------------------------------------------------------------------|
+| name          | 5_minutes                                                                                       |
+| original name | 5_minutes                                                                                       |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/) |
 
-   * - original name
-     - 5_minutes
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/>`_
+## datasets
 
-Datasets
-********
+### precipitation
 
-Precipitation
-=============
+#### metadata
 
-Metadata
---------
+| property         | value                                                                                                                                                      |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | precipitation                                                                                                                                              |
+| original name    | precipitation                                                                                                                                              |
+| description      | missing                                                                                                                                                    |
+| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/DESCRIPTION_obsgermany-climate-5min-rr_en.pdf) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/)                                              |
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+#### parameters
 
-   * - original name
-     - precipitation
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/>`_
-   * - description file
-     - missing, simple descriptions within `DWD parameter listing`_
-   * - description
-     - missing
+| name                         | original name | description                                                          | unit             | original unit | constraints           |
+|------------------------------|---------------|----------------------------------------------------------------------|------------------|---------------|-----------------------|
+| precipitation_height         | rs_05         | precipitation height of last 5min                                    | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
+| precipitation_height_droplet | rth_05        | precipitation height of last 5min measured with droplet              | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
+| precipitation_height_rocker  | rwh_05        | precipitation height of last 5min measured with rocker               | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
+| precipitation_form           | rs_ind_05     | precipitation form of last 5min, codes taken from 10_minutes dataset | :math:`-`        | :math:`-`     | :math:`\in [0, 1, 3]` |
 
-.. _DWD parameter listing: https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx
+Codes (precipitation_form):
 
-Parameters
-----------
-
-precipitation_height
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - rs_05
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - precipitation height of last 5min
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_droplet
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - rth_05
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - precipitation height of last 5min measured with droplet, not available in recent/now period
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_rocker
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - rwh_05
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - precipitation height of last 5min measured with rocker, not available in recent/now period
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_form
-^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - rs_ind_05
-   * - description file
-     - missing, taken from `DWD parameter listing`_
-   * - description
-     - precipitation form of last 5min, codes taken from 10_minutes dataset
-
-       .. list-table::
-          :widths: 20 80
-          :stub-columns: 1
-
-          * - code
-            - meaning
-          * - 0
-            - no precipitation
-          * - 1
-            - precipitation has fallen
-          * - 3
-            - precipitation has fallen and heating of instrument was on
-
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\in [0, 1, 3]`
+| code | meaning                                                   |
+|------|-----------------------------------------------------------|
+| 0    | no precipitation                                          |
+| 1    | precipitation has fallen                                  |
+| 3    | precipitation has fallen and heating of instrument was on |
