@@ -10,6 +10,55 @@
 
 ## datasets
 
+### precipitation
+
+#### metadata
+
+| property         | value                                                                                                                                                                   |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | precipitation                                                                                                                                                           |
+| original name    | precipitation                                                                                                                                                           |
+| description      | Historical 10-minute station observations of precipitation for Germany                                                                                                  |
+| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/DESCRIPTION_obsgermany-climate-10min-precipitation_en.pdf) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/)                                                          |
+
+#### parameters
+
+| name                       | original name | description                                          | unit             | original unit | constraints           |
+|----------------------------|---------------|------------------------------------------------------|------------------|---------------|-----------------------|
+| precipitation_duration     | rws_dau_10    | duration of precipitation within the last 10 minutes | :math:`s`        | :math:`min`   | :math:`\geq{0}`       |
+| precipitation_height       | rws_10        | precipitation height of the last 10 minutes          | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
+| precipitation_indicator_wr | rws_ind_10    | precipitation index                                  | :math:`-`        | :math:`-`     | :math:`\in [0, 1, 3]` |
+
+Codes (precipitation_indicator_wr):
+
+| code | meaning                                                   |
+|------|-----------------------------------------------------------|
+| 0    | no precipitation                                          |
+| 1    | precipitation has fallen                                  |
+| 3    | precipitation has fallen and heating of instrument was on |
+
+### solar
+
+#### metadata
+
+| property         | value                                                                                                                                                   |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | solar                                                                                                                                                   |
+| original name    | solar                                                                                                                                                   |
+| description      | Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine duration for Germany                    |
+| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/DESCRIPTION_obsgermany_climate_10min_solar_en.pdf) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/)                                                  |
+
+#### parameters
+
+| name                             | original name | description                              | unit            | original unit    | constraints     |
+|----------------------------------|---------------|------------------------------------------|-----------------|------------------|-----------------|
+| radiation_sky_short_wave_diffuse | ds_10         | 10min-sum of diffuse solar radiation     | :math:`J / m^2` | :math:`J / cm^2` | :math:`\geq{0}` |
+| radiation_global                 | gs_10         | 10min-sum of solar incoming radiation    | :math:`J / m^2` | :math:`J / cm^2` | :math:`\geq{0}` |
+| sunshine_duration                | sd_10         | 10min-sum of sunshine duration           | :math:`s`       | :math:`h`        | :math:`\geq{0}` |
+| radiation_sky_long_wave          | ls_10         | 10min-sum of longwave downward radiation | :math:`J / m^2` | :math:`J / cm^2` | :math:`\geq{0}` |
+
 ### temperature_air
 
 #### metadata
@@ -53,6 +102,25 @@
 | temperature_air_min_2m    | tn_10         | minimum of air temperature at 2m height during the last 10 minutes  | :math:`K` | :math:`°C`    | :math:`None` |
 | temperature_air_min_0_05m | tn5_10        | minimum of air temperature at 5cm height during the last 10 minutes | :math:`K` | :math:`°C`    | :math:`None` |
 
+### wind
+
+#### metadata
+
+| property         | value                                                                                                                                                                         |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | wind                                                                                                                                                                          |
+| original name    | wind                                                                                                                                                                          |
+| description      | Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine duration for Germany                                          |
+| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/)                                                                         |
+
+#### parameters
+
+| name           | original name | description                                       | unit          | original unit | constraints                |
+|----------------|---------------|---------------------------------------------------|---------------|---------------|----------------------------|
+| wind_speed     | ff_10         | mean of wind speed during the last 10 minutes     | :math:`m / s` | :math:`m / s` | :math:`\geq{0}`            |
+| wind_direction | dd_10         | mean of wind direction during the last 10 minutes | :math:`°`     | :math:`°`     | :math:`\geq{0}, \leq{360}` |
+
 ### wind_extreme
 
 #### metadata
@@ -73,207 +141,3 @@
 | wind_speed_min              | fnx_10        | minimum 10-minute mean wind velocity. The 10-minutes interval is moved in 10s steps over the last 20 minutes                                                                                                                                                   | :math:`m / s` | :math:`m / s` | :math:`\geq{0}`            |
 | wind_speed_rolling_mean_max | fmx_10        | maximum 10-minute mean wind velocity. The 10-minutes interval is moved in 10s steps over the last 20 minutes                                                                                                                                                   | :math:`m / s` | :math:`m / s` | :math:`\geq{0}`            |
 | wind_direction_gust_max     | dx_10         | wind direction of highest wind gust                                                                                                                                                                                                                            | :math:`°`     | :math:`°`     | :math:`\geq{0}, \leq{360}` |
-
-### precipitation
-
-#### metadata
-
-| property         | value                                                                                                                                                                   |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | precipitation                                                                                                                                                           |
-| original name    | precipitation                                                                                                                                                           |
-| description      | Historical 10-minute station observations of precipitation for Germany                                                                                                  |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/DESCRIPTION_obsgermany-climate-10min-precipitation_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/)                                                          |
-
-#### parameters
-
-| name                       | original name | description                                          | unit             | original unit | constraints           |
-|----------------------------|---------------|------------------------------------------------------|------------------|---------------|-----------------------|
-| precipitation_duration     | rws_dau_10    | duration of precipitation within the last 10 minutes | :math:`s`        | :math:`min`   | :math:`\geq{0}`       |
-| precipitation_height       | rws_10        | precipitation height of the last 10 minutes          | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
-| precipitation_indicator_wr | rws_ind_10    | precipitation index                                  | :math:`-`        | :math:`-`     | :math:`\in [0, 1, 3]` |
-
-Codes (precipitation_indicator_wr):
-
-| code | meaning                                                   |
-|------|-----------------------------------------------------------|
-| 0    | no precipitation                                          |
-| 1    | precipitation has fallen                                  |
-| 3    | precipitation has fallen and heating of instrument was on |
-
-### solar
-
-#### metadata
-
-| property         | value                                                                                                                                                                         |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | solar                                                                                                                                                                         |
-| original name    | solar                                                                                                                                                                         |
-| description      | Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine duration for Germany                                          |
-| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/)                                                                        |
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - solar
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/>`_
-   * - description file
-     - `solar dataset description`_
-   * - description
-     - Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine
-       duration for Germany
-
-.. _solar dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf
-
-Parameters
-----------
-
-radiation_sky_short_wave_diffuse
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - ds_10
-   * - description file
-     - `solar dataset description`_
-   * - description
-     - 10min-sum of diffuse solar radiation
-   * - origin unit
-     - :math:`J / cm^2`
-   * - SI unit
-     - :math:`J / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-radiation_global
-^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - gs_10
-   * - description file
-     - `solar dataset description`_
-   * - description
-     - 10min-sum of solar incoming radiation
-   * - origin unit
-     - :math:`J / cm^2`
-   * - SI unit
-     - :math:`J / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-sunshine_duration
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - sd_10
-   * - description file
-     - `solar dataset description`_
-   * - description
-     - 10min-sum of sunshine duration
-   * - origin unit
-     - :math:`h`
-   * - SI unit
-     - :math:`s`
-   * - constraints
-     - :math:`\geq{0}`
-
-radiation_sky_long_wave
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - ls_10
-   * - description file
-     - `solar dataset description`_
-   * - description
-     - 10min-sum of longwave downward radiation
-   * - origin unit
-     - :math:`J / cm^2`
-   * - SI unit
-     - :math:`J / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-Wind
-====
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - wind
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/>`_
-   * - description file
-     - `wind dataset description`_
-   * - description
-     - Historical 10-minute station observations of solar incoming radiation, longwave downward radiation and sunshine
-       duration for Germany
-
-.. _wind dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/historical/DESCRIPTION_obsgermany_climate_10min_solar_historical_en.pdf
-
-Parameters
-----------
-
-wind_speed
-^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - ff_10
-   * - description file
-     - `wind dataset description`_
-   * - description
-     - mean of wind speed during the last 10 minutes
-   * - origin unit
-     - :math:`m / s`
-   * - SI unit
-     - :math:`m / s`
-   * - constraints
-     - :math:`\geq{0}`
-
-wind_direction
-^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - dd_10
-   * - description file
-     - `wind dataset description`_
-   * - description
-     - mean of wind direction during the last 10 minutes
-   * - origin unit
-     - :math:`°`
-   * - SI unit
-     - :math:`°`
-   * - constraints
-     - :math:`\geq{0}, \leq{360}`

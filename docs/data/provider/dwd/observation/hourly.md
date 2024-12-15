@@ -1,44 +1,32 @@
-Hourly
-######
+# hourly
 
-Metadata
-********
+## metadata
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+| property      | value                                                                                        |
+|---------------|----------------------------------------------------------------------------------------------|
+| name          | hourly                                                                                       |
+| original_name | hourly                                                                                       |
+| url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/) |
 
-   * - original name
-     - hourly
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/>`_
+## datasets
 
-Datasets
-********
+### temperature_air
 
-Temperature_air
-===============
+#### metadata
 
-Metadata
---------
+| property         | value                                                                                                                                                                    |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | temperature_air                                                                                                                                                          |
+| original_name    | air_temperature                                                                                                                                                          |
+| description      | Historical hourly station observations of 2m air temperature and humidity for Germany                                                                                    |
+| description file | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/DESCRIPTION_obsgermany_climate_hourly_air_temperature_en.pdf) |
+| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/)                                                             |
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+#### parameters
 
-   * - original name
-     - air_temperature
-   * - url
-     - `here <https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/>`_
-   * - description file
-     - `air_temperature dataset description`_
-   * - description
-     - Historical hourly station observations of 2m air temperature and humidity for Germany
-
-.. _air_temperature dataset description: https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/historical/DESCRIPTION_obsgermany_climate_hourly_tu_historical_en.pdf
-
-Parameters
-----------
+| name                         | original name | description                                              | unit             | original unit | constraints           |
+|------------------------------|---------------|----------------------------------------------------------|------------------|---------------|-----------------------|
+| temperature_air_mean_2m
 
 temperature_air_mean_2m
 ^^^^^^^^^^^^^^^^^^^^^^^
