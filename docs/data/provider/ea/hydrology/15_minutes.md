@@ -1,83 +1,30 @@
-Minute_15
-#########
+# 15_minutes
 
-Metadata
-********
+## metadata
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+| property      | value                                                                      |
+|---------------|----------------------------------------------------------------------------|
+| name          | 15_minutes                                                                 |
+| original name | 15_minutes                                                                 |
+| description   | no specific dataset is provided but parameters can be queried individually |
+| url           | [here](https://environment.data.gov.uk/hydrology/doc/reference)            |
 
-   * - original name
-     - missing
-   * - url
-     - `EA Hydrology Reference`_
-   * - notice
-     - no specific dataset is provided but parameters can be queried individually
+## datasets
 
-.. _EA Hydrology Reference: https://environment.data.gov.uk/hydrology/doc/reference
+### data
 
-Datasets
-********
+#### metadata
 
-Data
-====
+| property      | value                                                                              |
+|---------------|------------------------------------------------------------------------------------|
+| name          | data                                                                               |
+| original name | data                                                                               |
+| description   | Historical 15 minute station observations of flow and groundwater level for the UK |
+| url           | [here](https://environment.data.gov.uk/hydrology/doc/reference)                    |
 
-Metadata
---------
+#### parameters
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - kl
-   * - url
-     - `EA Hydrology Reference`_
-   * - description file
-     - missing
-   * - description
-     - Historical 15 minute station observations of flow and groundwater level for the UK
-
-Parameters
-----------
-
-flow
-^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - water flow
-   * - description file
-     - missing, simple descriptions at `EA Hydrology Reference`_
-   * - description
-     - 15 minutes mean flow
-   * - origin unit
-     - :math:`m^3 / s`
-   * - SI unit
-     - :math:`m^3 / s`
-   * - constraints
-     - :math:`\geq{0}`
-
-groundwater_level
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - groundwater level
-   * - description file
-     - missing, simple descriptions at `EA Hydrology Reference`_
-   * - description
-     - 15 minutes mean groundwater level
-   * - origin unit
-     - :math:`m`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
+| name              | original name     | description                       | unit            | original unit   | constraints     |
+|-------------------|-------------------|-----------------------------------|-----------------|-----------------|-----------------|
+| flow              | water flow        | 15 minutes mean flow              | :math:`m^3 / s` | :math:`m^3 / s` | :math:`\geq{0}` |
+| groundwater_level | groundwater level | 15 minutes mean groundwater level | :math:`m`       | :math:`m`       | :math:`\geq{0}` |

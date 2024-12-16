@@ -1,21 +1,7 @@
-IMGW
-####
+# IMGW (Instytut Meteorologii i Gospodarki Wodnej)
 
-Polish meteorological/hydrological data
+## Overview
 
-Overview
-********
+## License
 
-License
-*******
-
-Declaration of availability at https://imgw.pl/deklaracja-dostepnosci
-
-Products
-********
-
-.. toctree::
-   :maxdepth: 1
-
-   imgw/meteorology
-   imgw/hydrology
+Declaration of availability [here](https://imgw.pl/deklaracja-dostepnosci)

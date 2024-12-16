@@ -1,6 +1,4 @@
-# DWD
-
-Deutscher Wetterdienst / German Weather Service
+# DWD (Deutscher Wetterdienst)
 
 ## Overview
 
@@ -10,11 +8,20 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
     - every minute to yearly resolution
     - Time series of stations in Germany
-- Mosmix - statistical optimized scalar forecasts extracted from weather models
+- Mosmix 
+    - statistical optimized scalar forecasts extracted from weather models
     - Point forecast
     - 5400 stations worldwide
     - Both MOSMIX-L and MOSMIX-S is supported
     - Up to 115 parameters
+- DMO
+    - scalar forecasts extracted from weather models
+    - Point forecast
+    - ICON and ICON-EU model
+    - 78 hours lead time
+    - Hourly and 3-hourly resolution
+    - 115 parameters
+    - 5400 stations worldwide
 - Radar
     - 16 locations in Germany
     - All of composite, radolan, radvor, sites and radolan_cdc

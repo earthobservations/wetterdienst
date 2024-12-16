@@ -4,7 +4,8 @@
 
 | property      | value                                                                                     |
 |---------------|-------------------------------------------------------------------------------------------|
-| original name | missing                                                                                   |
+| name          | hourly                                                                                    |
+| original name | hourly                                                                                    |
 | url           | [here](https://www.dwd.de/DE/leistungen/met_verfahren_ptp_dmo/met_verfahren_ptp_dmo.html) |
 
 ## Datasets

@@ -2,9 +2,10 @@
 
 ## metadata
 
-| property      | value                                                                                     |
-|---------------|-------------------------------------------------------------------------------------------|
-| original name | missing                                                                                   |
+| property      | value                                                        |
+|---------------|--------------------------------------------------------------|
+| name          | hourly                                                       |
+| original name | hourly                                                       |
 | url           | [here](https://opendata.dwd.de/weather/local_forecasts/mos/) |
 
 ## Datasets
@@ -16,10 +17,10 @@
 | property         | value                                                                                                |
 |------------------|------------------------------------------------------------------------------------------------------|
 | name             | small                                                                                                |
-| original name    | small                                                                                              |
+| original name    | mosmix_s                                                                                             |
 | description      | Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours |
 | description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
-| url              | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_S/)                                 |
+| url              | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_S/)                                |
 
 #### Parameters
 
@@ -75,9 +76,9 @@
 | property         | value                                                                                                |
 |------------------|------------------------------------------------------------------------------------------------------|
 | name             | large                                                                                                |
-| original name    | large                                                                                                 |
+| original name    | mosmix_l                                                                                             |
 | description      | Local forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
-| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                    |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
 | url              | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/)                                |
 
 #### Parameters

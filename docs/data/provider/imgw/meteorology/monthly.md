@@ -1,711 +1,86 @@
-Monthly
-#######
-
-Metadata
-********
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - missing
-   * - url
-     - `monthly dataset`_
-
-.. _monthly dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/
-
-Datasets
-********
-
-Data
-====
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - klimat
-   * - url
-     - `monthly climate dataset`_
-   * - description file
-     - 
-   * - description
-     - historical monthly climate data
-
-.. _monthly climate dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/klimat/
-
-Parameters
-----------
-
-cloud_cover_total
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnie miesięczne zachmurzenie ogólne
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`1/8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0},\leq{100}`
-
-humidity
-^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia miesięczna wilgotność względna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`\%`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0},\leq{100}`
-
-precipitation_height
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - miesieczna suma opadów
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_max
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - maksymalna dobowa suma opadóww
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-snow_depth_max
-^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - maksymalna wysokość pokrywy śnieżnej
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`cm`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - absolutna temperatura maksymalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia temperatura maksymalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia miesięczna temperatura
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - minimalna temperatura przy gruncie
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - absolutna temperatura minimalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia temperatura minimalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-wind_speed
-^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia miesięczna prędkość wiatru
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`m/s`
-   * - SI unit
-     - :math:`m/s`
-   * - constraints
-     - :math:`\geq{0}`
-
-Precipitation
-=============
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - opad
-   * - url
-     - `monthly precipitation dataset`_
-   * - description file
-     -
-   * - description
-     - historical monthly precipitation data
-
-.. _monthly precipitation dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/opad/
-
-Parameters
-----------
-
-precipitation_height
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - miesięczna suma opadów
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_max
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - opad maksymalny
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-Synop
-=====
-
-Metadata
---------
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - synop
-   * - url
-     - `monthly synop dataset`_
-   * - description file
-     -
-   * - description
-     - historical monthly synop data
-
-.. _monthly synop dataset: https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/synop/
-
-Parameters
-----------
-
-cloud_cover_total
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnie miesięczne zachmurzenie ogólne
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`1/8`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0},\leq{100}`
-
-humidity
-^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia miesięczna wilgotność względna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`\%`
-   * - SI unit
-     - :math:`\%`
-   * - constraints
-     - :math:`\geq{0},\leq{100}`
-
-precipitation_height
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - miesięczna suma opadów
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_day
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - suma opadu dzień
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_max
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - maksymalna dobowa suma opadów
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_night
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - suma opadu noc
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^{2}`
-   * - constraints
-     - :math:`\geq{0}`
-
-pressure_air_site
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnie miesięczne ciśnienie na poziomie stacji
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`hPa`
-   * - SI unit
-     - :math:`Pa`
-   * - constraints
-     - :math:`\geq{0}`
-
-pressure_air_sea_level
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnie miesięczne ciśnienie na pozimie morza
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`hPa`
-   * - SI unit
-     - :math:`Pa`
-   * - constraints
-     - :math:`\geq{0}`
-
-pressure_vapor
-^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnie miesięczne ciśnienie pary wodnej
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`hPa`
-   * - SI unit
-     - :math:`Pa`
-   * - constraints
-     - :math:`\geq{0}`
-
-snow_depth_max
-^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - maksymalna wysokość pokrywy śnieżnej
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`cm`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - absolutna temperatura maksymalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_max_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia temperatura maksymalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia miesięczna temperatura
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_0_05m
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - minimalna temperatura przy gruncie
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - absolutna temperatura minimalna
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_2m_mean
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia temperatura minimalnaj
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-wind_speed
-^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - średnia miesięczna prędkość wiatru
-   * - description file
-     -
-   * - description
-     -
-   * - origin unit
-     - :math:`m/s`
-   * - SI unit
-     - :math:`m/s`
-   * - constraints
-     - :math:`\geq{0}`
+# monthly
+
+## metadata
+
+| property      | value                                                                                                   |
+|---------------|---------------------------------------------------------------------------------------------------------|
+| name          | monthly                                                                                                 |
+| original name | miesięczne                                                                                              |
+| url           | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/) |
+
+## datasets
+
+### data
+
+#### metadata
+
+| property      | value                                                                                                          |
+|---------------|----------------------------------------------------------------------------------------------------------------|
+| name          | data                                                                                                           |
+| original name | klimat                                                                                                         |
+| description   | historical monthly climate data                                                                                |
+| url           | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/klimat/) |
+
+#### parameters
+
+| name                        | original name                        | description                 | unit               | original unit | constraints               |
+|-----------------------------|--------------------------------------|-----------------------------|--------------------|---------------|---------------------------|
+| cloud_cover_total           | średnie miesięczne zachmurzenie      | cloud cover total           | :math:`\%`         | :math:`1/8`   | :math:`\geq{0},\leq{100}` |
+| humidity                    | średnia miesięczna wilgotność        | humidity                    | :math:`\%`         | :math:`\%`    | :math:`\geq{0},\leq{100}` |
+| precipitation_height        | miesieczna suma opadów               | precipitation height        | :math:`kg / m^{2}` | :math:`mm`    | :math:`\geq{0}`           |
+| precipitation_height_max    | maksymalna dobowa suma opadóww       | precipitation height max    | :math:`kg / m^{2}` | :math:`mm`    | :math:`\geq{0}`           |
+| snow_depth_max              | maksymalna wysokość pokrywy śnieżnej | snow depth max              | :math:`m`          | :math:`cm`    | :math:`\geq{0}`           |
+| temperature_air_max_2m      | absolutna temperatura maksymalna     | temperature air max 2m      | :math:`K`          | :math:`°C`    | :math:`None`              |
+| temperature_air_max_2m_mean | średnia temperatura maksymalna       | temperature air max 2m mean | :math:`K`          | :math:`°C`    | :math:`None`              |
+| temperature_air_mean_2m     | średnia miesięczna temperatura       | temperature air mean 2m     | :math:`K`          | :math:`°C`    | :math:`None`              |
+| temperature_air_min_0_05m   | minimalna temperatura przy gruncie   | temperature air min 0 05m   | :math:`K`          | :math:`°C`    | :math:`None`              |
+| temperature_air_min_2m      | absolutna temperatura minimalna      | temperature air min 2m      | :math:`K`          | :math:`°C`    | :math:`None`              |
+| temperature_air_min_2m_mean | średnia temperatura minimalna        | temperature air min 2m mean | :math:`K`          | :math:`°C`    | :math:`None`              |
+| wind_speed                  | średnia miesięczna prędkość wiatru   | wind speed                  | :math:`m/s`        | :math:`m/s`   | :math:`\geq{0}`           |
+
+### precipitation
+
+#### metadata
+
+| property      | value                                                                                                        |
+|---------------|--------------------------------------------------------------------------------------------------------------|
+| name          | precipitation                                                                                                |
+| original name | opad                                                                                                         |
+| description   | historical monthly precipitation data                                                                        |
+| url           | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/opad/) |
+
+#### parameters
+
+| name                     | original name          | description              | unit               | original unit | constraints     |
+|--------------------------|------------------------|--------------------------|--------------------|---------------|-----------------|
+| precipitation_height     | miesięczna suma opadów | precipitation height     | :math:`kg / m^{2}` | :math:`mm`    | :math:`\geq{0}` |
+| precipitation_height_max | opad maksymalny        | precipitation height max | :math:`kg / m^{2}` | :math:`mm`    | :math:`\geq{0}` |
+
+### synop
+
+#### metadata
+
+| property      | value                                                                                                         |
+|---------------|---------------------------------------------------------------------------------------------------------------|
+| name          | synop                                                                                                         |
+| original name | synop                                                                                                         |
+| description   | historical monthly synop data                                                                                 |
+| url           | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/synop/) |
+
+#### parameters
+
+| name                        | original name                                   | description                 | unit        | original unit | constraints               |
+|-----------------------------|-------------------------------------------------|-----------------------------|-------------|---------------|---------------------------|
+| cloud_cover_total           | średnie miesięczne zachmurzenie                 | cloud cover total           | :math:`\%`  | :math:`1/8`   | :math:`\geq{0},\leq{100}` |
+| humidity                    | średnia miesięczna wilgotność                   | humidity                    | :math:`\%`  | :math:`\%`    | :math:`\geq{0},\leq{100}` |
+| pressure_air_site           | średnie miesięczne ciśnienie na poziomie stacji | pressure air site           | :math:`Pa`  | :math:`hPa`   | :math:`\geq{0}`           |
+| pressure_air_sea_level      | średnie miesięczne ciśnienie na pozimie morza   | pressure air sea level      | :math:`Pa`  | :math:`hPa`   | :math:`\geq{0}`           |
+| pressure_vapor              | średnie miesięczne ciśnienie pary wodnej        | pressure vapor              | :math:`Pa`  | :math:`hPa`   | :math:`\geq{0}`           |
+| snow_depth_max              | maksymalna wysokość pokrywy śnieżnej            | snow depth max              | :math:`m`   | :math:`cm`    | :math:`\geq{0}`           |
+| temperature_air_max_2m      | absolutna temperatura maksymalna                | temperature air max 2m      | :math:`K`   | :math:`°C`    | :math:`None`              |
+| temperature_air_max_2m_mean | średnia temperatura maksymalna                  | temperature air max 2m mean | :math:`K`   | :math:`°C`    | :math:`None`              |
+| temperature_air_mean_2m     | średnia miesięczna temperatura                  | temperature air mean 2m     | :math:`K`   | :math:`°C`    | :math:`None`              |
+| temperature_air_min_0_05m   | minimalna temperatura przy gruncie              | temperature air min 0 05m   | :math:`K`   | :math:`°C`    | :math:`None`              |
+| temperature_air_min_2m      | absolutna temperatura minimalna                 | temperature air min 2m      | :math:`K`   | :math:`°C`    | :math:`None`              |
+| temperature_air_min_2m_mean | średnia temperatura minimalna                   | temperature air min 2m mean | :math:`K`   | :math:`°C`    | :math:`None`              |
+| wind_speed                  | średnia miesięczna prędkość wiatru              | wind speed                  | :math:`m/s` | :math:`m/s`   | :math:`\geq{0}`           |

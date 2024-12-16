@@ -1,261 +1,38 @@
-Daily
-#####
+# daily
 
-Metadata
-********
+## metadata
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+| property      | value                                                                                                                                                                              |
+|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | daily                                                                                                                                                                              |
+| original name | dly                                                                                                                                                                                |
+| url           | [here](https://www.canada.ca/en/environment-climate-change/services/climate-change/canadian-centre-climate-services/display-download/technical-documentation-daily-data.html#toc0) |
 
-   * - original name
-     - dly
-   * - url
-     - `ECCC Daily Data Documentation`_
+## datasets
 
-.. _ECCC Daily Data Documentation: https://www.canada.ca/en/environment-climate-change/services/climate-change/canadian-centre-climate-services/display-download/technical-documentation-daily-data.html#toc0
+### data
 
-Datasets
-********
+#### metadata
 
-Data
-====
+| property      | value                                                                                                                                                                              |
+|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | data                                                                                                                                                                               |
+| original name | data                                                                                                                                                                               |
+| description   | Historical daily station observations for Canada                                                                                                                                   |
+| url           | [here](https://www.canada.ca/en/environment-climate-change/services/climate-change/canadian-centre-climate-services/display-download/technical-documentation-daily-data.html#toc0) |
 
-Metadata
---------
+#### parameters
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - dly
-   * - url
-     - `ECCC Daily Data Documentation`_
-   * - description file
-     - missing
-   * - description
-     - Historical daily station observations for Canada
-
-Parameters
-----------
-
-count_days_cooling_degree
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - cool deg days (°c)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - count of cooling degree days
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\geq{0}`
-
-count_days_heating_degree
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - heat deg days (°c)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - count of heating degree days
-   * - origin unit
-     - :math:`-`
-   * - SI unit
-     - :math:`-`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - total precip (mm)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - total precipitation
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-precipitation_height_liquid
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - total rain (mm)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - total liquid precipitation
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`kg / m^2`
-   * - constraints
-     - :math:`\geq{0}`
-
-snow_depth
-^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - snow on grnd (cm)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - total snow depth
-   * - origin unit
-     - :math:`cm`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-snow_depth_new
-^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - total snow (cm)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - new snow depth
-   * - origin unit
-     - :math:`cm`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`\geq{0}`
-
-temperature_air_max_2m
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - max temp (°c)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - daily maximum 2m air temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_mean_2m
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - mean temp (°c)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - daily mean 2m air temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-temperature_air_min_2m
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - min temp (°c)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - daily minimum 2m air temperature
-   * - origin unit
-     - :math:`°C`
-   * - SI unit
-     - :math:`K`
-   * - constraints
-     - :math:`None`
-
-wind_direction_gust_max
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - dir of max gust (10s deg)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - wind direction of maximum wind gust
-   * - origin unit
-     - :math:`°`
-   * - SI unit
-     - :math:`°`
-   * - constraints
-     - :math:`\geq{0}, \leq{360}`
-
-wind_gust_max
-^^^^^^^^^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - spd of max gust (km/h)
-   * - description file
-     - `ECCC Daily Data Documentation`_
-   * - description
-     - maximum wind gust
-   * - origin unit
-     - :math:`km / h`
-   * - SI unit
-     - :math:`m / s`
-   * - constraints
-     - :math:`\geq{0}`
+| name                        | original name             | description                         | unit             | original unit  | constraints                |
+|-----------------------------|---------------------------|-------------------------------------|------------------|----------------|----------------------------|
+| count_days_cooling_degree   | cool deg days (°c)        | count of cooling degree days        | :math:`-`        | :math:`-`      | :math:`\geq{0}`            |
+| count_days_heating_degree   | heat deg days (°c)        | count of heating degree days        | :math:`-`        | :math:`-`      | :math:`\geq{0}`            |
+| precipitation_height        | total precip (mm)         | total precipitation                 | :math:`kg / m^2` | :math:`mm`     | :math:`\geq{0}`            |
+| precipitation_height_liquid | total rain (mm)           | total liquid precipitation          | :math:`kg / m^2` | :math:`mm`     | :math:`\geq{0}`            |
+| snow_depth                  | snow on grnd (cm)         | total snow depth                    | :math:`m`        | :math:`cm`     | :math:`\geq{0}`            |
+| snow_depth_new              | total snow (cm)           | new snow depth                      | :math:`m`        | :math:`cm`     | :math:`\geq{0}`            |
+| temperature_air_max_2m      | max temp (°c)             | daily maximum 2m air temperature    | :math:`K`        | :math:`°C`     | :math:`None`               |
+| temperature_air_mean_2m     | mean temp (°c)            | daily mean 2m air temperature       | :math:`K`        | :math:`°C`     | :math:`None`               |
+| temperature_air_min_2m      | min temp (°c)             | daily minimum 2m air temperature    | :math:`K`        | :math:`°C`     | :math:`None`               |
+| wind_direction_gust_max     | dir of max gust (10s deg) | wind direction of maximum wind gust | :math:`°`        | :math:`°`      | :math:`\geq{0}, \leq{360}` |
+| wind_gust_max               | spd of max gust (km/h)    | maximum wind gust                   | :math:`m / s`    | :math:`km / h` | :math:`\geq{0}`            |

@@ -1,79 +1,29 @@
-Dynamic
-#######
+# dynamic
 
-Metadata
-********
+## metadata
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+| property      | value                                                    |
+|---------------|----------------------------------------------------------|
+| name          | dynamic                                                  |
+| original name | dynamic                                                  |
+| url           | [here](https://hubeau.eaufrance.fr/page/api-hydrometrie) |
 
-   * - original name
-     - dynamic
-   * - url
-     - `here <https://hubeau.eaufrance.fr/page/api-hydrometrie>`_
+## datasets
 
-Datasets
-********
+### data
 
-Data
-====
+#### metadata
 
-Metadata
---------
+| property      | value                                                    |
+|---------------|----------------------------------------------------------|
+| name          | data                                                     |
+| original name | data                                                     |
+| description   | Flow and stage for France                                |
+| url           | [here](https://hubeau.eaufrance.fr/page/api-hydrometrie) |
 
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
+#### parameters
 
-   * - original name
-     - dynamic
-   * - url
-     - `here <https://hubeau.eaufrance.fr/page/api-hydrometrie>`_
-   * - description file
-     - missing, see url
-   * - description
-     - Flow and stage for France
-
-Parameters
-----------
-
-flow
-^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - q
-   * - description file
-     - missing
-   * - description
-     - flow
-   * - origin unit
-     - :math:`l / s`
-   * - SI unit
-     - :math:`m^3 / s`
-   * - constraints
-     - :math:`\geq{0}`
-
-stage
-^^^^^
-
-.. list-table::
-   :widths: 20 80
-   :stub-columns: 1
-
-   * - original name
-     - stage
-   * - description file
-     - missing
-   * - description
-     - stage
-   * - origin unit
-     - :math:`mm`
-   * - SI unit
-     - :math:`m`
-   * - constraints
-     - :math:`None`
+| name  | original name | description | unit            | original unit | constraints     |
+|-------|---------------|-------------|-----------------|---------------|-----------------|
+| flow  | q             | flow        | :math:`m^3 / s` | :math:`l / s` | :math:`\geq{0}` |
+| stage | stage         | stage       | :math:`m`       | :math:`mm`    | :math:`None`    |

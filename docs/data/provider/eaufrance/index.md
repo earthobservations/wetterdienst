@@ -1,20 +1,8 @@
-Eaufrance
-#########
+# Eaufrance
 
-Overview
-********
+## Overview
 
-License
-*******
+## License
 
-Check out the `Terms and Conditions`_ of Hubeau for usage conditions.
-
-.. _`Terms and Conditions`: https://hubeau.eaufrance.fr/page/conditions-generales
-
-Products
-********
-
-.. toctree::
-   :maxdepth: 1
-
-   eaufrance/hubeau
+Check out the [Terms and Conditions](https://hubeau.eaufrance.fr/page/conditions-generales) of Hubeau for usage 
+conditions.
