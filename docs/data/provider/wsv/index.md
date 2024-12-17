@@ -1,27 +1,14 @@
-WSV
-####
+# WSV (Wasserstraßen- und Schifffahrtsverwaltung des Bundes)
 
-Federal Waterways and Shipping Administration of Germany
+## Overview
 
-Overview
-********
-
-License
-*******
+## License
 
 The data provided by WSV is open and free to use. See the following urls for more information:
 
-- https://www.pegelonline.wsv.de/webservice/ueberblick
-- https://www.pegelonline.wsv.de/gast/nutzungsbedingungen
-- https://www.pegelonline.wsv.de/gast/datenschutzhinweise
-- https://www.pegelonline.wsv.de/gast/impressum
+- [overview](https://www.pegelonline.wsv.de/webservice/ueberblick)
+- [terms of use](https://www.pegelonline.wsv.de/gast/nutzungsbedingungen)
+- [privacy policy](https://www.pegelonline.wsv.de/gast/datenschutzhinweise)
+- [imprint](https://www.pegelonline.wsv.de/gast/impressum)
 
-For further questions you may contact https://www.pegelonline.wsv.de/adminmail.
-
-Products
-********
-
-.. toctree::
-   :maxdepth: 1
-
-   wsv/pegel
+For further questions you may write a [mail](https://www.pegelonline.wsv.de/adminmail).

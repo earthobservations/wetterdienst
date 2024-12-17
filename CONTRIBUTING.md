@@ -1,5 +1,4 @@
-Contributions
-#############
+# Contributions
 
 Thank you for considering contributing to wetterdienst! We are an open community that works respectfully together on
 environmental data. We are colorful mix of people: some of us have environmental background, others come from computer

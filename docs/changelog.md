@@ -1,1 +1,1 @@
-{!CHANGELOG.rst!}
+{!CHANGELOG.md!}

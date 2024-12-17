@@ -14,21 +14,21 @@
 
 #### metadata
 
-| property         | value                                                                                                                                                                                                                     |
-|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | precipitation                                                                                                                                                                                                             |
-| original name    | precipitation                                                                                                                                                                                                             |
-| description      | 1-minute station observations of precipitation for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/DESCRIPTION_obsgermany-climate-1min-rr_en.pdf)) |
-| url              | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/)                                                                                                              |
+| property      | value                                                                                                                                                                                                                     |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | precipitation                                                                                                                                                                                                             |
+| original name | precipitation                                                                                                                                                                                                             |
+| description   | 1-minute station observations of precipitation for Germany ([details](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/DESCRIPTION_obsgermany-climate-1min-rr_en.pdf)) |
+| access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/)                                                                                                              |
 
 #### parameters
 
-| name                         | original name | description                                              | unit             | original unit | constraints           |
-|------------------------------|---------------|----------------------------------------------------------|------------------|---------------|-----------------------|
-| precipitation_height         | rs_01         | precipitation height of last 1min                        | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
-| precipitation_height_droplet | rth_01        | precipitation height of last 1min measured with droplet  | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
-| precipitation_height_rocker  | rwh_01        | precipitation height of last 1min measured with rocker   | :math:`kg / m^2` | :math:`mm`    | :math:`\geq{0}`       |
-| precipitation_form           | rs_ind_01     | precipitation index, codes taken from 10_minutes dataset | :math:`-`        | :math:`-`     | :math:`\in [0, 1, 3]` |
+| name                         | original name | description                                              | unit  | original unit | constraints |
+|------------------------------|---------------|----------------------------------------------------------|-------|---------------|-------------|
+| precipitation_height         | rs_01         | precipitation height of last 1min                        | kg/m² | mm            | >=0         |
+| precipitation_height_droplet | rth_01        | precipitation height of last 1min measured with droplet  | kg/m² | mm            | >=0         |
+| precipitation_height_rocker  | rwh_01        | precipitation height of last 1min measured with rocker   | kg/m² | mm            | >=0         |
+| precipitation_form           | rs_ind_01     | precipitation index, codes taken from 10_minutes dataset | -     | -             | ∈ \[0,1,3\] |
 
 Codes (precipitation_form):
 
