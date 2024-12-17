@@ -1,12 +1,20 @@
 site_name: Wetterdienst
 site_url: !ENV READTHEDOCS_CANONICAL_URL
+site_author: earthobservations
+site_description: Open weather data for humans.
+copyright: Copyright (c) 2018 - 2024 earthobservations
+repo_name: earthobservations/wetterdienst
+repo_url: https://github.com/earthobservations/wetterdienst
 theme:
   name: material
   # https://squidfunk.github.io/mkdocs-material/customization/
-  custom_dir: docs/overrides
+  custom_dir: docs/overrides  # for RTD
   features:
     - content.code.copy
     - navigation.indexes
+# RTD addons https://docs.readthedocs.io/en/stable/intro/mkdocs.html
+extra_css:
+  - stylesheets/readthedocs.css
 extra_javascript:
   - javascript/readthedocs.js
 markdown_extensions:
@@ -26,6 +34,7 @@ markdown_extensions:
           validator: !!python/name:markdown_exec.validator
           format: !!python/name:markdown_exec.formatter
 plugins:
+  - search
   - mkdocstrings:
       default_handler: python
 nav:

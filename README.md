@@ -1,9 +1,9 @@
 # Wetterdienst - Open weather data for humans
 
 <p>
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/german_weather_stations.png" alt="German weather stations managed by Deutscher Wetterdienst" width="32%"/>
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/temperature_ts.png" alt="temperature timeseries of Hohenpeissenberg/Germany" width="32%"/>
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/img/hohenpeissenberg_warming_stripes.png" alt="warming stripes of Hohenpeissenberg/Germany" width="32%"/>
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/assets/german_weather_stations.png" alt="German weather stations managed by Deutscher Wetterdienst" width="32%"/>
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/assets/temperature_ts.png" alt="temperature timeseries of Hohenpeissenberg/Germany" width="32%"/>
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/assets/hohenpeissenberg_warming_stripes.png" alt="warming stripes of Hohenpeissenberg/Germany" width="32%"/>
 </p>
 
 
