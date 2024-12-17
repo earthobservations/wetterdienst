@@ -2,6 +2,9 @@
 
 ## Development
 
+### Refactor
+- Docs: Change to markdown using mkdocs
+
 ## 0.98.0 - 2024-12-09
 
 ### Feature
