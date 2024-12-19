@@ -208,7 +208,7 @@ class DwdRadarValues:
             self.end_date = end_date
             self.adjust_datetimes()
 
-        self.settings = settings or Settings.default()
+        self.settings = settings or Settings()
 
     def __str__(self):
         return (

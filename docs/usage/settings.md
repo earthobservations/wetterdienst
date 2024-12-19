@@ -2,23 +2,18 @@
 
 ## Overview
 
-Wetterdienst holds core settings in its Settings class. Settings has four layers from which to be sourced:
+Wetterdienst holds core settings in its ``Settings`` class. ``Settings`` have four layers from which to be sourced:
 
-* Settings arguments e.g. Settings(ts_shape="long")
-
-* environment variables e.g. `WD_TS_SHAPE="wide"`
-
-* local .env file in the same folder (same as above)
-
-* default arguments set by `wetterdienst`
+- Settings arguments e.g. Settings(ts_shape="long")
+- environment variables e.g. `WD_TS_SHAPE="wide"`
+- local .env file in the same folder (same as above)
+- default arguments set by `wetterdienst`
 
 The arguments are overruled in the above order meaning:
 
-* Settings argument overrules environmental variable
-
-* environment variable overrules .env file
-
-* .env file overrules default argument
+- Settings argument overrules environmental variable
+- environment variable overrules .env file
+- .env file overrules default argument
 
 The following settings are available:
 
@@ -51,7 +46,7 @@ You can import and show Settings like
 ```python exec="on" source="above"
 from wetterdienst import Settings
 
-settings = Settings.default()  # default settings, ignoring env variables
+settings = Settings()
 print(settings)
 ```
 

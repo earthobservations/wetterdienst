@@ -13,7 +13,7 @@ WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR
 
 def test_default_settings(caplog):
     caplog.set_level(logging.INFO)
-    default_settings = Settings.default()
+    default_settings = Settings()
     assert not default_settings.cache_disable
     assert re.match(WD_CACHE_DIR_PATTERN, str(default_settings.cache_dir))
     assert default_settings.fsspec_client_kwargs == {}
@@ -37,7 +37,7 @@ def test_settings_envs(caplog):
     """Test default settings but with multiple envs set"""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SHAPE"] = "wide"
-    os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = "precipitation_height=40.0,other=42"
+    os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
     caplog.set_level(logging.INFO)
     settings = Settings()
     assert caplog.messages[0] == "Wetterdienst cache is disabled"
@@ -50,27 +50,11 @@ def test_settings_envs(caplog):
 
 
 @mock.patch.dict(os.environ, {})
-def test_settings_ignore_envs(caplog):
-    os.environ["WD_CACHE_DISABLE"] = "1"
-    os.environ["WD_TS_SHAPE"] = "wide"
-    os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = "precipitation_height=40.0,other=42"
-    caplog.set_level(logging.INFO)
-    settings = Settings(ignore_env=True)
-    log_message = caplog.messages[0]
-    assert re.match(WD_CACHE_ENABLED_PATTERN, log_message)
-    assert settings.ts_shape == "long"
-    assert settings.ts_interpolation_station_distance == {
-        "default": 40.0,
-        "precipitation_height": 20.0,
-    }
-
-
-@mock.patch.dict(os.environ, {})
 def test_settings_mixed(caplog):
     """Check leaking of Settings through threads"""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"
-    os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = "precipitation_height=40.0,other=42"
+    os.environ["WD_TS_INTERPOLATION_STATION_DISTANCE"] = '{"precipitation_height":40.0,"other":42}'
     caplog.set_level(logging.INFO)
     settings = Settings(
         ts_skip_threshold=0.81,
