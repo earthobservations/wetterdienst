@@ -24,7 +24,7 @@ def test_build_index_path():
 def test_list_files_of_climate_observations():
     files_server = list_remote_files_fsspec(
         "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/kl/recent",
-        settings=Settings.default(),
+        settings=Settings(),
         ttl=CacheExpiry.NO_CACHE,
     )
     assert (

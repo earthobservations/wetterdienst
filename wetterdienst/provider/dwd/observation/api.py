@@ -465,7 +465,7 @@ class DwdObservationRequest(TimeseriesRequest):
             dataset=dataset,
             period=period,
             cdc_base="observations_germany/climate",
-            settings=Settings.default(),
+            settings=Settings(),
         ).collect()
 
         if language == "en":
