@@ -18,59 +18,59 @@ info = Info()
 
 @pytest.fixture(scope="function")
 def default_settings():
-    return Settings.default()
+    return Settings()
 
 
 # True settings
 @pytest.fixture
 def settings_skip_empty_true():
-    return Settings(ts_skip_empty=True, ignore_env=True)
+    return Settings(ts_skip_empty=True)
 
 
 @pytest.fixture
 def settings_dropna_true():
-    return Settings(ts_dropna=True, ignore_env=True)
+    return Settings(ts_dropna=True)
 
 
 # False settings
 @pytest.fixture
 def settings_humanize_false():
-    return Settings(ts_humanize=False, ignore_env=True)
+    return Settings(ts_humanize=False)
 
 
 @pytest.fixture
 def settings_humanize_si_false():
-    return Settings(ts_humanize=False, ts_si_units=False, ignore_env=True)
+    return Settings(ts_humanize=False, ts_si_units=False)
 
 
 @pytest.fixture
 def settings_humanize_si_false_wide_shape():
-    return Settings(ts_shape="wide", ts_humanize=False, ts_si_units=False, ignore_env=True)
+    return Settings(ts_shape="wide", ts_humanize=False, ts_si_units=False)
 
 
 @pytest.fixture
 def settings_humanize_false_wide_shape():
-    return Settings(ts_shape="wide", ts_humanize=False, ignore_env=True)
+    return Settings(ts_shape="wide", ts_humanize=False)
 
 
 @pytest.fixture
 def settings_si_false():
-    return Settings(ts_si_units=False, ignore_env=True)
+    return Settings(ts_si_units=False)
 
 
 @pytest.fixture
 def settings_si_false_wide_shape():
-    return Settings(ts_shape="wide", ts_si_units=False, ignore_env=True)
+    return Settings(ts_shape="wide", ts_si_units=False)
 
 
 @pytest.fixture
 def settings_si_true():
-    return Settings(ts_si_units=True, ignore_env=True)
+    return Settings(ts_si_units=True)
 
 
 @pytest.fixture
 def settings_wide_shape():
-    return Settings(ts_shape="wide", ignore_env=True)
+    return Settings(ts_shape="wide")
 
 
 @pytest.fixture

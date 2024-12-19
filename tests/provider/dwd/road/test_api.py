@@ -39,7 +39,7 @@ def test_dwd_road_weather_station_groups():
     url = "https://opendata.dwd.de/weather/weather_reports/road_weather_stations/"
     files = list_remote_files_fsspec(
         url=url,
-        settings=Settings.default(),
+        settings=Settings(),
         ttl=CacheExpiry.METAINDEX,
     )
     files = {file[len(url) :].split("/")[0] for file in files}
