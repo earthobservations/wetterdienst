@@ -300,6 +300,7 @@ class NoaaGhcnValues(TimeseriesValues):
                 lambda date: dt.datetime.strptime(date, "%Y-%m-%d-%H-%M")
                 .replace(tzinfo=ZoneInfo(time_zone))
                 .astimezone(ZoneInfo("UTC")),
+                return_dtype=pl.Datetime,
             )
             .alias("date"),
             *parameters,
