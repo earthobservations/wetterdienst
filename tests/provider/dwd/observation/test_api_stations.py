@@ -17,16 +17,19 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 @pytest.fixture
 def expected_df():
     return pl.DataFrame(
-        {
-            "station_id": ["00001"],
-            "start_date": [dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC"))],
-            "end_date": [dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC"))],
-            "latitude": [47.8413],
-            "longitude": [8.8493],
-            "height": [478.0],
-            "name": ["Aach"],
-            "state": ["Baden-Württemberg"],
-        },
+        [
+            {
+                "station_id": "00001",
+                "start_date": dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "end_date": dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC")),
+                "latitude": 47.8413,
+                "longitude": 8.8493,
+                "height": 478.0,
+                "name": "Aach",
+                "state": "Baden-Württemberg",
+            }
+        ],
+        orient="row",
     )
 
 
@@ -102,16 +105,19 @@ def test_dwd_observations_stations_minute_1(default_settings):
     ).filter_by_station_id("00003")
     given_df = request.df
     expected_df = pl.DataFrame(
-        {
-            "station_id": "00003",
-            "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
-            "end_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
-            "latitude": 50.7827,
-            "longitude": 6.0941,
-            "height": 202.0,
-            "name": "Aachen",
-            "state": "Nordrhein-Westfalen",
-        },
+        [
+            {
+                "station_id": "00003",
+                "start_date": dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "end_date": dt.datetime(2012, 4, 6, tzinfo=ZoneInfo("UTC")),
+                "latitude": 50.7827,
+                "longitude": 6.0941,
+                "height": 202.0,
+                "name": "Aachen",
+                "state": "Nordrhein-Westfalen",
+            }
+        ],
+        orient="row",
     )
     assert_frame_equal(given_df, expected_df)
 

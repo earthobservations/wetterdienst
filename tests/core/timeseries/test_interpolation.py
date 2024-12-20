@@ -47,14 +47,17 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
     assert result.df.drop_nulls().shape[0] == 17881
     given_df = result.filter_by_date("2022-01-02 00:00:00+00:00")
     expected_df = pl.DataFrame(
-        {
-            "station_id": "f674568e",
-            "parameter": ["temperature_air_mean_2m"],
-            "date": [dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC"))],
-            "value": [277.71],
-            "distance_mean": [13.37],
-            "taken_station_ids": [["02480", "04411", "07341", "00917"]],
-        },
+        [
+            {
+                "station_id": "f674568e",
+                "parameter": "temperature_air_mean_2m",
+                "date": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
+                "value": 277.71,
+                "distance_mean": 13.37,
+                "taken_station_ids": ["02480", "04411", "07341", "00917"],
+            }
+        ],
+        orient="row",
     )
     assert_frame_equal(given_df, expected_df)
 
@@ -68,17 +71,25 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
         settings=default_settings,
     )
     expected_df = pl.DataFrame(
-        {
-            "station_id": ["6754d04d", "6754d04d"],
-            "parameter": ["temperature_air_mean_2m", "temperature_air_mean_2m"],
-            "date": [
-                dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
-                dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
-            ],
-            "value": [279.52, 281.85],
-            "distance_mean": [16.99, 0.0],
-            "taken_station_ids": [["00072", "02074", "02638", "04703"], ["00071"]],
-        },
+        [
+            {
+                "station_id": "6754d04d",
+                "parameter": "temperature_air_mean_2m",
+                "date": dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
+                "value": 279.52,
+                "distance_mean": 16.99,
+                "taken_station_ids": ["00072", "02074", "02638", "04703"],
+            },
+            {
+                "station_id": "6754d04d",
+                "parameter": "temperature_air_mean_2m",
+                "date": dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 281.85,
+                "distance_mean": 0.0,
+                "taken_station_ids": ["00071"],
+            },
+        ],
+        orient="row",
     )
     for result in (
         request.interpolate(latlon=(48.2156, 8.9784)),
@@ -103,14 +114,17 @@ def test_interpolation_precipitation_height_minute_10(default_settings):
     assert result.df.drop_nulls().shape[0] == 577
     given_df = result.filter_by_date("2021-10-05 00:00:00+00:00")
     expected_df = pl.DataFrame(
-        {
-            "station_id": "f674568e",
-            "parameter": ["precipitation_height"],
-            "date": [dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC"))],
-            "value": [0.03],
-            "distance_mean": [9.38],
-            "taken_station_ids": [["04230", "02480", "04411", "07341"]],
-        },
+        [
+            {
+                "station_id": "f674568e",
+                "parameter": "precipitation_height",
+                "date": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
+                "value": 0.03,
+                "distance_mean": 9.38,
+                "taken_station_ids": ["04230", "02480", "04411", "07341"],
+            }
+        ],
+        orient="row",
     )
     assert_frame_equal(given_df, expected_df)
 

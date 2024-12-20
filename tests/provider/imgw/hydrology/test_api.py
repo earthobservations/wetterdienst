@@ -11,16 +11,18 @@ from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
 @pytest.fixture
 def df_expected_station():
     return pl.DataFrame(
-        {
-            "station_id": "150190130",
-            "start_date": None,
-            "end_date": None,
-            "latitude": 50.350278,
-            "longitude": 19.185556,
-            "height": None,
-            "name": "£AGISZA",
-            "state": None,
-        },
+        [
+            {
+                "station_id": "150190130",
+                "start_date": None,
+                "end_date": None,
+                "latitude": 50.350278,
+                "longitude": 19.185556,
+                "height": None,
+                "name": "£AGISZA",
+                "state": None,
+            }
+        ],
         schema={
             "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
@@ -31,6 +33,7 @@ def df_expected_station():
             "name": pl.String,
             "state": pl.String,
         },
+        orient="row",
     )
 
 
@@ -77,6 +80,7 @@ def test_imgw_hydrology_api_daily(df_expected_station):
             "value": pl.Float64,
             "quality": pl.Float64,
         },
+        orient="row",
     )
     assert_frame_equal(values.df, df_expected)
 
@@ -172,5 +176,6 @@ def test_imgw_hydrology_api_monthly(df_expected_station):
             "value": pl.Float64,
             "quality": pl.Float64,
         },
+        orient="row",
     )
     assert_frame_equal(values.df, df_expected_values)

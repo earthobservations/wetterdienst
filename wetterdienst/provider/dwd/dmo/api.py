@@ -208,7 +208,7 @@ class DwdDmoValues(TimeseriesValues):
         :return: file url based on the filtering
         """
         urls = list_remote_files_fsspec(url, self.sr.stations.settings, CacheExpiry.NO_CACHE)
-        df = pl.DataFrame({"url": urls})
+        df = pl.DataFrame({"url": urls}, orient="col")
         df = df.filter(pl.col("url").str.contains(str(self.sr.stations.lead_time.value)))
         df = df.with_columns(
             pl.col("url")
