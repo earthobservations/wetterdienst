@@ -646,7 +646,12 @@ class ImgwMeteorologyValues(TimeseriesValues):
             if dataset.resolution.value == Resolution.MONTHLY:
                 df_files = df_files.with_columns(
                     pl.when(pl.col("file").str.split("_").list.len() == 3)
-                    .then(pl.col("file").str.split("_").list.first().map_elements(lambda y: [y, y]))
+                    .then(
+                        pl.col("file")
+                        .str.split("_")
+                        .list.first()
+                        .map_elements(lambda y: [y, y], return_dtype=pl.Array(pl.Int64, shape=2))
+                    )
                     .otherwise(pl.col("file").str.split("_").list.slice(0, 2))
                     .map_elements(
                         lambda years: [
@@ -655,6 +660,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                             + relativedelta(years=1)
                             - relativedelta(days=1),
                         ],
+                        return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
                     )
                     .alias("date_range"),
                 )
@@ -666,7 +672,10 @@ class ImgwMeteorologyValues(TimeseriesValues):
                         .str.split("_")
                         .list.first()
                         .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                        .map_elements(lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)]),
+                        .map_elements(
+                            lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)],
+                            return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
+                        ),
                     )
                     .otherwise(
                         pl.col("file")
@@ -674,7 +683,10 @@ class ImgwMeteorologyValues(TimeseriesValues):
                         .list.slice(0, 2)
                         .list.join("_")
                         .str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
-                        .map_elements(lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)]),
+                        .map_elements(
+                            lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)],
+                            return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
+                        ),
                     )
                     .alias("date_range"),
                 )
@@ -685,10 +697,12 @@ class ImgwMeteorologyValues(TimeseriesValues):
             )
             df_files = df_files.with_columns(
                 pl.struct(["start_date", "end_date"])
-                .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]))
+                .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]), return_dtype=pl.Object)
                 .alias("interval"),
             )
-            df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))
+            df_files = df_files.filter(
+                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean)
+            )
         return df_files.get_column("url")
 
 
