@@ -69,7 +69,7 @@ class GeosphereObservationValues(TimeseriesValues):
         data = {Columns.DATE.value: timestamps}
         for par, par_dict in data_raw["features"][0]["properties"]["parameters"].items():
             data[par] = par_dict["data"]
-        df = pl.DataFrame(data)
+        df = pl.DataFrame(data, orient="col")
         df = df.unpivot(
             index=[Columns.DATE.value],
             variable_name=Columns.PARAMETER.value,

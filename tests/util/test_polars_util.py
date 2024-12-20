@@ -7,22 +7,22 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 
 @pytest.fixture
 def df():
-    return pl.DataFrame({"abcdefABCDEF": ["abcdefABCDEF"]})
+    return pl.DataFrame({"abcdefABCDEF": ["abcdefABCDEF"]}, orient="col")
 
 
 @pytest.fixture
 def df_short_header():
-    return pl.DataFrame({"short": ["abcdefABCDEF"]})
+    return pl.DataFrame({"short": ["abcdefABCDEF"]}, orient="col")
 
 
 @pytest.fixture
 def df_expected_no_header():
-    return pl.DataFrame({"column_0": ["abcdef"], "column_1": ["ABCDEF"]})
+    return pl.DataFrame({"column_0": ["abcdef"], "column_1": ["ABCDEF"]}, orient="col")
 
 
 def test_read_fwf_from_df(df):
     df_given = read_fwf_from_df(df, column_specs=((0, 5), (6, 11)), header=True)
-    df_expected = pl.DataFrame({"abcdef": ["abcdef"], "ABCDEF": ["ABCDEF"]})
+    df_expected = pl.DataFrame({"abcdef": ["abcdef"], "ABCDEF": ["ABCDEF"]}, orient="col")
     assert_frame_equal(df_given, df_expected)
 
 
@@ -42,6 +42,6 @@ def test_read_fwf_from_df_column_specs_out_of_bounds(df):
 
 
 def test_read_fwf_from_df_multiple_columns_fail():
-    df = pl.DataFrame({"a": ["foo"], "b": ["bar"]})
+    df = pl.DataFrame({"a": ["foo"], "b": ["bar"]}, orient="col")
     with pytest.raises(ValueError):
         read_fwf_from_df(df, ((0, 2), (2, 3)))

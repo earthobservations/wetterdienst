@@ -17,16 +17,18 @@ def test_imgw_meteorology_api_daily():
         start_date="2010-08-01",
     ).filter_by_station_id("253160090")
     df_expected_station = pl.DataFrame(
-        {
-            "station_id": "253160090",
-            "start_date": None,
-            "end_date": None,
-            "latitude": 53.46,
-            "longitude": 16.104444,
-            "height": 137.0,
-            "name": "WIERZCHOWO",
-            "state": "Drawa",
-        },
+        [
+            {
+                "station_id": "253160090",
+                "start_date": None,
+                "end_date": None,
+                "latitude": 53.46,
+                "longitude": 16.104444,
+                "height": 137.0,
+                "name": "WIERZCHOWO",
+                "state": "Drawa",
+            }
+        ],
         schema={
             "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
@@ -37,6 +39,7 @@ def test_imgw_meteorology_api_daily():
             "name": pl.String,
             "state": pl.String,
         },
+        orient="row",
     )
     assert_frame_equal(request.df, df_expected_station)
     values = request.values.all()
@@ -123,6 +126,7 @@ def test_imgw_meteorology_api_daily():
             "value": pl.Float64,
             "quality": pl.Float64,
         },
+        orient="row",
     )
     assert_frame_equal(values.df, df_expected_values)
 
@@ -134,16 +138,18 @@ def test_imgw_meteorology_api_monthly():
         start_date="2010-08-01",
     ).filter_by_station_id("349190600")
     df_expected_station = pl.DataFrame(
-        {
-            "station_id": "349190600",
-            "start_date": None,
-            "end_date": None,
-            "latitude": 49.806666666666665,
-            "longitude": 19.002222222222223,
-            "height": 396.0,
-            "name": "BIELSKO-BIA£A",
-            "state": "Bia³a",
-        },
+        [
+            {
+                "station_id": "349190600",
+                "start_date": None,
+                "end_date": None,
+                "latitude": 49.806666666666665,
+                "longitude": 19.002222222222223,
+                "height": 396.0,
+                "name": "BIELSKO-BIA£A",
+                "state": "Bia³a",
+            }
+        ],
         schema={
             "station_id": pl.String,
             "start_date": pl.Datetime(time_zone="UTC"),
@@ -154,6 +160,7 @@ def test_imgw_meteorology_api_monthly():
             "name": pl.String,
             "state": pl.String,
         },
+        orient="row",
     )
     assert_frame_equal(request.df, df_expected_station)
     values = request.values.all()
@@ -304,5 +311,6 @@ def test_imgw_meteorology_api_monthly():
             "value": pl.Float64,
             "quality": pl.Float64,
         },
+        orient="row",
     )
     assert_frame_equal(values.df, df_expected_values)

@@ -151,7 +151,7 @@ class HubeauValues(TimeseriesValues):
             log.info(f"Downloading file {url}.")
             response = download_file(url=url, settings=self.sr.stations.settings)
             data_dict = json.load(response)["data"]
-            df = pl.DataFrame(data_dict)
+            df = pl.DataFrame(data_dict, orient="row")
             data.append(df)
 
         try:

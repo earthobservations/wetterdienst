@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -85,6 +84,7 @@ def apply_station_values_per_parameter(
                         eager=True,
                     ).dt.round(frequency),
                 },
+                orient="col",
             )
             param_dict[parameter.name] = _ParameterData(df)
         result_series_param = (
@@ -119,6 +119,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
                 Columns.DISTANCE.value: pl.Float64,
                 Columns.TAKEN_STATION_ID.value: pl.String,
             },
+            orient="row",
         )
         param_df = pl.concat([param_df, results], how="horizontal")
         data.append(param_df)
@@ -144,23 +145,3 @@ def apply_summary(
     station_id = list(vals.keys())[0][1:]
     distance = stations_dict[station_id][2]
     return parameter, value, distance, station_id
-
-
-if __name__ == "__main__":
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    lat = 51.0221
-    lon = 13.8470
-    start_date = datetime(2003, 1, 1)
-    end_date = datetime(2004, 12, 31)
-
-    stations = DwdObservationRequest(
-        parameters="temperature_air_mean_2m",
-        resolution="hourly",
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-    result = stations.summarize((lat, lon))
-
-    log.info(result.df.drop_nulls())

@@ -89,7 +89,7 @@ def create_fileindex_radar(
     )
     url = f"https://opendata.dwd.de/{parameter_path}"
     files_serv = list_remote_files_fsspec(url, settings=settings, ttl=CacheExpiry.NO_CACHE)
-    df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.String})
+    df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.String}, orient="col")
 
     # Some directories have both "---bin" and "---bufr" files within the same directory,
     # so we need to filter here by designated RadarDataFormat. Example:

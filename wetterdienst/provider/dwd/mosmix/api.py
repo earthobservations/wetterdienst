@@ -199,7 +199,7 @@ class DwdMosmixValues(TimeseriesValues):
 
         date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
 
-        df = pl.DataFrame({"url": urls})
+        df = pl.DataFrame({"url": urls}, orient="col")
 
         df = df.with_columns(
             pl.col("url").str.split("/").list.last().str.split("_").list.gather(2).flatten().alias("date"),

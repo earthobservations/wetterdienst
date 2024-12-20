@@ -17,36 +17,36 @@ from wetterdienst.provider.dwd.observation import (
 def expected_stations_df():
     return pl.DataFrame(
         [
-            (
-                "02480",
-                dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
-                50.0643,
-                8.993,
-                108.0,
-                "Kahl/Main",
-                "Bayern",
-                9.759384982994229,
-            ),
-            (
-                "04411",
-                dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
-                49.9195,
-                8.9672,
-                155.0,
-                "Schaafheim-Schlierbach",
-                "Hessen",
-                10.160326,
-            ),
-            (
-                "07341",
-                dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
-                50.0900,
-                8.7862,
-                119.0,
-                "Offenbach-Wetterpark",
-                "Hessen",
-                12.891318342515483,
-            ),
+            {
+                "station_id": "02480",
+                "start_date": dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
+                "latitude": 50.0643,
+                "longitude": 8.993,
+                "height": 108.0,
+                "name": "Kahl/Main",
+                "state": "Bayern",
+                "distance": 9.759384982994229,
+            },
+            {
+                "station_id": "04411",
+                "start_date": dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
+                "latitude": 49.9195,
+                "longitude": 8.9672,
+                "height": 155.0,
+                "name": "Schaafheim-Schlierbach",
+                "state": "Hessen",
+                "distance": 10.160326,
+            },
+            {
+                "station_id": "07341",
+                "start_date": dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
+                "latitude": 50.0900,
+                "longitude": 8.7862,
+                "height": 119.0,
+                "name": "Offenbach-Wetterpark",
+                "state": "Hessen",
+                "distance": 12.891318342515483,
+            },
         ],
         schema={
             "station_id": pl.String,
@@ -58,6 +58,7 @@ def expected_stations_df():
             "state": pl.String,
             "distance": pl.Float64,
         },
+        orient="row",
     )
 
 
