@@ -327,7 +327,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                             dt.datetime(x["year"], x["month"], 1),
                             dt.datetime(x["year"], x["month"], 1) + relativedelta(months=1) - relativedelta(days=1),
                         ],
-                        return_dtype=pl.Array(pl.Datetime, 2),
+                        return_dtype=pl.Array(pl.Datetime, shape=2),
                     )
                     .alias("date_range"),
                 )
@@ -340,7 +340,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                     .str.to_datetime("%Y", time_zone="UTC", strict=False)
                     .map_elements(
                         lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
-                        return_dtype=pl.Array(pl.Datetime, 2),
+                        return_dtype=pl.Array(pl.Datetime, shape=2),
                     )
                     .alias("date_range"),
                 )
@@ -354,7 +354,9 @@ class ImgwHydrologyValues(TimeseriesValues):
                 .map_elements(lambda dates: P.closed(dates["start_date"], dates["end_date"]), return_dtype=pl.Object)
                 .alias("interval"),
             )
-            df_files = df_files.filter(pl.col("interval").map_elements(lambda i: i.overlaps(interval)))
+            df_files = df_files.filter(
+                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean)
+            )
         return df_files.get_column("url")
 
 
