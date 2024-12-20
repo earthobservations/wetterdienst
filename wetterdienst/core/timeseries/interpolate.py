@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from functools import lru_cache
 from itertools import combinations
 from queue import Queue
@@ -104,6 +103,7 @@ def apply_station_values_per_parameter(
                         eager=True,
                     ).dt.round(frequency),
                 },
+                orient="col",
             )
             param_dict[parameter.name] = _ParameterData(df)
         result_series_param = (
@@ -229,24 +229,3 @@ def apply_interpolation(
         value_index = f_index(utm_x, utm_y)
         value = value if value_index >= 0.5 else 0
     return parameter, value, distance_mean, station_group_ids
-
-
-if __name__ == "__main__":
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-    lat = 50.0
-    lon = 8.9
-    distance = 30.0
-    start_date = datetime(2003, 1, 1)
-    end_date = datetime(2004, 12, 31)
-
-    stations = DwdObservationRequest(
-        parameters="temperature_air_mean_2m",
-        resolution="hourly",
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-    result = stations.interpolate((lat, lon))
-
-    log.info(result.df.drop_nulls())

@@ -357,7 +357,7 @@ class TimeseriesRequest(Core):
         if not df.is_empty():
             df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
         else:
-            df = pl.DataFrame(schema={col: pl.String for col in self._base_columns})
+            df = pl.DataFrame(schema={col: pl.String for col in self._base_columns}, orient="col")
 
         df = self._coerce_meta_fields(df)
 

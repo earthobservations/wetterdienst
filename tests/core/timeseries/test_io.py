@@ -66,16 +66,19 @@ def dwd_climate_summary_tabular_columns():
 @pytest.fixture
 def df_stations():
     return pl.DataFrame(
-        {
-            "station_id": ["01048"],
-            "start_date": [dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC"))],
-            "end_date": [dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC"))],
-            "height": [645.0],
-            "latitude": [48.8049],
-            "longitude": [13.5528],
-            "name": ["Freyung vorm Wald"],
-            "state": ["Bayern"],
-        },
+        [
+            {
+                "station_id": "01048",
+                "start_date": dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC")),
+                "end_date": dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")),
+                "height": 645.0,
+                "latitude": 48.8049,
+                "longitude": 13.5528,
+                "name": "Freyung vorm Wald",
+                "state": "Bayern",
+            }
+        ],
+        orient="row",
     )
 
 
@@ -158,6 +161,7 @@ def df_values():
             "value": pl.Float64,
             "quality": pl.Float64,
         },
+        orient="row",
     )
 
 
@@ -182,6 +186,7 @@ def df_interpolated_values():
             "distance_mean": pl.Float64,
             "taken_station_ids": pl.List(pl.String),
         },
+        orient="row",
     )
 
 
@@ -206,6 +211,7 @@ def df_summarized_values():
             "distance": pl.Float64,
             "taken_station_id": pl.String,
         },
+        orient="row",
     )
 
 

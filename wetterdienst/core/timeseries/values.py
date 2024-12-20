@@ -206,7 +206,9 @@ class TimeseriesValues(metaclass=ABCMeta):
 
         :return: pandas DataFrame with a date column with complete dates
         """
-        return pl.DataFrame({Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)})
+        return pl.DataFrame(
+            {Columns.DATE.value: self._get_complete_dates(start_date, end_date, resolution)}, orient="col"
+        )
 
     def _convert_values_to_si(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """

@@ -70,5 +70,6 @@ def test_noaa_ghcn_stations(default_settings):
             "name": str,
             "state": str,
         },
+        orient="row",
     )
     assert_frame_equal(df.drop("end_date"), df_expected)

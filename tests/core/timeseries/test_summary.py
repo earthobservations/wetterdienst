@@ -25,14 +25,33 @@ def test_summary_temperature_air_mean_2m_daily(default_settings):
         dt.datetime(1950, 1, 1, tzinfo=ZoneInfo("UTC")),
     ]
     expected_df = pl.DataFrame(
-        {
-            "station_id": ["7ac6c582", "7ac6c582", "7ac6c582"],
-            "parameter": ["temperature_air_mean_2m", "temperature_air_mean_2m", "temperature_air_mean_2m"],
-            "date": selected_dates,
-            "value": [273.65, 267.65, 270.45],
-            "distance": [13.42, 5.05, 0.0],
-            "taken_station_id": ["01048", "01051", "01050"],
-        },
+        [
+            {
+                "station_id": "7ac6c582",
+                "parameter": "temperature_air_mean_2m",
+                "date": selected_dates[0],
+                "value": 273.65,
+                "distance": 13.42,
+                "taken_station_id": "01048",
+            },
+            {
+                "station_id": "7ac6c582",
+                "parameter": "temperature_air_mean_2m",
+                "date": selected_dates[1],
+                "value": 267.65,
+                "distance": 5.05,
+                "taken_station_id": "01051",
+            },
+            {
+                "station_id": "7ac6c582",
+                "parameter": "temperature_air_mean_2m",
+                "date": selected_dates[2],
+                "value": 270.45,
+                "distance": 0.0,
+                "taken_station_id": "01050",
+            },
+        ],
+        orient="row",
     )
     for result in (request.summarize(latlon=(51.0221, 13.8470)), request.summarize_by_station_id(station_id="1050")):
         given_df = result.df

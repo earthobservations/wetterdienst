@@ -72,6 +72,7 @@ def test_dwd_mosmix_stations_success(default_settings, mosmix_stations_schema):
             },
         ],
         schema=mosmix_stations_schema,
+        orient="row",
     )
     assert_frame_equal(given_df[[0, -1], :], expected_df)
 
@@ -168,5 +169,6 @@ def test_dwd_mosmix_stations_filtered(default_settings, mosmix_stations_schema):
             },
         ],
         schema=mosmix_stations_schema,
+        orient="row",
     )
     assert_frame_equal(given_df, expected_df)

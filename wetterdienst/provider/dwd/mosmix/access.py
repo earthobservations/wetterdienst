@@ -152,7 +152,7 @@ class KMLReader:
 
     def get_metadata(self):
         """Get metadata as DataFrame."""
-        return pl.DataFrame([self.metadata])
+        return pl.DataFrame([self.metadata], orient="row")
 
     def get_station_forecast(self, station_id: str) -> pl.DataFrame:
         """Get forecasts as DataFrame."""

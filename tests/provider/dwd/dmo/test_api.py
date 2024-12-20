@@ -18,6 +18,7 @@ def df_files_january():
                 "311200",
             ],
         },
+        orient="col",
     )
 
 
@@ -32,6 +33,7 @@ def df_files_two_month():
                 "020000",
             ],
         },
+        orient="col",
     )
 
 
@@ -44,6 +46,7 @@ def df_files_end_of_month():
                 "311200",
             ],
         },
+        orient="col",
     )
 
 
@@ -119,6 +122,7 @@ def test_add_date_from_filename_too_few_dates():
                 "311200",
             ],
         },
+        orient="col",
     )
     with pytest.raises(ValueError):
         add_date_from_filename(df, dt.datetime(2021, 1, 1, 1, 1, 1))

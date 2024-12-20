@@ -156,6 +156,7 @@ class ModelYearlyGaussians:
                 "value": valid_data.get_column("value").to_numpy(),
                 "model": out.best_fit,
             },
+            orient="col",
         )
         title = valid_data.get_column("parameter").unique()[0]
         df.to_pandas().plot(x="year", y=["value", "model"], title=title)
