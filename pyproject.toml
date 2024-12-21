@@ -90,7 +90,6 @@ dependencies = [
   "cloup>=3.0.1",
   "deprecation>=2.1",
   "diskcache>=5.4",
-  "environs>=9.4",
   "fastexcel>=0.10.4",
   "fsspec>=2023.1",
   "lxml>=4.9.1",
