@@ -81,7 +81,6 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
   "aenum>=3",
-  "aiohttp>=3.8",
   "backports-datetime-fromisoformat>=2; python_version<'3.11'",
   "beautifulsoup4>=4.9",
   "cachetools>=5.2",
@@ -91,7 +90,7 @@ dependencies = [
   "deprecation>=2.1",
   "diskcache>=5.4",
   "fastexcel>=0.10.4",
-  "fsspec>=2023.1",
+  "fsspec[http]>=2023.1",
   "lxml>=4.9.1",
   "measurement>=3.2",
   "numpy>=1.22",

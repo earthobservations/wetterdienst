@@ -1219,6 +1219,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c6/b2/454d6e7f0158951d8a78c2e1eb4f69ae81beb8dca5fee9809c6c99e9d0d0/fsspec-2024.10.0-py3-none-any.whl", hash = "sha256:03b9a6785766a4de40368b88906366755e2819e758b83705c88cd7cb5fe81871", size = 179641 },
 ]
 
+[package.optional-dependencies]
+http = [
+    { name = "aiohttp" },
+]
+
 [[package]]
 name = "geojson"
 version = "3.1.0"
@@ -4623,7 +4628,6 @@ version = "0.98.0"
 source = { editable = "." }
 dependencies = [
     { name = "aenum" },
-    { name = "aiohttp" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
     { name = "beautifulsoup4" },
     { name = "cachetools" },
@@ -4633,7 +4637,7 @@ dependencies = [
     { name = "deprecation" },
     { name = "diskcache" },
     { name = "fastexcel" },
-    { name = "fsspec" },
+    { name = "fsspec", extra = ["http"] },
     { name = "lxml" },
     { name = "measurement" },
     { name = "numpy" },
@@ -4769,7 +4773,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aenum", specifier = ">=3" },
-    { name = "aiohttp", specifier = ">=3.8" },
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'", specifier = ">=2" },
     { name = "beautifulsoup4", specifier = ">=4.9" },
     { name = "cachetools", specifier = ">=5.2" },
@@ -4785,7 +4788,7 @@ requires-dist = [
     { name = "eccodes", marker = "extra == 'eccodes'", specifier = ">=1.5.2" },
     { name = "fastapi", marker = "extra == 'restapi'", specifier = ">=0.95.1" },
     { name = "fastexcel", specifier = ">=0.10.4" },
-    { name = "fsspec", specifier = ">=2023.1" },
+    { name = "fsspec", extras = ["http"], specifier = ">=2023.1" },
     { name = "h5py", marker = "extra == 'radar'", specifier = ">=3.1" },
     { name = "httpx", marker = "extra == 'restapi'", specifier = ">=0.24" },
     { name = "influxdb", marker = "extra == 'influxdb'", specifier = ">=5.3" },
