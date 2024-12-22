@@ -212,7 +212,7 @@ def test_radar_request_composite_historic_hg_yesterday(prefixed_radar_locations,
                 IsStr(regex=prefixed_radar_locations_pattern),
                 length=(10, len(prefixed_radar_locations)),
             ),
-            "radolanversion": IsStr(regex="P4000.H"),
+            "radolanversion": IsStr(regex="P4100.H"),
         },
     )
 
@@ -849,7 +849,7 @@ def test_radar_request_radvor_re_yesterday(prefixed_radar_locations, default_set
                 IsStr(regex="|".join(prefixed_radar_locations)),
                 length=(10, len(prefixed_radar_locations)),
             ),
-            "radolanversion": IsStr(regex="P4000.H"),
+            "radolanversion": IsStr(regex="P4100.H"),
         },
     )
 
@@ -888,7 +888,7 @@ def test_radar_request_radvor_re_timerange(default_settings, station_reference_p
     month_year = request.start_date.strftime("%m%y")
 
     pattern = (
-        f"RE......10000{month_year}BY   162....VS 5SW  P4000.HPR E-03INT  60GP 900x 900VV 000MF 00000008QN 016MS"
+        f"RE......10000{month_year}BY   162....VS 5SW  P4100.HPR E-03INT  60GP 900x 900VV 000MF 00000008QN 016MS"
         f"...<{station_reference_pattern_sorted_prefixed}>"
     )
     assert re.match(pattern, requested_header[:200]), requested_header[:200]
