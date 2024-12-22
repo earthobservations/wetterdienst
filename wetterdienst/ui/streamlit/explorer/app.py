@@ -11,7 +11,6 @@ import polars as pl
 import streamlit as st
 
 from wetterdienst import Resolution, Settings, Wetterdienst, __version__
-from wetterdienst.api import RequestRegistry
 
 if TYPE_CHECKING:
     from wetterdienst.core.timeseries.metadata import DatasetModel, MetadataModel, ParameterModel, ResolutionModel
@@ -141,13 +140,13 @@ st.markdown(
 )
 
 st.subheader("Request")
-provider_options = [provider.name for provider in RequestRegistry]
-provider = st.selectbox("Select provider", options=provider_options, index=provider_options.index("DWD"))
-network_options = RequestRegistry.get_network_names(provider)
+provider_options = Wetterdienst.get_provider_names()
+provider = st.selectbox("Select provider", options=provider_options, index=provider_options.index("dwd"))
+network_options = Wetterdienst.get_network_names(provider)
 network = st.selectbox(
     "Select network",
     options=network_options,
-    index=network_options.index("OBSERVATION") if "OBSERVATION" in network_options else 0,
+    index=network_options.index("observation") if "observation" in network_options else 0,
 )
 
 

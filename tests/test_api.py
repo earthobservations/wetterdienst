@@ -4,6 +4,7 @@ import zoneinfo
 
 import pytest
 
+from wetterdienst.api import Wetterdienst
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -30,6 +31,15 @@ DF_STATIONS_MINIMUM_COLUMNS = {
     "state",
 }
 DF_VALUES_MINIMUM_COLUMNS = {"station_id", "parameter", "date", "value", "quality"}
+
+
+@pytest.mark.parametrize(
+    "provider, network",
+    [(provider, network) for provider in Wetterdienst.registry for network in Wetterdienst.registry[provider]],
+)
+def test_wetterdienst_api(provider, network):
+    request = Wetterdienst.resolve(provider, network)
+    assert request
 
 
 def test_api_dwd_observation(settings_si_true):

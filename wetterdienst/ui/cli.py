@@ -19,7 +19,6 @@ from cloup.constraints import If, RequireExactly, accept_none
 from PIL import Image
 
 from wetterdienst import Provider, Wetterdienst, __appname__, __version__
-from wetterdienst.exceptions import ProviderNotFoundError
 from wetterdienst.ui.core import (
     _get_stripes_stations,
     _plot_stripes,
@@ -74,7 +73,7 @@ def get_api(provider: str, network: str):
     """
     try:
         return Wetterdienst(provider, network)
-    except ProviderNotFoundError as e:
+    except KeyError as e:
         log.error(str(e))
         sys.exit(1)
 

@@ -5,6 +5,7 @@
 ### Refactor
 - Docs: Change to markdown using mkdocs
 - Settings: Switch to `pydantic_settings` for settings management
+- Improve wetterdienst api class
 
 ## 0.98.0 - 2024-12-09
 

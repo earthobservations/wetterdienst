@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, SkipValidation, field_validator
 
-from wetterdienst import Period, Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.period import Period  # noqa: TCH001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.resolution import Resolution  # noqa: TCH001, needs to stay here for pydantic model to work
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
