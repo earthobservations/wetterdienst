@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.parent
 def create_dwd_climate_summary_zarr_dump(filepath, test):
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
-        period="historical",
+        periods="historical",
     ).all()
     meta = request.df
     store = zarr.DirectoryStore(filepath)
