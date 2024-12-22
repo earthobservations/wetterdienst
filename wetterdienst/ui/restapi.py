@@ -21,8 +21,6 @@ from wetterdienst.core.timeseries.result import (
     _ValuesDict,
     _ValuesOgcFeatureCollection,
 )
-from wetterdienst.exceptions import ProviderNotFoundError
-from wetterdienst.ui.cli import get_api
 from wetterdienst.ui.core import (
     _get_stripes_stations,
     _thread_safe_plot_stripes,
@@ -204,7 +202,13 @@ def coverage(
         cov = Wetterdienst.discover()
         return Response(content=json.dumps(cov, indent=4), media_type="application/json")
 
-    api = get_api(provider=provider, network=network)
+    try:
+        api = Wetterdienst(provider, network)
+    except KeyError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
+        ) from e
 
     if resolutions:
         resolutions = read_list(resolutions)
@@ -262,7 +266,7 @@ def stations(
 
     try:
         api = Wetterdienst(provider, network)
-    except ProviderNotFoundError as e:
+    except KeyError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
@@ -369,8 +373,8 @@ def values(
     set_logging_level(debug)
 
     try:
-        api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderNotFoundError as e:
+        api = Wetterdienst(provider, network)
+    except KeyError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
@@ -469,7 +473,7 @@ def interpolate(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderNotFoundError as e:
+    except KeyError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "
@@ -554,7 +558,7 @@ def summarize(
 
     try:
         api: TimeseriesRequest = Wetterdienst(provider, network)
-    except ProviderNotFoundError as e:
+    except KeyError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Given combination of provider and network not available. "

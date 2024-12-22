@@ -65,7 +65,7 @@ def test_no_network(caplog):
         cli,
         "stations --provider=dwd --network=abc --parameters=daily/climate_summary/precipitation_height --all",
     )
-    assert "No API available for provider DWD and network abc" in caplog.text
+    assert "No API available for provider dwd and network abc" in caplog.text
 
 
 def test_coverage():

@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Literal
 import polars as pl
 from typing_extensions import NotRequired, TypedDict
 
-from wetterdienst import Info
 from wetterdienst.core.process import filter_by_date
 from wetterdienst.core.timeseries.export import ExportMixin
 from wetterdienst.metadata.columns import Columns
@@ -22,8 +21,6 @@ if TYPE_CHECKING:
     from wetterdienst.core.timeseries.values import TimeseriesValues
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
-
-info = Info()
 
 
 class StationsFilter:
@@ -185,6 +182,9 @@ class StationsResult(ExportMixin):
         Get metadata for stations result.
         :return: Dictionary with metadata.
         """
+        from wetterdienst import Info
+
+        info = Info()
         name_local, name_english, country, copyright_, url = self.stations._provider.value
         return {
             "provider": {

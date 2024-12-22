@@ -11,7 +11,7 @@ import platformdirs
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from wetterdienst import Parameter
+from wetterdienst.metadata.parameter import Parameter
 
 log = logging.getLogger(__name__)
 
