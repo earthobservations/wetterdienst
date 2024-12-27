@@ -26,12 +26,9 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true
-
-      - name: Pin python version
-        run: uv python pin ${{ env.PYTHON }}
+          python-version: ${{ env.PYTHON }}
 
       - name: Install project
         run: uv sync
@@ -46,8 +43,10 @@ jobs:
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           env_vars: OS,PYTHON
           name: codecov-umbrella
