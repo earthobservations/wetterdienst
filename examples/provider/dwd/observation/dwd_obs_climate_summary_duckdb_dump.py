@@ -14,7 +14,7 @@ ROOT = Path(__file__).parent.parent
 def create_dwd_climate_summary_duckdb_dump(path, test):
     request = DwdObservationRequest(
         parameters=("daily", "climate_summary"),
-        period="historical",
+        periods="historical",
     ).filter_by_rank(latlon=(47.5, 7.5), rank=10)
     connection = f"duckdb:////{path}"
     request.to_target(f"{connection}?table=stations")
