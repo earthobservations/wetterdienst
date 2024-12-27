@@ -19,8 +19,8 @@ def test_explorer():
     assert app_test.title[0].value == f"Wetterdienst Explorer v{__version__}"
     subheaders = [subheader.value for subheader in app_test.subheader]
     assert subheaders == ["Introduction", "Request", "Station", "Values", "Plot", "Credits", "General", "Plotting"]
-    assert app_test.selectbox[0].value == "DWD"
-    assert app_test.selectbox[1].value == "OBSERVATION"
+    assert app_test.selectbox[0].value == "dwd"
+    assert app_test.selectbox[1].value == "observation"
     assert app_test.selectbox[2].value == DwdObservationMetadata.daily
     assert app_test.selectbox[3].value == DwdObservationMetadata.daily.climate_summary
     assert app_test.selectbox[4].value == DwdObservationMetadata.daily.climate_summary
