@@ -15,7 +15,7 @@ def find_observation_id(string: str) -> str:
     query = f"SELECT * FROM station_data WHERE station_name LIKE '%{string}%'"  # noqa: S608
     observation_request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-        period="recent",
+        periods="recent",
         start_date=dt.datetime.now() - dt.timedelta(days=2),
         end_date=dt.datetime.now(),
     ).filter_by_sql(query)
@@ -51,7 +51,7 @@ def main(obs_id: str, for_id: str) -> None:
     print(forecast_values.df)
     observation_request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-        period="recent",
+        periods="recent",
         start_date=dt.datetime.now() - dt.timedelta(days=2),
         end_date=dt.datetime.now(),
     ).filter_by_station_id(station_id=obs_id)

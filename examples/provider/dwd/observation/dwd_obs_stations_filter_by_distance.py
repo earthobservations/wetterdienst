@@ -22,7 +22,7 @@ def stations_filter_by_distance_example():
     """Retrieve stations_result of DWD that measure temperature."""
     stations = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
-        period="recent",
+        periods="recent",
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2020, 1, 20),
     )

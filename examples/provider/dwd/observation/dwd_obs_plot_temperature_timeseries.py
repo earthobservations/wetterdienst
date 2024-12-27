@@ -21,7 +21,7 @@ def plot_temperature_timeseries():
     """Create plot for README sketch"""
     stations = DwdObservationRequest(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
-        period="historical",
+        periods="historical",
     ).filter_by_name("Hohenpeissenberg")
     df = stations.values.all().df
     df_annual = df.group_by([pl.col("date").dt.year()], maintain_order=True).agg(pl.col("value").mean().alias("value"))
