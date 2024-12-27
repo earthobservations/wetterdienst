@@ -44,12 +44,9 @@ jobs:
       - name: Acquire sources
         uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true
-
-      - name: Pin python version
-        run: uv python pin ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON }}
 
       - name: Install project
         run: uv sync
@@ -60,7 +57,7 @@ jobs:
 #          brew install eccodes
 #          export WD_ECCODES_DIR=$(brew --prefix eccodes)
 
-      - name: Install project
+      - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
       - name: Run tests
